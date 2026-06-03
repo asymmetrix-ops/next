@@ -108,8 +108,8 @@ function ExpandableRow({
         <div
           style={{
             padding: "0 16px 14px 46px",
-            fontSize: 12.5,
-            lineHeight: 1.6,
+            fontSize: 13,
+            lineHeight: 1.55,
             color: T.body,
           }}
         >
@@ -205,7 +205,7 @@ export function ProductUsersListCard({
           <div
             style={{
               padding: "16px",
-              fontSize: 12.5,
+              fontSize: 13,
               color: T.muted,
               fontFamily: T.sans,
             }}

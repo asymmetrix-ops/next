@@ -2454,10 +2454,6 @@ const CompanyDetail = () => {
     normalizeCurrency(financialMetrics?.ARR_currency) ||
     normalizeCurrency(financialMetrics?.EBIT_currency) ||
     displayCurrency;
-  const metricsCurrencySuffix = metricsCurrencyCode
-    ? ` (${metricsCurrencyCode})`
-    : "";
-
   const financialMetricsPeriodDisplay = formatFinancialMetricsPeriod(financialMetrics);
 
   // Extract last 3 income statement rows (public companies only)
@@ -3616,7 +3612,6 @@ const CompanyDetail = () => {
                     ? formatLastInvestmentDisplay(company.last_investment)
                     : undefined
                 }
-                maxSectors={OVERVIEW_TAG_CAP}
               />
             {/* legacy invisible wrappers closed below */}
             <div style={{ display: "none" }} className="overview-fields">
@@ -4182,7 +4177,6 @@ const CompanyDetail = () => {
             >
               <FinMetricsPrimaryCard
                 fillGridCell
-                currencySuffix={metricsCurrencySuffix}
                 primary={finMetricsData.primary}
                 benchmarkData={benchmarkPeersData}
                 hasIncomeStatement={hasIncomeStatementData}
@@ -4208,7 +4202,6 @@ const CompanyDetail = () => {
             >
               <FinMetricsSecondaryCard
                 fillGridCell
-                currencySuffix={metricsCurrencySuffix}
                 subscription={finMetricsData.subscription}
                 other={finMetricsData.other}
                 onViewMore={scrollToProfileFinancials}
@@ -4227,7 +4220,6 @@ const CompanyDetail = () => {
           >
             <FinMetricsIncomeCard
               fillGridCell={false}
-              currencySuffix={metricsCurrencySuffix}
               data={finMetricsData}
               benchmarkData={benchmarkPeersData}
               hasIncomeStatement={hasIncomeStatementData}

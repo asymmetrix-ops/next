@@ -147,7 +147,7 @@ function DemoRow({ item }: { item: (typeof DEMO_ARTICLES)[number] }) {
         <Pill tone={item.tone}>{item.tag}</Pill>
         <div
           style={{
-            fontSize: 12,
+            fontSize: 13,
             color: T.muted,
             fontVariantNumeric: "tabular-nums",
             marginTop: 8,
@@ -174,7 +174,7 @@ function DemoRow({ item }: { item: (typeof DEMO_ARTICLES)[number] }) {
         <div
           style={{
             color: T.azure,
-            fontSize: 12.5,
+            fontSize: 13,
             fontWeight: 500,
             marginTop: 8,
             opacity: 0.45,
@@ -350,7 +350,7 @@ function ArticleRow({
         <Pill tone={tone}>{tag}</Pill>
         <div
           style={{
-            fontSize: 12,
+            fontSize: 13,
             color: T.muted,
             fontVariantNumeric: "tabular-nums",
             marginTop: 8,
@@ -385,7 +385,7 @@ function ArticleRow({
           <Link
             href={`/article/${article.id}`}
             prefetch={false}
-            style={{ color: T.azure, fontSize: 12.5, fontWeight: 500, textDecoration: "none" }}
+            style={{ color: T.azure, fontSize: 13, fontWeight: 500, textDecoration: "none" }}
           >
             Open report →
           </Link>
@@ -545,13 +545,13 @@ export function InsightsCard({
           padding: "10px 16px",
           borderTop: `1px solid ${T.hair}`,
           fontFamily: T.sans,
-          fontSize: 12,
+          fontSize: 13,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <PagerBtn label="‹" enabled={canPrev} onClick={onPrev} ariaLabel="Previous insights" />
           <PagerBtn label="›" enabled={canNext} onClick={onNext} ariaLabel="Next insights" />
-          <span style={{ color: T.muted, fontSize: 12 }}>
+          <span style={{ color: T.muted, fontSize: 13 }}>
             {loading ? "—" : `Showing ${rangeLabel}`}
           </span>
         </div>

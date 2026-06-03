@@ -1844,7 +1844,7 @@ export function CompaniesFilterBar({
             );
           })}
 
-          {filters.length >= 2 && (
+          {filters.length > 0 && (
             <FilterLogicToggle
               value={filterLogic}
               onChange={(next) =>
@@ -1917,7 +1917,7 @@ export function CompaniesFilterBar({
                 >
                   {filters.length} filter{filters.length === 1 ? "" : "s"} active
                 </strong>
-                {filters.length >= 2 && (
+                {filters.length > 0 && (
                   <>
                     <span>·</span>
                     <span style={{ textTransform: "uppercase", fontWeight: 600 }}>

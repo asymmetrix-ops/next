@@ -65,7 +65,7 @@ function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
             padding: "9px 0",
             borderBottom:
               i === productRows.length - 1 ? "none" : `1px solid ${T.hair}`,
-            fontSize: 12.5,
+            fontSize: 13,
           }}
         >
           <div
@@ -95,7 +95,7 @@ function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
           <div
             style={{
               fontFamily: T.mono,
-              fontSize: 12,
+              fontSize: 13,
               color: T.ink,
               textAlign: "right",
               fontVariantNumeric: "tabular-nums",
@@ -135,7 +135,7 @@ function DataCollectionBody({ dataRows }: { dataRows: DataMixRow[] }) {
               gap: 12,
               borderBottom:
                 i === dataRows.length - 1 ? "none" : `1px solid ${T.hair}`,
-              fontSize: 12.5,
+              fontSize: 13,
             }}
           >
             <div style={{ color: T.body, minWidth: 0 }}>{d.label}</div>
@@ -206,7 +206,7 @@ export function ProductDataToggleCard({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "14px 16px 10px",
+          padding: "12px 14px 10px",
           flexShrink: 0,
           borderBottom: `1px solid ${T.hair}`,
         }}
