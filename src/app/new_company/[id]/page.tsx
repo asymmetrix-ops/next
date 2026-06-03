@@ -42,7 +42,11 @@ import {
   buildSubsidiaryAcquisitionYearMap,
   type SubsidiaryAcquisitionEvent,
 } from "@/lib/subsidiaryAcquisitionYears";
-import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
+import {
+  normalizeExternalProfileUrl,
+  normalizeLinkedInProfileUrl,
+} from "@/lib/linkedinUrl";
+import { individualService } from "@/lib/individualService";
 import { AIRiskCard } from "@/components/redesign/AIRiskCard";
 import type { AIRiskAxis } from "@/components/redesign/AIRiskCard";
 import {
@@ -291,6 +295,8 @@ type ManagementRoleRecord = {
   id: number;
   Individual_text: string;
   individuals_id: number;
+  employee_new_company_id?: number;
+  current_employer_url?: string;
   Status: string;
   job_titles_id: Array<{
     id: number;
@@ -303,9 +309,10 @@ type ManagementRoleRecord = {
   Individual?: { linkedin_URL?: string; LinkedIn_URL?: string };
 };
 
-function linkedInUrlFromManagementRole(
+function managementProfileUrlFromRole(
   person: ManagementRoleRecord,
-  byIndividualId: Map<number, string>
+  byIndividualId: Map<number, string>,
+  fetchedLinkedInByIndividualId: Record<number, string>
 ): string | undefined {
   const fromRole =
     normalizeLinkedInProfileUrl(person.linkedin_url) ||
@@ -317,9 +324,12 @@ function linkedInUrlFromManagementRole(
     normalizeLinkedInProfileUrl(person.Individual?.LinkedIn_URL);
   if (fromRole) return fromRole;
   if (typeof person.individuals_id === "number") {
-    return byIndividualId.get(person.individuals_id);
+    const fromFetched = fetchedLinkedInByIndividualId[person.individuals_id];
+    if (fromFetched) return fromFetched;
+    const fromManagement = byIndividualId.get(person.individuals_id);
+    if (fromManagement) return fromManagement;
   }
-  return undefined;
+  return normalizeExternalProfileUrl(person.current_employer_url);
 }
 
 interface CompanySubsidiary {
@@ -1269,6 +1279,8 @@ const CompanyDetail = () => {
   const financePrimaryGridRef = useRef<HTMLDivElement | null>(null);
   const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
   const [activeProfileTab, setActiveProfileTab] = useState("Summary");
+  const [managementIndividualLinkedIn, setManagementIndividualLinkedIn] =
+    useState<Record<number, string>>({});
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const transactionStatusDisplayLabel = useMemo(() => {
@@ -1295,6 +1307,51 @@ const CompanyDetail = () => {
     return map;
   }, [company?.management_current, company?.management_past]);
 
+  useEffect(() => {
+    const roles = [
+      ...(company?.Managmant_Roles_current ?? []),
+      ...(company?.Managmant_Roles_past ?? []),
+    ];
+    const ids = Array.from(
+      new Set(
+        roles
+          .map((r) => r.individuals_id)
+          .filter((id): id is number => typeof id === "number")
+      )
+    );
+    if (ids.length === 0) {
+      setManagementIndividualLinkedIn({});
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const next: Record<number, string> = {};
+      await Promise.all(
+        ids.map(async (individualId) => {
+          try {
+            const data = await individualService.getIndividual(individualId);
+            const url = normalizeLinkedInProfileUrl(
+              data.Individual?.linkedin_URL
+            );
+            if (url) next[individualId] = url;
+          } catch {
+            // skip failed individual lookups
+          }
+        })
+      );
+      if (!cancelled) setManagementIndividualLinkedIn(next);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    company?.id,
+    company?.Managmant_Roles_current,
+    company?.Managmant_Roles_past,
+  ]);
+
   const managementCurrentPeople = useMemo(
     () =>
       (company?.Managmant_Roles_current || []).map((person) => ({
@@ -1305,12 +1362,13 @@ const CompanyDetail = () => {
           .filter(Boolean)
           .join(", "),
         individualId: person.individuals_id,
-        linkedinUrl: linkedInUrlFromManagementRole(
+        linkedinUrl: managementProfileUrlFromRole(
           person,
-          managementLinkedInByIndividualId
+          managementLinkedInByIndividualId,
+          managementIndividualLinkedIn
         ),
       })),
-    [company, managementLinkedInByIndividualId]
+    [company, managementLinkedInByIndividualId, managementIndividualLinkedIn]
   );
 
   const managementPastPeople = useMemo(
@@ -1323,12 +1381,13 @@ const CompanyDetail = () => {
           .filter(Boolean)
           .join(", "),
         individualId: person.individuals_id,
-        linkedinUrl: linkedInUrlFromManagementRole(
+        linkedinUrl: managementProfileUrlFromRole(
           person,
-          managementLinkedInByIndividualId
+          managementLinkedInByIndividualId,
+          managementIndividualLinkedIn
         ),
       })),
-    [company, managementLinkedInByIndividualId]
+    [company, managementLinkedInByIndividualId, managementIndividualLinkedIn]
   );
 
   const subsidiaryAcquisitionYearByCompanyId = useMemo(() => {
