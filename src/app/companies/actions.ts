@@ -52,6 +52,7 @@ export interface CompaniesFilters {
   timeFrame?: string;
   transactionStatus?: string[];
   portfolio_only?: boolean;
+  filterMode?: "AND" | "OR";
 }
 
 export interface CompanyItem {
@@ -273,6 +274,9 @@ function appendCompaniesFilterParams(
   if (includePortfolioOnly) {
     params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
   }
+  if (filters.filterMode === "AND" || filters.filterMode === "OR") {
+    params.append("filter_mode", filters.filterMode);
+  }
 }
 
 function buildCompaniesCountsRequestBody(
@@ -325,6 +329,10 @@ function buildCompaniesCountsRequestBody(
     min_growth_percent: num(filters.minGrowthPercent),
     max_growth_percent: num(filters.maxGrowthPercent),
     transaction_status: filters.transactionStatus ?? [],
+    filter_mode:
+      filters.filterMode === "OR" || filters.filterMode === "AND"
+        ? filters.filterMode
+        : "",
   };
 }
 

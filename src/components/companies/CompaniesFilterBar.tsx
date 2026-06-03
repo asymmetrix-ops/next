@@ -37,10 +37,14 @@ export interface FilterItem {
   value: unknown;
 }
 
+export type FilterCombineLogic = "and" | "or";
+
 export interface FilterBarState {
   filters: FilterItem[];
   viewId: string | null;
   searchText: string;
+  /** How multiple active filters combine — FE-only until API support. */
+  filterLogic: FilterCombineLogic;
 }
 
 export interface CompaniesFilterBarProps {
@@ -1527,6 +1531,119 @@ function FilterEditor({
   return null;
 }
 
+// ── Filter logic toggle (AND / OR) ─────────────────────────────────────────
+
+function FilterLogicToggle({
+  value,
+  onChange,
+}: {
+  value: FilterCombineLogic;
+  onChange: (v: FilterCombineLogic) => void;
+}) {
+  const options: { id: FilterCombineLogic; label: string; title: string }[] = [
+    {
+      id: "and",
+      label: "AND",
+      title: "Companies must match every filter",
+    },
+    {
+      id: "or",
+      label: "OR",
+      title: "Companies can match any filter",
+    },
+  ];
+
+  return (
+    <div
+      role="group"
+      aria-label="Filter combination logic"
+      title="How multiple filters combine"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: "var(--fg-4)",
+          letterSpacing: "0.02em",
+          whiteSpace: "nowrap",
+        }}
+      >
+        Match
+      </span>
+      <div
+        style={{
+          display: "inline-flex",
+          background: "var(--ax-gray-50)",
+          border: "1px solid var(--border-1)",
+          borderRadius: "var(--r-md)",
+          padding: 2,
+          height: 30,
+        }}
+      >
+        {options.map((opt) => {
+          const active = value === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              title={opt.title}
+              aria-pressed={active}
+              onClick={() => onChange(opt.id)}
+              style={{
+                padding: "0 10px",
+                fontFamily: "inherit",
+                fontSize: 11,
+                fontWeight: active ? 700 : 600,
+                letterSpacing: "0.04em",
+                background: active ? "white" : "transparent",
+                color: active ? "var(--ax-cyan-700)" : "var(--fg-3)",
+                border: "none",
+                borderRadius: 4,
+                boxShadow: active
+                  ? "0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px var(--border-1)"
+                  : "none",
+                cursor: "pointer",
+                height: "100%",
+                transition: "color 120ms, background 120ms",
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FilterLogicSeparator({ logic }: { logic: FilterCombineLogic }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 28,
+        padding: "0 2px",
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: "0.06em",
+        color: "var(--fg-4)",
+        userSelect: "none",
+      }}
+    >
+      {logic.toUpperCase()}
+    </span>
+  );
+}
+
 // ── Main CompaniesFilterBar ────────────────────────────────────────────────
 
 export function CompaniesFilterBar({
@@ -1536,7 +1653,7 @@ export function CompaniesFilterBar({
   onStateChange,
   totalCount,
 }: CompaniesFilterBarProps) {
-  const { filters, searchText } = state;
+  const { filters, searchText, filterLogic } = state;
 
   const setFilters = useCallback(
     (updater: FilterItem[] | ((prev: FilterItem[]) => FilterItem[])) => {
@@ -1706,23 +1823,35 @@ export function CompaniesFilterBar({
           </label>
 
           {/* Active filter chips */}
-          {filters.map((f) => {
+          {filters.map((f, index) => {
             const def = filterDefs.find((d) => d.id === f.id);
             if (!def) return null;
             if (!chipRefs.current[f.id])
               chipRefs.current[f.id] = { current: null } as React.RefObject<HTMLSpanElement>;
             return (
-              <span key={f.id} ref={chipRefs.current[f.id]}>
-                <Chip
-                  def={def}
-                  value={f.value}
-                  chipStyle="cyan"
-                  onEdit={() => setEditing(f.id)}
-                  onRemove={() => removeFilter(f.id)}
-                />
-              </span>
+              <React.Fragment key={f.id}>
+                {index > 0 && <FilterLogicSeparator logic={filterLogic} />}
+                <span ref={chipRefs.current[f.id]}>
+                  <Chip
+                    def={def}
+                    value={f.value}
+                    chipStyle="cyan"
+                    onEdit={() => setEditing(f.id)}
+                    onRemove={() => removeFilter(f.id)}
+                  />
+                </span>
+              </React.Fragment>
             );
           })}
+
+          {filters.length >= 2 && (
+            <FilterLogicToggle
+              value={filterLogic}
+              onChange={(next) =>
+                onStateChange((s) => ({ ...s, filterLogic: next }))
+              }
+            />
+          )}
 
           {/* Add filter button */}
           <AddFilterButton
@@ -1788,6 +1917,14 @@ export function CompaniesFilterBar({
                 >
                   {filters.length} filter{filters.length === 1 ? "" : "s"} active
                 </strong>
+                {filters.length >= 2 && (
+                  <>
+                    <span>·</span>
+                    <span style={{ textTransform: "uppercase", fontWeight: 600 }}>
+                      {filterLogic} logic
+                    </span>
+                  </>
+                )}
                 <span>·</span>
               </>
             )}

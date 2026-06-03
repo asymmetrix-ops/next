@@ -186,6 +186,7 @@ interface Filters {
   timeFrame: string;
   transactionStatus?: string[];
   portfolio_only?: boolean;
+  filterMode?: "AND" | "OR";
 }
 
 const createDefaultFilters = (): Filters => ({
@@ -236,6 +237,7 @@ const createDefaultFilters = (): Filters => ({
   timeFrame: "",
   transactionStatus: [],
   portfolio_only: false,
+  filterMode: "AND",
 });
 
 // Shape returned by export API when sending JSON instead of CSV
@@ -428,6 +430,7 @@ const useCompaniesAPI = () => {
             timeFrame: filtersToUse.timeFrame,
             transactionStatus: filtersToUse.transactionStatus,
             portfolio_only: filtersToUse.portfolio_only,
+            filterMode: filtersToUse.filterMode,
           };
           return serverFiltersBase;
         })();
@@ -1357,6 +1360,7 @@ function buildFiltersFromState(
 ): Filters {
   const f = createDefaultFilters();
   f.searchQuery = state.searchText.trim();
+  f.filterMode = state.filterLogic === "or" ? "OR" : "AND";
 
   for (const item of state.filters) {
     const v = item.value;
@@ -1613,6 +1617,7 @@ const CompanyDashboard = ({
     filters: [],
     viewId: null,
     searchText: initialSearch || "",
+    filterLogic: "and",
   });
 
   // Ownership quick-filter tab — independent of FilterBar chips
@@ -1732,6 +1737,16 @@ const CompanyDashboard = ({
   const onSearchRef = useRef(onSearch);
   onSearchRef.current = onSearch;
 
+  const filterSearchKey = useMemo(
+    () =>
+      JSON.stringify({
+        filters: filterBarState.filters,
+        searchText: filterBarState.searchText,
+        filterLogic: filterBarState.filterLogic,
+      }),
+    [filterBarState.filters, filterBarState.searchText, filterBarState.filterLogic]
+  );
+
   useEffect(() => {
     if (skipInitialSearchRef.current) {
       skipInitialSearchRef.current = false;
@@ -1744,7 +1759,7 @@ const CompanyDashboard = ({
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
-  }, [filterBarState]);
+  }, [filterSearchKey]);
 
   const skipInitialOwnershipTabRef = useRef(true);
   useEffect(() => {
@@ -2300,6 +2315,9 @@ const CompanySection = ({
           });
         }
         params.append("portfolio_only", String(Boolean(f.portfolio_only)));
+        if (f.filterMode === "AND" || f.filterMode === "OR") {
+          params.append("filter_mode", f.filterMode);
+        }
 
         // Helper function to only append if value exists
         const appendIfValue = (key: string, value: number | null | undefined) => {
