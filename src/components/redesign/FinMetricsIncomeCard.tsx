@@ -71,9 +71,7 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
       <span
         style={{
           ...finMetricLabelStyle,
-          whiteSpace: "normal",
-          lineHeight: 1.35,
-          paddingRight: 4,
+          paddingRight: 8,
         }}
       >
         {row.label}
