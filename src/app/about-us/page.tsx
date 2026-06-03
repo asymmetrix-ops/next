@@ -267,12 +267,12 @@ export default function AboutUs() {
                   </div>
                 </div>
               </div>
-              {/* Nina */}
+              {/* Piero Azzano */}
               <div className="flex gap-6 items-start p-6 bg-white rounded-lg shadow-lg">
                 <div className="flex-shrink-0">
                   <Image
-                    src="/images/nina.jpg"
-                    alt="Nina"
+                    src="/icons/pierro.jpeg"
+                    alt="Piero Azzano"
                     width={180}
                     height={180}
                     className="object-cover w-44 h-44 rounded-full"
@@ -280,16 +280,16 @@ export default function AboutUs() {
                 </div>
                 <div className="flex-1">
                   <h4 className="mb-1 text-xl font-bold text-gray-900">
-                    Nina Brandler
+                    Piero Azzano
                   </h4>
-                  <p className="mb-3 text-sm text-gray-600">Research Intern</p>
+                  <p className="mb-3 text-sm text-gray-600">Product Manager</p>
                   <div className="flex gap-2">
                     <a
-                      href="https://www.linkedin.com/in/nina-brandler-605a922a1"
+                      href="https://www.linkedin.com/in/piero-azzano-18708a138/"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex justify-center items-center w-8 h-8 text-white bg-blue-600 rounded-full transition-colors hover:bg-blue-700"
-                      aria-label="Nina's LinkedIn profile"
+                      aria-label="Piero Azzano's LinkedIn profile"
                     >
                       <svg
                         width="16"
