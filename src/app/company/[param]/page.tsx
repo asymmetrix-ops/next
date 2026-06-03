@@ -565,6 +565,29 @@ const formatWholeNumber = (value?: number | string | null): string => {
   return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
 };
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  GBP: "£",
+  EUR: "€",
+  JPY: "¥",
+};
+
+const getCurrencySymbol = (currencyCode?: string): string | undefined => {
+  if (!currencyCode) return undefined;
+  return CURRENCY_SYMBOLS[currencyCode.trim().toUpperCase()];
+};
+
+const formatWholeNumberWithCurrency = (
+  value?: number | string | null,
+  currencyCode?: string
+): string => {
+  const formatted = formatWholeNumber(value);
+  if (formatted === "Not available") return formatted;
+  const symbol = getCurrencySymbol(currencyCode);
+  if (!symbol) return formatted;
+  return `${symbol}${formatted}`;
+};
+
 const parseStructuredArray = <T,>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[];
   if (typeof value !== "string") return [];
@@ -4112,7 +4135,10 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per client:</span>
                 <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Rev_per_client)}
+                  {formatWholeNumberWithCurrency(
+                    financialMetrics?.Rev_per_client,
+                    metricsCurrencyCode
+                  )}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4138,7 +4164,10 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per employee:</span>
                 <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
+                  {formatWholeNumberWithCurrency(
+                    financialMetrics?.Revenue_per_employee,
+                    metricsCurrencyCode
+                  )}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4635,7 +4664,10 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per client:</span>
                 <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Rev_per_client)}
+                  {formatWholeNumberWithCurrency(
+                    financialMetrics?.Rev_per_client,
+                    metricsCurrencyCode
+                  )}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4661,7 +4693,10 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per employee:</span>
                 <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
+                  {formatWholeNumberWithCurrency(
+                    financialMetrics?.Revenue_per_employee,
+                    metricsCurrencyCode
+                  )}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
