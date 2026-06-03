@@ -25,7 +25,6 @@ export type PrimaryFinTab = "metrics" | "benchmark" | "income";
 export type SecondaryFinTab = "subscription" | "other";
 
 type Props = {
-  currencySuffix?: string;
   data: FinancialMetricsCardData;
   benchmarkData?: BenchmarkPeersData | null;
   hasIncomeStatement?: boolean;
@@ -309,7 +308,7 @@ function BenchmarkPlaceholder() {
     <div
       style={{
         padding: "24px 14px 20px",
-        fontSize: 12,
+        fontSize: 13,
         color: T.muted,
         lineHeight: 1.55,
         textAlign: "center",
@@ -321,7 +320,6 @@ function BenchmarkPlaceholder() {
 }
 
 function PrimaryFinCard({
-  currencySuffix,
   primary,
   benchmarkData,
   hasIncomeStatement,
@@ -330,7 +328,6 @@ function PrimaryFinCard({
   fillGridCell = false,
   onViewMore,
 }: {
-  currencySuffix: string;
   primary: FinancialMetricSection;
   benchmarkData: BenchmarkPeersData | null;
   hasIncomeStatement: boolean;
@@ -364,7 +361,6 @@ function PrimaryFinCard({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        suffixForTab={(id) => (id === "metrics" ? currencySuffix : undefined)}
         onViewMore={onViewMore}
       />
       <div
@@ -398,13 +394,11 @@ function PrimaryFinCard({
 }
 
 function SecondaryFinCard({
-  currencySuffix = "",
   subscription,
   other,
   fillGridCell = false,
   onViewMore,
 }: {
-  currencySuffix?: string;
   subscription: FinancialMetricSection;
   other: FinancialMetricSection;
   fillGridCell?: boolean;
@@ -423,21 +417,26 @@ function SecondaryFinCard({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        suffixForTab={(id) => (id === "subscription" ? currencySuffix : undefined)}
         onViewMore={onViewMore}
       />
       <div
         style={
           fillGridCell
-            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }
+            ? {
+                flex: 1,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }
             : undefined
         }
       >
-      {activeTab === "subscription" ? (
-        <MetricSectionBody section={subscription} fillAvailable={fillGridCell} />
-      ) : (
-        <MetricSectionBody section={other} fillAvailable={fillGridCell} />
-      )}
+        {activeTab === "subscription" ? (
+          <MetricSectionBody section={subscription} fillAvailable={fillGridCell} />
+        ) : (
+          <MetricSectionBody section={other} fillAvailable={fillGridCell} />
+        )}
       </div>
     </LinkPanel>
   );
@@ -460,7 +459,6 @@ export function FinMetricsSecondaryCard(
 }
 
 export function FinMetricsIncomeCard({
-  currencySuffix = "",
   data,
   benchmarkData = null,
   hasIncomeStatement = false,
@@ -483,7 +481,6 @@ export function FinMetricsIncomeCard({
       }}
     >
       <PrimaryFinCard
-        currencySuffix={currencySuffix}
         primary={data.primary}
         benchmarkData={benchmarkData}
         hasIncomeStatement={hasIncomeStatement}
@@ -492,7 +489,6 @@ export function FinMetricsIncomeCard({
         onViewMore={onViewMore}
       />
       <SecondaryFinCard
-        currencySuffix={currencySuffix}
         subscription={data.subscription}
         other={data.other}
         onViewMore={onViewMore}

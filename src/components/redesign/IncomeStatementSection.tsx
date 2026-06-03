@@ -4,10 +4,11 @@ import React from "react";
 import {
   LinkedH,
   T,
-  KV_LABEL_COL,
-  kvLabelStyle,
-  kvValueStyle,
-  tableColHeaderBarStyle,
+  tableColHeaderStyle,
+  finMetricRowStyle,
+  finMetricLabelStyle,
+  finMetricValueStyle,
+  overviewBodyPadding,
 } from "./primitives";
 
 export type IncomeStatementRow = {
@@ -25,61 +26,74 @@ type Props = {
   currency?: string;
 };
 
-const COL = `${KV_LABEL_COL} 1fr 1fr 1fr`;
-const ROW_GAP = 10;
+/** Two-column grid: label | value (no source column) — matches Fin Metrics proportions. */
+const IS_COLS = "minmax(118px, 138px) minmax(0, 1fr)";
 
 function formatIncomeValue(value: number | null | undefined): string {
   if (typeof value !== "number") return "—";
   return Math.round(value / 1_000_000).toLocaleString();
 }
 
-function ColHeader() {
-  return (
-    <div
-      style={{
-        ...tableColHeaderBarStyle,
-        gridTemplateColumns: COL,
-        gap: ROW_GAP,
-      }}
-    >
-      <div>Financial period</div>
-      <div style={{ textAlign: "right" }}>Revenue (m)</div>
-      <div style={{ textAlign: "right" }}>EBIT (m)</div>
-      <div style={{ textAlign: "right" }}>EBITDA (m)</div>
-    </div>
-  );
-}
-
-function DataRow({
-  row,
-  last,
-}: {
-  row: IncomeStatementRow;
-  last: boolean;
-}) {
-  const period = (row.period_display_end_date || "").replace(/[,\s]/g, "");
-
+function IsPeriodHeader({ period }: { period: string }) {
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: COL,
+        gridTemplateColumns: IS_COLS,
+        gap: 8,
         alignItems: "center",
-        gap: ROW_GAP,
-        padding: "10px 16px",
-        borderBottom: last ? "none" : `1px solid ${T.hair}`,
+        padding: "8px 14px 6px",
+        background: T.paper,
+        borderBottom: `1px solid ${T.hair}`,
+        ...tableColHeaderStyle,
       }}
     >
-      <div style={kvLabelStyle}>{period || "—"}</div>
-      <div style={{ ...kvValueStyle, textAlign: "right" }}>
-        {formatIncomeValue(row.revenue)}
-      </div>
-      <div style={{ ...kvValueStyle, textAlign: "right" }}>
-        {formatIncomeValue(row.ebit)}
-      </div>
-      <div style={{ ...kvValueStyle, textAlign: "right" }}>
-        {formatIncomeValue(row.ebitda)}
-      </div>
+      <span />
+      <span style={{ textAlign: "center", justifySelf: "center", width: "100%" }}>
+        {period}
+      </span>
+    </div>
+  );
+}
+
+function IsMetricRow({
+  label,
+  value,
+  last,
+}: {
+  label: string;
+  value: string;
+  last: boolean;
+}) {
+  return (
+    <div
+      className="info-row"
+      style={{
+        ...finMetricRowStyle,
+        gridTemplateColumns: IS_COLS,
+        borderBottom: last ? "none" : finMetricRowStyle.borderBottom,
+      }}
+    >
+      <span
+        style={{
+          ...finMetricLabelStyle,
+          whiteSpace: "normal",
+          lineHeight: 1.35,
+          paddingRight: 4,
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          ...finMetricValueStyle,
+          textAlign: "center",
+          justifySelf: "center",
+          width: "100%",
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -90,20 +104,34 @@ export function IncomeStatementTable({
   rows: IncomeStatementRow[];
   currency?: string;
 }) {
+  if (rows.length === 0) return null;
+
   return (
-    <div style={{ overflowX: "auto" }}>
-      <div style={{ minWidth: 320 }}>
-        <ColHeader />
-        <div style={{ padding: "4px 0" }}>
-          {rows.map((row, index) => (
-            <DataRow
-              key={row.id}
-              row={row}
-              last={index === rows.length - 1}
-            />
-          ))}
-        </div>
-      </div>
+    <div>
+      {rows.map((row) => {
+        const period =
+          (row.period_display_end_date || "").replace(/[,\s]/g, "") || "—";
+        const metrics = [
+          { label: "Revenue (m)", value: formatIncomeValue(row.revenue) },
+          { label: "EBIT (m)", value: formatIncomeValue(row.ebit) },
+          { label: "EBITDA (m)", value: formatIncomeValue(row.ebitda) },
+        ];
+        return (
+          <div key={row.id}>
+            <IsPeriodHeader period={period} />
+            <div style={{ padding: overviewBodyPadding }}>
+              {metrics.map((m, i) => (
+                <IsMetricRow
+                  key={m.label}
+                  label={m.label}
+                  value={m.value}
+                  last={i === metrics.length - 1}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -7,6 +7,19 @@ export type PortfolioFollowKey =
   | "followed_sectors"
   | "followed_individuals";
 
+/** Shape of a single portfolio record returned by Xano's get_users_portfolio. */
+export interface XanoPortfolio {
+  id: number;
+  created_at: number;
+  portfolio_label: string;
+  user_id: number;
+  followed_companies: number[];
+  followed_sectors: number[];
+  followed_individuals: number[];
+  followed_investors: number[];
+  followed_advisors: number[];
+}
+
 export interface PortfolioData {
   followed_companies: number[];
   followed_advisors: number[];
@@ -22,15 +35,29 @@ function normalizeIds(arr: unknown): number[] {
     .map((v) => v as number);
 }
 
-interface PortfolioState {
-  data: PortfolioData | null;
-  loading: boolean;
-  error: string | null;
-  lastFetched: number | null;
-  fetchPortfolio: () => Promise<void>;
-  setPortfolio: (raw: Record<string, unknown> | null) => void;
-  isFollowed: (followKey: PortfolioFollowKey, entityId: number) => boolean;
-  reset: () => void;
+/** Merge followed_* arrays from all portfolios into one deduplicated set. */
+function mergePortfolios(items: XanoPortfolio[]): PortfolioData {
+  const companies = new Set<number>();
+  const advisors = new Set<number>();
+  const investors = new Set<number>();
+  const sectors = new Set<number>();
+  const individuals = new Set<number>();
+
+  for (const p of items) {
+    normalizeIds(p.followed_companies).forEach((id) => companies.add(id));
+    normalizeIds(p.followed_advisors).forEach((id) => advisors.add(id));
+    normalizeIds(p.followed_investors).forEach((id) => investors.add(id));
+    normalizeIds(p.followed_sectors).forEach((id) => sectors.add(id));
+    normalizeIds(p.followed_individuals).forEach((id) => individuals.add(id));
+  }
+
+  return {
+    followed_companies: Array.from(companies),
+    followed_advisors: Array.from(advisors),
+    followed_investors: Array.from(investors),
+    followed_sectors: Array.from(sectors),
+    followed_individuals: Array.from(individuals),
+  };
 }
 
 const emptyData: PortfolioData = {
@@ -41,8 +68,23 @@ const emptyData: PortfolioData = {
   followed_individuals: [],
 };
 
+interface PortfolioState {
+  /** Merged follow state across all portfolios — used by isFollowed(). */
+  data: PortfolioData | null;
+  /** Full list of Xano portfolios (tabs). */
+  portfolios: XanoPortfolio[];
+  loading: boolean;
+  error: string | null;
+  lastFetched: number | null;
+  fetchPortfolio: () => Promise<void>;
+  setPortfolio: (raw: unknown) => void;
+  isFollowed: (followKey: PortfolioFollowKey, entityId: number) => boolean;
+  reset: () => void;
+}
+
 export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   data: null,
+  portfolios: [],
   loading: false,
   error: null,
   lastFetched: null,
@@ -54,7 +96,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
         : null;
 
     if (!token) {
-      set({ data: null, loading: false, error: null });
+      set({ data: null, portfolios: [], loading: false, error: null });
       return;
     }
 
@@ -69,14 +111,14 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
         credentials: "include",
       });
 
-      const raw = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+      const raw = await res.json().catch(() => null);
 
       if (!res.ok) {
-        set({
-          data: null,
-          loading: false,
-          error: (raw as { error?: string })?.error ?? "Failed to fetch portfolio",
-        });
+        const errMsg =
+          raw && typeof raw === "object" && "error" in raw
+            ? String((raw as { error: unknown }).error)
+            : "Failed to fetch portfolio";
+        set({ data: null, portfolios: [], loading: false, error: errMsg });
         return;
       }
 
@@ -85,6 +127,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
     } catch (e) {
       set({
         data: null,
+        portfolios: [],
         loading: false,
         error: (e as Error).message ?? "Failed to fetch portfolio",
       });
@@ -92,20 +135,35 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   },
 
   setPortfolio: (raw) => {
-    if (!raw || typeof raw !== "object") {
-      set({ data: emptyData });
+    if (raw == null) {
+      set({ data: emptyData, portfolios: [] });
       return;
     }
 
-    set({
-      data: {
-        followed_companies: normalizeIds(raw.followed_companies),
-        followed_advisors: normalizeIds(raw.followed_advisors),
-        followed_investors: normalizeIds(raw.followed_investors),
-        followed_sectors: normalizeIds(raw.followed_sectors),
-        followed_individuals: normalizeIds(raw.followed_individuals),
-      },
-    });
+    // Array of portfolios — new format from get_users_portfolio
+    if (Array.isArray(raw)) {
+      const items = raw as XanoPortfolio[];
+      set({ portfolios: items, data: mergePortfolios(items) });
+      return;
+    }
+
+    // Single portfolio object — legacy fallback
+    if (typeof raw === "object") {
+      const r = raw as Record<string, unknown>;
+      set({
+        portfolios: [],
+        data: {
+          followed_companies: normalizeIds(r.followed_companies),
+          followed_advisors: normalizeIds(r.followed_advisors),
+          followed_investors: normalizeIds(r.followed_investors),
+          followed_sectors: normalizeIds(r.followed_sectors),
+          followed_individuals: normalizeIds(r.followed_individuals),
+        },
+      });
+      return;
+    }
+
+    set({ data: emptyData, portfolios: [] });
   },
 
   isFollowed: (followKey, entityId) => {
@@ -115,5 +173,6 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
     return Array.isArray(ids) && ids.includes(entityId);
   },
 
-  reset: () => set({ data: null, loading: false, error: null, lastFetched: null }),
+  reset: () =>
+    set({ data: null, portfolios: [], loading: false, error: null, lastFetched: null }),
 }));

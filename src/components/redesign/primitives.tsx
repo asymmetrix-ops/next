@@ -47,6 +47,19 @@ export const CARD_TITLE_STYLE: React.CSSProperties = {
   lineHeight: 1.25,
 };
 
+/** Fixed-height title bar so adjacent cards align (arrow / metadata do not shift row). */
+export const CARD_HEADER_BAR_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  padding: "12px 14px 10px",
+  borderBottom: `1px solid ${T.hair}`,
+  minWidth: 0,
+  boxSizing: "border-box",
+  minHeight: 44,
+};
+
 /** Overview KV label column width. */
 export const KV_LABEL_COL = "minmax(118px, auto)";
 
@@ -54,7 +67,7 @@ export const KV_LABEL_COL = "minmax(118px, auto)";
 export const kvLabelStyle: React.CSSProperties = {
   color: T.muted,
   fontFamily: T.sans,
-  fontSize: 12,
+  fontSize: 13,
   fontWeight: 400,
   lineHeight: 1.35,
 };
@@ -64,8 +77,8 @@ export const kvValueStyle: React.CSSProperties = {
   color: T.body,
   fontFamily: T.sans,
   fontVariantNumeric: "tabular-nums",
-  fontSize: 12,
-  lineHeight: 1.5,
+  fontSize: 13,
+  lineHeight: 1.55,
 };
 
 /** Shared horizontal padding for card body content (Overview, Financials). */
@@ -179,17 +192,7 @@ export function LinkedH({
   leftSlot?: React.ReactNode;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 8,
-        padding: "12px 14px 10px",
-        borderBottom: `1px solid ${T.hair}`,
-        minWidth: 0,
-      }}
-    >
+    <div style={CARD_HEADER_BAR_STYLE}>
       <div
         style={{
           ...CARD_TITLE_STYLE,
@@ -423,8 +426,8 @@ export function KV({
         gap: 8,
         padding: "4px 0",
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
-        fontSize: 12,
-        lineHeight: 1.35,
+        fontSize: 13,
+        lineHeight: 1.55,
         alignItems: "start",
         ...style,
       }}

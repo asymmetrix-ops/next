@@ -35,7 +35,7 @@ export function RevenueModelCard({ rows, fillGridCell = false }: Props) {
               padding: "9px 0",
               borderBottom:
                 i < rows.length - 1 ? `1px solid ${T.hair}` : "none",
-              fontSize: 12.5,
+              fontSize: 13,
             }}
           >
             <div style={{ color: T.body }}>{row.name}</div>

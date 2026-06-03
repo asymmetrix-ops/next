@@ -24,7 +24,7 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-const COL = "1fr 0.9fr auto 44px";
+const COL = "1fr 1.2fr 44px";
 const COL_GAP = 6;
 
 function ColHeader() {
@@ -38,7 +38,6 @@ function ColHeader() {
     >
       <div>Name</div>
       <div style={{ textAlign: "center" }}>Role</div>
-      <div style={{ textAlign: "right" }}>Tenure</div>
       <div style={{ textAlign: "center" }}>LinkedIn</div>
     </div>
   );
@@ -68,7 +67,7 @@ function PersonRow({
             href={`/individual/${person.individualId}`}
             prefetch={false}
             style={{
-              fontSize: 12.5,
+              fontSize: 13,
               fontWeight: 500,
               color: T.azure,
               textDecoration: "underline",
@@ -83,7 +82,7 @@ function PersonRow({
         ) : (
           <span
             style={{
-              fontSize: 12.5,
+              fontSize: 13,
               fontWeight: 500,
               color: T.ink,
               whiteSpace: "nowrap",
@@ -98,25 +97,12 @@ function PersonRow({
       </div>
       <div
         style={{
-          fontSize: 12.5,
+          fontSize: 13,
           color: T.body,
           textAlign: "center",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
         }}
       >
         {person.role || "—"}
-      </div>
-      <div
-        style={{
-          fontSize: 12.5,
-          color: T.muted,
-          whiteSpace: "nowrap",
-          textAlign: "right",
-        }}
-      >
-        {person.tenure || "—"}
       </div>
       <div style={{ display: "flex", justifyContent: "center" }}>
         <LinkedInProfileButton href={person.linkedinUrl} />
@@ -174,9 +160,11 @@ export function ManagementCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH right={headerRight || undefined}>Management</LinkedH>
+      <LinkedH showArrow={false} right={headerRight || undefined}>
+        Management
+      </LinkedH>
       <ColHeader />
-      <div style={{ padding: "4px 0" }}>
+      <div>
         {visible.map(({ person, section }, idx) => {
           const showLabel = hasBoth && section !== lastSection && section !== "current";
           if (showLabel) lastSection = section;
@@ -206,7 +194,7 @@ export function ManagementCard({
               color: T.azure,
               textDecoration: "underline",
               cursor: "pointer",
-              fontSize: 12.5,
+              fontSize: 13,
               fontWeight: 500,
               fontFamily: T.sans,
             }}

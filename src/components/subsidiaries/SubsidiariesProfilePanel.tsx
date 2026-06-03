@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import type { CorporateEventsProfileTokens } from "@/components/corporate-events/CorporateEventsProfilePanel";
+import { LinkedH, tableColHeaderBarStyle } from "@/components/redesign/primitives";
 import { useRightClick } from "@/hooks/useRightClick";
 
 export type SubsidiariesProfileTokens = CorporateEventsProfileTokens & {
@@ -177,31 +178,33 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
     const headerRight =
       n === 0 ? "" : `${n} ${n === 1 ? "subsidiary" : "subsidiaries"}`;
 
+    const colGrid = narrow
+      ? "minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.8fr) auto"
+      : "minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1fr) auto";
+
     return (
       <div style={{ fontFamily: T.sans, minWidth: 0, maxWidth: "100%" }}>
+        <LinkedH showArrow={false} right={headerRight || undefined}>
+          Current Subsidiaries
+        </LinkedH>
+
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "14px 16px 12px",
-            borderBottom: `1px solid ${T.hair}`,
+            ...tableColHeaderBarStyle,
+            gridTemplateColumns: colGrid,
+            gap: 6,
           }}
         >
-          <div
-            style={{
-              fontSize: "13.5px",
-              fontWeight: 600,
-              color: T.ink,
-            }}
-          >
-            Current Subsidiaries
-          </div>
-          {headerRight ? (
-            <div style={{ fontSize: "11.5px", color: T.muted }}>
-              {headerRight}
+          {headers.map((h) => (
+            <div
+              key={h}
+              style={{
+                textAlign: h === "Year Acquired" ? "right" : "left",
+              }}
+            >
+              {h}
             </div>
-          ) : null}
+          ))}
         </div>
 
         <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0 }}>
@@ -211,31 +214,9 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
               minWidth: narrow ? 0 : "680px",
               tableLayout: narrow ? "fixed" : "auto",
               borderCollapse: "collapse",
-              fontSize: narrow ? "12px" : "12.5px",
+              fontSize: 13,
             }}
           >
-            <thead>
-              <tr style={{ background: T.paper }}>
-                {headers.map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      textAlign:
-                        h === "Year Acquired" ? "right" : "left",
-                      padding: "10px 12px",
-                      color: T.muted,
-                      fontSize: "10.5px",
-                      fontWeight: 500,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.4,
-                      borderBottom: `1px solid ${T.hair}`,
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
             <tbody>
               {displayed.map((subsidiary, index) => {
                 const last = index === displayed.length - 1;
@@ -244,7 +225,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     ? String(acquisitionYearByCompanyId[subsidiary.id])
                     : "—";
 
-                const cellPad = narrow ? "10px 8px" : "10px 12px";
+                const cellPad = narrow ? "10px 8px" : "10px 16px";
                 return (
                   <tr
                     key={subsidiary.id}

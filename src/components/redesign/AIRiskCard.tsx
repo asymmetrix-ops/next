@@ -157,6 +157,10 @@ type RadarChartProps = {
   maxScore?: number;
 };
 
+// Extra viewBox space (in SVG user units) reserved for axis labels on each side.
+const RADAR_PAD_H = 78;
+const RADAR_PAD_V = 28;
+
 function RadarChart({
   axes,
   active,
@@ -166,7 +170,7 @@ function RadarChart({
 }: RadarChartProps) {
   const cx = size / 2;
   const cy = size / 2;
-  const R = size * 0.4;
+  const R = size * 0.38;
   const N = axes.length;
   const angleFor = (i: number) => -Math.PI / 2 + (i / N) * Math.PI * 2;
   const point = (i: number, r: number): [number, number] => {
@@ -336,7 +340,7 @@ function RadarChart({
           textAnchor={anchor}
           dominantBaseline="middle"
           fontFamily={T.sans}
-          fontSize="10.5"
+          fontSize="11"
           fontWeight={isActive ? 700 : 600}
           fill={isActive ? T.ink : T.body}
           style={{ letterSpacing: 0.1 }}
@@ -345,13 +349,12 @@ function RadarChart({
         </text>
         <text
           x={lx}
-          y={ly + 12}
+          y={ly + 13}
           textAnchor={anchor}
           dominantBaseline="middle"
-          fontFamily={T.mono}
-          fontSize="9.5"
+          fontFamily={T.sans}
+          fontSize="10"
           fill={T.muted}
-          style={{ fontVariantNumeric: "tabular-nums" }}
         >
           {scoreToTierName(ax.score)}
         </text>
@@ -361,10 +364,11 @@ function RadarChart({
 
   return (
     <svg
-      viewBox={`0 0 ${size} ${size}`}
+      viewBox={`${-RADAR_PAD_H} ${-RADAR_PAD_V} ${size + 2 * RADAR_PAD_H} ${size + 2 * RADAR_PAD_V}`}
       width="100%"
       height={size}
-      style={{ display: "block", overflow: "visible" }}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ display: "block" }}
     >
       {rings}
       {spokes}
@@ -433,15 +437,15 @@ export function AIRiskCard({
       <div style={shellStyle}>
         <div
           style={{
-            padding: "14px 16px 12px",
-            borderBottom: `1px solid ${T.hair}`,
-            fontFamily: T.sans,
-            fontSize: 13.5,
-            fontWeight: 600,
-            color: T.ink,
-          }}
-        >
-          {AI_EXPOSURE_INDEX_TITLE}
+          padding: "12px 14px 10px",
+          borderBottom: `1px solid ${T.hair}`,
+          fontFamily: T.sans,
+          fontSize: 13.5,
+          fontWeight: 600,
+          color: T.ink,
+        }}
+      >
+        {AI_EXPOSURE_INDEX_TITLE}
         </div>
         <div
           style={{
@@ -488,7 +492,6 @@ export function AIRiskCard({
         background: T.panel,
         border: `1px solid ${hover ? "oklch(82% 0.07 258)" : T.divider}`,
         borderRadius: T.rLg,
-        overflow: "hidden",
         boxShadow: hover ? "0 4px 20px rgba(35,80,200,0.06)" : "none",
         transition:
           "box-shadow 160ms, border-color 160ms, transform 160ms",
@@ -506,7 +509,7 @@ export function AIRiskCard({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "14px 16px 12px",
+          padding: "12px 14px 10px",
           borderBottom: `1px solid ${T.hair}`,
         }}
       >
@@ -527,10 +530,10 @@ export function AIRiskCard({
             gap: 10,
             fontFamily: T.mono,
             fontVariantNumeric: "tabular-nums",
-            fontSize: 11,
-            color: T.muted,
-            flexWrap: "wrap",
-            justifyContent: "flex-end",
+          fontSize: 12,
+          color: T.muted,
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
           }}
         >
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -593,12 +596,12 @@ export function AIRiskCard({
 
       <div
         style={{
-          padding: "4px 18px 0",
+          padding: "4px 12px 0",
           display: "flex",
           justifyContent: "center",
         }}
       >
-        <div style={{ width: "100%", maxWidth: 340 }}>
+        <div style={{ width: "100%", maxWidth: 360 }}>
           <RadarChart
             axes={axes}
             active={active}
@@ -632,13 +635,13 @@ export function AIRiskCard({
           <div
             style={{
               fontFamily: T.sans,
-              fontSize: 12,
-              fontWeight: 600,
-              color: T.ink,
-              letterSpacing: -0.1,
-            }}
-          >
-            {activeAxis.label}
+            fontSize: 13,
+            fontWeight: 600,
+            color: T.ink,
+            letterSpacing: -0.1,
+          }}
+        >
+          {activeAxis.label}
           </div>
           <div
             style={{
@@ -659,8 +662,8 @@ export function AIRiskCard({
         <div
           style={{
             fontFamily: T.sans,
-            fontSize: 11.5,
-            lineHeight: 1.5,
+            fontSize: 13,
+            lineHeight: 1.55,
             color: T.body,
           }}
         >

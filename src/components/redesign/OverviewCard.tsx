@@ -4,7 +4,7 @@
  * Sector tags + key facts (ownership, lifecycle, HQ, raised, employees…).
  * Uses KV rows + TagRow pills from primitives, matching the V3 design token set.
  */
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { LinkPanel, LinkedH, KV, Delta, Pill, T } from "./primitives";
 
@@ -39,8 +39,6 @@ export type OverviewCardProps = {
   /** e.g. "3 years" or "< 1 year" — pass pre-formatted string */
   lastInvestment?: string | null;
   ticker?: string | null;
-  /** max sector tags shown before "+N" overflow */
-  maxSectors?: number;
   fillGridCell?: boolean;
 };
 
@@ -49,21 +47,15 @@ const EM = "—";
 function SectorTags({
   sectors,
   tone,
-  max,
 }: {
   sectors: OverviewSector[];
   tone: "coral" | "lavender";
-  max: number;
 }) {
-  const [showAll, setShowAll] = useState(false);
   if (sectors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
-
-  const visible = showAll ? sectors : sectors.slice(0, max);
-  const overflow = sectors.length - max;
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-      {visible.map((s) =>
+      {sectors.map((s) =>
         s.href ? (
           <Link key={s.name} href={s.href} prefetch={false} style={{ textDecoration: "none" }}>
             <Pill tone={tone}>{s.name}</Pill>
@@ -71,31 +63,6 @@ function SectorTags({
         ) : (
           <Pill key={s.name} tone={tone}>{s.name}</Pill>
         )
-      )}
-      {!showAll && overflow > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowAll(true)}
-          style={{
-            background: "none", border: "none", padding: 0,
-            cursor: "pointer", fontFamily: T.sans,
-          }}
-        >
-          <Pill tone="ghost">+{overflow}</Pill>
-        </button>
-      )}
-      {showAll && overflow > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowAll(false)}
-          style={{
-            background: "none", border: "none",
-            color: T.azure, cursor: "pointer",
-            fontSize: 11.5, fontFamily: T.sans, padding: 0,
-          }}
-        >
-          Show less
-        </button>
       )}
     </div>
   );
@@ -119,7 +86,7 @@ function TransactionStatusHighlight({ label }: { label: string }) {
     >
       <span
         style={{
-          fontSize: 12.5,
+          fontSize: 13,
           color: T.muted,
           fontWeight: 400,
           whiteSpace: "nowrap",
@@ -135,7 +102,7 @@ function TransactionStatusHighlight({ label }: { label: string }) {
             color: "#166534",
             border: "1.5px solid #4ade80",
             borderRadius: "999px",
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: 500,
             padding: "5px 10px",
           }}
@@ -178,7 +145,6 @@ export function OverviewCard({
   investorsLoading,
   lastInvestment,
   ticker,
-  maxSectors = 3,
   fillGridCell = false,
 }: OverviewCardProps) {
   const hasParent = Boolean(parentCompany?.name);
@@ -187,13 +153,13 @@ export function OverviewCard({
     {
       k: "Primary sector(s)",
       v: (
-        <SectorTags sectors={primarySectors} tone="coral" max={maxSectors} />
+        <SectorTags sectors={primarySectors} tone="coral" />
       ),
     },
     {
       k: "Secondary sector(s)",
       v: (
-        <SectorTags sectors={secondarySectors} tone="lavender" max={maxSectors} />
+        <SectorTags sectors={secondarySectors} tone="lavender" />
       ),
     },
     {
