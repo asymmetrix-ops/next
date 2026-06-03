@@ -6,7 +6,20 @@
  * 2. Subscription Metrics · Other Metrics
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { LinkPanel, LinkedH, Pill, T, CARD_TITLE_STYLE, KV_LABEL_COL, finMetricLabelStyle, finMetricRowStyle, finMetricValueStyle, overviewBodyPadding, FIN_METRIC_GRID_COLS, tableColHeaderStyle } from "./primitives";
+import {
+  LinkPanel,
+  Pill,
+  T,
+  KV_LABEL_COL,
+  finMetricLabelStyle,
+  finMetricRowStyle,
+  finMetricValueStyle,
+  finMetricsBodyPadding,
+  finMetricsPeriodHeaderStyle,
+  FIN_METRIC_GRID_COLS,
+  FIN_METRICS_TAB_BAR_STYLE,
+  FIN_METRICS_TAB_STYLE,
+} from "./primitives";
 import {
   IncomeStatementTable,
   type IncomeStatementRow,
@@ -44,10 +57,10 @@ function PeriodHeader({ period }: { period?: string }) {
         gridTemplateColumns: GRID_COLS,
         gap: 8,
         alignItems: "center",
-        padding: "8px 14px 6px",
+        padding: "4px 12px 3px",
         background: T.paper,
         borderBottom: `1px solid ${T.hair}`,
-        ...tableColHeaderStyle,
+        ...finMetricsPeriodHeaderStyle,
       }}
     >
       <span />
@@ -120,7 +133,7 @@ function MetricSectionBody({
     return (
       <>
         <PeriodHeader period={section.periodDisplay} />
-        <div style={{ padding: overviewBodyPadding }}>{rows}</div>
+        <div style={{ padding: finMetricsBodyPadding }}>{rows}</div>
       </>
     );
   }
@@ -138,7 +151,7 @@ function MetricSectionBody({
       <PeriodHeader period={section.periodDisplay} />
       <div
         style={{
-          padding: overviewBodyPadding,
+          padding: finMetricsBodyPadding,
           flex: 1,
           minHeight: 0,
           overflow: "auto",
@@ -152,13 +165,13 @@ function MetricSectionBody({
 
 function BenchmarkTabBody({ data }: { data: BenchmarkPeersData }) {
   return (
-    <div style={{ padding: overviewBodyPadding }}>
+    <div style={{ padding: finMetricsBodyPadding }}>
       <div
         style={{
           display: "grid",
           gridTemplateColumns: `${KV_LABEL_COL} 1fr 1fr 48px`,
           gap: 8,
-          padding: "4px 0",
+          padding: "2px 0",
           borderBottom: `1px solid ${T.hair}`,
         }}
       >
@@ -224,11 +237,11 @@ function ViewMoreArrow({ onClick }: { onClick: () => void }) {
         background: "transparent",
         border: "none",
         cursor: "pointer",
-        fontSize: 14,
+        fontSize: 12,
         color: T.azure,
         fontWeight: 500,
         lineHeight: 1,
-        padding: "2px 4px",
+        padding: "0 2px",
       }}
     >
       →
@@ -250,53 +263,52 @@ function TabHeader<T extends string>({
   onViewMore?: () => void;
 }) {
   return (
-    <div role="tablist" style={{ flexShrink: 0, minWidth: 0 }}>
-      <LinkedH showArrow={false} right={onViewMore ? <ViewMoreArrow onClick={onViewMore} /> : undefined}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            gap: 18,
-            flexWrap: "nowrap",
-            minWidth: 0,
-            flex: 1,
-            overflowX: "auto",
-            overflowY: "hidden",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-          }}
-          className="fin-tab-scroll"
-        >
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              onClick={(e) => {
-                e.stopPropagation();
-                onTabChange(tab.id);
-              }}
-              style={{
-                background: "transparent",
-                border: "none",
-                padding: 0,
-                paddingBottom: 4,
-                cursor: "pointer",
-                ...CARD_TITLE_STYLE,
-                color: activeTab === tab.id ? T.ink : T.muted,
-                borderBottom: `2px solid ${activeTab === tab.id ? T.azure : "transparent"}`,
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-                transition: "color 120ms, border-color 120ms",
-              }}
-            >
-              {tab.label}
-              {suffixForTab?.(tab.id) ?? ""}
-            </button>
-          ))}
-        </div>
-      </LinkedH>
+    <div role="tablist" style={FIN_METRICS_TAB_BAR_STYLE}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: 14,
+          flexWrap: "nowrap",
+          minWidth: 0,
+          flex: 1,
+          overflowX: "auto",
+          overflowY: "hidden",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}
+        className="fin-tab-scroll"
+      >
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTabChange(tab.id);
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              padding: 0,
+              paddingBottom: 2,
+              cursor: "pointer",
+              ...FIN_METRICS_TAB_STYLE,
+              color: activeTab === tab.id ? T.ink : T.muted,
+              borderBottom: `2px solid ${activeTab === tab.id ? T.azure : "transparent"}`,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+              transition: "color 120ms, border-color 120ms",
+            }}
+          >
+            {tab.label}
+            {suffixForTab?.(tab.id) ?? ""}
+          </button>
+        ))}
+      </div>
+      {onViewMore ? <ViewMoreArrow onClick={onViewMore} /> : null}
     </div>
   );
 }
@@ -305,7 +317,7 @@ function BenchmarkPlaceholder() {
   return (
     <div
       style={{
-        padding: "24px 14px 20px",
+        padding: "16px 12px 14px",
         fontSize: 13,
         color: T.muted,
         lineHeight: 1.55,

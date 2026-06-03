@@ -85,6 +85,38 @@ export const kvValueStyle: React.CSSProperties = {
 export const CARD_BODY_X_PAD = 14;
 export const overviewBodyPadding = "2px 14px 8px";
 
+/** Compact tab bar for Financial / Subscription metrics cards (fits fixed grid height). */
+export const FIN_METRICS_TAB_BAR_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  padding: "8px 12px 5px",
+  borderBottom: `1px solid ${T.hair}`,
+  minWidth: 0,
+  flexShrink: 0,
+};
+
+export const FIN_METRICS_TAB_STYLE: React.CSSProperties = {
+  fontFamily: T.sans,
+  fontSize: 12.5,
+  fontWeight: 600,
+  lineHeight: 1.2,
+  color: T.ink,
+};
+
+/** Period row (DEC-2026 · Source) — tighter than table col headers elsewhere. */
+export const finMetricsPeriodHeaderStyle: React.CSSProperties = {
+  fontFamily: T.sans,
+  fontSize: 10,
+  fontWeight: 500,
+  color: T.muted,
+  textTransform: "uppercase",
+  letterSpacing: 0.35,
+};
+
+export const finMetricsBodyPadding = "2px 12px 4px";
+
 /** Financial metrics row grid — label column fits full text; value flexes, source auto. */
 export const FIN_METRIC_GRID_COLS =
   "max-content minmax(56px, 1fr) max-content";
@@ -94,17 +126,21 @@ export const finMetricRowStyle: React.CSSProperties = {
   gridTemplateColumns: FIN_METRIC_GRID_COLS,
   columnGap: 8,
   alignItems: "center",
-  padding: "4px 0",
+  padding: "2px 0",
   borderBottom: `1px solid ${T.hair}`,
 };
 
 export const finMetricLabelStyle: React.CSSProperties = {
   ...kvLabelStyle,
+  fontSize: 12.5,
+  lineHeight: 1.3,
   whiteSpace: "nowrap",
 };
 
 export const finMetricValueStyle: React.CSSProperties = {
   ...kvValueStyle,
+  fontSize: 12.5,
+  lineHeight: 1.35,
 };
 
 /** Table column header bar — matches Management card. */
