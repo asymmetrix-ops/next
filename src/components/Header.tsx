@@ -10,7 +10,7 @@ import { trackLogout } from "@/lib/tracking";
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
-  const { isTrialActive, user, logout } = useAuth();
+  const { isAuthenticated, isTrialActive, user, logout } = useAuth();
   const pathname = usePathname();
   const isAllowedTrialRoute = (href: string) =>
     href === "/home-user" || href === "/insights-analysis";
@@ -200,14 +200,8 @@ const Header = () => {
           <div style={styles.leftSection} className="left-section">
             {/* Logo */}
             <Link
-              href="/"
+              href={isAuthenticated ? "/home-user" : "/"}
               style={styles.logo}
-              onClick={(e) => {
-                if (isTrialActive) {
-                  e.preventDefault();
-                  router.push("/home-user");
-                }
-              }}
             >
               <Image
                 src="/icons/logo.svg"
