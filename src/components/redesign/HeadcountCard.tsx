@@ -179,7 +179,7 @@ export function HeadcountCard({
         showArrow={!yoyLabel}
         leftSlot={linkedinIcon}
       >
-        LinkedIn employee count
+        LinkedIn Employee Count
       </LinkedH>
 
       <div
@@ -190,8 +190,16 @@ export function HeadcountCard({
           minWidth: 0,
         }}
       >
-        {/* Headline count + subtitle inline */}
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+        {/* Headline count + subtitle inline, vertically centered */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 6,
+            flexWrap: "wrap",
+          }}
+        >
           <div
             style={{
               fontSize: 28,
@@ -199,13 +207,20 @@ export function HeadcountCard({
               color: T.ink,
               fontVariantNumeric: "tabular-nums",
               letterSpacing: -0.5,
-              lineHeight: 1.1,
+              lineHeight: 1,
               flexShrink: 0,
             }}
           >
             {last != null && last > 0 ? last.toLocaleString() : "—"}
           </div>
-          <div style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.4 }}>
+          <div
+            style={{
+              fontSize: 11.5,
+              color: T.muted,
+              lineHeight: 1.35,
+              paddingTop: 1,
+            }}
+          >
             Total full-time employees{asOf ? ` · ${asOf}` : ""}
           </div>
         </div>

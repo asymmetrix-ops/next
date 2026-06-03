@@ -519,7 +519,7 @@ export function InsightsCard({
           </Link>
         }
       >
-        Recent insights &amp; analysis
+        Recent Insights &amp; Analysis
       </LinkedH>
 
       {/* rows */}

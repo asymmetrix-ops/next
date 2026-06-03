@@ -36,8 +36,6 @@ type Props = {
   productRows: ProductBarRow[];
   dataRows: DataMixRow[];
   fillGridCell?: boolean;
-  /** Shown under title on product-type card, e.g. "FY2025 mix" */
-  productSubtitle?: string;
 };
 
 function DataValue({ value }: { value: string }) {
@@ -111,27 +109,40 @@ function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
   );
 }
 
+function isPercentLikeValue(value: string): boolean {
+  return /^\d+(\.\d+)?\s*%$/.test(value.trim());
+}
+
+function dataCollectionRightValue(value: string): string {
+  const v = value.trim();
+  if (!v || isPercentLikeValue(v)) return "";
+  return v;
+}
+
 function DataCollectionBody({ dataRows }: { dataRows: DataMixRow[] }) {
   return (
     <div style={{ padding: "8px 16px 14px", flex: 1, minHeight: 0 }}>
-      {dataRows.map((d, i) => (
-        <div
-          key={`${d.label}-${i}`}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "9px 0",
-            gap: 12,
-            borderBottom:
-              i === dataRows.length - 1 ? "none" : `1px solid ${T.hair}`,
-            fontSize: 12.5,
-          }}
-        >
-          <div style={{ color: T.body, minWidth: 0 }}>{d.label}</div>
-          <DataValue value={d.value} />
-        </div>
-      ))}
+      {dataRows.map((d, i) => {
+        const right = dataCollectionRightValue(d.value);
+        return (
+          <div
+            key={`${d.label}-${i}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: right ? "space-between" : "flex-start",
+              padding: "9px 0",
+              gap: 12,
+              borderBottom:
+                i === dataRows.length - 1 ? "none" : `1px solid ${T.hair}`,
+              fontSize: 12.5,
+            }}
+          >
+            <div style={{ color: T.body, minWidth: 0 }}>{d.label}</div>
+            {right ? <DataValue value={right} /> : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -143,18 +154,11 @@ export function ProductDataToggleCard({
   productRows,
   dataRows,
   fillGridCell = true,
-  productSubtitle,
 }: Props) {
   if (variant === "product_type") {
     return (
       <LinkPanel fillGridCell={fillGridCell}>
-        <LinkedH right={productSubtitle ? (
-          <span style={{ fontSize: 11.5, color: T.muted }}>
-            {productSubtitle}
-          </span>
-        ) : undefined}>
-          Product type
-        </LinkedH>
+        <LinkedH>Product Type</LinkedH>
         <ProductTypeBody productRows={productRows} />
       </LinkPanel>
     );
@@ -163,7 +167,7 @@ export function ProductDataToggleCard({
   if (variant === "data_collection") {
     return (
       <LinkPanel fillGridCell={fillGridCell}>
-        <LinkedH>Data collection method</LinkedH>
+        <LinkedH>Data Collection Method</LinkedH>
         <DataCollectionBody dataRows={dataRows} />
       </LinkPanel>
     );
@@ -208,8 +212,8 @@ export function ProductDataToggleCard({
         }}
       >
         <div style={{ display: "flex", alignItems: "flex-end", gap: 18 }}>
-          {tabBtn("product_type", "Product type")}
-          {tabBtn("data_collection", "Data collection")}
+          {tabBtn("product_type", "Product Type")}
+          {tabBtn("data_collection", "Data Collection")}
         </div>
         <div
           style={{

@@ -11,7 +11,7 @@ export default function InsightsCard() {
   const items = c.insights.slice(0, 2);
   return (
     <LinkPanel target="insights">
-      <LinkedH target="insights" right={<span>2 of {c.coverageCount}</span>}>Recent insights & analysis</LinkedH>
+      <LinkedH target="insights" right={<span>2 of {c.coverageCount}</span>}>Recent Insights & Analysis</LinkedH>
       {items.map((it, i) => (
         <div key={i} style={{
           padding: '14px 18px',

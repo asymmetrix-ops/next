@@ -1,6 +1,6 @@
 /**
  * Maps subsidiary company IDs → calendar year acquired, from corporate events
- * where the profile company is the acquirer/investor and the subsidiary is the target.
+ * where the profile company is the acquirer and the subsidiary is the target.
  */
 
 export type SubsidiaryAcquisitionEvent = {
@@ -17,7 +17,6 @@ export type SubsidiaryAcquisitionEvent = {
   target_label?: string;
   buyers?: Array<{ id?: number; page_type?: string }>;
   buyers_investors?: Array<{ id?: number; page_type?: string }>;
-  investors?: Array<{ id?: number; page_type?: string }>;
   other_counterparties?: Array<{
     id?: number;
     counterparty_status?: string;
@@ -30,15 +29,9 @@ export type SubsidiaryAcquisitionEvent = {
   }>;
 };
 
-function isSubsidiaryYearDealType(dealType: string): boolean {
+function isAcquisitionDealType(dealType: string): boolean {
   const d = dealType.toLowerCase();
-  if (/partnership/i.test(d)) return false;
-  return (
-    d.includes("acquisition") ||
-    d.includes("merger") ||
-    d.includes("investment") ||
-    d.includes("invest")
-  );
+  return d.includes("acquisition") || d.includes("merger");
 }
 
 function extractAnnouncementYear(iso?: string | null): number | null {
@@ -91,26 +84,6 @@ function collectBuyerIds(event: SubsidiaryAcquisitionEvent): number[] {
   return Array.from(ids);
 }
 
-function collectInvestorIds(event: SubsidiaryAcquisitionEvent): number[] {
-  const ids = new Set<number>();
-
-  const add = (id: unknown) => {
-    if (typeof id === "number" && Number.isFinite(id)) ids.add(id);
-  };
-
-  if (Array.isArray(event.investors)) {
-    for (const inv of event.investors) add(inv.id);
-  }
-
-  if (Array.isArray(event.buyers_investors)) {
-    for (const b of event.buyers_investors) {
-      if (b?.page_type === "investor") add(b.id);
-    }
-  }
-
-  return Array.from(ids);
-}
-
 function collectTargetIds(event: SubsidiaryAcquisitionEvent): number[] {
   const ids = new Set<number>();
 
@@ -130,7 +103,7 @@ function collectTargetIds(event: SubsidiaryAcquisitionEvent): number[] {
   return Array.from(ids);
 }
 
-function isParentCompanyLinkingParty(
+function isParentCompanyAcquirer(
   event: SubsidiaryAcquisitionEvent,
   parentCompanyId: number
 ): boolean {
@@ -143,28 +116,15 @@ function isParentCompanyLinkingParty(
     ) {
       return false;
     }
-    if (
-      status.includes("acquir") ||
-      status.includes("buyer") ||
-      status.includes("investor") ||
-      status.includes("invest")
-    ) {
+    if (status.includes("acquir") || status.includes("buyer")) {
       return true;
     }
   }
 
-  if (collectBuyerIds(event).includes(parentCompanyId)) return true;
-  if (collectInvestorIds(event).includes(parentCompanyId)) return true;
-
-  // Profile-scoped events: parent is a linking party unless they are the target.
-  if (!status) {
-    return !collectTargetIds(event).includes(parentCompanyId);
-  }
-
-  return false;
+  return collectBuyerIds(event).includes(parentCompanyId);
 }
 
-/** Build subsidiary id → year acquired (earliest matching acquisition/investment). */
+/** Build subsidiary id → year acquired (earliest matching acquisition). */
 export function buildSubsidiaryAcquisitionYearMap(
   parentCompanyId: number,
   events: SubsidiaryAcquisitionEvent[]
@@ -173,8 +133,8 @@ export function buildSubsidiaryAcquisitionYearMap(
 
   for (const event of events) {
     const dealType = event.deal_type || "";
-    if (!isSubsidiaryYearDealType(dealType)) continue;
-    if (!isParentCompanyLinkingParty(event, parentCompanyId)) continue;
+    if (!isAcquisitionDealType(dealType)) continue;
+    if (!isParentCompanyAcquirer(event, parentCompanyId)) continue;
 
     const year = extractAnnouncementYear(event.announcement_date);
     if (year === null) continue;
@@ -201,5 +161,5 @@ export function subsidiaryAcquisitionYearLabel(
       : (yearBySubsidiaryId as Record<number, number | undefined>)[
           subsidiaryId
         ];
-  return typeof year === "number" && Number.isFinite(year) ? String(year) : "-";
+  return typeof year === "number" && Number.isFinite(year) ? String(year) : "—";
 }

@@ -9,7 +9,7 @@ export default function SubscriptionCard() {
   const c = COMPANY;
   return (
     <LinkPanel target="subscription">
-      <LinkedH target="subscription">Subscription metrics</LinkedH>
+      <LinkedH target="subscription">Subscription Metrics</LinkedH>
       <div style={{ padding: '8px 16px 14px' }}>
         <MiniKV k="Recurring rev" v={`US$ ${c.arr}`} mono />
         <MiniKV k="ARR growth"    v={<Delta value="+9.1%" />} />

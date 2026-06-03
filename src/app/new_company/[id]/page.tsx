@@ -38,6 +38,11 @@ import {
 } from "@/components/redesign/FinMetricsIncomeCard";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
 import { buildBenchmarkPeersData } from "@/lib/buildBenchmarkPeersData";
+import {
+  buildSubsidiaryAcquisitionYearMap,
+  type SubsidiaryAcquisitionEvent,
+} from "@/lib/subsidiaryAcquisitionYears";
+import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import { AIRiskCard } from "@/components/redesign/AIRiskCard";
 import type { AIRiskAxis } from "@/components/redesign/AIRiskCard";
 import {
@@ -282,6 +287,41 @@ interface CompanyManagement {
   individual_id?: number;
 }
 
+type ManagementRoleRecord = {
+  id: number;
+  Individual_text: string;
+  individuals_id: number;
+  Status: string;
+  job_titles_id: Array<{
+    id: number;
+    job_title: string;
+  }>;
+  linkedin_url?: string;
+  linkedin_URL?: string;
+  LinkedIn_URL?: string;
+  _individuals?: { linkedin_URL?: string; LinkedIn_URL?: string };
+  Individual?: { linkedin_URL?: string; LinkedIn_URL?: string };
+};
+
+function linkedInUrlFromManagementRole(
+  person: ManagementRoleRecord,
+  byIndividualId: Map<number, string>
+): string | undefined {
+  const fromRole =
+    normalizeLinkedInProfileUrl(person.linkedin_url) ||
+    normalizeLinkedInProfileUrl(person.linkedin_URL) ||
+    normalizeLinkedInProfileUrl(person.LinkedIn_URL) ||
+    normalizeLinkedInProfileUrl(person._individuals?.linkedin_URL) ||
+    normalizeLinkedInProfileUrl(person._individuals?.LinkedIn_URL) ||
+    normalizeLinkedInProfileUrl(person.Individual?.linkedin_URL) ||
+    normalizeLinkedInProfileUrl(person.Individual?.LinkedIn_URL);
+  if (fromRole) return fromRole;
+  if (typeof person.individuals_id === "number") {
+    return byIndividualId.get(person.individuals_id);
+  }
+  return undefined;
+}
+
 interface CompanySubsidiary {
   id: number;
   name: string;
@@ -438,26 +478,8 @@ interface Company {
       linkedin_growth_1y_pct?: number | string | null;
     }>;
   };
-  Managmant_Roles_current?: Array<{
-    id: number;
-    Individual_text: string;
-    individuals_id: number;
-    Status: string;
-    job_titles_id: Array<{
-      id: number;
-      job_title: string;
-    }>;
-  }>;
-  Managmant_Roles_past?: Array<{
-    id: number;
-    Individual_text: string;
-    individuals_id: number;
-    Status: string;
-    job_titles_id: Array<{
-      id: number;
-      job_title: string;
-    }>;
-  }>;
+  Managmant_Roles_current?: ManagementRoleRecord[];
+  Managmant_Roles_past?: ManagementRoleRecord[];
   // Optional market fields if/when API provides them
   ticker?: string;
   exchange?: string;
@@ -500,26 +522,8 @@ interface CompanyResponse {
   /** Headcount history at API root (Get_new_company) */
   employees_deduped?: EmployeeCount[];
   product_and_users?: ProductAndUsersEntry[];
-  Managmant_Roles_current?: Array<{
-    id: number;
-    Individual_text: string;
-    individuals_id: number;
-    Status: string;
-    job_titles_id: Array<{
-      id: number;
-      job_title: string;
-    }>;
-  }>;
-  Managmant_Roles_past?: Array<{
-    id: number;
-    Individual_text: string;
-    individuals_id: number;
-    Status: string;
-    job_titles_id: Array<{
-      id: number;
-      job_title: string;
-    }>;
-  }>;
+  Managmant_Roles_current?: ManagementRoleRecord[];
+  Managmant_Roles_past?: ManagementRoleRecord[];
   have_subsidiaries_companies?: {
     have_subsidiaries_companies: boolean;
     Subsidiaries_companies: Array<{
@@ -1263,6 +1267,8 @@ const CompanyDetail = () => {
   const descriptionRef = useRef<HTMLDivElement | null>(null);
   const overviewGridRef = useRef<HTMLDivElement | null>(null);
   const financePrimaryGridRef = useRef<HTMLDivElement | null>(null);
+  const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
+  const [activeProfileTab, setActiveProfileTab] = useState("Summary");
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const transactionStatusDisplayLabel = useMemo(() => {
@@ -1272,6 +1278,22 @@ const CompanyDetail = () => {
     const withoutTransaction = raw.replace(/^transaction\s+/i, "");
     return withoutTransaction.replace(/^anticipated\b/i, "Anticipated");
   }, [transactionStatusLabel]);
+
+  const managementLinkedInByIndividualId = useMemo(() => {
+    const map = new Map<number, string>();
+    const rows = [
+      ...(company?.management_current || []),
+      ...(company?.management_past || []),
+    ];
+    for (const row of rows) {
+      const url = normalizeLinkedInProfileUrl(row.linkedin_url);
+      const individualId = row.individual_id ?? row.id;
+      if (url && typeof individualId === "number") {
+        map.set(individualId, url);
+      }
+    }
+    return map;
+  }, [company?.management_current, company?.management_past]);
 
   const managementCurrentPeople = useMemo(
     () =>
@@ -1283,8 +1305,12 @@ const CompanyDetail = () => {
           .filter(Boolean)
           .join(", "),
         individualId: person.individuals_id,
+        linkedinUrl: linkedInUrlFromManagementRole(
+          person,
+          managementLinkedInByIndividualId
+        ),
       })),
-    [company]
+    [company, managementLinkedInByIndividualId]
   );
 
   const managementPastPeople = useMemo(
@@ -1297,9 +1323,22 @@ const CompanyDetail = () => {
           .filter(Boolean)
           .join(", "),
         individualId: person.individuals_id,
+        linkedinUrl: linkedInUrlFromManagementRole(
+          person,
+          managementLinkedInByIndividualId
+        ),
       })),
-    [company]
+    [company, managementLinkedInByIndividualId]
   );
+
+  const subsidiaryAcquisitionYearByCompanyId = useMemo(() => {
+    if (!company?.id) return {} as Record<number, number>;
+    const map = buildSubsidiaryAcquisitionYearMap(
+      company.id,
+      corporateEvents as SubsidiaryAcquisitionEvent[]
+    );
+    return Object.fromEntries(map) as Record<number, number>;
+  }, [company?.id, corporateEvents]);
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1954,6 +1993,18 @@ const CompanyDetail = () => {
     return () => ro.disconnect();
   }, [company, financialMetrics]);
 
+  const scrollToProfileFinancials = useCallback(() => {
+    setActiveProfileTab("Financials");
+    const isMobile =
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 768px)").matches;
+    const target = isMobile
+      ? profileFinancialsMobileRef.current
+      : financePrimaryGridRef.current;
+    requestAnimationFrame(() => {
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
 
   // Update page title when company data is loaded
   useEffect(() => {
@@ -2131,24 +2182,9 @@ const CompanyDetail = () => {
 
   // Removed render-phase debug logging to avoid noise/perf issues
 
-  // Compute a safe LinkedIn URL from API (only allow linkedin.com domains)
-  const linkedinUrl: string | undefined = (() => {
-    const raw = company.linkedin_data?.LinkedIn_URL;
-    if (!raw) return undefined;
-    const trimmed = String(raw).trim();
-    if (!trimmed) return undefined;
-    const candidate = /^https?:\/\//i.test(trimmed)
-      ? trimmed
-      : `https://${trimmed}`;
-    try {
-      const u = new URL(candidate);
-      const host = u.hostname.toLowerCase();
-      if (!host.endsWith("linkedin.com")) return undefined;
-      return u.toString();
-    } catch {
-      return undefined;
-    }
-  })();
+  const linkedinUrl = normalizeLinkedInProfileUrl(
+    company.linkedin_data?.LinkedIn_URL
+  );
 
   // Process sectors (prefer new_sectors_data.sectors_payload when present)
   const parsedNewSectors: {
@@ -2343,6 +2379,10 @@ const CompanyDetail = () => {
       (financialMetrics as unknown as { EBIT_currency_display?: string | null })
         ?.EBIT_currency_display
     ) ||
+    normalizeCurrency(
+      (financialMetrics as unknown as { ARR_currency_display?: string | null })
+        ?.ARR_currency_display
+    ) ||
     // 2) Then fall back to structured currency objects
     normalizeCurrency(
       (financialMetrics as unknown as { _currency?: { Currency?: string } })
@@ -2352,6 +2392,8 @@ const CompanyDetail = () => {
     normalizeCurrency(financialMetrics?.Rev_Currency) ||
     normalizeCurrency(financialMetrics?.EBITDA_currency) ||
     normalizeCurrency(financialMetrics?.EV_currency) ||
+    normalizeCurrency(financialMetrics?.ARR_currency) ||
+    normalizeCurrency(financialMetrics?.EBIT_currency) ||
     displayCurrency;
   const metricsCurrencySuffix = metricsCurrencyCode
     ? ` (${metricsCurrencyCode})`
@@ -2435,6 +2477,7 @@ const CompanyDetail = () => {
     ebitdaPlain,
     evPlain,
     currentEmployeeCount,
+    currencyCode: metricsCurrencyCode || displayCurrency,
     getSourceText,
     formatPercent,
     formatMultiple,
@@ -3101,7 +3144,7 @@ const CompanyDetail = () => {
       ? dataCollectionMethodRows
       : DATA_COLLECTION_MIX_DEMO.map((r) => ({
           label: r.label,
-          value: r.displayRight,
+          value: "",
         }));
 
   const responsiveCss = `
@@ -3228,21 +3271,27 @@ const CompanyDetail = () => {
     }
     .desktop-financial-metrics .info-row {
       padding: 4px 0 !important;
-      grid-template-columns: minmax(118px, auto) minmax(0, 1fr) auto !important;
+      grid-template-columns: minmax(118px, 138px) minmax(0, 1fr) minmax(52px, auto) !important;
       column-gap: 8px !important;
+      align-items: center !important;
     }
     .desktop-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
-      text-align: center;
+      text-align: center !important;
+      justify-self: center !important;
+      width: 100%;
     }
     .mobile-financial-metrics .info-row {
       padding: 4px 0 !important;
-      grid-template-columns: minmax(118px, auto) minmax(0, 1fr) auto !important;
+      grid-template-columns: minmax(118px, 138px) minmax(0, 1fr) minmax(52px, auto) !important;
       column-gap: 8px !important;
+      align-items: center !important;
     }
     .mobile-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
-      text-align: center;
+      text-align: center !important;
+      justify-self: center !important;
+      width: 100%;
     }
     /* Corporate Events styles (mirrors corporate-events list page) */
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
@@ -3414,10 +3463,15 @@ const CompanyDetail = () => {
             "Summary", "Products", "Methodology", "People",
             "Financials", "Insights", "Deals", "Ownership", "Market",
           ].map((tab) => {
-            const active = tab === "Summary";
+            const active = tab === activeProfileTab;
             return (
-              <div
+              <button
                 key={tab}
+                type="button"
+                onClick={() => {
+                  setActiveProfileTab(tab);
+                  if (tab === "Financials") scrollToProfileFinancials();
+                }}
                 style={{
                   padding: "10px 14px",
                   fontFamily: T.sans, fontSize: "13px",
@@ -3428,10 +3482,14 @@ const CompanyDetail = () => {
                   cursor: "pointer",
                   whiteSpace: "nowrap" as const,
                   transition: "color 120ms",
+                  background: "transparent",
+                  borderTop: "none",
+                  borderLeft: "none",
+                  borderRight: "none",
                 }}
               >
                 {tab}
-                    </div>
+              </button>
             );
           })}
                   </div>
@@ -3906,17 +3964,12 @@ const CompanyDetail = () => {
               />
             </div>{/* end insights-summary-card */}
 
-            {/* Rows 3–4: Product type + Revenue | Users + Data collection | AI risk (tall) */}
+            {/* Rows 3–4: Product type + Revenue | Users + Data collection | AI Exposure Index (tall) */}
             <div className="company-grid-product-mix">
               <ProductDataToggleCard
                 variant="product_type"
                 productRows={productTypeBarRows}
                 dataRows={productDataToggleDataRows}
-                productSubtitle={
-                  financialMetrics?.financial_year_text
-                    ? `FY${financialMetrics.financial_year_text} mix`
-                    : undefined
-                }
                 fillGridCell
               />
             </div>
@@ -3958,7 +4011,7 @@ const CompanyDetail = () => {
               />
             </div>
 
-            {/* Rows 5–6: Col 1 = events + subs (Revenue-model width); Col 3 = headcount + management under AI risk */}
+            {/* Rows 5–6: Col 1 = events + subs (Revenue-model width); Col 3 = headcount + management under AI Exposure Index */}
             {(corporateEventsLoading || corporateEvents.length > 0) && (
               <div className="company-grid-corporate-events">
                 <LinkPanel
@@ -4043,8 +4096,9 @@ const CompanyDetail = () => {
                       company.have_subsidiaries_companies
                         ?.Subsidiaries_companies ?? []
                     }
-                      maxInitial={3}
-                    />
+                    acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
+                    maxInitial={3}
+                  />
                   </LinkPanel>
               </div>
             )}
@@ -4062,9 +4116,10 @@ const CompanyDetail = () => {
 
             {/* ══ Col 3 row 1: Primary financial metrics (aligned with Overview + Description) ══ */}
             <div
+              id="profile-financials"
               ref={financePrimaryGridRef}
               className="company-grid-finance-primary desktop-financial-metrics v3-right-rail"
-              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", width: "100%" }}
+              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", width: "100%", scrollMarginTop: 24 }}
             >
               <FinMetricsPrimaryCard
                 fillGridCell
@@ -4074,6 +4129,7 @@ const CompanyDetail = () => {
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
                 incomeStatementCurrency={evCurrency || revenueCurrency || ""}
+                onViewMore={scrollToProfileFinancials}
               />
             </div>
 
@@ -4093,8 +4149,10 @@ const CompanyDetail = () => {
             >
               <FinMetricsSecondaryCard
                 fillGridCell
+                currencySuffix={metricsCurrencySuffix}
                 subscription={finMetricsData.subscription}
                 other={finMetricsData.other}
+                onViewMore={scrollToProfileFinancials}
               />
             </div>
 
@@ -4103,7 +4161,9 @@ const CompanyDetail = () => {
 
           {/* Mobile Financial Metrics */}
           <div
-            style={{ display: "none", marginTop: "8px" }}
+            id="profile-financials-mobile"
+            ref={profileFinancialsMobileRef}
+            style={{ display: "none", marginTop: "8px", scrollMarginTop: 24 }}
             className="mobile-financial-metrics"
           >
             <FinMetricsIncomeCard
@@ -4114,6 +4174,7 @@ const CompanyDetail = () => {
               hasIncomeStatement={hasIncomeStatementData}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementCurrency={evCurrency || revenueCurrency || ""}
+              onViewMore={scrollToProfileFinancials}
             />
 
               <div style={{ marginTop: 20 }}>
