@@ -1,10 +1,4 @@
 import type { XanoPortfolio } from "@/store/portfolioStore";
-import { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
-import {
-  ENTITY_TYPE_TO_FOLLOW_KEY,
-  followPortfolioEntity,
-  invalidateUserPortfolioRecordCache,
-} from "@/lib/portfolioFollow";
 
 export type PortfolioEntityType =
   | "company"
@@ -59,16 +53,15 @@ export function parseFollowedEntities(raw: unknown): PortfolioEntityRef[] {
   return out;
 }
 
-type FollowedFieldsInput = {
-  followed_companies: unknown;
-  followed_advisors: unknown;
-  followed_investors: unknown;
-  followed_sectors: unknown;
-  followed_individuals: unknown;
-};
-
 function getFollowedRefs(
-  portfolio: FollowedFieldsInput,
+  portfolio: Pick<
+    XanoPortfolio,
+    | "followed_companies"
+    | "followed_advisors"
+    | "followed_investors"
+    | "followed_sectors"
+    | "followed_individuals"
+  >,
   entityType: PortfolioEntityType
 ): PortfolioEntityRef[] {
   switch (entityType) {
@@ -94,7 +87,16 @@ function getFollowedIds(
   return getFollowedRefs(portfolio, entityType).map((e) => e.id);
 }
 
-export function countPortfolioEntities(portfolio: FollowedFieldsInput): number {
+export function countPortfolioEntities(
+  portfolio: Pick<
+    XanoPortfolio,
+    | "followed_companies"
+    | "followed_advisors"
+    | "followed_investors"
+    | "followed_sectors"
+    | "followed_individuals"
+  >
+): number {
   return (
     parseFollowedEntities(portfolio.followed_companies).length +
     parseFollowedEntities(portfolio.followed_sectors).length +
@@ -176,129 +178,6 @@ export function isEntityInPortfolio(
   return getFollowedIds(portfolio, entityType).includes(entityId);
 }
 
-/** Check membership from a single-portfolio GET response (JSON-string followed_* fields). */
-export function detailContainsEntity(
-  detail: Record<string, unknown>,
-  entityType: PortfolioEntityType,
-  entityId: number
-): boolean {
-  return getFollowedRefs(
-    {
-      followed_companies: detail.followed_companies,
-      followed_advisors: detail.followed_advisors,
-      followed_investors: detail.followed_investors,
-      followed_sectors: detail.followed_sectors,
-      followed_individuals: detail.followed_individuals,
-    },
-    entityType
-  ).some((ref) => ref.id === entityId);
-}
-
-export type EntityListCheckResult = {
-  in_portfolio: boolean;
-  lists: Array<{ id: number; portfolio_label: string }>;
-};
-
-function parseEntityListCheck(raw: unknown): EntityListCheckResult {
-  const empty: EntityListCheckResult = { in_portfolio: false, lists: [] };
-  if (!raw || typeof raw !== "object") return empty;
-
-  const obj = raw as Record<string, unknown>;
-  const in_portfolio = obj.in_portfolio === true;
-
-  const lists: EntityListCheckResult["lists"] = [];
-  if (Array.isArray(obj.lists)) {
-    for (const item of obj.lists) {
-      if (!item || typeof item !== "object") continue;
-      const row = item as { id?: unknown; portfolio_label?: unknown };
-      const id =
-        typeof row.id === "number"
-          ? row.id
-          : typeof row.id === "string"
-          ? Number.parseInt(row.id, 10)
-          : NaN;
-      if (!Number.isFinite(id) || id <= 0) continue;
-      lists.push({
-        id,
-        portfolio_label:
-          typeof row.portfolio_label === "string" ? row.portfolio_label : "",
-      });
-    }
-  }
-
-  return { in_portfolio, lists };
-}
-
-/**
- * Which named lists contain this entity (single Xano lists/entity/check call).
- */
-export async function fetchEntityListMembership(args: {
-  entityType: PortfolioEntityType;
-  entityId: number;
-  /** Known list ids — used to build a full checkbox map. */
-  portfolioIds?: number[];
-  signal?: AbortSignal;
-}): Promise<{
-  membershipMap: Record<number, boolean>;
-  inPortfolio: boolean;
-  containingLists: EntityListCheckResult["lists"];
-}> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Please sign in to check list membership.");
-  }
-
-  const qs = new URLSearchParams({
-    entity_type: args.entityType,
-    entity_id: String(args.entityId),
-  });
-
-  const request = (authHeader: string) =>
-    fetch(`${XANO_USER_PORTFOLIO_BASE}/lists/entity/check?${qs.toString()}`, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        Authorization: authHeader,
-      },
-      signal: args.signal,
-    });
-
-  let res = await request(`Bearer ${token}`);
-
-  if (res.status === 401) {
-    res = await request(token);
-  }
-
-  const json = (await res.json().catch(() => null)) as unknown;
-
-  if (!res.ok) {
-    const msg =
-      json && typeof json === "object" && "message" in json
-        ? String((json as { message: unknown }).message)
-        : json && typeof json === "object" && "error" in json
-        ? String((json as { error: unknown }).error)
-        : `Request failed (${res.status})`;
-    throw new Error(msg);
-  }
-
-  const parsed = parseEntityListCheck(json);
-  const containingIds = new Set(parsed.lists.map((l) => l.id));
-
-  const membershipMap: Record<number, boolean> = {};
-  for (const id of args.portfolioIds ?? []) {
-    membershipMap[id] = containingIds.has(id);
-  }
-  for (const list of parsed.lists) {
-    membershipMap[list.id] = true;
-  }
-
-  return {
-    membershipMap,
-    inPortfolio: parsed.in_portfolio,
-    containingLists: parsed.lists,
-  };
-}
-
 export function getPortfoliosContainingEntity(
   portfolios: XanoPortfolio[],
   entityType: PortfolioEntityType,
@@ -307,80 +186,41 @@ export function getPortfoliosContainingEntity(
   return portfolios.filter((p) => isEntityInPortfolio(p, entityType, entityId));
 }
 
-function getAuthToken(): string | null {
-  return typeof window !== "undefined"
-    ? localStorage.getItem("asymmetrix_auth_token")
-    : null;
-}
-
-async function xanoListEntityRequest(
-  path: string,
-  method: "POST" | "PATCH",
-  body: Record<string, unknown>
-): Promise<void> {
-  const token = getAuthToken();
-  if (!token) {
-    throw Object.assign(new Error("Please sign in to update a portfolio."), {
-      status: 401,
-    });
-  }
-
-  const request = (authHeader: string) =>
-    fetch(`${XANO_USER_PORTFOLIO_BASE}${path}`, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: authHeader,
-      },
-      body: JSON.stringify(body),
-    });
-
-  let res = await request(`Bearer ${token}`);
-
-  if (res.status === 401) {
-    res = await request(token);
-  }
-
-  const text = await res.text().catch(() => "");
-  let data: unknown = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-
-  if (!res.ok) {
-    const msg =
-      data && typeof data === "object" && "message" in data
-        ? String((data as { message: unknown }).message)
-        : `Request failed (${res.status})`;
-    throw Object.assign(new Error(msg), { status: res.status, data });
-  }
-}
-
 export async function addEntityToPortfolioApi(args: {
   portfolioId: number;
   entityType: PortfolioEntityType;
   entityId: number;
-  /** When true, skip global follow (caller handles follow separately). */
-  skipGlobalFollow?: boolean;
 }): Promise<void> {
-  if (!args.skipGlobalFollow) {
-    const followKey = ENTITY_TYPE_TO_FOLLOW_KEY[args.entityType];
-    await followPortfolioEntity({ followKey, entityId: args.entityId });
-    invalidateUserPortfolioRecordCache();
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("asymmetrix_auth_token")
+      : null;
+
+  if (!token) {
+    throw new Error("Please sign in to add to a portfolio.");
   }
 
-  await xanoListEntityRequest(
-    `/lists/${args.portfolioId}/entities`,
-    "POST",
-    {
+  const res = await fetch(`/api/portfolio/lists/${args.portfolioId}/entities`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-asym-token": token,
+    },
+    credentials: "include",
+    body: JSON.stringify({
       id: args.portfolioId,
       entity_type: args.entityType,
       entity_id: args.entityId,
-    }
-  );
+    }),
+  });
+
+  const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+
+  if (!res.ok) {
+    const msg =
+      typeof json?.error === "string" ? json.error : `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
 }
 
 export async function removeEntityFromPortfolioApi(args: {
@@ -388,13 +228,37 @@ export async function removeEntityFromPortfolioApi(args: {
   entityType: PortfolioEntityType;
   entityId: number;
 }): Promise<void> {
-  await xanoListEntityRequest(
-    `/lists/${args.portfolioId}/entities/remove`,
-    "PATCH",
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("asymmetrix_auth_token")
+      : null;
+
+  if (!token) {
+    throw new Error("Please sign in to update a portfolio.");
+  }
+
+  const res = await fetch(
+    `/api/portfolio/lists/${args.portfolioId}/entities/remove`,
     {
-      id: args.portfolioId,
-      entity_type: args.entityType,
-      entity_id: args.entityId,
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-asym-token": token,
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        id: args.portfolioId,
+        entity_type: args.entityType,
+        entity_id: args.entityId,
+      }),
     }
   );
+
+  const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+
+  if (!res.ok) {
+    const msg =
+      typeof json?.error === "string" ? json.error : `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
 }

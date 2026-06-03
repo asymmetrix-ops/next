@@ -16,7 +16,19 @@ import {
   unfollowPortfolioEntity,
   type PortfolioFollowKey,
 } from "@/lib/portfolioFollow";
-import { usePortfolioStore, type XanoPortfolio } from "@/store/portfolioStore";
+import {
+  usePortfolioStore,
+  getNamedPortfolios,
+  type XanoPortfolio,
+} from "@/store/portfolioStore";
+import {
+  addEntityToPortfolioApi,
+  countPortfolioEntities,
+  fetchUserPortfolioDetail,
+  portfolioDetailToRows,
+  removeEntityFromPortfolioApi,
+  type PortfolioEntityType as ApiEntityType,
+} from "@/lib/portfolioEntity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-hot-toast";
@@ -132,26 +144,29 @@ function getFollowKeyForSearchType(type: string): PortfolioFollowKey | null {
   return null;
 }
 
-/** Returns true when a flat row belongs to the given Xano portfolio. */
-function isRowInPortfolio(row: PortfolioEntityRow, p: XanoPortfolio): boolean {
-  const t = String(row.entity).toLowerCase().trim();
-  const id = row.id;
-  if (t === "company")    return p.followed_companies.includes(id);
-  if (t === "sector")     return p.followed_sectors.includes(id);
-  if (t === "individual") return p.followed_individuals.includes(id);
-  if (t === "investor")   return p.followed_investors.includes(id);
-  if (t === "advisor")    return p.followed_advisors.includes(id);
-  return false;
+function getEntityTypeFromSearchType(type: string): ApiEntityType | null {
+  const t = (type || "").toLowerCase().trim();
+  if (t === "company" || t === "companies") return "company";
+  if (t === "advisor" || t === "advisors") return "advisor";
+  if (t === "investor" || t === "investors") return "investor";
+  if (t === "sector" || t === "sectors" || t === "sub_sector" || t === "sub-sector")
+    return "sector";
+  if (t === "individual" || t === "individuals") return "individual";
+  return null;
 }
 
-function portfolioEntityCount(p: XanoPortfolio): number {
-  return (
-    p.followed_companies.length +
-    p.followed_sectors.length +
-    p.followed_individuals.length +
-    p.followed_investors.length +
-    p.followed_advisors.length
-  );
+function getEntityTypeFromRowEntity(type: string): ApiEntityType | null {
+  const t = (type || "").toLowerCase().trim();
+  if (t === "company") return "company";
+  if (t === "advisor") return "advisor";
+  if (t === "investor") return "investor";
+  if (t === "sector") return "sector";
+  if (t === "individual") return "individual";
+  return null;
+}
+
+function entityResultKey(entityType: string, id: number): string {
+  return `${entityType}-${id}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -160,31 +175,36 @@ function portfolioEntityCount(p: XanoPortfolio): number {
 
 function DeleteListModal({
   portfolio,
+  deleting,
   onConfirm,
   onCancel,
 }: {
   portfolio: XanoPortfolio;
+  deleting: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  const count = portfolioEntityCount(portfolio);
+  const count = countPortfolioEntities(portfolio);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Delete &ldquo;{portfolio.portfolio_label || "this portfolio"}&rdquo;?
+          {`Delete "${portfolio.portfolio_label || "this portfolio"}"?`}
         </h3>
         <p className="text-sm text-gray-600 mb-1">
           This will permanently remove the portfolio and its{" "}
           <strong>{count}</strong> saved {count === 1 ? "entity" : "entities"}.
         </p>
         <p className="text-sm text-gray-500 mb-6">
-          Your global follows are not affected — entities you follow will remain
-          in your &ldquo;All Followed&rdquo; view.
+          {`Your global follows are not affected — entities you follow will remain in your "All Followed" view.`}
         </p>
         <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onCancel}>Cancel</Button>
-          <Button variant="destructive" onClick={onConfirm}>Delete portfolio</Button>
+          <Button variant="outline" onClick={onCancel} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={deleting}>
+            {deleting ? "Deleting…" : "Delete portfolio"}
+          </Button>
         </div>
       </div>
     </div>
@@ -200,10 +220,11 @@ export default function MyPortfolioPage() {
   const xanoPortfolios = usePortfolioStore((s) => s.portfolios);
   const storeLoading = usePortfolioStore((s) => s.loading);
   const fetchPortfolio = usePortfolioStore((s) => s.fetchPortfolio);
+  const upsertPortfolio = usePortfolioStore((s) => s.upsertPortfolio);
 
   // Named portfolios (non-empty label) become list tabs
   const namedPortfolios = useMemo(
-    () => xanoPortfolios.filter((p) => p.portfolio_label.trim()),
+    () => getNamedPortfolios(xanoPortfolios),
     [xanoPortfolios]
   );
 
@@ -232,10 +253,10 @@ export default function MyPortfolioPage() {
     if (showNewListInput) newListInputRef.current?.focus();
   }, [showNewListInput]);
 
-  // ---- Rename (optimistic in-memory only until PATCH endpoint is provided) ----
+  // ---- Rename ----
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
-  const [localLabels, setLocalLabels] = useState<Record<number, string>>({});
+  const [renamingList, setRenamingList] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -244,6 +265,7 @@ export default function MyPortfolioPage() {
 
   // ---- Delete ----
   const [deletingPortfolio, setDeletingPortfolio] = useState<XanoPortfolio | null>(null);
+  const [deletingList, setDeletingList] = useState(false);
 
   // ---- Portfolio (followed) state ----
   const [portfolioSearch, setPortfolioSearch] = useState("");
@@ -267,43 +289,51 @@ export default function MyPortfolioPage() {
 
   // ---- Filtered rows for the active tab ----
   const filteredRows = useMemo(() => {
-    let base = rows;
-
-    if (activeTabId !== ALL_FOLLOWED_TAB && activePortfolio) {
-      base = base.filter((r) => isRowInPortfolio(r, activePortfolio));
-    }
-
     const filter = (portfolioEntityType || "").trim().toLowerCase();
-    if (!filter) return base;
-    return base.filter((r) => String(r.entity || "").toLowerCase().trim() === filter);
-  }, [rows, portfolioEntityType, activeTabId, activePortfolio]);
+    if (!filter) return rows;
+    return rows.filter((r) => String(r.entity || "").toLowerCase().trim() === filter);
+  }, [rows, portfolioEntityType]);
+
+  const entitiesInCurrentView = useMemo(() => {
+    const keys = new Set<string>();
+    for (const row of rows) {
+      const entityType = getEntityTypeFromRowEntity(String(row.entity));
+      if (entityType && Number.isFinite(row.id) && row.id > 0) {
+        keys.add(entityResultKey(entityType, row.id));
+      }
+    }
+    return keys;
+  }, [rows]);
 
   const filteredSearchResults = useMemo(() => {
     const filter = (followEntityType || "").trim().toLowerCase();
-    if (!filter) return searchResults;
-    return searchResults.filter((r) => {
-      const t = (r.type || "").toLowerCase().trim();
-      if (filter === "company")    return t === "company"    || t === "companies";
-      if (filter === "advisor")    return t === "advisor"    || t === "advisors";
-      if (filter === "investor")   return t === "investor"   || t === "investors";
-      if (filter === "sector")     return t === "sector"     || t === "sectors" || t === "sub_sector";
-      if (filter === "individual") return t === "individual" || t === "individuals";
-      return false;
-    });
-  }, [searchResults, followEntityType]);
+    let results = searchResults;
 
-  // ---- Load portfolio flat list ----
-  const loadPortfolio = useCallback(
-    async (silent = false) => {
+    if (filter) {
+      results = results.filter((r) => {
+        const t = (r.type || "").toLowerCase().trim();
+        if (filter === "company")    return t === "company"    || t === "companies";
+        if (filter === "advisor")    return t === "advisor"    || t === "advisors";
+        if (filter === "investor")   return t === "investor"   || t === "investors";
+        if (filter === "sector")     return t === "sector"     || t === "sectors" || t === "sub_sector";
+        if (filter === "individual") return t === "individual" || t === "individuals";
+        return false;
+      });
+    }
+
+    return results.filter((r) => {
+      const entityType = getEntityTypeFromSearchType(r.type);
+      if (!entityType || !Number.isFinite(r.id) || r.id <= 0) return true;
+      return !entitiesInCurrentView.has(entityResultKey(entityType, r.id));
+    });
+  }, [searchResults, followEntityType, entitiesInCurrentView]);
+
+  const loadAllFollowed = useCallback(
+    async (signal?: AbortSignal) => {
       const token =
         typeof window !== "undefined"
           ? localStorage.getItem("asymmetrix_auth_token")
           : null;
-
-      if (!silent) { setLoading(true); setError(null); }
-      abortRef.current?.abort();
-      const ac = new AbortController();
-      abortRef.current = ac;
 
       const qs = new URLSearchParams();
       if (effectivePortfolioSearch) qs.set("search", effectivePortfolioSearch);
@@ -311,46 +341,112 @@ export default function MyPortfolioPage() {
       const headers: Record<string, string> = { Accept: "application/json" };
       if (token) headers["x-asym-token"] = token;
 
+      const res = await fetch(`/api/portfolio/data?${qs.toString()}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+        signal,
+      });
+
+      const text = await res.text().catch(() => "");
+      let data: unknown = null;
       try {
-        const res = await fetch(`/api/portfolio/data?${qs.toString()}`, {
-          method: "GET",
-          headers,
-          credentials: "include",
-          signal: ac.signal,
-        });
-
-        const text = await res.text().catch(() => "");
-        let data: unknown = null;
-        try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-
-        if (!res.ok) {
-          let message = `Request failed (${res.status})`;
-          if (data && typeof data === "object" && "error" in data) {
-            const errVal = (data as { error?: unknown }).error;
-            if (typeof errVal === "string" && errVal.trim()) message = errVal;
-          }
-          throw new Error(message);
-        }
-
-        const list = Array.isArray(data) ? (data as PortfolioEntityRow[]) : [];
-        setRows(list);
-        return list;
-      } catch (e) {
-        if ((e as { name?: string }).name === "AbortError") return [];
-        if (!silent) setError((e as Error).message || "Failed to load portfolio");
-        setRows([]);
-        return [];
-      } finally {
-        if (!silent) setLoading(false);
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = text;
       }
+
+      if (!res.ok) {
+        let message = `Request failed (${res.status})`;
+        if (data && typeof data === "object" && "error" in data) {
+          const errVal = (data as { error?: unknown }).error;
+          if (typeof errVal === "string" && errVal.trim()) message = errVal;
+        }
+        throw new Error(message);
+      }
+
+      const list = Array.isArray(data) ? (data as PortfolioEntityRow[]) : [];
+      setRows(list);
+      return list;
     },
     [effectivePortfolioSearch]
   );
 
+  const loadNamedPortfolio = useCallback(
+    async (portfolioId: number, signal?: AbortSignal) => {
+      const detail = await fetchUserPortfolioDetail(portfolioId, { signal });
+      let list = portfolioDetailToRows(detail);
+
+      const q = effectivePortfolioSearch.trim().toLowerCase();
+      if (q) {
+        list = list.filter((r) => r.name.toLowerCase().includes(q));
+      }
+
+      setRows(list);
+      return list;
+    },
+    [effectivePortfolioSearch]
+  );
+
+  const loadActiveView = useCallback(
+    async (silent = false) => {
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+
+      try {
+        if (activeTabId === ALL_FOLLOWED_TAB) {
+          await loadAllFollowed(ac.signal);
+        } else {
+          const portfolioId = Number.parseInt(activeTabId, 10);
+          if (!Number.isFinite(portfolioId) || portfolioId <= 0) {
+            setRows([]);
+            return;
+          }
+          await loadNamedPortfolio(portfolioId, ac.signal);
+        }
+      } catch (e) {
+        if ((e as { name?: string }).name === "AbortError") return;
+        if (!silent) {
+          setError((e as Error).message || "Failed to load portfolio");
+        }
+        setRows([]);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [activeTabId, loadAllFollowed, loadNamedPortfolio]
+  );
+
   useEffect(() => {
-    const t = window.setTimeout(() => { loadPortfolio(); }, 250);
-    return () => { window.clearTimeout(t); abortRef.current?.abort(); };
-  }, [loadPortfolio]);
+    const t = window.setTimeout(() => {
+      void loadActiveView();
+    }, 250);
+    return () => {
+      window.clearTimeout(t);
+      abortRef.current?.abort();
+    };
+  }, [loadActiveView]);
+
+  const reloadAfterFollowChange = useCallback(async () => {
+    if (activeTabId !== ALL_FOLLOWED_TAB) {
+      const portfolioId = Number.parseInt(activeTabId, 10);
+      if (Number.isFinite(portfolioId) && portfolioId > 0) {
+        try {
+          const detail = await fetchUserPortfolioDetail(portfolioId);
+          upsertPortfolio(detail);
+        } catch {
+          // Tab counts may lag; entity table still reloads below.
+        }
+      }
+    }
+    await fetchPortfolio();
+    await loadActiveView(true);
+  }, [activeTabId, fetchPortfolio, loadActiveView, upsertPortfolio]);
 
   // ---- Global search for Follow More ----
   useEffect(() => {
@@ -390,45 +486,72 @@ export default function MyPortfolioPage() {
   // ---- Follow / unfollow ----
   const handleUnfollow = useCallback(
     async (row: PortfolioEntityRow) => {
+      const entityType = getEntityTypeFromRowEntity(String(row.entity));
       const followKey = getFollowKeyForEntityType(String(row.entity));
-      if (!followKey) return;
+      if (!entityType || !followKey) return;
+
       const key = `${row.entity}-${row.id}`;
       setUnfollowingId(key);
       try {
-        await unfollowPortfolioEntity({ followKey, entityId: row.id });
-        toast.success(`Unfollowed ${row.name}`);
-        await loadPortfolio(true);
-        await fetchPortfolio();
+        if (activeTabId === ALL_FOLLOWED_TAB) {
+          await unfollowPortfolioEntity({ followKey, entityId: row.id });
+          toast.success(`Unfollowed ${row.name}`);
+        } else {
+          const portfolioId = Number.parseInt(activeTabId, 10);
+          if (!Number.isFinite(portfolioId) || portfolioId <= 0) return;
+          await removeEntityFromPortfolioApi({
+            portfolioId,
+            entityType,
+            entityId: row.id,
+          });
+          const label = activePortfolio?.portfolio_label ?? "portfolio";
+          toast.success(`Removed ${row.name} from "${label}"`);
+        }
+        await reloadAfterFollowChange();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to unfollow");
+        toast.error(e instanceof Error ? e.message : "Failed to remove entity");
       } finally {
         setUnfollowingId(null);
       }
     },
-    [loadPortfolio, fetchPortfolio]
+    [activeTabId, activePortfolio, reloadAfterFollowChange]
   );
 
   const handleFollow = useCallback(
     async (result: GlobalSearchResult) => {
+      const entityType = getEntityTypeFromSearchType(result.type);
       const followKey = getFollowKeyForSearchType(result.type);
-      if (!followKey || !Number.isFinite(result.id) || result.id <= 0) return;
+      if (!entityType || !followKey || !Number.isFinite(result.id) || result.id <= 0) return;
+
       const key = `${result.type}-${result.id}`;
       setFollowingId(key);
       try {
-        await followPortfolioEntity({ followKey, entityId: result.id });
-        toast.success(`Following ${result.title}`);
+        if (activeTabId === ALL_FOLLOWED_TAB) {
+          await followPortfolioEntity({ followKey, entityId: result.id });
+          toast.success(`Following ${result.title}`);
+        } else {
+          const portfolioId = Number.parseInt(activeTabId, 10);
+          if (!Number.isFinite(portfolioId) || portfolioId <= 0) return;
+          await addEntityToPortfolioApi({
+            portfolioId,
+            entityType,
+            entityId: result.id,
+          });
+          const label = activePortfolio?.portfolio_label ?? "portfolio";
+          toast.success(`Added ${result.title} to "${label}"`);
+        }
+
         setSearchResults((prev) =>
           prev.filter((r) => !(r.type === result.type && r.id === result.id))
         );
-        await loadPortfolio(true);
-        await fetchPortfolio();
+        await reloadAfterFollowChange();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to follow");
+        toast.error(e instanceof Error ? e.message : "Failed to add entity");
       } finally {
         setFollowingId(null);
       }
     },
-    [loadPortfolio, fetchPortfolio]
+    [activeTabId, activePortfolio, reloadAfterFollowChange]
   );
 
   // ---- Create list ----
@@ -482,7 +605,7 @@ export default function MyPortfolioPage() {
         setActiveTabId(String(newId));
       }
 
-      toast.success(`Portfolio &ldquo;${returnedLabel}&rdquo; created`);
+      toast.success(`Portfolio "${returnedLabel}" created`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to create portfolio");
     } finally {
@@ -493,40 +616,133 @@ export default function MyPortfolioPage() {
   // ---- Rename (optimistic / local override until PATCH endpoint) ----
   const handleStartRename = useCallback((p: XanoPortfolio) => {
     setRenamingId(p.id);
-    setRenameValue(localLabels[p.id] ?? p.portfolio_label);
-  }, [localLabels]);
+    setRenameValue(p.portfolio_label);
+  }, []);
 
-  const handleConfirmRename = useCallback(() => {
+  const handleConfirmRename = useCallback(async () => {
     const name = renameValue.trim();
-    if (!name || renamingId == null) return;
-    setLocalLabels((prev) => ({ ...prev, [renamingId]: name }));
-    setRenamingId(null);
-    toast.success("Renamed (will persist after rename API is connected)");
-  }, [renameValue, renamingId]);
+    if (!name || renamingId == null || renamingList) return;
+
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("asymmetrix_auth_token")
+        : null;
+
+    if (!token) {
+      toast.error("Please sign in to rename a portfolio.");
+      return;
+    }
+
+    setRenamingList(true);
+    try {
+      const res = await fetch(`/api/portfolio/lists/${renamingId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-asym-token": token,
+        },
+        credentials: "include",
+        body: JSON.stringify({ id: renamingId, label: name }),
+      });
+
+      const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+
+      if (!res.ok) {
+        toast.error(
+          typeof json?.error === "string" ? json.error : `Failed (${res.status})`
+        );
+        return;
+      }
+
+      const saved =
+        json && typeof json === "object"
+          ? {
+              ...json,
+              id: renamingId,
+              portfolio_label:
+                typeof json.portfolio_label === "string"
+                  ? json.portfolio_label
+                  : typeof json.label === "string"
+                  ? json.label
+                  : name,
+            }
+          : { id: renamingId, portfolio_label: name };
+
+      upsertPortfolio(saved);
+      setRenamingId(null);
+      setRenameValue("");
+
+      // Refresh follow counts; re-apply saved label if list endpoint is stale
+      await fetchPortfolio();
+      upsertPortfolio(saved);
+
+      toast.success(`Renamed to "${name}"`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to rename portfolio");
+    } finally {
+      setRenamingList(false);
+    }
+  }, [renameValue, renamingId, renamingList, fetchPortfolio, upsertPortfolio]);
 
   const handleCancelRename = useCallback(() => {
     setRenamingId(null);
     setRenameValue("");
   }, []);
 
-  // ---- Delete (optimistic / local until DELETE endpoint) ----
+  // ---- Delete ----
   const handleDeletePortfolio = useCallback(
     async (p: XanoPortfolio) => {
-      // TODO: call DELETE /api/portfolio/lists/:id when endpoint is available
-      setDeletingPortfolio(null);
-      if (activeTabId === String(p.id)) setActiveTabId(ALL_FOLLOWED_TAB);
-      toast("Delete API not yet connected — portfolio will reappear on refresh", {
-        icon: "⚠️",
-      });
+      if (deletingList) return;
+
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("asymmetrix_auth_token")
+          : null;
+
+      if (!token) {
+        toast.error("Please sign in to delete a portfolio.");
+        return;
+      }
+
+      setDeletingList(true);
+      try {
+        const res = await fetch(`/api/portfolio/lists/${p.id}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            "x-asym-token": token,
+          },
+          credentials: "include",
+        });
+
+        const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+
+        if (!res.ok) {
+          toast.error(
+            typeof json?.error === "string" ? json.error : `Failed (${res.status})`
+          );
+          return;
+        }
+
+        setDeletingPortfolio(null);
+        if (activeTabId === String(p.id)) setActiveTabId(ALL_FOLLOWED_TAB);
+        await fetchPortfolio();
+        toast.success(
+          `Deleted "${p.portfolio_label || "portfolio"}"`
+        );
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to delete portfolio");
+      } finally {
+        setDeletingList(false);
+      }
     },
-    [activeTabId]
+    [activeTabId, deletingList, fetchPortfolio]
   );
 
   // ---- Helpers ----
-  const getDisplayLabel = (p: XanoPortfolio) =>
-    localLabels[p.id] ?? p.portfolio_label;
+  const getDisplayLabel = (p: XanoPortfolio) => p.portfolio_label;
 
-  const tabEntityCount = (p: XanoPortfolio) => portfolioEntityCount(p);
+  const tabEntityCount = (p: XanoPortfolio) => countPortfolioEntities(p);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -535,8 +751,11 @@ export default function MyPortfolioPage() {
       {deletingPortfolio && (
         <DeleteListModal
           portfolio={deletingPortfolio}
-          onConfirm={() => handleDeletePortfolio(deletingPortfolio)}
-          onCancel={() => setDeletingPortfolio(null)}
+          deleting={deletingList}
+          onConfirm={() => void handleDeletePortfolio(deletingPortfolio)}
+          onCancel={() => {
+            if (!deletingList) setDeletingPortfolio(null);
+          }}
         />
       )}
 
@@ -609,7 +828,7 @@ export default function MyPortfolioPage() {
 
           {/* Named portfolio tabs from Xano */}
           {namedPortfolios.map((p) => (
-            <div key={p.id} className="relative group flex items-center">
+            <div key={p.id} className="flex items-center shrink-0">
               {renamingId === p.id ? (
                 <div className="flex items-center gap-1 px-3 py-2">
                   <input
@@ -617,12 +836,18 @@ export default function MyPortfolioPage() {
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
                     className="text-sm border-b border-gray-400 outline-none bg-transparent w-28"
+                    disabled={renamingList}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") handleConfirmRename();
-                      if (e.key === "Escape") handleCancelRename();
+                      if (e.key === "Enter") void handleConfirmRename();
+                      if (e.key === "Escape" && !renamingList) handleCancelRename();
                     }}
                   />
-                  <button type="button" onClick={handleConfirmRename} className="text-green-600 hover:text-green-700">
+                  <button
+                    type="button"
+                    onClick={() => void handleConfirmRename()}
+                    disabled={renamingList || !renameValue.trim()}
+                    className="text-green-600 hover:text-green-700 disabled:opacity-50"
+                  >
                     <CheckIcon className="size-4" />
                   </button>
                   <button type="button" onClick={handleCancelRename} className="text-gray-400 hover:text-gray-600">
@@ -630,33 +855,14 @@ export default function MyPortfolioPage() {
                   </button>
                 </div>
               ) : (
-                <>
-                  <TabButton
-                    label={getDisplayLabel(p)}
-                    count={tabEntityCount(p)}
-                    active={activeTabId === String(p.id)}
-                    onClick={() => setActiveTabId(String(p.id))}
-                  />
-                  {/* Rename / delete on hover */}
-                  <div className="absolute right-0 top-0 h-full flex items-center gap-0.5 pr-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      title="Rename portfolio"
-                      onClick={(e) => { e.stopPropagation(); handleStartRename(p); }}
-                      className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                    >
-                      <PencilIcon className="size-3" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Delete portfolio"
-                      onClick={(e) => { e.stopPropagation(); setDeletingPortfolio(p); }}
-                      className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50"
-                    >
-                      <TrashIcon className="size-3" />
-                    </button>
-                  </div>
-                </>
+                <PortfolioTabWithActions
+                  label={getDisplayLabel(p)}
+                  count={tabEntityCount(p)}
+                  active={activeTabId === String(p.id)}
+                  onSelect={() => setActiveTabId(String(p.id))}
+                  onRename={() => handleStartRename(p)}
+                  onDelete={() => setDeletingPortfolio(p)}
+                />
               )}
             </div>
           ))}
@@ -686,7 +892,7 @@ export default function MyPortfolioPage() {
             <h2 className="text-lg font-semibold text-gray-900">
               {activeTabId === ALL_FOLLOWED_TAB
                 ? "Search Portfolio"
-                : `Search in &ldquo;${activePortfolio ? getDisplayLabel(activePortfolio) : ""}&rdquo;`}
+                : `Search in "${activePortfolio ? getDisplayLabel(activePortfolio) : ""}"`}
             </h2>
             <span className="text-sm text-gray-500">
               {loading
@@ -855,8 +1061,8 @@ export default function MyPortfolioPage() {
                 <tbody className="divide-y divide-gray-100">
                   {filteredSearchResults.map((r, idx) => {
                     const href = resolveSearchHref(r);
-                    const followKey = getFollowKeyForSearchType(r.type);
-                    const canFollow = followKey !== null;
+                    const entityType = getEntityTypeFromSearchType(r.type);
+                    const canFollow = entityType !== null;
                     const isFollowing = followingId === `${r.type}-${r.id}`;
                     return (
                       <tr key={`${r.type}-${r.id}-${idx}`} className="hover:bg-gray-50 transition-colors">
@@ -883,7 +1089,11 @@ export default function MyPortfolioPage() {
                               disabled={isFollowing}
                               onClick={() => handleFollow(r)}
                             >
-                              {isFollowing ? "Adding…" : "Follow"}
+                              {isFollowing
+                                ? "Adding…"
+                                : activeTabId === ALL_FOLLOWED_TAB
+                                ? "Follow"
+                                : "Add"}
                             </Button>
                           )}
                         </td>
@@ -908,6 +1118,76 @@ export default function MyPortfolioPage() {
 // ---------------------------------------------------------------------------
 // TabButton
 // ---------------------------------------------------------------------------
+
+function PortfolioTabWithActions({
+  label,
+  count,
+  active,
+  onSelect,
+  onRename,
+  onDelete,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onSelect: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div
+      className={[
+        "group/tab flex items-center shrink-0 rounded-t-lg border-b-2 transition-colors",
+        active
+          ? "border-violet-600 bg-violet-50"
+          : "border-transparent hover:bg-gray-100",
+      ].join(" ")}
+    >
+      <button
+        type="button"
+        onClick={onSelect}
+        className={[
+          "flex items-center gap-2 pl-4 pr-2 py-2.5 text-sm font-medium whitespace-nowrap",
+          active ? "text-violet-700" : "text-gray-600 group-hover/tab:text-gray-900",
+        ].join(" ")}
+      >
+        {label}
+        <span
+          className={[
+            "inline-flex items-center justify-center min-w-[20px] h-5 rounded-full text-xs px-1.5 font-medium",
+            active ? "bg-violet-600 text-white" : "bg-gray-200 text-gray-600",
+          ].join(" ")}
+        >
+          {count}
+        </span>
+      </button>
+      <div className="flex items-center gap-0.5 pr-2 opacity-0 group-hover/tab:opacity-100 transition-opacity">
+        <button
+          type="button"
+          title="Rename portfolio"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRename();
+          }}
+          className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+        >
+          <PencilIcon className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          title="Delete portfolio"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50"
+        >
+          <TrashIcon className="size-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function TabButton({
   label,

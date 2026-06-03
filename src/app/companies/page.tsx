@@ -733,11 +733,33 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
   {
     group: "Lists",
     cols: [
-      makeTextColumn("follow", "Follow", "Lists", [
-        "follow_status",
-        "is_followed",
-        "followed",
-      ]),
+      {
+        key: "follow",
+        label: "Follow",
+        group: "Lists",
+        minWidth: 72,
+        render: (company) => {
+          const id =
+            typeof company.id === "number"
+              ? company.id
+              : Number.parseInt(String(company.id ?? ""), 10);
+          if (!Number.isFinite(id) || id <= 0) return null;
+          return (
+            <div
+              className="company-follow-cell"
+              style={{ display: "flex", justifyContent: "center" }}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <InlineFollowButton
+                followKey="followed_companies"
+                entityId={id}
+                label={String(company.name || "")}
+              />
+            </div>
+          );
+        },
+      },
       makeTextColumn("list_count", "Lists", "Lists", [
         "list_count",
         "lists_count",
@@ -2742,15 +2764,6 @@ const CompanySection = ({
                 </button>
               </td>
             )}
-            <td style={{ textAlign: "center" }}>
-              {company.id ? (
-                <InlineFollowButton
-                  followKey="followed_companies"
-                  entityId={company.id}
-                  label={String(displayCompany.name || "")}
-                />
-              ) : null}
-            </td>
           </tr>
         );
       }),
@@ -3459,8 +3472,7 @@ const CompanySection = ({
             React.createElement("th", null, "Country"),
             ...(onEditCompany
               ? [React.createElement("th", { key: "edit" }, "")]
-              : []),
-            React.createElement("th", { key: "follow", style: { textAlign: "center" } }, "Follow")
+              : [])
           )
         ),
         React.createElement(
@@ -3826,8 +3838,7 @@ const CompanySection = ({
             }),
             ...(onEditCompany
               ? [React.createElement("th", { key: "edit" }, "Edit")]
-              : []),
-            React.createElement("th", { key: "follow", style: { textAlign: "center" } }, "Follow")
+              : [])
           )
         ),
         React.createElement("tbody", null, tableRows)

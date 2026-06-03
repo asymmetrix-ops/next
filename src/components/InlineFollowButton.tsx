@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   followPortfolioEntity,
   unfollowPortfolioEntity,
   type PortfolioFollowKey,
 } from "@/lib/portfolioFollow";
 import { usePortfolioStore } from "@/store/portfolioStore";
+import { toast } from "react-hot-toast";
 
 interface InlineFollowButtonProps {
   followKey: PortfolioFollowKey;
@@ -18,8 +19,8 @@ interface InlineFollowButtonProps {
 }
 
 /**
- * Compact heart-icon follow toggle designed for use inside table cells and list rows.
- * Reads / writes global follow state from portfolioStore.
+ * Compact heart-icon follow toggle for table cells and list rows.
+ * Uses global portfolio store for followed state.
  */
 export function InlineFollowButton({
   followKey,
@@ -29,10 +30,27 @@ export function InlineFollowButton({
   className,
 }: InlineFollowButtonProps) {
   const [busy, setBusy] = useState(false);
+  const [optimisticFollowed, setOptimisticFollowed] = useState<boolean | null>(null);
 
-  const isFollowed = usePortfolioStore((s) => s.isFollowed(followKey, entityId));
+  const storeFollowed = usePortfolioStore((s) => s.isFollowed(followKey, entityId));
+  const portfolioData = usePortfolioStore((s) => s.data);
   const fetchPortfolio = usePortfolioStore((s) => s.fetchPortfolio);
-  const storeLoading = usePortfolioStore((s) => s.loading);
+
+  const isFollowed = optimisticFollowed ?? storeFollowed;
+
+  // Ensure portfolio is loaded so hearts reflect server state
+  useEffect(() => {
+    if (portfolioData != null) return;
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("asymmetrix_auth_token")
+        : null;
+    if (token) void fetchPortfolio();
+  }, [portfolioData, fetchPortfolio]);
+
+  useEffect(() => {
+    setOptimisticFollowed(null);
+  }, [storeFollowed, entityId]);
 
   const handleToggle = useCallback(
     async (e: React.MouseEvent) => {
@@ -45,11 +63,14 @@ export function InlineFollowButton({
           : null;
 
       if (!token) {
-        alert("Please sign in to follow.");
+        toast.error("Please sign in to follow.");
         return;
       }
 
+      const nextFollowed = !isFollowed;
+      setOptimisticFollowed(nextFollowed);
       setBusy(true);
+
       try {
         if (isFollowed) {
           await unfollowPortfolioEntity({ followKey, entityId });
@@ -57,11 +78,15 @@ export function InlineFollowButton({
           await followPortfolioEntity({ followKey, entityId });
         }
         await fetchPortfolio();
+        setOptimisticFollowed(null);
       } catch (err) {
-        const e = err as Error & { status?: number };
-        if (e.status === 401) {
-          alert("Please sign in to follow.");
+        setOptimisticFollowed(null);
+        const error = err as Error & { status?: number };
+        if (error.status === 401) {
+          toast.error("Please sign in to follow.");
         } else {
+          const msg = error.message || "Failed to update follow";
+          toast.error(msg);
           console.error("Follow toggle failed:", err);
         }
       } finally {
@@ -71,15 +96,26 @@ export function InlineFollowButton({
     [followKey, entityId, isFollowed, fetchPortfolio]
   );
 
-  const loading = busy || storeLoading;
-
   return (
     <button
       type="button"
       onClick={handleToggle}
-      disabled={loading}
+      onMouseDown={(e) => e.stopPropagation()}
+      disabled={busy}
+      aria-pressed={isFollowed}
+      aria-label={
+        busy
+          ? "Updating follow status"
+          : isFollowed
+          ? `Unfollow${label ? ` ${label}` : ""}`
+          : `Follow${label ? ` ${label}` : ""}`
+      }
       title={
-        loading ? "Updating…" : isFollowed ? `Unfollow${label ? ` ${label}` : ""}` : `Follow${label ? ` ${label}` : ""}`
+        busy
+          ? "Updating…"
+          : isFollowed
+          ? `Unfollow${label ? ` ${label}` : ""}`
+          : `Follow${label ? ` ${label}` : ""}`
       }
       className={className}
       style={{
@@ -88,14 +124,15 @@ export function InlineFollowButton({
         gap: "4px",
         background: "none",
         border: "none",
-        cursor: loading ? "not-allowed" : "pointer",
+        cursor: busy ? "wait" : "pointer",
         padding: "4px 6px",
         borderRadius: "6px",
-        transition: "background 0.15s",
-        opacity: loading ? 0.5 : 1,
+        transition: "background 0.15s, transform 0.1s",
+        opacity: busy ? 0.6 : 1,
+        position: "relative",
+        zIndex: 2,
       }}
     >
-      {/* Heart SVG — filled when followed, outline when not */}
       <svg
         width="18"
         height="18"
@@ -117,7 +154,7 @@ export function InlineFollowButton({
             fontWeight: 500,
           }}
         >
-          {loading ? "…" : isFollowed ? "Unfollow" : "Follow"}
+          {busy ? "…" : isFollowed ? "Unfollow" : "Follow"}
         </span>
       )}
     </button>
