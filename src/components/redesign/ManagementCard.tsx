@@ -1,13 +1,11 @@
 "use client";
 /**
- * ManagementCard — redesign/ManagementCard.jsx converted to TypeScript.
- * Layout: 4-column grid — avatar initials · name (linked) · role · tenure.
- * Shows all people passed in; "current" first, then "past" with a section
- * label when both groups are present. Has optional See-more collapse.
+ * ManagementCard — name · role · tenure · LinkedIn (icon link).
  */
 import React, { useState } from "react";
 import Link from "next/link";
 import { LinkPanel, LinkedH, T, tableColHeaderBarStyle } from "./primitives";
+import { LinkedInProfileButton } from "./LinkedInProfileButton";
 
 export type ManagementPerson = {
   id?: number;
@@ -15,6 +13,7 @@ export type ManagementPerson = {
   role: string;
   tenure?: string;
   individualId?: number;
+  linkedinUrl?: string;
 };
 
 type Props = {
@@ -25,39 +24,7 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
-function Avatar({ name, index }: { name: string; index: number }) {
-  return (
-    <div
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: "50%",
-        background: `oklch(86% 0.04 ${(index * 53) % 360})`,
-        color: T.body,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: T.sans,
-        fontWeight: 600,
-        fontSize: 10.5,
-        flexShrink: 0,
-      }}
-    >
-      {initials(name)}
-    </div>
-  );
-}
-
-const COL = "28px 1fr 0.9fr auto";
+const COL = "1fr 0.9fr auto 44px";
 const COL_GAP = 6;
 
 function ColHeader() {
@@ -69,21 +36,19 @@ function ColHeader() {
         gap: COL_GAP,
       }}
     >
-      <div />
       <div>Name</div>
       <div style={{ textAlign: "center" }}>Role</div>
       <div style={{ textAlign: "right" }}>Tenure</div>
+      <div style={{ textAlign: "center" }}>LinkedIn</div>
     </div>
   );
 }
 
 function PersonRow({
   person,
-  index,
   last,
 }: {
   person: ManagementPerson;
-  index: number;
   last: boolean;
 }) {
   return (
@@ -97,7 +62,6 @@ function PersonRow({
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
       }}
     >
-      <Avatar name={person.name} index={index} />
       <div style={{ minWidth: 0 }}>
         {person.individualId ? (
           <Link
@@ -154,6 +118,9 @@ function PersonRow({
       >
         {person.tenure || "—"}
       </div>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <LinkedInProfileButton href={person.linkedinUrl} />
+      </div>
     </div>
   );
 }
@@ -203,7 +170,6 @@ export function ManagementCard({
   const visible = expanded ? allPeople : allPeople.slice(0, maxVisible);
   const needsToggle = total > maxVisible;
 
-  // Track where section label should appear
   let lastSection: string | null = null;
 
   return (
@@ -216,13 +182,9 @@ export function ManagementCard({
           if (showLabel) lastSection = section;
           const isLastVisibleRow = idx === visible.length - 1;
           return (
-            <React.Fragment key={`${section}-${person.id ?? idx}`}>
+            <React.Fragment key={`${section}-${person.id ?? person.individualId ?? idx}`}>
               {showLabel && <SectionLabel label="Past" />}
-              <PersonRow
-                person={person}
-                index={idx}
-                last={isLastVisibleRow}
-              />
+              <PersonRow person={person} last={isLastVisibleRow} />
             </React.Fragment>
           );
         })}

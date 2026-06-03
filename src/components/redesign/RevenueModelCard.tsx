@@ -23,7 +23,7 @@ export function RevenueModelCard({ rows, fillGridCell = false }: Props) {
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH>Revenue model</LinkedH>
+      <LinkedH>Revenue Model</LinkedH>
       <div style={{ padding: "8px 16px 14px", flex: 1, minHeight: 0 }}>
         {rows.map((row, i) => (
           <div

@@ -10,7 +10,7 @@ export default function SubsCard() {
   const c = COMPANY;
   return (
     <LinkPanel target="subs">
-      <LinkedH target="subs">Current subsidiaries</LinkedH>
+      <LinkedH target="subs">Current Subsidiaries</LinkedH>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
         <thead>
           <tr style={{ background: T.paper }}>

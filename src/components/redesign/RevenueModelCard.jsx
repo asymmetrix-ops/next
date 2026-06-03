@@ -9,7 +9,7 @@ export default function RevenueModelCard() {
   const c = COMPANY;
   return (
     <LinkPanel target="revenueModel">
-      <LinkedH target="revenueModel">Revenue model</LinkedH>
+      <LinkedH target="revenueModel">Revenue Model</LinkedH>
       <div style={{ padding: '8px 16px 14px' }}>
         {c.revenueModel.map((d, i) => (
           <div key={d.name} style={{

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useId } from "react";
+import React, { useMemo, useState } from "react";
 import type { CorporateEventsProfileTokens } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import { useRightClick } from "@/hooks/useRightClick";
 
@@ -75,15 +75,11 @@ export function growthPctToSpark(pct: number): number[] {
   ];
 }
 
-function formatGrowthPctLabel(pct: number): string {
-  const abs = Math.abs(pct);
-  const text = abs % 1 === 0 ? String(pct) : pct.toFixed(1);
-  return pct > 0 ? `+${text}%` : pct < 0 ? `${text}%` : "0%";
-}
-
 type SubsidiariesProfilePanelProps = {
   tokens: SubsidiariesProfileTokens;
   subsidiaries: SubsidiaryProfileRecord[];
+  /** Subsidiary company id → calendar year acquired (from acquisition corporate events). */
+  acquisitionYearByCompanyId?: Record<number, number>;
   maxInitial?: number;
   /** `narrow` = single grid column; fits Revenue-model width */
   layout?: "default" | "narrow";
@@ -93,8 +89,7 @@ const HEADERS = [
   "Company",
   "Sector",
   "Country",
-  "Headcount",
-  "LinkedIn growth",
+  "Year Acquired",
 ] as const;
 
 function sectorLabel(s: SubsidiaryProfileRecord): string {
@@ -103,13 +98,6 @@ function sectorLabel(s: SubsidiaryProfileRecord): string {
     .map((x) => x.sector_name as string);
   if (!raw?.length) return "—";
   return raw.slice(0, 3).join(", ");
-}
-
-function headcountValue(s: SubsidiaryProfileRecord): number | null {
-  const v = s._linkedin_data_of_new_company?.linkedin_employee;
-  if (v === undefined || v === null) return null;
-  if (typeof v !== "number" || Number.isNaN(v)) return null;
-  return v;
 }
 
 function LogoLetter({
@@ -156,59 +144,17 @@ function LogoLetter({
   );
 }
 
-function MiniSpark({
-  data,
-  w,
-  h,
-  stroke,
-}: {
-  data: number[];
-  w: number;
-  h: number;
-  stroke: string;
-}) {
-  const uid = useId().replace(/:/g, "");
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const n = data.length;
-  const pts = data.map((v, i) => {
-    const x = (i / Math.max(1, n - 1)) * w;
-    const y = h - ((v - min) / range) * h * 0.9 - h * 0.05;
-    return [x, y] as const;
-  });
-  const d = pts
-    .map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)} ${p[1].toFixed(1)}`)
-    .join(" ");
-  const area = `${d} L${w} ${h} L0 ${h} Z`;
-  const gradId = `sg-${uid}`;
-
-  return (
-    <svg width={w} height={h} style={{ display: "block" }}>
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity={0.22} />
-          <stop offset="100%" stopColor={stroke} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <path d={area} fill={`url(#${gradId})`} />
-      <path
-        d={d}
-        fill="none"
-        stroke={stroke}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
-  ({ tokens: T, subsidiaries: rawSubs, maxInitial = 3, layout = "default" }) => {
+  ({
+    tokens: T,
+    subsidiaries: rawSubs,
+    acquisitionYearByCompanyId = {},
+    maxInitial = 3,
+    layout = "default",
+  }) => {
     const narrow = layout === "narrow";
     const headers = narrow
-      ? (["Company", "Sector", "Country"] as const)
+      ? (["Company", "Sector", "Country", "Year Acquired"] as const)
       : HEADERS;
     const { createClickableElement } = useRightClick();
 
@@ -249,7 +195,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
               color: T.ink,
             }}
           >
-            Current subsidiaries
+            Current Subsidiaries
           </div>
           {headerRight ? (
             <div style={{ fontSize: "11.5px", color: T.muted }}>
@@ -262,7 +208,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
           <table
             style={{
               width: "100%",
-              minWidth: narrow ? 0 : "820px",
+              minWidth: narrow ? 0 : "680px",
               tableLayout: narrow ? "fixed" : "auto",
               borderCollapse: "collapse",
               fontSize: narrow ? "12px" : "12.5px",
@@ -275,7 +221,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     key={h}
                     style={{
                       textAlign:
-                        h === "Headcount" ? "right" : "left",
+                        h === "Year Acquired" ? "right" : "left",
                       padding: "10px 12px",
                       color: T.muted,
                       fontSize: "10.5px",
@@ -292,16 +238,11 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
             </thead>
             <tbody>
               {displayed.map((subsidiary, index) => {
-                const hc = headcountValue(subsidiary);
                 const last = index === displayed.length - 1;
-                const pct = parseSubsidiaryLinkedInGrowthPct(subsidiary);
-                const spark =
-                  Array.isArray(subsidiary.linkedin_growth_spark) &&
-                  subsidiary.linkedin_growth_spark.length >= 2
-                    ? subsidiary.linkedin_growth_spark
-                    : pct !== null
-                      ? growthPctToSpark(pct)
-                      : null;
+                const yearAcquired =
+                  acquisitionYearByCompanyId[subsidiary.id] != null
+                    ? String(acquisitionYearByCompanyId[subsidiary.id])
+                    : "—";
 
                 const cellPad = narrow ? "10px 8px" : "10px 12px";
                 return (
@@ -366,50 +307,17 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     >
                       {subsidiary._locations?.Country?.trim() || "—"}
                     </td>
-                    {!narrow && (
-                      <>
-                        <td
-                          style={{
-                            padding: cellPad,
-                            color: T.body,
-                            textAlign: "right",
-                            fontVariantNumeric: "tabular-nums",
-                          }}
-                        >
-                          {hc === null ? "—" : hc.toLocaleString()}
-                        </td>
-                        <td style={{ padding: cellPad }}>
-                          {pct !== null ? (
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 10,
-                              }}
-                            >
-                              <MiniSpark
-                                data={spark ?? growthPctToSpark(pct)}
-                                w={80}
-                                h={22}
-                                stroke={pct >= 0 ? T.up : T.down}
-                              />
-                              <span
-                                style={{
-                                  color: pct >= 0 ? T.up : T.down,
-                                  fontSize: 12,
-                                  fontWeight: 500,
-                                  fontVariantNumeric: "tabular-nums",
-                                }}
-                              >
-                                {formatGrowthPctLabel(pct)}
-                              </span>
-                            </div>
-                          ) : (
-                            <span style={{ color: T.muted }}>—</span>
-                          )}
-                        </td>
-                      </>
-                    )}
+                    <td
+                      style={{
+                        padding: cellPad,
+                        color: T.body,
+                        textAlign: "right",
+                        fontVariantNumeric: "tabular-nums",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {yearAcquired}
+                    </td>
                   </tr>
                 );
               })}

@@ -36,7 +36,7 @@ export default function HeadcountCard() {
 
   return (
     <LinkPanel target="headcount">
-      <LinkedH target="headcount" right={<Delta value="+6.4% YoY" />}>LinkedIn employee count</LinkedH>
+      <LinkedH target="headcount" right={<Delta value="+6.4% YoY" />}>LinkedIn Employee Count</LinkedH>
       <div style={{ padding: '20px 18px 12px' }}>
         <div style={{
           fontSize: 32, fontWeight: 600, color: T.ink,

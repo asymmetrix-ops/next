@@ -72,8 +72,9 @@ export const kvValueStyle: React.CSSProperties = {
 export const CARD_BODY_X_PAD = 14;
 export const overviewBodyPadding = "2px 14px 8px";
 
-/** Financial metrics row grid — label column matches Overview KV. */
-export const FIN_METRIC_GRID_COLS = `${KV_LABEL_COL} minmax(0, 1fr) auto`;
+/** Financial metrics row grid — fixed label width so value column stays aligned. */
+export const FIN_METRIC_GRID_COLS =
+  "minmax(118px, 138px) minmax(0, 1fr) minmax(52px, auto)";
 
 export const finMetricRowStyle: React.CSSProperties = {
   display: "grid",

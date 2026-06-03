@@ -1,11 +1,42 @@
 "use client";
 /**
- * AIRiskCard — hand-built SVG radar chart (Risk vs. Defensibility wedges).
+ * AIRiskCard — hand-built SVG radar chart (AI Exposure Index: risk vs. defensibility).
  * No charting library; click axes to show tier + blurb detail.
  */
 import React, { useState } from "react";
 import { T } from "./tokens.jsx";
 import { AI_SCORE_MAX, scoreToTierName } from "@/lib/companyAiRisks";
+
+export const AI_EXPOSURE_INDEX_TITLE = "AI Exposure Index";
+
+/** Headline tiers from mean axis scores (each axis is 1–3). */
+export function getAiExposureHeadline(
+  defAvg: number,
+  riskAvg: number
+): { label: string; hint: string } {
+  if (defAvg >= 2.5 && riskAvg <= 2) {
+    return {
+      label: "Strong overall moat vs. AI",
+      hint: "Shown when average defensibility is ≥ 2.5/3 and average risk is ≤ 2.0/3.",
+    };
+  }
+  if (defAvg >= 2 && riskAvg <= 2.3) {
+    return {
+      label: "Resilient — selective AI exposure",
+      hint: "Shown when average defensibility is ≥ 2.0/3 and average risk is ≤ 2.3/3.",
+    };
+  }
+  if (defAvg >= 1.5 || riskAvg <= 2.5) {
+    return {
+      label: "Moderate — partial exposure",
+      hint: "Shown when defensibility is ≥ 1.5/3 or risk is ≤ 2.5/3 (and stronger tiers do not apply).",
+    };
+  }
+  return {
+    label: "Limited — AI substitution risk",
+    hint: "Shown when defensibility is below 1.5/3 and risk is above 2.5/3.",
+  };
+}
 
 export type AIRiskAxisGroup = "risk" | "def";
 
@@ -392,7 +423,7 @@ export function AIRiskCard({
           color: T.muted,
         }}
       >
-        Loading AI risk…
+        Loading {AI_EXPOSURE_INDEX_TITLE}…
       </div>
     );
   }
@@ -410,7 +441,7 @@ export function AIRiskCard({
             color: T.ink,
           }}
         >
-          AI risk
+          {AI_EXPOSURE_INDEX_TITLE}
         </div>
         <div
           style={{
@@ -425,7 +456,7 @@ export function AIRiskCard({
             textAlign: "center",
           }}
         >
-          AI risk data is not available for this company.
+          {AI_EXPOSURE_INDEX_TITLE} data is not available for this company.
         </div>
       </div>
     );
@@ -444,14 +475,10 @@ export function AIRiskCard({
     defAxes.length > 0
       ? defAxes.reduce((s, a) => s + a.score, 0) / defAxes.length
       : 0;
-  const headlineTier =
-    defAvg >= 2.5 && riskAvg <= 2
-      ? "Strong overall moat vs. AI"
-      : defAvg >= 2 && riskAvg <= 2.3
-        ? "Resilient — selective AI exposure"
-        : defAvg >= 1.5 || riskAvg <= 2.5
-          ? "Moderate — partial exposure"
-          : "Limited — AI substitution risk";
+  const { label: headlineTier, hint: headlineHint } = getAiExposureHeadline(
+    defAvg,
+    riskAvg
+  );
 
   return (
     <div
@@ -491,7 +518,7 @@ export function AIRiskCard({
             color: T.ink,
           }}
         >
-          AI risk
+          {AI_EXPOSURE_INDEX_TITLE}
         </div>
         <span
           style={{
@@ -502,6 +529,8 @@ export function AIRiskCard({
             fontVariantNumeric: "tabular-nums",
             fontSize: 11,
             color: T.muted,
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
           }}
         >
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -524,7 +553,7 @@ export function AIRiskCard({
                 background: GROUP_TONE.def.fill,
               }}
             />
-            <span>Def {defAvg.toFixed(1)}/{AI_SCORE_MAX}</span>
+            <span>Defensibility {defAvg.toFixed(1)}/{AI_SCORE_MAX}</span>
           </span>
         </span>
       </div>
@@ -548,12 +577,14 @@ export function AIRiskCard({
           }}
         />
         <div
+          title={headlineHint}
           style={{
             fontFamily: T.sans,
             fontSize: 13,
             fontWeight: 600,
             color: T.ink,
             letterSpacing: -0.1,
+            cursor: "help",
           }}
         >
           {headlineTier}

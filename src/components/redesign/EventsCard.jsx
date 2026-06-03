@@ -10,7 +10,7 @@ export default function EventsCard() {
   const c = COMPANY;
   return (
     <LinkPanel target="events">
-      <LinkedH target="events">Corporate events</LinkedH>
+      <LinkedH target="events">Corporate Events</LinkedH>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
         <thead>
           <tr style={{ background: T.paper }}>

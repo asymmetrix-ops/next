@@ -408,7 +408,7 @@ export const CorporateEventsProfilePanel: React.FC<
             color: T.ink,
           }}
         >
-          Corporate events
+          Corporate Events
         </div>
         {right ? (
           <div style={{ fontSize: "11.5px", color: T.muted }}>{right}</div>

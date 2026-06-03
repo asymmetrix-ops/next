@@ -90,7 +90,7 @@ export function SubscriptionCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH>Subscription metrics</LinkedH>
+      <LinkedH>Subscription Metrics</LinkedH>
       <div style={{ padding: overviewBodyPadding, flex: 1, minHeight: 0 }}>
         {rows.map((row, i) => (
           <MiniKV

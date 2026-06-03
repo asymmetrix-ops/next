@@ -6,7 +6,7 @@
  * 2. Subscription Metrics · Other Metrics
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { LinkPanel, LinkedH, Pill, T, CARD_TITLE_STYLE, KV_LABEL_COL, finMetricLabelStyle, finMetricRowStyle, finMetricValueStyle, overviewBodyPadding, FIN_METRIC_GRID_COLS, tableColHeaderBarStyle } from "./primitives";
+import { LinkPanel, LinkedH, Pill, T, CARD_TITLE_STYLE, KV_LABEL_COL, finMetricLabelStyle, finMetricRowStyle, finMetricValueStyle, overviewBodyPadding, FIN_METRIC_GRID_COLS, tableColHeaderStyle } from "./primitives";
 import {
   IncomeStatementTable,
   type IncomeStatementRow,
@@ -41,14 +41,21 @@ function PeriodHeader({ period }: { period?: string }) {
   return (
     <div
       style={{
-        ...tableColHeaderBarStyle,
+        display: "grid",
         gridTemplateColumns: GRID_COLS,
         gap: 8,
+        alignItems: "center",
+        padding: "8px 14px 6px",
+        background: T.paper,
+        borderBottom: `1px solid ${T.hair}`,
+        ...tableColHeaderStyle,
       }}
     >
       <span />
-      <span style={{ textAlign: "center" }}>{period}</span>
-      <span style={{ textAlign: "right" }}>Source</span>
+      <span style={{ textAlign: "center", justifySelf: "center", width: "100%" }}>
+        {period}
+      </span>
+      <span style={{ textAlign: "right", justifySelf: "end" }}>Source</span>
     </div>
   );
 }
@@ -62,11 +69,37 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
         borderBottom: last ? "none" : finMetricRowStyle.borderBottom,
       }}
     >
-      <span style={finMetricLabelStyle}>{row.label}</span>
-      <span style={{ ...finMetricValueStyle, textAlign: "center", wordBreak: "break-word" }}>
+      <span
+        style={{
+          ...finMetricLabelStyle,
+          whiteSpace: "normal",
+          lineHeight: 1.35,
+          paddingRight: 4,
+        }}
+      >
+        {row.label}
+      </span>
+      <span
+        style={{
+          ...finMetricValueStyle,
+          textAlign: "center",
+          justifySelf: "center",
+          width: "100%",
+          wordBreak: "break-word",
+        }}
+      >
         {row.value}
       </span>
-      <span style={{ ...finMetricLabelStyle, textAlign: "right" }}>{row.source}</span>
+      <span
+        style={{
+          ...finMetricLabelStyle,
+          textAlign: "right",
+          justifySelf: "end",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {row.source}
+      </span>
     </div>
   );
 }
@@ -181,20 +214,47 @@ function BenchmarkTabBody({ data }: { data: BenchmarkPeersData }) {
   );
 }
 
+function ViewMoreArrow({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="View full financial metrics"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      style={{
+        background: "transparent",
+        border: "none",
+        cursor: "pointer",
+        fontSize: 14,
+        color: T.azure,
+        fontWeight: 500,
+        lineHeight: 1,
+        padding: "2px 4px",
+      }}
+    >
+      →
+    </button>
+  );
+}
+
 function TabHeader<T extends string>({
   tabs,
   activeTab,
   onTabChange,
   suffixForTab,
+  onViewMore,
 }: {
   tabs: { id: T; label: string }[];
   activeTab: T;
   onTabChange: (tab: T) => void;
   suffixForTab?: (tabId: T) => string | undefined;
+  onViewMore?: () => void;
 }) {
   return (
     <div role="tablist" style={{ flexShrink: 0, minWidth: 0 }}>
-      <LinkedH showArrow={false}>
+      <LinkedH showArrow={false} right={onViewMore ? <ViewMoreArrow onClick={onViewMore} /> : undefined}>
         <div
           style={{
             display: "flex",
@@ -255,7 +315,7 @@ function BenchmarkPlaceholder() {
         textAlign: "center",
       }}
     >
-      Benchmark vs Peers is under development.
+      Benchmark vs. Peers is under development.
     </div>
   );
 }
@@ -268,6 +328,7 @@ function PrimaryFinCard({
   incomeStatementRows,
   incomeStatementCurrency,
   fillGridCell = false,
+  onViewMore,
 }: {
   currencySuffix: string;
   primary: FinancialMetricSection;
@@ -276,11 +337,12 @@ function PrimaryFinCard({
   incomeStatementRows: IncomeStatementRow[];
   incomeStatementCurrency: string;
   fillGridCell?: boolean;
+  onViewMore?: () => void;
 }) {
   const tabs = useMemo(() => {
     const list: { id: PrimaryFinTab; label: string }[] = [
       { id: "metrics", label: "Financial Metrics" },
-      { id: "benchmark", label: "Benchmark vs Peers" },
+      { id: "benchmark", label: "Benchmark vs. Peers" },
     ];
     if (hasIncomeStatement) {
       list.push({ id: "income", label: "Income Statement" });
@@ -303,6 +365,7 @@ function PrimaryFinCard({
         activeTab={activeTab}
         onTabChange={setActiveTab}
         suffixForTab={(id) => (id === "metrics" ? currencySuffix : undefined)}
+        onViewMore={onViewMore}
       />
       <div
         style={
@@ -335,13 +398,17 @@ function PrimaryFinCard({
 }
 
 function SecondaryFinCard({
+  currencySuffix = "",
   subscription,
   other,
   fillGridCell = false,
+  onViewMore,
 }: {
+  currencySuffix?: string;
   subscription: FinancialMetricSection;
   other: FinancialMetricSection;
   fillGridCell?: boolean;
+  onViewMore?: () => void;
 }) {
   const tabs: { id: SecondaryFinTab; label: string }[] = [
     { id: "subscription", label: "Subscription Metrics" },
@@ -352,7 +419,13 @@ function SecondaryFinCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <TabHeader tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabHeader
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        suffixForTab={(id) => (id === "subscription" ? currencySuffix : undefined)}
+        onViewMore={onViewMore}
+      />
       <div
         style={
           fillGridCell
@@ -394,7 +467,8 @@ export function FinMetricsIncomeCard({
   incomeStatementRows = [],
   incomeStatementCurrency = "",
   fillGridCell = true,
-}: Props) {
+  onViewMore,
+}: Props & { onViewMore?: () => void }) {
   return (
     <div
       style={{
@@ -415,10 +489,13 @@ export function FinMetricsIncomeCard({
         hasIncomeStatement={hasIncomeStatement}
         incomeStatementRows={incomeStatementRows}
         incomeStatementCurrency={incomeStatementCurrency}
+        onViewMore={onViewMore}
       />
       <SecondaryFinCard
+        currencySuffix={currencySuffix}
         subscription={data.subscription}
         other={data.other}
+        onViewMore={onViewMore}
       />
     </div>
   );
