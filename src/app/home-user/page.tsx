@@ -1837,7 +1837,12 @@ export default function HomeUserPage() {
                 </div>
               ) : dealRadarItems.length > 0 ? (
                 <div className="min-w-full">
-                    <table className="w-full">
+                    <table className="w-full table-fixed">
+                      <colgroup>
+                        <col style={{ width: "38%" }} />
+                        <col style={{ width: "42%" }} />
+                        <col style={{ width: "20%" }} />
+                      </colgroup>
                       <thead className="sticky top-0 z-10 bg-gray-50">
                         <tr>
                           <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
@@ -1846,7 +1851,7 @@ export default function HomeUserPage() {
                           <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Sector
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-right text-gray-500 uppercase bg-gray-50">
                             Stage
                           </th>
                         </tr>
@@ -1862,11 +1867,11 @@ export default function HomeUserPage() {
                               key={item.companyId}
                               className="align-top hover:bg-gray-50"
                             >
-                              <td className="px-4 py-4">
-                                <div className="space-y-1">
+                              <td className="px-4 py-4 min-w-0 align-top">
+                                <div className="space-y-1 min-w-0">
                                   <a
                                     href={`/company/${item.companyId}`}
-                                    className="text-sm font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+                                    className="text-sm font-semibold text-blue-700 break-words hover:text-blue-900 hover:underline"
                                     onClick={(
                                       e: React.MouseEvent<HTMLAnchorElement>
                                     ) => {
@@ -1914,7 +1919,7 @@ export default function HomeUserPage() {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-4 text-sm text-gray-700">
+                              <td className="px-4 py-4 min-w-0 text-sm text-gray-700 align-top break-words">
                                 {item.primarySectors.length > 0 ? (
                                   item.primarySectors.map((sector, idx) => (
                                     <span key={`${sector.id}-${sector.name}-${idx}`}>
@@ -1951,7 +1956,7 @@ export default function HomeUserPage() {
                                   "—"
                                 )}
                               </td>
-                              <td className="px-4 py-4">
+                              <td className="px-4 py-4 text-right align-top whitespace-nowrap">
                                 <span
                                   className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap"
                                   style={stageStyle.pill}
