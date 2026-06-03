@@ -38,6 +38,7 @@ export function FollowButton({
 }: FollowButtonProps) {
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownFromFollow, setDropdownFromFollow] = useState(false);
   const [togglingListId, setTogglingListId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +72,7 @@ export function FollowButton({
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
+        setDropdownFromFollow(false);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -87,6 +89,15 @@ export function FollowButton({
       alert("Please sign in to follow.");
       return;
     }
+
+    // If entity has a type and is not yet in any list, open the list picker
+    // instead of doing a bare follow — require the user to choose a list first.
+    if (entityType && !isFollowed && containingLists.length === 0) {
+      setDropdownFromFollow(true);
+      setDropdownOpen(true);
+      return;
+    }
+    setDropdownFromFollow(false);
 
     setLoading(true);
     try {
@@ -107,7 +118,7 @@ export function FollowButton({
     } finally {
       setLoading(false);
     }
-  }, [followKey, entityId, isFollowed, fetchPortfolio]);
+  }, [followKey, entityId, isFollowed, fetchPortfolio, entityType, containingLists]);
 
   const handleListToggle = useCallback(
     async (portfolioId: number, portfolioLabel: string, currentlyIn: boolean) => {
@@ -186,7 +197,10 @@ export function FollowButton({
         <div ref={dropdownRef} style={{ position: "relative" }}>
           <button
             type="button"
-            onClick={() => setDropdownOpen((v) => !v)}
+            onClick={() => {
+              setDropdownFromFollow(false);
+              setDropdownOpen((v) => !v);
+            }}
             title="Add to portfolio"
             style={{
               padding: "8px 10px",
@@ -228,6 +242,23 @@ export function FollowButton({
                 padding: "6px 0",
               }}
             >
+              {dropdownFromFollow && (
+                <div
+                  style={{
+                    margin: "6px 8px 2px",
+                    padding: "7px 10px",
+                    backgroundColor: "#faf5ff",
+                    border: "1px solid #ddd6fe",
+                    borderRadius: "6px",
+                    fontSize: "12.5px",
+                    color: "#5b21b6",
+                    fontWeight: 500,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Choose a list to follow this item
+                </div>
+              )}
               <div
                 style={{
                   padding: "8px 12px 4px",
