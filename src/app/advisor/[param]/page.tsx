@@ -666,7 +666,7 @@ export default function AdvisorProfilePage() {
     }
   };
 
-  // Fetch LinkedIn history data using the same API pattern as company page
+  // Fetch LinkedIn history data using the same API pattern as company/investor pages
   const fetchLinkedInHistory = useCallback(async () => {
     setLinkedInHistoryLoading(true);
     try {
@@ -698,17 +698,24 @@ export default function AdvisorProfilePage() {
       const data = await response.json();
       console.log("Advisor LinkedIn history API response:", data);
 
-      // Extract employee count data from the same field as company page
+      // Prefer root-level employees_deduped, then nested, then legacy monthly series
+      const companyPayload = data.Company as unknown as {
+        employees_deduped?: LinkedInHistory[];
+        _companies_employees_count_monthly?: LinkedInHistory[];
+      } | undefined;
       const employeeData =
-        data.Company?._companies_employees_count_monthly || [];
+        (data as unknown as { employees_deduped?: LinkedInHistory[] })
+          .employees_deduped ??
+        companyPayload?.employees_deduped ??
+        companyPayload?._companies_employees_count_monthly ??
+        [];
 
-      // Transform the data to match our interface - same format as company page
-      const historyData = employeeData.map(
-        (item: { date?: string; employees_count?: number }) => ({
+      const historyData = [...employeeData]
+        .map((item: { date?: string; employees_count?: number }) => ({
           date: item.date || "",
           employees_count: item.employees_count || 0,
-        })
-      );
+        }))
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
       setLinkedInHistory(historyData);
 
