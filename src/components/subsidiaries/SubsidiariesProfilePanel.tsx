@@ -2,7 +2,17 @@
 
 import React, { useMemo, useState } from "react";
 import type { CorporateEventsProfileTokens } from "@/components/corporate-events/CorporateEventsProfilePanel";
-import { LinkedH, tableColHeaderBarStyle } from "@/components/redesign/primitives";
+import {
+  LinkedH,
+  profileTableColAlign,
+  profileTableCellStyle,
+  PROFILE_EVENTS_ROW_GAP,
+  PROFILE_EVENTS_ROW_GRID,
+  PROFILE_EVENTS_ROW_PAD,
+  SUBS_PROFILE_GRID_COL,
+  tableColHeaderBarStyle,
+  tableColHeaderStyle,
+} from "@/components/redesign/primitives";
 import { useRightClick } from "@/hooks/useRightClick";
 
 export type SubsidiariesProfileTokens = CorporateEventsProfileTokens & {
@@ -93,6 +103,11 @@ const HEADERS = [
   "Year Acquired",
 ] as const;
 
+const SUBS_LEFT_COLS = ["Company", "Sector"] as const;
+
+const SUBS_COL_GRID_NARROW =
+  "minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(72px, auto)";
+
 function sectorLabel(s: SubsidiaryProfileRecord): string {
   const raw = s.sectors_id
     ?.filter((x) => x && typeof x.sector_name === "string")
@@ -178,9 +193,13 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
     const headerRight =
       n === 0 ? "" : `${n} ${n === 1 ? "subsidiary" : "subsidiaries"}`;
 
-    const colGrid = narrow
-      ? "minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.8fr) auto"
-      : "minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1fr) auto";
+    const cellPad = narrow ? "10px 8px" : PROFILE_EVENTS_ROW_PAD.body;
+    const headerPad = narrow ? "8px 8px" : PROFILE_EVENTS_ROW_PAD.header;
+
+    const subsHeaderCell = (label: (typeof HEADERS)[number]) => ({
+      ...tableColHeaderStyle,
+      textAlign: profileTableColAlign(label, SUBS_LEFT_COLS),
+    });
 
     return (
       <div style={{ fontFamily: T.sans, minWidth: 0, maxWidth: "100%" }}>
@@ -190,120 +209,198 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
 
         <div
           style={{
-            ...tableColHeaderBarStyle,
-            gridTemplateColumns: colGrid,
-            gap: 6,
+            overflowX: "auto",
+            maxWidth: "100%",
+            minWidth: 0,
+            ...profileTableCellStyle,
           }}
         >
-          {headers.map((h) => (
-            <div
-              key={h}
-              style={{
-                textAlign: h === "Year Acquired" ? "right" : "left",
-              }}
-            >
-              {h}
-            </div>
-          ))}
-        </div>
-
-        <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0 }}>
-          <table
+          <div
             style={{
-              width: "100%",
-              minWidth: narrow ? 0 : "680px",
-              tableLayout: narrow ? "fixed" : "auto",
-              borderCollapse: "collapse",
-              fontSize: 13,
+              ...tableColHeaderBarStyle,
+              gridTemplateColumns: narrow
+                ? SUBS_COL_GRID_NARROW
+                : PROFILE_EVENTS_ROW_GRID,
+              gap: PROFILE_EVENTS_ROW_GAP,
+              padding: headerPad,
             }}
           >
-            <tbody>
-              {displayed.map((subsidiary, index) => {
-                const last = index === displayed.length - 1;
-                const yearAcquired =
-                  acquisitionYearByCompanyId[subsidiary.id] != null
-                    ? String(acquisitionYearByCompanyId[subsidiary.id])
-                    : "—";
+            {narrow ? (
+              headers.map((h) => (
+                <div key={h} style={subsHeaderCell(h)}>
+                  {h}
+                </div>
+              ))
+            ) : (
+              <>
+                <div style={{ ...subsHeaderCell("Company"), gridColumn: SUBS_PROFILE_GRID_COL.company }}>
+                  Company
+                </div>
+                <div style={{ ...subsHeaderCell("Sector"), gridColumn: SUBS_PROFILE_GRID_COL.sector }}>
+                  Sector
+                </div>
+                <div style={{ ...subsHeaderCell("Country"), gridColumn: SUBS_PROFILE_GRID_COL.country }}>
+                  Country
+                </div>
+                <div
+                  style={{
+                    ...subsHeaderCell("Year Acquired"),
+                    gridColumn: SUBS_PROFILE_GRID_COL.yearAcquired,
+                  }}
+                >
+                  Year Acquired
+                </div>
+              </>
+            )}
+          </div>
 
-                const cellPad = narrow ? "10px 8px" : "10px 16px";
-                return (
-                  <tr
-                    key={subsidiary.id}
+          {displayed.map((subsidiary, index) => {
+            const last = index === displayed.length - 1;
+            const yearAcquired =
+              acquisitionYearByCompanyId[subsidiary.id] != null
+                ? String(acquisitionYearByCompanyId[subsidiary.id])
+                : "—";
+
+            const companyCell = (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: narrow ? 8 : 10,
+                  minWidth: 0,
+                }}
+              >
+                <LogoLetter
+                  name={subsidiary.name}
+                  logo={subsidiary._linkedin_data_of_new_company?.linkedin_logo}
+                  T={T}
+                />
+                <span
+                  style={{
+                    minWidth: 0,
+                    overflow: narrow ? "hidden" : undefined,
+                    textOverflow: narrow ? "ellipsis" : undefined,
+                    whiteSpace: narrow ? "nowrap" : undefined,
+                  }}
+                >
+                  {createClickableElement(
+                    `/new_company/${subsidiary.id}`,
+                    subsidiary.name,
+                    undefined,
+                    {
+                      color: T.azure,
+                      fontWeight: 500,
+                      textDecoration: "underline",
+                    }
+                  )}
+                </span>
+              </div>
+            );
+
+            if (narrow) {
+              return (
+                <div
+                  key={subsidiary.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: SUBS_COL_GRID_NARROW,
+                    gap: PROFILE_EVENTS_ROW_GAP,
+                    alignItems: "center",
+                    padding: cellPad,
+                    borderBottom: last ? "none" : `1px solid ${T.hair}`,
+                  }}
+                >
+                  <div style={{ textAlign: "left", minWidth: 0 }}>{companyCell}</div>
+                  <div
                     style={{
-                      borderBottom: last ? "none" : `1px solid ${T.hair}`,
+                      textAlign: "left",
+                      color: T.muted,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    <td style={{ padding: cellPad }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: narrow ? 8 : 10,
-                          minWidth: 0,
-                        }}
-                      >
-                        <LogoLetter
-                          name={subsidiary.name}
-                          logo={subsidiary._linkedin_data_of_new_company?.linkedin_logo}
-                          T={T}
-                        />
-                        <span
-                          style={{
-                            minWidth: 0,
-                            overflow: narrow ? "hidden" : undefined,
-                            textOverflow: narrow ? "ellipsis" : undefined,
-                            whiteSpace: narrow ? "nowrap" : undefined,
-                          }}
-                        >
-                          {createClickableElement(
-                            `/new_company/${subsidiary.id}`,
-                            subsidiary.name,
-                            undefined,
-                            {
-                              color: T.azure,
-                              fontWeight: 500,
-                              textDecoration: "underline",
-                            }
-                          )}
-                        </span>
-                      </div>
-                    </td>
-                    <td
-                      style={{
-                        padding: cellPad,
-                        color: T.muted,
-                        overflow: narrow ? "hidden" : undefined,
-                        textOverflow: narrow ? "ellipsis" : undefined,
-                        whiteSpace: narrow ? "nowrap" : undefined,
-                      }}
-                    >
-                      {sectorLabel(subsidiary)}
-                    </td>
-                    <td
-                      style={{
-                        padding: cellPad,
-                        color: T.body,
-                        whiteSpace: narrow ? "nowrap" : undefined,
-                      }}
-                    >
-                      {subsidiary._locations?.Country?.trim() || "—"}
-                    </td>
-                    <td
-                      style={{
-                        padding: cellPad,
-                        color: T.body,
-                        textAlign: "right",
-                        fontVariantNumeric: "tabular-nums",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {yearAcquired}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    {sectorLabel(subsidiary)}
+                  </div>
+                  <div
+                    style={{
+                      textAlign: profileTableColAlign("Country", SUBS_LEFT_COLS),
+                      color: T.body,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {subsidiary._locations?.Country?.trim() || "—"}
+                  </div>
+                  <div
+                    style={{
+                      textAlign: profileTableColAlign("Year Acquired", SUBS_LEFT_COLS),
+                      color: T.body,
+                      fontVariantNumeric: "tabular-nums",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {yearAcquired}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={subsidiary.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: PROFILE_EVENTS_ROW_GRID,
+                  gap: PROFILE_EVENTS_ROW_GAP,
+                  alignItems: "center",
+                  padding: cellPad,
+                  borderBottom: last ? "none" : `1px solid ${T.hair}`,
+                }}
+              >
+                <div
+                  style={{
+                    gridColumn: SUBS_PROFILE_GRID_COL.company,
+                    textAlign: "left",
+                    minWidth: 0,
+                  }}
+                >
+                  {companyCell}
+                </div>
+                <div
+                  style={{
+                    gridColumn: SUBS_PROFILE_GRID_COL.sector,
+                    textAlign: "left",
+                    color: T.muted,
+                    minWidth: 0,
+                  }}
+                >
+                  {sectorLabel(subsidiary)}
+                </div>
+                <div
+                  style={{
+                    gridColumn: SUBS_PROFILE_GRID_COL.country,
+                    textAlign: profileTableColAlign("Country", SUBS_LEFT_COLS),
+                    color: T.body,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {subsidiary._locations?.Country?.trim() || "—"}
+                </div>
+                <div
+                  style={{
+                    gridColumn: SUBS_PROFILE_GRID_COL.yearAcquired,
+                    textAlign: profileTableColAlign("Year Acquired", SUBS_LEFT_COLS),
+                    color: T.body,
+                    fontVariantNumeric: "tabular-nums",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {yearAcquired}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {n > maxInitial ? (

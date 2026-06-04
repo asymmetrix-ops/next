@@ -13,6 +13,7 @@ import {
   KV_LABEL_COL,
   finMetricLabelStyle,
   finMetricRowStyle,
+  finMetricValueColStyle,
   finMetricValueStyle,
   finMetricsBodyPadding,
   finMetricsPeriodHeaderStyle,
@@ -64,7 +65,7 @@ function PeriodHeader({ period }: { period?: string }) {
       }}
     >
       <span />
-      <span style={{ textAlign: "center", justifySelf: "center", width: "100%" }}>
+      <span style={{ textAlign: "right", justifySelf: "stretch", width: "100%" }}>
         {period}
       </span>
       <span style={{ textAlign: "right", justifySelf: "end" }}>Source</span>
@@ -89,17 +90,7 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
       >
         {row.label}
       </span>
-      <span
-        style={{
-          ...finMetricValueStyle,
-          textAlign: "center",
-          justifySelf: "center",
-          width: "100%",
-          wordBreak: "break-word",
-        }}
-      >
-        {row.value}
-      </span>
+      <span style={finMetricValueColStyle}>{row.value}</span>
       <span
         style={{
           ...finMetricLabelStyle,

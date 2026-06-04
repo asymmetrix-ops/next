@@ -4,7 +4,14 @@
  */
 import React, { useState } from "react";
 import Link from "next/link";
-import { LinkPanel, LinkedH, T, tableColHeaderBarStyle } from "./primitives";
+import {
+  LinkPanel,
+  LinkedH,
+  T,
+  profileTableCellStyle,
+  tableColHeaderBarStyle,
+  tableColHeaderStyle,
+} from "./primitives";
 import { LinkedInProfileButton } from "./LinkedInProfileButton";
 
 export type ManagementPerson = {
@@ -36,9 +43,9 @@ function ColHeader() {
         gap: COL_GAP,
       }}
     >
-      <div>Name</div>
-      <div style={{ textAlign: "center" }}>Role</div>
-      <div style={{ textAlign: "center" }}>LinkedIn</div>
+      <div style={tableColHeaderStyle}>Name</div>
+      <div style={{ ...tableColHeaderStyle, textAlign: "left" }}>Role</div>
+      <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>LinkedIn</div>
     </div>
   );
 }
@@ -55,13 +62,14 @@ function PersonRow({
       style={{
         display: "grid",
         gridTemplateColumns: COL,
-        alignItems: "center",
+        alignItems: "start",
         gap: COL_GAP,
         padding: "10px 16px",
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
+        ...profileTableCellStyle,
       }}
     >
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, paddingTop: 1 }}>
         {person.individualId ? (
           <Link
             href={`/individual/${person.individualId}`}
@@ -97,14 +105,22 @@ function PersonRow({
       </div>
       <div
         style={{
-          fontSize: 13,
           color: T.body,
-          textAlign: "center",
+          textAlign: "left",
+          lineHeight: 1.55,
+          minWidth: 0,
+          paddingTop: 1,
         }}
       >
         {person.role || "—"}
       </div>
-      <div style={{ display: "flex", justifyContent: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          paddingTop: 1,
+        }}
+      >
         <LinkedInProfileButton href={person.linkedinUrl} />
       </div>
     </div>
