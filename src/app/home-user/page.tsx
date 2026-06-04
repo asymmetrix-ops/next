@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useRef,
+  type CSSProperties,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
@@ -134,6 +141,54 @@ function getInsightTransactionStatus(article: InsightArticle): string {
     "";
   if (!raw) return "";
   return raw.replace(/^transaction\s+/i, "").trim() || raw;
+}
+
+function dealRadarStageStyle(
+  status: string
+): { pill: CSSProperties; dot: string } {
+  const s = status.toLowerCase();
+  if (s.includes("reported")) {
+    return {
+      pill: { backgroundColor: "#dcfce7", color: "#166534" },
+      dot: "#22c55e",
+    };
+  }
+  if (s.includes("rumoured") || s.includes("rumored")) {
+    return {
+      pill: { backgroundColor: "#fef9c3", color: "#854d0e" },
+      dot: "#eab308",
+    };
+  }
+  return {
+    pill: { backgroundColor: "#dbeafe", color: "#1e40af" },
+    dot: "#3b82f6",
+  };
+}
+
+function dealRadarStageLabel(status: string): string {
+  const s = status.toLowerCase();
+  if (s.includes("reported")) return "Reported";
+  if (s.includes("rumoured") || s.includes("rumored")) return "Rumoured";
+  if (s.includes("anticipated")) return "Anticipated";
+  return status;
+}
+
+function transactionStatusPillStyle(status: string): CSSProperties {
+  const { pill, dot } = dealRadarStageStyle(status);
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    fontSize: 11,
+    lineHeight: 1,
+    padding: "5px 10px",
+    borderRadius: 9999,
+    fontWeight: 700,
+    letterSpacing: "0.03em",
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+    border: `1.5px solid ${dot}`,
+    ...pill,
+  };
 }
 
 import {
@@ -516,36 +571,6 @@ export default function HomeUserPage() {
 
   const DEAL_RADAR_PAGE_LIMIT = 25;
   const DEAL_RADAR_SCROLL_THRESHOLD_PX = 48;
-
-  const dealRadarStageLabel = (status: string): string => {
-    const s = status.toLowerCase();
-    if (s.includes("reported")) return "Reported";
-    if (s.includes("rumoured") || s.includes("rumored")) return "Rumoured";
-    if (s.includes("anticipated")) return "Anticipated";
-    return status;
-  };
-
-  const dealRadarStageStyle = (
-    status: string
-  ): { pill: React.CSSProperties; dot: string } => {
-    const s = status.toLowerCase();
-    if (s.includes("reported")) {
-      return {
-        pill: { backgroundColor: "#dcfce7", color: "#166534" },
-        dot: "#22c55e",
-      };
-    }
-    if (s.includes("rumoured") || s.includes("rumored")) {
-      return {
-        pill: { backgroundColor: "#fef9c3", color: "#854d0e" },
-        dot: "#eab308",
-      };
-    }
-    return {
-      pill: { backgroundColor: "#dbeafe", color: "#1e40af" },
-      dot: "#3b82f6",
-    };
-  };
 
   const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>([]);
   const [dealRadarNextOffset, setDealRadarNextOffset] = useState<number | null>(
@@ -2091,23 +2116,7 @@ export default function HomeUserPage() {
                             {(() => {
                               const ts = getInsightTransactionStatus(article);
                               return ts ? (
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    fontSize: 11,
-                                    lineHeight: 1,
-                                    padding: "5px 10px",
-                                    borderRadius: 9999,
-                                    fontWeight: 700,
-                                    letterSpacing: "0.03em",
-                                    textTransform: "uppercase",
-                                    backgroundColor: "#dcfce7",
-                                    color: "#166534",
-                                    border: "1.5px solid #4ade80",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
+                                <span style={transactionStatusPillStyle(ts)}>
                                   {ts}
                                 </span>
                               ) : null;
