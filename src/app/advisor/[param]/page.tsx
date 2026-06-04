@@ -654,7 +654,7 @@ export default function AdvisorProfilePage() {
       const date = new Date().toISOString().slice(0, 10);
       const namePart = safeNamePart(advisorName) || `advisor-${advisorId}`;
       a.download = `${namePart}-${date}.pdf`;
-      a.click();
+    a.click();
       URL.revokeObjectURL(urlObj);
       void trackEvent({
         eventType: "download_pdf",

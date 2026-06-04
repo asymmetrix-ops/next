@@ -1819,7 +1819,7 @@ export default function HomeUserPage() {
             </div>
             <div
               ref={dealRadarScrollRef}
-              className="min-h-0 min-w-0 overflow-y-auto overflow-x-auto"
+              className="min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
             >
               {dealRadarLoading ? (
                 <div className="p-4 space-y-3">
@@ -1836,22 +1836,22 @@ export default function HomeUserPage() {
                   ))}
                 </div>
               ) : dealRadarItems.length > 0 ? (
-                <div className="min-w-full">
+                <div className="min-w-0 w-full">
                     <table className="w-full table-fixed">
                       <colgroup>
+                        <col style={{ width: "32%" }} />
                         <col style={{ width: "38%" }} />
-                        <col style={{ width: "42%" }} />
-                        <col style={{ width: "20%" }} />
+                        <col style={{ width: "30%" }} />
                       </colgroup>
                       <thead className="sticky top-0 z-10 bg-gray-50">
                         <tr>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Company
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="pl-2 pr-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Sector
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-right text-gray-500 uppercase bg-gray-50">
+                          <th className="px-2 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase bg-gray-50">
                             Stage
                           </th>
                         </tr>
@@ -1867,7 +1867,7 @@ export default function HomeUserPage() {
                               key={item.companyId}
                               className="align-top hover:bg-gray-50"
                             >
-                              <td className="px-4 py-4 min-w-0 align-top">
+                              <td className="px-3 py-3 min-w-0 align-top">
                                 <div className="space-y-1 min-w-0">
                                   <a
                                     href={`/company/${item.companyId}`}
@@ -1919,7 +1919,7 @@ export default function HomeUserPage() {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-4 min-w-0 text-sm text-gray-700 align-top break-words">
+                              <td className="pl-2 pr-3 py-3 min-w-0 text-sm text-gray-700 align-top break-words">
                                 {item.primarySectors.length > 0 ? (
                                   item.primarySectors.map((sector, idx) => (
                                     <span key={`${sector.id}-${sector.name}-${idx}`}>
@@ -1956,9 +1956,9 @@ export default function HomeUserPage() {
                                   "—"
                                 )}
                               </td>
-                              <td className="px-4 py-4 text-right align-top whitespace-nowrap">
+                              <td className="px-2 py-3 text-right align-top whitespace-nowrap">
                                 <span
-                                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap"
+                                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium whitespace-nowrap"
                                   style={stageStyle.pill}
                                 >
                                   <span
