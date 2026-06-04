@@ -176,7 +176,7 @@ class DashboardApiService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   constructor() {
-    this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr:develop";
+    this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr";
   }
 
   // Make authenticated API request
@@ -208,18 +208,30 @@ class DashboardApiService {
   }
 
   // Dashboard specific endpoints
-  async getAllContentArticlesHome(filters?: {
-    search?: string;
-    portfolioOnly?: boolean;
-  }): Promise<ApiResponse<Record<string, unknown>[]>> {
-    const params = new URLSearchParams({
-      search: filters?.search ?? "",
-      portfolio_only: String(filters?.portfolioOnly ?? false),
+  async getAllContentArticlesHome(): Promise<unknown> {
+    const url =
+      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/All_Content_Articles_home";
+
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Data-Source": "live",
+      ...authService.getAuthHeaders(),
+    };
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      cache: "no-store",
     });
 
-    return this.request<Record<string, unknown>[]>(
-      `/All_Content_Articles_home?${params.toString()}`
-    );
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Authentication required");
+      }
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+
+    return response.json();
   }
 
   async getCorporateEvents(filters?: {

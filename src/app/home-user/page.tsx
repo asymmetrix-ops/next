@@ -116,10 +116,24 @@ interface InsightArticle {
     };
     _is_that_investor: boolean;
   }>;
+  Transaction_status?: string;
+  transaction_status?: string;
   Company_of_Focus?: Array<{
     id?: number;
     Transaction_status?: string;
   }>;
+}
+
+function getInsightTransactionStatus(article: InsightArticle): string {
+  const top = (article.Transaction_status || article.transaction_status || "")
+    .trim();
+  const raw =
+    top ||
+    article.Company_of_Focus?.find((c) => c?.Transaction_status)
+      ?.Transaction_status?.trim() ||
+    "";
+  if (!raw) return "";
+  return raw.replace(/^transaction\s+/i, "").trim() || raw;
 }
 
 import {
@@ -1155,20 +1169,19 @@ export default function HomeUserPage() {
     try {
       setInsightsArticlesLoading(true);
 
-      const insightsResponse = await dashboardApiService.getAllContentArticlesHome(
-        {
-          search: "",
-          portfolioOnly: false,
-        }
-      );
+      const insightsResponse =
+        await dashboardApiService.getAllContentArticlesHome();
 
       let insightsData: InsightArticle[] = [];
-      const responseValue = insightsResponse as unknown as Record<string, unknown>;
-
-      if (responseValue.data) {
-        insightsData = responseValue.data as InsightArticle[];
-      } else if (Array.isArray(responseValue)) {
-        insightsData = responseValue as InsightArticle[];
+      if (Array.isArray(insightsResponse)) {
+        insightsData = insightsResponse as InsightArticle[];
+      } else if (insightsResponse && typeof insightsResponse === "object") {
+        const wrapped = insightsResponse as Record<string, unknown>;
+        if (Array.isArray(wrapped.data)) {
+          insightsData = wrapped.data as InsightArticle[];
+        } else if (Array.isArray(wrapped.items)) {
+          insightsData = wrapped.items as InsightArticle[];
+        }
       }
 
       setInsightsArticles(insightsData || []);
@@ -2068,65 +2081,62 @@ export default function HomeUserPage() {
                         className="p-4 rounded-xl border border-blue-100 bg-white shadow-sm hover:shadow transition-shadow"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <span
-                            className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-lg border"
-                            style={contentTypeBadgeStyle(ct)}
-                          >
-                            {ct || "Insight"}
-                          </span>
-                          <span className="text-xs text-gray-500">
+                          <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            <span
+                              className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-lg border"
+                              style={contentTypeBadgeStyle(ct)}
+                            >
+                              {ct || "Insight"}
+                            </span>
+                            {(() => {
+                              const ts = getInsightTransactionStatus(article);
+                              return ts ? (
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    fontSize: 11,
+                                    lineHeight: 1,
+                                    padding: "5px 10px",
+                                    borderRadius: 9999,
+                                    fontWeight: 700,
+                                    letterSpacing: "0.03em",
+                                    textTransform: "uppercase",
+                                    backgroundColor: "#dcfce7",
+                                    color: "#166534",
+                                    border: "1.5px solid #4ade80",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {ts}
+                                </span>
+                              ) : null;
+                            })()}
+                          </div>
+                          <span className="text-xs text-gray-500 shrink-0">
                             {formatDate(article.Publication_Date)}
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-start gap-x-3 gap-y-2 mt-3">
-                          <a
-                            href={href}
-                            className="min-w-0 flex-1 text-sm font-semibold text-gray-900 hover:text-blue-700"
-                            onClick={(e) => {
-                              if (
-                                e.defaultPrevented ||
-                                e.button !== 0 ||
-                                e.metaKey ||
-                                e.ctrlKey ||
-                                e.shiftKey ||
-                                e.altKey
-                              )
-                                return;
-                              e.preventDefault();
-                              router.push(href);
-                            }}
-                          >
-                            {article.Headline}
-                          </a>
-
-                          {(() => {
-                            const ts = article.Company_of_Focus?.find(
-                              (c) => c?.Transaction_status
-                            )?.Transaction_status;
-                            return ts ? (
-                              <span
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  fontSize: 11,
-                                  lineHeight: 1,
-                                  padding: "5px 10px",
-                                  borderRadius: 9999,
-                                  fontWeight: 700,
-                                  letterSpacing: "0.03em",
-                                  textTransform: "uppercase",
-                                  backgroundColor: "#dcfce7",
-                                  color: "#166534",
-                                  border: "1.5px solid #4ade80",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {ts}
-                              </span>
-                            ) : null;
-                          })()}
-                        </div>
+                        <a
+                          href={href}
+                          className="block mt-3 text-sm font-semibold text-gray-900 hover:text-blue-700"
+                          onClick={(e) => {
+                            if (
+                              e.defaultPrevented ||
+                              e.button !== 0 ||
+                              e.metaKey ||
+                              e.ctrlKey ||
+                              e.shiftKey ||
+                              e.altKey
+                            )
+                              return;
+                            e.preventDefault();
+                            router.push(href);
+                          }}
+                        >
+                          {article.Headline}
+                        </a>
 
                         {article.Strapline ? (
                           <p className="mt-2 text-xs leading-5 text-gray-600 line-clamp-3">
