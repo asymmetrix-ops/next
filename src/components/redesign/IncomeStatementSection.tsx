@@ -4,12 +4,11 @@ import React from "react";
 import {
   LinkedH,
   T,
-  finMetricRowStyle,
+  FIN_METRIC_VALUE_CLASS,
   finMetricLabelStyle,
-  finMetricValueColStyle,
+  finMetricValueStyle,
   finMetricsPeriodHeaderStyle,
   finMetricsBodyPadding,
-  FIN_METRIC_TWO_COLS,
 } from "./primitives";
 
 export type IncomeStatementRow = {
@@ -32,61 +31,42 @@ function formatIncomeValue(value: number | null | undefined): string {
   return Math.round(value / 1_000_000).toLocaleString();
 }
 
-function IsPeriodHeader({ period }: { period: string }) {
-  return (
-    <div
-      className="income-statement-period"
-      style={{
-        display: "grid",
-        gridTemplateColumns: FIN_METRIC_TWO_COLS,
-        gap: 8,
-        alignItems: "center",
-        padding: "4px 12px 3px",
-        background: T.paper,
-        borderBottom: `1px solid ${T.hair}`,
-        ...finMetricsPeriodHeaderStyle,
-      }}
-    >
-      <span />
-      <span style={{ textAlign: "right", justifySelf: "stretch", width: "100%" }}>
-        {period}
-      </span>
-    </div>
-  );
+function formatPeriod(period?: string): string {
+  return (period || "").replace(/[,\s]/g, "") || "—";
 }
 
-function IsMetricRow({
-  label,
-  value,
-  last,
-}: {
+const INCOME_METRICS: {
   label: string;
-  value: string;
-  last: boolean;
-}) {
-  return (
-    <div
-      className="info-row income-statement-row"
-      style={{
-        ...finMetricRowStyle,
-        gridTemplateColumns: FIN_METRIC_TWO_COLS,
-        borderBottom: last ? "none" : finMetricRowStyle.borderBottom,
-      }}
-    >
-      <span
-        style={{
-          ...finMetricLabelStyle,
-          whiteSpace: "normal",
-          lineHeight: 1.35,
-          paddingRight: 8,
-        }}
-      >
-        {label}
-      </span>
-      <span style={finMetricValueColStyle}>{value}</span>
-    </div>
-  );
-}
+  getValue: (row: IncomeStatementRow) => string;
+}[] = [
+  { label: "Revenue (m)", getValue: (row) => formatIncomeValue(row.revenue) },
+  { label: "EBIT (m)", getValue: (row) => formatIncomeValue(row.ebit) },
+  { label: "EBITDA (m)", getValue: (row) => formatIncomeValue(row.ebitda) },
+];
+
+const thStyle: React.CSSProperties = {
+  ...finMetricsPeriodHeaderStyle,
+  padding: "4px 8px 3px",
+  textAlign: "center",
+  fontWeight: 500,
+  verticalAlign: "bottom",
+};
+
+const tdLabelStyle: React.CSSProperties = {
+  ...finMetricLabelStyle,
+  padding: "4px 8px 4px 0",
+  textAlign: "left",
+  whiteSpace: "normal",
+  lineHeight: 1.35,
+  verticalAlign: "middle",
+};
+
+const tdValueStyle: React.CSSProperties = {
+  ...finMetricValueStyle,
+  padding: "4px 8px",
+  textAlign: "center",
+  verticalAlign: "middle",
+};
 
 export function IncomeStatementTable({
   rows,
@@ -97,31 +77,66 @@ export function IncomeStatementTable({
   if (rows.length === 0) return null;
 
   return (
-    <div className="income-statement-table">
-      {rows.map((row) => {
-        const period =
-          (row.period_display_end_date || "").replace(/[,\s]/g, "") || "—";
-        const metrics = [
-          { label: "Revenue (m)", value: formatIncomeValue(row.revenue) },
-          { label: "EBIT (m)", value: formatIncomeValue(row.ebit) },
-          { label: "EBITDA (m)", value: formatIncomeValue(row.ebitda) },
-        ];
-        return (
-          <div key={row.id}>
-            <IsPeriodHeader period={period} />
-            <div style={{ padding: finMetricsBodyPadding }}>
-              {metrics.map((m, i) => (
-                <IsMetricRow
-                  key={m.label}
-                  label={m.label}
-                  value={m.value}
-                  last={i === metrics.length - 1}
-                />
+    <div
+      className="income-statement-table"
+      style={{ padding: finMetricsBodyPadding, width: "100%", minWidth: 0 }}
+    >
+      <table
+        className="income-statement-grid"
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          tableLayout: "fixed",
+        }}
+      >
+        <colgroup>
+          <col style={{ width: "38%" }} />
+          {rows.map((row) => (
+            <col key={row.id} style={{ width: `${62 / rows.length}%` }} />
+          ))}
+        </colgroup>
+        <thead>
+          <tr
+            className="income-statement-period"
+            style={{
+              background: T.paper,
+              borderBottom: `1px solid ${T.hair}`,
+            }}
+          >
+            <th style={{ ...thStyle, textAlign: "left", paddingLeft: 0 }} />
+            {rows.map((row) => (
+              <th key={row.id} style={thStyle}>
+                {formatPeriod(row.period_display_end_date)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {INCOME_METRICS.map((metric, metricIndex) => (
+            <tr
+              key={metric.label}
+              className="income-statement-row"
+              style={{
+                borderBottom:
+                  metricIndex === INCOME_METRICS.length - 1
+                    ? "none"
+                    : `1px solid ${T.hair}`,
+              }}
+            >
+              <td style={tdLabelStyle}>{metric.label}</td>
+              {rows.map((row) => (
+                <td
+                  key={`${row.id}-${metric.label}`}
+                  className={FIN_METRIC_VALUE_CLASS}
+                  style={tdValueStyle}
+                >
+                  {metric.getValue(row)}
+                </td>
               ))}
-            </div>
-          </div>
-        );
-      })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

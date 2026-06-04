@@ -44,7 +44,7 @@ function ColHeader() {
       }}
     >
       <div style={tableColHeaderStyle}>Name</div>
-      <div style={{ ...tableColHeaderStyle, textAlign: "left" }}>Role</div>
+      <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>Role</div>
       <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>LinkedIn</div>
     </div>
   );
@@ -69,7 +69,7 @@ function PersonRow({
         ...profileTableCellStyle,
       }}
     >
-      <div style={{ minWidth: 0, paddingTop: 1 }}>
+      <div style={{ minWidth: 0, paddingTop: 1, textAlign: "left" }}>
         {person.individualId ? (
           <Link
             href={`/individual/${person.individualId}`}
@@ -83,6 +83,7 @@ function PersonRow({
               overflow: "hidden",
               textOverflow: "ellipsis",
               display: "block",
+              textAlign: "left",
             }}
           >
             {person.name}
@@ -97,6 +98,7 @@ function PersonRow({
               overflow: "hidden",
               textOverflow: "ellipsis",
               display: "block",
+              textAlign: "left",
             }}
           >
             {person.name}
@@ -106,7 +108,7 @@ function PersonRow({
       <div
         style={{
           color: T.body,
-          textAlign: "left",
+          textAlign: "center",
           lineHeight: 1.55,
           minWidth: 0,
           paddingTop: 1,

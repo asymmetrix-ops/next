@@ -103,8 +103,6 @@ const HEADERS = [
   "Year Acquired",
 ] as const;
 
-const SUBS_LEFT_COLS = ["Company", "Sector"] as const;
-
 const SUBS_COL_GRID_NARROW =
   "minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(72px, auto)";
 
@@ -196,9 +194,9 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
     const cellPad = narrow ? "10px 8px" : PROFILE_EVENTS_ROW_PAD.body;
     const headerPad = narrow ? "8px 8px" : PROFILE_EVENTS_ROW_PAD.header;
 
-    const subsHeaderCell = (label: (typeof HEADERS)[number]) => ({
+    const subsHeaderCell = (colIndex: number) => ({
       ...tableColHeaderStyle,
-      textAlign: profileTableColAlign(label, SUBS_LEFT_COLS),
+      textAlign: profileTableColAlign(colIndex),
     });
 
     return (
@@ -226,25 +224,25 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
             }}
           >
             {narrow ? (
-              headers.map((h) => (
-                <div key={h} style={subsHeaderCell(h)}>
+              headers.map((h, colIndex) => (
+                <div key={h} style={subsHeaderCell(colIndex)}>
                   {h}
                 </div>
               ))
             ) : (
               <>
-                <div style={{ ...subsHeaderCell("Company"), gridColumn: SUBS_PROFILE_GRID_COL.company }}>
+                <div style={{ ...subsHeaderCell(0), gridColumn: SUBS_PROFILE_GRID_COL.company }}>
                   Company
                 </div>
-                <div style={{ ...subsHeaderCell("Sector"), gridColumn: SUBS_PROFILE_GRID_COL.sector }}>
+                <div style={{ ...subsHeaderCell(1), gridColumn: SUBS_PROFILE_GRID_COL.sector }}>
                   Sector
                 </div>
-                <div style={{ ...subsHeaderCell("Country"), gridColumn: SUBS_PROFILE_GRID_COL.country }}>
+                <div style={{ ...subsHeaderCell(2), gridColumn: SUBS_PROFILE_GRID_COL.country }}>
                   Country
                 </div>
                 <div
                   style={{
-                    ...subsHeaderCell("Year Acquired"),
+                    ...subsHeaderCell(3),
                     gridColumn: SUBS_PROFILE_GRID_COL.yearAcquired,
                   }}
                 >
@@ -266,6 +264,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                 style={{
                   display: "flex",
                   alignItems: "center",
+                  justifyContent: "flex-start",
                   gap: narrow ? 8 : 10,
                   minWidth: 0,
                 }}
@@ -310,10 +309,17 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     borderBottom: last ? "none" : `1px solid ${T.hair}`,
                   }}
                 >
-                  <div style={{ textAlign: "left", minWidth: 0 }}>{companyCell}</div>
                   <div
                     style={{
-                      textAlign: "left",
+                      textAlign: profileTableColAlign(0),
+                      minWidth: 0,
+                    }}
+                  >
+                    {companyCell}
+                  </div>
+                  <div
+                    style={{
+                      textAlign: profileTableColAlign(1),
                       color: T.muted,
                       minWidth: 0,
                       overflow: "hidden",
@@ -325,7 +331,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                   </div>
                   <div
                     style={{
-                      textAlign: profileTableColAlign("Country", SUBS_LEFT_COLS),
+                      textAlign: profileTableColAlign(2),
                       color: T.body,
                       whiteSpace: "nowrap",
                     }}
@@ -334,7 +340,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                   </div>
                   <div
                     style={{
-                      textAlign: profileTableColAlign("Year Acquired", SUBS_LEFT_COLS),
+                      textAlign: profileTableColAlign(3),
                       color: T.body,
                       fontVariantNumeric: "tabular-nums",
                       whiteSpace: "nowrap",
@@ -361,7 +367,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                 <div
                   style={{
                     gridColumn: SUBS_PROFILE_GRID_COL.company,
-                    textAlign: "left",
+                    textAlign: profileTableColAlign(0),
                     minWidth: 0,
                   }}
                 >
@@ -370,7 +376,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                 <div
                   style={{
                     gridColumn: SUBS_PROFILE_GRID_COL.sector,
-                    textAlign: "left",
+                    textAlign: profileTableColAlign(1),
                     color: T.muted,
                     minWidth: 0,
                   }}
@@ -380,7 +386,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                 <div
                   style={{
                     gridColumn: SUBS_PROFILE_GRID_COL.country,
-                    textAlign: profileTableColAlign("Country", SUBS_LEFT_COLS),
+                    textAlign: profileTableColAlign(2),
                     color: T.body,
                     whiteSpace: "nowrap",
                   }}
@@ -390,7 +396,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                 <div
                   style={{
                     gridColumn: SUBS_PROFILE_GRID_COL.yearAcquired,
-                    textAlign: profileTableColAlign("Year Acquired", SUBS_LEFT_COLS),
+                    textAlign: profileTableColAlign(3),
                     color: T.body,
                     fontVariantNumeric: "tabular-nums",
                     whiteSpace: "nowrap",

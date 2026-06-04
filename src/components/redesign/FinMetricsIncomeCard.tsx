@@ -13,8 +13,9 @@ import {
   KV_LABEL_COL,
   finMetricLabelStyle,
   finMetricRowStyle,
+  finMetricPeriodColStyle,
+  FIN_METRIC_VALUE_CLASS,
   finMetricValueColStyle,
-  finMetricValueStyle,
   finMetricsBodyPadding,
   finMetricsPeriodHeaderStyle,
   FIN_METRIC_GRID_COLS,
@@ -65,10 +66,19 @@ function PeriodHeader({ period }: { period?: string }) {
       }}
     >
       <span />
-      <span style={{ textAlign: "right", justifySelf: "stretch", width: "100%" }}>
-        {period}
+      <span />
+      <span style={finMetricPeriodColStyle}>{period}</span>
+      <span />
+      <span
+        style={{
+          ...finMetricLabelStyle,
+          textAlign: "right",
+          justifySelf: "end",
+          whiteSpace: "nowrap",
+        }}
+      >
+        Source
       </span>
-      <span style={{ textAlign: "right", justifySelf: "end" }}>Source</span>
     </div>
   );
 }
@@ -90,7 +100,11 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
       >
         {row.label}
       </span>
-      <span style={finMetricValueColStyle}>{row.value}</span>
+      <span />
+      <span className={FIN_METRIC_VALUE_CLASS} style={finMetricValueColStyle}>
+        {row.value}
+      </span>
+      <span />
       <span
         style={{
           ...finMetricLabelStyle,
@@ -187,8 +201,16 @@ function BenchmarkTabBody({ data }: { data: BenchmarkPeersData }) {
             }}
           >
             <div style={finMetricLabelStyle}>{row.label}</div>
-            <div style={{ ...finMetricValueStyle, textAlign: "right" }}>{row.companyValue}</div>
-            <div style={{ ...finMetricValueStyle, textAlign: "right", color: T.muted }}>
+            <div
+              className={FIN_METRIC_VALUE_CLASS}
+              style={{ ...finMetricValueColStyle, textAlign: "center" }}
+            >
+              {row.companyValue}
+            </div>
+            <div
+              className={FIN_METRIC_VALUE_CLASS}
+              style={{ ...finMetricValueColStyle, textAlign: "center", color: T.muted }}
+            >
               {row.peerMedian}
             </div>
             <div style={{ textAlign: "center" }}>

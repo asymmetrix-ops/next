@@ -3324,70 +3324,98 @@ const CompanyDetail = () => {
     .fin-tab-scroll::-webkit-scrollbar {
       display: none;
     }
-    .desktop-financial-metrics .info-row {
+    .desktop-financial-metrics .info-row:not(.income-statement-row) {
       padding: 4px 0 !important;
-      grid-template-columns: minmax(118px, 138px) minmax(0, 1fr) minmax(52px, auto) !important;
+      grid-template-columns: minmax(118px, 138px) 1fr minmax(72px, max-content) 1fr minmax(52px, auto) !important;
       column-gap: 8px !important;
       align-items: center !important;
     }
-    .desktop-financial-metrics .info-row > :nth-child(2) {
-      min-width: 0;
-      text-align: right !important;
-      justify-self: stretch !important;
-      width: 100%;
+    .desktop-financial-metrics .fin-metric-value,
+    .mobile-financial-metrics .fin-metric-value {
+      font-family: ${T.sans} !important;
       font-size: 13px !important;
       line-height: 1.55 !important;
       font-weight: 400 !important;
       color: ${T.body} !important;
-      font-variant-numeric: tabular-nums !important;
     }
-    .desktop-financial-metrics .info-row > :nth-child(1),
-    .desktop-financial-metrics .info-row > :nth-child(3) {
+    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3) {
+      min-width: 0;
+      text-align: center !important;
+      justify-self: center !important;
+      width: 100%;
+    }
+    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(1) {
+      text-align: left !important;
+      justify-self: start !important;
       font-size: 13px !important;
       line-height: 1.35 !important;
       font-weight: 400 !important;
     }
-    .mobile-financial-metrics .info-row {
+    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
+      font-size: 13px !important;
+      line-height: 1.35 !important;
+      font-weight: 400 !important;
+    }
+    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
+      text-align: right !important;
+      justify-self: end !important;
+    }
+    .mobile-financial-metrics .info-row:not(.income-statement-row) {
       padding: 4px 0 !important;
-      grid-template-columns: minmax(118px, 138px) minmax(0, 1fr) minmax(52px, auto) !important;
+      grid-template-columns: minmax(118px, 138px) 1fr minmax(72px, max-content) 1fr minmax(52px, auto) !important;
       column-gap: 8px !important;
       align-items: center !important;
     }
-    .mobile-financial-metrics .info-row > :nth-child(2) {
+    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3) {
       min-width: 0;
-      text-align: right !important;
-      justify-self: stretch !important;
+      text-align: center !important;
+      justify-self: center !important;
       width: 100%;
-      font-size: 13px !important;
-      line-height: 1.55 !important;
-      font-weight: 400 !important;
-      color: ${T.body} !important;
-      font-variant-numeric: tabular-nums !important;
     }
-    .mobile-financial-metrics .info-row > :nth-child(1),
-    .mobile-financial-metrics .info-row > :nth-child(3) {
+    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(1) {
+      text-align: left !important;
+      justify-self: start !important;
       font-size: 13px !important;
       line-height: 1.35 !important;
       font-weight: 400 !important;
     }
-    /* Income Statement — two columns (label | value), same axis as Financial Metrics */
-    .desktop-financial-metrics .income-statement-row,
-    .desktop-financial-metrics .income-statement-period {
-      grid-template-columns: minmax(118px, 138px) minmax(0, 1fr) !important;
+    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
+      font-size: 13px !important;
+      line-height: 1.35 !important;
+      font-weight: 400 !important;
     }
-    .mobile-financial-metrics .income-statement-row,
-    .mobile-financial-metrics .income-statement-period {
-      grid-template-columns: minmax(118px, 138px) minmax(0, 1fr) !important;
-    }
-    .desktop-financial-metrics .income-statement-period > :nth-child(2),
-    .mobile-financial-metrics .income-statement-period > :nth-child(2) {
+    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
       text-align: right !important;
-      justify-self: stretch !important;
+      justify-self: end !important;
+    }
+    /* Income Statement — table layout; year headers align with values */
+    .desktop-financial-metrics .income-statement-grid th,
+    .mobile-financial-metrics .income-statement-grid th {
+      font-family: ${T.sans} !important;
+    }
+    .desktop-financial-metrics .income-statement-grid td,
+    .mobile-financial-metrics .income-statement-grid td {
+      font-family: ${T.sans} !important;
+    }
+    .desktop-financial-metrics .income-statement-grid th,
+    .mobile-financial-metrics .income-statement-grid th {
       font-size: 10px !important;
       font-weight: 500 !important;
       color: ${T.muted} !important;
       text-transform: uppercase !important;
       letter-spacing: 0.35px !important;
+      text-align: center !important;
+    }
+    .desktop-financial-metrics .income-statement-grid td:first-child,
+    .mobile-financial-metrics .income-statement-grid td:first-child {
+      color: ${T.muted} !important;
+      font-size: 13px !important;
+      line-height: 1.35 !important;
+      text-align: left !important;
+    }
+    .desktop-financial-metrics .income-statement-grid td:not(:first-child),
+    .mobile-financial-metrics .income-statement-grid td:not(:first-child) {
+      text-align: center !important;
     }
     /* Corporate Events styles (mirrors corporate-events list page) */
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
