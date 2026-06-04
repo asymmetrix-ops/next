@@ -1,3 +1,5 @@
+const XANO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
+
 export type PortfolioFollowKey =
   | "followed_companies"
   | "followed_advisors"
@@ -5,36 +7,38 @@ export type PortfolioFollowKey =
   | "followed_sectors"
   | "followed_individuals";
 
-type FollowArgs = {
-  followKey: PortfolioFollowKey;
-  entityId: number;
+export const FOLLOW_KEY_TO_ENTITY_TYPE: Record<PortfolioFollowKey, string> = {
+  followed_companies: "company",
+  followed_advisors: "advisor",
+  followed_investors: "investor",
+  followed_sectors: "sector",
+  followed_individuals: "individual",
 };
 
-type UnfollowArgs = {
-  followKey: PortfolioFollowKey;
-  entityId: number;
-};
+function getToken(): string | null {
+  return typeof window !== "undefined"
+    ? localStorage.getItem("asymmetrix_auth_token")
+    : null;
+}
 
-export async function followPortfolioEntity({ followKey, entityId }: FollowArgs) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("asymmetrix_auth_token")
-      : null;
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  };
-  if (token) {
-    headers["x-asym-token"] = token;
-    headers["Authorization"] = `Bearer ${token}`;
+async function xanoRequest(
+  path: string,
+  method: string,
+  body?: Record<string, unknown>
+): Promise<unknown> {
+  const token = getToken();
+  if (!token) {
+    throw Object.assign(new Error("Please sign in to follow."), { status: 401 });
   }
 
-  const res = await fetch("/api/portfolio", {
-    method: "POST",
-    headers,
-    credentials: "include",
-    body: JSON.stringify({ [followKey]: entityId }),
+  const res = await fetch(`${XANO_BASE}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
 
   const text = await res.text().catch(() => "");
@@ -46,55 +50,38 @@ export async function followPortfolioEntity({ followKey, entityId }: FollowArgs)
   }
 
   if (!res.ok) {
-    const err = new Error(`Follow failed: ${res.status} ${res.statusText}`);
-    (err as Error & { status?: number; data?: unknown }).status = res.status;
-    (err as Error & { status?: number; data?: unknown }).data = data;
-    throw err;
+    throw Object.assign(
+      new Error(`Request failed: ${res.status} ${res.statusText}`),
+      { status: res.status, data }
+    );
   }
-
   return data;
+}
+
+export async function followPortfolioEntity({
+  followKey,
+  entityId,
+}: {
+  followKey: PortfolioFollowKey;
+  entityId: number;
+}) {
+  const entity_type = FOLLOW_KEY_TO_ENTITY_TYPE[followKey];
+  return xanoRequest("/portfolio/entities", "POST", {
+    entity_type,
+    entity_id: entityId,
+  });
 }
 
 export async function unfollowPortfolioEntity({
   followKey,
   entityId,
-}: UnfollowArgs) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("asymmetrix_auth_token")
-      : null;
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  };
-  if (token) {
-    headers["x-asym-token"] = token;
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const res = await fetch("/api/portfolio", {
-    method: "POST",
-    headers,
-    credentials: "include",
-    body: JSON.stringify({ [followKey]: entityId }),
+}: {
+  followKey: PortfolioFollowKey;
+  entityId: number;
+}) {
+  const entity_type = FOLLOW_KEY_TO_ENTITY_TYPE[followKey];
+  return xanoRequest("/portfolio/entities/remove", "PATCH", {
+    entity_type,
+    entity_id: entityId,
   });
-
-  const text = await res.text().catch(() => "");
-  let data: unknown = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-
-  if (!res.ok) {
-    const err = new Error(`Unfollow failed: ${res.status} ${res.statusText}`);
-    (err as Error & { status?: number; data?: unknown }).status = res.status;
-    (err as Error & { status?: number; data?: unknown }).data = data;
-    throw err;
-  }
-
-  return data;
 }
-

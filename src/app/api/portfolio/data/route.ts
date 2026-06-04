@@ -98,15 +98,19 @@ async function getUserIdFromToken(token: string) {
 async function proxyPortfolioData(
   token: string,
   userId: number,
-  search: string | null
+  search: string | null,
+  userListId: string | null
 ) {
   // Xano routes are method-specific; calling the wrong method often returns 404 (not 405).
   // Spec for this endpoint indicates GET, with user_id + optional search.
   const qs = new URLSearchParams();
   qs.set("user_id", String(userId));
   if (search) qs.set("search", search);
+  if (userListId) {
+    qs.set("user_lists_id", userListId);
+  }
   const upstreamGetUrls = XANO_PORTFOLIO_BASE_URLS.map(
-    (b) => `${b}/portfolio/data?${qs.toString()}`
+    (b) => `${b}/list/data?${qs.toString()}`
   );
 
   const getResp = await fetchWithAuthFallback(upstreamGetUrls, token, {
@@ -121,9 +125,12 @@ async function proxyPortfolioData(
     const payload: Record<string, unknown> = {
       user_id: userId,
       ...(search ? { search } : {}),
+      ...(userListId
+        ? { user_lists_id: Number.parseInt(userListId, 10) }
+        : {}),
     };
 
-    const upstreamPostUrls = upstreamBaseUrlsWithPath("/portfolio/data");
+    const upstreamPostUrls = upstreamBaseUrlsWithPath("/list/data");
     return fetchWithAuthFallback(upstreamPostUrls, token, {
       method: "POST",
       body: JSON.stringify(payload),
@@ -150,6 +157,10 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const search = toNonEmptyString(url.searchParams.get("search"));
+    const userListId =
+      toNonEmptyString(url.searchParams.get("user_lists_id")) ||
+      toNonEmptyString(url.searchParams.get("user_list_id")) ||
+      toNonEmptyString(url.searchParams.get("user_portfolio_id"));
 
     const userIdResult = await getUserIdFromToken(token);
     if (!userIdResult.ok) {
@@ -166,7 +177,8 @@ export async function GET(req: Request) {
     const upstreamResp = await proxyPortfolioData(
       token,
       userIdResult.userId,
-      search
+      search,
+      userListId
     );
 
     const text = await upstreamResp.text().catch(() => "");

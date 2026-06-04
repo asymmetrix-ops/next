@@ -66,7 +66,7 @@ export async function GET(
 
     // GET must not include a body (fetch/Next will throw).
     let upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/user_portfolio/${userPortfolioId}?${query}`,
+      `${XANO_PORTFOLIO_BASE}/user_list/${userPortfolioId}?${query}`,
       token,
       { method: "GET" }
     );
@@ -74,7 +74,7 @@ export async function GET(
     // Some Xano stacks expect POST with JSON body instead of GET.
     if (!upstream.ok && (upstream.status === 404 || upstream.status === 405)) {
       upstream = await fetchWithAuth(
-        `${XANO_PORTFOLIO_BASE}/user_portfolio/${userPortfolioId}`,
+        `${XANO_PORTFOLIO_BASE}/user_list/${userPortfolioId}`,
         token,
         {
           method: "POST",
@@ -141,7 +141,7 @@ export async function PATCH(
     }
 
     const upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/portfolios/${portfolioId}`,
+      `${XANO_PORTFOLIO_BASE}/lists/${portfolioId}`,
       token,
       {
         method: "PATCH",
@@ -196,7 +196,7 @@ export async function DELETE(
     }
 
     const upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/user_portfolio/${userPortfolioId}`,
+      `${XANO_PORTFOLIO_BASE}/user_list/${userPortfolioId}`,
       token,
       {
         method: "DELETE",

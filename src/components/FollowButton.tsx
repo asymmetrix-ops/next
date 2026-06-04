@@ -6,7 +6,11 @@ import {
   unfollowPortfolioEntity,
   type PortfolioFollowKey,
 } from "@/lib/portfolioFollow";
-import { usePortfolioStore, getNamedPortfolios } from "@/store/portfolioStore";
+import {
+  usePortfolioStore,
+  getNamedPortfolios,
+  getPortfolioDisplayLabel,
+} from "@/store/portfolioStore";
 import {
   addEntityToPortfolioApi,
   removeEntityFromPortfolioApi,
@@ -38,7 +42,6 @@ export function FollowButton({
 }: FollowButtonProps) {
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [dropdownFromFollow, setDropdownFromFollow] = useState(false);
   const [togglingListId, setTogglingListId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -72,7 +75,6 @@ export function FollowButton({
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
-        setDropdownFromFollow(false);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -90,21 +92,14 @@ export function FollowButton({
       return;
     }
 
-    // If entity has a type and is not yet in any list, open the list picker
-    // instead of doing a bare follow — require the user to choose a list first.
-    if (entityType && !isFollowed && containingLists.length === 0) {
-      setDropdownFromFollow(true);
-      setDropdownOpen(true);
-      return;
-    }
-    setDropdownFromFollow(false);
-
     setLoading(true);
     try {
       if (isFollowed) {
         await unfollowPortfolioEntity({ followKey, entityId });
+        toast.success(`Unfollowed ${label}`);
       } else {
         await followPortfolioEntity({ followKey, entityId });
+        toast.success(`Following ${label}`);
       }
       await fetchPortfolio();
     } catch (e) {
@@ -113,12 +108,12 @@ export function FollowButton({
         alert("Please sign in to follow.");
       } else {
         console.error("Follow/unfollow failed:", e);
-        alert("Failed to update. Please try again.");
+        toast.error("Failed to update. Please try again.");
       }
     } finally {
       setLoading(false);
     }
-  }, [followKey, entityId, isFollowed, fetchPortfolio, entityType, containingLists]);
+  }, [followKey, entityId, isFollowed, fetchPortfolio, label]);
 
   const handleListToggle = useCallback(
     async (portfolioId: number, portfolioLabel: string, currentlyIn: boolean) => {
@@ -198,7 +193,6 @@ export function FollowButton({
           <button
             type="button"
             onClick={() => {
-              setDropdownFromFollow(false);
               setDropdownOpen((v) => !v);
             }}
             title="Add to portfolio"
@@ -242,23 +236,6 @@ export function FollowButton({
                 padding: "6px 0",
               }}
             >
-              {dropdownFromFollow && (
-                <div
-                  style={{
-                    margin: "6px 8px 2px",
-                    padding: "7px 10px",
-                    backgroundColor: "#faf5ff",
-                    border: "1px solid #ddd6fe",
-                    borderRadius: "6px",
-                    fontSize: "12.5px",
-                    color: "#5b21b6",
-                    fontWeight: 500,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  Choose a list to follow this item
-                </div>
-              )}
               <div
                 style={{
                   padding: "8px 12px 4px",
@@ -269,12 +246,12 @@ export function FollowButton({
                   letterSpacing: "0.05em",
                 }}
               >
-                Add to portfolio
+                Add to list
               </div>
 
               {namedPortfolios.length === 0 ? (
                 <div style={{ padding: "10px 12px", fontSize: "13px", color: "#9ca3af" }}>
-                  No portfolios yet.{" "}
+                  No lists yet.{" "}
                   <a
                     href="/my-portfolio"
                     style={{ color: "#7c3aed", textDecoration: "underline" }}
@@ -309,14 +286,14 @@ export function FollowButton({
                         onChange={() =>
                           void handleListToggle(
                             p.id,
-                            p.portfolio_label,
+                            getPortfolioDisplayLabel(p),
                             inList
                           )
                         }
                         style={{ accentColor: "#7c3aed", width: "15px", height: "15px" }}
                       />
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {p.portfolio_label}
+                        {getPortfolioDisplayLabel(p)}
                       </span>
                     </label>
                   );
@@ -347,7 +324,7 @@ export function FollowButton({
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                 <path d="M19 11H7.83l4.88-4.88c.39-.39.39-1.03 0-1.42-.39-.39-1.02-.39-1.41 0l-6.59 6.59c-.39.39-.39 1.02 0 1.41l6.59 6.59c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41L7.83 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" />
               </svg>
-              {p.portfolio_label}
+              {getPortfolioDisplayLabel(p)}
             </span>
           ))}
         </div>

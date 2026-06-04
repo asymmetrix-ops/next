@@ -19,16 +19,24 @@ import {
 import {
   usePortfolioStore,
   getNamedPortfolios,
+  getPortfolioDisplayLabel,
   type XanoPortfolio,
 } from "@/store/portfolioStore";
 import {
   addEntityToPortfolioApi,
   countPortfolioEntities,
-  fetchUserPortfolioDetail,
-  portfolioDetailToRows,
   removeEntityFromPortfolioApi,
   type PortfolioEntityType as ApiEntityType,
 } from "@/lib/portfolioEntity";
+import {
+  fetchPortfolioDataFromXano,
+  fetchUserPortfolioData,
+  invalidatePortfolioDataCache,
+} from "@/lib/portfolioData";
+import {
+  createUserListInXano,
+  fetchUserListsFromXano,
+} from "@/lib/userLists";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-hot-toast";
@@ -243,10 +251,11 @@ export default function MyPortfolioPage() {
     [namedPortfolios, activeTabId]
   );
 
-  // ---- New list input ----
   const [showNewListInput, setShowNewListInput] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [creatingList, setCreatingList] = useState(false);
+  const [listCounts, setListCounts] = useState<Record<number, number>>({});
+  const [allFollowedTotal, setAllFollowedTotal] = useState<number | null>(null);
   const newListInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -275,6 +284,7 @@ export default function MyPortfolioPage() {
   const [error, setError] = useState<string | null>(null);
   const [unfollowingId, setUnfollowingId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const loadGenerationRef = useRef(0);
 
   // ---- Follow more (global search) ----
   const [followSearch, setFollowSearch] = useState("");
@@ -328,68 +338,11 @@ export default function MyPortfolioPage() {
     });
   }, [searchResults, followEntityType, entitiesInCurrentView]);
 
-  const loadAllFollowed = useCallback(
-    async (signal?: AbortSignal) => {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("asymmetrix_auth_token")
-          : null;
-
-      const qs = new URLSearchParams();
-      if (effectivePortfolioSearch) qs.set("search", effectivePortfolioSearch);
-
-      const headers: Record<string, string> = { Accept: "application/json" };
-      if (token) headers["x-asym-token"] = token;
-
-      const res = await fetch(`/api/portfolio/data?${qs.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-        signal,
-      });
-
-      const text = await res.text().catch(() => "");
-      let data: unknown = null;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        data = text;
-      }
-
-      if (!res.ok) {
-        let message = `Request failed (${res.status})`;
-        if (data && typeof data === "object" && "error" in data) {
-          const errVal = (data as { error?: unknown }).error;
-          if (typeof errVal === "string" && errVal.trim()) message = errVal;
-        }
-        throw new Error(message);
-      }
-
-      const list = Array.isArray(data) ? (data as PortfolioEntityRow[]) : [];
-      setRows(list);
-      return list;
-    },
-    [effectivePortfolioSearch]
-  );
-
-  const loadNamedPortfolio = useCallback(
-    async (portfolioId: number, signal?: AbortSignal) => {
-      const detail = await fetchUserPortfolioDetail(portfolioId, { signal });
-      let list = portfolioDetailToRows(detail);
-
-      const q = effectivePortfolioSearch.trim().toLowerCase();
-      if (q) {
-        list = list.filter((r) => r.name.toLowerCase().includes(q));
-      }
-
-      setRows(list);
-      return list;
-    },
-    [effectivePortfolioSearch]
-  );
-
   const loadActiveView = useCallback(
     async (silent = false) => {
+      const generation = ++loadGenerationRef.current;
+      const tabAtStart = activeTabId;
+
       if (!silent) {
         setLoading(true);
         setError(null);
@@ -399,27 +352,43 @@ export default function MyPortfolioPage() {
       abortRef.current = ac;
 
       try {
-        if (activeTabId === ALL_FOLLOWED_TAB) {
-          await loadAllFollowed(ac.signal);
+        if (tabAtStart === ALL_FOLLOWED_TAB) {
+          const { items, counts } = await fetchUserPortfolioData({
+            search: effectivePortfolioSearch || undefined,
+            signal: ac.signal,
+          });
+          if (generation !== loadGenerationRef.current) return;
+          setRows(items);
+          setAllFollowedTotal(counts.total);
         } else {
-          const portfolioId = Number.parseInt(activeTabId, 10);
+          const portfolioId = Number.parseInt(tabAtStart, 10);
           if (!Number.isFinite(portfolioId) || portfolioId <= 0) {
             setRows([]);
             return;
           }
-          await loadNamedPortfolio(portfolioId, ac.signal);
+          const { items, counts } = await fetchPortfolioDataFromXano({
+            userListId: portfolioId,
+            search: effectivePortfolioSearch || undefined,
+            signal: ac.signal,
+          });
+          if (generation !== loadGenerationRef.current) return;
+          setRows(items);
+          setListCounts((prev) => ({ ...prev, [portfolioId]: counts.total }));
         }
       } catch (e) {
         if ((e as { name?: string }).name === "AbortError") return;
+        if (generation !== loadGenerationRef.current) return;
         if (!silent) {
           setError((e as Error).message || "Failed to load portfolio");
         }
         setRows([]);
       } finally {
-        if (!silent) setLoading(false);
+        if (generation === loadGenerationRef.current && !silent) {
+          setLoading(false);
+        }
       }
     },
-    [activeTabId, loadAllFollowed, loadNamedPortfolio]
+    [activeTabId, effectivePortfolioSearch]
   );
 
   useEffect(() => {
@@ -432,21 +401,13 @@ export default function MyPortfolioPage() {
     };
   }, [loadActiveView]);
 
+  // Tab counts come from loadActiveView when each tab is visited — no prefetch needed.
+
   const reloadAfterFollowChange = useCallback(async () => {
-    if (activeTabId !== ALL_FOLLOWED_TAB) {
-      const portfolioId = Number.parseInt(activeTabId, 10);
-      if (Number.isFinite(portfolioId) && portfolioId > 0) {
-        try {
-          const detail = await fetchUserPortfolioDetail(portfolioId);
-          upsertPortfolio(detail);
-        } catch {
-          // Tab counts may lag; entity table still reloads below.
-        }
-      }
-    }
+    invalidatePortfolioDataCache();
     await fetchPortfolio();
     await loadActiveView(true);
-  }, [activeTabId, fetchPortfolio, loadActiveView, upsertPortfolio]);
+  }, [fetchPortfolio, loadActiveView]);
 
   // ---- Global search for Follow More ----
   useEffect(() => {
@@ -571,47 +532,42 @@ export default function MyPortfolioPage() {
 
     setCreatingList(true);
     try {
-      const res = await fetch("/api/portfolio/lists", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-asym-token": token },
-        credentials: "include",
-        body: JSON.stringify({ label: name }),
-      });
-
-      const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-
-      if (!res.ok) {
-        toast.error(typeof json?.error === "string" ? json.error : `Failed (${res.status})`);
-        return;
-      }
+      const json = (await createUserListInXano(name)) as Record<string, unknown>;
 
       const newId =
-        json && typeof json.id === "number"
+        typeof json.id === "number"
           ? json.id
-          : json && typeof json.id === "string"
-          ? Number.parseInt(json.id as string, 10)
+          : typeof json.id === "string"
+          ? Number.parseInt(json.id, 10)
           : null;
 
       const returnedLabel =
-        json && typeof json.label === "string" ? json.label : name;
+        (typeof json.portfolio_label === "string" && json.portfolio_label) ||
+        (typeof json.label === "string" && json.label) ||
+        (typeof json.list_name === "string" && json.list_name) ||
+        name;
 
       setNewListName("");
       setShowNewListInput(false);
 
-      // Refresh store portfolios so the new tab appears
-      await fetchPortfolio();
+      invalidatePortfolioDataCache();
+
+      // Refresh tabs — GET get_users_lists (visible in Network tab)
+      const listsRaw = await fetchUserListsFromXano();
+      usePortfolioStore.getState().setPortfolio(listsRaw);
+      usePortfolioStore.setState({ lastFetched: Date.now() });
 
       if (newId != null && Number.isFinite(newId)) {
         setActiveTabId(String(newId));
       }
 
-      toast.success(`Portfolio "${returnedLabel}" created`);
+      toast.success(`List "${returnedLabel}" created`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to create portfolio");
+      toast.error(e instanceof Error ? e.message : "Failed to create list");
     } finally {
       setCreatingList(false);
     }
-  }, [newListName, creatingList, fetchPortfolio]);
+  }, [newListName, creatingList]);
 
   // ---- Rename (optimistic / local override until PATCH endpoint) ----
   const handleStartRename = useCallback((p: XanoPortfolio) => {
@@ -726,6 +682,7 @@ export default function MyPortfolioPage() {
 
         setDeletingPortfolio(null);
         if (activeTabId === String(p.id)) setActiveTabId(ALL_FOLLOWED_TAB);
+        invalidatePortfolioDataCache();
         await fetchPortfolio();
         toast.success(
           `Deleted "${p.portfolio_label || "portfolio"}"`
@@ -740,9 +697,25 @@ export default function MyPortfolioPage() {
   );
 
   // ---- Helpers ----
-  const getDisplayLabel = (p: XanoPortfolio) => p.portfolio_label;
+  const getDisplayLabel = getPortfolioDisplayLabel;
 
-  const tabEntityCount = (p: XanoPortfolio) => countPortfolioEntities(p);
+  const getTabCount = useCallback(
+    (p: XanoPortfolio) => {
+      // After visiting the tab, listCounts has the freshest value
+      if (listCounts[p.id] != null) return listCounts[p.id];
+      // Active tab: use loaded row count
+      if (activeTabId === String(p.id)) return rows.length;
+      // From get_users_lists initial load (no extra API call needed)
+      if (p.total_entities != null) return p.total_entities;
+      return 0;
+    },
+    [activeTabId, rows.length, listCounts]
+  );
+
+  const allFollowedCount =
+    activeTabId === ALL_FOLLOWED_TAB
+      ? rows.length
+      : allFollowedTotal ?? rows.length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -772,21 +745,23 @@ export default function MyPortfolioPage() {
             variant="outline"
             size="sm"
             className="shrink-0 mt-1"
-            onClick={() => { setShowNewListInput((v) => !v); setNewListName(""); }}
+            onClick={() => {
+              setShowNewListInput((v) => !v);
+              setNewListName("");
+            }}
           >
             <PlusIcon className="size-4 mr-1.5" />
-            New Portfolio
+            New List
           </Button>
         </div>
 
-        {/* New portfolio inline input */}
         {showNewListInput && (
           <div className="mb-4 flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
             <input
               ref={newListInputRef}
               value={newListName}
               onChange={(e) => setNewListName(e.target.value)}
-              placeholder="Portfolio name…"
+              placeholder="List name…"
               className="flex-1 text-sm outline-none border-none"
               disabled={creatingList}
               onKeyDown={(e) => {
@@ -808,7 +783,10 @@ export default function MyPortfolioPage() {
               size="sm"
               variant="ghost"
               disabled={creatingList}
-              onClick={() => { setShowNewListInput(false); setNewListName(""); }}
+              onClick={() => {
+                setShowNewListInput(false);
+                setNewListName("");
+              }}
             >
               Cancel
             </Button>
@@ -820,7 +798,7 @@ export default function MyPortfolioPage() {
           {/* All Followed tab */}
           <TabButton
             label="All Followed"
-            count={rows.length}
+            count={allFollowedCount}
             active={activeTabId === ALL_FOLLOWED_TAB}
             loading={storeLoading && xanoPortfolios.length === 0}
             onClick={() => setActiveTabId(ALL_FOLLOWED_TAB)}
@@ -857,7 +835,7 @@ export default function MyPortfolioPage() {
               ) : (
                 <PortfolioTabWithActions
                   label={getDisplayLabel(p)}
-                  count={tabEntityCount(p)}
+                  count={getTabCount(p)}
                   active={activeTabId === String(p.id)}
                   onSelect={() => setActiveTabId(String(p.id))}
                   onRename={() => handleStartRename(p)}
@@ -880,8 +858,8 @@ export default function MyPortfolioPage() {
               {getDisplayLabel(activePortfolio)}
             </h2>
             <span className="text-sm text-gray-500">
-              {tabEntityCount(activePortfolio)}{" "}
-              {tabEntityCount(activePortfolio) === 1 ? "entity" : "entities"}
+              {getTabCount(activePortfolio)}{" "}
+              {getTabCount(activePortfolio) === 1 ? "entity" : "entities"}
             </span>
           </div>
         )}
@@ -990,7 +968,7 @@ export default function MyPortfolioPage() {
           ) : (
             <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
               {activeTabId !== ALL_FOLLOWED_TAB && activePortfolio
-                ? tabEntityCount(activePortfolio) === 0
+                ? getTabCount(activePortfolio) === 0
                   ? "This portfolio has no entities yet."
                   : "No entities match your current filters."
                 : rows.length === 0

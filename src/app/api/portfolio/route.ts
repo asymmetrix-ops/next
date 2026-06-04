@@ -112,7 +112,7 @@ export async function GET() {
 
     const upstreamResp = await fetchWithAuthFallback(
       XANO_PORTFOLIO_BASE_URLS.map(
-        (b) => `${b}/get_users_portfolio?user_id=${encodeURIComponent(String(userId))}`
+        (b) => `${b}/get_users_lists?user_id=${encodeURIComponent(String(userId))}`
       ),
       token,
       { method: "GET" }
@@ -130,7 +130,7 @@ export async function GET() {
       return NextResponse.json(
         {
           error: "Upstream empty response",
-          hint: "Xano returned 200 with an empty body for get_users_portfolio.",
+          hint: "Xano returned 200 with an empty body for get_users_lists.",
         },
         { status: 502 }
       );

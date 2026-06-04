@@ -17,6 +17,7 @@ import { CorporateEventDealMetrics } from "@/components/corporate-events/Corpora
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
+import { fetchUserPortfolioData } from "@/lib/portfolioData";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
@@ -1577,18 +1578,8 @@ const CorporateEventsPage = () => {
     if (!token) return;
     setLoadingPortfolio(true);
     try {
-      const res = await fetch("/api/portfolio/data", {
-        headers: { "x-asym-token": token },
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setPortfolioItems(
-            data as Array<{ entity: string; id: number; name: string }>
-          );
-        }
-      }
+      const { items } = await fetchUserPortfolioData();
+      setPortfolioItems(items);
     } catch {
       // silent — portfolio is optional for this filter
     } finally {

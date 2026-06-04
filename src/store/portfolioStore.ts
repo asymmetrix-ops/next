@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import { parseFollowedEntities } from "@/lib/portfolioEntity";
+import { extractPortfolioList } from "@/lib/portfolioListUtils";
+import { fetchUserListsFromXano } from "@/lib/userLists";
+import { fetchUserPortfolioData, type PortfolioDataResult } from "@/lib/portfolioData";
+import { FOLLOW_KEY_TO_ENTITY_TYPE } from "@/lib/portfolioFollow";
 
 export type PortfolioFollowKey =
   | "followed_companies"
@@ -8,12 +12,14 @@ export type PortfolioFollowKey =
   | "followed_sectors"
   | "followed_individuals";
 
-/** Shape of a single portfolio record returned by Xano's get_users_portfolio. */
+/** Shape of a single portfolio record returned by Xano's get_users_lists. */
 export interface XanoPortfolio {
   id: number;
   created_at: number;
   portfolio_label: string;
   user_id: number;
+  /** Returned by get_users_lists — pre-computed count for the badge. */
+  total_entities: number | null;
   followed_companies: number[];
   followed_sectors: number[];
   followed_individuals: number[];
@@ -33,17 +39,21 @@ function normalizeIds(arr: unknown): number[] {
   return parseFollowedEntities(arr).map((e) => e.id);
 }
 
-/** Stable tab order: creation time, then id — never by label. */
+/** Stable tab order: by id ascending — unaffected by renames. */
 export function sortPortfoliosStable(items: XanoPortfolio[]): XanoPortfolio[] {
-  return [...items].sort((a, b) => {
-    if (a.created_at !== b.created_at) return a.created_at - b.created_at;
-    return a.id - b.id;
-  });
+  return [...items].sort((a, b) => a.id - b.id);
 }
 
-/** Named list tabs only (non-default portfolios), in stable order. */
+/** User list tabs from get_users_lists (stable order). */
 export function getNamedPortfolios(items: XanoPortfolio[]): XanoPortfolio[] {
-  return sortPortfoliosStable(items.filter((p) => p.portfolio_label.trim()));
+  return sortPortfoliosStable(items.filter((p) => p.id > 0));
+}
+
+/** Display label for a list tab (fallback when portfolio_label is empty). */
+export function getPortfolioDisplayLabel(p: XanoPortfolio): string {
+  const label = p.portfolio_label.trim();
+  if (label) return label;
+  return `List ${p.id}`;
 }
 
 function portfolioHasEntities(p: XanoPortfolio): boolean {
@@ -90,8 +100,16 @@ function normalizeXanoPortfolio(raw: Record<string, unknown>): XanoPortfolio {
         ? raw.portfolio_label
         : typeof raw.label === "string"
         ? raw.label
+        : typeof raw.list_name === "string"
+        ? raw.list_name
+        : typeof raw.name === "string"
+        ? raw.name
         : "",
     user_id: userId,
+    total_entities:
+      typeof raw.total_entities === "number" && Number.isFinite(raw.total_entities)
+        ? raw.total_entities
+        : null,
     followed_companies: normalizeIds(raw.followed_companies),
     followed_advisors: normalizeIds(raw.followed_advisors),
     followed_investors: normalizeIds(raw.followed_investors),
@@ -134,15 +152,18 @@ const emptyData: PortfolioData = {
 };
 
 interface PortfolioState {
-  /** Merged follow state across all portfolios — used by isFollowed(). */
+  /** Merged follow state across all lists — legacy, kept for list entity checks. */
   data: PortfolioData | null;
-  /** Full list of Xano portfolios (tabs). */
+  /** Full list of Xano lists (tabs). */
   portfolios: XanoPortfolio[];
+  /** The user's singular portfolio (follow state). */
+  userPortfolio: PortfolioDataResult | null;
   loading: boolean;
   error: string | null;
   lastFetched: number | null;
   fetchPortfolio: () => Promise<void>;
   setPortfolio: (raw: unknown) => void;
+  setUserPortfolio: (data: PortfolioDataResult | null) => void;
   /** Update or insert one portfolio record (e.g. after PATCH rename). */
   upsertPortfolio: (raw: Record<string, unknown>) => void;
   isFollowed: (followKey: PortfolioFollowKey, entityId: number) => boolean;
@@ -152,43 +173,32 @@ interface PortfolioState {
 export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   data: null,
   portfolios: [],
+  userPortfolio: null,
   loading: false,
   error: null,
   lastFetched: null,
 
   fetchPortfolio: async () => {
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("asymmetrix_auth_token")
-        : null;
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const token = localStorage.getItem("asymmetrix_auth_token");
 
     if (!token) {
-      set({ data: null, portfolios: [], loading: false, error: null });
+      set({ data: null, portfolios: [], userPortfolio: null, loading: false, error: null });
       return;
     }
 
     set({ loading: true, error: null });
     try {
-      const res = await fetch("/api/portfolio", {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "x-asym-token": token,
-        },
-        credentials: "include",
-      });
-
-      const raw = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        const errMsg =
-          raw && typeof raw === "object" && "error" in raw
-            ? String((raw as { error: unknown }).error)
-            : "Failed to fetch portfolio";
-        set({ data: null, portfolios: [], loading: false, error: errMsg });
-        return;
-      }
-
+      // Load lists (tabs) and portfolio follow state in parallel
+      const [raw] = await Promise.all([
+        fetchUserListsFromXano(),
+        fetchUserPortfolioData()
+          .then((pd) => { set({ userPortfolio: pd }); })
+          .catch(() => { /* silently ignore portfolio data errors */ }),
+      ]);
       get().setPortfolio(raw);
       set({ loading: false, error: null, lastFetched: Date.now() });
     } catch (e) {
@@ -196,7 +206,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
         data: null,
         portfolios: [],
         loading: false,
-        error: (e as Error).message ?? "Failed to fetch portfolio",
+        error: (e as Error).message ?? "Failed to fetch user lists",
       });
     }
   },
@@ -207,10 +217,10 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       return;
     }
 
-    // Array of portfolios — new format from get_users_portfolio
-    if (Array.isArray(raw)) {
+    const list = extractPortfolioList(raw);
+    if (list) {
       const items = sortPortfoliosStable(
-        raw
+        list
           .filter((item) => item && typeof item === "object")
           .map((item) => normalizeXanoPortfolio(item as Record<string, unknown>))
       );
@@ -225,6 +235,10 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
     }
 
     set({ data: emptyData, portfolios: [] });
+  },
+
+  setUserPortfolio: (data) => {
+    set({ userPortfolio: data });
   },
 
   upsertPortfolio: (raw) => {
@@ -243,6 +257,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
               portfolio_label: next.portfolio_label || p.portfolio_label,
               created_at: next.created_at || p.created_at,
               user_id: next.user_id || p.user_id,
+              total_entities: next.total_entities ?? p.total_entities,
               followed_companies: keepFollowed
                 ? p.followed_companies
                 : next.followed_companies,
@@ -267,12 +282,14 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   },
 
   isFollowed: (followKey, entityId) => {
-    const { data } = get();
-    if (!data) return false;
-    const ids = data[followKey];
-    return Array.isArray(ids) && ids.includes(entityId);
+    const { userPortfolio } = get();
+    if (!userPortfolio) return false;
+    const entityType = FOLLOW_KEY_TO_ENTITY_TYPE[followKey];
+    return userPortfolio.items.some(
+      (item) => item.entity === entityType && item.id === entityId
+    );
   },
 
   reset: () =>
-    set({ data: null, portfolios: [], loading: false, error: null, lastFetched: null }),
+    set({ data: null, portfolios: [], userPortfolio: null, loading: false, error: null, lastFetched: null }),
 }));

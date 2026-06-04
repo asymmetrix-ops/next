@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-const XANO_LISTS_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI";
 const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
 const XANO_AUTH_BASE =
   process.env.NEXT_PUBLIC_XANO_API_URL ||
@@ -56,7 +55,7 @@ function extractToken(req: Request, cookieHeader: string | null, tokenHeader: st
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/portfolio/lists — fetch all user portfolios from Xano
+// GET /api/portfolio/lists — fetch all user lists from Xano (get_users_lists)
 // ---------------------------------------------------------------------------
 export async function GET(req: Request) {
   try {
@@ -77,7 +76,7 @@ export async function GET(req: Request) {
     }
 
     const upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/get_users_portfolio?user_id=${encodeURIComponent(String(userId))}`,
+      `${XANO_PORTFOLIO_BASE}/get_users_lists?user_id=${encodeURIComponent(String(userId))}`,
       token,
       { method: "GET" }
     );
@@ -107,7 +106,7 @@ export async function GET(req: Request) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/portfolio/lists — create a named portfolio in Xano
+// POST /api/portfolio/lists — create a user list in Xano (user_lists)
 // ---------------------------------------------------------------------------
 export async function POST(req: Request) {
   try {
@@ -122,21 +121,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing auth token" }, { status: 401 });
     }
 
-    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
-    const label =
-      body && typeof body.label === "string" ? body.label.trim() : null;
+    const userId = await getUserId(token);
+    if (userId == null) {
+      return NextResponse.json({ error: "Auth failed" }, { status: 401 });
+    }
 
-    if (!label) {
+    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    const listName =
+      (body && typeof body.label === "string" ? body.label.trim() : "") ||
+      (body && typeof body.list_name === "string" ? body.list_name.trim() : "") ||
+      (body && typeof body.portfolio_label === "string"
+        ? body.portfolio_label.trim()
+        : "");
+
+    if (!listName) {
       return NextResponse.json(
-        { error: "label is required and must be a non-empty string" },
+        { error: "List name is required" },
         { status: 400 }
       );
     }
 
     const upstream = await fetchWithAuth(
-      `${XANO_LISTS_BASE}/create/portfolio`,
+      `${XANO_PORTFOLIO_BASE}/user_lists`,
       token,
-      { method: "POST", body: JSON.stringify({ label }) }
+      {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: userId,
+          portfolio_label: listName,
+          list_name: listName,
+        }),
+      }
     );
 
     const text = await upstream.text().catch(() => "");

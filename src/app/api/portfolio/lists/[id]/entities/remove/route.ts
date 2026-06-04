@@ -103,7 +103,7 @@ export async function PATCH(
     }
 
     const upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/portfolios/${portfolioId}/entities/remove`,
+      `${XANO_PORTFOLIO_BASE}/lists/${portfolioId}/entities/remove`,
       token,
       {
         method: "PATCH",

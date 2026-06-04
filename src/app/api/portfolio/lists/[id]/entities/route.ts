@@ -103,7 +103,7 @@ export async function POST(
     }
 
     const upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/portfolios/${portfolioId}/entities`,
+      `${XANO_PORTFOLIO_BASE}/lists/${portfolioId}/entities`,
       token,
       {
         method: "POST",
