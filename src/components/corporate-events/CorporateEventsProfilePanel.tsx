@@ -335,13 +335,6 @@ const CE_HEADERS = [
   "Amount",
 ] as const;
 
-const CE_LEFT_COLS = [
-  "Date",
-  "Type",
-  "Target / Counterparty",
-  "Sector",
-] as const;
-
 const CE_COL_GRID_NARROW =
   "minmax(88px, auto) minmax(108px, auto) minmax(0, 1fr)";
 
@@ -452,12 +445,12 @@ export const CorporateEventsProfilePanel: React.FC<
               padding: narrow ? "8px 8px" : PROFILE_EVENTS_ROW_PAD.header,
             }}
           >
-            {headers.map((h) => (
+            {headers.map((h, colIndex) => (
               <div
                 key={h}
                 style={{
                   ...tableColHeaderStyle,
-                  textAlign: profileTableColAlign(h, CE_LEFT_COLS),
+                  textAlign: profileTableColAlign(colIndex),
                 }}
               >
                 {h}
@@ -485,8 +478,7 @@ export const CorporateEventsProfilePanel: React.FC<
 
               const cellPad = narrow ? "10px 8px" : PROFILE_EVENTS_ROW_PAD.body;
               const last = index === displayed.length - 1;
-              const colAlign = (label: (typeof headers)[number]) =>
-                profileTableColAlign(label, CE_LEFT_COLS);
+              const colAlign = (colIndex: number) => profileTableColAlign(colIndex);
 
               return (
                 <div
@@ -504,7 +496,7 @@ export const CorporateEventsProfilePanel: React.FC<
                 >
                   <div
                     style={{
-                      textAlign: colAlign("Date"),
+                      textAlign: colAlign(0),
                       color: T.body,
                       whiteSpace: narrow ? "nowrap" : undefined,
                     }}
@@ -529,7 +521,7 @@ export const CorporateEventsProfilePanel: React.FC<
                       formatMonthYear(dateRaw)
                     )}
                   </div>
-                  <div style={{ textAlign: colAlign("Type") }}>
+                  <div style={{ textAlign: colAlign(1) }}>
                     <span
                       style={{
                         display: "inline-flex",
@@ -546,7 +538,7 @@ export const CorporateEventsProfilePanel: React.FC<
                   </div>
                   <div
                     style={{
-                      textAlign: colAlign("Target / Counterparty"),
+                      textAlign: colAlign(2),
                       color: T.ink,
                       minWidth: 0,
                       overflow: narrow ? "hidden" : undefined,
@@ -560,7 +552,7 @@ export const CorporateEventsProfilePanel: React.FC<
                     <>
                       <div
                         style={{
-                          textAlign: colAlign("Advisors"),
+                          textAlign: colAlign(3),
                           color: T.muted,
                           minWidth: 0,
                         }}
@@ -587,7 +579,7 @@ export const CorporateEventsProfilePanel: React.FC<
                       </div>
                       <div
                         style={{
-                          textAlign: colAlign("Sector"),
+                          textAlign: colAlign(4),
                           color: T.muted,
                           minWidth: 0,
                         }}
@@ -596,7 +588,7 @@ export const CorporateEventsProfilePanel: React.FC<
                       </div>
                       <div
                         style={{
-                          textAlign: colAlign("Amount"),
+                          textAlign: colAlign(5),
                           color: T.body,
                           fontVariantNumeric: "tabular-nums",
                         }}

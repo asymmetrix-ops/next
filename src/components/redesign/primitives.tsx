@@ -127,12 +127,18 @@ export const finMetricsPeriodHeaderStyle: React.CSSProperties = {
 
 export const finMetricsBodyPadding = "2px 12px 4px";
 
-/** Financial metrics row grid — label column fits full text; value flexes, source auto. */
+/**
+ * Financial metrics row grid — label left, value + period centered, source right.
+ * Symmetric 1fr spacers keep the date/value column in the middle of the card.
+ */
 export const FIN_METRIC_GRID_COLS =
-  "max-content minmax(56px, 1fr) max-content";
+  "minmax(118px, max-content) 1fr minmax(72px, max-content) 1fr minmax(52px, max-content)";
 
-/** Label + value only (Income Statement tab — matches Fin Metrics first two columns). */
-export const FIN_METRIC_TWO_COLS = "minmax(118px, 138px) minmax(0, 1fr)";
+/** Income Statement — equal-width fiscal-year columns so headers align with values. */
+export function finMetricIncomeStatementGridCols(periodCount: number): string {
+  if (periodCount <= 0) return FIN_METRIC_GRID_COLS;
+  return `minmax(118px, max-content) 1fr repeat(${periodCount}, minmax(88px, 1fr)) 1fr`;
+}
 
 export const finMetricRowStyle: React.CSSProperties = {
   display: "grid",
@@ -146,21 +152,33 @@ export const finMetricRowStyle: React.CSSProperties = {
 export const finMetricLabelStyle: React.CSSProperties = {
   ...kvLabelStyle,
   whiteSpace: "nowrap",
+  textAlign: "left",
+  justifySelf: "start",
 };
 
+/** Numeric / currency values in Financial, Subscription, and Income Statement tabs. */
 export const finMetricValueStyle: React.CSSProperties = {
   ...descriptionBodyStyle,
-  fontVariantNumeric: "tabular-nums",
 };
 
-/** Value column in Financial Metrics — right-aligned so US$, %, and multiples share one axis. */
+/** CSS class for fin-metric value cells (page-level typography guard). */
+export const FIN_METRIC_VALUE_CLASS = "fin-metric-value";
+
+/** Value column in Financial Metrics — centered under the period header. */
 export const finMetricValueColStyle: React.CSSProperties = {
   ...finMetricValueStyle,
-  textAlign: "right",
-  justifySelf: "stretch",
+  textAlign: "center",
+  justifySelf: "center",
   width: "100%",
   minWidth: 0,
   wordBreak: "break-word",
+};
+
+/** Period / fiscal-year column headers in fin metrics tables. */
+export const finMetricPeriodColStyle: React.CSSProperties = {
+  textAlign: "center",
+  justifySelf: "center",
+  width: "100%",
 };
 
 /** Table column header bar — matches Management card. */
@@ -182,12 +200,9 @@ export const tableColHeaderBarStyle: React.CSSProperties = {
   ...tableColHeaderStyle,
 };
 
-/** Profile tables: first column(s) left; all other headers and cells centered. */
-export function profileTableColAlign(
-  columnLabel: string,
-  leftAlignedColumns: readonly string[]
-): "left" | "center" {
-  return leftAlignedColumns.includes(columnLabel) ? "left" : "center";
+/** Profile tables: column 0 left; all other columns centered. */
+export function profileTableColAlign(columnIndex: number): "left" | "center" {
+  return columnIndex === 0 ? "left" : "center";
 }
 
 /** Body cell typography for Corporate Events / Subsidiaries rows. */
