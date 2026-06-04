@@ -1,6 +1,10 @@
 import { authService } from "@/lib/auth";
 import type { PortfolioEntityRow } from "@/lib/portfolioEntity";
-import { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
+import { parseUserId } from "@/lib/portfolioListUtils";
+import { resolveAuthUserId } from "@/lib/userLists";
+
+const XANO_PORTFOLIO_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
 
 export type PortfolioDataCounts = {
   total: number;
@@ -82,30 +86,6 @@ export function parsePortfolioDataResponse(data: unknown): PortfolioDataResult {
   return { items: [], counts: emptyCounts() };
 }
 
-/** Map portfolio/data items into legacy id arrays (companies, sectors, …). */
-export function portfolioDataToUserPortfolioRecord(data: PortfolioDataResult): {
-  user_portfolio_id: number;
-  user_id: number;
-  companies: number[];
-  sectors: number[];
-  individuals: number[];
-  investors: number[];
-  advisors: number[];
-} {
-  const idsFor = (entity: PortfolioEntityRow["entity"]) =>
-    data.items.filter((item) => item.entity === entity).map((item) => item.id);
-
-  return {
-    user_portfolio_id: 0,
-    user_id: 0,
-    companies: idsFor("company"),
-    sectors: idsFor("sector"),
-    individuals: idsFor("individual"),
-    investors: idsFor("investor"),
-    advisors: idsFor("advisor"),
-  };
-}
-
 async function fetchWithAuth(
   url: string,
   token: string,
@@ -148,7 +128,7 @@ export async function fetchUserPortfolioData(options?: {
   qs.set("search", options?.search?.trim() ?? "");
 
   const resp = await fetchWithAuth(
-    `${XANO_USER_PORTFOLIO_BASE}/portfolio/data?${qs.toString()}`,
+    `${XANO_PORTFOLIO_BASE}/portfolio/data?${qs.toString()}`,
     token,
     { method: "GET", signal: options?.signal }
   );
@@ -172,7 +152,7 @@ export async function fetchUserPortfolioData(options?: {
   return parsePortfolioDataResponse(data);
 }
 
-/** GET list/data — items + counts for a specific user list (auth + user_lists_id). */
+/** GET list/data — items + counts (optional user_lists_id). */
 export async function fetchPortfolioDataFromXano(options?: {
   userListId?: number;
   search?: string;
@@ -183,6 +163,15 @@ export async function fetchPortfolioDataFromXano(options?: {
     throw new Error("Missing auth token");
   }
 
+  // Fast path: user id is already in localStorage via authService
+  const userId = parseUserId(authService.getUser()?.id) ?? (await resolveAuthUserId());
+  if (userId == null) {
+    throw new Error("Could not resolve user id");
+  }
+
+  const qs = new URLSearchParams();
+  qs.set("user_id", String(userId));
+  if (options?.search?.trim()) qs.set("search", options.search.trim());
   const listId =
     options?.userListId != null &&
     Number.isFinite(options.userListId) &&
@@ -190,16 +179,12 @@ export async function fetchPortfolioDataFromXano(options?: {
       ? options.userListId
       : null;
 
-  if (listId == null) {
-    throw new Error("user_lists_id is required");
+  if (listId != null) {
+    qs.set("user_lists_id", String(listId));
   }
 
-  const qs = new URLSearchParams();
-  qs.set("user_lists_id", String(listId));
-  if (options?.search?.trim()) qs.set("search", options.search.trim());
-
   const resp = await fetchWithAuth(
-    `${XANO_USER_PORTFOLIO_BASE}/list/data?${qs.toString()}`,
+    `${XANO_PORTFOLIO_BASE}/list/data?${qs.toString()}`,
     token,
     { method: "GET", signal: options?.signal }
   );
