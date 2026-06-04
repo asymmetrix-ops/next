@@ -15,6 +15,7 @@ import {
   BuyerInvestorType,
 } from "@/types/corporateEvents";
 import { CSVExporter } from "@/utils/csvExport";
+import { CompaniesCSVExporter, CompanyCSVRow } from "@/utils/companiesCSVExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import {
@@ -1543,9 +1544,13 @@ interface MarketMapCounts {
 function MarketMapGrid({
   companies,
   counts: countsProp,
+  onExport,
+  exporting,
 }: {
   companies: SectorCompany[];
   counts?: MarketMapCounts;
+  onExport?: () => void;
+  exporting?: boolean;
 }) {
   const labelFor = (type: string) =>
     type === "public"
@@ -1673,19 +1678,39 @@ function MarketMapGrid({
   return (
     <div className="bg-gradient-to-br from-white rounded-xl border-0 shadow-lg to-slate-50/50">
       <div className="px-5 py-4 border-b border-slate-100">
-        <div className="flex gap-3 items-center text-xl">
-          <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
-            <svg
-              className="w-5 h-5 text-indigo-600"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex gap-3 items-center text-xl">
+            <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
+              <svg
+                className="w-5 h-5 text-indigo-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M3 12h18M3 6h18M3 18h18" />
+              </svg>
+            </span>
+            <span className="text-slate-900">Market Map</span>
+          </div>
+          {onExport && (
+            <button
+              onClick={onExport}
+              disabled={exporting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors duration-150 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <path d="M3 12h18M3 6h18M3 18h18" />
-            </svg>
-          </span>
-          <span className="text-slate-900">Market Map</span>
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+              </svg>
+              {exporting ? "Exporting…" : "Export CSV"}
+            </button>
+          )}
         </div>
       </div>
       <div className="px-5 pt-6 pb-5">
@@ -1837,6 +1862,10 @@ const SectorDetailPage = ({
   );
   // Track if overview data has finished loading (to distinguish "loading" from "no data")
   const [overviewDataLoaded, setOverviewDataLoaded] = useState(false);
+  // Market map export state
+  const [mmExporting, setMmExporting] = useState(false);
+  const [mmShowExportLimitModal, setMmShowExportLimitModal] = useState(false);
+  const [mmExportsLeft, setMmExportsLeft] = useState(0);
   // Sub-sectors
   const [subSectors, setSubSectors] = useState<SubSector[]>([]);
   const [subSectorsLoading, setSubSectorsLoading] = useState(false);
@@ -2869,6 +2898,101 @@ const SectorDetailPage = ({
       private: getFirstMatchingNumber(o, ["private_count", "Private_count"]),
     };
   }, [preferredSource]);
+
+  const handleExportMarketMap = useCallback(async () => {
+    const limitCheck = await checkExportLimit();
+    if (!limitCheck.canExport) {
+      setMmExportsLeft(limitCheck.exportsLeft);
+      setMmShowExportLimitModal(true);
+      return;
+    }
+
+    setMmExporting(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const Sector_id = Number(sectorId);
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+      // Ownership type IDs used by the Get_new_companies endpoint
+      const buckets: Array<{ label: string; typeId: number }> = [
+        { label: "Public", typeId: 7 },
+        { label: "Private Equity Owned", typeId: 1 },
+        { label: "Venture Capital Backed", typeId: 3 },
+        { label: "Private", typeId: 2 },
+      ];
+
+      const fetchAllPages = async (ownershipTypeId: number): Promise<AllCompanyItem[]> => {
+        const allItems: AllCompanyItem[] = [];
+        let page = 1;
+        let totalPages = 1;
+        do {
+          const params = new URLSearchParams();
+          params.append("Offset", String(page));
+          params.append("Per_page", "500");
+          params.append("Min_linkedin_members", "0");
+          params.append("Max_linkedin_members", "0");
+          params.append("Horizontals_ids", "");
+          params.append("Primary_sectors_ids[]", String(Sector_id));
+          params.append("Ownership_types_ids[]", String(ownershipTypeId));
+          const res = await fetch(
+            `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              credentials: "include",
+            }
+          );
+          if (!res.ok) break;
+          const data = (await res.json()) as {
+            result1?: { items?: AllCompanyItem[]; pageTotal?: number };
+          };
+          const r1 = data.result1 ?? {};
+          allItems.push(...(r1.items ?? []));
+          totalPages = r1.pageTotal ?? 1;
+          page++;
+        } while (page <= totalPages);
+        return allItems;
+      };
+
+      const rows: Record<string, string>[] = [];
+      for (const bucket of buckets) {
+        const items = await fetchAllPages(bucket.typeId);
+        for (const c of items) {
+          rows.push({
+            ID: String(c.id),
+            Name: c.name || "N/A",
+            "Asymmetrix Link": `${origin}/company/${c.id}`,
+            Description: c.description || "N/A",
+            "Primary Sectors": Array.isArray(c.primary_sectors)
+              ? (c.primary_sectors as unknown as SectorLinkItem[])
+                  .map(getSectorLabel)
+                  .filter(Boolean)
+                  .join(", ") || "N/A"
+              : "N/A",
+            "Sub Sectors": Array.isArray(c.secondary_sectors)
+              ? (c.secondary_sectors as unknown as SectorLinkItem[])
+                  .map(getSectorLabel)
+                  .filter(Boolean)
+                  .join(", ") || "N/A"
+              : "N/A",
+            "LinkedIn Members": String(c.linkedin_members ?? 0),
+            Country: c.country || "N/A",
+            Ownership: bucket.label,
+          });
+        }
+      }
+
+      const csv = CompaniesCSVExporter.convertToCSV(
+        rows as unknown as CompanyCSVRow[]
+      );
+      CompaniesCSVExporter.downloadCSV(csv, `market_map_sector_${sectorId}`);
+    } finally {
+      setMmExporting(false);
+    }
+  }, [sectorId]);
 
   // Only block rendering for critical errors (auth/not found)
   if (error) {
@@ -5641,6 +5765,8 @@ const SectorDetailPage = ({
               <MarketMapGrid
                 companies={marketMapCompanies}
                 counts={marketMapCounts}
+                onExport={handleExportMarketMap}
+                exporting={mmExporting}
               />
             ) : overviewDataLoaded ? (
               <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
@@ -7332,6 +7458,12 @@ const SectorDetailPage = ({
           </div>
         )}
       </main>
+      <ExportLimitModal
+        isOpen={mmShowExportLimitModal}
+        onClose={() => setMmShowExportLimitModal(false)}
+        exportsLeft={mmExportsLeft}
+        totalExports={EXPORT_LIMIT}
+      />
       <Footer />
     </div>
   );
