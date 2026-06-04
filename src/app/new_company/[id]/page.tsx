@@ -3332,9 +3332,20 @@ const CompanyDetail = () => {
     }
     .desktop-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
-      text-align: center !important;
-      justify-self: center !important;
+      text-align: right !important;
+      justify-self: stretch !important;
       width: 100%;
+      font-size: 13px !important;
+      line-height: 1.55 !important;
+      font-weight: 400 !important;
+      color: ${T.body} !important;
+      font-variant-numeric: tabular-nums !important;
+    }
+    .desktop-financial-metrics .info-row > :nth-child(1),
+    .desktop-financial-metrics .info-row > :nth-child(3) {
+      font-size: 13px !important;
+      line-height: 1.35 !important;
+      font-weight: 400 !important;
     }
     .mobile-financial-metrics .info-row {
       padding: 4px 0 !important;
@@ -3344,9 +3355,39 @@ const CompanyDetail = () => {
     }
     .mobile-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
-      text-align: center !important;
-      justify-self: center !important;
+      text-align: right !important;
+      justify-self: stretch !important;
       width: 100%;
+      font-size: 13px !important;
+      line-height: 1.55 !important;
+      font-weight: 400 !important;
+      color: ${T.body} !important;
+      font-variant-numeric: tabular-nums !important;
+    }
+    .mobile-financial-metrics .info-row > :nth-child(1),
+    .mobile-financial-metrics .info-row > :nth-child(3) {
+      font-size: 13px !important;
+      line-height: 1.35 !important;
+      font-weight: 400 !important;
+    }
+    /* Income Statement — two columns (label | value), same axis as Financial Metrics */
+    .desktop-financial-metrics .income-statement-row,
+    .desktop-financial-metrics .income-statement-period {
+      grid-template-columns: minmax(118px, 138px) minmax(0, 1fr) !important;
+    }
+    .mobile-financial-metrics .income-statement-row,
+    .mobile-financial-metrics .income-statement-period {
+      grid-template-columns: minmax(118px, 138px) minmax(0, 1fr) !important;
+    }
+    .desktop-financial-metrics .income-statement-period > :nth-child(2),
+    .mobile-financial-metrics .income-statement-period > :nth-child(2) {
+      text-align: right !important;
+      justify-self: stretch !important;
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      color: ${T.muted} !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.35px !important;
     }
     /* Corporate Events styles (mirrors corporate-events list page) */
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }

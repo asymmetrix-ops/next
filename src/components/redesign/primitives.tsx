@@ -79,6 +79,16 @@ export const kvValueStyle: React.CSSProperties = {
   fontVariantNumeric: "tabular-nums",
   fontSize: 13,
   lineHeight: 1.55,
+  fontWeight: 400,
+};
+
+/** Description card body — shared reference for Financial Metrics values. */
+export const descriptionBodyStyle: React.CSSProperties = {
+  fontFamily: T.sans,
+  fontSize: 13,
+  lineHeight: 1.55,
+  color: T.body,
+  fontWeight: 400,
 };
 
 /** Shared horizontal padding for card body content (Overview, Financials). */
@@ -121,6 +131,9 @@ export const finMetricsBodyPadding = "2px 12px 4px";
 export const FIN_METRIC_GRID_COLS =
   "max-content minmax(56px, 1fr) max-content";
 
+/** Label + value only (Income Statement tab — matches Fin Metrics first two columns). */
+export const FIN_METRIC_TWO_COLS = "minmax(118px, 138px) minmax(0, 1fr)";
+
 export const finMetricRowStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: FIN_METRIC_GRID_COLS,
@@ -132,15 +145,22 @@ export const finMetricRowStyle: React.CSSProperties = {
 
 export const finMetricLabelStyle: React.CSSProperties = {
   ...kvLabelStyle,
-  fontSize: 12.5,
-  lineHeight: 1.3,
   whiteSpace: "nowrap",
 };
 
 export const finMetricValueStyle: React.CSSProperties = {
-  ...kvValueStyle,
-  fontSize: 12.5,
-  lineHeight: 1.35,
+  ...descriptionBodyStyle,
+  fontVariantNumeric: "tabular-nums",
+};
+
+/** Value column in Financial Metrics — right-aligned so US$, %, and multiples share one axis. */
+export const finMetricValueColStyle: React.CSSProperties = {
+  ...finMetricValueStyle,
+  textAlign: "right",
+  justifySelf: "stretch",
+  width: "100%",
+  minWidth: 0,
+  wordBreak: "break-word",
 };
 
 /** Table column header bar — matches Management card. */
@@ -161,6 +181,45 @@ export const tableColHeaderBarStyle: React.CSSProperties = {
   borderBottom: `1px solid ${T.hair}`,
   ...tableColHeaderStyle,
 };
+
+/** Profile tables: first column(s) left; all other headers and cells centered. */
+export function profileTableColAlign(
+  columnLabel: string,
+  leftAlignedColumns: readonly string[]
+): "left" | "center" {
+  return leftAlignedColumns.includes(columnLabel) ? "left" : "center";
+}
+
+/** Body cell typography for Corporate Events / Subsidiaries rows. */
+export const profileTableCellStyle: React.CSSProperties = {
+  fontFamily: T.sans,
+  fontSize: 13,
+  lineHeight: 1.55,
+  fontWeight: 400,
+};
+
+/**
+ * Shared 6-column grid for Corporate Events + Current Subsidiaries on the company
+ * profile (rows 5–6). Subsidiaries place Company across cols 1–2; Sector aligns
+ * with Target / Counterparty (col 3).
+ */
+export const PROFILE_EVENTS_ROW_GRID =
+  "minmax(88px, auto) minmax(108px, auto) minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(96px, auto)";
+
+export const PROFILE_EVENTS_ROW_GAP = 8;
+
+export const PROFILE_EVENTS_ROW_PAD = {
+  header: "8px 16px",
+  body: "10px 16px",
+} as const;
+
+/** Grid-column placement for Subsidiaries on PROFILE_EVENTS_ROW_GRID. */
+export const SUBS_PROFILE_GRID_COL = {
+  company: "1 / 3",
+  sector: 3,
+  country: 4,
+  yearAcquired: 6,
+} as const;
 
 // ── Pill ────────────────────────────────────────────────────────────────────
 type PillTone = "neutral" | "azure" | "lavender" | "coral" | "emerald" | "up" | "down" | "ghost";

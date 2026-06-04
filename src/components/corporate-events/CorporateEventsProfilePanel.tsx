@@ -2,6 +2,15 @@
 
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  profileTableColAlign,
+  profileTableCellStyle,
+  PROFILE_EVENTS_ROW_GAP,
+  PROFILE_EVENTS_ROW_GRID,
+  PROFILE_EVENTS_ROW_PAD,
+  tableColHeaderBarStyle,
+  tableColHeaderStyle,
+} from "@/components/redesign/primitives";
 import type { CorporateEvent, Sector } from "./CorporateEventsTable";
 
 export type CorporateEventsProfileTokens = {
@@ -326,6 +335,16 @@ const CE_HEADERS = [
   "Amount",
 ] as const;
 
+const CE_LEFT_COLS = [
+  "Date",
+  "Type",
+  "Target / Counterparty",
+  "Sector",
+] as const;
+
+const CE_COL_GRID_NARROW =
+  "minmax(88px, auto) minmax(108px, auto) minmax(0, 1fr)";
+
 export const CorporateEventsProfilePanel: React.FC<
   CorporateEventsProfilePanelProps
 > = ({
@@ -422,175 +441,185 @@ export const CorporateEventsProfilePanel: React.FC<
           minWidth: 0,
         }}
       >
-        <table
-          style={{
-            width: "100%",
-            minWidth: narrow ? 0 : "920px",
-            tableLayout: narrow ? "fixed" : "auto",
-            borderCollapse: "collapse",
-            fontSize: narrow ? "12px" : "12.5px",
-          }}
-        >
-          <thead>
-            <tr style={{ background: T.paper }}>
-              {headers.map((h) => (
-                <th
-                  key={h}
+        <div style={{ width: "100%", minWidth: 0, ...profileTableCellStyle }}>
+          <div
+            style={{
+              ...tableColHeaderBarStyle,
+              gridTemplateColumns: narrow
+                ? CE_COL_GRID_NARROW
+                : PROFILE_EVENTS_ROW_GRID,
+              gap: PROFILE_EVENTS_ROW_GAP,
+              padding: narrow ? "8px 8px" : PROFILE_EVENTS_ROW_PAD.header,
+            }}
+          >
+            {headers.map((h) => (
+              <div
+                key={h}
+                style={{
+                  ...tableColHeaderStyle,
+                  textAlign: profileTableColAlign(h, CE_LEFT_COLS),
+                }}
+              >
+                {h}
+              </div>
+            ))}
+          </div>
+
+          {displayed.length > 0 ? (
+            displayed.map((event, index) => {
+              const ne = event as { announcement_date?: string };
+              const le = event as { announcement_date?: string };
+              const dateRaw = ne.announcement_date || le.announcement_date;
+              const dealTypeStr =
+                (event as { deal_type?: string }).deal_type || "—";
+              const pillTone = dealTypePillTone(dealTypeStr);
+              const desc =
+                (event as { description?: string }).description || "";
+              const advisorList = collectAdvisors(event);
+              const pillStyle =
+                pillTone === "acq"
+                  ? { background: T.azureSoft, color: T.azure }
+                  : pillTone === "div"
+                  ? { background: T.coralSoft, color: T.down }
+                  : { background: T.inset, color: T.muted };
+
+              const cellPad = narrow ? "10px 8px" : PROFILE_EVENTS_ROW_PAD.body;
+              const last = index === displayed.length - 1;
+              const colAlign = (label: (typeof headers)[number]) =>
+                profileTableColAlign(label, CE_LEFT_COLS);
+
+              return (
+                <div
+                  key={event.id ?? `ce-${index}`}
                   style={{
-                    textAlign: h === "Amount" ? "right" : "left",
-                    padding: "10px 12px",
-                    color: T.muted,
-                    fontSize: "10.5px",
-                    fontWeight: 500,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.4,
-                    borderBottom: `1px solid ${T.hair}`,
+                    display: "grid",
+                    gridTemplateColumns: narrow
+                      ? CE_COL_GRID_NARROW
+                      : PROFILE_EVENTS_ROW_GRID,
+                    gap: PROFILE_EVENTS_ROW_GAP,
+                    alignItems: "center",
+                    padding: cellPad,
+                    borderBottom: last ? "none" : `1px solid ${T.hair}`,
                   }}
                 >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {displayed.length > 0 ? (
-              displayed.map((event, index) => {
-                const ne = event as { announcement_date?: string };
-                const le = event as { announcement_date?: string };
-                const dateRaw = ne.announcement_date || le.announcement_date;
-                const dealTypeStr =
-                  (event as { deal_type?: string }).deal_type || "—";
-                const pillTone = dealTypePillTone(dealTypeStr);
-                const desc =
-                  (event as { description?: string }).description || "";
-                const advisorList = collectAdvisors(event);
-                const pillStyle =
-                  pillTone === "acq"
-                    ? { background: T.azureSoft, color: T.azure }
-                    : pillTone === "div"
-                    ? { background: T.coralSoft, color: T.down }
-                    : { background: T.inset, color: T.muted };
-
-                const cellPad = narrow ? "10px 8px" : "10px 12px";
-                return (
-                  <tr
-                    key={event.id ?? `ce-${index}`}
-                    style={{ borderBottom: `1px solid ${T.hair}` }}
+                  <div
+                    style={{
+                      textAlign: colAlign("Date"),
+                      color: T.body,
+                      whiteSpace: narrow ? "nowrap" : undefined,
+                    }}
                   >
-                    <td
-                      style={{
-                        padding: cellPad,
-                        color: T.body,
-                        whiteSpace: narrow ? "nowrap" : undefined,
-                      }}
-                    >
-                      {event.id ? (
-                        <a
-                          href={`/corporate-event/${event.id}`}
-                          style={{
-                            color: T.azure,
-                            textDecoration: "underline",
-                            cursor: "pointer",
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleEventNav(event.id, desc);
-                          }}
-                        >
-                          {formatMonthYear(dateRaw)}
-                        </a>
-                      ) : (
-                        formatMonthYear(dateRaw)
-                      )}
-                    </td>
-                    <td style={{ padding: cellPad }}>
-                      <span
+                    {event.id ? (
+                      <a
+                        href={`/corporate-event/${event.id}`}
                         style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          padding: narrow ? "2px 7px" : "3px 9px",
-                          borderRadius: 999,
-                          fontSize: narrow ? "10.5px" : "11.5px",
-                          fontWeight: 600,
-                          ...pillStyle,
+                          color: T.azure,
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                          fontWeight: 500,
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleEventNav(event.id, desc);
                         }}
                       >
-                        {dealTypeStr}
-                      </span>
-                    </td>
-                    <td
+                        {formatMonthYear(dateRaw)}
+                      </a>
+                    ) : (
+                      formatMonthYear(dateRaw)
+                    )}
+                  </div>
+                  <div style={{ textAlign: colAlign("Type") }}>
+                    <span
                       style={{
-                        padding: cellPad,
-                        color: T.ink,
-                        overflow: narrow ? "hidden" : undefined,
-                        textOverflow: narrow ? "ellipsis" : undefined,
-                        whiteSpace: narrow ? "nowrap" : undefined,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: narrow ? "2px 7px" : "3px 9px",
+                        borderRadius: 999,
+                        fontSize: narrow ? "10.5px" : "11.5px",
+                        fontWeight: 600,
+                        ...pillStyle,
                       }}
                     >
-                      {renderTargetCell(event, T.azure)}
-                    </td>
-                    {!narrow && (
-                      <>
-                        <td style={{ padding: cellPad, color: T.muted }}>
-                          {advisorList.length === 0
-                            ? "—"
-                            : advisorList.map((advisor, idx) => (
-                                <span key={`${advisor.name}-${idx}`}>
-                                  <span
-                                    style={{
-                                      color: T.azure,
-                                      cursor: advisor.id
-                                        ? "pointer"
-                                        : "default",
-                                    }}
-                                    onClick={() =>
-                                      advisor.id &&
-                                      handleAdvisorNav(
-                                        advisor.id,
-                                        advisor.name
-                                      )
-                                    }
-                                  >
-                                    {advisor.name}
-                                  </span>
-                                  {idx < advisorList.length - 1 ? ", " : ""}
+                      {dealTypeStr}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      textAlign: colAlign("Target / Counterparty"),
+                      color: T.ink,
+                      minWidth: 0,
+                      overflow: narrow ? "hidden" : undefined,
+                      textOverflow: narrow ? "ellipsis" : undefined,
+                      whiteSpace: narrow ? "nowrap" : undefined,
+                    }}
+                  >
+                    {renderTargetCell(event, T.azure)}
+                  </div>
+                  {!narrow && (
+                    <>
+                      <div
+                        style={{
+                          textAlign: colAlign("Advisors"),
+                          color: T.muted,
+                          minWidth: 0,
+                        }}
+                      >
+                        {advisorList.length === 0
+                          ? "—"
+                          : advisorList.map((advisor, idx) => (
+                              <span key={`${advisor.name}-${idx}`}>
+                                <span
+                                  style={{
+                                    color: T.azure,
+                                    cursor: advisor.id ? "pointer" : "default",
+                                  }}
+                                  onClick={() =>
+                                    advisor.id &&
+                                    handleAdvisorNav(advisor.id, advisor.name)
+                                  }
+                                >
+                                  {advisor.name}
                                 </span>
-                              ))}
-                        </td>
-                        <td style={{ padding: cellPad, color: T.muted }}>
-                          {sectorCol}
-                        </td>
-                        <td
-                          style={{
-                            padding: cellPad,
-                            textAlign: "right",
-                            color: T.body,
-                            fontVariantNumeric: "tabular-nums",
-                          }}
-                        >
-                          {formatAmountCell(event)}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td
-                  colSpan={headers.length}
-                  style={{
-                    padding: "24px",
-                    textAlign: "center",
-                    color: T.muted,
-                  }}
-                >
-                  No corporate events found
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                                {idx < advisorList.length - 1 ? ", " : ""}
+                              </span>
+                            ))}
+                      </div>
+                      <div
+                        style={{
+                          textAlign: colAlign("Sector"),
+                          color: T.muted,
+                          minWidth: 0,
+                        }}
+                      >
+                        {sectorCol}
+                      </div>
+                      <div
+                        style={{
+                          textAlign: colAlign("Amount"),
+                          color: T.body,
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        {formatAmountCell(event)}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div
+              style={{
+                padding: "24px",
+                textAlign: "center",
+                color: T.muted,
+              }}
+            >
+              No corporate events found
+            </div>
+          )}
+        </div>
       </div>
 
       {events.length > maxInitialEvents ? (

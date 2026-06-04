@@ -4,7 +4,7 @@
  * Collapses to the Overview card height. Expand → shows full text.
  */
 import React from "react";
-import { LinkPanel, LinkedH, T } from "./primitives";
+import { LinkPanel, LinkedH, T, descriptionBodyStyle } from "./primitives";
 
 const EM = "—";
 
@@ -43,9 +43,7 @@ export function DescriptionCard({
         <div
           ref={contentRef}
           style={{
-            fontSize: 13,
-            lineHeight: 1.55,
-            color: T.body,
+            ...descriptionBodyStyle,
             textAlign: "justify" as const,
             flex: expanded ? 1 : undefined,
             overflow: "hidden",

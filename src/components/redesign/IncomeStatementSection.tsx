@@ -4,11 +4,12 @@ import React from "react";
 import {
   LinkedH,
   T,
-  tableColHeaderStyle,
   finMetricRowStyle,
   finMetricLabelStyle,
-  finMetricValueStyle,
-  overviewBodyPadding,
+  finMetricValueColStyle,
+  finMetricsPeriodHeaderStyle,
+  finMetricsBodyPadding,
+  FIN_METRIC_TWO_COLS,
 } from "./primitives";
 
 export type IncomeStatementRow = {
@@ -26,9 +27,6 @@ type Props = {
   currency?: string;
 };
 
-/** Two-column grid: label | value (no source column) — matches Fin Metrics proportions. */
-const IS_COLS = "minmax(118px, 138px) minmax(0, 1fr)";
-
 function formatIncomeValue(value: number | null | undefined): string {
   if (typeof value !== "number") return "—";
   return Math.round(value / 1_000_000).toLocaleString();
@@ -37,19 +35,20 @@ function formatIncomeValue(value: number | null | undefined): string {
 function IsPeriodHeader({ period }: { period: string }) {
   return (
     <div
+      className="income-statement-period"
       style={{
         display: "grid",
-        gridTemplateColumns: IS_COLS,
+        gridTemplateColumns: FIN_METRIC_TWO_COLS,
         gap: 8,
         alignItems: "center",
-        padding: "8px 14px 6px",
+        padding: "4px 12px 3px",
         background: T.paper,
         borderBottom: `1px solid ${T.hair}`,
-        ...tableColHeaderStyle,
+        ...finMetricsPeriodHeaderStyle,
       }}
     >
       <span />
-      <span style={{ textAlign: "center", justifySelf: "center", width: "100%" }}>
+      <span style={{ textAlign: "right", justifySelf: "stretch", width: "100%" }}>
         {period}
       </span>
     </div>
@@ -67,10 +66,10 @@ function IsMetricRow({
 }) {
   return (
     <div
-      className="info-row"
+      className="info-row income-statement-row"
       style={{
         ...finMetricRowStyle,
-        gridTemplateColumns: IS_COLS,
+        gridTemplateColumns: FIN_METRIC_TWO_COLS,
         borderBottom: last ? "none" : finMetricRowStyle.borderBottom,
       }}
     >
@@ -79,21 +78,12 @@ function IsMetricRow({
           ...finMetricLabelStyle,
           whiteSpace: "normal",
           lineHeight: 1.35,
-          paddingRight: 4,
+          paddingRight: 8,
         }}
       >
         {label}
       </span>
-      <span
-        style={{
-          ...finMetricValueStyle,
-          textAlign: "center",
-          justifySelf: "center",
-          width: "100%",
-        }}
-      >
-        {value}
-      </span>
+      <span style={finMetricValueColStyle}>{value}</span>
     </div>
   );
 }
@@ -107,7 +97,7 @@ export function IncomeStatementTable({
   if (rows.length === 0) return null;
 
   return (
-    <div>
+    <div className="income-statement-table">
       {rows.map((row) => {
         const period =
           (row.period_display_end_date || "").replace(/[,\s]/g, "") || "—";
@@ -119,7 +109,7 @@ export function IncomeStatementTable({
         return (
           <div key={row.id}>
             <IsPeriodHeader period={period} />
-            <div style={{ padding: overviewBodyPadding }}>
+            <div style={{ padding: finMetricsBodyPadding }}>
               {metrics.map((m, i) => (
                 <IsMetricRow
                   key={m.label}
