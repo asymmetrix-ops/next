@@ -1,6 +1,4 @@
 import type { CompaniesResponse, CompaniesResultPayload, CompanyItem } from "./actions";
-import { getFieldAliasesForColumn } from "@/components/companies/companiesColumnFields";
-import { readLogoFromRecord } from "@/lib/companyLogo";
 
 function readNumber(value: unknown, fallback = 0): number {
   const n = Number(value);
@@ -11,11 +9,6 @@ function readNullableNumber(value: unknown): number | null {
   if (value == null || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
-}
-
-function normalizeCompanyItem(item: CompanyItem): CompanyItem {
-  const logo = readLogoFromRecord(item, getFieldAliasesForColumn("logo"));
-  return logo ? { ...item, linkedin_logo: logo } : item;
 }
 
 /** Normalize Get_new_companies payloads (result1 wrapper, flat body, or alternate keys). */
@@ -29,7 +22,6 @@ export function normalizeCompaniesResponse(raw: unknown): CompaniesResponse {
     offset: 0,
     perPage: 20,
     pageTotal: 1,
-    totalCount: 0,
   };
 
   if (!raw || typeof raw !== "object") {
@@ -42,12 +34,11 @@ export function normalizeCompaniesResponse(raw: unknown): CompaniesResponse {
       ? (root.result1 as Record<string, unknown>)
       : root;
 
-  const items = (Array.isArray(payload.items)
+  const items = Array.isArray(payload.items)
     ? (payload.items as CompanyItem[])
     : Array.isArray(root.items)
     ? (root.items as CompanyItem[])
-    : []
-  ).map(normalizeCompanyItem);
+    : [];
 
   const perPage =
     readNumber(payload.perPage ?? payload.per_page ?? root.perPage ?? root.per_page, 20) ||
@@ -81,15 +72,6 @@ export function normalizeCompaniesResponse(raw: unknown): CompaniesResponse {
     pageTotal = 1;
   }
 
-  const totalCount = readNumber(
-    payload.total_count ??
-      payload.totalCount ??
-      payload.total_count_all ??
-      root.total_count ??
-      root.totalCount,
-    0
-  );
-
   return {
     result1: {
       items,
@@ -103,7 +85,6 @@ export function normalizeCompaniesResponse(raw: unknown): CompaniesResponse {
       offset: readNumber(payload.offset ?? root.offset, 0),
       perPage,
       pageTotal,
-      totalCount: totalCount > 0 ? totalCount : undefined,
       ownershipCounts: (payload.ownershipCounts ?? root.ownershipCounts) as
         | CompaniesResultPayload["ownershipCounts"]
         | undefined,

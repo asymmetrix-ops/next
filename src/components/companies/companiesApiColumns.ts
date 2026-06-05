@@ -5,7 +5,10 @@ export const ALWAYS_INCLUDED_COLUMN_KEYS = new Set<string>([
   ...PROD_DEFAULT_COMPANY_COLUMN_KEYS,
 ]);
 
-/** Maps visible UI column keys → Get_new_companies `columns[]` API keys (defaults + optional). */
+/**
+ * Maps visible UI column keys → Get_new_companies `columns[]` request keys.
+ * Item field aliases for reading responses live in companiesColumnFields.ts.
+ */
 export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   description: "description",
   primary_sectors: "primary_sectors",
@@ -15,7 +18,6 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   country: "country",
   website: "website",
   follow: "follow",
-  list_count: "list_count",
   year_founded: "year_founded",
   hq: "hq",
   city: "city",

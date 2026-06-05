@@ -33,8 +33,18 @@ export interface FilterDef {
 }
 
 export interface FilterItem {
+  /** Filter type id (e.g. "country"). */
   id: string;
+  /** Unique instance key — allows multiple filters of the same type. */
+  key: string;
   value: unknown;
+}
+
+let filterInstanceCounter = 0;
+
+export function createFilterInstanceKey(): string {
+  filterInstanceCounter += 1;
+  return `filter-${filterInstanceCounter}-${Date.now()}`;
 }
 
 export type FilterCombineLogic = "and" | "or";
@@ -1681,12 +1691,6 @@ export function CompaniesFilterBar({
   const [editing, setEditing] = useState<string | null>(null);
   const chipRefs = useRef<Record<string, React.RefObject<HTMLSpanElement>>>({});
 
-  const usedIds = useMemo(() => new Set(filters.map((f) => f.id)), [filters]);
-  const available = useMemo(
-    () => filterDefs.filter((d) => !usedIds.has(d.id)),
-    [filterDefs, usedIds]
-  );
-
   const addFilter = useCallback(
     (def: FilterDef) => {
       let initial: unknown = null;
@@ -1697,23 +1701,26 @@ export function CompaniesFilterBar({
       } else if (def.editor === "segmented")
         initial = def.options?.[0] ?? null;
       else if (def.editor === "boolean") initial = true;
-      setFilters((f) => [...f, { id: def.id, value: initial }]);
-      setEditing(def.id);
+      const instanceKey = createFilterInstanceKey();
+      setFilters((f) => [...f, { id: def.id, key: instanceKey, value: initial }]);
+      setEditing(instanceKey);
     },
     [setFilters]
   );
 
   const updateFilter = useCallback(
-    (id: string, value: unknown) => {
-      setFilters((f) => f.map((x) => (x.id === id ? { ...x, value } : x)));
+    (instanceKey: string, value: unknown) => {
+      setFilters((f) =>
+        f.map((x) => (x.key === instanceKey ? { ...x, value } : x))
+      );
     },
     [setFilters]
   );
 
   const removeFilter = useCallback(
-    (id: string) => {
-      setFilters((f) => f.filter((x) => x.id !== id));
-      setEditing((e) => (e === id ? null : e));
+    (instanceKey: string) => {
+      setFilters((f) => f.filter((x) => x.key !== instanceKey));
+      setEditing((e) => (e === instanceKey ? null : e));
     },
     [setFilters]
   );
@@ -1723,7 +1730,7 @@ export function CompaniesFilterBar({
     setEditing(null);
   }, [setFilters]);
 
-  const editingFilter = filters.find((f) => f.id === editing);
+  const editingFilter = filters.find((f) => f.key === editing);
   const editingDef = editingFilter
     ? filterDefs.find((d) => d.id === editingFilter.id)
     : null;
@@ -1838,18 +1845,18 @@ export function CompaniesFilterBar({
           {filters.map((f, index) => {
             const def = filterDefs.find((d) => d.id === f.id);
             if (!def) return null;
-            if (!chipRefs.current[f.id])
-              chipRefs.current[f.id] = { current: null } as React.RefObject<HTMLSpanElement>;
+            if (!chipRefs.current[f.key])
+              chipRefs.current[f.key] = { current: null } as React.RefObject<HTMLSpanElement>;
             return (
-              <React.Fragment key={f.id}>
+              <React.Fragment key={f.key}>
                 {index > 0 && <FilterLogicSeparator logic={filterLogic} />}
-                <span ref={chipRefs.current[f.id]}>
+                <span ref={chipRefs.current[f.key]}>
                   <Chip
                     def={def}
                     value={f.value}
                     chipStyle="cyan"
-                    onEdit={() => setEditing(f.id)}
-                    onRemove={() => removeFilter(f.id)}
+                    onEdit={() => setEditing(f.key)}
+                    onRemove={() => removeFilter(f.key)}
                   />
                 </span>
               </React.Fragment>
@@ -1867,7 +1874,7 @@ export function CompaniesFilterBar({
 
           {/* Add filter button */}
           <AddFilterButton
-            availableDefs={available}
+            availableDefs={filterDefs}
             categories={filterCategories}
             onPick={addFilter}
           />

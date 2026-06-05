@@ -6,8 +6,6 @@
  * Item read aliases below match the live API shape (see Get_new_companies sample).
  */
 
-import { LOGO_FIELD_ALIASES } from "@/lib/companyLogo";
-
 /** Fields returned on every item without `columns[]`. */
 export const IDENTITY_ITEM_FIELDS = ["id", "name", "linkedin_logo"] as const;
 
@@ -16,7 +14,7 @@ export const IDENTITY_ITEM_FIELDS = ["id", "name", "linkedin_logo"] as const;
  * Primary alias matches the Get_new_companies response key.
  */
 export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
-  logo: LOGO_FIELD_ALIASES,
+  logo: ["linkedin_logo"],
   name: ["name"],
   website: ["website", "url", "Website"],
   description: ["description"],
@@ -24,8 +22,9 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
   secondary_sectors: ["secondary_sectors", "secondary_sector_names"],
   ownership: ["ownership", "ownership_type", "_ownership_type.ownership"],
   linkedin_members: ["linkedin_members", "li_emp", "linkedin_employee"],
+  country: ["country", "hq_country", "_locations.Country"],
   year_founded: ["year_founded", "year_founded_label", "_years.Year"],
-  hq: ["hq", "loc", "location", "country", "hq_country", "_locations", "_locations.Country"],
+  hq: ["hq", "loc", "location", "_locations"],
   city: ["city", "hq_city", "_locations.City"],
   state: ["state", "province", "hq_state", "_locations.State__Province__County"],
   linkedin_url: ["linkedin_url", "LinkedIn_URL", "linkedin_data.LinkedIn_URL"],
@@ -36,14 +35,18 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
     "linkedin_growth_1y_pct",
     "growth_percent",
   ],
-  investors: ["investors", "investor_names", "investors_new_company", "_companies_investors"],
-  years_since_last_investment: ["years_since_last_investment"],
+  investors: ["investors", "investor_names", "_companies_investors"],
+  years_since_last_investment: [
+    "years_since_last_investment",
+    "last_investment.display",
+    "last_investment.days_since",
+    "last_investment",
+  ],
   lifecycle_stage: ["lifecycle_stage", "Lifecycle_stage.Lifecycle_stage"],
   product_type: ["product_type", "Product_Type"],
   data_collection_method: ["data_collection_method", "Data_Collection_Method"],
   revenue_model: ["revenue_model", "Revenue_Model_", "Revenue_Model"],
   transaction_status: ["transaction_status", "transactionStatus"],
-  created_at: ["created_at", "date_added"],
   revenue_m: ["revenue_m", "Revenue_m", "revenues.revenues_m"],
   ebitda_m: ["ebitda_m", "EBITDA_m", "EBITDA.EBITDA_m"],
   enterprise_value: ["ev", "enterprise_value", "EV", "ev_data.ev_value"],
@@ -51,18 +54,8 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
   revenue_growth: ["revenue_growth", "rev_growth_pc", "Rev_Growth_PC"],
   ebitda_margin: ["ebitda_margin", "EBITDA_margin"],
   rule_of_40: ["rule_of_40", "Rule_of_40"],
-  subscription_revenue_pc: [
-    "subscription_revenue_pc",
-    "Subscription_revenue_pc",
-    "arr_pc",
-    "ARR_pc",
-  ],
-  subscription_revenue_m: [
-    "subscription_revenue_m",
-    "Subscription_revenue_m",
-    "arr_m",
-    "ARR_m",
-  ],
+  arr_pc: ["arr_pc", "ARR_pc"],
+  arr_m: ["arr_m", "ARR_m"],
   churn_pc: ["churn", "churn_pc", "Churn_pc"],
   grr_pc: ["grr", "grr_pc", "GRR_pc"],
   nrr: ["nrr", "NRR"],
@@ -78,10 +71,9 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
   ebit_m: ["ebit_m", "EBIT_m"],
   no_of_clients: ["no_clients", "no_of_clients", "No_of_clients"],
   rev_per_client: ["rev_per_client", "Revenue_per_client"],
-  no_employees: ["no_employees", "No_Employees", "linkedin_members", "li_emp"],
+  no_employees: ["no_employees", "No_Employees"],
   rev_per_employee: ["rev_per_employee", "Revenue_per_employee"],
   financial_year: ["financial_year", "Financial_Year"],
-  has_mcp: ["has_mcp"],
 };
 
 /** Columns whose API values may arrive as JSON strings or arrays. */

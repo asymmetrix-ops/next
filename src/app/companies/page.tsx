@@ -52,6 +52,10 @@ import {
   getSortValueForColumn,
 } from "@/components/companies/companiesTableSort";
 import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
+import {
+  getFieldAliasesForColumn,
+  LIST_JSON_COLUMN_KEYS,
+} from "@/components/companies/companiesColumnFields";
 
 // Feature flags (master only)
 const ENABLE_COMPANIES_KEYWORD_SEARCH = false;
@@ -84,16 +88,17 @@ type SectorRef =
 interface Company {
   id: number;
   name: string;
-  description: string;
-  primary_sectors: SectorRef[];
-  secondary_sectors: SectorRef[];
-  ownership_type_id: number;
-  ownership: string;
-  country: string;
-  linkedin_logo: string;
-  linkedin_members_latest: number;
-  linkedin_members_old: number;
-  linkedin_members: number;
+  description?: string;
+  primary_sectors?: SectorRef[] | string;
+  secondary_sectors?: SectorRef[] | string;
+  ownership_type_id?: number;
+  ownership?: string;
+  country?: string;
+  linkedin_logo?: string;
+  linkedin_members_latest?: number;
+  linkedin_members_old?: number;
+  linkedin_members?: number;
+  [key: string]: unknown;
   last_investment?: {
     display?: string | null;
     date?: string | null;
@@ -460,7 +465,7 @@ const useCompaniesAPI = () => {
         }
 
         if (requestId === lastRequestIdRef.current) {
-          setCompanies(data.result1?.items || []);
+          setCompanies((data.result1?.items || []) as Company[]);
           setPagination({
             itemsReceived: data.result1?.itemsReceived || 0,
             curPage: data.result1?.curPage || 1,
@@ -725,14 +730,20 @@ const makeTextColumn = (
   key: string,
   label: string,
   group: string,
-  aliases: string[],
   options: Pick<CompanyColumnDefinition, "wrap" | "minWidth"> = {}
 ): CompanyColumnDefinition => ({
   key,
   label,
   group,
   ...options,
-  render: (company) => toPlainText(readCompanyValue(company, aliases)),
+  render: (company) => {
+    const raw = readCompanyValue(company, [...getFieldAliasesForColumn(key)]);
+    if (LIST_JSON_COLUMN_KEYS.has(key)) {
+      const items = parseListField(raw);
+      return toPlainText(items.length > 0 ? items : raw);
+    }
+    return toPlainText(raw);
+  },
 });
 
 const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinition[] }> = [
@@ -777,7 +788,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
           </a>
         ),
       },
-      makeTextColumn("website", "Website", "Identity", ["url", "website", "Website"], {
+      makeTextColumn("website", "Website", "Identity", {
         wrap: true,
         minWidth: 220,
       }),
@@ -808,16 +819,12 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
                 followKey="followed_companies"
                 entityId={id}
                 label={String(company.name || "")}
+                icon="star"
               />
             </div>
           );
         },
       },
-      makeTextColumn("list_count", "Lists", "Lists", [
-        "list_count",
-        "lists_count",
-        "portfolio_list_count",
-      ], { minWidth: 90 }),
     ],
   },
   {
@@ -851,54 +858,25 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         render: (company) =>
           renderSectorLinks(parseListField(company.secondary_sectors), "secondary"),
       },
-      makeTextColumn("ownership", "Ownership", "Default", [
-        "ownership",
-        "ownership_type",
-        "_ownership_type.ownership",
-      ]),
-      makeTextColumn("linkedin_members", "LinkedIn Members", "Default", [
-        "li_emp",
-        "linkedin_members",
-        "linkedin_employee",
-      ], { minWidth: 130 }),
-      makeTextColumn("country", "Country", "Default", [
-        "country",
-        "hq_country",
-        "_locations.Country",
-      ]),
+      makeTextColumn("ownership", "Ownership", "Default"),
+      makeTextColumn("linkedin_members", "LinkedIn Members", "Default", {
+        minWidth: 130,
+      }),
+      makeTextColumn("country", "Country", "Default"),
     ],
   },
   {
     group: "Overview",
     cols: [
-      makeTextColumn("year_founded", "Year Founded", "Overview", [
-        "year_founded",
-        "year_founded_label",
-        "_years.Year",
-      ]),
-      makeTextColumn("hq", "HQ", "Overview", ["loc", "hq", "location", "_locations"], {
+      makeTextColumn("year_founded", "Year Founded", "Overview"),
+      makeTextColumn("hq", "HQ", "Overview", { wrap: true, minWidth: 220 }),
+      makeTextColumn("city", "City", "Overview"),
+      makeTextColumn("state", "State/Province", "Overview"),
+      makeTextColumn("linkedin_url", "LinkedIn URL", "Overview", {
         wrap: true,
         minWidth: 220,
       }),
-      makeTextColumn("city", "City", "Overview", ["city", "hq_city", "_locations.City"]),
-      makeTextColumn("state", "State/Province", "Overview", [
-        "province",
-        "state",
-        "hq_state",
-        "_locations.State__Province__County",
-      ]),
-      makeTextColumn("linkedin_url", "LinkedIn URL", "Overview", [
-        "linkedin_url",
-        "LinkedIn_URL",
-        "linkedin_data.LinkedIn_URL",
-      ], { wrap: true, minWidth: 220 }),
-      makeTextColumn("linkedin_growth", "LinkedIn Growth (%)", "Overview", [
-        "linkedin_growth",
-        "linkedin_growth_pc",
-        "li_growth_pc",
-        "linkedin_growth_1y_pct",
-        "growth_percent",
-      ]),
+      makeTextColumn("linkedin_growth", "LinkedIn Growth (%)", "Overview"),
       {
         key: "investors",
         label: "Investors",
@@ -906,142 +884,69 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         wrap: true,
         minWidth: 220,
         render: (company) => {
-          const rec = company as unknown as Record<string, unknown>;
-          const raw =
-            rec.investor_names ??
-            rec.investors ??
-            rec._companies_investors;
+          const raw = readCompanyValue(company, [...getFieldAliasesForColumn("investors")]);
           const items = parseListField(raw);
           return toPlainText(items.length > 0 ? items : raw);
         },
       },
-      makeTextColumn(
-        "years_since_last_investment",
-        "Years Since Last Investment",
-        "Overview",
-        ["last_investment.display", "last_investment"],
-        { minWidth: 190 }
-      ),
-      makeTextColumn("lifecycle_stage", "Lifecycle Stage", "Overview", [
-        "Lifecycle_stage.Lifecycle_stage",
-        "lifecycle_stage",
-      ]),
-      makeTextColumn("product_type", "Product Type", "Overview", ["Product_Type"], {
+      makeTextColumn("years_since_last_investment", "Years Since Last Investment", "Overview", {
+        minWidth: 190,
+      }),
+      makeTextColumn("lifecycle_stage", "Lifecycle Stage", "Overview"),
+      makeTextColumn("product_type", "Product Type", "Overview", {
         wrap: true,
         minWidth: 220,
       }),
-      makeTextColumn("data_collection_method", "Data Collection Method", "Overview", [
-        "Data_Collection_Method",
-      ], { wrap: true, minWidth: 220 }),
-      makeTextColumn("revenue_model", "Revenue Model", "Overview", [
-        "Revenue_Model_",
-        "Revenue_Model",
-      ], { wrap: true, minWidth: 220 }),
-      makeTextColumn("transaction_status", "Transaction Status", "Overview", [
-        "transaction_status",
-        "transactionStatus",
-      ], { wrap: true, minWidth: 200 }),
+      makeTextColumn("data_collection_method", "Data Collection Method", "Overview", {
+        wrap: true,
+        minWidth: 220,
+      }),
+      makeTextColumn("revenue_model", "Revenue Model", "Overview", {
+        wrap: true,
+        minWidth: 220,
+      }),
+      makeTextColumn("transaction_status", "Transaction Status", "Overview", {
+        wrap: true,
+        minWidth: 200,
+      }),
     ],
   },
   {
     group: "Financial Metrics",
     cols: [
-      makeTextColumn("revenue_m", "Revenue (m)", "Financial Metrics", [
-        "revenue_m",
-        "Revenue_m",
-        "revenues.revenues_m",
-      ]),
-      makeTextColumn("ebitda_m", "EBITDA (m)", "Financial Metrics", [
-        "ebitda_m",
-        "EBITDA_m",
-        "EBITDA.EBITDA_m",
-      ]),
-      makeTextColumn("enterprise_value", "Enterprise Value (m)", "Financial Metrics", [
-        "ev",
-        "EV",
-        "ev_data.ev_value",
-      ]),
-      makeTextColumn("revenue_multiple", "Revenue Multiple", "Financial Metrics", [
-        "revenue_multiple",
-        "Revenue_multiple",
-      ]),
-      makeTextColumn("revenue_growth", "Revenue Growth", "Financial Metrics", [
-        "revenue_growth",
-        "rev_growth_pc",
-        "Rev_Growth_PC",
-      ]),
-      makeTextColumn("ebitda_margin", "EBITDA Margin", "Financial Metrics", [
-        "ebitda_margin",
-        "EBITDA_margin",
-      ]),
-      makeTextColumn("rule_of_40", "Rule of 40", "Financial Metrics", [
-        "rule_of_40",
-        "Rule_of_40",
-      ]),
+      makeTextColumn("revenue_m", "Revenue (m)", "Financial Metrics"),
+      makeTextColumn("ebitda_m", "EBITDA (m)", "Financial Metrics"),
+      makeTextColumn("enterprise_value", "Enterprise Value (m)", "Financial Metrics"),
+      makeTextColumn("revenue_multiple", "Revenue Multiple", "Financial Metrics"),
+      makeTextColumn("revenue_growth", "Revenue Growth", "Financial Metrics"),
+      makeTextColumn("ebitda_margin", "EBITDA Margin", "Financial Metrics"),
+      makeTextColumn("rule_of_40", "Rule of 40", "Financial Metrics"),
     ],
   },
   {
     group: "Subscription Metrics",
     cols: [
-      makeTextColumn("arr_pc", "Recurring Revenue", "Subscription Metrics", [
-        "arr_pc",
-        "ARR_pc",
-      ]),
-      makeTextColumn("arr_m", "ARR (m)", "Subscription Metrics", ["arr_m", "ARR_m"]),
-      makeTextColumn("churn_pc", "Churn", "Subscription Metrics", [
-        "churn",
-        "churn_pc",
-        "Churn_pc",
-      ]),
-      makeTextColumn("grr_pc", "GRR", "Subscription Metrics", ["grr", "grr_pc", "GRR_pc"]),
-      makeTextColumn("nrr", "NRR", "Subscription Metrics", ["nrr", "NRR"]),
-      makeTextColumn(
-        "new_client_growth_pc",
-        "New Clients Revenue Growth",
-        "Subscription Metrics",
-        ["new_client_growth", "new_client_growth_pc", "New_client_growth_pc"]
-      ),
-      makeTextColumn("upsell_pc", "Upsell", "Subscription Metrics", ["upsell", "upsell_pc"]),
-      makeTextColumn("cross_sell_pc", "Cross-sell", "Subscription Metrics", [
-        "cross_sell",
-        "cross_sell_pc",
-      ]),
-      makeTextColumn("price_increase_pc", "Price Increase", "Subscription Metrics", [
-        "price_increase",
-        "price_increase_pc",
-      ]),
-      makeTextColumn("rev_expansion_pc", "Revenue Expansion", "Subscription Metrics", [
-        "rev_expansion",
-        "rev_expansion_pc",
-      ]),
+      makeTextColumn("arr_pc", "Recurring Revenue", "Subscription Metrics"),
+      makeTextColumn("arr_m", "ARR (m)", "Subscription Metrics"),
+      makeTextColumn("churn_pc", "Churn", "Subscription Metrics"),
+      makeTextColumn("grr_pc", "GRR", "Subscription Metrics"),
+      makeTextColumn("nrr", "NRR", "Subscription Metrics"),
+      makeTextColumn("new_client_growth_pc", "New Clients Revenue Growth", "Subscription Metrics"),
+      makeTextColumn("upsell_pc", "Upsell", "Subscription Metrics"),
+      makeTextColumn("cross_sell_pc", "Cross-sell", "Subscription Metrics"),
+      makeTextColumn("price_increase_pc", "Price Increase", "Subscription Metrics"),
+      makeTextColumn("rev_expansion_pc", "Revenue Expansion", "Subscription Metrics"),
     ],
   },
   {
     group: "Other Metrics",
     cols: [
-      makeTextColumn("ebit_m", "EBIT (m)", "Other Metrics", ["EBIT_m", "ebit_m"]),
-      makeTextColumn("no_of_clients", "Number of Clients", "Other Metrics", [
-        "no_clients",
-        "No_of_clients",
-        "no_of_clients",
-      ]),
-      makeTextColumn("rev_per_client", "Revenue per Client", "Other Metrics", [
-        "Revenue_per_client",
-        "rev_per_client",
-      ]),
-      makeTextColumn("no_employees", "Number of Employees", "Other Metrics", [
-        "No_Employees",
-        "no_employees",
-        "linkedin_members",
-      ]),
-      makeTextColumn("rev_per_employee", "Revenue per Employee", "Other Metrics", [
-        "Revenue_per_employee",
-        "rev_per_employee",
-      ]),
-      makeTextColumn("financial_year", "Financial Year", "Other Metrics", [
-        "Financial_Year",
-        "financial_year",
-      ]),
+      makeTextColumn("ebit_m", "EBIT (m)", "Other Metrics"),
+      makeTextColumn("no_of_clients", "Number of Clients", "Other Metrics"),
+      makeTextColumn("rev_per_client", "Revenue per Client", "Other Metrics"),
+      makeTextColumn("no_employees", "Number of Employees", "Other Metrics"),
+      makeTextColumn("rev_per_employee", "Revenue per Employee", "Other Metrics"),
+      makeTextColumn("financial_year", "Financial Year", "Other Metrics"),
     ],
   },
 ];
@@ -1444,6 +1349,69 @@ function buildCompaniesFilterDefs({
   return [...extras, ...buildColumnLinkedFilterDefs(overrides)];
 }
 
+function mergeStringFilterValues(
+  existing: string[],
+  incoming: string[],
+  mode: "AND" | "OR"
+): string[] {
+  if (incoming.length === 0) return existing;
+  if (mode === "OR" || existing.length === 0) {
+    return Array.from(new Set([...existing, ...incoming]));
+  }
+  const incomingSet = new Set(incoming);
+  const intersection = existing.filter((value) => incomingSet.has(value));
+  return intersection.length > 0 ? intersection : incoming;
+}
+
+function mergeIdFilterValues(
+  existing: number[],
+  incoming: number[],
+  mode: "AND" | "OR"
+): number[] {
+  if (incoming.length === 0) return existing;
+  if (mode === "OR" || existing.length === 0) {
+    return Array.from(new Set([...existing, ...incoming]));
+  }
+  const incomingSet = new Set(incoming);
+  const intersection = existing.filter((id) => incomingSet.has(id));
+  return intersection.length > 0 ? intersection : incoming;
+}
+
+function mergeRangeFilterValues(
+  existingMin: number | null,
+  existingMax: number | null,
+  incoming: { min?: number; max?: number },
+  mode: "AND" | "OR"
+): { min: number | null; max: number | null } {
+  const inMin = incoming.min ?? null;
+  const inMax = incoming.max ?? null;
+  if (existingMin == null && existingMax == null) {
+    return { min: inMin, max: inMax };
+  }
+  if (mode === "AND") {
+    return {
+      min:
+        existingMin != null && inMin != null
+          ? Math.max(existingMin, inMin)
+          : existingMin ?? inMin,
+      max:
+        existingMax != null && inMax != null
+          ? Math.min(existingMax, inMax)
+          : existingMax ?? inMax,
+    };
+  }
+  return {
+    min:
+      existingMin != null && inMin != null
+        ? Math.min(existingMin, inMin)
+        : existingMin ?? inMin,
+    max:
+      existingMax != null && inMax != null
+        ? Math.max(existingMax, inMax)
+        : existingMax ?? inMax,
+  };
+}
+
 function buildFiltersFromState(
   state: FilterBarState,
   data: {
@@ -1455,39 +1423,62 @@ function buildFiltersFromState(
 ): Filters {
   const f = createDefaultFilters();
   f.searchQuery = state.searchText.trim();
-  f.filterMode = state.filterLogic === "or" ? "OR" : "AND";
+  const combineMode: "AND" | "OR" = state.filterLogic === "or" ? "OR" : "AND";
+  f.filterMode = combineMode;
 
   for (const item of state.filters) {
     const v = item.value;
     if (v == null) continue;
     switch (item.id) {
       case "region":
-        f.continentalRegions = Array.isArray(v) ? (v as string[]) : [];
+        f.continentalRegions = mergeStringFilterValues(
+          f.continentalRegions ?? [],
+          Array.isArray(v) ? (v as string[]) : [],
+          combineMode
+        );
         break;
       case "sub_region":
-        f.subRegions = Array.isArray(v) ? (v as string[]) : [];
+        f.subRegions = mergeStringFilterValues(
+          f.subRegions ?? [],
+          Array.isArray(v) ? (v as string[]) : [],
+          combineMode
+        );
         break;
       case "country":
-        f.countries = Array.isArray(v) ? (v as string[]) : [];
+        f.countries = mergeStringFilterValues(
+          f.countries ?? [],
+          Array.isArray(v) ? (v as string[]) : [],
+          combineMode
+        );
         break;
       case "state":
-        f.provinces = Array.isArray(v) ? (v as string[]) : [];
+        f.provinces = mergeStringFilterValues(
+          f.provinces ?? [],
+          Array.isArray(v) ? (v as string[]) : [],
+          combineMode
+        );
         break;
       case "city":
-        f.cities = Array.isArray(v) ? (v as string[]) : [];
+        f.cities = mergeStringFilterValues(
+          f.cities ?? [],
+          Array.isArray(v) ? (v as string[]) : [],
+          combineMode
+        );
         break;
       case "primary_sector": {
         const names = Array.isArray(v) ? (v as string[]) : [];
-        f.primarySectors = names
+        const ids = names
           .map((name) => data.primarySectors.find((s) => s.sector_name === name)?.id)
           .filter((id): id is number => id != null);
+        f.primarySectors = mergeIdFilterValues(f.primarySectors ?? [], ids, combineMode);
         break;
       }
       case "secondary_sector": {
         const names = Array.isArray(v) ? (v as string[]) : [];
-        f.secondarySectors = names
+        const ids = names
           .map((name) => data.secondarySectors.find((s) => s.sector_name === name)?.id)
           .filter((id): id is number => id != null);
+        f.secondarySectors = mergeIdFilterValues(f.secondarySectors ?? [], ids, combineMode);
         break;
       }
       case "business_focus": {
@@ -1498,117 +1489,184 @@ function buildFiltersFromState(
       }
       case "ownership": {
         const names = Array.isArray(v) ? (v as string[]) : [];
-        f.ownershipTypes = names
+        const ids = names
           .map((name) => data.ownershipTypes.find((o) => o.ownership === name)?.id)
           .filter((id): id is number => id != null);
+        f.ownershipTypes = mergeIdFilterValues(f.ownershipTypes ?? [], ids, combineMode);
         break;
       }
       case "transaction":
-        f.transactionStatus = Array.isArray(v) ? (v as string[]) : [];
+        f.transactionStatus = mergeStringFilterValues(
+          f.transactionStatus ?? [],
+          Array.isArray(v) ? (v as string[]) : [],
+          combineMode
+        );
         break;
       case "headcount": {
         const rv = v as { min?: number; max?: number };
-        f.linkedinMembersMin = rv.min ?? null;
-        f.linkedinMembersMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(
+          f.linkedinMembersMin,
+          f.linkedinMembersMax,
+          rv,
+          combineMode
+        );
+        f.linkedinMembersMin = merged.min;
+        f.linkedinMembersMax = merged.max;
         break;
       }
       case "headcount_growth": {
         const rv = v as { min?: number; max?: number };
-        f.minGrowthPercent = rv.min ?? null;
-        f.maxGrowthPercent = rv.max ?? null;
+        const merged = mergeRangeFilterValues(
+          f.minGrowthPercent,
+          f.maxGrowthPercent,
+          rv,
+          combineMode
+        );
+        f.minGrowthPercent = merged.min;
+        f.maxGrowthPercent = merged.max;
         break;
       }
       case "years_since_inv": {
         const rv = v as { min?: number; max?: number };
-        f.lastInvestmentYearsMin = rv.min ?? null;
-        f.lastInvestmentYearsMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(
+          f.lastInvestmentYearsMin,
+          f.lastInvestmentYearsMax,
+          rv,
+          combineMode
+        );
+        f.lastInvestmentYearsMin = merged.min;
+        f.lastInvestmentYearsMax = merged.max;
         break;
       }
       case "followed":
-        f.portfolio_only = v === true;
+        if (v === true) f.portfolio_only = true;
         break;
       case "revenue": {
         const rv = v as { min?: number; max?: number };
-        f.revenueMin = rv.min ?? null;
-        f.revenueMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(f.revenueMin, f.revenueMax, rv, combineMode);
+        f.revenueMin = merged.min;
+        f.revenueMax = merged.max;
         break;
       }
       case "ebitda": {
         const rv = v as { min?: number; max?: number };
-        f.ebitdaMin = rv.min ?? null;
-        f.ebitdaMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(f.ebitdaMin, f.ebitdaMax, rv, combineMode);
+        f.ebitdaMin = merged.min;
+        f.ebitdaMax = merged.max;
         break;
       }
       case "enterprise_value": {
         const rv = v as { min?: number; max?: number };
-        f.enterpriseValueMin = rv.min ?? null;
-        f.enterpriseValueMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(
+          f.enterpriseValueMin,
+          f.enterpriseValueMax,
+          rv,
+          combineMode
+        );
+        f.enterpriseValueMin = merged.min;
+        f.enterpriseValueMax = merged.max;
         break;
       }
       case "rev_growth": {
         const rv = v as { min?: number; max?: number };
-        f.revenueGrowthMin = rv.min ?? null;
-        f.revenueGrowthMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(
+          f.revenueGrowthMin,
+          f.revenueGrowthMax,
+          rv,
+          combineMode
+        );
+        f.revenueGrowthMin = merged.min;
+        f.revenueGrowthMax = merged.max;
         break;
       }
       case "ebitda_margin": {
         const rv = v as { min?: number; max?: number };
-        f.ebitdaMarginMin = rv.min ?? null;
-        f.ebitdaMarginMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(
+          f.ebitdaMarginMin,
+          f.ebitdaMarginMax,
+          rv,
+          combineMode
+        );
+        f.ebitdaMarginMin = merged.min;
+        f.ebitdaMarginMax = merged.max;
         break;
       }
       case "rev_multiple": {
         const rv = v as { min?: number; max?: number };
-        f.revenueMultipleMin = rv.min ?? null;
-        f.revenueMultipleMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(
+          f.revenueMultipleMin,
+          f.revenueMultipleMax,
+          rv,
+          combineMode
+        );
+        f.revenueMultipleMin = merged.min;
+        f.revenueMultipleMax = merged.max;
         break;
       }
       case "rule_40": {
         const rv = v as { min?: number; max?: number };
-        f.ruleOf40Min = rv.min ?? null;
-        f.ruleOf40Max = rv.max ?? null;
+        const merged = mergeRangeFilterValues(f.ruleOf40Min, f.ruleOf40Max, rv, combineMode);
+        f.ruleOf40Min = merged.min;
+        f.ruleOf40Max = merged.max;
         break;
       }
       case "arr": {
         const rv = v as { min?: number; max?: number };
-        f.arrMin = rv.min ?? null;
-        f.arrMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(f.arrMin, f.arrMax, rv, combineMode);
+        f.arrMin = merged.min;
+        f.arrMax = merged.max;
         break;
       }
       case "arr_growth": {
         const rv = v as { min?: number; max?: number };
-        f.arrPcMin = rv.min ?? null;
-        f.arrPcMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(f.arrPcMin, f.arrPcMax, rv, combineMode);
+        f.arrPcMin = merged.min;
+        f.arrPcMax = merged.max;
         break;
       }
       case "churn": {
         const rv = v as { min?: number; max?: number };
-        f.churnMin = rv.min ?? null;
-        f.churnMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(f.churnMin, f.churnMax, rv, combineMode);
+        f.churnMin = merged.min;
+        f.churnMax = merged.max;
         break;
       }
       case "nrr": {
         const rv = v as { min?: number; max?: number };
-        f.nrrMin = rv.min ?? null;
-        f.nrrMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(f.nrrMin, f.nrrMax, rv, combineMode);
+        f.nrrMin = merged.min;
+        f.nrrMax = merged.max;
         break;
       }
       case "grr": {
         const rv = v as { min?: number; max?: number };
-        f.grrMin = rv.min ?? null;
-        f.grrMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(f.grrMin, f.grrMax, rv, combineMode);
+        f.grrMin = merged.min;
+        f.grrMax = merged.max;
         break;
       }
       case "new_client_growth": {
         const rv = v as { min?: number; max?: number };
-        f.newClientsRevenueGrowthMin = rv.min ?? null;
-        f.newClientsRevenueGrowthMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(
+          f.newClientsRevenueGrowthMin,
+          f.newClientsRevenueGrowthMax,
+          rv,
+          combineMode
+        );
+        f.newClientsRevenueGrowthMin = merged.min;
+        f.newClientsRevenueGrowthMax = merged.max;
         break;
       }
       case "year_founded": {
         const rv = v as { min?: number; max?: number };
-        f.yearFoundedMin = rv.min ?? null;
-        f.yearFoundedMax = rv.max ?? null;
+        const merged = mergeRangeFilterValues(
+          f.yearFoundedMin,
+          f.yearFoundedMax,
+          rv,
+          combineMode
+        );
+        f.yearFoundedMin = merged.min;
+        f.yearFoundedMax = merged.max;
         break;
       }
     }
@@ -2334,6 +2392,50 @@ const CompanySection = ({
     });
   }, [companies, sortState]);
 
+  const SELECT_COLUMN_WIDTH = 44;
+
+  const frozenColumnKeys = useMemo(
+    () => getEffectiveFrozenColumnKeys(filterPinnedColumnKeys),
+    [filterPinnedColumnKeys]
+  );
+
+  const stickyColumnOffsets = useMemo(() => {
+    const offsets = new Map<string, number>();
+    let left = SELECT_COLUMN_WIDTH;
+    for (const key of frozenColumnKeys) {
+      offsets.set(key, left);
+      const col = ALL_COMPANY_COLUMNS.find((c) => c.key === key);
+      left += col?.minWidth ?? (key === "logo" ? 88 : 120);
+    }
+    return offsets;
+  }, [frozenColumnKeys]);
+
+  const getStickyColumnStyle = useCallback(
+    (
+      columnKey: string,
+      minWidth?: number,
+      header = false
+    ): React.CSSProperties | undefined => {
+      const left = stickyColumnOffsets.get(columnKey);
+      if (left == null) return undefined;
+      return {
+        position: "sticky",
+        left,
+        zIndex: header ? 5 : 3,
+        minWidth,
+        background: header ? "#f9fafb" : "#fff",
+        boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
+      };
+    },
+    [stickyColumnOffsets]
+  );
+
+  const isFrozenColumnKey = (key: string) => frozenColumnKeys.includes(key);
+
+  const isFilterPinnedColumnKey = (key: string) =>
+    filterPinnedColumnKeys.includes(key) &&
+    !(FROZEN_COLUMN_KEYS as readonly string[]).includes(key);
+
   const getTableColumnClassName = (
     column: CompanyColumnDefinition,
     extra?: string | (string | undefined)[]
@@ -2342,18 +2444,11 @@ const CompanySection = ({
     const classes = [
       ...extras,
       column.wrap ? "company-table-cell-wrap" : undefined,
+      isFrozenColumnKey(column.key) ? "company-table-sticky-frozen" : undefined,
       column.key === "logo" ? "company-table-sticky-logo" : undefined,
-      column.key === "name" ? "company-table-sticky-name" : undefined,
     ].filter(Boolean);
     return classes.length > 0 ? classes.join(" ") : undefined;
   };
-
-  const isFrozenColumnKey = (key: string) =>
-    getEffectiveFrozenColumnKeys(filterPinnedColumnKeys).includes(key);
-
-  const isFilterPinnedColumnKey = (key: string) =>
-    filterPinnedColumnKeys.includes(key) &&
-    !(FROZEN_COLUMN_KEYS as readonly string[]).includes(key);
 
 
   // Handle CSV export using backend endpoint and include active filters
@@ -2784,7 +2879,11 @@ const CompanySection = ({
 
   const handlePageChange = useCallback(
     (page: number) => {
-      const totalPages = pagination.pageTotal || 1;
+      const totalPages =
+        pagination.pageTotal ||
+        (pagination.nextPage != null
+          ? Math.max(pagination.nextPage, pagination.curPage + 1)
+          : 1);
       if (loading || page < 1 || page > totalPages || page === pagination.curPage) {
         return;
       }
@@ -2844,7 +2943,10 @@ const CompanySection = ({
               <td
                 key={`${company.id || index}-${column.key}`}
                 className={getTableColumnClassName(column)}
-                style={{ minWidth: column.minWidth }}
+                style={{
+                  minWidth: column.minWidth,
+                  ...getStickyColumnStyle(column.key, column.minWidth),
+                }}
               >
                 {column.render(displayCompany, {
                   index,
@@ -2884,7 +2986,9 @@ const CompanySection = ({
   const generatePaginationButtons = () => {
     const buttons: React.ReactNode[] = [];
     const maxVisible = 7;
-    const totalPages = pagination.pageTotal || 0;
+    const totalPages =
+      pagination.pageTotal ||
+      (pagination.nextPage != null ? Math.max(pagination.nextPage, pagination.curPage + 1) : 0);
     const prevPage = pagination.prevPage ?? pagination.curPage - 1;
     const nextPage = pagination.nextPage ?? pagination.curPage + 1;
 
@@ -3174,27 +3278,15 @@ const CompanySection = ({
       vertical-align: middle;
     }
     .company-table-sticky-logo {
-      position: sticky;
-      left: 0;
-      z-index: 3;
-      background: #fff;
-      box-shadow: 2px 0 4px rgba(15, 23, 42, 0.06);
       min-width: 88px;
       max-width: 88px;
       width: 88px;
     }
-    .company-table-sticky-name {
-      position: sticky;
-      left: 88px;
-      z-index: 3;
-      background: #fff;
-      box-shadow: 2px 0 4px rgba(15, 23, 42, 0.06);
-    }
     .company-table-row-selected {
       background: #EFF6FF;
     }
+    .company-table-row-selected .company-table-sticky-frozen,
     .company-table-row-selected .company-table-sticky-logo,
-    .company-table-row-selected .company-table-sticky-name,
     .company-table-row-selected .company-table-select-cell {
       background: #EFF6FF;
     }
@@ -3204,8 +3296,8 @@ const CompanySection = ({
       z-index: 3;
       background: #fff;
     }
-    .company-table thead th.company-table-sticky-logo,
-    .company-table thead th.company-table-sticky-name {
+    .company-table thead th.company-table-sticky-frozen,
+    .company-table thead th.company-table-sticky-logo {
       z-index: 5;
       background: #f9fafb;
     }
@@ -3941,7 +4033,10 @@ const CompanySection = ({
                     isDragging ? "company-table-th-dragging" : undefined,
                     isDragOver ? "company-table-th-drag-over" : undefined,
                   ]),
-                  style: { minWidth: column.minWidth },
+                  style: {
+                    minWidth: column.minWidth,
+                    ...getStickyColumnStyle(column.key, column.minWidth, true),
+                  },
                   draggable: isDraggable,
                   onDragStart: isDraggable
                     ? (event: React.DragEvent<HTMLTableCellElement>) => {
