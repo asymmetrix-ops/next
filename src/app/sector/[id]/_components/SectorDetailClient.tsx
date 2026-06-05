@@ -3038,7 +3038,20 @@ const SectorDetailPage = ({
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
       const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const f = allCompaniesCurrentFilters;
+      // Use current UI filter selections (same shape as Search button)
+      const f: AllCompaniesFilters = {
+        countries: selCountries,
+        provinces: selProvinces,
+        cities: selCities,
+        continentalRegions: selContinentalRegions,
+        subRegions: selSubRegions,
+        secondarySectors: selSecondarySectors,
+        hybridBusinessFocuses: selHybridBusinessFocuses,
+        ownershipTypes: selOwnershipTypes,
+        linkedinMembersMin: selLinkedinMin,
+        linkedinMembersMax: selLinkedinMax,
+        searchQuery: allSearchTerm,
+      };
 
       const params = new URLSearchParams();
       params.set("Per_page", "500");
@@ -3061,7 +3074,7 @@ const SectorDetailPage = ({
       if (f?.hybridBusinessFocuses?.length) f.hybridBusinessFocuses.forEach((id) => params.append("Hybrid_Data_ids[]", String(id)));
       if (f?.searchQuery) params.set("query", f.searchQuery);
 
-      // Build filter description for the Filters column
+      // Build filter description for the Filters column (must mirror all active API params)
       const ownershipLabels: Record<string, string> = {
         public: "Public",
         private_equity_owned: "Private Equity Owned",
@@ -3069,12 +3082,32 @@ const SectorDetailPage = ({
         private: "Private",
       };
       const filterParts: string[] = [];
-      if (ownershipFilter) filterParts.push(`Ownership: ${ownershipLabels[ownershipFilter] ?? ownershipFilter}`);
+      if (ownershipFilter) {
+        filterParts.push(`Ownership: ${ownershipLabels[ownershipFilter] ?? ownershipFilter}`);
+      }
+      if (f?.ownershipTypes?.length) {
+        const names = f.ownershipTypes
+          .map((id) => allOwnershipTypes.find((o) => o.id === id)?.ownership ?? String(id))
+          .join(", ");
+        filterParts.push(`Ownership Types: ${names}`);
+      }
       if (f?.continentalRegions?.length) filterParts.push(`Regions: ${f.continentalRegions.join(", ")}`);
       if (f?.subRegions?.length) filterParts.push(`Sub-Regions: ${f.subRegions.join(", ")}`);
       if (f?.countries?.length) filterParts.push(`Countries: ${f.countries.join(", ")}`);
       if (f?.provinces?.length) filterParts.push(`Provinces: ${f.provinces.join(", ")}`);
       if (f?.cities?.length) filterParts.push(`Cities: ${f.cities.join(", ")}`);
+      if (f?.secondarySectors?.length) {
+        const names = f.secondarySectors
+          .map((id) => allSecondarySectors.find((s) => s.id === id)?.sector_name ?? String(id))
+          .join(", ");
+        filterParts.push(`Secondary Sectors: ${names}`);
+      }
+      if (f?.hybridBusinessFocuses?.length) {
+        const names = f.hybridBusinessFocuses
+          .map((id) => allHybridBusinessFocuses.find((h) => h.id === id)?.business_focus ?? String(id))
+          .join(", ");
+        filterParts.push(`Hybrid Business Focus: ${names}`);
+      }
       if (f?.linkedinMembersMin) filterParts.push(`LinkedIn min: ${f.linkedinMembersMin}`);
       if (f?.linkedinMembersMax) filterParts.push(`LinkedIn max: ${f.linkedinMembersMax}`);
       if (f?.searchQuery) filterParts.push(`Search: "${f.searchQuery}"`);
@@ -3087,8 +3120,25 @@ const SectorDetailPage = ({
     } finally {
       setAllExporting(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sectorId, sectorNameSlug, ownershipFilter, allCompaniesCurrentFilters]);
+  }, [
+    sectorId,
+    sectorNameSlug,
+    ownershipFilter,
+    selCountries,
+    selProvinces,
+    selCities,
+    selContinentalRegions,
+    selSubRegions,
+    selSecondarySectors,
+    selHybridBusinessFocuses,
+    selOwnershipTypes,
+    selLinkedinMin,
+    selLinkedinMax,
+    allSearchTerm,
+    allSecondarySectors,
+    allHybridBusinessFocuses,
+    allOwnershipTypes,
+  ]);
 
   // Only block rendering for critical errors (auth/not found)
   if (error) {
