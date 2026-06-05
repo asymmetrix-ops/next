@@ -49,6 +49,71 @@ export function createFilterInstanceKey(): string {
 
 export type FilterCombineLogic = "and" | "or";
 
+function getFilterEnumValues(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === "string");
+  }
+  if (typeof value === "string" && value.trim()) return [value];
+  return [];
+}
+
+/** Values already chosen in other instances of the same filter type. */
+function getValuesReservedBySiblingFilters(
+  filters: FilterItem[],
+  filterId: string,
+  excludeInstanceKey: string
+): Set<string> {
+  const reserved = new Set<string>();
+  for (const filter of filters) {
+    if (filter.id !== filterId || filter.key === excludeInstanceKey) continue;
+    for (const value of getFilterEnumValues(filter.value)) {
+      reserved.add(value);
+    }
+  }
+  return reserved;
+}
+
+function filterDefHasAvailableOptions(
+  def: FilterDef,
+  filters: FilterItem[],
+  filterLogic: FilterCombineLogic
+): boolean {
+  if (def.editor === "boolean") {
+    return !filters.some((filter) => filter.id === def.id);
+  }
+
+  const siblingFilters = filters.filter((filter) => filter.id === def.id);
+  if (siblingFilters.length === 0) return true;
+
+  if (def.editor === "enum") {
+    const options = def.options ?? [];
+    if (options.length === 0) return true;
+    const used = new Set<string>();
+    for (const filter of siblingFilters) {
+      for (const value of getFilterEnumValues(filter.value)) {
+        used.add(value);
+      }
+    }
+    return options.some((option) => !used.has(option));
+  }
+
+  if (def.editor === "segmented") {
+    const options = def.options ?? [];
+    if (options.length === 0) return true;
+    const used = new Set(
+      siblingFilters
+        .map((filter) =>
+          typeof filter.value === "string" ? filter.value : null
+        )
+        .filter((value): value is string => Boolean(value))
+    );
+    return options.some((option) => !used.has(option));
+  }
+
+  // Range filters may overlap intentionally (OR widens, AND narrows).
+  return true;
+}
+
 export interface FilterBarState {
   filters: FilterItem[];
   viewId: string | null;
@@ -923,6 +988,7 @@ function EditorFooter({
 interface EnumEditorProps {
   def: FilterDef;
   value: unknown;
+  reservedValues?: Set<string>;
   onChange: (v: string[]) => void;
   onRemove?: () => void;
   onClose: () => void;
@@ -931,6 +997,7 @@ interface EnumEditorProps {
 function EnumEditor({
   def,
   value,
+  reservedValues,
   onChange,
   onRemove,
   onClose,
@@ -951,6 +1018,8 @@ function EnumEditor({
   }, [q, def.options]);
 
   const toggle = (o: string) => {
+    const reserved = reservedValues?.has(o) && !picked.includes(o);
+    if (reserved) return;
     setPicked((p) => (p.includes(o) ? p.filter((x) => x !== o) : [...p, o]));
   };
 
@@ -1035,11 +1104,18 @@ function EnumEditor({
         )}
         {opts.map((o) => {
           const on = picked.includes(o);
+          const reserved = Boolean(reservedValues?.has(o) && !on);
           return (
             <button
               key={o}
               type="button"
               onClick={() => toggle(o)}
+              disabled={reserved}
+              title={
+                reserved
+                  ? "Already used in another filter of this type"
+                  : undefined
+              }
               style={{
                 width: "100%",
                 display: "flex",
@@ -1049,18 +1125,21 @@ function EnumEditor({
                 borderRadius: "var(--r-sm)",
                 background: "transparent",
                 border: "none",
-                cursor: "pointer",
+                cursor: reserved ? "not-allowed" : "pointer",
                 fontFamily: "inherit",
                 fontSize: "var(--fs-13)",
-                color: "var(--fg-1)",
+                color: reserved ? "var(--fg-4)" : "var(--fg-1)",
                 textAlign: "left",
+                opacity: reserved ? 0.55 : 1,
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "var(--ax-gray-25)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
+              onMouseEnter={(e) => {
+                if (!reserved) {
+                  e.currentTarget.style.background = "var(--ax-gray-25)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
             >
               <span
                 style={{
@@ -1364,6 +1443,7 @@ function NumberInput({
 interface SegmentedEditorProps {
   def: FilterDef;
   value: unknown;
+  reservedValues?: Set<string>;
   onChange: (v: string) => void;
   onRemove?: () => void;
   onClose: () => void;
@@ -1372,13 +1452,16 @@ interface SegmentedEditorProps {
 function SegmentedEditor({
   def,
   value,
+  reservedValues,
   onChange,
   onRemove,
   onClose,
 }: SegmentedEditorProps) {
   const opts = def.options ?? [];
+  const firstAvailable =
+    opts.find((option) => !reservedValues?.has(option)) ?? opts[0] ?? "";
   const [pick, setPick] = useState<string>(
-    String(value ?? opts[opts.length - 1] ?? "")
+    String(value ?? firstAvailable)
   );
   return (
     <EditorShell
@@ -1406,24 +1489,34 @@ function SegmentedEditor({
       >
         {opts.map((o) => {
           const on = pick === o;
+          const reserved = Boolean(reservedValues?.has(o) && !on);
           return (
             <button
               key={o}
               type="button"
-              onClick={() => setPick(o)}
+              onClick={() => {
+                if (!reserved) setPick(o);
+              }}
+              disabled={reserved}
+              title={
+                reserved
+                  ? "Already used in another filter of this type"
+                  : undefined
+              }
               style={{
                 padding: "7px 10px",
                 fontFamily: "inherit",
                 fontSize: "var(--fs-13)",
                 fontWeight: on ? 600 : 500,
                 background: on ? "white" : "transparent",
-                color: on ? "var(--fg-1)" : "var(--fg-2)",
+                color: reserved ? "var(--fg-4)" : on ? "var(--fg-1)" : "var(--fg-2)",
                 border: "none",
                 borderRadius: 5,
                 boxShadow: on
                   ? "0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px var(--border-1)"
                   : "none",
-                cursor: "pointer",
+                cursor: reserved ? "not-allowed" : "pointer",
+                opacity: reserved ? 0.55 : 1,
               }}
             >
               {o}
@@ -1498,6 +1591,7 @@ function BooleanEditor({
 interface FilterEditorProps {
   def: FilterDef;
   value: unknown;
+  reservedValues?: Set<string>;
   onChange: (v: unknown) => void;
   onRemove: () => void;
   onClose: () => void;
@@ -1506,6 +1600,7 @@ interface FilterEditorProps {
 function FilterEditor({
   def,
   value,
+  reservedValues,
   onChange,
   onRemove,
   onClose,
@@ -1515,6 +1610,7 @@ function FilterEditor({
       <EnumEditor
         def={def}
         value={value}
+        reservedValues={reservedValues}
         onChange={onChange as (v: string[]) => void}
         onRemove={onRemove}
         onClose={onClose}
@@ -1535,6 +1631,7 @@ function FilterEditor({
       <SegmentedEditor
         def={def}
         value={value}
+        reservedValues={reservedValues}
         onChange={onChange as (v: string) => void}
         onRemove={onRemove}
         onClose={onClose}
@@ -1735,6 +1832,23 @@ export function CompaniesFilterBar({
     ? filterDefs.find((d) => d.id === editingFilter.id)
     : null;
 
+  const availableFilterDefs = useMemo(
+    () =>
+      filterDefs.filter((def) =>
+        filterDefHasAvailableOptions(def, filters, filterLogic)
+      ),
+    [filterDefs, filters, filterLogic]
+  );
+
+  const editingReservedValues = useMemo(() => {
+    if (!editingFilter) return new Set<string>();
+    return getValuesReservedBySiblingFilters(
+      filters,
+      editingFilter.id,
+      editingFilter.key
+    );
+  }, [filters, editingFilter]);
+
   return (
     <div className="cfb-root">
       <style>{FILTER_BAR_CSS}</style>
@@ -1874,7 +1988,7 @@ export function CompaniesFilterBar({
 
           {/* Add filter button */}
           <AddFilterButton
-            availableDefs={filterDefs}
+            availableDefs={availableFilterDefs}
             categories={filterCategories}
             onPick={addFilter}
           />
@@ -1975,6 +2089,7 @@ export function CompaniesFilterBar({
               <FilterEditor
                 def={editingDef}
                 value={editingFilter.value}
+                reservedValues={editingReservedValues}
                 onChange={(v) => updateFilter(editing, v)}
                 onRemove={() => removeFilter(editing)}
                 onClose={() => setEditing(null)}
