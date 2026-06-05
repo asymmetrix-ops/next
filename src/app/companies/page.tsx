@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
+import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { locationsService } from "@/lib/locationsService";
@@ -1621,6 +1622,8 @@ const CompanyDashboard = ({
   ownershipCounts = EMPTY_OWNERSHIP_COUNTS,
   onColumnsClick,
   onExportCSVClick,
+  onAddToPortfolioClick,
+  selectedCount = 0,
   columnsCount = 0,
 }: {
   onSearch?: (filters: Filters) => void;
@@ -1632,6 +1635,8 @@ const CompanyDashboard = ({
   ownershipCounts?: CompaniesOwnershipCounts;
   onColumnsClick?: () => void;
   onExportCSVClick?: () => void;
+  onAddToPortfolioClick?: () => void;
+  selectedCount?: number;
   columnsCount?: number;
 }) => {
   // Unified filter bar state — replaces all the individual selected-* state vars
@@ -1905,16 +1910,26 @@ const CompanyDashboard = ({
               Export CSV
             </button>
             <button
+              onClick={onAddToPortfolioClick}
+              disabled={selectedCount === 0}
+              title={
+                selectedCount === 0
+                  ? "Select companies in the table first"
+                  : `Add ${selectedCount} selected ${selectedCount === 1 ? "company" : "companies"} to portfolio`
+              }
               style={{
                 display: "flex", alignItems: "center", gap: 6,
                 height: 36, padding: "0 16px",
-                background: "#0f172a", color: "#fff",
+                background: selectedCount > 0 ? "#0f172a" : "#94a3b8",
+                color: "#fff",
                 border: "none", borderRadius: 8,
                 fontSize: 13, fontWeight: 600,
-                cursor: "pointer",
+                cursor: selectedCount > 0 ? "pointer" : "not-allowed",
+                opacity: selectedCount > 0 ? 1 : 0.85,
               }}
             >
               + Add to portfolio
+              {selectedCount > 0 ? ` (${selectedCount.toLocaleString()})` : ""}
             </button>
           </div>
         </div>
@@ -1997,6 +2012,10 @@ const CompanySection = ({
   externalSetShowColumnsModal,
   onColumnsCountChange,
   onRegisterExportCSV,
+  selectedCompanyIds,
+  onToggleCompanySelection,
+  onTogglePageSelection,
+  onClearSelection,
 }: {
   companies: Company[];
   loading: boolean;
@@ -2019,6 +2038,10 @@ const CompanySection = ({
   externalSetShowColumnsModal?: (v: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
   onRegisterExportCSV?: (fn: () => void) => void;
+  selectedCompanyIds: Set<number>;
+  onToggleCompanySelection: (id: number) => void;
+  onTogglePageSelection: (ids: number[]) => void;
+  onClearSelection: () => void;
 }) => {
   const router = useRouter();
   const sectionRef = useRef<HTMLDivElement | null>(null);
@@ -2725,6 +2748,28 @@ const CompanySection = ({
     [fetchCompanies, currentFilters, loading, pagination.curPage, pagination.pageTotal]
   );
 
+  const pageCompanyIds = useMemo(
+    () =>
+      sortedCompanies
+        .map((company) => Number(company.id))
+        .filter((id) => Number.isFinite(id) && id > 0),
+    [sortedCompanies]
+  );
+
+  const pageSelectionState = useMemo(() => {
+    if (pageCompanyIds.length === 0) {
+      return { allSelected: false, someSelected: false };
+    }
+    let selectedOnPage = 0;
+    for (const id of pageCompanyIds) {
+      if (selectedCompanyIds.has(id)) selectedOnPage += 1;
+    }
+    return {
+      allSelected: selectedOnPage === pageCompanyIds.length,
+      someSelected: selectedOnPage > 0 && selectedOnPage < pageCompanyIds.length,
+    };
+  }, [pageCompanyIds, selectedCompanyIds]);
+
   const tableRows = useMemo(
     () =>
       sortedCompanies.map((company, index) => {
@@ -2736,6 +2781,18 @@ const CompanySection = ({
 
         return (
           <tr key={company.id || index}>
+            <td
+              className="company-table-select-cell"
+              style={{ minWidth: 44, width: 44, textAlign: "center" }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedCompanyIds.has(company.id)}
+                onChange={() => onToggleCompanySelection(company.id)}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Select ${company.name || "company"}`}
+              />
+            </td>
             {selectedColumns.map((column) => (
               <td
                 key={`${company.id || index}-${column.key}`}
@@ -2773,6 +2830,8 @@ const CompanySection = ({
       handleCompanyClick,
       onEditCompany,
       selectedColumns,
+      selectedCompanyIds,
+      onToggleCompanySelection,
     ]
   );
 
@@ -2989,6 +3048,16 @@ const CompanySection = ({
       word-break: break-word;
       overflow-wrap: break-word;
       max-width: 320px;
+    }
+    .company-table-select-cell {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: #fff;
+      box-shadow: 1px 0 0 #e2e8f0;
+    }
+    .company-table thead .company-table-select-cell {
+      z-index: 3;
     }
     .edit-company-btn {
       padding: 4px 10px;
@@ -3705,6 +3774,47 @@ const CompanySection = ({
         { style: { fontSize: 12, color: "#94a3b8", marginBottom: 8 } },
         "Loading custom column data…"
       ),
+    selectedCompanyIds.size > 0 &&
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 10,
+            padding: "10px 14px",
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            borderRadius: 8,
+            fontSize: 13,
+            color: "#1e3a8a",
+          },
+        },
+        React.createElement(
+          "span",
+          { style: { fontWeight: 600 } },
+          `${selectedCompanyIds.size.toLocaleString()} selected`
+        ),
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            onClick: onClearSelection,
+            style: {
+              background: "transparent",
+              border: "none",
+              color: "#2563eb",
+              fontWeight: 600,
+              cursor: "pointer",
+              fontSize: 13,
+            },
+          },
+          "Clear selection"
+        )
+      ),
     React.createElement(
       "div",
       { className: "company-cards" },
@@ -3728,6 +3838,25 @@ const CompanySection = ({
           React.createElement(
             "tr",
             null,
+            React.createElement(
+              "th",
+              {
+                key: "select",
+                className: "company-table-select-cell",
+                style: { minWidth: 44, width: 44, textAlign: "center" },
+              },
+              React.createElement("input", {
+                type: "checkbox",
+                checked: pageSelectionState.allSelected,
+                ref: (el: HTMLInputElement | null) => {
+                  if (el) {
+                    el.indeterminate = pageSelectionState.someSelected;
+                  }
+                },
+                onChange: () => onTogglePageSelection(pageCompanyIds),
+                "aria-label": "Select all companies on this page",
+              })
+            ),
             ...selectedColumns.map((column) => {
               const sortKind = getColumnSortKind(column.key);
               const isActive = sortState?.key === column.key;
@@ -3940,6 +4069,48 @@ function CompaniesPageInner() {
   const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [columnsCount, setColumnsCount] = useState(DEFAULT_COMPANY_COLUMN_KEYS.length);
   const exportCSVRef = useRef<(() => void) | null>(null);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<number>>(() => new Set());
+  const [showBulkAddModal, setShowBulkAddModal] = useState(false);
+
+  const filtersKey = useMemo(
+    () => JSON.stringify(currentFilters ?? {}),
+    [currentFilters]
+  );
+
+  useEffect(() => {
+    setSelectedCompanyIds(new Set());
+  }, [filtersKey]);
+
+  const toggleCompanySelection = useCallback((id: number) => {
+    setSelectedCompanyIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const togglePageSelection = useCallback((ids: number[]) => {
+    setSelectedCompanyIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = ids.length > 0 && ids.every((id) => next.has(id));
+      if (allSelected) {
+        ids.forEach((id) => next.delete(id));
+      } else {
+        ids.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedCompanyIds(new Set());
+  }, []);
+
+  const selectedCompanyIdList = useMemo(
+    () => Array.from(selectedCompanyIds),
+    [selectedCompanyIds]
+  );
 
   return (
     <div className="min-h-screen">
@@ -3951,6 +4122,8 @@ function CompaniesPageInner() {
         ownershipCounts={ownershipCounts}
         onColumnsClick={() => setShowColumnsModal(true)}
         onExportCSVClick={() => exportCSVRef.current?.()}
+        onAddToPortfolioClick={() => setShowBulkAddModal(true)}
+        selectedCount={selectedCompanyIds.size}
         columnsCount={columnsCount}
       />
       <CompanySection
@@ -3967,6 +4140,16 @@ function CompaniesPageInner() {
         externalSetShowColumnsModal={setShowColumnsModal}
         onColumnsCountChange={setColumnsCount}
         onRegisterExportCSV={(fn) => { exportCSVRef.current = fn; }}
+        selectedCompanyIds={selectedCompanyIds}
+        onToggleCompanySelection={toggleCompanySelection}
+        onTogglePageSelection={togglePageSelection}
+        onClearSelection={clearSelection}
+      />
+      <BulkAddToPortfolioModal
+        isOpen={showBulkAddModal}
+        onClose={() => setShowBulkAddModal(false)}
+        companyIds={selectedCompanyIdList}
+        onComplete={clearSelection}
       />
       <Footer />
     </div>
