@@ -96,16 +96,21 @@ export const parseSortText = (value: unknown): string => {
 };
 
 const SORT_FIELD_ALIASES: Record<string, string[]> = {
-  primary_sectors: ["primary_sector_names", "primary_sectors"],
-  secondary_sectors: ["secondary_sector_names", "secondary_sectors"],
+  primary_sectors: ["primary_sectors", "primary_sector_names"],
+  secondary_sectors: ["secondary_sectors", "secondary_sector_names"],
+  investors: ["investors", "investor_names"],
   ownership: ["ownership", "ownership_type"],
   linkedin_members: ["li_emp", "linkedin_members", "linkedin_employee"],
   country: ["country", "hq_country"],
   hq: ["loc", "hq"],
   city: ["city", "hq_city"],
   state: ["state", "hq_state", "province"],
-  linkedin_growth: ["linkedin_growth", "li_growth_pc", "linkedin_growth_1y_pct"],
-  investors: ["investors", "investor_names"],
+  linkedin_growth: [
+    "linkedin_growth",
+    "linkedin_growth_pc",
+    "li_growth_pc",
+    "linkedin_growth_1y_pct",
+  ],
   lifecycle_stage: ["lifecycle_stage", "Lifecycle_stage.Lifecycle_stage"],
   product_type: ["Product_Type", "product_type"],
   data_collection_method: ["Data_Collection_Method", "data_collection_method"],
@@ -114,6 +119,15 @@ const SORT_FIELD_ALIASES: Record<string, string[]> = {
   enterprise_value: ["enterprise_value", "ev", "EV"],
   revenue_growth: ["revenue_growth", "rev_growth_pc", "Rev_Growth_PC"],
   website: ["website", "url"],
+  year_founded: ["year_founded", "year_founded_label"],
+  churn_pc: ["churn", "churn_pc", "Churn_pc"],
+  grr_pc: ["grr", "grr_pc", "GRR_pc"],
+  new_client_growth_pc: ["new_client_growth", "new_client_growth_pc"],
+  upsell_pc: ["upsell", "upsell_pc"],
+  cross_sell_pc: ["cross_sell", "cross_sell_pc"],
+  price_increase_pc: ["price_increase", "price_increase_pc"],
+  rev_expansion_pc: ["rev_expansion", "rev_expansion_pc"],
+  no_of_clients: ["no_clients", "no_of_clients", "No_of_clients"],
 };
 
 const readMergedField = (

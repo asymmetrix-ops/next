@@ -5,18 +5,17 @@ export const ALWAYS_INCLUDED_COLUMN_KEYS = new Set<string>([
   ...PROD_DEFAULT_COMPANY_COLUMN_KEYS,
 ]);
 
-/**
- * Maps visible UI column keys → Get_new_companies `columns[]` request keys.
- * Item field aliases for reading responses live in companiesColumnFields.ts.
- */
+/** Maps visible UI column keys → Get_new_companies `columns[]` API keys (defaults + optional). */
 export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   description: "description",
   primary_sectors: "primary_sectors",
   secondary_sectors: "secondary_sectors",
   ownership: "ownership",
   linkedin_members: "linkedin_members",
+  country: "country",
   website: "website",
   follow: "follow",
+  list_count: "list_count",
   year_founded: "year_founded",
   hq: "hq",
   city: "city",
@@ -30,7 +29,6 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   data_collection_method: "data_collection_method",
   revenue_model: "revenue_model",
   transaction_status: "transaction_status",
-  created_at: "created_at",
   revenue_m: "revenue_m",
   ebitda_m: "ebitda_m",
   enterprise_value: "ev",
@@ -38,8 +36,8 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   revenue_growth: "revenue_growth",
   ebitda_margin: "ebitda_margin",
   rule_of_40: "rule_of_40",
-  subscription_revenue_pc: "subscription_revenue_pc",
-  subscription_revenue_m: "subscription_revenue_m",
+  arr_pc: "arr_pc",
+  arr_m: "arr_m",
   churn_pc: "churn",
   grr_pc: "grr",
   nrr: "nrr",
@@ -54,11 +52,10 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   no_employees: "no_employees",
   rev_per_employee: "rev_per_employee",
   financial_year: "financial_year",
-  has_mcp: "has_mcp",
 };
 
 /** Frozen identity columns — API always returns these; omit from `columns[]`. */
-const IDENTITY_COLUMN_KEYS = new Set(["name"]);
+const IDENTITY_COLUMN_KEYS = new Set(["logo", "name"]);
 
 /**
  * All visible optional/default columns to request from Get_new_companies.
@@ -71,12 +68,6 @@ export function getApiColumnsForSelectedKeys(selectedKeys: string[]): string[] {
     if (IDENTITY_COLUMN_KEYS.has(key)) continue;
     const apiKey = COLUMN_KEY_TO_API_KEY[key];
     if (apiKey) apiKeys.add(apiKey);
-    if (key === "no_employees") apiKeys.add("linkedin_members");
   }
   return Array.from(apiKeys);
-}
-
-/** Stable signature for comparing which API fields are requested (order-independent). */
-export function getApiColumnsSignature(selectedKeys: string[]): string {
-  return getApiColumnsForSelectedKeys(selectedKeys).slice().sort().join("\0");
 }

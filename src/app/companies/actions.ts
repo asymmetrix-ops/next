@@ -53,6 +53,10 @@ export interface CompaniesFilters {
   transactionStatus?: string[];
   portfolio_only?: boolean;
   filterMode?: "AND" | "OR";
+  yearFoundedMin?: number | null;
+  yearFoundedMax?: number | null;
+  /** Optional column keys requested from Get_new_companies (non-default columns only). */
+  columns?: string[];
 }
 
 export interface CompanyItem {
@@ -260,6 +264,12 @@ function appendCompaniesFilterParams(
       filters.newClientsRevenueGrowthMax.toString()
     );
   }
+  if (filters.yearFoundedMin != null) {
+    params.append("Year_founded_min", filters.yearFoundedMin.toString());
+  }
+  if (filters.yearFoundedMax != null) {
+    params.append("Year_founded_max", filters.yearFoundedMax.toString());
+  }
   if (filters.searchQuery && filters.searchQuery.trim()) {
     params.append("query", filters.searchQuery.trim());
   }
@@ -276,6 +286,11 @@ function appendCompaniesFilterParams(
   }
   if (filters.filterMode === "AND" || filters.filterMode === "OR") {
     params.append("filter_mode", filters.filterMode);
+  }
+  if ((filters.columns || []).length > 0) {
+    filters.columns!.forEach((column) => {
+      params.append("columns[]", column);
+    });
   }
 }
 
@@ -328,6 +343,8 @@ function buildCompaniesCountsRequestBody(
     keywords_search: filters.keywordSearch?.trim() ?? "",
     min_growth_percent: num(filters.minGrowthPercent),
     max_growth_percent: num(filters.maxGrowthPercent),
+    Year_founded_min: num(filters.yearFoundedMin),
+    Year_founded_max: num(filters.yearFoundedMax),
     transaction_status: filters.transactionStatus ?? [],
     filter_mode:
       filters.filterMode === "OR" || filters.filterMode === "AND"

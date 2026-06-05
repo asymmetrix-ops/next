@@ -8,11 +8,26 @@ import {
 export const FILTER_PINNED_TOOLTIP =
   "Pinned automatically — a filter is active on this column.";
 
-/** Columns that intentionally have no filter (always-on identity / free text). */
+/**
+ * Columns that intentionally have no filter.
+ * Includes identity/free-text columns and text columns with no backend filter
+ * support (no matching case in buildFiltersFromState / no API param).
+ * Location-flavored text columns (hq) are covered by city/state/country filters.
+ */
 export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "logo",
   "name",
   "description",
+  // URL columns — not filterable
+  "website",
+  "linkedin_url",
+  // Text fields with no backend filter endpoint
+  "hq",
+  "investors",
+  "lifecycle_stage",
+  "product_type",
+  "data_collection_method",
+  "revenue_model",
 ]);
 
 /**

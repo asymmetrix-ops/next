@@ -51,10 +51,7 @@ import {
   getColumnSortKind,
   getSortValueForColumn,
 } from "@/components/companies/companiesTableSort";
-import {
-  fetchCompanyTableDataByIds,
-  selectedColumnsNeedTableData,
-} from "@/lib/companyTableData";
+import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
 
 // Feature flags (master only)
 const ENABLE_COMPANIES_KEYWORD_SEARCH = false;
@@ -188,6 +185,9 @@ interface Filters {
   transactionStatus?: string[];
   portfolio_only?: boolean;
   filterMode?: "AND" | "OR";
+  // Overview
+  yearFoundedMin: number | null;
+  yearFoundedMax: number | null;
 }
 
 const createDefaultFilters = (): Filters => ({
@@ -239,6 +239,8 @@ const createDefaultFilters = (): Filters => ({
   transactionStatus: [],
   portfolio_only: false,
   filterMode: "AND",
+  yearFoundedMin: null,
+  yearFoundedMax: null,
 });
 
 // Shape returned by export API when sending JSON instead of CSV
@@ -323,6 +325,7 @@ const useCompaniesAPI = () => {
   const lastCountsRequestIdRef = useRef(0);
   const countsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentFiltersRef = useRef<Filters | undefined>(undefined);
+  const requestColumnsRef = useRef<string[]>([]);
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
     undefined
   );
@@ -337,6 +340,10 @@ const useCompaniesAPI = () => {
   });
   const [ownershipCounts, setOwnershipCounts] =
     useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
+
+  const setRequestColumns = useCallback((columns: string[]) => {
+    requestColumnsRef.current = columns;
+  }, []);
 
   const scheduleCountsFetch = useCallback((countsFilters: ServerFilters) => {
     if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
@@ -432,6 +439,9 @@ const useCompaniesAPI = () => {
             transactionStatus: filtersToUse.transactionStatus,
             portfolio_only: filtersToUse.portfolio_only,
             filterMode: filtersToUse.filterMode,
+            yearFoundedMin: filtersToUse.yearFoundedMin,
+            yearFoundedMax: filtersToUse.yearFoundedMax,
+            columns: requestColumnsRef.current,
           };
           return serverFiltersBase;
         })();
@@ -490,6 +500,7 @@ const useCompaniesAPI = () => {
     pagination,
     ownershipCounts,
     fetchCompanies,
+    setRequestColumns,
     currentFilters,
   };
 };
@@ -602,11 +613,52 @@ interface CompanyColumnDefinition {
 
 const COMPANIES_COLUMNS_STORAGE_KEY = "companies-search-column-keys-v1";
 
+/** Normalize API list fields (sectors, investors) from arrays, JSON strings, or objects. */
+const parseListField = (value: unknown): unknown[] => {
+  if (value == null || value === "") return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === "[]" || trimmed === "{}") return [];
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed && typeof parsed === "object") return Object.values(parsed);
+      } catch {
+        // Fall through.
+      }
+    }
+    return trimmed
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>);
+  }
+  return [];
+};
+
 const toPlainText = (value: unknown): string => {
   if (value == null || value === "") return "N/A";
   if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString() : "N/A";
   if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "string") return value.trim() || "N/A";
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === "[]" || trimmed === "{}") return "N/A";
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (Array.isArray(parsed) || (parsed && typeof parsed === "object")) {
+          return toPlainText(parsed);
+        }
+      } catch {
+        // Fall through to plain string.
+      }
+    }
+    return trimmed;
+  }
   if (Array.isArray(value)) {
     const text = value
       .map((item) => {
@@ -788,10 +840,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         wrap: true,
         minWidth: 190,
         render: (company) =>
-          renderSectorLinks(
-            Array.isArray(company.primary_sectors) ? company.primary_sectors : [],
-            "primary"
-          ),
+          renderSectorLinks(parseListField(company.primary_sectors), "primary"),
       },
       {
         key: "secondary_sectors",
@@ -800,10 +849,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         wrap: true,
         minWidth: 190,
         render: (company) =>
-          renderSectorLinks(
-            Array.isArray(company.secondary_sectors) ? company.secondary_sectors : [],
-            "secondary"
-          ),
+          renderSectorLinks(parseListField(company.secondary_sectors), "secondary"),
       },
       makeTextColumn("ownership", "Ownership", "Default", [
         "ownership",
@@ -847,16 +893,28 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         "linkedin_data.LinkedIn_URL",
       ], { wrap: true, minWidth: 220 }),
       makeTextColumn("linkedin_growth", "LinkedIn Growth (%)", "Overview", [
+        "linkedin_growth",
         "linkedin_growth_pc",
         "li_growth_pc",
         "linkedin_growth_1y_pct",
         "growth_percent",
       ]),
-      makeTextColumn("investors", "Investors", "Overview", [
-        "investor_names",
-        "investors",
-        "_companies_investors",
-      ], { wrap: true, minWidth: 220 }),
+      {
+        key: "investors",
+        label: "Investors",
+        group: "Overview",
+        wrap: true,
+        minWidth: 220,
+        render: (company) => {
+          const rec = company as unknown as Record<string, unknown>;
+          const raw =
+            rec.investor_names ??
+            rec.investors ??
+            rec._companies_investors;
+          const items = parseListField(raw);
+          return toPlainText(items.length > 0 ? items : raw);
+        },
+      },
       makeTextColumn(
         "years_since_last_investment",
         "Years Since Last Investment",
@@ -908,6 +966,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         "Revenue_multiple",
       ]),
       makeTextColumn("revenue_growth", "Revenue Growth", "Financial Metrics", [
+        "revenue_growth",
         "rev_growth_pc",
         "Rev_Growth_PC",
       ]),
@@ -930,25 +989,29 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
       ]),
       makeTextColumn("arr_m", "ARR (m)", "Subscription Metrics", ["arr_m", "ARR_m"]),
       makeTextColumn("churn_pc", "Churn", "Subscription Metrics", [
+        "churn",
         "churn_pc",
         "Churn_pc",
       ]),
-      makeTextColumn("grr_pc", "GRR", "Subscription Metrics", ["grr_pc", "GRR_pc"]),
+      makeTextColumn("grr_pc", "GRR", "Subscription Metrics", ["grr", "grr_pc", "GRR_pc"]),
       makeTextColumn("nrr", "NRR", "Subscription Metrics", ["nrr", "NRR"]),
       makeTextColumn(
         "new_client_growth_pc",
         "New Clients Revenue Growth",
         "Subscription Metrics",
-        ["new_client_growth_pc", "New_client_growth_pc"]
+        ["new_client_growth", "new_client_growth_pc", "New_client_growth_pc"]
       ),
-      makeTextColumn("upsell_pc", "Upsell", "Subscription Metrics", ["upsell_pc"]),
+      makeTextColumn("upsell_pc", "Upsell", "Subscription Metrics", ["upsell", "upsell_pc"]),
       makeTextColumn("cross_sell_pc", "Cross-sell", "Subscription Metrics", [
+        "cross_sell",
         "cross_sell_pc",
       ]),
       makeTextColumn("price_increase_pc", "Price Increase", "Subscription Metrics", [
+        "price_increase",
         "price_increase_pc",
       ]),
       makeTextColumn("rev_expansion_pc", "Revenue Expansion", "Subscription Metrics", [
+        "rev_expansion",
         "rev_expansion_pc",
       ]),
     ],
@@ -958,6 +1021,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
     cols: [
       makeTextColumn("ebit_m", "EBIT (m)", "Other Metrics", ["EBIT_m", "ebit_m"]),
       makeTextColumn("no_of_clients", "Number of Clients", "Other Metrics", [
+        "no_clients",
         "No_of_clients",
         "no_of_clients",
       ]),
@@ -1022,11 +1086,10 @@ const CompanyCardBase = ({
   const isLong = description.length > 250;
 
   // Just use the primary sectors from the API - no derivation needed
-  const computedPrimarySectors = React.useMemo(() => {
-    return Array.isArray(company.primary_sectors)
-      ? company.primary_sectors
-      : [];
-  }, [company.primary_sectors]);
+  const computedPrimarySectors = React.useMemo(
+    () => parseListField(company.primary_sectors),
+    [company.primary_sectors]
+  );
 
   return React.createElement(
     "div",
@@ -1088,9 +1151,8 @@ const CompanyCardBase = ({
         React.createElement(
           "span",
           { className: "company-card-value" },
-          Array.isArray(company.secondary_sectors) &&
-          company.secondary_sectors.length > 0
-            ? renderSectorLinks(company.secondary_sectors as unknown[], "secondary")
+          parseListField(company.secondary_sectors).length > 0
+            ? renderSectorLinks(parseListField(company.secondary_sectors), "secondary")
             : "N/A"
         )
       ),
@@ -1237,6 +1299,16 @@ function buildCompaniesFilterDefs({
         "Rumoured in Market",
         "Transaction anticipated within 18 months",
         "Reported in Market",
+      ],
+    },
+    year_founded: {
+      min: 1800,
+      max: 2030,
+      presets: [
+        ["Pre-2000", 1800, 1999],
+        ["2000–2010", 2000, 2010],
+        ["2010–2020", 2010, 2020],
+        ["2020+", 2020, 2030],
       ],
     },
     headcount: {
@@ -1533,6 +1605,12 @@ function buildFiltersFromState(
         f.newClientsRevenueGrowthMax = rv.max ?? null;
         break;
       }
+      case "year_founded": {
+        const rv = v as { min?: number; max?: number };
+        f.yearFoundedMin = rv.min ?? null;
+        f.yearFoundedMax = rv.max ?? null;
+        break;
+      }
     }
   }
   return f;
@@ -1687,6 +1765,13 @@ const CompanyDashboard = ({
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
     locationsService.getHybridBusinessFocuses().then(setHybridBusinessFocuses).catch(console.error);
     locationsService.getOwnershipTypes().then(setOwnershipTypes).catch(console.error);
+    // Load all secondary sectors up front so the Sectors filter always has options.
+    locationsService
+      .getAllSecondarySectorsWithPrimary()
+      .then((sectors) =>
+        setSecondarySectors(sectors.map((s) => ({ id: s.id, sector_name: s.sector_name })))
+      )
+      .catch(console.error);
   }, []);
 
   // Provinces depend on selected countries
@@ -1701,16 +1786,15 @@ const CompanyDashboard = ({
     locationsService.getCities(selectedCountries, selectedProvinces).then(setCities).catch(console.error);
   }, [selectedCountries, selectedProvinces]);
 
-  // Secondary sectors depend on selected primary sectors
+  // When specific primary sectors are selected, narrow the secondary sector list.
+  // When none are selected we keep the full list loaded on mount.
   useEffect(() => {
-    if (selectedPrimaryNames.length === 0) { setSecondarySectors([]); return; }
+    if (selectedPrimaryNames.length === 0) return;
     const ids = selectedPrimaryNames
       .map((name) => primarySectors.find((s) => s.sector_name === name)?.id)
       .filter((id): id is number => id != null);
     if (ids.length > 0) {
       locationsService.getSecondarySectors(ids).then(setSecondarySectors).catch(console.error);
-    } else {
-      setSecondarySectors([]);
     }
   }, [selectedPrimaryNames, primarySectors]);
 
@@ -2010,6 +2094,7 @@ const CompanySection = ({
   pagination,
   ownershipCounts,
   fetchCompanies,
+  setRequestColumns,
   currentFilters,
   filterPinnedColumnKeys = [],
   onEditCompany,
@@ -2036,6 +2121,7 @@ const CompanySection = ({
   };
   ownershipCounts: CompaniesOwnershipCounts;
   fetchCompanies: (page?: number, filters?: Filters) => Promise<void>;
+  setRequestColumns: (columns: string[]) => void;
   currentFilters: Filters | undefined;
   filterPinnedColumnKeys?: string[];
   onEditCompany?: (id: number) => void;
@@ -2080,10 +2166,6 @@ const CompanySection = ({
       return merged;
     });
   }, [filterPinnedColumnKeys]);
-  const [companyTableDataById, setCompanyTableDataById] = useState<
-    Map<number, Record<string, unknown>>
-  >(new Map());
-  const [companyTableDataLoading, setCompanyTableDataLoading] = useState(false);
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
   const headerDidDragRef = useRef(false);
@@ -2170,47 +2252,13 @@ const CompanySection = ({
   }, [columnPrefsLoaded, selectedColumnKeys]);
 
   useEffect(() => {
-    const ids = companies
-      .map((company) => Number(company.id))
-      .filter((id) => Number.isFinite(id) && id > 0);
-
-    if (ids.length === 0 || !selectedColumnsNeedTableData(selectedColumnKeys)) {
-      setCompanyTableDataById(new Map());
-      setCompanyTableDataLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    const loadTableData = async () => {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) {
-        setCompanyTableDataById(new Map());
-        return;
-      }
-
-      setCompanyTableDataLoading(true);
-      try {
-        const rows = await fetchCompanyTableDataByIds(ids, token);
-        if (!cancelled) {
-          setCompanyTableDataById(rows);
-        }
-      } catch (error) {
-        console.error("Error loading company table data:", error);
-        if (!cancelled) {
-          setCompanyTableDataById(new Map());
-        }
-      } finally {
-        if (!cancelled) {
-          setCompanyTableDataLoading(false);
-        }
-      }
-    };
-
-    void loadTableData();
-    return () => {
-      cancelled = true;
-    };
-  }, [companies, selectedColumnKeys]);
+    if (!columnPrefsLoaded) return;
+    const apiColumns = getApiColumnsForSelectedKeys(selectedColumnKeys);
+    setRequestColumns(apiColumns);
+    void fetchCompanies(1, currentFilters);
+    // Re-fetch when visible optional columns change; filters are read from latest state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedColumnKeys, columnPrefsLoaded]);
 
   const selectedColumns = useMemo(() => {
     const columnsByKey = new Map(ALL_COMPANY_COLUMNS.map((column) => [column.key, column]));
@@ -2276,21 +2324,15 @@ const CompanySection = ({
     }
     const { key, dir } = sortState;
     return [...companies].sort((companyA, companyB) => {
-      const rowA = {
-        ...companyA,
-        ...(companyTableDataById.get(companyA.id) || {}),
-      } as Record<string, unknown>;
-      const rowB = {
-        ...companyB,
-        ...(companyTableDataById.get(companyB.id) || {}),
-      } as Record<string, unknown>;
+      const rowA = companyA as unknown as Record<string, unknown>;
+      const rowB = companyB as unknown as Record<string, unknown>;
       return compareSortValues(
         getSortValueForColumn(rowA, key),
         getSortValueForColumn(rowB, key),
         dir
       );
     });
-  }, [companies, companyTableDataById, sortState]);
+  }, [companies, sortState]);
 
   const getTableColumnClassName = (
     column: CompanyColumnDefinition,
@@ -2422,6 +2464,8 @@ const CompanySection = ({
         appendIfValue("NRR_max", f.nrrMax);
         appendIfValue("New_Clients_Revenue_Growth_min", f.newClientsRevenueGrowthMin);
         appendIfValue("New_Clients_Revenue_Growth_max", f.newClientsRevenueGrowthMax);
+        appendIfValue("Year_founded_min", f.yearFoundedMin);
+        appendIfValue("Year_founded_max", f.yearFoundedMax);
 
         if (f.searchQuery && f.searchQuery.trim()) {
           params.append("query", f.searchQuery.trim());
@@ -2704,13 +2748,11 @@ const CompanySection = ({
       // Fallback to client-side CSV if API export fails
       if (companies.length > 0) {
         // `CompaniesCSVExporter` expects sectors as string arrays; normalize in case API returns objects.
-        const toStringArray = (vals: unknown): string[] => {
-          if (!Array.isArray(vals)) return [];
-          return vals
+        const toStringArray = (vals: unknown): string[] =>
+          parseListField(vals)
             .map((v) => getSectorInfo(v).name)
             .map((n) => String(n ?? "").trim())
             .filter(Boolean);
-        };
         const normalizedCompanies = companies.map((c) => ({
           ...c,
           primary_sectors: toStringArray(c.primary_sectors),
@@ -2778,11 +2820,7 @@ const CompanySection = ({
   const tableRows = useMemo(
     () =>
       sortedCompanies.map((company, index) => {
-        const tableData = companyTableDataById.get(company.id) || {};
-        const displayCompany = {
-          ...company,
-          ...tableData,
-        } as Company;
+        const displayCompany = company;
 
         const isRowSelected = selectedCompanyIds.has(company.id);
         return (
@@ -2835,7 +2873,6 @@ const CompanySection = ({
       }),
     [
       sortedCompanies,
-      companyTableDataById,
       handleCompanyClick,
       onEditCompany,
       selectedColumns,
@@ -3804,12 +3841,6 @@ const CompanySection = ({
         onCancel: () => setShowColumnsModal(false),
         onApply: handleApplyColumnVisibility,
       }),
-    companyTableDataLoading &&
-      React.createElement(
-        "div",
-        { style: { fontSize: 12, color: "#94a3b8", marginBottom: 8 } },
-        "Loading custom column data…"
-      ),
     selectedCompanyIds.size > 0 &&
       React.createElement(
         "div",
@@ -4060,6 +4091,7 @@ function CompaniesPageInner() {
     pagination,
     ownershipCounts,
     fetchCompanies,
+    setRequestColumns,
     currentFilters,
   } = useCompaniesAPI();
 
@@ -4170,6 +4202,7 @@ function CompaniesPageInner() {
         pagination={pagination}
         ownershipCounts={ownershipCounts}
         fetchCompanies={fetchCompanies}
+        setRequestColumns={setRequestColumns}
         currentFilters={currentFilters}
         filterPinnedColumnKeys={filterPinnedColumnKeys}
         onEditCompany={React.useContext(CompaniesEditContext)}
