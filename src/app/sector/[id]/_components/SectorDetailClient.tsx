@@ -1693,24 +1693,7 @@ function MarketMapGrid({
             </span>
             <span className="text-slate-900">Market Map</span>
           </div>
-          {onExport && (
-            <button
-              onClick={onExport}
-              disabled={exporting}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors duration-150 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg
-                className="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
-              </svg>
-              {exporting ? "Exporting…" : "Export CSV"}
-            </button>
-          )}
+          {/* Export CSV button — temporarily hidden */}
         </div>
       </div>
       <div className="px-5 pt-6 pb-5">
