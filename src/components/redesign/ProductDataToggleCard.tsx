@@ -6,10 +6,9 @@ import React from "react";
 import {
   LinkPanel,
   LinkedH,
-  WeightChip,
   PctBar,
-  Pill,
   T,
+  descriptionBodyStyle,
 } from "./primitives";
 
 export type ProductMixTab = "product_type" | "data_collection";
@@ -23,7 +22,6 @@ export type ProductBarRow = {
 
 export type DataMixRow = {
   label: string;
-  value: string;
 };
 
 /** `toggle` = tabbed card; `product_type` / `data_collection` = standalone grid cells */
@@ -37,19 +35,6 @@ type Props = {
   dataRows: DataMixRow[];
   fillGridCell?: boolean;
 };
-
-function DataValue({ value }: { value: string }) {
-  const v = value.trim();
-  const lower = v.toLowerCase();
-  if (lower === "main" || lower === "primary")
-    return <WeightChip weight="Main" hideMinor />;
-  if (lower === "secondary")
-    return <WeightChip weight="Secondary" hideMinor />;
-  if (lower === "minor")
-    return <WeightChip weight="Minor" hideMinor={false} />;
-  if (v) return <Pill tone="ghost">{v}</Pill>;
-  return <span style={{ color: T.faint }}>—</span>;
-}
 
 function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
   return (
@@ -65,12 +50,11 @@ function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
             padding: "9px 0",
             borderBottom:
               i === productRows.length - 1 ? "none" : `1px solid ${T.hair}`,
-            fontSize: 13,
           }}
         >
           <div
             style={{
-              color: T.body,
+              ...descriptionBodyStyle,
               display: "flex",
               alignItems: "center",
               gap: 8,
@@ -94,9 +78,7 @@ function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
           <PctBar pct={p.pct} color={p.color} />
           <div
             style={{
-              fontFamily: T.mono,
-              fontSize: 13,
-              color: T.ink,
+              ...descriptionBodyStyle,
               textAlign: "right",
               fontVariantNumeric: "tabular-nums",
             }}
@@ -109,40 +91,21 @@ function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
   );
 }
 
-function isPercentLikeValue(value: string): boolean {
-  return /^\d+(\.\d+)?\s*%$/.test(value.trim());
-}
-
-function dataCollectionRightValue(value: string): string {
-  const v = value.trim();
-  if (!v || isPercentLikeValue(v)) return "";
-  return v;
-}
-
 function DataCollectionBody({ dataRows }: { dataRows: DataMixRow[] }) {
   return (
     <div style={{ padding: "8px 16px 14px", flex: 1, minHeight: 0 }}>
-      {dataRows.map((d, i) => {
-        const right = dataCollectionRightValue(d.value);
-        return (
-          <div
-            key={`${d.label}-${i}`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: right ? "space-between" : "flex-start",
-              padding: "9px 0",
-              gap: 12,
-              borderBottom:
-                i === dataRows.length - 1 ? "none" : `1px solid ${T.hair}`,
-              fontSize: 13,
-            }}
-          >
-            <div style={{ color: T.body, minWidth: 0 }}>{d.label}</div>
-            {right ? <DataValue value={right} /> : null}
-          </div>
-        );
-      })}
+      {dataRows.map((d, i) => (
+        <div
+          key={`${d.label}-${i}`}
+          style={{
+            padding: "9px 0",
+            borderBottom:
+              i === dataRows.length - 1 ? "none" : `1px solid ${T.hair}`,
+          }}
+        >
+          <div style={{ ...descriptionBodyStyle, minWidth: 0 }}>{d.label}</div>
+        </div>
+      ))}
     </div>
   );
 }
