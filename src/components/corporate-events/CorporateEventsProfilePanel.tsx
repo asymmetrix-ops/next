@@ -580,19 +580,12 @@ export const CorporateEventsProfilePanel: React.FC<
                       <div
                         style={{
                           textAlign: colAlign(4),
-                          color: T.muted,
                           minWidth: 0,
                         }}
                       >
                         {sectorCol}
                       </div>
-                      <div
-                        style={{
-                          textAlign: colAlign(5),
-                          color: T.body,
-                          fontVariantNumeric: "tabular-nums",
-                        }}
-                      >
+                      <div style={{ textAlign: colAlign(5) }}>
                         {formatAmountCell(event)}
                       </div>
                     </>

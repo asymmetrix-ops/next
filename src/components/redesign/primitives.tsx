@@ -207,10 +207,7 @@ export function profileTableColAlign(columnIndex: number): "left" | "center" {
 
 /** Body cell typography for Corporate Events / Subsidiaries rows. */
 export const profileTableCellStyle: React.CSSProperties = {
-  fontFamily: T.sans,
-  fontSize: 13,
-  lineHeight: 1.55,
-  fontWeight: 400,
+  ...descriptionBodyStyle,
 };
 
 /**

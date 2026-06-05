@@ -870,6 +870,20 @@ function pickTotalAmountRaisedDisplay(company: Company): string | null {
   return null;
 }
 
+/** Latest headcount shown on HeadcountCard (last point, or last non-zero). */
+function resolveChartEmployeeCount(data: EmployeeCount[]): number {
+  if (!Array.isArray(data) || data.length === 0) return 0;
+  const numericData = data.map((e) => e.employees_count);
+  const hasAnyNonZero = numericData.some((v) => v > 0);
+  const filtered = hasAnyNonZero
+    ? numericData.filter((v) => v > 0)
+    : numericData;
+  const lastNonZero =
+    filtered.length > 0 ? filtered[filtered.length - 1]! : 0;
+  const last = numericData[numericData.length - 1] ?? 0;
+  return last > 0 ? last : lastNonZero;
+}
+
 /** Approximate YoY from monthly employee counts when API does not send YoY */
 function computeEmployeeYoYFromMonthly(
   data: EmployeeCount[]
@@ -2520,10 +2534,7 @@ const CompanyDetail = () => {
   const fromDeduped = company.employees_deduped || [];
   const employeeData =
     fromMonthly.length > 0 ? fromMonthly : fromDeduped;
-  const currentEmployeeCount =
-    employeeData.length > 0
-      ? employeeData[employeeData.length - 1].employees_count
-      : 0;
+  const currentEmployeeCount = resolveChartEmployeeCount(employeeData);
 
   const finMetricsData = buildFinancialMetricsSections({
     financialMetrics,
@@ -2576,14 +2587,14 @@ const CompanyDetail = () => {
 
   const fmEmployeeHeadcount = financialMetrics?.No_Employees;
   const overviewHeadcount = (() => {
+    if (typeof currentEmployeeCount === "number" && currentEmployeeCount > 0) {
+      return currentEmployeeCount;
+    }
     if (
       typeof fmEmployeeHeadcount === "number" &&
       fmEmployeeHeadcount > 0
     ) {
       return fmEmployeeHeadcount;
-    }
-    if (typeof currentEmployeeCount === "number" && currentEmployeeCount > 0) {
-      return currentEmployeeCount;
     }
     const li = company.linkedin_data?.LinkedIn_Employee;
     if (typeof li === "number" && li > 0) return li;
@@ -3347,14 +3358,18 @@ const CompanyDetail = () => {
     .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(1) {
       text-align: left !important;
       justify-self: start !important;
+      font-family: ${T.sans} !important;
       font-size: 13px !important;
       line-height: 1.35 !important;
       font-weight: 400 !important;
+      color: ${T.muted} !important;
     }
     .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
+      font-family: ${T.sans} !important;
       font-size: 13px !important;
       line-height: 1.35 !important;
       font-weight: 400 !important;
+      color: ${T.muted} !important;
     }
     .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
       text-align: right !important;
@@ -3375,14 +3390,18 @@ const CompanyDetail = () => {
     .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(1) {
       text-align: left !important;
       justify-self: start !important;
+      font-family: ${T.sans} !important;
       font-size: 13px !important;
       line-height: 1.35 !important;
       font-weight: 400 !important;
+      color: ${T.muted} !important;
     }
     .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
+      font-family: ${T.sans} !important;
       font-size: 13px !important;
       line-height: 1.35 !important;
       font-weight: 400 !important;
+      color: ${T.muted} !important;
     }
     .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
       text-align: right !important;
@@ -3408,14 +3427,21 @@ const CompanyDetail = () => {
     }
     .desktop-financial-metrics .income-statement-grid td:first-child,
     .mobile-financial-metrics .income-statement-grid td:first-child {
+      font-family: ${T.sans} !important;
       color: ${T.muted} !important;
       font-size: 13px !important;
       line-height: 1.35 !important;
+      font-weight: 400 !important;
       text-align: left !important;
     }
     .desktop-financial-metrics .income-statement-grid td:not(:first-child),
     .mobile-financial-metrics .income-statement-grid td:not(:first-child) {
       text-align: center !important;
+      font-family: ${T.sans} !important;
+      font-size: 13px !important;
+      line-height: 1.55 !important;
+      font-weight: 400 !important;
+      color: ${T.body} !important;
     }
     /* Corporate Events styles (mirrors corporate-events list page) */
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }

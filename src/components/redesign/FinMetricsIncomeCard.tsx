@@ -209,7 +209,7 @@ function BenchmarkTabBody({ data }: { data: BenchmarkPeersData }) {
             </div>
             <div
               className={FIN_METRIC_VALUE_CLASS}
-              style={{ ...finMetricValueColStyle, textAlign: "center", color: T.muted }}
+              style={{ ...finMetricValueColStyle, textAlign: "center" }}
             >
               {row.peerMedian}
             </div>
