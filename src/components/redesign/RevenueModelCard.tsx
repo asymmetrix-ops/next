@@ -4,7 +4,7 @@
  * Revenue stream rows with Main / Secondary / Minor weighting pill.
  */
 import React from "react";
-import { LinkPanel, LinkedH, WeightChip, T } from "./primitives";
+import { LinkPanel, LinkedH, WeightChip, T, descriptionBodyStyle } from "./primitives";
 
 export type RevenueModelRow = {
   /** Revenue stream name, e.g. "Subscription", "One-time license" */
@@ -35,10 +35,9 @@ export function RevenueModelCard({ rows, fillGridCell = false }: Props) {
               padding: "9px 0",
               borderBottom:
                 i < rows.length - 1 ? `1px solid ${T.hair}` : "none",
-              fontSize: 13,
             }}
           >
-            <div style={{ color: T.body }}>{row.name}</div>
+            <div style={descriptionBodyStyle}>{row.name}</div>
             <WeightChip weight={row.weight || ""} hideMinor />
           </div>
         ))}

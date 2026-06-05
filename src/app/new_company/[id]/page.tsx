@@ -30,7 +30,12 @@ import {
   ProductUsersListCard,
   type ProductUsersSection,
 } from "@/components/redesign/ProductUsersListCard";
-import { LinkPanel } from "@/components/redesign/primitives";
+import {
+  LinkPanel,
+  descriptionBodyStyle,
+  kvLabelStyle,
+  kvValueStyle,
+} from "@/components/redesign/primitives";
 import {
   FinMetricsIncomeCard,
   FinMetricsPrimaryCard,
@@ -2631,7 +2636,6 @@ const CompanyDetail = () => {
     )
       .map((item) => ({
         label: String(item?.Data_Collection_Method || "").trim(),
-        value: String(item?.Predominance || "").trim(),
       }))
       .filter((item) => item.label);
 
@@ -2834,7 +2838,6 @@ const CompanyDetail = () => {
       alignItems: "start",
       padding: "7px 0",
       borderBottom: `1px solid ${T.hair}`,
-      fontSize: "12.5px",
     },
     infoRowLast: {
       display: "grid",
@@ -2843,7 +2846,6 @@ const CompanyDetail = () => {
       alignItems: "flex-start",
       padding: "7px 0",
       borderBottom: "none",
-      fontSize: "12.5px",
     },
     /** Right-rail metric values — matches CompanyProfile KV mono column */
     v3RailValue: {
@@ -2880,14 +2882,10 @@ const CompanyDetail = () => {
       boxSizing: "border-box" as const,
     },
     label: {
-      fontSize: "12.5px",
-      color: T.muted,
-      fontWeight: "400",
+      ...kvLabelStyle,
     },
     value: {
-      fontSize: "12.5px",
-      color: T.body,
-      fontWeight: "400",
+      ...kvValueStyle,
       textAlign: "left" as const,
       marginLeft: "0",
       wordBreak: "break-word" as const,
@@ -2902,9 +2900,7 @@ const CompanyDetail = () => {
       cursor: "pointer",
     },
     description: {
-      fontSize: "13.5px",
-      color: T.body,
-      lineHeight: "1.65",
+      ...descriptionBodyStyle,
     },
     chartContainer: {
       marginTop: "20px",
@@ -3110,24 +3106,20 @@ const CompanyDetail = () => {
         width: "100%",
       },
       label: {
-        fontSize: "11px",
-        color: T.faint,
-        fontWeight: "500",
+        ...kvLabelStyle,
         minWidth: "auto",
         marginBottom: "1px",
       },
       value: {
-        fontSize: "12.5px",
+        ...kvValueStyle,
         textAlign: "left",
         marginLeft: "0",
-        lineHeight: "1.4",
         wordBreak: "break-word" as const,
         overflowWrap: "break-word" as const,
         width: "100%",
       },
       description: {
-        fontSize: "13px",
-        lineHeight: "1.6",
+        ...descriptionBodyStyle,
       },
       chartTitle: {
         fontSize: "11px",
@@ -3210,7 +3202,6 @@ const CompanyDetail = () => {
       ? dataCollectionMethodRows
       : DATA_COLLECTION_MIX_DEMO.map((r) => ({
           label: r.label,
-          value: "",
         }));
 
   const responsiveCss = `
