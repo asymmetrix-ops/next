@@ -67,17 +67,7 @@ export async function POST(request: NextRequest) {
       if (val) colMap[val] = colNumber;
     });
 
-    // Apply proper column widths to all data columns
-    Object.entries(colMap).forEach(([name, colNum]) => {
-      const width = COL_WIDTHS[name];
-      if (width) {
-        const col = sheet.getColumn(colNum);
-        col.width = width;
-        col.alignment = { wrapText: false, vertical: 'middle' };
-      }
-    });
-
-    // Add "Filters Applied" header + width if needed
+    // Add "Filters Applied" header if needed (before committing header row)
     const countryCol = colMap['Country'] ?? 9;
     const filtersCol = countryCol + 1;
     if (hasFilters) {
@@ -85,11 +75,28 @@ export async function POST(request: NextRequest) {
       const hCell = updatedHeaderRow.getCell(filtersCol);
       hCell.value = 'Filters Applied';
       hCell.style = { ...refCell.style };
-      const col = sheet.getColumn(filtersCol);
-      col.width = COL_WIDTHS['Filters Applied'];
-      col.alignment = { wrapText: false, vertical: 'middle' };
+      colMap['Filters Applied'] = filtersCol;
     }
     updatedHeaderRow.commit();
+
+    // Force column widths by rebuilding the columns definition array.
+    // This bypasses any customWidth flags baked into the template.
+    const allColWidths = Object.entries(colMap).reduce<Record<number, number>>(
+      (acc, [name, colNum]) => {
+        const w = COL_WIDTHS[name];
+        if (w) acc[colNum] = w;
+        return acc;
+      },
+      {}
+    );
+    // Apply to every column in the sheet (reset then set)
+    sheet.columns.forEach((col) => {
+      if (!col.number) return;
+      const w = allColWidths[col.number];
+      if (w) {
+        col.width = w;
+      }
+    });
 
     // Clear any pre-existing sample data rows
     const rowsToRemove = sheet.rowCount - DATA_START_ROW + 1;
