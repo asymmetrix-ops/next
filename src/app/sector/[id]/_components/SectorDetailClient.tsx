@@ -1869,6 +1869,7 @@ const SectorDetailPage = ({
     id: number;
     name: string;
     description: string;
+    url?: string;
     primary_sectors: string[];
     secondary_sectors: string[];
     ownership: string;
@@ -2952,6 +2953,7 @@ const SectorDetailPage = ({
   ) => ({
     id: c.id,
     name: c.name || "N/A",
+    url: c.url || "N/A",
     asymmetrixUrl: `${origin}/company/${c.id}`,
     description: c.description || "N/A",
     primarySectors: Array.isArray(c.primary_sectors)

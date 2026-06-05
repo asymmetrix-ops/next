@@ -11,6 +11,7 @@ const DATA_START_ROW = 10;
 const COL_WIDTHS: Record<string, number> = {
   'ID': 10,
   'Name': 35,
+  'URL': 40,
   'Asymmetrix URL': 45,
   'Description': 80,
   'Primary Sector(s)': 35,
@@ -23,6 +24,7 @@ const COL_WIDTHS: Record<string, number> = {
 export interface ExportRow {
   id: string | number;
   name: string;
+  url: string;
   asymmetrixUrl: string;
   description: string;
   primarySectors: string;
@@ -47,19 +49,7 @@ export async function POST(request: NextRequest) {
 
     const sheet = workbook.worksheets[0];
 
-    // Find and remove the "URL" column from the template before building colMap
-    const headerRow = sheet.getRow(HEADER_ROW);
-    let urlColNumber: number | null = null;
-    headerRow.eachCell((cell, colNumber) => {
-      if (String(cell.value ?? '').trim() === 'URL') {
-        urlColNumber = colNumber;
-      }
-    });
-    if (urlColNumber !== null) {
-      sheet.spliceColumns(urlColNumber, 1);
-    }
-
-    // Rebuild colMap after splice
+    // Build colMap from the template header row
     const updatedHeaderRow = sheet.getRow(HEADER_ROW);
     const colMap: Record<string, number> = {};
     updatedHeaderRow.eachCell((cell, colNumber) => {
@@ -129,6 +119,22 @@ export async function POST(request: NextRequest) {
 
       set('ID', data.id);
       set('Name', data.name);
+      // URL — render as hyperlink when it's a real URL
+      const urlCol = colMap['URL'];
+      if (urlCol) {
+        const cell = row.getCell(urlCol);
+        const urlVal = data.url || 'N/A';
+        if (urlVal.startsWith('http')) {
+          cell.value = { text: urlVal, hyperlink: urlVal };
+          cell.font = { color: { argb: 'FF0070C0' }, underline: true };
+        } else {
+          cell.value = urlVal;
+        }
+        cell.alignment = { vertical: 'middle', wrapText: false };
+        if (idx % 2 === 1) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+        }
+      }
       set('Asymmetrix URL', data.asymmetrixUrl);
       set('Description', data.description);
       set('Primary Sector(s)', data.primarySectors);
