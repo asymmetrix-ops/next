@@ -1625,6 +1625,7 @@ const CompanyDashboard = ({
   onAddToPortfolioClick,
   selectedCount = 0,
   columnsCount = 0,
+  columnsActive = false,
 }: {
   onSearch?: (filters: Filters) => void;
   onFilterColumnsChange?: (payload: {
@@ -1634,6 +1635,7 @@ const CompanyDashboard = ({
   initialSearch?: string;
   ownershipCounts?: CompaniesOwnershipCounts;
   onColumnsClick?: () => void;
+  columnsActive?: boolean;
   onExportCSVClick?: () => void;
   onAddToPortfolioClick?: () => void;
   selectedCount?: number;
@@ -1875,15 +1877,18 @@ const CompanyDashboard = ({
           <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6 }}>
             <button
               onClick={onColumnsClick}
+              aria-pressed={columnsActive}
               style={{
                 display: "flex", alignItems: "center", gap: 6,
                 height: 36, padding: "0 14px",
-                background: "#fff",
-                border: "1px solid #e2e8f0",
+                background: columnsActive ? "#0f172a" : "#fff",
+                border: columnsActive ? "1px solid #0f172a" : "1px solid #e2e8f0",
                 borderRadius: 8,
-                fontSize: 13, fontWeight: 500, color: "#374151",
+                fontSize: 13, fontWeight: 500,
+                color: columnsActive ? "#fff" : "#374151",
                 cursor: "pointer",
                 boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                transition: "background 150ms, color 150ms, border-color 150ms",
               }}
             >
               <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
@@ -2779,15 +2784,19 @@ const CompanySection = ({
           ...tableData,
         } as Company;
 
+        const isRowSelected = selectedCompanyIds.has(company.id);
         return (
-          <tr key={company.id || index}>
+          <tr
+            key={company.id || index}
+            className={isRowSelected ? "company-table-row-selected" : undefined}
+          >
             <td
               className="company-table-select-cell"
               style={{ minWidth: 44, width: 44, textAlign: "center" }}
             >
               <input
                 type="checkbox"
-                checked={selectedCompanyIds.has(company.id)}
+                checked={isRowSelected}
                 onChange={() => onToggleCompanySelection(company.id)}
                 onClick={(e) => e.stopPropagation()}
                 aria-label={`Select ${company.name || "company"}`}
@@ -3143,6 +3152,20 @@ const CompanySection = ({
       z-index: 3;
       background: #fff;
       box-shadow: 2px 0 4px rgba(15, 23, 42, 0.06);
+    }
+    .company-table-row-selected {
+      background: #EFF6FF;
+    }
+    .company-table-row-selected .company-table-sticky-logo,
+    .company-table-row-selected .company-table-sticky-name,
+    .company-table-row-selected .company-table-select-cell {
+      background: #EFF6FF;
+    }
+    .company-table-select-cell {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      background: #fff;
     }
     .company-table thead th.company-table-sticky-logo,
     .company-table thead th.company-table-sticky-name {
@@ -3761,7 +3784,20 @@ const CompanySection = ({
       )
     ),
     showColumnsModal &&
+      React.createElement("div", {
+        key: "columns-backdrop",
+        style: {
+          position: "fixed",
+          inset: 0,
+          zIndex: 199,
+          cursor: "default",
+        },
+        onClick: () => setShowColumnsModal(false),
+        "aria-hidden": true,
+      }),
+    showColumnsModal &&
       React.createElement(ColumnsControlRoom, {
+        key: "columns-panel",
         initial: columnVisibilityInitial,
         initialOrder: selectedColumnKeys,
         filterPinnedColumnKeys,
@@ -4120,11 +4156,12 @@ function CompaniesPageInner() {
         onFilterColumnsChange={handleFilterColumnsChange}
         initialSearch={initialSearch}
         ownershipCounts={ownershipCounts}
-        onColumnsClick={() => setShowColumnsModal(true)}
+        onColumnsClick={() => setShowColumnsModal((v) => !v)}
         onExportCSVClick={() => exportCSVRef.current?.()}
         onAddToPortfolioClick={() => setShowBulkAddModal(true)}
         selectedCount={selectedCompanyIds.size}
         columnsCount={columnsCount}
+        columnsActive={showColumnsModal}
       />
       <CompanySection
         companies={companies}
