@@ -15,8 +15,8 @@ const COL_WIDTHS: Record<string, number> = {
   'Description': 80,
   'Primary Sector(s)': 35,
   'Sub-Sector(s)': 40,
-  'LinkedIn Members': 18,
-  'Country': 22,
+  'LinkedIn Members': 22,
+  'Country': 26,
   'Filters Applied': 60,
 };
 
@@ -126,7 +126,19 @@ export async function POST(request: NextRequest) {
       set('Description', data.description);
       set('Primary Sector(s)', data.primarySectors);
       set('Sub-Sector(s)', data.subSectors);
-      set('LinkedIn Members', data.linkedinMembers);
+      // LinkedIn Members — right-align numeric values
+      const linkedinCol = colMap['LinkedIn Members'];
+      if (linkedinCol) {
+        const cell = row.getCell(linkedinCol);
+        const numVal = typeof data.linkedinMembers === 'number'
+          ? data.linkedinMembers
+          : parseInt(String(data.linkedinMembers), 10);
+        cell.value = isNaN(numVal) ? data.linkedinMembers : numVal;
+        cell.alignment = { vertical: 'middle', horizontal: 'right', wrapText: false };
+        if (idx % 2 === 1) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+        }
+      }
       set('Country', data.country);
 
       if (hasFilters) {
