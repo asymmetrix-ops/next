@@ -7,9 +7,8 @@ import {
   profileTableColAlign,
   profileTableCellStyle,
   PROFILE_EVENTS_ROW_GAP,
-  PROFILE_EVENTS_ROW_GRID,
   PROFILE_EVENTS_ROW_PAD,
-  SUBS_PROFILE_GRID_COL,
+  SUBS_PROFILE_ROW_GRID,
   tableColHeaderBarStyle,
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
@@ -102,9 +101,6 @@ const HEADERS = [
   "Country",
   "Year Acquired",
 ] as const;
-
-const SUBS_COL_GRID_NARROW =
-  "minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(72px, auto)";
 
 function sectorLabel(s: SubsidiaryProfileRecord): string {
   const raw = s.sectors_id
@@ -216,40 +212,16 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
           <div
             style={{
               ...tableColHeaderBarStyle,
-              gridTemplateColumns: narrow
-                ? SUBS_COL_GRID_NARROW
-                : PROFILE_EVENTS_ROW_GRID,
+              gridTemplateColumns: SUBS_PROFILE_ROW_GRID,
               gap: PROFILE_EVENTS_ROW_GAP,
               padding: headerPad,
             }}
           >
-            {narrow ? (
-              headers.map((h, colIndex) => (
-                <div key={h} style={subsHeaderCell(colIndex)}>
-                  {h}
-                </div>
-              ))
-            ) : (
-              <>
-                <div style={{ ...subsHeaderCell(0), gridColumn: SUBS_PROFILE_GRID_COL.company }}>
-                  Company
-                </div>
-                <div style={{ ...subsHeaderCell(1), gridColumn: SUBS_PROFILE_GRID_COL.sector }}>
-                  Sector
-                </div>
-                <div style={{ ...subsHeaderCell(2), gridColumn: SUBS_PROFILE_GRID_COL.country }}>
-                  Country
-                </div>
-                <div
-                  style={{
-                    ...subsHeaderCell(3),
-                    gridColumn: SUBS_PROFILE_GRID_COL.yearAcquired,
-                  }}
-                >
-                  Year Acquired
-                </div>
-              </>
-            )}
+            {headers.map((h, colIndex) => (
+              <div key={h} style={subsHeaderCell(colIndex)}>
+                {h}
+              </div>
+            ))}
           </div>
 
           {displayed.map((subsidiary, index) => {
@@ -296,68 +268,12 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
               </div>
             );
 
-            if (narrow) {
-              return (
-                <div
-                  key={subsidiary.id}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: SUBS_COL_GRID_NARROW,
-                    gap: PROFILE_EVENTS_ROW_GAP,
-                    alignItems: "center",
-                    padding: cellPad,
-                    borderBottom: last ? "none" : `1px solid ${T.hair}`,
-                  }}
-                >
-                  <div
-                    style={{
-                      textAlign: profileTableColAlign(0),
-                      minWidth: 0,
-                    }}
-                  >
-                    {companyCell}
-                  </div>
-                  <div
-                    style={{
-                      textAlign: profileTableColAlign(1),
-                      color: T.muted,
-                      minWidth: 0,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {sectorLabel(subsidiary)}
-                  </div>
-                  <div
-                    style={{
-                      textAlign: profileTableColAlign(2),
-                      color: T.body,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {subsidiary._locations?.Country?.trim() || "—"}
-                  </div>
-                  <div
-                    style={{
-                      textAlign: profileTableColAlign(3),
-                      color: T.body,
-                      fontVariantNumeric: "tabular-nums",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {yearAcquired}
-                  </div>
-                </div>
-              );
-            }
-
             return (
               <div
                 key={subsidiary.id}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: PROFILE_EVENTS_ROW_GRID,
+                  gridTemplateColumns: SUBS_PROFILE_ROW_GRID,
                   gap: PROFILE_EVENTS_ROW_GAP,
                   alignItems: "center",
                   padding: cellPad,
@@ -366,7 +282,6 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
               >
                 <div
                   style={{
-                    gridColumn: SUBS_PROFILE_GRID_COL.company,
                     textAlign: profileTableColAlign(0),
                     minWidth: 0,
                   }}
@@ -375,17 +290,18 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                 </div>
                 <div
                   style={{
-                    gridColumn: SUBS_PROFILE_GRID_COL.sector,
                     textAlign: profileTableColAlign(1),
                     color: T.muted,
                     minWidth: 0,
+                    overflow: narrow ? "hidden" : undefined,
+                    textOverflow: narrow ? "ellipsis" : undefined,
+                    whiteSpace: narrow ? "nowrap" : undefined,
                   }}
                 >
                   {sectorLabel(subsidiary)}
                 </div>
                 <div
                   style={{
-                    gridColumn: SUBS_PROFILE_GRID_COL.country,
                     textAlign: profileTableColAlign(2),
                     color: T.body,
                     whiteSpace: "nowrap",
@@ -395,7 +311,6 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                 </div>
                 <div
                   style={{
-                    gridColumn: SUBS_PROFILE_GRID_COL.yearAcquired,
                     textAlign: profileTableColAlign(3),
                     color: T.body,
                     fontVariantNumeric: "tabular-nums",
