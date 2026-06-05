@@ -14,8 +14,7 @@ import {
 import {
   addEntityToPortfolioApi,
   removeEntityFromPortfolioApi,
-  getPortfoliosContainingEntity,
-  isEntityInPortfolio,
+  fetchEntityListMembership,
   type PortfolioEntityType,
 } from "@/lib/portfolioEntity";
 import { toast } from "react-hot-toast";
@@ -43,6 +42,9 @@ export function FollowButton({
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [togglingListId, setTogglingListId] = useState<number | null>(null);
+  const [membershipMap, setMembershipMap] = useState<Record<number, boolean>>({});
+  const [membershipLoading, setMembershipLoading] = useState(false);
+  const membershipAbortRef = useRef<AbortController | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isFollowed = usePortfolioStore((s) => s.isFollowed(followKey, entityId));
@@ -55,19 +57,50 @@ export function FollowButton({
     [xanoPortfolios]
   );
 
-  const membershipMap = useMemo(() => {
-    if (!entityType) return {};
-    const map: Record<number, boolean> = {};
-    for (const p of namedPortfolios) {
-      map[p.id] = isEntityInPortfolio(p, entityType, entityId);
+  const loadListMembership = useCallback(async () => {
+    if (!entityType || !Number.isFinite(entityId) || entityId <= 0) {
+      setMembershipMap({});
+      return;
     }
-    return map;
+
+    membershipAbortRef.current?.abort();
+    const ac = new AbortController();
+    membershipAbortRef.current = ac;
+
+    setMembershipLoading(true);
+    try {
+      const { membershipMap: map } = await fetchEntityListMembership({
+        entityType,
+        entityId,
+        portfolioIds: namedPortfolios.map((p) => p.id),
+        signal: ac.signal,
+      });
+      if (!ac.signal.aborted) {
+        setMembershipMap(map);
+      }
+    } catch (e) {
+      if ((e as { name?: string }).name !== "AbortError") {
+        console.error("Failed to load list membership:", e);
+      }
+    } finally {
+      if (!ac.signal.aborted) {
+        setMembershipLoading(false);
+      }
+    }
   }, [namedPortfolios, entityType, entityId]);
 
-  const containingLists = useMemo(() => {
-    if (!entityType) return [];
-    return getPortfoliosContainingEntity(namedPortfolios, entityType, entityId);
-  }, [namedPortfolios, entityType, entityId]);
+  useEffect(() => {
+    void loadListMembership();
+    return () => {
+      membershipAbortRef.current?.abort();
+    };
+  }, [loadListMembership]);
+
+  useEffect(() => {
+    if (dropdownOpen) {
+      void loadListMembership();
+    }
+  }, [dropdownOpen, loadListMembership]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -127,7 +160,6 @@ export function FollowButton({
             entityType,
             entityId,
           });
-          await fetchPortfolio();
           toast.success(`Removed from "${portfolioLabel}"`);
         } else {
           await addEntityToPortfolioApi({
@@ -135,9 +167,11 @@ export function FollowButton({
             entityType,
             entityId,
           });
-          await fetchPortfolio();
           toast.success(`Added to "${portfolioLabel}"`);
         }
+
+        await fetchPortfolio();
+        await loadListMembership();
       } catch (e) {
         toast.error(
           e instanceof Error ? e.message : "Failed to update portfolio"
@@ -146,7 +180,7 @@ export function FollowButton({
         setTogglingListId(null);
       }
     },
-    [entityType, entityId, togglingListId, fetchPortfolio]
+    [entityType, entityId, togglingListId, fetchPortfolio, loadListMembership]
   );
 
   const isLoading = loading || portfolioLoading;
@@ -259,6 +293,10 @@ export function FollowButton({
                     Create one
                   </a>
                 </div>
+              ) : membershipLoading && Object.keys(membershipMap).length === 0 ? (
+                <div style={{ padding: "10px 12px", fontSize: "13px", color: "#9ca3af" }}>
+                  Loading lists…
+                </div>
               ) : (
                 namedPortfolios.map((p) => {
                   const inList = membershipMap[p.id] ?? false;
@@ -301,32 +339,6 @@ export function FollowButton({
               )}
             </div>
           )}
-        </div>
-      )}
-
-      {containingLists.length > 0 && (
-        <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "2px" }}>
-          {containingLists.map((p) => (
-            <span
-              key={p.id}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "3px",
-                padding: "2px 8px",
-                backgroundColor: "#ede9fe",
-                color: "#5b21b6",
-                borderRadius: "100px",
-                fontSize: "11px",
-                fontWeight: 500,
-              }}
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                <path d="M19 11H7.83l4.88-4.88c.39-.39.39-1.03 0-1.42-.39-.39-1.02-.39-1.41 0l-6.59 6.59c-.39.39-.39 1.02 0 1.41l6.59 6.59c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41L7.83 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" />
-              </svg>
-              {getPortfolioDisplayLabel(p)}
-            </span>
-          ))}
         </div>
       )}
     </div>
