@@ -8,6 +8,7 @@ import {
   LinkPanel,
   LinkedH,
   T,
+  MANAGEMENT_ROW_GRID,
   profileTableCellStyle,
   tableColHeaderBarStyle,
   tableColHeaderStyle,
@@ -31,7 +32,6 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-const COL = "1fr 1.2fr 44px";
 const COL_GAP = 6;
 
 function ColHeader() {
@@ -39,7 +39,7 @@ function ColHeader() {
     <div
       style={{
         ...tableColHeaderBarStyle,
-        gridTemplateColumns: COL,
+        gridTemplateColumns: MANAGEMENT_ROW_GRID,
         gap: COL_GAP,
       }}
     >
@@ -61,7 +61,7 @@ function PersonRow({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: COL,
+        gridTemplateColumns: MANAGEMENT_ROW_GRID,
         alignItems: "start",
         gap: COL_GAP,
         padding: "10px 16px",

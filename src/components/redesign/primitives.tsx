@@ -233,6 +233,12 @@ export const SUBS_PROFILE_GRID_COL = {
   yearAcquired: 6,
 } as const;
 
+/** Equal-width columns for Current Subsidiaries (4 fields). */
+export const SUBS_PROFILE_ROW_GRID = "repeat(4, minmax(0, 1fr))";
+
+/** Equal thirds — Role centered between Name and LinkedIn. */
+export const MANAGEMENT_ROW_GRID = "repeat(3, minmax(0, 1fr))";
+
 // ── Pill ────────────────────────────────────────────────────────────────────
 type PillTone = "neutral" | "azure" | "lavender" | "coral" | "emerald" | "up" | "down" | "ghost";
 const PILL_TONES: Record<PillTone, { bg: string; fg: string; bd: string }> = {
