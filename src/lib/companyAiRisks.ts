@@ -10,6 +10,32 @@ export function scoreToTierName(score: number): string {
   return "High";
 }
 
+/** Risk (red) axes first, then defensibility (green) — contiguous wedges on the radar. */
+const RADAR_GROUP_ORDER: Record<AIRiskAxisGroup, number> = { risk: 0, def: 1 };
+
+const RADAR_AXIS_KEY_ORDER: Record<string, number> = {
+  replic: 0,
+  accuracy: 1,
+  stakes: 2,
+  workflow: 3,
+  authority: 4,
+  history: 5,
+  data: 6,
+  human: 7,
+};
+
+export function sortAiRiskAxesForRadar(axes: AIRiskAxis[]): AIRiskAxis[] {
+  return [...axes].sort((a, b) => {
+    const groupDelta =
+      (RADAR_GROUP_ORDER[a.group] ?? 0) - (RADAR_GROUP_ORDER[b.group] ?? 0);
+    if (groupDelta !== 0) return groupDelta;
+    const keyDelta =
+      (RADAR_AXIS_KEY_ORDER[a.key] ?? 999) - (RADAR_AXIS_KEY_ORDER[b.key] ?? 999);
+    if (keyDelta !== 0) return keyDelta;
+    return a.label.localeCompare(b.label);
+  });
+}
+
 /** Map API / legacy numeric or assessment text to a 1–3 tier score. */
 export function normalizeToThreeScore(
   value: unknown,
@@ -117,7 +143,7 @@ export function mapAiRisksV2ToAxes(
       blurb: item.body.replace(/&nbsp;/g, " ").trim(),
     };
   });
-  return axes.length >= 3 ? axes : null;
+  return axes.length >= 3 ? sortAiRiskAxesForRadar(axes) : null;
 }
 
 export async function fetchCompanyAiRisksV2(
@@ -264,7 +290,7 @@ export function mapCompanyAiRisksToAxes(
     });
   }
 
-  return axes.length >= 3 ? axes : null;
+  return axes.length >= 3 ? sortAiRiskAxesForRadar(axes) : null;
 }
 
 export async function fetchCompanyAiRisks(
