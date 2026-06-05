@@ -15,6 +15,17 @@ export const FOLLOW_KEY_TO_ENTITY_TYPE: Record<PortfolioFollowKey, string> = {
   followed_individuals: "individual",
 };
 
+export const ENTITY_TYPE_TO_FOLLOW_KEY: Record<
+  (typeof FOLLOW_KEY_TO_ENTITY_TYPE)[PortfolioFollowKey],
+  PortfolioFollowKey
+> = {
+  company: "followed_companies",
+  advisor: "followed_advisors",
+  investor: "followed_investors",
+  sector: "followed_sectors",
+  individual: "followed_individuals",
+};
+
 function getToken(): string | null {
   return typeof window !== "undefined"
     ? localStorage.getItem("asymmetrix_auth_token")
