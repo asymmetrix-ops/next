@@ -1,10 +1,5 @@
 import { addEntityToPortfolioApi } from "@/lib/portfolioEntity";
-import type { PortfolioEntityType } from "@/lib/portfolioEntity";
-import {
-  followPortfolioEntities,
-  invalidateUserPortfolioRecordCache,
-  ENTITY_TYPE_TO_FOLLOW_KEY,
-} from "@/lib/portfolioFollow";
+import { followPortfolioEntity } from "@/lib/portfolioFollow";
 import { createUserListInXano } from "@/lib/userLists";
 
 export type BulkPortfolioAction =
@@ -19,10 +14,7 @@ export type BulkProgress = {
   failed: number;
 };
 
-// Must be 1: Xano's list-entity endpoint does read-modify-write on the
-// followed_companies array. Concurrent requests race and only the last
-// write survives, so we serialize all additions to the same list.
-const CONCURRENCY = 1;
+const CONCURRENCY = 5;
 
 async function runWithConcurrency<T>(
   items: T[],
@@ -71,18 +63,15 @@ function parseCreatedListId(raw: unknown): number | null {
   return null;
 }
 
-export async function bulkAddEntitiesToPortfolio(
-  entityType: PortfolioEntityType,
-  entityIds: number[],
+export async function bulkAddCompaniesToPortfolio(
+  companyIds: number[],
   action: BulkPortfolioAction,
   onProgress?: (progress: BulkProgress) => void
 ): Promise<{ success: number; failed: number; listIds: number[] }> {
-  const ids = entityIds.filter((id) => Number.isFinite(id) && id > 0);
+  const ids = companyIds.filter((id) => Number.isFinite(id) && id > 0);
   if (ids.length === 0) {
     return { success: 0, failed: 0, listIds: [] };
   }
-
-  const followKey = ENTITY_TYPE_TO_FOLLOW_KEY[entityType];
 
   let listIds: number[] = [];
   if (action.mode === "new_list") {
@@ -99,64 +88,28 @@ export async function bulkAddEntitiesToPortfolio(
     }
   }
 
-  if (action.mode === "follow") {
-    onProgress?.({ total: ids.length, done: 0, success: 0, failed: 0 });
-    try {
-      await followPortfolioEntities({
-        followKey,
-        entityIds: ids,
-      });
-      invalidateUserPortfolioRecordCache();
-      onProgress?.({
-        total: ids.length,
-        done: ids.length,
-        success: ids.length,
-        failed: 0,
-      });
-      return { success: ids.length, failed: 0, listIds: [] };
-    } catch {
-      onProgress?.({
-        total: ids.length,
-        done: ids.length,
-        success: 0,
-        failed: ids.length,
-      });
-      return { success: 0, failed: ids.length, listIds: [] };
-    }
-  }
+  type Task = { companyId: number; listId?: number };
 
-  type Task = { entityId: number; listId: number };
-  const tasks: Task[] = listIds.flatMap((listId) =>
-    ids.map((entityId) => ({ entityId, listId }))
-  );
-
-  onProgress?.({ total: tasks.length, done: 0, success: 0, failed: 0 });
-
-  try {
-    await followPortfolioEntities({
-      followKey,
-      entityIds: ids,
-    });
-    invalidateUserPortfolioRecordCache();
-  } catch {
-    onProgress?.({
-      total: tasks.length,
-      done: tasks.length,
-      success: 0,
-      failed: tasks.length,
-    });
-    return { success: 0, failed: tasks.length, listIds };
-  }
+  const tasks: Task[] =
+    action.mode === "follow"
+      ? ids.map((companyId) => ({ companyId }))
+      : listIds.flatMap((listId) => ids.map((companyId) => ({ companyId, listId })));
 
   const result = await runWithConcurrency(
     tasks,
     CONCURRENCY,
     async (task) => {
+      if (action.mode === "follow") {
+        await followPortfolioEntity({
+          followKey: "followed_companies",
+          entityId: task.companyId,
+        });
+        return true;
+      }
       await addEntityToPortfolioApi({
-        portfolioId: task.listId,
-        entityType,
-        entityId: task.entityId,
-        skipGlobalFollow: true,
+        portfolioId: task.listId!,
+        entityType: "company",
+        entityId: task.companyId,
       });
       return true;
     },
@@ -164,12 +117,4 @@ export async function bulkAddEntitiesToPortfolio(
   );
 
   return { success: result.success, failed: result.failed, listIds };
-}
-
-export async function bulkAddCompaniesToPortfolio(
-  companyIds: number[],
-  action: BulkPortfolioAction,
-  onProgress?: (progress: BulkProgress) => void
-): Promise<{ success: number; failed: number; listIds: number[] }> {
-  return bulkAddEntitiesToPortfolio("company", companyIds, action, onProgress);
 }
