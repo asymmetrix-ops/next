@@ -179,9 +179,11 @@ function Pop({
 
 function formatRangeValue(
   v: { min?: number; max?: number } | null | undefined,
-  unit?: string
+  unit?: string,
+  type?: string
 ): string {
   if (!v) return "";
+  const isYear = type === "date";
   const fmt = (n: number) => {
     if (unit === "$m" && Math.abs(n) >= 1000)
       return `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}b`;
@@ -190,6 +192,7 @@ function formatRangeValue(
     if (unit === "%") return `${n}%`;
     if (unit === "x") return `${n}x`;
     if (unit === "yrs") return `${n}y`;
+    if (isYear) return String(n);
     return n.toLocaleString();
   };
   if (v.min !== undefined && v.max !== undefined)
@@ -209,7 +212,8 @@ function summarize(def: FilterDef, value: unknown): string {
   if (def.editor === "range")
     return formatRangeValue(
       value as { min?: number; max?: number },
-      def.unit
+      def.unit,
+      def.type
     );
   if (def.editor === "segmented") return String(value);
   if (def.editor === "boolean") return (value as boolean) ? "On" : "Off";
@@ -1128,6 +1132,8 @@ function RangeEditor({
   const left = Math.max(0, ((trackLo - defMin) / span) * 100);
   const right = Math.min(100, ((trackHi - defMin) / span) * 100);
 
+  const isYearRange = def.type === "date";
+
   const fmt = (n: number) => {
     const u = def.unit;
     if (u === "$m" && Math.abs(n) >= 1000)
@@ -1137,6 +1143,8 @@ function RangeEditor({
     if (u === "%") return `${n}%`;
     if (u === "x") return `${n}x`;
     if (u === "yrs") return `${n}y`;
+    // Years should never be formatted with thousand-separators
+    if (isYearRange) return String(n);
     return n.toLocaleString();
   };
 
@@ -1158,7 +1166,7 @@ function RangeEditor({
           applyDisabled={lo === "" && hi === ""}
         />
       }
-      width={320}
+      width={isYearRange ? 380 : 320}
     >
       {def.presets && (
         <div
@@ -1192,58 +1200,62 @@ function RangeEditor({
         </div>
       )}
 
-      {/* Track preview */}
-      <div
-        style={{
-          position: "relative",
-          height: 6,
-          background: "var(--ax-gray-100)",
-          borderRadius: 3,
-          margin: "14px 4px 6px",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            bottom: 0,
-            left: `${left}%`,
-            right: `${100 - right}%`,
-            background: "var(--ax-cyan-400)",
-            borderRadius: 3,
-          }}
-        />
-        {[left, right].map((pct, i) => (
+      {/* Track preview — hidden for year/date range inputs */}
+      {!isYearRange && (
+        <>
           <div
-            key={i}
             style={{
-              position: "absolute",
-              top: "50%",
-              left: `${pct}%`,
-              width: 10,
-              height: 10,
-              marginLeft: -5,
-              marginTop: -5,
-              borderRadius: "50%",
-              background: "white",
-              border: "2px solid var(--ax-cyan-700)",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+              position: "relative",
+              height: 6,
+              background: "var(--ax-gray-100)",
+              borderRadius: 3,
+              margin: "14px 4px 6px",
             }}
-          />
-        ))}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: 10,
-          color: "var(--fg-4)",
-          padding: "0 4px 10px",
-        }}
-      >
-        <span>{fmt(defMin)}</span>
-        <span>{fmt(defMax)}+</span>
-      </div>
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: `${left}%`,
+                right: `${100 - right}%`,
+                background: "var(--ax-cyan-400)",
+                borderRadius: 3,
+              }}
+            />
+            {[left, right].map((pct, i) => (
+              <div
+                key={i}
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: `${pct}%`,
+                  width: 10,
+                  height: 10,
+                  marginLeft: -5,
+                  marginTop: -5,
+                  borderRadius: "50%",
+                  background: "white",
+                  border: "2px solid var(--ax-cyan-700)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+                }}
+              />
+            ))}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: 10,
+              color: "var(--fg-4)",
+              padding: "0 4px 10px",
+            }}
+          >
+            <span>{fmt(defMin)}</span>
+            <span>{fmt(defMax)}+</span>
+          </div>
+        </>
+      )}
 
       <div
         style={{

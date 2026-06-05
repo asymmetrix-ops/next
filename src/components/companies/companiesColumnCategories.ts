@@ -136,7 +136,7 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         id: "year_founded",
         columnKey: "year_founded",
         label: "Year Founded",
-        type: "number",
+        type: "date",
         defaultVisible: false,
       },
       {
