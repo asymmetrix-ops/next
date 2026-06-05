@@ -5,7 +5,11 @@
  */
 import React, { useState } from "react";
 import { T } from "./tokens.jsx";
-import { AI_SCORE_MAX, scoreToTierName } from "@/lib/companyAiRisks";
+import {
+  AI_SCORE_MAX,
+  scoreToTierName,
+  sortAiRiskAxesForRadar,
+} from "@/lib/companyAiRisks";
 
 export const AI_EXPOSURE_INDEX_TITLE = "AI Exposure Index";
 
@@ -394,7 +398,11 @@ export function AIRiskCard({
   fillGridCell = false,
 }: AIRiskCardProps) {
   const hasApiAxes = Boolean(axesProp && axesProp.length > 0);
-  const axes = hasApiAxes ? axesProp! : AI_RISK_AXES;
+  const axes = React.useMemo(
+    () =>
+      sortAiRiskAxesForRadar(hasApiAxes ? axesProp! : AI_RISK_AXES),
+    [hasApiAxes, axesProp]
+  );
   const [active, setActive] = useState(defaultActiveKey);
   const [hover, setHover] = useState(false);
 
