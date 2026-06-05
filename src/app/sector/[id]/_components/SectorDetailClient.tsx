@@ -15,7 +15,6 @@ import {
   BuyerInvestorType,
 } from "@/types/corporateEvents";
 import { CSVExporter } from "@/utils/csvExport";
-import { CompaniesCSVExporter, CompanyCSVRow } from "@/utils/companiesCSVExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import {
@@ -1544,13 +1543,13 @@ interface MarketMapCounts {
 function MarketMapGrid({
   companies,
   counts: countsProp,
-  onExport,
-  exporting,
+  onExportBucket,
+  exportingBucket,
 }: {
   companies: SectorCompany[];
   counts?: MarketMapCounts;
-  onExport?: () => void;
-  exporting?: boolean;
+  onExportBucket?: (type: string, label: string) => void;
+  exportingBucket?: string | null;
 }) {
   const labelFor = (type: string) =>
     type === "public"
@@ -1678,22 +1677,19 @@ function MarketMapGrid({
   return (
     <div className="bg-gradient-to-br from-white rounded-xl border-0 shadow-lg to-slate-50/50">
       <div className="px-5 py-4 border-b border-slate-100">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex gap-3 items-center text-xl">
-            <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
-              <svg
-                className="w-5 h-5 text-indigo-600"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M3 12h18M3 6h18M3 18h18" />
-              </svg>
-            </span>
-            <span className="text-slate-900">Market Map</span>
-          </div>
-          {/* Export CSV button — temporarily hidden */}
+        <div className="flex gap-3 items-center text-xl">
+          <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
+            <svg
+              className="w-5 h-5 text-indigo-600"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M3 12h18M3 6h18M3 18h18" />
+            </svg>
+          </span>
+          <span className="text-slate-900">Market Map</span>
         </div>
       </div>
       <div className="px-5 pt-6 pb-5">
@@ -1710,12 +1706,26 @@ function MarketMapGrid({
                     {countsProp?.[type as keyof MarketMapCounts] ?? list.length}
                   </span>
                 </div>
-                <a
-                  href={`?tab=all&ownership=${encodeURIComponent(type)}`}
-                  className="flex-shrink-0 px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
-                >
-                  View All
-                </a>
+                <div className="flex flex-shrink-0 gap-2 items-center">
+                  {onExportBucket && (
+                    <button
+                      onClick={() => onExportBucket(type, titleFor(type))}
+                      disabled={exportingBucket === type}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border rounded-md transition-colors duration-150 border-slate-300 text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                      </svg>
+                      {exportingBucket === type ? "Exporting…" : "Export CSV"}
+                    </button>
+                  )}
+                  <a
+                    href={`?tab=all&ownership=${encodeURIComponent(type)}`}
+                    className="px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
+                  >
+                    View All
+                  </a>
+                </div>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {list.slice(0, 12).map((company) => (
@@ -1845,8 +1855,9 @@ const SectorDetailPage = ({
   );
   // Track if overview data has finished loading (to distinguish "loading" from "no data")
   const [overviewDataLoaded, setOverviewDataLoaded] = useState(false);
-  // Market map export state
-  const [mmExporting, setMmExporting] = useState(false);
+  // Market map / All Companies export state
+  const [mmExportingBucket, setMmExportingBucket] = useState<string | null>(null);
+  const [allExporting, setAllExporting] = useState(false);
   const [mmShowExportLimitModal, setMmShowExportLimitModal] = useState(false);
   const [mmExportsLeft, setMmExportsLeft] = useState(0);
   // Sub-sectors
@@ -2882,100 +2893,200 @@ const SectorDetailPage = ({
     };
   }, [preferredSource]);
 
-  const handleExportMarketMap = useCallback(async () => {
+  // Sector name slug for export filenames
+  const sectorNameSlug = useMemo(() => {
+    const name =
+      (sectorData as { sector_name?: string })?.sector_name ||
+      (sectorData as { Sector?: { sector_name?: string } })?.Sector?.sector_name ||
+      `sector_${sectorId}`;
+    return name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
+  }, [sectorData, sectorId]);
+
+  // Fixed ownership → Xano type ID mapping
+  const BUCKET_TYPE_IDS: Record<string, number> = {
+    public: 7,
+    private_equity_owned: 1,
+    venture_capital_backed: 3,
+    private: 2,
+  };
+
+  // Shared helper: fetch all pages for a given set of query params
+  const fetchAllCompanyPages = async (
+    baseParams: URLSearchParams,
+    token: string | null
+  ): Promise<AllCompanyItem[]> => {
+    const allItems: AllCompanyItem[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const params = new URLSearchParams(baseParams.toString());
+      params.set("Offset", String(page));
+      const res = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        }
+      );
+      if (!res.ok) break;
+      const data = (await res.json()) as {
+        result1?: { items?: AllCompanyItem[]; pageTotal?: number };
+      };
+      const r1 = data.result1 ?? {};
+      allItems.push(...(r1.items ?? []));
+      totalPages = r1.pageTotal ?? 1;
+      page++;
+    } while (page <= totalPages);
+    return allItems;
+  };
+
+  // Build a single export row from an AllCompanyItem (matches API ExportRow shape)
+  const buildExportRow = (
+    c: AllCompanyItem,
+    origin: string,
+    filtersApplied?: string
+  ) => ({
+    id: c.id,
+    name: c.name || "N/A",
+    asymmetrixUrl: `${origin}/company/${c.id}`,
+    description: c.description || "N/A",
+    primarySectors: Array.isArray(c.primary_sectors)
+      ? (c.primary_sectors as unknown as SectorLinkItem[])
+          .map(getSectorLabel)
+          .filter(Boolean)
+          .join(", ") || "N/A"
+      : "N/A",
+    subSectors: Array.isArray(c.secondary_sectors)
+      ? (c.secondary_sectors as unknown as SectorLinkItem[])
+          .map(getSectorLabel)
+          .filter(Boolean)
+          .join(", ") || "N/A"
+      : "N/A",
+    linkedinMembers: c.linkedin_members ?? 0,
+    country: c.country || "N/A",
+    ...(filtersApplied ? { filtersApplied } : {}),
+  });
+
+  // Call the server-side Excel export API and trigger a file download
+  const downloadExcelExport = async (
+    rows: ReturnType<typeof buildExportRow>[],
+    filename: string
+  ) => {
+    const res = await fetch('/api/export/sector-companies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows, filename }),
+    });
+    if (!res.ok) throw new Error(`Export API failed: ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // Export a single market-map bucket (called from each "Export CSV" next to "View All")
+  const handleExportBucket = useCallback(
+    async (bucketType: string, bucketLabel: string) => {
+      const limitCheck = await checkExportLimit();
+      if (!limitCheck.canExport) {
+        setMmExportsLeft(limitCheck.exportsLeft);
+        setMmShowExportLimitModal(true);
+        return;
+      }
+      setMmExportingBucket(bucketType);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const params = new URLSearchParams();
+        params.set("Per_page", "500");
+        params.set("Min_linkedin_members", "0");
+        params.set("Max_linkedin_members", "0");
+        params.set("Horizontals_ids", "");
+        params.append("Primary_sectors_ids[]", String(Number(sectorId)));
+        params.append("Ownership_types_ids[]", String(BUCKET_TYPE_IDS[bucketType] ?? 0));
+        const items = await fetchAllCompanyPages(params, token);
+        const rows = items.map((c) => buildExportRow(c, origin));
+        await downloadExcelExport(rows, `${sectorNameSlug}_${bucketLabel.replace(/\s+/g, "_")}`);
+      } finally {
+        setMmExportingBucket(null);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sectorId, sectorNameSlug]
+  );
+
+  // Export all companies in the "All Companies" tab, respecting active filters
+  const handleExportAllCompanies = useCallback(async () => {
     const limitCheck = await checkExportLimit();
     if (!limitCheck.canExport) {
       setMmExportsLeft(limitCheck.exportsLeft);
       setMmShowExportLimitModal(true);
       return;
     }
-
-    setMmExporting(true);
+    setAllExporting(true);
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const Sector_id = Number(sectorId);
       const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const f = allCompaniesCurrentFilters;
 
-      // Ownership type IDs used by the Get_new_companies endpoint
-      const buckets: Array<{ label: string; typeId: number }> = [
-        { label: "Public", typeId: 7 },
-        { label: "Private Equity Owned", typeId: 1 },
-        { label: "Venture Capital Backed", typeId: 3 },
-        { label: "Private", typeId: 2 },
-      ];
-
-      const fetchAllPages = async (ownershipTypeId: number): Promise<AllCompanyItem[]> => {
-        const allItems: AllCompanyItem[] = [];
-        let page = 1;
-        let totalPages = 1;
-        do {
-          const params = new URLSearchParams();
-          params.append("Offset", String(page));
-          params.append("Per_page", "500");
-          params.append("Min_linkedin_members", "0");
-          params.append("Max_linkedin_members", "0");
-          params.append("Horizontals_ids", "");
-          params.append("Primary_sectors_ids[]", String(Sector_id));
-          params.append("Ownership_types_ids[]", String(ownershipTypeId));
-          const res = await fetch(
-            `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-              },
-              credentials: "include",
-            }
-          );
-          if (!res.ok) break;
-          const data = (await res.json()) as {
-            result1?: { items?: AllCompanyItem[]; pageTotal?: number };
-          };
-          const r1 = data.result1 ?? {};
-          allItems.push(...(r1.items ?? []));
-          totalPages = r1.pageTotal ?? 1;
-          page++;
-        } while (page <= totalPages);
-        return allItems;
-      };
-
-      const rows: Record<string, string>[] = [];
-      for (const bucket of buckets) {
-        const items = await fetchAllPages(bucket.typeId);
-        for (const c of items) {
-          rows.push({
-            ID: String(c.id),
-            Name: c.name || "N/A",
-            "Asymmetrix Link": `${origin}/company/${c.id}`,
-            Description: c.description || "N/A",
-            "Primary Sectors": Array.isArray(c.primary_sectors)
-              ? (c.primary_sectors as unknown as SectorLinkItem[])
-                  .map(getSectorLabel)
-                  .filter(Boolean)
-                  .join(", ") || "N/A"
-              : "N/A",
-            "Sub Sectors": Array.isArray(c.secondary_sectors)
-              ? (c.secondary_sectors as unknown as SectorLinkItem[])
-                  .map(getSectorLabel)
-                  .filter(Boolean)
-                  .join(", ") || "N/A"
-              : "N/A",
-            "LinkedIn Members": String(c.linkedin_members ?? 0),
-            Country: c.country || "N/A",
-            Ownership: bucket.label,
-          });
-        }
+      const params = new URLSearchParams();
+      params.set("Per_page", "500");
+      params.set("Min_linkedin_members", String(f?.linkedinMembersMin ?? 0));
+      params.set("Max_linkedin_members", String(f?.linkedinMembersMax ?? 0));
+      params.set("Horizontals_ids", "");
+      params.append("Primary_sectors_ids[]", String(Number(sectorId)));
+      if (ownershipFilter && BUCKET_TYPE_IDS[ownershipFilter]) {
+        params.append("Ownership_types_ids[]", String(BUCKET_TYPE_IDS[ownershipFilter]));
       }
+      if (f?.ownershipTypes?.length) {
+        f.ownershipTypes.forEach((id) => params.append("Ownership_types_ids[]", String(id)));
+      }
+      if (f?.continentalRegions?.length) params.set("Continental_Region", f.continentalRegions.join(","));
+      if (f?.subRegions?.length) params.set("geographical_sub_region", f.subRegions.join(","));
+      if (f?.countries?.length) f.countries.forEach((v) => params.append("Countries[]", v));
+      if (f?.provinces?.length) f.provinces.forEach((v) => params.append("Provinces[]", v));
+      if (f?.cities?.length) f.cities.forEach((v) => params.append("Cities[]", v));
+      if (f?.secondarySectors?.length) f.secondarySectors.forEach((id) => params.append("Secondary_sectors_ids[]", String(id)));
+      if (f?.hybridBusinessFocuses?.length) f.hybridBusinessFocuses.forEach((id) => params.append("Hybrid_Data_ids[]", String(id)));
+      if (f?.searchQuery) params.set("query", f.searchQuery);
 
-      const csv = CompaniesCSVExporter.convertToCSV(
-        rows as unknown as CompanyCSVRow[]
-      );
-      CompaniesCSVExporter.downloadCSV(csv, `market_map_sector_${sectorId}`);
+      // Build filter description for the Filters column
+      const ownershipLabels: Record<string, string> = {
+        public: "Public",
+        private_equity_owned: "Private Equity Owned",
+        venture_capital_backed: "Venture Capital Backed",
+        private: "Private",
+      };
+      const filterParts: string[] = [];
+      if (ownershipFilter) filterParts.push(`Ownership: ${ownershipLabels[ownershipFilter] ?? ownershipFilter}`);
+      if (f?.continentalRegions?.length) filterParts.push(`Regions: ${f.continentalRegions.join(", ")}`);
+      if (f?.subRegions?.length) filterParts.push(`Sub-Regions: ${f.subRegions.join(", ")}`);
+      if (f?.countries?.length) filterParts.push(`Countries: ${f.countries.join(", ")}`);
+      if (f?.provinces?.length) filterParts.push(`Provinces: ${f.provinces.join(", ")}`);
+      if (f?.cities?.length) filterParts.push(`Cities: ${f.cities.join(", ")}`);
+      if (f?.linkedinMembersMin) filterParts.push(`LinkedIn min: ${f.linkedinMembersMin}`);
+      if (f?.linkedinMembersMax) filterParts.push(`LinkedIn max: ${f.linkedinMembersMax}`);
+      if (f?.searchQuery) filterParts.push(`Search: "${f.searchQuery}"`);
+      const filtersApplied = filterParts.join(" | ");
+
+      const items = await fetchAllCompanyPages(params, token);
+      const rows = items.map((c) => buildExportRow(c, origin, filtersApplied || undefined));
+      const ownershipSlug = ownershipFilter ? `_${ownershipLabels[ownershipFilter].replace(/\s+/g, "_")}` : "";
+      await downloadExcelExport(rows, `${sectorNameSlug}_All_Companies${ownershipSlug}`);
     } finally {
-      setMmExporting(false);
+      setAllExporting(false);
     }
-  }, [sectorId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectorId, sectorNameSlug, ownershipFilter, allCompaniesCurrentFilters]);
 
   // Only block rendering for critical errors (auth/not found)
   if (error) {
@@ -5748,8 +5859,8 @@ const SectorDetailPage = ({
               <MarketMapGrid
                 companies={marketMapCompanies}
                 counts={marketMapCounts}
-                onExport={handleExportMarketMap}
-                exporting={mmExporting}
+                onExportBucket={handleExportBucket}
+                exportingBucket={mmExportingBucket}
               />
             ) : overviewDataLoaded ? (
               <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
@@ -5854,7 +5965,7 @@ const SectorDetailPage = ({
           <div className="space-y-4">
             <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
               <div className="px-5 py-4 border-b border-slate-100">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center gap-3">
                   <div className="flex gap-3 items-center text-xl">
                     <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
                       <svg
@@ -5869,9 +5980,20 @@ const SectorDetailPage = ({
                     </span>
                     <span className="text-slate-900">All Companies</span>
                   </div>
-                  <div className="text-sm text-slate-600">
-                    {allCompaniesPagination.itemsReceived.toLocaleString()}{" "}
-                    total
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-slate-600">
+                      {allCompaniesPagination.itemsReceived.toLocaleString()} total
+                    </span>
+                    <button
+                      onClick={handleExportAllCompanies}
+                      disabled={allExporting}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors duration-150 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                      </svg>
+                      {allExporting ? "Exporting…" : "Export CSV"}
+                    </button>
                   </div>
                 </div>
               </div>
