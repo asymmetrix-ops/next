@@ -71,13 +71,6 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         defaultVisible: false,
         badge: "New",
       },
-      {
-        id: "list_count",
-        columnKey: "list_count",
-        label: "Lists",
-        type: "number",
-        defaultVisible: false,
-      },
     ],
   },
   {

@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { normalizeCompaniesResponse } from "./normalizeCompaniesResponse";
 
 export interface CompaniesFilters {
   countries?: string[];
@@ -62,16 +63,52 @@ export interface CompaniesFilters {
 export interface CompanyItem {
   id: number;
   name: string;
-  description: string;
-  primary_sectors: (string | { id?: number; sector_name?: string; name?: string })[];
-  secondary_sectors: (string | { id?: number; sector_name?: string; name?: string })[];
-  ownership_type_id: number;
-  ownership: string;
-  country: string;
-  linkedin_logo: string;
-  linkedin_members_latest: number;
-  linkedin_members_old: number;
-  linkedin_members: number;
+  description?: string;
+  linkedin_logo?: string;
+  website?: string;
+  ownership_type_id?: number;
+  ownership?: string;
+  linkedin_members?: number;
+  country?: string;
+  /** May be a JSON string or array from Get_new_companies. */
+  primary_sectors?: string | { id?: number; sector_name?: string; name?: string }[];
+  secondary_sectors?: string | { id?: number; sector_name?: string; name?: string }[];
+  years_since_last_investment?: number | string | null;
+  year_founded?: number | string | null;
+  hq?: string;
+  city?: string;
+  state?: string;
+  linkedin_url?: string;
+  linkedin_growth?: number | string | null;
+  investors?: string | { id?: number; name?: string }[];
+  lifecycle_stage?: string;
+  product_type?: string | unknown[];
+  data_collection_method?: string | unknown[];
+  revenue_model?: string | unknown[];
+  transaction_status?: string;
+  revenue_m?: number | null;
+  ebitda_m?: number | null;
+  ev?: number | null;
+  revenue_multiple?: number | null;
+  revenue_growth?: number | null;
+  ebitda_margin?: number | null;
+  rule_of_40?: number | null;
+  arr_pc?: number | null;
+  arr_m?: number | null;
+  churn?: number | null;
+  grr?: number | null;
+  nrr?: number | null;
+  new_client_growth?: number | null;
+  upsell?: number | null;
+  cross_sell?: number | null;
+  price_increase?: number | null;
+  rev_expansion?: number | null;
+  ebit_m?: number | null;
+  no_clients?: number | null;
+  rev_per_client?: number | null;
+  no_employees?: number | null;
+  rev_per_employee?: number | null;
+  financial_year?: number | string | null;
   last_investment?: {
     display?: string | null;
     date?: string | null;
@@ -79,24 +116,26 @@ export interface CompanyItem {
   } | null;
 }
 
-export interface CompaniesResponse {
-  result1: {
-    items: CompanyItem[];
-    itemsReceived: number;
-    curPage: number;
-    nextPage: number | null;
-    prevPage: number | null;
-    offset: number;
-    perPage: number;
-    pageTotal: number;
-    ownershipCounts?: {
-      publicCompanies: number;
-      peOwnedCompanies: number;
-      vcOwnedCompanies: number;
-      privateCompanies: number;
-      subsidiaryCompanies: number;
-    };
+export interface CompaniesResultPayload {
+  items: CompanyItem[];
+  itemsReceived: number;
+  curPage: number;
+  nextPage: number | null;
+  prevPage: number | null;
+  offset: number;
+  perPage: number;
+  pageTotal: number;
+  ownershipCounts?: {
+    publicCompanies: number;
+    peOwnedCompanies: number;
+    vcOwnedCompanies: number;
+    privateCompanies: number;
+    subsidiaryCompanies: number;
   };
+}
+
+export interface CompaniesResponse {
+  result1: CompaniesResultPayload;
 }
 
 export interface CompaniesCountsResponse {
@@ -448,9 +487,8 @@ export async function fetchCompaniesServer(
       return null;
     }
 
-    const data: CompaniesResponse = await response.json();
-
-    return data;
+    const raw = await response.json();
+    return normalizeCompaniesResponse(raw);
   } catch (error) {
     console.error("Error fetching companies:", error);
     return null;

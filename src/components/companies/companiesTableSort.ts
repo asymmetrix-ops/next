@@ -1,5 +1,10 @@
 /** Sort behaviour per Companies Search column (functional spec). */
 
+import {
+  COMPANY_COLUMN_FIELD_ALIASES,
+  getFieldAliasesForColumn,
+} from "./companiesColumnFields";
+
 export type ColumnSortKind = "text" | "number";
 
 const NOT_SORTABLE = null;
@@ -10,7 +15,6 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   description: NOT_SORTABLE,
   website: NOT_SORTABLE,
   follow: NOT_SORTABLE,
-  list_count: NOT_SORTABLE,
   primary_sectors: "text",
   secondary_sectors: "text",
   ownership: "text",
@@ -95,40 +99,12 @@ export const parseSortText = (value: unknown): string => {
   return String(value).trim().toLowerCase();
 };
 
-const SORT_FIELD_ALIASES: Record<string, string[]> = {
-  primary_sectors: ["primary_sectors", "primary_sector_names"],
-  secondary_sectors: ["secondary_sectors", "secondary_sector_names"],
-  investors: ["investors", "investor_names"],
-  ownership: ["ownership", "ownership_type"],
-  linkedin_members: ["li_emp", "linkedin_members", "linkedin_employee"],
-  country: ["country", "hq_country"],
-  hq: ["loc", "hq"],
-  city: ["city", "hq_city"],
-  state: ["state", "hq_state", "province"],
-  linkedin_growth: [
-    "linkedin_growth",
-    "linkedin_growth_pc",
-    "li_growth_pc",
-    "linkedin_growth_1y_pct",
-  ],
-  lifecycle_stage: ["lifecycle_stage", "Lifecycle_stage.Lifecycle_stage"],
-  product_type: ["Product_Type", "product_type"],
-  data_collection_method: ["Data_Collection_Method", "data_collection_method"],
-  revenue_model: ["Revenue_Model_", "Revenue_Model", "revenue_model"],
-  transaction_status: ["transaction_status", "transactionStatus"],
-  enterprise_value: ["enterprise_value", "ev", "EV"],
-  revenue_growth: ["revenue_growth", "rev_growth_pc", "Rev_Growth_PC"],
-  website: ["website", "url"],
-  year_founded: ["year_founded", "year_founded_label"],
-  churn_pc: ["churn", "churn_pc", "Churn_pc"],
-  grr_pc: ["grr", "grr_pc", "GRR_pc"],
-  new_client_growth_pc: ["new_client_growth", "new_client_growth_pc"],
-  upsell_pc: ["upsell", "upsell_pc"],
-  cross_sell_pc: ["cross_sell", "cross_sell_pc"],
-  price_increase_pc: ["price_increase", "price_increase_pc"],
-  rev_expansion_pc: ["rev_expansion", "rev_expansion_pc"],
-  no_of_clients: ["no_clients", "no_of_clients", "No_of_clients"],
-};
+const SORT_FIELD_ALIASES: Record<string, string[]> = Object.fromEntries(
+  Object.entries(COMPANY_COLUMN_FIELD_ALIASES).map(([key, aliases]) => [
+    key,
+    [...aliases],
+  ])
+);
 
 const readMergedField = (
   row: Record<string, unknown>,
@@ -153,7 +129,7 @@ export function getSortValueForColumn(
   row: Record<string, unknown>,
   columnKey: string
 ): string | number | null {
-  const aliases = SORT_FIELD_ALIASES[columnKey] ?? [columnKey];
+  const aliases = SORT_FIELD_ALIASES[columnKey] ?? getFieldAliasesForColumn(columnKey);
   const raw = readMergedField(row, aliases);
   const kind = getColumnSortKind(columnKey);
 

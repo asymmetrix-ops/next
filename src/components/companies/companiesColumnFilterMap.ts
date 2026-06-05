@@ -60,7 +60,6 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   grr: "grr_pc",
   new_client_growth: "new_client_growth_pc",
   website: "website",
-  list_count: "list_count",
   year_founded: "year_founded",
   hq: "hq",
   linkedin_url: "linkedin_url",
