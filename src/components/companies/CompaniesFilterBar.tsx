@@ -73,11 +73,7 @@ function getValuesReservedBySiblingFilters(
   return reserved;
 }
 
-function filterDefHasAvailableOptions(
-  def: FilterDef,
-  filters: FilterItem[],
-  filterLogic: FilterCombineLogic
-): boolean {
+function filterDefHasAvailableOptions(def: FilterDef, filters: FilterItem[]): boolean {
   if (def.editor === "boolean") {
     return !filters.some((filter) => filter.id === def.id);
   }
@@ -1835,9 +1831,9 @@ export function CompaniesFilterBar({
   const availableFilterDefs = useMemo(
     () =>
       filterDefs.filter((def) =>
-        filterDefHasAvailableOptions(def, filters, filterLogic)
+        filterDefHasAvailableOptions(def, filters)
       ),
-    [filterDefs, filters, filterLogic]
+    [filterDefs, filters]
   );
 
   const editingReservedValues = useMemo(() => {
