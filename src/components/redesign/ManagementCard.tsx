@@ -13,6 +13,7 @@ import {
   tableColHeaderBarStyle,
   tableColHeaderStyle,
 } from "./primitives";
+import { isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 import { LinkedInProfileButton } from "./LinkedInProfileButton";
 
 export type ManagementPerson = {
@@ -114,7 +115,7 @@ function PersonRow({
           paddingTop: 1,
         }}
       >
-        {person.role || "-"}
+        {isEmptyDisplayValue(person.role) ? "-" : normalizeEmptyDisplay(person.role)}
       </div>
       <div
         style={{
@@ -217,7 +218,7 @@ export function ManagementCard({
               fontFamily: T.sans,
             }}
           >
-            {expanded ? "Show less" : `See all ${total}`}
+            {expanded ? "Show less" : "See more"}
           </button>
         </div>
       )}

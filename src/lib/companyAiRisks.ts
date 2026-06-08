@@ -167,7 +167,9 @@ export async function fetchCompanyAiRisksV2(
     credentials: "include",
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    throw new Error(`company_ai_risks_v2 failed: ${res.status}`);
+  }
   const data: unknown = await res.json();
   if (!Array.isArray(data) || data.length === 0) return null;
   return mapAiRisksV2ToAxes(data as CompanyAiRiskV2Item[]);

@@ -1007,7 +1007,7 @@ const CorporateEventsTable = ({
                     <strong>Primary:</strong>{" "}
                     {(() => {
                       if (!primaryText || /not available/i.test(primaryText)) {
-                        return primaryText || "-";
+                        return "-";
                       }
                       const names = primaryText
                         .split(",")
@@ -1043,7 +1043,7 @@ const CorporateEventsTable = ({
                         !secondaryText ||
                         /not available/i.test(secondaryText)
                       ) {
-                        return secondaryText || "-";
+                        return "-";
                       }
                       const names = secondaryText
                         .split(",")

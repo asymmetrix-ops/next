@@ -1,7 +1,7 @@
 "use client";
 /**
  * DescriptionCard — Row 1, column 2.
- * Collapses to the Overview card height. Expand → shows full text.
+ * When collapsed, stretches to the overview row height; expand → shows full text.
  */
 import React from "react";
 import { LinkPanel, LinkedH, T, descriptionBodyStyle } from "./primitives";
@@ -13,8 +13,8 @@ type Props = {
   expanded: boolean;
   onToggleExpand: () => void;
   contentRef: React.Ref<HTMLDivElement>;
-  /** Height (px) the card should occupy when collapsed. 0 = not yet measured. */
-  collapsedHeight?: number;
+  /** Fill the grid cell height when collapsed (matches Overview / Finance cards). */
+  fillGridCell?: boolean;
 };
 
 export function DescriptionCard({
@@ -22,18 +22,18 @@ export function DescriptionCard({
   expanded,
   onToggleExpand,
   contentRef,
-  collapsedHeight = 0,
+  fillGridCell = false,
 }: Props) {
   const body = text?.trim() || EM;
   const isLong = body !== EM && body.length > 120;
 
   return (
-    <LinkPanel fillGridCell={expanded}>
+    <LinkPanel fillGridCell={fillGridCell || expanded}>
       <LinkedH>Description</LinkedH>
       <div
         style={{
           padding: "10px 16px 12px",
-          flex: expanded ? 1 : undefined,
+          flex: fillGridCell || expanded ? 1 : undefined,
           minHeight: 0,
           display: "flex",
           flexDirection: "column",
@@ -45,7 +45,8 @@ export function DescriptionCard({
           style={{
             ...descriptionBodyStyle,
             textAlign: "justify" as const,
-            flex: expanded ? 1 : undefined,
+            flex: fillGridCell || expanded ? 1 : undefined,
+            minHeight: 0,
             overflow: "hidden",
           }}
         >
@@ -77,7 +78,7 @@ export function DescriptionCard({
       </div>
 
       {/* Gradient fade + Expand button — visible only when collapsed */}
-      {!expanded && isLong && collapsedHeight > 0 && (
+      {!expanded && isLong && (
         <div
           aria-hidden={false}
           style={{

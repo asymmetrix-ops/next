@@ -23,7 +23,7 @@ export default function OverviewCard() {
         <KV k="Ownership"    v="Public" />
         <KV k="HQ"           v={c.hq} />
         <KV k="Lifecycle stage" v="Mature" />
-        <KV k="Total amount raised" v={<span style={{ fontFamily: T.mono }}>US$ 10m</span>} />
+        <KV k="Total amount raised" v={<span style={{ fontFamily: T.mono }}>$10m</span>} />
         <KV k="Employees"    v={<span>{c.employees} <Delta value="+6.4% YoY" /></span>} />
       </div>
     </LinkPanel>

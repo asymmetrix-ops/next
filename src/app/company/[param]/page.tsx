@@ -691,6 +691,8 @@ const normalizeCurrency = (candidate: unknown): string | undefined => {
     const trimmed = candidate.trim();
     // If backend sent an id like "7", ignore it
     if (/^\d+$/.test(trimmed)) return undefined;
+    const compact = trimmed.replace(/\s/g, "").toUpperCase();
+    if (compact === "US$" || compact === "US") return "USD";
     return trimmed;
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1682,12 +1684,13 @@ const CompanyDetail = () => {
       const requestBody = isFinancialMetricsExport
         ? {
             company_id: company.id,
+            version: "v2",
             company_name: company.name,
             financial_metrics_period: financialMetricsPeriod,
             financial_metrics_year: financialMetricsYear,
             source: FINANCIAL_METRICS_EXPORT_SOURCE,
           }
-        : { company_id: company.id };
+        : { company_id: company.id, version: "v2" };
       const response = await fetch(
         "https://asymmetrix-pdf-service.fly.dev/api/export-company-pdf",
         {

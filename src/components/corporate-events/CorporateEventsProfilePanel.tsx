@@ -34,7 +34,10 @@ type CorporateEventsProfilePanelProps = {
   events: CorporateEvent[];
   loading?: boolean;
   primarySectors?: Sector[];
+  /** @deprecated Secondary sectors are not shown in the profile events table. */
   secondarySectors?: Sector[];
+  /** Target company id → primary sector names (e.g. from subsidiaries on the company payload). */
+  primarySectorsByCompanyId?: Record<number, string[]>;
   maxInitialEvents?: number;
   /** `narrow` = single grid column; table scrolls inside card without widening the layout */
   layout?: "default" | "narrow";
@@ -105,13 +108,61 @@ function headerRightLine(events: CorporateEvent[], loading: boolean): string {
   return `${n} event${n === 1 ? "" : "s"} · Last ${span} yrs`;
 }
 
-function companySectorLabel(primary: Sector[], secondary: Sector[]): string {
-  const names = [
-    ...primary.map((s) => s.sector_name).filter(Boolean),
-    ...secondary.map((s) => s.sector_name).filter(Boolean),
-  ] as string[];
+function formatPrimarySectorNames(primary: Sector[]): string {
+  const names = primary.map((s) => s.sector_name).filter(Boolean) as string[];
   if (names.length === 0) return "-";
   return names.slice(0, 3).join(", ");
+}
+
+function coercePrimarySectorNames(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const name = (item as { sector_name?: string; name?: string }).sector_name
+          ?? (item as { name?: string }).name;
+        return typeof name === "string" ? name.trim() : "";
+      }
+      return "";
+    })
+    .filter((name) => isNonEmptyString(name));
+}
+
+function resolveTargetCompanyId(event: CorporateEvent): number | undefined {
+  const ne = event as {
+    targets?: Array<{ id?: number }>;
+    target_company?: { id?: number };
+    target_counterparty?: { new_company_counterparty?: number };
+  };
+  const fromTargets = ne.targets?.[0]?.id;
+  if (typeof fromTargets === "number" && fromTargets > 0) return fromTargets;
+  const fromTargetCompany = ne.target_company?.id;
+  if (typeof fromTargetCompany === "number" && fromTargetCompany > 0) {
+    return fromTargetCompany;
+  }
+  const legacyId = ne.target_counterparty?.new_company_counterparty;
+  if (typeof legacyId === "number" && legacyId > 0) return legacyId;
+  return undefined;
+}
+
+/** Primary sectors only — event API → target company lookup → profile company primary. */
+function eventPrimarySectorLabel(
+  event: CorporateEvent,
+  fallbackPrimary: Sector[],
+  primarySectorsByCompanyId?: Record<number, string[]>
+): string {
+  const ne = event as { sectors?: { Primary?: unknown[] } };
+
+  const fromEvent = coercePrimarySectorNames(ne.sectors?.Primary);
+  if (fromEvent.length > 0) return fromEvent.slice(0, 3).join(", ");
+
+  const targetId = resolveTargetCompanyId(event);
+  if (targetId != null && primarySectorsByCompanyId?.[targetId]?.length) {
+    return primarySectorsByCompanyId[targetId].slice(0, 3).join(", ");
+  }
+
+  return formatPrimarySectorNames(fallbackPrimary);
 }
 
 type AdvisorEntry = { id?: number; name: string };
@@ -343,7 +394,7 @@ export const CorporateEventsProfilePanel: React.FC<
   events,
   loading = false,
   primarySectors = [],
-  secondarySectors = [],
+  primarySectorsByCompanyId,
   maxInitialEvents = 3,
   layout = "default",
   onEventClick,
@@ -375,11 +426,6 @@ export const CorporateEventsProfilePanel: React.FC<
   const right = useMemo(
     () => headerRightLine(events, loading),
     [events, loading]
-  );
-
-  const sectorCol = useMemo(
-    () => companySectorLabel(primarySectors, secondarySectors),
-    [primarySectors, secondarySectors]
   );
 
   const displayed = showAll ? events : events.slice(0, maxInitialEvents);
@@ -581,7 +627,11 @@ export const CorporateEventsProfilePanel: React.FC<
                           minWidth: 0,
                         }}
                       >
-                        {sectorCol}
+                        {eventPrimarySectorLabel(
+                          event,
+                          primarySectors,
+                          primarySectorsByCompanyId
+                        )}
                       </div>
                       <div style={{ textAlign: colAlign(5) }}>
                         {formatAmountCell(event)}
