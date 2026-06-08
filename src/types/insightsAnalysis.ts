@@ -26,6 +26,8 @@ export interface ContentArticle {
   }>;
   Transaction_status?: string;
   Visibility: string;
+  /** Summary bullets — may be HTML string, plain string, or array of strings */
+  summary?: unknown;
   Related_Documents: Array<{
     access: string;
     path: string;
