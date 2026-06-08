@@ -202,7 +202,7 @@ const styles = {
 function formatLocation(
   location: Individual["_locations_individual"]
 ): string {
-  if (!location) return "Not available";
+  if (!location) return "-";
 
   const parts = [
     location.City,
@@ -210,7 +210,7 @@ function formatLocation(
     location.Country,
   ].filter(Boolean);
 
-  return parts.length > 0 ? parts.join(", ") : "Not available";
+  return parts.length > 0 ? parts.join(", ") : "-";
 }
 
 // Resolve current company href using roles when possible
@@ -407,7 +407,7 @@ const IndividualCard: React.FC<{ individual: Individual }> = ({
         <div style={{ flex: "1" }}>
           {createClickableElement(
             `/individual/${individual.id}`,
-            individual.advisor_individuals || "N/A",
+            individual.advisor_individuals || "-",
             undefined,
             {
               fontSize: "16px",
@@ -487,7 +487,7 @@ const IndividualCard: React.FC<{ individual: Individual }> = ({
           >
             {individual.current_roles
               ?.map((role) => role.job_title)
-              .join(", ") || "N/A"}
+              .join(", ") || "-"}
           </span>
         </div>
       </div>
@@ -523,7 +523,7 @@ const IndividualsTable = ({
       <td>
         {createClickableElement(
           `/individual/${individual.id}`,
-          individual.advisor_individuals || "N/A",
+          individual.advisor_individuals || "-",
           "individual-name",
           {
             fontWeight: "500",
@@ -537,12 +537,12 @@ const IndividualsTable = ({
             individual.current_company
           )
         ) : (
-          <span style={{ color: "#6b7280" }}>Not available</span>
+          <span style={{ color: "#6b7280" }}>-</span>
         )}
       </td>
       <td>
         {individual.current_roles?.map((role) => role.job_title).join(", ") ||
-          "Not available"}
+          "-"}
       </td>
       <td>{formatLocation(individual._locations_individual)}</td>
       <td style={{ textAlign: "center" }}>

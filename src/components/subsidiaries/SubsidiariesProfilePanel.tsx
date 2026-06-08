@@ -106,7 +106,7 @@ function sectorLabel(s: SubsidiaryProfileRecord): string {
   const raw = s.sectors_id
     ?.filter((x) => x && typeof x.sector_name === "string")
     .map((x) => x.sector_name as string);
-  if (!raw?.length) return "—";
+  if (!raw?.length) return "-";
   return raw.slice(0, 3).join(", ");
 }
 
@@ -229,7 +229,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
             const yearAcquired =
               acquisitionYearByCompanyId[subsidiary.id] != null
                 ? String(acquisitionYearByCompanyId[subsidiary.id])
-                : "—";
+                : "-";
 
             const companyCell = (
               <div
@@ -307,7 +307,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {subsidiary._locations?.Country?.trim() || "—"}
+                  {subsidiary._locations?.Country?.trim() || "-"}
                 </div>
                 <div
                   style={{

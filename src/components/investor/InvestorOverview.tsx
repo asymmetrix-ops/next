@@ -42,14 +42,14 @@ const InvestorOverview: React.FC<InvestorOverviewProps> = ({
         >
           <div>
             <strong>Focus:</strong>{" "}
-            {Focus.map((f) => f.sector_name).join(", ") || "Not available"}
+            {Focus.map((f) => f.sector_name).join(", ") || "-"}
           </div>
           <div>
             <strong>Year founded:</strong>{" "}
-            {Investor._years?.Year || "Not available"}
+            {Investor._years?.Year || "-"}
           </div>
           <div>
-            <strong>HQ:</strong> {hq || "Not available"}
+            <strong>HQ:</strong> {hq || "-"}
           </div>
           <div>
             <strong>Website:</strong>{" "}
@@ -63,7 +63,7 @@ const InvestorOverview: React.FC<InvestorOverviewProps> = ({
                 {Investor.url}
               </a>
             ) : (
-              "Not available"
+              "-"
             )}
           </div>
         </div>
@@ -101,7 +101,7 @@ const InvestorOverview: React.FC<InvestorOverviewProps> = ({
                   {index < Invested_DA_sectors.length - 1 ? ", " : ""}
                 </span>
               ))
-            : "Not available"}
+            : "-"}
         </div>
       </div>
 
@@ -125,7 +125,7 @@ const InvestorOverview: React.FC<InvestorOverviewProps> = ({
           Description:
         </h2>
         <div style={{ whiteSpace: "pre-wrap" }}>
-          {Investor.description || "Not available"}
+          {Investor.description || "-"}
         </div>
       </div>
     </div>

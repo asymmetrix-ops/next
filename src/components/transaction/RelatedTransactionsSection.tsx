@@ -78,13 +78,13 @@ export default function RelatedTransactionsSection({
                     </a>
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {t.date || "Not available"}
+                    {t.date || "-"}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {t.dealType || "Not available"}
+                    {t.dealType || "-"}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {t.target || "Not available"}
+                    {t.target || "-"}
                   </TableCell>
                   <TableCell className="text-slate-600">
                     {(() => {
@@ -92,7 +92,7 @@ export default function RelatedTransactionsSection({
                       if (isPartnership) {
                         return "-";
                       }
-                      return t.investors || "Not available";
+                      return t.investors || "-";
                     })()}
                   </TableCell>
                 </TableRow>

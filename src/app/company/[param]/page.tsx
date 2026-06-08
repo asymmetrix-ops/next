@@ -522,12 +522,12 @@ const formatDate = (dateString: string): string => {
 
 // Plain number formatter (no currency, preserve decimals as given)
 const formatPlainNumber = (value?: number | string | null): string => {
-  if (value === undefined || value === null) return "Not available";
+  if (value === undefined || value === null) return "-";
   if (typeof value === "number") {
     return value.toLocaleString("en-US", { maximumFractionDigits: 10 });
   }
   const trimmed = String(value).trim();
-  if (trimmed.length === 0) return "Not available";
+  if (trimmed.length === 0) return "-";
   const num = Number(trimmed.replace(/,/g, ""));
   if (!Number.isFinite(num)) return trimmed;
   const match = trimmed.match(/\.([0-9]+)/);
@@ -552,7 +552,7 @@ const getNumeric = (value?: number | string | null): number | undefined => {
 // Format as a whole number with thousands separators (e.g. 54170 -> "54,170")
 const formatWholeNumber = (value?: number | string | null): string => {
   const n = getNumeric(value);
-  if (n === undefined) return "Not available";
+  if (n === undefined) return "-";
   return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
 };
 
@@ -651,13 +651,13 @@ const sourceLabel = (code?: number | string | null): string | undefined => {
 // Format helpers for additional financial metrics
 const formatPercent = (value?: number | string | null): string => {
   const n = getNumeric(value);
-  if (n === undefined) return "Not available";
+  if (n === undefined) return "-";
   return `${Math.round(n)}%`;
 };
 
 const formatMultiple = (value?: number | string | null): string => {
   const n = getNumeric(value);
-  if (n === undefined) return "Not available";
+  if (n === undefined) return "-";
   const rounded = Math.round(n * 10) / 10;
   return `${rounded.toLocaleString()}x`;
 };
@@ -679,7 +679,7 @@ const getSourceText = (
   code?: number | string | null
 ): string => {
   const resolved = effectiveSourceLabel(label, code);
-  return resolved ?? "Not available";
+  return resolved ?? "-";
 };
 
 // Removed short currency helper; we now display plain numbers
@@ -795,7 +795,7 @@ const formatLastInvestmentDisplay = (
     }
   }
 
-  if (daysSince === undefined) return "—";
+  if (daysSince === undefined) return "-";
   if (daysSince < 365) {
     if (daysSince < 30) return "This month";
     const months = Math.max(1, Math.floor(daysSince / 30));
@@ -820,7 +820,7 @@ const getYearFoundedDisplay = (company: Company): string => {
     if (year !== null) return String(year);
   }
 
-  return "Not available";
+  return "-";
 };
 
 // Company Logo Component
@@ -2150,7 +2150,7 @@ const CompanyDetail = () => {
   )
     .map((item) => ({
       label: String(item?.Product_Type || "").trim(),
-      // If percentage is missing, leave the cell empty instead of showing "Not available"
+      // If percentage is missing, leave the cell empty instead of showing "-"
       value:
         getNumeric(item?.pc_of_revenues) !== undefined
           ? `${Math.round(getNumeric(item?.pc_of_revenues) || 0)}%`
@@ -2175,7 +2175,7 @@ const CompanyDetail = () => {
   )
     .map((item) => ({
       label: String(item?.Revenue_Model_ || "").trim(),
-      // Leave cell empty when predominance is missing (no "Not available")
+      // Leave cell empty when predominance is missing (no "-")
       value: String(item?.Predominance || "").trim(),
     }))
     .filter((item) => item.label);
@@ -2947,7 +2947,7 @@ const CompanyDetail = () => {
                       )}
                     </>
                   ) : (
-                    "Not available"
+                    "-"
                   )}
                 </div>
               </div>
@@ -3012,7 +3012,7 @@ const CompanyDetail = () => {
                       )}
                     </>
                   ) : (
-                    "Not available"
+                    "-"
                   )}
                 </div>
               </div>
@@ -3039,7 +3039,7 @@ const CompanyDetail = () => {
                       {company.url}
                     </a>
                   ) : (
-                    "Not available"
+                    "-"
                   )}
                 </span>
               </div>
@@ -3048,7 +3048,7 @@ const CompanyDetail = () => {
                   Ownership:
                 </span>
                 <span style={styles.value} className="info-value">
-                  {company._ownership_type?.ownership || "Not available"}
+                  {company._ownership_type?.ownership || "-"}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
@@ -3056,7 +3056,7 @@ const CompanyDetail = () => {
                   HQ:
                 </span>
                 <span style={styles.value} className="info-value">
-                  {fullAddress || "Not available"}
+                  {fullAddress || "-"}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
@@ -3064,7 +3064,7 @@ const CompanyDetail = () => {
                   Lifecycle stage:
                 </span>
                 <span style={styles.value} className="info-value">
-                  {company.Lifecycle_stage?.Lifecycle_Stage || "Not available"}
+                  {company.Lifecycle_stage?.Lifecycle_Stage || "-"}
                 </span>
               </div>
               {haveParentCompany && (
@@ -3097,7 +3097,7 @@ const CompanyDetail = () => {
                           </div>
                         );
                       }
-                      return parentName || "Not available";
+                      return parentName || "-";
                     })()}
                   </div>
                 </div>
@@ -3144,7 +3144,7 @@ const CompanyDetail = () => {
                             );
                           }
                         }
-                        return "Not available";
+                        return "-";
                       })()}
                     </div>
                   </div>
@@ -3184,7 +3184,7 @@ const CompanyDetail = () => {
                             individualId: person.individuals_id,
                           })
                         )}
-                        emptyMessage="Not available"
+                        emptyMessage="-"
                       />
                     </div>
                   )}
@@ -3203,7 +3203,7 @@ const CompanyDetail = () => {
                             individualId: person.individuals_id,
                           })
                         )}
-                        emptyMessage="Not available"
+                        emptyMessage="-"
                       />
                     </div>
                   )}
@@ -3748,7 +3748,7 @@ const CompanyDetail = () => {
                                     )}
                                   </div>
                                 ) : (
-                                  "N/A"
+                                  "-"
                                 )}
                               </td>
                               <td
@@ -3763,7 +3763,7 @@ const CompanyDetail = () => {
                                     (s) => s && typeof s.sector_name === "string"
                                   )
                                   .map((sector) => sector.sector_name)
-                                  .join(", ") || "N/A"}
+                                  .join(", ") || "-"}
                               </td>
                               <td
                                 style={{
@@ -3782,7 +3782,7 @@ const CompanyDetail = () => {
                                       subsidiary._linkedin_data_of_new_company
                                         .linkedin_employee
                                     )
-                                  : "N/A"}
+                                  : "-"}
                               </td>
                               <td
                                 style={{
@@ -3791,7 +3791,7 @@ const CompanyDetail = () => {
                                   fontSize: "14px",
                                 }}
                               >
-                                {subsidiary._locations?.Country || "N/A"}
+                                {subsidiary._locations?.Country || "-"}
                               </td>
                             </tr>
                           ))}
@@ -4196,7 +4196,7 @@ const CompanyDetail = () => {
                     const n = getNumeric(financialMetrics?.Rule_of_40);
                     return n !== undefined
                       ? Math.round(n).toLocaleString()
-                      : "Not available";
+                      : "-";
                   })()}
                 </span>
                 <span style={styles.sourceValue}>
@@ -4277,7 +4277,7 @@ const CompanyDetail = () => {
                                   const millions = Math.round(v / 1_000_000);
                                   return `${currency}${millions.toLocaleString()}`;
                                 })()
-                              : "—";
+                              : "-";
                           return (
                             <tr key={row.id}>
                               <td
@@ -4286,7 +4286,7 @@ const CompanyDetail = () => {
                                   borderBottom: "1px solid #e2e8f0",
                                 }}
                               >
-                                {period || "—"}
+                                {period || "-"}
                               </td>
                               <td
                                 style={{
@@ -4473,7 +4473,7 @@ const CompanyDetail = () => {
                 <span style={styles.value}>
                   {typeof financialMetrics?.No_of_Clients === "number"
                     ? financialMetrics.No_of_Clients.toLocaleString()
-                    : "Not available"}
+                    : "-"}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4702,7 +4702,7 @@ const CompanyDetail = () => {
                     const n = getNumeric(financialMetrics?.Rule_of_40);
                     return n !== undefined
                       ? Math.round(n).toLocaleString()
-                      : "Not available";
+                      : "-";
                   })()}
                 </span>
                 <span style={styles.sourceValue}>
@@ -4783,7 +4783,7 @@ const CompanyDetail = () => {
                                   const millions = Math.round(v / 1_000_000);
                                   return `${currency}${millions.toLocaleString()}`;
                                 })()
-                              : "—";
+                              : "-";
                           return (
                             <tr key={row.id}>
                               <td
@@ -4793,7 +4793,7 @@ const CompanyDetail = () => {
                                   fontSize: 12,
                                 }}
                               >
-                                {period || "—"}
+                                {period || "-"}
                               </td>
                               <td
                                 style={{
@@ -4983,7 +4983,7 @@ const CompanyDetail = () => {
                 <span style={styles.value}>
                   {typeof financialMetrics?.No_of_Clients === "number"
                     ? financialMetrics.No_of_Clients.toLocaleString()
-                    : "Not available"}
+                    : "-"}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(

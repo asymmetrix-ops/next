@@ -211,7 +211,7 @@ export function HeadcountCard({
               flexShrink: 0,
             }}
           >
-            {last != null && last > 0 ? last.toLocaleString() : "—"}
+            {last != null && last > 0 ? last.toLocaleString() : "-"}
           </div>
           <div
             style={{

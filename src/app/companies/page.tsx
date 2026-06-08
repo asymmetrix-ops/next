@@ -564,7 +564,7 @@ const renderSectorLinks = (
   sectors: unknown[] | undefined,
   kind: "primary" | "secondary"
 ): React.ReactNode => {
-  if (!Array.isArray(sectors) || sectors.length === 0) return "N/A";
+  if (!Array.isArray(sectors) || sectors.length === 0) return "-";
 
   const nodes: React.ReactNode[] = [];
   sectors.forEach((s, index) => {
@@ -596,7 +596,7 @@ const renderSectorLinks = (
     if (index < sectors.length - 1) nodes.push(<span key={`sep-${kind}-${index}`}>, </span>);
   });
 
-  return nodes.length > 0 ? nodes : "N/A";
+  return nodes.length > 0 ? nodes : "-";
 };
 
 type CompanyColumnRenderContext = {
@@ -646,12 +646,12 @@ const parseListField = (value: unknown): unknown[] => {
 };
 
 const toPlainText = (value: unknown): string => {
-  if (value == null || value === "") return "N/A";
-  if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString() : "N/A";
+  if (value == null || value === "") return "-";
+  if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString() : "-";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string") {
     const trimmed = value.trim();
-    if (!trimmed || trimmed === "[]" || trimmed === "{}") return "N/A";
+    if (!trimmed || trimmed === "[]" || trimmed === "{}") return "-";
     if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
       try {
         const parsed = JSON.parse(trimmed) as unknown;
@@ -685,7 +685,7 @@ const toPlainText = (value: unknown): string => {
       .map((item) => String(item).trim())
       .filter(Boolean)
       .join(", ");
-    return text || "N/A";
+    return text || "-";
   }
   if (typeof value === "object") {
     const rec = value as Record<string, unknown>;
@@ -699,7 +699,7 @@ const toPlainText = (value: unknown): string => {
       rec.display ??
       rec.label;
     if (preferred != null) return toPlainText(preferred);
-    return "N/A";
+    return "-";
   }
   return String(value);
 };
@@ -784,7 +784,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
               onCompanyClick(company.id);
             }}
           >
-            {company.name || "N/A"}
+            {company.name || "-"}
           </a>
         ),
       },
@@ -837,7 +837,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         wrap: true,
         minWidth: 280,
         render: (company, { index }) => (
-          <CompanyDescription description={company.description || "N/A"} index={index} />
+          <CompanyDescription description={company.description || "-"} index={index} />
         ),
       },
       {
@@ -987,7 +987,7 @@ const CompanyCardBase = ({
     router.push(`/company/${company.id}`);
   };
 
-  const description = company.description || "N/A";
+  const description = company.description || "-";
   const isLong = description.length > 250;
 
   // Just use the primary sectors from the API - no derivation needed
@@ -1023,7 +1023,7 @@ const CompanyCardBase = ({
           className: "company-card-name",
           onClick: handleCompanyClick,
         },
-        company.name || "N/A"
+        company.name || "-"
       )
     ),
     React.createElement(
@@ -1042,7 +1042,7 @@ const CompanyCardBase = ({
           { className: "company-card-value" },
           computedPrimarySectors.length > 0
             ? renderSectorLinks(computedPrimarySectors as unknown[], "primary")
-            : "N/A"
+            : "-"
         )
       ),
       React.createElement(
@@ -1058,7 +1058,7 @@ const CompanyCardBase = ({
           { className: "company-card-value" },
           parseListField(company.secondary_sectors).length > 0
             ? renderSectorLinks(parseListField(company.secondary_sectors), "secondary")
-            : "N/A"
+            : "-"
         )
       ),
       React.createElement(
@@ -1072,7 +1072,7 @@ const CompanyCardBase = ({
         React.createElement(
           "span",
           { className: "company-card-value" },
-          company.ownership || "N/A"
+          company.ownership || "-"
         )
       ),
       React.createElement(
@@ -1100,7 +1100,7 @@ const CompanyCardBase = ({
         React.createElement(
           "span",
           { className: "company-card-value" },
-          company.country || "N/A"
+          company.country || "-"
         )
       ),
       React.createElement(
@@ -2757,62 +2757,62 @@ const CompanySection = ({
           
           // Create row with ALL columns always present
           const row: CompanyCSVRow = {
-            Name: it.name ?? "N/A",
-            Description: it.description ?? "N/A",
+            Name: it.name ?? "-",
+            Description: it.description ?? "-",
             "Primary Sector(s)": CompaniesCSVExporter.formatSectors(primary),
             Sectors: CompaniesCSVExporter.formatSectors(secondary),
-            Ownership: it.ownership ?? "N/A",
+            Ownership: it.ownership ?? "-",
             "LinkedIn Members": CompaniesCSVExporter.formatLinkedinMembers(
               typeof it.linkedin_members === "number"
                 ? it.linkedin_members
                 : Number(it.linkedin_members)
             ),
-            Country: it.country ?? "N/A",
-            "Company Link": companyLink || "N/A",
+            Country: it.country ?? "-",
+            "Company Link": companyLink || "-",
             "Company URL": it.company_link ?? "",
             // Financial Metrics - exact field names from API
             Revenue:
               it.Revenue_m != null && it.Revenue_m !== ""
                 ? `${it.Revenue_m}M`
-                : "N/A",
+                : "-",
             EBITDA:
               it.EBITDA_m != null && it.EBITDA_m !== ""
                 ? `${it.EBITDA_m}M`
-                : "N/A",
+                : "-",
             "Enterprise Value":
-              it.EV != null && it.EV !== "" ? `${it.EV}M` : "N/A",
+              it.EV != null && it.EV !== "" ? `${it.EV}M` : "-",
             "Revenue Multiple":
               it.Revenue_multiple != null && it.Revenue_multiple !== ""
                 ? String(it.Revenue_multiple)
-                : "N/A",
+                : "-",
             "Revenue Growth":
               it.Rev_Growth_PC != null && it.Rev_Growth_PC !== ""
                 ? `${it.Rev_Growth_PC}%`
-                : "N/A",
+                : "-",
             "EBITDA Margin":
               it.EBITDA_margin != null && it.EBITDA_margin !== ""
                 ? `${it.EBITDA_margin}%`
-                : "N/A",
+                : "-",
             "Rule of 40":
               it.Rule_of_40 != null && it.Rule_of_40 !== ""
                 ? String(it.Rule_of_40)
-                : "N/A",
+                : "-",
             // Subscription Metrics - exact field names from API
             "Recurring Revenue": CompaniesCSVExporter.formatPercent(arrPc),
-            ARR: it.ARR_m != null && it.ARR_m !== "" ? `${it.ARR_m}M` : "N/A",
+            ARR: it.ARR_m != null && it.ARR_m !== "" ? `${it.ARR_m}M` : "-",
             Churn:
               it.Churn_pc != null && it.Churn_pc !== ""
                 ? `${it.Churn_pc}%`
-                : "N/A",
+                : "-",
             GRR:
               it.GRR_pc != null && it.GRR_pc !== ""
                 ? `${it.GRR_pc}%`
-                : "N/A",
-            NRR: it.NRR != null && it.NRR !== "" ? `${it.NRR}%` : "N/A",
+                : "-",
+            NRR: it.NRR != null && it.NRR !== "" ? `${it.NRR}%` : "-",
             "New Clients Revenue Growth":
               it.New_client_growth_pc != null && it.New_client_growth_pc !== ""
                 ? `${it.New_client_growth_pc}%`
-                : "N/A",
+                : "-",
           };
           return row;
         });

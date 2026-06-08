@@ -94,7 +94,7 @@ export default function FinanceSummaryClient({ ticker }: { ticker: string }) {
         const section = item.section || "summaryDetail";
         const sectionData = financeSummaryData?.[section];
         const data = sectionData?.[item.key];
-        let formattedData: string | number = "N/A";
+        let formattedData: string | number = "-";
 
         if (data !== undefined && typeof data === "number" && !isNaN(data)) {
           formattedData = item.format ? item.format(data) : data;

@@ -161,5 +161,5 @@ export function subsidiaryAcquisitionYearLabel(
       : (yearBySubsidiaryId as Record<number, number | undefined>)[
           subsidiaryId
         ];
-  return typeof year === "number" && Number.isFinite(year) ? String(year) : "—";
+  return typeof year === "number" && Number.isFinite(year) ? String(year) : "-";
 }

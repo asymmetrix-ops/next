@@ -147,7 +147,7 @@ export function formatCurrency(
   value: number | null,
   currency: Currency
 ): string {
-  if (value === null) return "—";
+  if (value === null) return "-";
 
   const formatter = new Intl.NumberFormat("en-US", {
     style: "currency",

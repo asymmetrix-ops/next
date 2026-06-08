@@ -257,13 +257,13 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm text-gray-500">Name</p>
               <p className="text-gray-900">
-                {me?.name || user?.name || "—"}
+                {me?.name || user?.name || "-"}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Email Address</p>
               <p className="text-gray-900">
-                {me?.email || user?.email || "—"}
+                {me?.email || user?.email || "-"}
               </p>
             </div>
             <div>
@@ -271,7 +271,7 @@ export default function SettingsPage() {
               <p className="text-gray-900">
                 {me?._new_company?.name ||
                   (me?.Company != null ? String(me.Company) : null) ||
-                  "—"}
+                  "-"}
               </p>
             </div>
           </div>

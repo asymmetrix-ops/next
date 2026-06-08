@@ -880,7 +880,7 @@ const ArticleDetailPage = () => {
   }, [article, companyOfFocusCompanyId]);
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "Not available";
+    if (!dateString) return "-";
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
         year: "numeric",
@@ -1041,25 +1041,25 @@ const ArticleDetailPage = () => {
   };
 
   const formatCompanyOfFocusYearFounded = (candidate: unknown): string => {
-    if (candidate === null || candidate === undefined) return "Not available";
+    if (candidate === null || candidate === undefined) return "-";
     const n = Number(candidate);
     const currentYear = new Date().getFullYear();
     if (Number.isFinite(n) && n >= 1800 && n <= currentYear) {
       return String(n);
     }
-    return "Not available";
+    return "-";
   };
 
   // Plain number formatter copied from Company Profile (no currency, preserve decimals)
   const formatPlainNumber = (
     value?: number | string | null
   ): string => {
-    if (value === undefined || value === null) return "Not available";
+    if (value === undefined || value === null) return "-";
     if (typeof value === "number") {
       return value.toLocaleString("en-US", { maximumFractionDigits: 10 });
     }
     const trimmed = String(value).trim();
-    if (trimmed.length === 0) return "Not available";
+    if (trimmed.length === 0) return "-";
     const num = Number(trimmed.replace(/,/g, ""));
     if (!Number.isFinite(num)) return trimmed;
     const match = trimmed.match(/\.([0-9]+)/);
@@ -1072,20 +1072,20 @@ const ArticleDetailPage = () => {
 
   const formatMultiple = (value: unknown): string => {
     if (value === null || value === undefined || value === "") {
-      return "Not available";
+      return "-";
     }
     const num = Number(value);
-    if (!Number.isFinite(num)) return "Not available";
+    if (!Number.isFinite(num)) return "-";
     const rounded = Math.round(num * 10) / 10;
     return `${rounded.toLocaleString()}x`;
   };
 
   const formatPercent = (value: unknown): string => {
     if (value === null || value === undefined || value === "") {
-      return "Not available";
+      return "-";
     }
     const num = Number(value);
-    if (!Number.isFinite(num)) return "Not available";
+    if (!Number.isFinite(num)) return "-";
     return `${Math.round(num)}%`;
   };
 
@@ -1125,7 +1125,7 @@ const ArticleDetailPage = () => {
     const raw = (row as unknown as Record<string, unknown>)[key];
     const v =
       typeof raw === "string" ? raw.trim() : toDisplayString(raw).trim();
-    if (!v || v === "—") return "Not available";
+    if (!v || v === "-") return "-";
     return v;
   };
 
@@ -1178,7 +1178,7 @@ const ArticleDetailPage = () => {
         .filter(Boolean)
         .join(", ");
 
-      const na = (s: string) => (s.trim() ? s : "Not available");
+      const na = (s: string) => (s.trim() ? s : "-");
       const urlRaw = normalizeWebsite(toDisplayString(row.url));
 
       return {
@@ -1646,14 +1646,14 @@ const ArticleDetailPage = () => {
                   ]
                     .filter(Boolean)
                     .join(", ")
-                : "Not available";
+                : "-";
 
               const yearFounded = formatCompanyOfFocusYearFounded(
                 overview?.year_founded
               );
 
               const ownership =
-                overview?.ownership_type || "Not available";
+                overview?.ownership_type || "-";
 
               const investorItems = overview?.investors_owners || [];
               const investors =
@@ -1662,7 +1662,7 @@ const ArticleDetailPage = () => {
                       .map((inv) => inv.name)
                       .filter(Boolean)
                       .join(", ")
-                  : "Not available";
+                  : "-";
 
               const managementEntries =
                 overview?.management && overview.management.length
@@ -1684,12 +1684,12 @@ const ArticleDetailPage = () => {
                       .map((m) => m.name)
                       .filter(Boolean)
                       .join(", ")
-                  : "Not available";
+                  : "-";
 
               const employeeCount =
                 typeof overview?.employee_count === "number"
                   ? overview.employee_count.toLocaleString("en-US")
-                  : "Not available";
+                  : "-";
 
               const currencyForHeader =
                 (financial?.ev_currency ||
@@ -1703,31 +1703,31 @@ const ArticleDetailPage = () => {
 
               const revenueDisplay = financial
                 ? formatPlainNumber(financial.revenue_m)
-                : "Not available";
+                : "-";
 
               const arrDisplay = financial
                 ? formatPlainNumber(financial.arr_m)
-                : "Not available";
+                : "-";
 
               const ebitdaDisplay = financial
                 ? formatPlainNumber(financial.ebitda_m)
-                : "Not available";
+                : "-";
 
               const evDisplay = financial
                 ? formatPlainNumber(financial.enterprise_value_m)
-                : "Not available";
+                : "-";
 
               const revenueMultipleDisplay = financial
                 ? formatMultiple(financial.revenue_multiple)
-                : "Not available";
+                : "-";
 
               const revenueGrowthDisplay = financial
                 ? formatPercent(financial.revenue_growth_pc)
-                : "Not available";
+                : "-";
 
               const ruleOf40Display = financial
                 ? formatPercent(financial.rule_of_40)
-                : "Not available";
+                : "-";
 
               return (
                 <>
@@ -2689,7 +2689,7 @@ const ArticleDetailPage = () => {
                                 >
                                   {isWebsiteColumn &&
                                   value &&
-                                  value !== "Not available" &&
+                                  value !== "-" &&
                                   /^https?:\/\//i.test(value) ? (
                                     <a
                                       href={value}

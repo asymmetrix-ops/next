@@ -72,7 +72,7 @@ export function AlertCard({
   const buildDescription = () => {
     const parts: string[] = [];
     parts.push(getItemTypeLabel());
-    parts.push("—");
+    parts.push("-");
     
     // Build frequency part with optional details
     if (alert.email_frequency === "as_added") {
@@ -85,7 +85,7 @@ export function AlertCard({
       ) {
         const contentTypeLabel = getContentTypeLabel();
         if (contentTypeLabel) {
-          parts.push("—");
+          parts.push("-");
           parts.push(contentTypeLabel);
         }
       }
@@ -140,7 +140,7 @@ export function AlertCard({
       parts.push(getFrequencyLabel());
     }
 
-    parts.push("—");
+    parts.push("-");
     parts.push(alert.is_active ? "Active" : "Inactive");
 
     const f = alert.filters;
@@ -150,7 +150,7 @@ export function AlertCard({
     if (f?.individuals?.length) filterParts.push(`${f.individuals.length} individuals`);
     if (f?.investors?.length) filterParts.push(`${f.investors.length} investors`);
     if (f?.advisors?.length) filterParts.push(`${f.advisors.length} advisors`);
-    parts.push("—");
+    parts.push("-");
     parts.push(
       filterParts.length === 0 ? "Filter: All" : `Filter: ${filterParts.join(", ")}`
     );

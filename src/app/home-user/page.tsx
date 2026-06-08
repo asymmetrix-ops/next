@@ -157,7 +157,7 @@ export default function HomeUserPage() {
 
   // Helper function to format dates consistently
   const formatDate = (dateString?: string) => {
-    if (!dateString) return "Not Available";
+    if (!dateString) return "-";
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
         year: "numeric",
@@ -310,7 +310,7 @@ export default function HomeUserPage() {
       | undefined
   ) => {
     if (!secondarySectorsOrObjects || secondarySectorsOrObjects.length === 0)
-      return "Not available";
+      return "-";
 
     // If new endpoint structure (contains Sector_importance), derive primaries from mapping
     if (
@@ -346,7 +346,7 @@ export default function HomeUserPage() {
       const combined = Array.from(
         new Set([...(explicitPrimaries as string[]), ...relatedFromSecondaries])
       );
-      return combined.length > 0 ? combined.join(", ") : "Not available";
+      return combined.length > 0 ? combined.join(", ") : "-";
     }
 
     // Otherwise old shape (array of secondary names) – use fallback mapping
@@ -427,7 +427,7 @@ export default function HomeUserPage() {
       .filter((s) => s && s.Sector_importance !== "Primary")
       .map((s) => ({ sector_name: s.sector_name }));
     const mapped = getRelatedPrimarySectors(fallbackSecondaries);
-    return mapped || "Not Available";
+    return mapped || "-";
   };
 
   // Corporate Event navigation handler with graceful fallback to search
@@ -1836,7 +1836,7 @@ export default function HomeUserPage() {
                                     </span>
                                   ))
                                 ) : (
-                                  "—"
+                                  "-"
                                 )}
                               </td>
                               <td className="px-4 py-4">
@@ -2272,7 +2272,7 @@ export default function HomeUserPage() {
                                     <span>{targetName}</span>
                                   );
                                 }
-                                return <span>Not Available</span>;
+                                return <span>-</span>;
                               })()}
                             </div>
                             <div>
@@ -2285,7 +2285,7 @@ export default function HomeUserPage() {
                                 );
 
                                 if (sellersNew.length === 0) {
-                                  return <span>Not Available</span>;
+                                  return <span>-</span>;
                                 }
 
                                 return (
@@ -2337,7 +2337,7 @@ export default function HomeUserPage() {
 
                                 const dealType =
                                   details?.Type || ev.deal_type || ev.type;
-                                return dealType || "Not Available";
+                                return dealType || "-";
                               })()}
                             </div>
                             <div>
@@ -2366,7 +2366,7 @@ export default function HomeUserPage() {
                                     "") as string
                                 ).trim();
 
-                                if (!fundingStage) return "Not Available";
+                                if (!fundingStage) return "-";
                                 return (
                                   <span className="inline-block px-2 py-0.5 ml-1 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">
                                     {fundingStage}
@@ -2467,7 +2467,7 @@ export default function HomeUserPage() {
                                     ? `${event.investment_data.currrency.Currency}${event.investment_data.investment_amount_m}`
                                     : "");
 
-                                return amount || "Not Available";
+                                return amount || "-";
                               })()}
                             </div>
                             <div>
@@ -2515,7 +2515,7 @@ export default function HomeUserPage() {
                                 const valuation =
                                   valuationFromDetails || valuationFallback;
 
-                                return valuation || "Not Available";
+                                return valuation || "-";
                               })()}
                             </div>
                             <div>
@@ -2543,8 +2543,8 @@ export default function HomeUserPage() {
                                     : "") ||
                                   getEventPrimarySectors(event);
 
-                                if (!primary || primary === "Not Available") {
-                                  return "Not Available";
+                                if (!primary || primary === "-") {
+                                  return "-";
                                 }
 
                                 return primaryRefs.length > 0 ? (
@@ -2615,7 +2615,7 @@ export default function HomeUserPage() {
                                     : secondaryLegacy;
 
                                 if (secondary.length === 0) {
-                                  return "Not Available";
+                                  return "-";
                                 }
 
                                 return secondaryRefs.length > 0 ? (
@@ -3188,7 +3188,7 @@ export default function HomeUserPage() {
                                       : secondaryLegacy;
                                   return (
                                     <div className="space-y-1">
-                                      {primary && primary !== "Not Available" && (
+                                      {primary && primary !== "-" && (
                                         <div className="text-xs text-gray-500">
                                           <strong>Primary:</strong>{" "}
                                           {primaryRefs.length > 0

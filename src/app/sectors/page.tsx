@@ -100,7 +100,7 @@ const SectorCard = ({
             marginBottom: "8px",
           },
         },
-        sector.sector_name || "N/A"
+        sector.sector_name || "-"
       ),
       React.createElement(
         "div",

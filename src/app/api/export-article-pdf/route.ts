@@ -217,8 +217,8 @@ export async function POST(req: NextRequest) {
               month: "long",
               day: "numeric",
             })
-          : "Not available";
-        const type = (e?.deal_type || "Not available").trim();
+          : "-";
+        const type = (e?.deal_type || "-").trim();
         const fundingStage =
           (
             (e as {
@@ -229,25 +229,25 @@ export async function POST(req: NextRequest) {
             })?.investment_data?.funding_stage ||
             ""
           ).trim();
-        const target = e?.target?.name || "Not available";
+        const target = e?.target?.name || "-";
         const advisors = Array.isArray(e?.advisors)
           ? (e.advisors || [])
               .map((a: any) => a?._new_company?.name)
               .filter(Boolean)
-              .join(", ") || "Not available"
-          : "Not available";
+              .join(", ") || "-"
+          : "-";
         const prim = Array.isArray(e?.primary_sectors)
           ? (e.primary_sectors || [])
               .map((s: any) => s?.sector_name)
               .filter(Boolean)
-              .join(", ") || "Not available"
-          : "Not available";
+              .join(", ") || "-"
+          : "-";
         const sec = Array.isArray(e?.secondary_sectors)
           ? (e.secondary_sectors || [])
               .map((s: any) => s?.sector_name)
               .filter(Boolean)
-              .join(", ") || "Not available"
-          : "Not available";
+              .join(", ") || "-"
+          : "-";
         return `
             <div class="rce-card">
             <div class="rce-title">${escapeHtml(desc)}</div>
@@ -487,7 +487,7 @@ export async function POST(req: NextRequest) {
                 )} – ${escapeHtml(article.Headline || "Untitled")}</div>
                 ${ct ? `<span class="badge">${escapeHtml(ct)}</span>` : ""}
                 <div class="pub-info">Published: <span class="pub-value">${escapeHtml(
-                  article.Publication_Date || "Not available"
+                  article.Publication_Date || "-"
                 )}</span></div>
                 </div>
                 
@@ -515,7 +515,7 @@ export async function POST(req: NextRequest) {
                 <div class="section-title">Companies</div>
                 <div class="tag-container">${
                   companiesHtml ||
-                  `<span style='color:var(--muted);'>Not available</span>`
+                  `<span style='color:var(--muted);'>-</span>`
                 }</div>
                 </div>
 
@@ -523,7 +523,7 @@ export async function POST(req: NextRequest) {
                 <div class="section-title">Sectors</div>
                 <div class="tag-container">${
                   sectorsHtml ||
-                  `<span style='color:var(--muted);'>Not available</span>`
+                  `<span style='color:var(--muted);'>-</span>`
                 }</div>
                 </div>
             </div>

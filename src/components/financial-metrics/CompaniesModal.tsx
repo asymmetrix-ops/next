@@ -90,7 +90,7 @@ function formatValue(
   format: MetricFormat
 ): string {
   const num = getNumericValue(value);
-  if (num === null) return "—";
+  if (num === null) return "-";
 
   switch (format) {
     case "percent":
@@ -125,7 +125,7 @@ function mapTablePayloadRowToCompany(
     name:
       toTrimmedString(row.name) ||
       fallback?.name ||
-      (id > 0 ? `Company ${id}` : "—"),
+      (id > 0 ? `Company ${id}` : "-"),
     description: fallback?.description ?? "",
     country:
       toTrimmedString(row.hq_country) || fallback?.country || "",
@@ -697,57 +697,57 @@ export default function CompaniesModal({
           
           // Create row with ALL columns always present
           const row: CompanyCSVRow = {
-            Name: it.name ?? "N/A",
-            Description: it.description ?? "N/A",
+            Name: it.name ?? "-",
+            Description: it.description ?? "-",
             "Primary Sector(s)": CompaniesCSVExporter.formatSectors(primary),
             Sectors: CompaniesCSVExporter.formatSectors(secondary),
-            Ownership: it.ownership ?? "N/A",
+            Ownership: it.ownership ?? "-",
             "LinkedIn Members": CompaniesCSVExporter.formatLinkedinMembers(
               typeof it.linkedin_members === "number"
                 ? it.linkedin_members
                 : Number(it.linkedin_members)
             ),
-            Country: it.country ?? "N/A",
+            Country: it.country ?? "-",
             "Company URL": it.company_link ?? "",
             // Financial Metrics - always include all fields
             Revenue: (it.Revenue_m != null && it.Revenue_m !== "") 
               ? `${it.Revenue_m}M`
-              : "N/A",
+              : "-",
             EBITDA: (it.EBITDA_m != null && it.EBITDA_m !== "")
               ? `${it.EBITDA_m}M`
-              : "N/A",
+              : "-",
             "Enterprise Value": (it.EV != null && it.EV !== "")
               ? `${it.EV}M`
-              : "N/A",
+              : "-",
             "Revenue Multiple": (it.Revenue_multiple != null && it.Revenue_multiple !== "")
               ? String(it.Revenue_multiple)
-              : "N/A",
+              : "-",
             "Revenue Growth": (it.Rev_Growth_PC != null && it.Rev_Growth_PC !== "")
               ? `${it.Rev_Growth_PC}%`
-              : "N/A",
+              : "-",
             "EBITDA Margin": (it.EBITDA_margin != null && it.EBITDA_margin !== "")
               ? `${it.EBITDA_margin}%`
-              : "N/A",
+              : "-",
             "Rule of 40": (it.Rule_of_40 != null && it.Rule_of_40 !== "")
               ? String(it.Rule_of_40)
-              : "N/A",
+              : "-",
             // Subscription Metrics - always include all fields
             "Recurring Revenue": CompaniesCSVExporter.formatPercent(arrPc),
             ARR: (it.ARR_m != null && it.ARR_m !== "")
               ? `${it.ARR_m}M`
-              : "N/A",
+              : "-",
             Churn: (it.Churn_pc != null && it.Churn_pc !== "")
               ? `${it.Churn_pc}%`
-              : "N/A",
+              : "-",
             GRR: (it.GRR_pc != null && it.GRR_pc !== "")
               ? `${it.GRR_pc}%`
-              : "N/A",
+              : "-",
             NRR: (it.NRR != null && it.NRR !== "")
               ? `${it.NRR}%`
-              : "N/A",
+              : "-",
             "New Clients Revenue Growth": (it.New_client_growth_pc != null && it.New_client_growth_pc !== "")
               ? `${it.New_client_growth_pc}%`
-              : "N/A",
+              : "-",
           };
           return row;
         });
@@ -896,14 +896,14 @@ export default function CompaniesModal({
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          {company.name || "N/A"}
+                          {company.name || "-"}
                         </a>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {company.country || "—"}
+                        {company.country || "-"}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {company.ownership || "—"}
+                        {company.ownership || "-"}
                       </td>
                       {METRICS.map((m) => {
                         const value = getCompanyValue(company, m.key);

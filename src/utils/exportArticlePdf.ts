@@ -39,7 +39,7 @@ export interface ExportableArticle {
 }
 
 const formatDate = (dateString: string | undefined) => {
-  if (!dateString) return "Not available";
+  if (!dateString) return "-";
   try {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -313,8 +313,8 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
             : `${baseUrl}/corporate-events?search=${encodeURIComponent(desc)}`;
           const date = e?.announcement_date
             ? formatDate(e.announcement_date)
-            : "Not available";
-          const type = (e?.deal_type || "Not available").trim();
+            : "-";
+          const type = (e?.deal_type || "-").trim();
           const fundingStage =
             (
               (e as {
@@ -333,7 +333,7 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
             ).trim();
           const targetName =
             (e as { target?: { name?: string } })?.target?.name ||
-            "Not available";
+            "-";
           const advisorNames = Array.isArray(
             (e as { advisors?: Array<{ _new_company?: { name?: string } }> })
               .advisors
@@ -347,8 +347,8 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
               )
                 .map((a) => a?._new_company?.name)
                 .filter(Boolean)
-                .join(", ") || "Not available"
-            : "Not available";
+                .join(", ") || "-"
+            : "-";
           const primNames = Array.isArray(
             (e as { primary_sectors?: Array<{ sector_name?: string }> })
               .primary_sectors
@@ -359,8 +359,8 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
               )
                 .map((s) => s?.sector_name)
                 .filter(Boolean)
-                .join(", ") || "Not available"
-            : "Not available";
+                .join(", ") || "-"
+            : "-";
           const secNames = Array.isArray(
             (e as { secondary_sectors?: Array<{ sector_name?: string }> })
               .secondary_sectors
@@ -371,8 +371,8 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
               )
                 .map((s) => s?.sector_name)
                 .filter(Boolean)
-                .join(", ") || "Not available"
-            : "Not available";
+                .join(", ") || "-"
+            : "-";
           return `
             <div class=\"rce-card avoid-break\">
               <div class=\"rce-title-row\">
@@ -548,7 +548,7 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
         <div class="tag-container">
           ${
             companiesTagsHtml ||
-            `<span style="color:var(--muted);">Not available</span>`
+            `<span style="color:var(--muted);">-</span>`
           }
         </div>
       </div>
@@ -558,7 +558,7 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
         <div class="tag-container">
           ${
             sectorsTagsHtml ||
-            `<span style=\"color:var(--muted);\">Not available</span>`
+            `<span style=\"color:var(--muted);\">-</span>`
           }
         </div>
       </div>

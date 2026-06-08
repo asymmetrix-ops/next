@@ -1783,18 +1783,18 @@ const InvestorDetailPage = () => {
                   <span className="info-label">Focus:</span>
                   <span className="info-value">
                     {Focus.map((f) => f.sector_name).join(", ") ||
-                      "Not available"}
+                      "-"}
                   </span>
                 </div>
                 <div className="info-item">
                   <span className="info-label">Year founded:</span>
                   <span className="info-value">
-                    {Investor._years?.Year || "Not available"}
+                    {Investor._years?.Year || "-"}
                   </span>
                 </div>
                 <div className="info-item">
                   <span className="info-label">HQ:</span>
-                  <span className="info-value">{hq || "Not available"}</span>
+                  <span className="info-value">{hq || "-"}</span>
                 </div>
                 <div className="info-item">
                   <span className="info-label">Website:</span>
@@ -1808,7 +1808,7 @@ const InvestorDetailPage = () => {
                         {Investor.url}
                       </a>
                     ) : (
-                      "Not available"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -1847,7 +1847,7 @@ const InvestorDetailPage = () => {
                         </svg>
                       </a>
                     ) : (
-                      "Not available"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -1881,7 +1881,7 @@ const InvestorDetailPage = () => {
                         {index < Invested_DA_sectors.length - 1 ? ", " : ""}
                       </span>
                     ))
-                  : "Not available"}
+                  : "-"}
               </div>
             </div>
 
@@ -1889,7 +1889,7 @@ const InvestorDetailPage = () => {
             <div className="investor-section">
               <h2 className="section-title">Description:</h2>
               <div className="info-value" style={{ whiteSpace: "pre-wrap" }}>
-                {Investor.description || "Not available"}
+                {Investor.description || "-"}
               </div>
             </div>
 
@@ -1908,7 +1908,7 @@ const InvestorDetailPage = () => {
                     individualId: resolvedIndividualIds.get(member.Individual_text),
                     onClick: () => handleTeamMemberClick(member.Individual_text),
                   }))}
-                  emptyMessage="Not available"
+                  emptyMessage="-"
                 />
               </div>
 
@@ -1924,7 +1924,7 @@ const InvestorDetailPage = () => {
                       individualId: resolvedIndividualIds.get(member.Individual_text),
                       onClick: () => handleTeamMemberClick(member.Individual_text),
                     }))}
-                    emptyMessage="Not available"
+                    emptyMessage="-"
                   />
                 </div>
               )}
@@ -1990,7 +1990,7 @@ const InvestorDetailPage = () => {
                                 company.year_invested !== undefined &&
                                 String(company.year_invested).trim().length > 0
                                   ? String(company.year_invested)
-                                  : "Not available"}
+                                  : "-"}
                               </td>
                               <td>
                                 {company.related_to_investor_individuals &&
@@ -2031,7 +2031,7 @@ const InvestorDetailPage = () => {
                                       fontSize: "12px",
                                     }}
                                   >
-                                    Not available
+                                    -
                                   </span>
                                 )}
                               </td>
@@ -2042,7 +2042,7 @@ const InvestorDetailPage = () => {
                                 )}
                               </td>
                               <td>
-                                {company._locations?.Country || "Not available"}
+                                {company._locations?.Country || "-"}
                               </td>
                             </tr>
                           ))
@@ -2109,7 +2109,7 @@ const InvestorDetailPage = () => {
                                 company.year_invested !== undefined &&
                                 String(company.year_invested).trim().length > 0
                                   ? String(company.year_invested)
-                                  : "Not available"}
+                                  : "-"}
                               </span>
                             </div>
                             <div className="portfolio-card-info-item">
@@ -2117,7 +2117,7 @@ const InvestorDetailPage = () => {
                                 Country:
                               </span>
                               <span className="portfolio-card-info-value">
-                                {company._locations?.Country || "Not available"}
+                                {company._locations?.Country || "-"}
                               </span>
                             </div>
                             <div className="portfolio-card-info-item">
@@ -2157,7 +2157,7 @@ const InvestorDetailPage = () => {
                                       .length > 2 && "..."}
                                   </>
                                 ) : (
-                                  "Not available"
+                                  "-"
                                 )}
                               </span>
                             </div>
@@ -2339,7 +2339,7 @@ const InvestorDetailPage = () => {
                                 company.year_exited !== undefined &&
                                 String(company.year_exited).trim().length > 0
                                   ? String(company.year_exited)
-                                  : "Not available"}
+                                  : "-"}
                               </td>
                               <td style={{ padding: "12px" }}>
                                 {company.related_to_investor_individuals &&
@@ -2380,7 +2380,7 @@ const InvestorDetailPage = () => {
                                       fontSize: "12px",
                                     }}
                                   >
-                                    Not available
+                                    -
                                   </span>
                                 )}
                               </td>
@@ -2391,7 +2391,7 @@ const InvestorDetailPage = () => {
                                 )}
                               </td>
                               <td style={{ padding: "12px" }}>
-                                {company._locations?.Country || "Not available"}
+                                {company._locations?.Country || "-"}
                               </td>
                             </tr>
                           ))

@@ -79,20 +79,20 @@ export default function PreviousCorporateEventsSection({
                     </a>
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {e.date || "Not available"}
+                    {e.date || "-"}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {e.dealType || "Not available"}
+                    {e.dealType || "-"}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {e.target || "Not available"}
+                    {e.target || "-"}
                   </TableCell>
                   <TableCell className="text-slate-600">
                     {(() => {
                       const isPartnership =
                         e.dealType?.toLowerCase() === "partnership";
                       if (isPartnership) return "-";
-                      return e.investors || "Not available";
+                      return e.investors || "-";
                     })()}
                   </TableCell>
                 </TableRow>

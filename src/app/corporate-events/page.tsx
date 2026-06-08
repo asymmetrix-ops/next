@@ -326,7 +326,7 @@ const CorporateEventsTable = ({
     )?.new_company_counterparty;
 
     const formatDate = (dateString: string) => {
-      if (!dateString) return "Not available";
+      if (!dateString) return "-";
       try {
         return new Date(dateString).toLocaleDateString("en-US", {
           year: "numeric",
@@ -342,9 +342,9 @@ const CorporateEventsTable = ({
       amount: string | undefined,
       currency: string | undefined
     ) => {
-      if (!amount || !currency) return "Not available";
+      if (!amount || !currency) return "-";
       const n = Number(amount);
-      if (Number.isNaN(n)) return "Not available";
+      if (Number.isNaN(n)) return "-";
       // Values are already in millions; the "(m)" indicator is shown in the field
       // name (e.g., "Amount (m)"), so we omit the trailing "m" here.
       return `${currency}${n.toLocaleString(undefined, {
@@ -375,7 +375,7 @@ const CorporateEventsTable = ({
                 window.location.href = `/corporate-event/${event.id}`;
               }}
             >
-              {event.description || "N/A"}
+              {event.description || "-"}
             </a>
             <div className="corporate-event-card-date">
               {formatDate(event.announcement_date || "")}
@@ -385,7 +385,7 @@ const CorporateEventsTable = ({
               {(target as unknown as { country?: string })?.country ||
                 (target as unknown as { _location?: { Country?: string } })
                   ?._location?.Country ||
-                "Not available"}
+                "-"}
             </div>
           </div>
         </div>
@@ -397,11 +397,11 @@ const CorporateEventsTable = ({
                 href={`/company/${targetCounterpartyId}`}
                 className="corporate-event-card-info-value-link"
               >
-                {(target as unknown as { name?: string })?.name || "N/A"}
+                {(target as unknown as { name?: string })?.name || "-"}
               </a>
             ) : (
               <span className="corporate-event-card-info-value">
-                Not available
+                -
               </span>
             )}
           </div>
@@ -555,7 +555,7 @@ const CorporateEventsTable = ({
   }
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "Not available";
+    if (!dateString) return "-";
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
         year: "numeric",
@@ -583,7 +583,7 @@ const CorporateEventsTable = ({
     secondarySectors: Array<string | { sector_name: string }> | undefined
   ): string => {
     if (!secondarySectors || secondarySectors.length === 0)
-      return "Not available";
+      return "-";
     const names = secondarySectors
       .map((s) => (typeof s === "string" ? s : s.sector_name))
       .filter(Boolean) as string[];
@@ -595,7 +595,7 @@ const CorporateEventsTable = ({
           name
       )
       .filter((v, i, a) => a.indexOf(v) === i);
-    return related.length > 0 ? related.join(", ") : "Not available";
+    return related.length > 0 ? related.join(", ") : "-";
   };
 
   // Derive Primary sectors: prefer new `primary_sectors` (string[] or {sector_name}[]),
@@ -659,7 +659,7 @@ const CorporateEventsTable = ({
     if (Array.isArray(secondaryLegacy) && secondaryLegacy.length > 0) {
       return secondaryLegacy.map((s) => s.sector_name).join(", ");
     }
-    return "Not available";
+    return "-";
   };
 
   return (
@@ -703,7 +703,7 @@ const CorporateEventsTable = ({
               }
             )?.new_company_counterparty;
             const targetName =
-              (target as unknown as { name?: string })?.name || "Not Available";
+              (target as unknown as { name?: string })?.name || "-";
             const targetHref = targetCounterpartyId
               ? `/company/${targetCounterpartyId}`
               : "";
@@ -711,7 +711,7 @@ const CorporateEventsTable = ({
               (target as unknown as { country?: string })?.country ||
               (target as unknown as { _location?: { Country?: string } })
                 ?._location?.Country ||
-              "Not Available";
+              "-";
             const primaryText = derivePrimaryFromCompany(target);
             const secondaryText = deriveSecondaryFromCompany(target);
             const isPartnership = /partnership/i.test(event.deal_type || "");
@@ -753,7 +753,7 @@ const CorporateEventsTable = ({
                         window.location.href = `/corporate-event/${event.id}`;
                       }}
                     >
-                      {event.description || "Not Available"}
+                      {event.description || "-"}
                     </a>
                   </div>
                   <div className="muted-row">
@@ -887,7 +887,7 @@ const CorporateEventsTable = ({
                               }
                             );
                             if (sellers.length === 0)
-                              return <span>Not Available</span>;
+                              return <span>-</span>;
                             return sellers.map((counterparty, subIndex) => {
                               const nc = counterparty._new_company as
                                 | {
@@ -902,7 +902,7 @@ const CorporateEventsTable = ({
                               if (!nc) {
                                 return (
                                   <span key={subIndex}>
-                                    Not Available
+                                    -
                                     {subIndex < sellers.length - 1 && ", "}
                                   </span>
                                 );
@@ -954,7 +954,7 @@ const CorporateEventsTable = ({
                               );
                             });
                           })()
-                        : "Not Available"}
+                        : "-"}
                     </div>
                   )}
                 </td>
@@ -998,7 +998,7 @@ const CorporateEventsTable = ({
                             </span>
                           );
                         })
-                      : "Not Available"}
+                      : "-"}
                   </div>
                 </td>
                 {/* Sectors */}
@@ -1007,7 +1007,7 @@ const CorporateEventsTable = ({
                     <strong>Primary:</strong>{" "}
                     {(() => {
                       if (!primaryText || /not available/i.test(primaryText)) {
-                        return primaryText || "Not available";
+                        return primaryText || "-";
                       }
                       const names = primaryText
                         .split(",")
@@ -1043,7 +1043,7 @@ const CorporateEventsTable = ({
                         !secondaryText ||
                         /not available/i.test(secondaryText)
                       ) {
-                        return secondaryText || "Not available";
+                        return secondaryText || "-";
                       }
                       const names = secondaryText
                         .split(",")

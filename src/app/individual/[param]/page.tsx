@@ -305,7 +305,7 @@ export default function IndividualProfilePage() {
                 }}
               >
                 <div>
-                  <strong>Location:</strong> {location || "Not available"}
+                  <strong>Location:</strong> {location || "-"}
                 </div>
 
                 <div>
@@ -337,7 +337,7 @@ export default function IndividualProfilePage() {
                       LinkedIn
                     </a>
                   ) : (
-                    "Not available"
+                    "-"
                   )}
                 </div>
               </div>
@@ -460,7 +460,7 @@ export default function IndividualProfilePage() {
                                 role.new_company?._linkedin_data_of_new_company
                                   ?.linkedin_logo || ""
                               }
-                              name={role.new_company?.name || "—"}
+                              name={role.new_company?.name || "-"}
                             />
                           </td>
                           <td style={{ padding: "8px", fontSize: "12px" }}>
@@ -476,7 +476,7 @@ export default function IndividualProfilePage() {
                               </a>
                             ) : (
                               <span style={{ color: "#6b7280" }}>
-                                {role.new_company?.name || "—"}
+                                {role.new_company?.name || "-"}
                               </span>
                             )}
                           </td>
@@ -520,7 +520,7 @@ export default function IndividualProfilePage() {
                               <span
                                 style={{ color: "#6b7280", fontSize: "10px" }}
                               >
-                                Not available
+                                -
                               </span>
                             )}
                           </td>
@@ -702,13 +702,13 @@ export default function IndividualProfilePage() {
                               {formatDate(event.announcement_date)}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {event.deal_type || "—"}
+                              {event.deal_type || "-"}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {(() => {
                                 const target =
                                   event._target_counterparty_of_corporate_events;
-                                return target?.name || "—";
+                                return target?.name || "-";
                               })()}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
@@ -716,9 +716,9 @@ export default function IndividualProfilePage() {
                                 const arr =
                                   event._other_counterparties_of_corporate_events ||
                                   [];
-                                if (arr.length === 0) return "—";
+                                if (arr.length === 0) return "-";
                                 return arr
-                                  .map((cp) => cp.name || "—")
+                                  .map((cp) => cp.name || "-")
                                   .join(", ");
                               })()}
                             </td>
@@ -730,7 +730,7 @@ export default function IndividualProfilePage() {
                                     event.ev_data.enterprise_value_m,
                                     event.ev_data._currency.Currency
                                   )
-                                : "—"}
+                                : "-"}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {(() => {
@@ -738,7 +738,7 @@ export default function IndividualProfilePage() {
                                   event._related_to_corporate_event_individuals?.filter(
                                     (ind) => ind.id !== individualId
                                   ) || [];
-                                if (others.length === 0) return "—";
+                                if (others.length === 0) return "-";
                                 return others.map((ind, i) => (
                                   <span key={`${ind.id}-${i}`}>
                                     <a
@@ -880,7 +880,7 @@ export default function IndividualProfilePage() {
                                     ?.linkedin_logo || ""
                                 }
                                 name={
-                                  relatedIndividual._new_company?.name || "—"
+                                  relatedIndividual._new_company?.name || "-"
                                 }
                               />
                             </td>
@@ -898,7 +898,7 @@ export default function IndividualProfilePage() {
                                 </a>
                               ) : (
                                 <span style={{ color: "#6b7280" }}>
-                                  {relatedIndividual._new_company?.name || "—"}
+                                  {relatedIndividual._new_company?.name || "-"}
                                 </span>
                               )}
                             </td>
@@ -939,7 +939,7 @@ export default function IndividualProfilePage() {
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {relatedIndividual.job_titles_id
                                 .map((jt) => jt.job_title)
-                                .join(", ") || "—"}
+                                .join(", ") || "-"}
                             </td>
                           </tr>
                         )

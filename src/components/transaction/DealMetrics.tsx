@@ -26,11 +26,11 @@ const MetricCard = ({
       </p>
       {inlineSubValue && subValue ? (
         <p className="text-lg font-normal text-slate-900">
-          {value || 'Not available'} <span className="text-sm text-slate-500 ml-1">{subValue}</span>
+          {value || '-'} <span className="text-sm text-slate-500 ml-1">{subValue}</span>
         </p>
       ) : (
         <>
-          <p className="text-lg font-normal text-slate-900">{value || 'Not available'}</p>
+          <p className="text-lg font-normal text-slate-900">{value || '-'}</p>
           {subValue && <p className="text-sm text-slate-500 mt-0.5">{subValue}</p>}
         </>
       )}
@@ -55,7 +55,7 @@ export default function DealMetrics({ metrics }: {
 }) {
   const renderSectors = (sectors?: Array<{ name: string; id?: number }>) => {
     if (!sectors || sectors.length === 0) {
-      return <span className="text-xl font-normal text-slate-900">Not available</span>;
+      return <span className="text-xl font-normal text-slate-900">-</span>;
     }
     return (
       <div className="flex flex-wrap items-center">
@@ -80,7 +80,7 @@ export default function DealMetrics({ metrics }: {
 
   const renderSubSectors = (subSectors?: Array<{ name: string; id?: number }>) => {
     if (!subSectors || subSectors.length === 0) {
-      return <span className="text-xl font-normal text-slate-900">Not available</span>;
+      return <span className="text-xl font-normal text-slate-900">-</span>;
     }
     return (
       <div className="flex flex-wrap items-center">

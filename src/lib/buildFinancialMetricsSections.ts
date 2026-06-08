@@ -100,7 +100,7 @@ export function appendMetricCurrency(
   formatted: string,
   currencyCode?: string
 ): string {
-  if (!currencyCode || formatted === "Not available") return formatted;
+  if (!currencyCode || formatted === "-") return formatted;
   const code = currencyCode.trim().toUpperCase();
   if (code === "USD") return `US$ ${formatted}`;
   const sym = CURRENCY_SYMBOLS[code];
@@ -198,7 +198,7 @@ export function buildFinancialMetricsSections({
         const n = getNumeric(fm?.Rule_of_40);
         return n !== undefined
           ? Math.round(n).toLocaleString()
-          : "Not available";
+          : "-";
       })(),
       src(fm?.Rule_of_40_source_label, fm?.Rule_of_40_source)
     )
@@ -212,7 +212,7 @@ export function buildFinancialMetricsSections({
     ),
     row(
       "ARR (m):",
-      money(formatPlainNumber(fm?.ARR_m)),
+      formatPlainNumber(fm?.ARR_m),
       src(fm?.ARR_source_label, fm?.ARR_source)
     ),
     row(
@@ -260,19 +260,19 @@ export function buildFinancialMetricsSections({
   const otherRows: FinancialMetricRow[] = [
     row(
       "EBIT (m):",
-      money(formatPlainNumber(fm?.EBIT_m)),
+      formatPlainNumber(fm?.EBIT_m),
       src(fm?.EBIT_source_label, fm?.EBIT_source)
     ),
     row(
       "Number of clients:",
       typeof fm?.No_of_Clients === "number"
         ? fm.No_of_Clients.toLocaleString()
-        : "Not available",
+        : "-",
       src(fm?.No_of_Clients_source_label, fm?.No_Clients_source)
     ),
     row(
-      "Revenue per client:",
-      money(formatWholeNumber(fm?.Rev_per_client)),
+      "Revenue per client (k):",
+      formatWholeNumber(fm?.Rev_per_client),
       src(fm?.Rev_per_client_source_label, fm?.Rev_per_client_source)
     ),
     row(
@@ -283,8 +283,8 @@ export function buildFinancialMetricsSections({
       src(fm?.No_Employees_source_label, fm?.No_Employees_source)
     ),
     row(
-      "Revenue per employee:",
-      money(formatWholeNumber(fm?.Revenue_per_employee)),
+      "Revenue per employee (k):",
+      formatWholeNumber(fm?.Revenue_per_employee),
       src(fm?.Revenue_per_employee_source_label, fm?.Rev_per_employee_source)
     ),
   ];

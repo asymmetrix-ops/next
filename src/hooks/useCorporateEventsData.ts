@@ -70,12 +70,12 @@ export const useCorporateEventsData = (investorId: string) => {
         type: event.deal_type,
         counterparty_status:
           event.counterparty_status?.counterparty_syayus?.counterparty_status ||
-          "—",
-        other_counterparties: otherCounterparties || "—",
+          "-",
+        other_counterparties: otherCounterparties || "-",
         enterprise_value: event.ev_data?.enterprise_value_m
           ? `$${Number(event.ev_data.enterprise_value_m).toLocaleString()}`
-          : event.ev_data?.ev_band || "—",
-        advisors: advisorNames || "—",
+          : event.ev_data?.ev_band || "-",
+        advisors: advisorNames || "-",
       };
     });
   }, [corporateEvents]);

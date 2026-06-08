@@ -590,7 +590,7 @@ const PortfolioTable = React.memo<{
                     <CompanyDescription description={company.description} />
                   </td>
                   <td style={{ padding: "12px" }}>
-                    <span style={{ color: "#64748b" }}>Not available</span>
+                    <span style={{ color: "#64748b" }}>-</span>
                   </td>
                   <td style={{ padding: "12px" }}>
                     {formatNumber(
@@ -598,7 +598,7 @@ const PortfolioTable = React.memo<{
                     )}
                   </td>
                   <td style={{ padding: "12px" }}>
-                    {company._locations?.Country || "Not available"}
+                    {company._locations?.Country || "-"}
                   </td>
                 </tr>
               ))
@@ -744,13 +744,13 @@ const CorporateEventsTable = React.memo<{
                 <td style={{ padding: "12px" }}>
                   {event.announcement_date
                     ? formatDate(event.announcement_date)
-                    : "—"}
+                    : "-"}
                 </td>
-                <td style={{ padding: "12px" }}>{event.type || "—"}</td>
+                <td style={{ padding: "12px" }}>{event.type || "-"}</td>
                 <td style={{ padding: "12px" }}>{event.counterparty_status}</td>
                 <td style={{ padding: "12px" }}>
                   <div style={{ maxWidth: "150px", fontSize: "12px" }}>
-                    {event.other_counterparties !== "—"
+                    {event.other_counterparties !== "-"
                       ? event.other_counterparties
                           .split(", ")
                           .map((companyName: string, idx: number) => (
@@ -771,13 +771,13 @@ const CorporateEventsTable = React.memo<{
                                   1 && ", "}
                             </span>
                           ))
-                      : "—"}
+                      : "-"}
                   </div>
                 </td>
                 <td style={{ padding: "12px" }}>{event.enterprise_value}</td>
                 <td style={{ padding: "12px" }}>
                   <div style={{ maxWidth: "150px", fontSize: "12px" }}>
-                    {event.advisors !== "—"
+                    {event.advisors !== "-"
                       ? event.advisors
                           .split(", ")
                           .map((advisorName: string, idx: number) => (
@@ -797,7 +797,7 @@ const CorporateEventsTable = React.memo<{
                                 ", "}
                             </span>
                           ))
-                      : "—"}
+                      : "-"}
                   </div>
                 </td>
               </tr>
