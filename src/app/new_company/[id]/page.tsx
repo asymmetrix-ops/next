@@ -3190,6 +3190,13 @@ const CompanyDetail = () => {
 
   const productDataToggleDataRows = dataCollectionMethodRows;
 
+  const showAiRisk = aiRiskAxes != null && aiRiskAxes.length > 0;
+  const showCoreProducts = coreProductsSections.length > 0;
+  /** Pack column 2/3 upward when optional cards above are hidden */
+  const dataCollectionGridRow = showCoreProducts ? 4 : 3;
+  const headcountGridRow = showAiRisk ? 5 : 3;
+  const managementGridRow = showAiRisk ? 6 : 4;
+
   const responsiveCss = `
     .company-detail-page { overflow-x: hidden; }
     .responsiveGrid {
@@ -3245,7 +3252,7 @@ const CompanyDetail = () => {
     .company-grid-product-mix { grid-column: 1; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
     .company-grid-revenue-model { grid-column: 1; grid-row: 4; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
     .company-grid-product-users { grid-column: 2; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-data-collection { grid-column: 2; grid-row: 4; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-data-collection { grid-column: 2; grid-row: ${dataCollectionGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
     .company-grid-ai-risk { grid-column: 3; grid-row: 3 / span 2; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
     .company-grid-corporate-events,
     .company-grid-subsidiaries,
@@ -3265,8 +3272,8 @@ const CompanyDetail = () => {
       max-width: 100%;
       width: 100%;
     }
-    .company-grid-headcount { grid-column: 3; grid-row: 5; }
-    .company-grid-management { grid-column: 3; grid-row: 6; }
+    .company-grid-headcount { grid-column: 3; grid-row: ${headcountGridRow}; }
+    .company-grid-management { grid-column: 3; grid-row: ${managementGridRow}; }
     .card {
       background: ${T.panel};
       border-radius: ${T.rLg}px;
@@ -4126,8 +4133,8 @@ const CompanyDetail = () => {
               </div>
             )}
 
-            <div className="company-grid-revenue-model">
-              {revenueModelRows.length > 0 && (
+            {revenueModelRows.length > 0 && (
+              <div className="company-grid-revenue-model">
                 <RevenueModelCard
                   rows={revenueModelRows.map((r) => ({
                     name: r.label,
@@ -4135,8 +4142,8 @@ const CompanyDetail = () => {
                   }))}
                   fillGridCell
                 />
-              )}
-            </div>
+              </div>
+            )}
 
             {coreProductsSections.length > 0 && (
               <div className="company-grid-product-users">
