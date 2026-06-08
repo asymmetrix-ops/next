@@ -18,6 +18,8 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "logo",
   "name",
   "description",
+  // Portfolio filter is provided via EXTRA_FILTER_DEFS (id: followed)
+  "follow",
   // URL columns — not filterable
   "website",
   "linkedin_url",
@@ -128,6 +130,9 @@ export function getColumnKeysForActiveFilters(
 function mapColumnCategoryToFilterCategory(
   column: CompanyColumnMeta
 ): string {
+  if (column.columnKey === "follow") {
+    return "lists";
+  }
   if (
     column.columnKey === "primary_sectors" ||
     column.columnKey === "secondary_sectors"
@@ -310,6 +315,14 @@ export const EXTRA_FILTER_DEFS: Pick<
     type: "Aa",
     editor: "segmented",
     options: ["Pure-play D&A", "Has non-D&A", "Either"],
+  },
+  {
+    id: "followed",
+    label: "My Portfolio",
+    fullLabel: "Companies in My Portfolio",
+    category: "lists",
+    type: "Aa",
+    editor: "boolean",
   },
 ];
 

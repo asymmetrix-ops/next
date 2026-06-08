@@ -66,7 +66,7 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
       {
         id: "follow",
         columnKey: "follow",
-        label: "Follow",
+        label: "My Portfolio",
         type: "follow",
         defaultVisible: false,
         badge: "New",

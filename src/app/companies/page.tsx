@@ -53,6 +53,7 @@ import {
   getSortValueForColumn,
 } from "@/components/companies/companiesTableSort";
 import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
+import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
 import {
   getApiColumnsForSelectedKeys,
@@ -517,9 +518,9 @@ const useCompaniesAPI = () => {
 };
 
 // Company Logo Component
-const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
-  if (logo) {
-    return (
+const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => (
+  <div className="company-logo-cell">
+    {logo ? (
       <Image
         src={`data:image/jpeg;base64,${logo}`}
         alt={`${name} logo`}
@@ -528,27 +529,11 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
         className="company-logo"
         style={{ objectFit: "contain" }}
       />
-    );
-  }
-
-  return (
-    <div
-      style={{
-        width: "60px",
-        height: "40px",
-        backgroundColor: "#f7fafc",
-        borderRadius: "8px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "10px",
-        color: "#718096",
-      }}
-    >
-      No Logo
-    </div>
-  );
-};
+    ) : (
+      <div className="company-logo-placeholder">No Logo</div>
+    )}
+  </div>
+);
 
 // Helper to get sector info from API response
 
@@ -914,9 +899,9 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
     cols: [
       {
         key: "follow",
-        label: "Follow",
+        label: "My Portfolio",
         group: "Lists",
-        minWidth: 72,
+        minWidth: 120,
         render: (company) => {
           const id =
             typeof company.id === "number"
@@ -926,7 +911,6 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
           return (
             <div
               className="company-follow-cell"
-              style={{ display: "flex", justifyContent: "center" }}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             >
@@ -986,10 +970,33 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
       makeTextColumn("year_founded", "Year Founded", "Overview"),
       makeTextColumn("city", "City", "Overview"),
       makeTextColumn("state", "State/Province", "Overview"),
-      makeTextColumn("linkedin_url", "LinkedIn URL", "Overview", {
+      {
+        key: "linkedin_url",
+        label: "LinkedIn URL",
+        group: "Overview",
         wrap: true,
         minWidth: 220,
-      }),
+        render: (company) => {
+          const raw = readCompanyValue(company, [
+            ...getFieldAliasesForColumn("linkedin_url"),
+          ]);
+          const href =
+            normalizeLinkedInProfileUrl(raw) ?? normalizeWebsiteUrl(raw);
+          if (!href) return toPlainText(raw);
+          return (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="company-website-link"
+              style={{ color: "#3b82f6", textDecoration: "none" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {formatWebsiteLabel(href)}
+            </a>
+          );
+        },
+      },
       makeTextColumn("linkedin_growth", "LinkedIn Growth (%)", "Overview"),
       {
         key: "investors",
@@ -1276,6 +1283,7 @@ CompanyDescription.displayName = "CompanyDescription";
 // ── Filter helpers ─────────────────────────────────────────────────────────
 
 const FILTER_CATEGORIES: FilterCategory[] = [
+  { id: "lists",        name: "Lists" },
   { id: "location",     name: "Location" },
   { id: "sectors",      name: "Sectors" },
   { id: "company",      name: "Company details" },
@@ -1324,8 +1332,8 @@ function buildCompaniesFilterDefs({
       max: 2030,
       presets: [
         ["Pre-2000", 1800, 1999],
-        ["2000–2010", 2000, 2010],
-        ["2010–2020", 2010, 2020],
+        ["2000–2009", 2000, 2009],
+        ["2010–2019", 2010, 2019],
         ["2020+", 2020, 2030],
       ],
     },
@@ -1333,10 +1341,10 @@ function buildCompaniesFilterDefs({
       min: 0,
       max: 100000,
       presets: [
-        ["Small <100", 0, 100],
-        ["Mid 100-1k", 100, 1000],
-        ["Large 1k-10k", 1000, 10000],
-        ["Enterprise 10k+", 10000, 100000],
+        ["<100", 0, 99],
+        ["100–999", 100, 999],
+        ["1k–9.9k", 1000, 9999],
+        ["10k+", 10000, 100000],
       ],
     },
     headcount_growth: {
@@ -1344,10 +1352,11 @@ function buildCompaniesFilterDefs({
       min: -50,
       max: 200,
       presets: [
-        ["≥10%", 10, 200],
-        ["≥25%", 25, 200],
-        ["≥50%", 50, 200],
-        ["Declining", -50, 0],
+        ["Declining", -50, -1],
+        ["0–9%", 0, 9],
+        ["10–24%", 10, 24],
+        ["25–49%", 25, 49],
+        ["50%+", 50, 200],
       ],
     },
     years_since_inv: {
@@ -1355,9 +1364,9 @@ function buildCompaniesFilterDefs({
       min: 0,
       max: 20,
       presets: [
-        ["0-2y", 0, 2],
-        ["3-5y", 3, 5],
-        ["5+y", 5, 20],
+        ["0–2y", 0, 2],
+        ["3–5y", 3, 5],
+        ["6y+", 6, 20],
       ],
     },
     revenue: {
@@ -1365,9 +1374,10 @@ function buildCompaniesFilterDefs({
       min: 0,
       max: 5000,
       presets: [
-        ["<$10m", 0, 10],
-        ["$10–50m", 10, 50],
-        ["$50–500m", 50, 500],
+        ["<$10m", 0, 9],
+        ["$10–49m", 10, 49],
+        ["$50–99m", 50, 99],
+        ["$100–499m", 100, 499],
         ["$500m+", 500, 5000],
       ],
     },
@@ -1376,9 +1386,11 @@ function buildCompaniesFilterDefs({
       min: -100,
       max: 2000,
       presets: [
-        ["Profitable", 0, 2000],
-        ["$10m+", 10, 2000],
-        ["$50m+", 50, 2000],
+        ["Negative", -100, -1],
+        ["$0–9m", 0, 9],
+        ["$10–49m", 10, 49],
+        ["$50–499m", 50, 499],
+        ["$500m+", 500, 2000],
       ],
     },
     enterprise_value: {
@@ -1386,71 +1398,122 @@ function buildCompaniesFilterDefs({
       min: 0,
       max: 50000,
       presets: [
-        ["<$100m", 0, 100],
-        ["$100m–$1b", 100, 1000],
-        ["$1–10b", 1000, 10000],
-        ["Mega", 10000, 50000],
+        ["<$100m", 0, 99],
+        ["$100–999m", 100, 999],
+        ["$1–9.9b", 1000, 9999],
+        ["$10b+", 10000, 50000],
       ],
     },
     rev_growth: {
       unit: "%",
       min: -50,
       max: 200,
-      presets: [["≥10%", 10, 200], ["≥25%", 25, 200], ["≥50%", 50, 200]],
+      presets: [
+        ["<0%", -50, -1],
+        ["0–9%", 0, 9],
+        ["10–24%", 10, 24],
+        ["25–49%", 25, 49],
+        ["50%+", 50, 200],
+      ],
     },
     ebitda_margin: {
       unit: "%",
       min: -50,
       max: 80,
-      presets: [["≥20%", 20, 80], ["≥30%", 30, 80], ["≥40%", 40, 80]],
+      presets: [
+        ["<0%", -50, -1],
+        ["0–19%", 0, 19],
+        ["20–29%", 20, 29],
+        ["30–39%", 30, 39],
+        ["40%+", 40, 80],
+      ],
     },
     rev_multiple: {
       unit: "x",
       min: 0,
       max: 30,
-      presets: [["<3x", 0, 3], ["3–7x", 3, 7], ["7x+", 7, 30]],
+      presets: [
+        ["<3x", 0, 2],
+        ["3–6x", 3, 6],
+        ["7x+", 7, 30],
+      ],
     },
     rule_40: {
       unit: "%",
       min: 0,
       max: 150,
-      presets: [["≥40%", 40, 150], ["≥60%", 60, 150]],
+      presets: [
+        ["<40%", 0, 39],
+        ["40–59%", 40, 59],
+        ["60%+", 60, 150],
+      ],
     },
     arr: {
       unit: "$m",
       min: 0,
       max: 5000,
-      presets: [["$10m+", 10, 5000], ["$50m+", 50, 5000], ["$100m+", 100, 5000]],
+      presets: [
+        ["<$10m", 0, 9],
+        ["$10–49m", 10, 49],
+        ["$50–99m", 50, 99],
+        ["$100–499m", 100, 499],
+        ["$500m+", 500, 5000],
+      ],
     },
     arr_growth: {
       unit: "%",
       min: -20,
       max: 200,
-      presets: [["≥20%", 20, 200], ["≥40%", 40, 200]],
+      presets: [
+        ["<0%", -20, -1],
+        ["0–19%", 0, 19],
+        ["20–39%", 20, 39],
+        ["40%+", 40, 200],
+      ],
     },
     churn: {
       unit: "%",
       min: 0,
       max: 50,
-      presets: [["<5%", 0, 5], ["<10%", 0, 10]],
+      presets: [
+        ["<5%", 0, 4],
+        ["5–9%", 5, 9],
+        ["10–19%", 10, 19],
+        ["20%+", 20, 50],
+      ],
     },
     nrr: {
       unit: "%",
       min: 50,
       max: 200,
-      presets: [["≥100%", 100, 200], ["≥110%", 110, 200], ["≥120%", 120, 200]],
+      presets: [
+        ["<100%", 50, 99],
+        ["100–109%", 100, 109],
+        ["110–119%", 110, 119],
+        ["120%+", 120, 200],
+      ],
     },
     grr: {
       unit: "%",
       min: 50,
       max: 100,
-      presets: [["≥90%", 90, 100], ["≥95%", 95, 100]],
+      presets: [
+        ["<90%", 50, 89],
+        ["90–94%", 90, 94],
+        ["95–99%", 95, 99],
+        ["100%", 100, 100],
+      ],
     },
     new_client_growth: {
       unit: "%",
       min: -20,
       max: 100,
-      presets: [["≥10%", 10, 100], ["≥25%", 25, 100]],
+      presets: [
+        ["<0%", -20, -1],
+        ["0–9%", 0, 9],
+        ["10–24%", 10, 24],
+        ["25%+", 25, 100],
+      ],
     },
   };
 
@@ -1787,10 +1850,73 @@ function buildFiltersFromState(
   return f;
 }
 
-/** Xano ownership_type ids used by ownership tab filters. */
-const OTHER_OWNERSHIP_TYPE_IDS = [
-  6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 21, 22,
+/** Xano ownership_type ids grouped under the "Other" ownership tab. */
+const OTHER_OWNERSHIP_TYPES = [
+  { id: 6, ownership: "Consortium" },
+  { id: 8, ownership: "Foundation" },
+  { id: 9, ownership: "Public Benefit Corporation" },
+  { id: 10, ownership: "Family Office" },
+  { id: 11, ownership: "Not-For-Profit" },
+  { id: 12, ownership: "Industry Association" },
+  { id: 13, ownership: "Inter-Governmental Organisation" },
+  { id: 14, ownership: "University" },
+  { id: 15, ownership: "Charity" },
+  { id: 16, ownership: "Government" },
+  { id: 17, ownership: "Fund" },
+  { id: 18, ownership: "Partnership" },
+  { id: 20, ownership: "ICO" },
+  { id: 21, ownership: "Employee-Owned" },
+  { id: 22, ownership: "Closed" },
 ] as const;
+
+const OTHER_OWNERSHIP_TYPE_IDS = OTHER_OWNERSHIP_TYPES.map((item) => item.id);
+
+const OTHER_OWNERSHIP_TOOLTIP_LABELS = OTHER_OWNERSHIP_TYPES.map(
+  (item) => item.ownership
+)
+  .slice()
+  .sort((a, b) => a.localeCompare(b));
+
+const OWNERSHIP_OTHER_TOOLTIP_STYLES = `
+  .ownership-tab-other-tooltip-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+  .ownership-tab-other-tooltip {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    z-index: 60;
+    min-width: 220px;
+    max-width: 300px;
+    padding: 10px 12px;
+    background: #1e293b;
+    color: #f8fafc;
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.2);
+    font-size: 12px;
+    line-height: 1.45;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity 0.1s ease, transform 0.1s ease, visibility 0.1s;
+  }
+  .ownership-tab-other-tooltip-wrap:hover .ownership-tab-other-tooltip,
+  .ownership-tab-other-tooltip-wrap:focus-within .ownership-tab-other-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+  .ownership-tab-other-tooltip ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ownership-tab-other-tooltip li + li {
+    margin-top: 3px;
+  }
+`;
 
 type OwnershipTab =
   | "all"
@@ -1824,7 +1950,7 @@ const OWNERSHIP_TAB_CONFIG: Record<
     ownershipTypeIds: [1],
   },
   vc: {
-    label: "VC-owned",
+    label: "VC-backed",
     dot: "#10b981",
     countKey: "vcOwnedCompanies",
     ownershipTypeIds: [3],
@@ -2083,6 +2209,7 @@ const CompanyDashboard = ({
 
   return (
     <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+      <style dangerouslySetInnerHTML={{ __html: OWNERSHIP_OTHER_TOOLTIP_STYLES }} />
       <div style={{ width: "100%", padding: "20px 28px 0" }}>
 
         {/* ── Header row: eyebrow + title + action buttons ── */}
@@ -2198,9 +2325,8 @@ const CompanyDashboard = ({
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {ownershipTabs.map((tab) => {
             const active = activeOwnershipTab === tab.id;
-            return (
+            const tabButton = (
               <button
-                key={tab.id}
                 onClick={() => setActiveOwnershipTab(tab.id)}
                 style={{
                   display: "flex", alignItems: "center", gap: 6,
@@ -2229,6 +2355,26 @@ const CompanyDashboard = ({
                   {tab.count.toLocaleString()}
                 </span>
               </button>
+            );
+
+            if (tab.id !== "other") {
+              return React.cloneElement(tabButton, { key: tab.id });
+            }
+
+            return (
+              <div
+                key={tab.id}
+                className="ownership-tab-other-tooltip-wrap"
+              >
+                {tabButton}
+                <div className="ownership-tab-other-tooltip" role="tooltip">
+                  <ul>
+                    {OTHER_OWNERSHIP_TOOLTIP_LABELS.map((label) => (
+                      <li key={label}>{label}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             );
           })}
         </div>
@@ -3463,9 +3609,24 @@ const CompanySection = ({
       text-align: center;
       vertical-align: middle;
     }
-    .company-table td.company-table-sticky-logo .company-logo,
-    .company-table td.company-table-sticky-logo > div {
+    .company-table td.company-table-sticky-logo .company-logo-cell {
+      width: 64px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       margin-inline: auto;
+    }
+    .company-table td.company-table-sticky-logo .company-logo-placeholder {
+      width: 60px;
+      height: 40px;
+      background-color: #f7fafc;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #718096;
     }
     .company-table td.company-table-sticky-logo .loading-skeleton {
       margin-inline: auto;
@@ -3497,6 +3658,8 @@ const CompanySection = ({
     .company-logo {
       width: 60px;
       height: 40px;
+      max-width: 100%;
+      max-height: 100%;
       object-fit: contain;
       vertical-align: middle;
       border-radius: 8px;
@@ -4079,7 +4242,7 @@ const CompanySection = ({
                 fontWeight: "500",
               },
             },
-            "VC-owned companies: "
+            "VC-backed companies: "
           ),
           React.createElement(
             "span",
