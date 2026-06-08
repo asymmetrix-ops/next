@@ -3606,16 +3606,15 @@ const CompanySection = ({
       min-width: 88px;
       max-width: 88px;
       width: 88px;
-      text-align: center;
-      vertical-align: middle;
+      text-align: left;
+      vertical-align: top;
     }
     .company-table td.company-table-sticky-logo .company-logo-cell {
-      width: 64px;
+      width: 60px;
       height: 40px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      margin-inline: auto;
+      justify-content: flex-start;
     }
     .company-table td.company-table-sticky-logo .company-logo-placeholder {
       width: 60px;
@@ -3627,9 +3626,6 @@ const CompanySection = ({
       justify-content: center;
       font-size: 10px;
       color: #718096;
-    }
-    .company-table td.company-table-sticky-logo .loading-skeleton {
-      margin-inline: auto;
     }
     .company-table-row-selected {
       background: #EFF6FF;
