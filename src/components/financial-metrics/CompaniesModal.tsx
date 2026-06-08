@@ -700,14 +700,14 @@ export default function CompaniesModal({
             Name: it.name ?? "-",
             Description: it.description ?? "-",
             "Primary Sector(s)": CompaniesCSVExporter.formatSectors(primary),
-            Sectors: CompaniesCSVExporter.formatSectors(secondary),
+            "Secondary Sector(s)": CompaniesCSVExporter.formatSectors(secondary),
             Ownership: it.ownership ?? "-",
             "LinkedIn Members": CompaniesCSVExporter.formatLinkedinMembers(
               typeof it.linkedin_members === "number"
                 ? it.linkedin_members
                 : Number(it.linkedin_members)
             ),
-            Country: it.country ?? "-",
+            HQ: it.country ?? "-",
             "Company URL": it.company_link ?? "",
             // Financial Metrics - always include all fields
             Revenue: (it.Revenue_m != null && it.Revenue_m !== "") 

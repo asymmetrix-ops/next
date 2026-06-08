@@ -2,7 +2,9 @@
  * Shared client for Xano `get_company_table_data` (article Generate Table, Companies Search).
  */
 
-import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import type { CompanyColumnType } from "@/components/companies/companiesColumnCategories";
+import { EMPTY_DISPLAY, normalizeEmptyDisplay, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 
 export const COMPANY_TABLE_DATA_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data";
@@ -99,6 +101,143 @@ export const formatMultipleValue = (value: unknown): string => {
   if (!Number.isFinite(num)) return toPlainText(value);
   return `${num.toFixed(1)}x`;
 };
+
+const DEFAULT_METRIC_CURRENCY = "USD";
+
+const isEmptyMetricValue = (value: unknown): boolean => {
+  if (value == null || value === "") return true;
+  if (typeof value === "string" && isEmptyDisplayValue(value)) return true;
+  return false;
+};
+
+export function formatNrrValue(value: unknown): string {
+  if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
+  const str = String(value).trim();
+  if (str.includes("%")) {
+    const num = Number(str.replace(/[^0-9.-]/g, ""));
+    if (Number.isFinite(num) && Math.abs(num) > 1000) {
+      const normalized = num / 100;
+      const decimals = Math.abs(normalized) % 1 === 0 ? 0 : 1;
+      return `${normalized.toFixed(decimals)}%`;
+    }
+    return normalizeEmptyDisplay(str);
+  }
+  return formatPercentValue(value);
+}
+
+export function formatMetricMillions(value: unknown): string {
+  if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
+  return appendMetricCurrency(formatPlainNumber(value), DEFAULT_METRIC_CURRENCY);
+}
+
+export function formatMetricCurrency(value: unknown): string {
+  if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
+  const num =
+    typeof value === "number"
+      ? value
+      : Number(String(value).replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(num)) return toPlainText(value);
+  const formatted = Math.round(num).toLocaleString("en-US", {
+    maximumFractionDigits: 0,
+  });
+  return appendMetricCurrency(formatted, DEFAULT_METRIC_CURRENCY);
+}
+
+export function formatWholeNumberValue(value: unknown): string {
+  if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
+  const num =
+    typeof value === "number"
+      ? value
+      : Number(String(value).replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(num)) return toPlainText(value);
+  return Math.round(num).toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+
+export function formatYearValue(value: unknown): string {
+  if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
+  const num = Number(String(value).replace(/[^0-9.-]/g, ""));
+  if (Number.isFinite(num) && num >= 1800 && num <= 2100) {
+    return String(Math.round(num));
+  }
+  return toPlainText(value);
+}
+
+const PERCENT_COLUMN_KEYS = new Set([
+  "linkedin_growth",
+  "revenue_growth",
+  "ebitda_margin",
+  "arr_pc",
+  "churn_pc",
+  "grr_pc",
+  "nrr",
+  "new_client_growth_pc",
+  "upsell_pc",
+  "cross_sell_pc",
+  "price_increase_pc",
+  "rev_expansion_pc",
+]);
+
+/** Formats a Companies Search cell using the same units as the company profile. */
+export function formatCompanyColumnDisplay(
+  columnKey: string,
+  columnType: CompanyColumnType,
+  raw: unknown
+): string {
+  if (isEmptyMetricValue(raw)) return EMPTY_DISPLAY;
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (/[%x]$/i.test(trimmed)) {
+      return normalizeEmptyDisplay(trimmed);
+    }
+  }
+
+  if (columnKey === "nrr") return formatNrrValue(raw);
+  if (columnKey === "revenue_multiple") return formatMultipleValue(raw);
+  if (columnKey === "rule_of_40") {
+    const formatted = formatPlainNumber(raw);
+    return formatted === EMPTY_DISPLAY ? formatted : `${formatted}%`;
+  }
+
+  if (PERCENT_COLUMN_KEYS.has(columnKey) || columnType === "percent") {
+    return formatPercentValue(raw);
+  }
+
+  if (
+    columnKey === "revenue_m" ||
+    columnKey === "ebitda_m" ||
+    columnKey === "enterprise_value" ||
+    columnKey === "arr_m" ||
+    columnKey === "ebit_m"
+  ) {
+    return formatMetricMillions(raw);
+  }
+
+  if (columnKey === "rev_per_client" || columnKey === "rev_per_employee") {
+    return formatMetricCurrency(raw);
+  }
+
+  if (columnType === "currency") {
+    return formatMetricMillions(raw);
+  }
+
+  if (columnType === "number") {
+    if (
+      columnKey === "linkedin_members" ||
+      columnKey === "no_of_clients" ||
+      columnKey === "no_employees"
+    ) {
+      return formatWholeNumberValue(raw);
+    }
+    return formatPlainNumber(raw);
+  }
+
+  if (columnType === "date") {
+    return formatYearValue(raw);
+  }
+
+  return toPlainText(raw);
+}
 
 const parseMaybeSetLikeList = (value: unknown): string[] => {
   if (value == null) return [];

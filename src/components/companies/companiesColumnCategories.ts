@@ -94,7 +94,7 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
       {
         id: "sectors",
         columnKey: "secondary_sectors",
-        label: "Sectors",
+        label: "Secondary Sector(s)",
         type: "text",
         defaultVisible: true,
       },
@@ -113,9 +113,9 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         defaultVisible: true,
       },
       {
-        id: "country",
-        columnKey: "country",
-        label: "Country",
+        id: "hq",
+        columnKey: "hq",
+        label: "HQ",
         type: "text",
         defaultVisible: true,
       },
@@ -130,13 +130,6 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         columnKey: "year_founded",
         label: "Year Founded",
         type: "date",
-        defaultVisible: false,
-      },
-      {
-        id: "hq",
-        columnKey: "hq",
-        label: "HQ",
-        type: "text",
         defaultVisible: false,
       },
       {
@@ -416,7 +409,7 @@ export const PROD_DEFAULT_COMPANY_COLUMN_KEYS = [
   "secondary_sectors",
   "ownership",
   "linkedin_members",
-  "country",
+  "hq",
 ] as const;
 
 /** Always visible, frozen in table — first columns, not hideable. */
