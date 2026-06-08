@@ -20,7 +20,6 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   secondary_sectors: "text",
   ownership: "text",
   linkedin_members: "number",
-  country: "text",
   year_founded: "number",
   hq: "text",
   city: "text",

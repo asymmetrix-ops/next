@@ -34,6 +34,7 @@ import {
   DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS,
   PROD_DEFAULT_COMPANY_COLUMN_KEYS,
   FROZEN_COLUMN_KEYS,
+  ALL_COMPANIES_COLUMN_META,
   enforceColumnKeyOrder,
   getEffectiveFrozenColumnKeys,
   columnKeysToVisibility,
@@ -51,7 +52,12 @@ import {
   getColumnSortKind,
   getSortValueForColumn,
 } from "@/components/companies/companiesTableSort";
-import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
+import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
+import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
+import {
+  getApiColumnsForSelectedKeys,
+  getApiColumnsSignature,
+} from "@/components/companies/companiesApiColumns";
 import {
   getFieldAliasesForColumn,
   LIST_JSON_COLUMN_KEYS,
@@ -599,6 +605,85 @@ const renderSectorLinks = (
   return nodes.length > 0 ? nodes : "-";
 };
 
+const getInvestorInfo = (investor: unknown): { name: string; id?: number } => {
+  if (typeof investor === "string" || typeof investor === "number") {
+    const name = String(investor).trim();
+    return name ? { name } : { name: "" };
+  }
+  if (!investor || typeof investor !== "object") return { name: "" };
+  const rec = investor as Record<string, unknown>;
+  const name = String(
+    rec.name ?? rec.investor_name ?? rec.company_name ?? ""
+  ).trim();
+  const idRaw =
+    rec.investor_id ?? rec.original_new_company_id ?? rec.id;
+  const id =
+    typeof idRaw === "number" && Number.isFinite(idRaw) && idRaw > 0
+      ? idRaw
+      : undefined;
+  return { name, id };
+};
+
+const readInvestorsFromCompany = (company: Company): unknown[] => {
+  const rec = company as unknown as Record<string, unknown>;
+
+  const structuredKeys = [
+    "investors",
+    "_companies_investors",
+    "investors_new_company",
+  ] as const;
+
+  for (const key of structuredKeys) {
+    const items = parseListField(rec[key]);
+    if (items.length === 0) continue;
+    if (items.some((item) => getInvestorInfo(item).id != null)) {
+      return items;
+    }
+  }
+
+  for (const key of ["_companies_investors", "investors_new_company"] as const) {
+    const items = parseListField(rec[key]);
+    if (items.length > 0) return items;
+  }
+
+  const fromInvestors = parseListField(rec.investors);
+  if (fromInvestors.length > 0) return fromInvestors;
+
+  return parseListField(rec.investor_names);
+};
+
+const renderInvestorLinks = (investors: unknown[]): React.ReactNode => {
+  if (!Array.isArray(investors) || investors.length === 0) return "-";
+
+  const nodes: React.ReactNode[] = [];
+  investors.forEach((investor, index) => {
+    const { name, id } = getInvestorInfo(investor);
+    if (!name) return;
+
+    const href = id != null ? `/investors/${id}` : undefined;
+    nodes.push(
+      href ? (
+        <a
+          key={`investor-${id}-${name}-${index}`}
+          href={href}
+          className="text-blue-600 underline hover:text-blue-800"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {name}
+        </a>
+      ) : (
+        <span key={`investor-${name}-${index}`}>{name}</span>
+      )
+    );
+
+    if (index < investors.length - 1) {
+      nodes.push(<span key={`investor-sep-${index}`}>, </span>);
+    }
+  });
+
+  return nodes.length > 0 ? nodes : "-";
+};
+
 type CompanyColumnRenderContext = {
   index: number;
   onCompanyClick: (companyId: number) => void;
@@ -726,6 +811,10 @@ const readCompanyValue = (company: Company, aliases: string[]): unknown => {
   return undefined;
 };
 
+const COLUMN_TYPE_BY_KEY = new Map(
+  ALL_COMPANIES_COLUMN_META.map((column) => [column.columnKey, column.type])
+);
+
 const makeTextColumn = (
   key: string,
   label: string,
@@ -742,7 +831,11 @@ const makeTextColumn = (
       const items = parseListField(raw);
       return toPlainText(items.length > 0 ? items : raw);
     }
-    return toPlainText(raw);
+    const columnType = COLUMN_TYPE_BY_KEY.get(key) ?? "text";
+    if (columnType === "text" || columnType === "paragraph" || columnType === "url") {
+      return toPlainText(raw);
+    }
+    return formatCompanyColumnDisplay(key, columnType, raw);
   },
 });
 
@@ -788,10 +881,32 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
           </a>
         ),
       },
-      makeTextColumn("website", "Website", "Identity", {
+      {
+        key: "website",
+        label: "Website",
+        group: "Identity",
         wrap: true,
         minWidth: 220,
-      }),
+        render: (company) => {
+          const raw = readCompanyValue(company, [
+            ...getFieldAliasesForColumn("website"),
+          ]);
+          const href = normalizeWebsiteUrl(raw);
+          if (!href) return toPlainText(raw);
+          return (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="company-website-link"
+              style={{ color: "#3b82f6", textDecoration: "none" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {formatWebsiteLabel(href)}
+            </a>
+          );
+        },
+      },
     ],
   },
   {
@@ -851,7 +966,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
       },
       {
         key: "secondary_sectors",
-        label: "Sectors",
+        label: "Secondary Sector(s)",
         group: "Default",
         wrap: true,
         minWidth: 190,
@@ -862,14 +977,13 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
       makeTextColumn("linkedin_members", "LinkedIn Members", "Default", {
         minWidth: 130,
       }),
-      makeTextColumn("country", "Country", "Default"),
+      makeTextColumn("hq", "HQ", "Default", { wrap: true, minWidth: 220 }),
     ],
   },
   {
     group: "Overview",
     cols: [
       makeTextColumn("year_founded", "Year Founded", "Overview"),
-      makeTextColumn("hq", "HQ", "Overview", { wrap: true, minWidth: 220 }),
       makeTextColumn("city", "City", "Overview"),
       makeTextColumn("state", "State/Province", "Overview"),
       makeTextColumn("linkedin_url", "LinkedIn URL", "Overview", {
@@ -883,11 +997,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Overview",
         wrap: true,
         minWidth: 220,
-        render: (company) => {
-          const raw = readCompanyValue(company, [...getFieldAliasesForColumn("investors")]);
-          const items = parseListField(raw);
-          return toPlainText(items.length > 0 ? items : raw);
-        },
+        render: (company) => renderInvestorLinks(readInvestorsFromCompany(company)),
       },
       makeTextColumn("years_since_last_investment", "Years Since Last Investment", "Overview", {
         minWidth: 190,
@@ -962,9 +1072,10 @@ const getValidColumnKeys = (
   const seen = new Set<string>();
   const valid: string[] = [];
   keys.forEach((key) => {
-    if (ALL_COMPANY_COLUMN_KEYS.includes(key) && !seen.has(key)) {
-      seen.add(key);
-      valid.push(key);
+    const normalizedKey = key === "country" ? "hq" : key;
+    if (ALL_COMPANY_COLUMN_KEYS.includes(normalizedKey) && !seen.has(normalizedKey)) {
+      seen.add(normalizedKey);
+      valid.push(normalizedKey);
     }
   });
   return enforceColumnKeyOrder(
@@ -1095,12 +1206,14 @@ const CompanyCardBase = ({
         React.createElement(
           "span",
           { className: "company-card-label" },
-          "Country:"
+          "HQ:"
         ),
         React.createElement(
           "span",
           { className: "company-card-value" },
-          company.country || "-"
+          toPlainText(
+            readCompanyValue(company, [...getFieldAliasesForColumn("hq")])
+          )
         )
       ),
       React.createElement(
@@ -2230,6 +2343,12 @@ const CompanySection = ({
 
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const phantomScrollRef = useRef<HTMLDivElement | null>(null);
+  const pendingScrollLeftRef = useRef<number | null>(null);
+  const apiColumnsSigRef = useRef<string | null>(null);
+  const prevSelectedColumnKeysRef = useRef<string[]>([]);
+  const [loadingColumnKeys, setLoadingColumnKeys] = useState<Set<string>>(
+    () => new Set()
+  );
   const [tableScrollWidth, setTableScrollWidth] = useState(0);
   const [showPhantomScroll, setShowPhantomScroll] = useState(false);
 
@@ -2313,10 +2432,52 @@ const CompanySection = ({
     if (!columnPrefsLoaded) return;
     const apiColumns = getApiColumnsForSelectedKeys(selectedColumnKeys);
     setRequestColumns(apiColumns);
+
+    const sig = getApiColumnsSignature(selectedColumnKeys);
+    if (apiColumnsSigRef.current === sig) return;
+
+    const isInitialColumnFetch = apiColumnsSigRef.current === null;
+    if (!isInitialColumnFetch) {
+      const prevKeys = new Set(prevSelectedColumnKeysRef.current);
+      const addedKeys = selectedColumnKeys.filter(
+        (key) =>
+          !prevKeys.has(key) && key !== "logo" && key !== "name"
+      );
+      if (addedKeys.length > 0) {
+        setLoadingColumnKeys(new Set(addedKeys));
+      }
+    }
+
+    prevSelectedColumnKeysRef.current = selectedColumnKeys;
+    apiColumnsSigRef.current = sig;
+
+    const table = tableScrollRef.current;
+    if (table && table.scrollLeft > 0) {
+      pendingScrollLeftRef.current = table.scrollLeft;
+    }
+
     void fetchCompanies(1, currentFilters);
-    // Re-fetch when visible optional columns change; filters are read from latest state.
+    // Re-fetch only when the set of requested API columns changes (add/remove), not reorder.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedColumnKeys, columnPrefsLoaded]);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingColumnKeys(new Set());
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    if (loading || pendingScrollLeftRef.current == null) return;
+    const left = pendingScrollLeftRef.current;
+    pendingScrollLeftRef.current = null;
+    requestAnimationFrame(() => {
+      const table = tableScrollRef.current;
+      const phantom = phantomScrollRef.current;
+      if (table) table.scrollLeft = left;
+      if (phantom) phantom.scrollLeft = left;
+    });
+  }, [loading]);
 
   const selectedColumns = useMemo(() => {
     const columnsByKey = new Map(ALL_COMPANY_COLUMNS.map((column) => [column.key, column]));
@@ -2760,14 +2921,16 @@ const CompanySection = ({
             Name: it.name ?? "-",
             Description: it.description ?? "-",
             "Primary Sector(s)": CompaniesCSVExporter.formatSectors(primary),
-            Sectors: CompaniesCSVExporter.formatSectors(secondary),
+            "Secondary Sector(s)": CompaniesCSVExporter.formatSectors(secondary),
             Ownership: it.ownership ?? "-",
             "LinkedIn Members": CompaniesCSVExporter.formatLinkedinMembers(
               typeof it.linkedin_members === "number"
                 ? it.linkedin_members
                 : Number(it.linkedin_members)
             ),
-            Country: it.country ?? "-",
+            HQ: toPlainText(
+              readCompanyValue(it as Company, [...getFieldAliasesForColumn("hq")])
+            ),
             "Company Link": companyLink || "-",
             "Company URL": it.company_link ?? "",
             // Financial Metrics - exact field names from API
@@ -2948,10 +3111,18 @@ const CompanySection = ({
                   ...getStickyColumnStyle(column.key, column.minWidth),
                 }}
               >
-                {column.render(displayCompany, {
-                  index,
-                  onCompanyClick: handleCompanyClick,
-                })}
+                {loadingColumnKeys.has(column.key) ? (
+                  <div
+                    className="loading-skeleton"
+                    style={{ width: "80%", height: 18, minWidth: 48 }}
+                    aria-label="Loading column data"
+                  />
+                ) : (
+                  column.render(displayCompany, {
+                    index,
+                    onCompanyClick: handleCompanyClick,
+                  })
+                )}
               </td>
             ))}
             {onEditCompany && (
@@ -2980,6 +3151,9 @@ const CompanySection = ({
       selectedColumns,
       selectedCompanyIds,
       onToggleCompanySelection,
+      loadingColumnKeys,
+      getStickyColumnStyle,
+      getTableColumnClassName,
     ]
   );
 
@@ -3107,6 +3281,11 @@ const CompanySection = ({
       background-size: 200% 100%;
       animation: shimmer 1.5s ease-in-out infinite;
       border-radius: 4px;
+    }
+    .company-table-col-loading {
+      background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
     }
     @keyframes shimmer {
       0% { background-position: 200% 0; }
@@ -3281,6 +3460,15 @@ const CompanySection = ({
       min-width: 88px;
       max-width: 88px;
       width: 88px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .company-table td.company-table-sticky-logo .company-logo,
+    .company-table td.company-table-sticky-logo > div {
+      margin-inline: auto;
+    }
+    .company-table td.company-table-sticky-logo .loading-skeleton {
+      margin-inline: auto;
     }
     .company-table-row-selected {
       background: #EFF6FF;
@@ -3568,7 +3756,33 @@ const CompanySection = ({
     }
   `;
 
-  if (loading) {
+  const columnsModalLayer = [
+    showColumnsModal &&
+      React.createElement("div", {
+        key: "columns-backdrop",
+        style: {
+          position: "fixed",
+          inset: 0,
+          zIndex: 199,
+          cursor: "default",
+        },
+        onClick: () => setShowColumnsModal(false),
+        "aria-hidden": true,
+      }),
+    showColumnsModal &&
+      React.createElement(ColumnsControlRoom, {
+        key: "columns-panel",
+        initial: columnVisibilityInitial,
+        initialOrder: selectedColumnKeys,
+        filterPinnedColumnKeys,
+        onCancel: () => setShowColumnsModal(false),
+        onApply: handleApplyColumnVisibility,
+      }),
+  ];
+
+  const showInitialLoadingSkeleton = loading && companies.length === 0;
+
+  if (showInitialLoadingSkeleton) {
     const skeletonRow = (i: number) =>
       React.createElement(
         "tr",
@@ -3690,7 +3904,7 @@ const CompanySection = ({
             React.createElement("th", null, "Secondary Sectors"),
             React.createElement("th", null, "Ownership"),
             React.createElement("th", null, "LinkedIn"),
-            React.createElement("th", null, "Country"),
+            React.createElement("th", null, "HQ"),
             ...(onEditCompany
               ? [React.createElement("th", { key: "edit" }, "")]
               : [])
@@ -3702,6 +3916,7 @@ const CompanySection = ({
           ...[...Array(10)].map((_, i) => skeletonRow(i))
         )
       ),
+      ...columnsModalLayer,
       React.createElement("style", {
         dangerouslySetInnerHTML: { __html: style },
       })
@@ -3713,6 +3928,7 @@ const CompanySection = ({
       "div",
       { className: "company-section", ref: sectionRef },
       React.createElement("div", { className: "error" }, error),
+      ...columnsModalLayer,
       React.createElement("style", {
         dangerouslySetInnerHTML: { __html: style },
       })
@@ -3724,6 +3940,7 @@ const CompanySection = ({
       "div",
       { className: "company-section", ref: sectionRef },
       React.createElement(FollowedOnlyEmptyState, { entity: "companies" }),
+      ...columnsModalLayer,
       React.createElement("style", {
         dangerouslySetInnerHTML: { __html: style },
       })
@@ -3912,27 +4129,7 @@ const CompanySection = ({
         )
       )
     ),
-    showColumnsModal &&
-      React.createElement("div", {
-        key: "columns-backdrop",
-        style: {
-          position: "fixed",
-          inset: 0,
-          zIndex: 199,
-          cursor: "default",
-        },
-        onClick: () => setShowColumnsModal(false),
-        "aria-hidden": true,
-      }),
-    showColumnsModal &&
-      React.createElement(ColumnsControlRoom, {
-        key: "columns-panel",
-        initial: columnVisibilityInitial,
-        initialOrder: selectedColumnKeys,
-        filterPinnedColumnKeys,
-        onCancel: () => setShowColumnsModal(false),
-        onApply: handleApplyColumnVisibility,
-      }),
+    ...columnsModalLayer,
     selectedCompanyIds.size > 0 &&
       React.createElement(
         "div",
@@ -4085,6 +4282,22 @@ const CompanySection = ({
                     : undefined,
                 },
                 column.label,
+                loadingColumnKeys.has(column.key) &&
+                  React.createElement(
+                    "span",
+                    {
+                      className: "company-table-col-loading",
+                      style: {
+                        display: "inline-block",
+                        marginLeft: 6,
+                        width: 36,
+                        height: 10,
+                        verticalAlign: "middle",
+                        borderRadius: 4,
+                      },
+                      "aria-hidden": true,
+                    }
+                  ),
                 isFilterPinnedColumnKey(column.key) &&
                   React.createElement(
                     "span",

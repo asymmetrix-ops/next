@@ -24,10 +24,10 @@ export interface CompanyCSVRow {
   Name: string;
   Description: string;
   "Primary Sector(s)": string;
-  Sectors: string;
+  "Secondary Sector(s)": string;
   Ownership: string;
   "LinkedIn Members": string;
-  Country: string;
+  HQ: string;
   "Company Link"?: string;
   "Company URL": string;
   // Optional Financial Metrics
@@ -194,12 +194,12 @@ export class CompaniesCSVExporter {
         Name: company.name || "-",
         Description: company.description || "-",
         "Primary Sector(s)": this.formatSectors(company.primary_sectors),
-        Sectors: this.formatSectors(company.secondary_sectors),
+        "Secondary Sector(s)": this.formatSectors(company.secondary_sectors),
         Ownership: company.ownership || "-",
         "LinkedIn Members": this.formatLinkedinMembers(
           company.linkedin_members
         ),
-        Country: company.country || "-",
+        HQ: company.country || "-",
         "Company Link": companyLink,
         "Company URL": "",
         "Recurring Revenue": this.formatPercent(this.getARRPercent(company)),

@@ -35,7 +35,7 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
  * Filter ids match buildFiltersFromState switch cases where API-backed.
  */
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
-  country: "country",
+  country: "hq",
   state: "state",
   city: "city",
   primary_sector: "primary_sectors",
@@ -61,7 +61,6 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   new_client_growth: "new_client_growth_pc",
   website: "website",
   year_founded: "year_founded",
-  hq: "hq",
   linkedin_url: "linkedin_url",
   investors: "investors",
   lifecycle_stage: "lifecycle_stage",
@@ -136,7 +135,6 @@ function mapColumnCategoryToFilterCategory(
     return "sectors";
   }
   if (
-    column.columnKey === "country" ||
     column.columnKey === "city" ||
     column.columnKey === "state" ||
     column.columnKey === "hq"
@@ -277,6 +275,15 @@ export const EXTRA_FILTER_DEFS: Pick<
   FilterDef,
   "id" | "label" | "fullLabel" | "category" | "type" | "editor" | "options"
 >[] = [
+  {
+    id: "country",
+    label: "Country",
+    fullLabel: "Country",
+    category: "location",
+    type: "Aa",
+    editor: "enum",
+    options: [],
+  },
   {
     id: "region",
     label: "Region",

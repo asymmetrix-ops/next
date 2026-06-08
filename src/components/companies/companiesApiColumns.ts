@@ -15,7 +15,6 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   secondary_sectors: "secondary_sectors",
   ownership: "ownership",
   linkedin_members: "linkedin_members",
-  country: "country",
   website: "website",
   follow: "follow",
   year_founded: "year_founded",
@@ -72,4 +71,9 @@ export function getApiColumnsForSelectedKeys(selectedKeys: string[]): string[] {
     if (apiKey) apiKeys.add(apiKey);
   }
   return Array.from(apiKeys);
+}
+
+/** Stable signature for comparing which API fields are requested (order-independent). */
+export function getApiColumnsSignature(selectedKeys: string[]): string {
+  return getApiColumnsForSelectedKeys(selectedKeys).slice().sort().join("\0");
 }
