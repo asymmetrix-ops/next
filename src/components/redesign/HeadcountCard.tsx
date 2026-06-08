@@ -48,6 +48,24 @@ function formatAxisMonthYear(iso: string): string {
   return `${d.toLocaleString("en-US", { month: "short" })} '${String(d.getFullYear()).slice(2)}`;
 }
 
+function formatTooltipMonthYear(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    const [year, month] = iso.split("-");
+    if (year && month) {
+      const fallback = new Date(parseInt(year, 10), parseInt(month, 10) - 1);
+      if (!Number.isNaN(fallback.getTime())) {
+        return fallback.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+        });
+      }
+    }
+    return "";
+  }
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "short" });
+}
+
 type Props = {
   /** Monthly headcount values (oldest → newest); strings / comma-formatted OK */
   data: ReadonlyArray<unknown>;
@@ -77,6 +95,7 @@ export function HeadcountCard({
   fillGridCell = false,
 }: Props) {
   const id = React.useId().replace(/:/g, "");
+  const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
 
   const numericData = data.map(toEmployeeCountNumber);
 
@@ -117,6 +136,23 @@ export function HeadcountCard({
 
   const cx = (i: number) => padL + (i / (pts.length - 1)) * iW;
   const cy = (v: number) => padT + (1 - (v - yMin) / ySpan) * iH;
+
+  const seriesPoints = React.useMemo(() => {
+    const points: { value: number; dateLabel: string }[] = [];
+    if (dates && dates.length === numericData.length) {
+      numericData.forEach((v, i) => {
+        if (!hasAnyNonZero || v > 0) {
+          points.push({
+            value: v,
+            dateLabel: formatTooltipMonthYear(dates[i]!),
+          });
+        }
+      });
+    } else {
+      pts.forEach((v) => points.push({ value: v, dateLabel: "" }));
+    }
+    return points;
+  }, [dates, numericData, hasAnyNonZero, pts]);
 
   const linePath = pts
     .map((v, i) => `${i ? "L" : "M"}${cx(i).toFixed(1)} ${cy(v).toFixed(1)}`)
@@ -227,12 +263,13 @@ export function HeadcountCard({
 
         {/* SVG chart */}
         {hasChart && (
-          <div style={{ flexShrink: 0, minWidth: 0 }}>
+          <div style={{ position: "relative", flexShrink: 0, minWidth: 0 }}>
             <svg
               viewBox={`0 0 ${W} ${H}`}
               width="100%"
               height="auto"
               style={{ display: "block", overflow: "visible", aspectRatio: `${W} / ${H}` }}
+              onMouseLeave={() => setHoveredIndex(null)}
             >
               <defs>
                 <linearGradient id={`hcg-${id}`} x1="0" y1="0" x2="0" y2="1">
@@ -298,21 +335,94 @@ export function HeadcountCard({
                 strokeLinecap="round"
               />
 
-              {/* End dot */}
-              <circle
-                cx={cx(pts.length - 1)}
-                cy={cy(pts[pts.length - 1])}
-                r={3.5}
-                fill={lineStroke}
-              />
-              <circle
-                cx={cx(pts.length - 1)}
-                cy={cy(pts[pts.length - 1])}
-                r={6}
-                fill={lineStroke}
-                fillOpacity={0.15}
-              />
+              {/* Hover targets + highlight */}
+              {seriesPoints.map((pt, i) => (
+                <g key={`pt-${i}-${pt.value}`}>
+                  <circle
+                    cx={cx(i)}
+                    cy={cy(pt.value)}
+                    r={14}
+                    fill="transparent"
+                    style={{ cursor: pt.dateLabel ? "pointer" : "default" }}
+                    onMouseEnter={() => setHoveredIndex(i)}
+                  />
+                  {hoveredIndex === i && (
+                    <>
+                      <line
+                        x1={cx(i)}
+                        x2={cx(i)}
+                        y1={padT}
+                        y2={padT + iH}
+                        stroke={T.azure}
+                        strokeWidth={1}
+                        strokeOpacity={0.35}
+                      />
+                      <circle
+                        cx={cx(i)}
+                        cy={cy(pt.value)}
+                        r={4}
+                        fill={T.azure}
+                      />
+                      <circle
+                        cx={cx(i)}
+                        cy={cy(pt.value)}
+                        r={7}
+                        fill={T.azure}
+                        fillOpacity={0.18}
+                      />
+                    </>
+                  )}
+                </g>
+              ))}
+
+              {/* End dot (when not hovered) */}
+              {hoveredIndex !== pts.length - 1 && (
+                <>
+                  <circle
+                    cx={cx(pts.length - 1)}
+                    cy={cy(pts[pts.length - 1])}
+                    r={3.5}
+                    fill={lineStroke}
+                  />
+                  <circle
+                    cx={cx(pts.length - 1)}
+                    cy={cy(pts[pts.length - 1])}
+                    r={6}
+                    fill={lineStroke}
+                    fillOpacity={0.15}
+                  />
+                </>
+              )}
             </svg>
+
+            {hoveredIndex != null && seriesPoints[hoveredIndex]?.dateLabel ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${(cx(hoveredIndex) / W) * 100}%`,
+                  top: `${(cy(seriesPoints[hoveredIndex]!.value) / H) * 100}%`,
+                  transform: "translate(-50%, calc(-100% - 10px))",
+                  backgroundColor: "#ffffff",
+                  border: "1px solid #ccc",
+                  borderRadius: 4,
+                  padding: 10,
+                  pointerEvents: "none",
+                  zIndex: 2,
+                  fontFamily: T.sans,
+                  fontSize: 13,
+                  lineHeight: 1.4,
+                  whiteSpace: "nowrap",
+                  boxShadow: "0 2px 8px rgba(15,17,21,0.08)",
+                }}
+              >
+                <p style={{ margin: 0, color: T.body }}>
+                  {`Date: ${seriesPoints[hoveredIndex]!.dateLabel}`}
+                </p>
+                <p style={{ margin: 0, color: T.azure }}>
+                  {`Employees: ${seriesPoints[hoveredIndex]!.value.toLocaleString()}`}
+                </p>
+              </div>
+            ) : null}
           </div>
         )}
 
