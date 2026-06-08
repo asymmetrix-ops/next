@@ -504,7 +504,9 @@ type Props = {
   articles: ContentArticle[];
   loading: boolean;
   totalCount: number;
-  pageOffset: number;
+  /** 1-based index from API `showing_from` */
+  rangeStart: number;
+  /** 1-based index from API `showing_to` */
   rangeEnd: number;
   canPrev: boolean;
   canNext: boolean;
@@ -522,7 +524,7 @@ export function InsightsCard({
   articles,
   loading,
   totalCount,
-  pageOffset,
+  rangeStart,
   rangeEnd,
   canPrev,
   canNext,
@@ -537,7 +539,7 @@ export function InsightsCard({
   const displayTotal = isEmpty ? emptyStateTotal : totalCount;
   const rangeLabel = isEmpty
     ? `1–2 of ${emptyStateTotal}`
-    : `${pageOffset + 1}–${rangeEnd} of ${totalCount}`;
+    : `${rangeStart}–${rangeEnd} of ${totalCount}`;
 
   const [summaryArticle, setSummaryArticle] = useState<ContentArticle | null>(null);
   const handleViewSummary = useCallback((a: ContentArticle) => setSummaryArticle(a), []);

@@ -1227,7 +1227,11 @@ const CompanyDetail = () => {
   >([]);
   const [companyArticles, setCompanyArticles] = useState<ContentArticle[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
-  const [insightsPageOffset, setInsightsPageOffset] = useState(0);
+  const [insightsPage, setInsightsPage] = useState(1);
+  const [insightsTotal, setInsightsTotal] = useState(0);
+  const [insightsTotalPages, setInsightsTotalPages] = useState(0);
+  const [insightsShowingFrom, setInsightsShowingFrom] = useState(0);
+  const [insightsShowingTo, setInsightsShowingTo] = useState(0);
   // Optional preformatted displays from API (ebitda_data)
   const [, setMetricsDisplay] = useState<
     | {
@@ -1494,25 +1498,69 @@ const CompanyDetail = () => {
 
   // Fetch Asymmetrix content articles via public companies_articles endpoint
   const fetchCompanyArticles = useCallback(
-    async (companyIdForContent: string | number) => {
+    async (companyIdForContent: string | number, page = 1) => {
       if (companyIdForContent === undefined || companyIdForContent === null)
         return;
       setArticlesLoading(true);
       try {
         const params = new URLSearchParams();
         params.append("new_company_id", String(companyIdForContent));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/companies_articles?${params.toString()}`;
+        params.append("page", String(page));
+        params.append("per_page", String(INSIGHTS_PREVIEW_COUNT));
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/companies_articles?${params.toString()}`;
         const response = await fetch(url, { method: "GET" });
         if (!response.ok) {
           setCompanyArticles([]);
+          setInsightsTotal(0);
+          setInsightsTotalPages(0);
+          setInsightsShowingFrom(0);
+          setInsightsShowingTo(0);
+          setInsightsPage(1);
         } else {
           const data = await response.json();
-          setCompanyArticles(
-            Array.isArray(data) ? (data as ContentArticle[]) : []
-          );
+          if (Array.isArray(data)) {
+            const items = data as ContentArticle[];
+            const total = items.length;
+            const start = total > 0 ? (page - 1) * INSIGHTS_PREVIEW_COUNT : 0;
+            setCompanyArticles(
+              items.slice(start, start + INSIGHTS_PREVIEW_COUNT)
+            );
+            setInsightsTotal(total);
+            setInsightsTotalPages(
+              total > 0 ? Math.ceil(total / INSIGHTS_PREVIEW_COUNT) : 0
+            );
+            setInsightsShowingFrom(total > 0 ? start + 1 : 0);
+            setInsightsShowingTo(
+              total > 0 ? Math.min(start + INSIGHTS_PREVIEW_COUNT, total) : 0
+            );
+            setInsightsPage(page);
+          } else {
+            const items = Array.isArray(data?.items)
+              ? (data.items as ContentArticle[])
+              : [];
+            setCompanyArticles(items);
+            setInsightsTotal(
+              typeof data?.total === "number" ? data.total : items.length
+            );
+            setInsightsTotalPages(
+              typeof data?.total_pages === "number" ? data.total_pages : 0
+            );
+            setInsightsShowingFrom(
+              typeof data?.showing_from === "number" ? data.showing_from : 0
+            );
+            setInsightsShowingTo(
+              typeof data?.showing_to === "number" ? data.showing_to : 0
+            );
+            setInsightsPage(typeof data?.page === "number" ? data.page : page);
+          }
         }
       } catch {
         setCompanyArticles([]);
+        setInsightsTotal(0);
+        setInsightsTotalPages(0);
+        setInsightsShowingFrom(0);
+        setInsightsShowingTo(0);
+        setInsightsPage(1);
       } finally {
         setArticlesLoading(false);
       }
@@ -1521,8 +1569,8 @@ const CompanyDetail = () => {
   );
 
   useEffect(() => {
-    setInsightsPageOffset(0);
-  }, [company?.id, companyArticles.length]);
+    setInsightsPage(1);
+  }, [company?.id]);
 
   // Fetch financial metrics (auth required) with GET + POST fallbacks
   const fetchFinancialMetrics = useCallback(async (id: string | number) => {
@@ -2008,7 +2056,7 @@ const CompanyDetail = () => {
     company?.id,
     articlesLoading,
     companyArticles.length,
-    insightsPageOffset,
+    insightsPage,
     financialMetrics,
   ]);
 
@@ -2036,7 +2084,7 @@ const CompanyDetail = () => {
     company?.id,
     articlesLoading,
     companyArticles.length,
-    insightsPageOffset,
+    insightsPage,
     financialMetrics,
   ]);
 
@@ -2653,20 +2701,9 @@ const CompanyDetail = () => {
     ? `${company.exchange}: ${company.ticker}`
     : company.ticker || null;
 
-  const insightTotalCount = companyArticles.length;
-  const insightVisibleSlice = companyArticles.slice(
-    insightsPageOffset,
-    insightsPageOffset + INSIGHTS_PREVIEW_COUNT
-  );
-  const canInsightPrev =
-    insightTotalCount > 0 && insightsPageOffset > 0;
+  const canInsightPrev = insightsTotal > 0 && insightsPage > 1;
   const canInsightNext =
-    insightTotalCount > 0 &&
-    insightsPageOffset + INSIGHTS_PREVIEW_COUNT < insightTotalCount;
-  const insightRangeEnd = Math.min(
-    insightsPageOffset + INSIGHTS_PREVIEW_COUNT,
-    insightTotalCount
-  );
+    insightsTotal > 0 && insightsPage < insightsTotalPages;
 
   // ── Design tokens (mirroring the HTML template's T object) ──────────────
   const T = {
@@ -4171,15 +4208,23 @@ const CompanyDetail = () => {
             >
               <InsightsCard
                 fillGridCell={rowTwoCardHeight > 0}
-                articles={insightVisibleSlice}
+                articles={companyArticles}
                 loading={articlesLoading}
-                totalCount={insightTotalCount}
-                pageOffset={insightsPageOffset}
-                rangeEnd={insightRangeEnd}
+                totalCount={insightsTotal}
+                rangeStart={insightsShowingFrom}
+                rangeEnd={insightsShowingTo}
                 canPrev={canInsightPrev}
                 canNext={canInsightNext}
-                onPrev={() => setInsightsPageOffset((o) => Math.max(0, o - INSIGHTS_PREVIEW_COUNT))}
-                onNext={() => setInsightsPageOffset((o) => Math.min(Math.max(0, insightTotalCount - INSIGHTS_PREVIEW_COUNT), o + INSIGHTS_PREVIEW_COUNT))}
+                onPrev={() => {
+                  if (company?.id && insightsPage > 1) {
+                    fetchCompanyArticles(company.id, insightsPage - 1);
+                  }
+                }}
+                onNext={() => {
+                  if (company?.id && insightsPage < insightsTotalPages) {
+                    fetchCompanyArticles(company.id, insightsPage + 1);
+                  }
+                }}
                 emptyStateTotal={INSIGHTS_EMPTY_STATE_DEMO_TOTAL}
                 companyId={company.id}
                 companyName={company.name}
