@@ -3190,12 +3190,77 @@ const CompanyDetail = () => {
 
   const productDataToggleDataRows = dataCollectionMethodRows;
 
-  const showAiRisk = aiRiskAxes != null && aiRiskAxes.length > 0;
+  /** Dynamic grid rows — cards pack upward when optional sections are hidden */
+  const PRODUCT_ROW_START = 3;
+  const showProductType = productTypeRows.length > 0;
+  const showRevenueModel = revenueModelRows.length > 0;
   const showCoreProducts = coreProductsSections.length > 0;
-  /** Pack column 2/3 upward when optional cards above are hidden */
-  const dataCollectionGridRow = showCoreProducts ? 4 : 3;
-  const headcountGridRow = showAiRisk ? 5 : 3;
-  const managementGridRow = showAiRisk ? 6 : 4;
+  const showDataCollection = dataCollectionMethodRows.length > 0;
+  const showAiRisk = aiRiskAxes != null && aiRiskAxes.length > 0;
+  const showCorporateEvents = corporateEvents.length > 0;
+
+  const col2StackWithoutRevenue =
+    (showCoreProducts ? 1 : 0) + (showDataCollection ? 1 : 0);
+
+  let productMixGridRow = 0;
+  let revenueModelGridCol = 1;
+  let revenueModelGridRow = 0;
+  let coreProductsGridRow = 0;
+  let dataCollectionGridRow = 0;
+  let headcountGridRow = 0;
+  let managementGridRow = 0;
+  let corporateEventsGridRow = 0;
+  let subsidiariesGridRow = 0;
+
+  if (showAiRisk) {
+    const col1Stack =
+      (showProductType ? 1 : 0) + (showRevenueModel ? 1 : 0);
+    const col2Stack = col2StackWithoutRevenue;
+    const productZoneHeight = Math.max(col1Stack, col2Stack, 2);
+    const wideSectionStartRow = PRODUCT_ROW_START + productZoneHeight;
+
+    productMixGridRow = showProductType ? PRODUCT_ROW_START : 0;
+    revenueModelGridCol = 1;
+    revenueModelGridRow = showRevenueModel
+      ? PRODUCT_ROW_START + (showProductType ? 1 : 0)
+      : 0;
+    coreProductsGridRow = showCoreProducts ? PRODUCT_ROW_START : 0;
+    dataCollectionGridRow = showDataCollection
+      ? PRODUCT_ROW_START + (showCoreProducts ? 1 : 0)
+      : 0;
+    headcountGridRow = wideSectionStartRow;
+    managementGridRow = hasManagement ? wideSectionStartRow + 1 : 0;
+    corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
+    subsidiariesGridRow = hasSubsidiaries
+      ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
+      : 0;
+  } else {
+    /** No AI risk: row 3 = product type | data collection | headcount;
+     *  wide cards under cols 1–2; revenue model under headcount (col 3). */
+    const leftTopStack = Math.max(
+      showProductType ? 1 : 0,
+      col2StackWithoutRevenue
+    );
+    const wideSectionStartRow = PRODUCT_ROW_START + leftTopStack;
+
+    productMixGridRow = showProductType ? PRODUCT_ROW_START : 0;
+    coreProductsGridRow = showCoreProducts ? PRODUCT_ROW_START : 0;
+    dataCollectionGridRow = showDataCollection
+      ? PRODUCT_ROW_START + (showCoreProducts ? 1 : 0)
+      : 0;
+    headcountGridRow = PRODUCT_ROW_START;
+    revenueModelGridCol = 3;
+    revenueModelGridRow = showRevenueModel ? PRODUCT_ROW_START + 1 : 0;
+    corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
+    subsidiariesGridRow = hasSubsidiaries
+      ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
+      : 0;
+    managementGridRow = hasManagement
+      ? showRevenueModel
+        ? PRODUCT_ROW_START + 2
+        : PRODUCT_ROW_START + 1
+      : 0;
+  }
 
   const responsiveCss = `
     .company-detail-page { overflow-x: hidden; }
@@ -3249,11 +3314,11 @@ const CompanyDetail = () => {
       display: flex;
       flex-direction: column;
     }
-    .company-grid-product-mix { grid-column: 1; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-revenue-model { grid-column: 1; grid-row: 4; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-product-users { grid-column: 2; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-product-mix { grid-column: 1; grid-row: ${productMixGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-revenue-model { grid-column: ${revenueModelGridCol}; grid-row: ${revenueModelGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-product-users { grid-column: 2; grid-row: ${coreProductsGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
     .company-grid-data-collection { grid-column: 2; grid-row: ${dataCollectionGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-ai-risk { grid-column: 3; grid-row: 3 / span 2; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-ai-risk { grid-column: 3; grid-row: ${PRODUCT_ROW_START} / span 2; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
     .company-grid-corporate-events,
     .company-grid-subsidiaries,
     .company-grid-headcount,
@@ -3264,8 +3329,8 @@ const CompanyDetail = () => {
       display: flex;
       flex-direction: column;
     }
-    .company-grid-corporate-events { grid-column: 1 / span 2; grid-row: 5; overflow: hidden; max-width: 100%; }
-    .company-grid-subsidiaries { grid-column: 1 / span 2; grid-row: 6; overflow: hidden; max-width: 100%; }
+    .company-grid-corporate-events { grid-column: 1 / span 2; grid-row: ${corporateEventsGridRow}; overflow: hidden; max-width: 100%; }
+    .company-grid-subsidiaries { grid-column: 1 / span 2; grid-row: ${subsidiariesGridRow}; overflow: hidden; max-width: 100%; }
     .company-grid-corporate-events > *,
     .company-grid-subsidiaries > * {
       min-width: 0;
