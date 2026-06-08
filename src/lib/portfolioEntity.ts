@@ -2,6 +2,7 @@ import type { XanoPortfolio } from "@/store/portfolioStore";
 import {
   ENTITY_TYPE_TO_FOLLOW_KEY,
   followPortfolioEntity,
+  invalidateUserPortfolioRecordCache,
 } from "@/lib/portfolioFollow";
 
 export type PortfolioEntityType =
@@ -305,6 +306,8 @@ export async function addEntityToPortfolioApi(args: {
   portfolioId: number;
   entityType: PortfolioEntityType;
   entityId: number;
+  /** When true, skip global follow PATCH (caller batches separately). */
+  skipGlobalFollow?: boolean;
 }): Promise<void> {
   const token =
     typeof window !== "undefined"
@@ -313,6 +316,12 @@ export async function addEntityToPortfolioApi(args: {
 
   if (!token) {
     throw new Error("Please sign in to add to a portfolio.");
+  }
+
+  if (!args.skipGlobalFollow) {
+    const followKey = ENTITY_TYPE_TO_FOLLOW_KEY[args.entityType];
+    await followPortfolioEntity({ followKey, entityId: args.entityId });
+    invalidateUserPortfolioRecordCache();
   }
 
   const res = await fetch(`/api/portfolio/lists/${args.portfolioId}/entities`, {
@@ -335,14 +344,6 @@ export async function addEntityToPortfolioApi(args: {
     const msg =
       typeof json?.error === "string" ? json.error : `Request failed (${res.status})`;
     throw new Error(msg);
-  }
-
-  // Adding to any list also follows globally in the user's portfolio.
-  const followKey = ENTITY_TYPE_TO_FOLLOW_KEY[args.entityType];
-  try {
-    await followPortfolioEntity({ followKey, entityId: args.entityId });
-  } catch {
-    // List add succeeded; entity may already be followed globally.
   }
 }
 

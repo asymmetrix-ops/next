@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import {
   followPortfolioEntity,
   unfollowPortfolioEntity,
+  invalidateUserPortfolioRecordCache,
   type PortfolioFollowKey,
 } from "@/lib/portfolioFollow";
 import { usePortfolioStore } from "@/store/portfolioStore";
@@ -80,6 +81,7 @@ export function InlineFollowButton({
         } else {
           await followPortfolioEntity({ followKey, entityId });
         }
+        invalidateUserPortfolioRecordCache();
         await fetchPortfolio();
         setOptimisticFollowed(null);
       } catch (err) {
@@ -132,8 +134,6 @@ export function InlineFollowButton({
         borderRadius: "6px",
         transition: "background 0.15s, transform 0.1s",
         opacity: busy ? 0.6 : 1,
-        position: "relative",
-        zIndex: 2,
       }}
     >
       {icon === "star" ? (

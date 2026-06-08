@@ -2721,16 +2721,17 @@ const CompanySection = ({
     (
       columnKey: string,
       minWidth?: number,
-      header = false
+      header = false,
+      selected = false
     ): React.CSSProperties | undefined => {
       const left = stickyColumnOffsets.get(columnKey);
       if (left == null) return undefined;
       return {
         position: "sticky",
         left,
-        zIndex: header ? 5 : 3,
+        zIndex: header ? 7 : 3,
         minWidth,
-        background: header ? "#f9fafb" : "#fff",
+        background: header ? "#f9fafb" : selected ? "#EFF6FF" : "#fff",
         boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
       };
     },
@@ -2753,6 +2754,7 @@ const CompanySection = ({
       column.wrap ? "company-table-cell-wrap" : undefined,
       isFrozenColumnKey(column.key) ? "company-table-sticky-frozen" : undefined,
       column.key === "logo" ? "company-table-sticky-logo" : undefined,
+      column.key === "follow" ? "company-table-col-follow" : undefined,
     ].filter(Boolean);
     return classes.length > 0 ? classes.join(" ") : undefined;
   };
@@ -3238,7 +3240,12 @@ const CompanySection = ({
           >
             <td
               className="company-table-select-cell"
-              style={{ minWidth: 44, width: 44, textAlign: "center" }}
+              style={{
+                minWidth: 44,
+                width: 44,
+                textAlign: "center",
+                background: isRowSelected ? "#EFF6FF" : "#fff",
+              }}
             >
               <input
                 type="checkbox"
@@ -3254,7 +3261,12 @@ const CompanySection = ({
                 className={getTableColumnClassName(column)}
                 style={{
                   minWidth: column.minWidth,
-                  ...getStickyColumnStyle(column.key, column.minWidth),
+                  ...getStickyColumnStyle(
+                    column.key,
+                    column.minWidth,
+                    false,
+                    isRowSelected
+                  ),
                 }}
               >
                 {loadingColumnKeys.has(column.key) ? (
@@ -3527,12 +3539,16 @@ const CompanySection = ({
     .company-table-select-cell {
       position: sticky;
       left: 0;
-      z-index: 2;
+      z-index: 3;
       background: #fff;
       box-shadow: 1px 0 0 #e2e8f0;
     }
     .company-table thead .company-table-select-cell {
-      z-index: 3;
+      z-index: 6;
+    }
+    .company-table td.company-table-sticky-frozen,
+    .company-table td.company-table-sticky-logo {
+      background: #fff;
     }
     .edit-company-btn {
       padding: 4px 10px;
@@ -3567,7 +3583,7 @@ const CompanySection = ({
       border-bottom: 2px solid #e2e8f0;
       position: sticky;
       top: 0;
-      z-index: 2;
+      z-index: 4;
     }
     .company-table-th-sortable {
       cursor: pointer;
@@ -3627,23 +3643,39 @@ const CompanySection = ({
       font-size: 10px;
       color: #718096;
     }
+    .company-table th.company-table-col-follow,
+    .company-table td.company-table-col-follow {
+      text-align: left;
+      min-width: 120px;
+      max-width: 140px;
+    }
+    .company-table th.company-table-col-follow {
+      z-index: 4;
+      background: #f9fafb;
+    }
+    .company-table td.company-table-col-follow {
+      position: relative;
+      z-index: 0;
+    }
+    .company-follow-cell {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      text-align: left;
+      position: relative;
+      z-index: 0;
+    }
     .company-table-row-selected {
       background: #EFF6FF;
     }
-    .company-table-row-selected .company-table-sticky-frozen,
-    .company-table-row-selected .company-table-sticky-logo,
-    .company-table-row-selected .company-table-select-cell {
+    .company-table tr.company-table-row-selected > td.company-table-sticky-frozen,
+    .company-table tr.company-table-row-selected > td.company-table-sticky-logo,
+    .company-table tr.company-table-row-selected > td.company-table-select-cell {
       background: #EFF6FF;
-    }
-    .company-table-select-cell {
-      position: sticky;
-      left: 0;
-      z-index: 3;
-      background: #fff;
     }
     .company-table thead th.company-table-sticky-frozen,
     .company-table thead th.company-table-sticky-logo {
-      z-index: 5;
+      z-index: 7;
       background: #f9fafb;
     }
     .company-table td {
@@ -4440,7 +4472,16 @@ const CompanySection = ({
                       : "none"
                     : undefined,
                 },
-                column.label,
+                column.key === "follow"
+                  ? React.createElement(
+                      "span",
+                      {
+                        className: "company-follow-header-label",
+                        style: { display: "block", textAlign: "left" },
+                      },
+                      column.label
+                    )
+                  : column.label,
                 loadingColumnKeys.has(column.key) &&
                   React.createElement(
                     "span",
