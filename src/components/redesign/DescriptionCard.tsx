@@ -6,7 +6,7 @@
 import React from "react";
 import { LinkPanel, LinkedH, T, descriptionBodyStyle } from "./primitives";
 
-const EM = "—";
+const EM = "-";
 
 type Props = {
   text: string;

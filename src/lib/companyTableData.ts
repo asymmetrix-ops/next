@@ -2,6 +2,8 @@
  * Shared client for Xano `get_company_table_data` (article Generate Table, Companies Search).
  */
 
+import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+
 export const COMPANY_TABLE_DATA_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data";
 
@@ -19,10 +21,11 @@ export function selectedColumnsNeedTableData(columnKeys: string[]): boolean {
 }
 
 const toPlainText = (value: unknown): string => {
-  if (value == null || value === "") return "N/A";
-  if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString() : "N/A";
+  if (value == null || value === "") return EMPTY_DISPLAY;
+  if (typeof value === "number")
+    return Number.isFinite(value) ? value.toLocaleString() : EMPTY_DISPLAY;
   if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "string") return value.trim() || "N/A";
+  if (typeof value === "string") return normalizeEmptyDisplay(value);
   if (Array.isArray(value)) {
     const text = value
       .map((item) => {
@@ -44,7 +47,7 @@ const toPlainText = (value: unknown): string => {
       .map((item) => String(item).trim())
       .filter(Boolean)
       .join(", ");
-    return text || "N/A";
+    return text || EMPTY_DISPLAY;
   }
   if (typeof value === "object") {
     const rec = value as Record<string, unknown>;
@@ -58,13 +61,13 @@ const toPlainText = (value: unknown): string => {
       rec.display ??
       rec.label;
     if (preferred != null) return toPlainText(preferred);
-    return "N/A";
+    return EMPTY_DISPLAY;
   }
   return String(value);
 };
 
 export const formatPlainNumber = (value: unknown): string => {
-  if (value == null || value === "") return "N/A";
+  if (value == null || value === "") return EMPTY_DISPLAY;
   const num =
     typeof value === "number"
       ? value
@@ -76,7 +79,7 @@ export const formatPlainNumber = (value: unknown): string => {
 };
 
 export const formatPercentValue = (value: unknown): string => {
-  if (value == null || value === "") return "N/A";
+  if (value == null || value === "") return EMPTY_DISPLAY;
   const num =
     typeof value === "number"
       ? value
@@ -88,7 +91,7 @@ export const formatPercentValue = (value: unknown): string => {
 };
 
 export const formatMultipleValue = (value: unknown): string => {
-  if (value == null || value === "") return "N/A";
+  if (value == null || value === "") return EMPTY_DISPLAY;
   const num =
     typeof value === "number"
       ? value
@@ -100,7 +103,7 @@ export const formatMultipleValue = (value: unknown): string => {
 const parseMaybeSetLikeList = (value: unknown): string[] => {
   if (value == null) return [];
   if (Array.isArray(value)) {
-    return value.map(toPlainText).filter((item) => item !== "N/A");
+    return value.map(toPlainText).filter((item) => item !== EMPTY_DISPLAY);
   }
   if (typeof value === "object") {
     return Object.values(value as Record<string, unknown>)
@@ -109,15 +112,15 @@ const parseMaybeSetLikeList = (value: unknown): string[] => {
           ? Object.values(item as Record<string, unknown>).map(toPlainText)
           : [toPlainText(item)]
       )
-      .filter((item) => item !== "N/A");
+      .filter((item) => item !== EMPTY_DISPLAY);
   }
   const text = toPlainText(value);
-  if (text === "N/A" || text === "{}" || text === "[]") return [];
+  if (text === EMPTY_DISPLAY || text === "{}" || text === "[]") return [];
 
   try {
     const parsed = JSON.parse(text) as unknown;
     if (Array.isArray(parsed)) {
-      return parsed.map(toPlainText).filter((item) => item !== "N/A");
+      return parsed.map(toPlainText).filter((item) => item !== EMPTY_DISPLAY);
     }
   } catch {
     // Fall through to set-like string parsing.
@@ -133,7 +136,7 @@ const parseMaybeSetLikeList = (value: unknown): string[] => {
 
 const normalizeWebsite = (raw: unknown): string => {
   const text = toPlainText(raw);
-  if (text === "N/A") return text;
+  if (text === EMPTY_DISPLAY) return text;
   return /^https?:\/\//i.test(text) ? text : `https://${text}`;
 };
 
@@ -150,7 +153,7 @@ export function mapCompanyTableApiRow(
     toPlainText(row.hq_state),
     toPlainText(row.hq_country),
   ]
-    .filter((item) => item !== "N/A")
+    .filter((item) => item !== EMPTY_DISPLAY)
     .join(", ");
 
   return {
@@ -159,16 +162,16 @@ export function mapCompanyTableApiRow(
     name: toPlainText(row.name),
     url: normalizeWebsite(row.url),
     website: normalizeWebsite(row.url),
-    loc: hqLocation || "N/A",
-    hq: hqLocation || "N/A",
+    loc: hqLocation || EMPTY_DISPLAY,
+    hq: hqLocation || EMPTY_DISPLAY,
     city: toPlainText(row.hq_city),
     state: toPlainText(row.hq_state),
     country: toPlainText(row.hq_country),
     year_founded: toPlainText(row.year_founded_label ?? row.year_founded),
-    primary_sector_names: primarySectors || "N/A",
-    secondary_sector_names: secondarySectors || "N/A",
-    investor_names: investorNames || "N/A",
-    investors: investorNames || "N/A",
+    primary_sector_names: primarySectors || EMPTY_DISPLAY,
+    secondary_sector_names: secondarySectors || EMPTY_DISPLAY,
+    investor_names: investorNames || EMPTY_DISPLAY,
+    investors: investorNames || EMPTY_DISPLAY,
     ownership: toPlainText(row.ownership_type ?? row.ownership_status),
     ownership_type: toPlainText(row.ownership_type ?? row.ownership_status),
     linkedin_members: formatPlainNumber(row.linkedin_employee),

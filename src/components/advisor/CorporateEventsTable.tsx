@@ -70,10 +70,10 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                 {formatDate(event.announcement_date)}
               </td>
               <td className="px-4 py-2 border border-gray-300">
-                {event.deal_type || "Not available"}
+                {event.deal_type || "-"}
               </td>
               <td className="px-4 py-2 border border-gray-300">
-                {event.company_advised_name || "Not available"}
+                {event.company_advised_name || "-"}
                 {event.company_advised_role
                   ? ` (${getCounterpartyRole(event)})`
                   : ""}
@@ -81,7 +81,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
               <td className="px-4 py-2 border border-gray-300">
                 {event.enterprise_value_m != null && event.currency_name
                   ? formatCurrency(String(event.enterprise_value_m), event.currency_name)
-                  : "Not available"}
+                  : "-"}
               </td>
               <td className="px-4 py-2 border border-gray-300">
                 {(() => {
@@ -90,7 +90,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   )
                     .map((p) => String(p?.name ?? "").trim())
                     .filter(Boolean);
-                  return inds.length > 0 ? inds.join(", ") : "Not available";
+                  return inds.length > 0 ? inds.join(", ") : "-";
                 })()}
               </td>
               <td className="px-4 py-2 border border-gray-300">

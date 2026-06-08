@@ -6,7 +6,6 @@ import React from "react";
 import {
   LinkPanel,
   LinkedH,
-  PctBar,
   T,
   descriptionBodyStyle,
 } from "./primitives";
@@ -43,10 +42,6 @@ function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
         <div
           key={`${p.label}-${i}`}
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 100px 60px",
-            alignItems: "center",
-            gap: 12,
             padding: "9px 0",
             borderBottom:
               i === productRows.length - 1 ? "none" : `1px solid ${T.hair}`,
@@ -75,16 +70,6 @@ function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
               {p.label}
             </span>
           </div>
-          <PctBar pct={p.pct} color={p.color} />
-          <div
-            style={{
-              ...descriptionBodyStyle,
-              textAlign: "right",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {p.displayRight}
-          </div>
         </div>
       ))}
     </div>
@@ -94,6 +79,18 @@ function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
 function DataCollectionBody({ dataRows }: { dataRows: DataMixRow[] }) {
   return (
     <div style={{ padding: "8px 16px 14px", flex: 1, minHeight: 0 }}>
+      {dataRows.length === 0 ? (
+        <div
+          style={{
+            padding: "8px 0 4px",
+            fontSize: 13,
+            color: T.muted,
+            fontFamily: T.sans,
+          }}
+        >
+          No data collection methods listed.
+        </div>
+      ) : null}
       {dataRows.map((d, i) => (
         <div
           key={`${d.label}-${i}`}

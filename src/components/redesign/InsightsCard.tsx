@@ -98,6 +98,22 @@ function formatDate(iso: string): string {
   }
 }
 
+function decodeHtmlEntities(input: string): string {
+  if (!input) return "";
+  if (typeof window !== "undefined") {
+    const div = document.createElement("div");
+    div.innerHTML = input;
+    return (div.textContent || div.innerText || "").trim();
+  }
+  return input
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'");
+}
+
 // ── skeleton row ─────────────────────────────────────────────────────────────
 function SkeletonRow() {
   return (
@@ -122,13 +138,15 @@ const DEMO_ARTICLES = [
     tag: "Company Update",
     tone: "coral" as const,
     date: "Apr 10, 2026",
+    title: "Morningstar Q1 earnings beat expectations",
     body: "Morningstar reports strong Q1 driven by PitchBook and Indexes; management flagged accelerating demand for private-markets data and a disciplined approach to GenAI-driven research automation.",
   },
   {
     tag: "Sector Analysis",
     tone: "azure" as const,
     date: "Mar 22, 2026",
-    body: "Private markets data vendors trade at premium multiples; Morningstar is increasingly viewed as a private-markets pure-play proxy via its PitchBook segment.",
+    title: "Private markets data vendors trade at premium multiples",
+    body: "Morningstar is increasingly viewed as a private-markets pure-play proxy via its PitchBook segment.",
   },
 ];
 
@@ -159,14 +177,24 @@ function DemoRow({ item }: { item: (typeof DEMO_ARTICLES)[number] }) {
       <div>
         <div
           style={{
+            fontSize: 13.5,
+            fontWeight: 600,
+            lineHeight: 1.4,
+            color: T.ink,
+            marginBottom: 6,
+          }}
+        >
+          {item.title}
+        </div>
+        <div
+          style={{
             fontSize: 13,
             lineHeight: 1.55,
             color: T.body,
             display: "-webkit-box",
-            WebkitLineClamp: 3,
+            WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
-            minHeight: "calc(1.55em * 3)",
           }}
         >
           {item.body}
@@ -331,9 +359,8 @@ function ArticleRow({
     ? titleCase(article.Content_Type.trim())
     : "Analysis";
   const date = article.Publication_Date ? formatDate(article.Publication_Date) : "";
-  const headline = [article.Headline?.trim(), article.Strapline?.trim()]
-    .filter(Boolean)
-    .join(" ") || "—";
+  const headline = decodeHtmlEntities(article.Headline?.trim() || "");
+  const strapline = decodeHtmlEntities(article.Strapline?.trim() || "");
   const showSummaryBtn = hasSummary(article);
 
   return (
@@ -356,24 +383,41 @@ function ArticleRow({
             marginTop: 8,
           }}
         >
-          {date || "—"}
+          {date || "-"}
         </div>
       </div>
       <div>
-        <div
-          style={{
-            fontSize: 13,
-            lineHeight: 1.55,
-            color: T.body,
-            display: "-webkit-box",
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-            minHeight: "calc(1.55em * 3)",
-          }}
-        >
-          {headline}
-        </div>
+        {headline ? (
+          <div
+            style={{
+              fontSize: 13.5,
+              fontWeight: 600,
+              lineHeight: 1.4,
+              color: T.ink,
+              marginBottom: strapline ? 6 : 0,
+            }}
+          >
+            {headline}
+          </div>
+        ) : null}
+        {strapline ? (
+          <div
+            style={{
+              fontSize: 13,
+              lineHeight: 1.55,
+              color: T.body,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {strapline}
+          </div>
+        ) : null}
+        {!headline && !strapline ? (
+          <div style={{ fontSize: 13, color: T.muted }}>-</div>
+        ) : null}
         <div
           style={{
             display: "flex",
@@ -469,6 +513,9 @@ type Props = {
   /** Shown in header + footer when there are no real articles yet */
   emptyStateTotal?: number;
   fillGridCell?: boolean;
+  /** When set, "Browse all" links to I&A pre-filtered by this company */
+  companyId?: number | null;
+  companyName?: string;
 };
 
 export function InsightsCard({
@@ -483,6 +530,8 @@ export function InsightsCard({
   onNext,
   emptyStateTotal = 17,
   fillGridCell = false,
+  companyId,
+  companyName,
 }: Props) {
   const isEmpty = !loading && totalCount === 0;
   const displayTotal = isEmpty ? emptyStateTotal : totalCount;
@@ -494,33 +543,22 @@ export function InsightsCard({
   const handleViewSummary = useCallback((a: ContentArticle) => setSummaryArticle(a), []);
   const handleCloseModal = useCallback(() => setSummaryArticle(null), []);
 
+  const browseAllHref =
+    companyId != null && companyId > 0
+      ? `/insights-analysis?company_id=${companyId}${
+          companyName?.trim()
+            ? `&company_name=${encodeURIComponent(companyName.trim())}`
+            : ""
+        }`
+      : "/insights-analysis";
+
   return (
     <>
     {summaryArticle && (
       <SummaryModal article={summaryArticle} onClose={handleCloseModal} />
     )}
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH
-        showArrow={false}
-        right={
-          <Link
-            href="/insights-analysis"
-            prefetch={false}
-            style={{
-              color: T.azure,
-              textDecoration: "none",
-              fontSize: 14,
-              fontWeight: 500,
-              lineHeight: 1,
-              padding: "2px 4px",
-            }}
-          >
-            →
-          </Link>
-        }
-      >
-        Recent Insights &amp; Analysis
-      </LinkedH>
+      <LinkedH>Recent Insights &amp; Analysis</LinkedH>
 
       {/* rows */}
       {loading ? (
@@ -552,15 +590,15 @@ export function InsightsCard({
           <PagerBtn label="‹" enabled={canPrev} onClick={onPrev} ariaLabel="Previous insights" />
           <PagerBtn label="›" enabled={canNext} onClick={onNext} ariaLabel="Next insights" />
           <span style={{ color: T.muted, fontSize: 13 }}>
-            {loading ? "—" : `Showing ${rangeLabel}`}
+            {loading ? "-" : `Showing ${rangeLabel}`}
           </span>
         </div>
         <Link
-          href="/insights-analysis"
+          href={browseAllHref}
           prefetch={false}
           style={{ color: T.azure, fontWeight: 500, textDecoration: "none" }}
         >
-          Browse all {loading ? "—" : displayTotal} →
+          Browse all {loading ? "-" : displayTotal} →
         </Link>
       </div>
     </LinkPanel>

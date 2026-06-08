@@ -27,12 +27,12 @@ type Props = {
 };
 
 function formatIncomeValue(value: number | null | undefined): string {
-  if (typeof value !== "number") return "—";
+  if (typeof value !== "number") return "-";
   return Math.round(value / 1_000_000).toLocaleString();
 }
 
 function formatPeriod(period?: string): string {
-  return (period || "").replace(/[,\s]/g, "") || "—";
+  return (period || "").replace(/[,\s]/g, "") || "-";
 }
 
 const INCOME_METRICS: {

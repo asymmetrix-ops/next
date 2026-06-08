@@ -59,24 +59,13 @@ function ExpandableRow({
           cursor: hasDetail ? "pointer" : "default",
           textAlign: "left",
           display: "grid",
-          gridTemplateColumns: "22px 1fr 18px",
+          gridTemplateColumns: "1fr 18px",
           alignItems: "center",
           gap: 8,
           fontFamily: T.sans,
           opacity: hasDetail ? 1 : 0.92,
         }}
       >
-        <span
-          style={{
-            fontFamily: T.mono,
-            fontSize: 11,
-            color: T.muted,
-            fontWeight: 500,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          {index + 1}.
-        </span>
         <span
           style={{
             fontFamily: T.sans,
@@ -107,7 +96,7 @@ function ExpandableRow({
       {isOpen && hasDetail && (
         <div
           style={{
-            padding: "0 16px 14px 46px",
+            padding: "0 16px 14px 16px",
             fontSize: 13,
             lineHeight: 1.55,
             color: T.body,

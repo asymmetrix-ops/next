@@ -114,7 +114,7 @@ function PersonRow({
           paddingTop: 1,
         }}
       >
-        {person.role || "—"}
+        {person.role || "-"}
       </div>
       <div
         style={{

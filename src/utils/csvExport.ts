@@ -19,7 +19,7 @@ export interface CorporateEventCSVRow {
 
 export class CSVExporter {
   static formatDate(dateString: string): string {
-    if (!dateString) return "Not available";
+    if (!dateString) return "-";
     try {
       return new Date(dateString).toLocaleDateString();
     } catch {
@@ -31,16 +31,16 @@ export class CSVExporter {
     amount: string | undefined,
     currency: string | undefined
   ): string {
-    if (!amount || !currency) return "Not available";
+    if (!amount || !currency) return "-";
     const n = Number(amount);
-    if (Number.isNaN(n)) return "Not available";
+    if (Number.isNaN(n)) return "-";
     return `${currency}${n.toLocaleString(undefined, {
       maximumFractionDigits: 3,
     })}m`;
   }
 
   static formatSectors(sectors: { sector_name: string }[] | undefined): string {
-    if (!sectors || sectors.length === 0) return "Not available";
+    if (!sectors || sectors.length === 0) return "-";
     return sectors.map((s) => s.sector_name).join(", ");
   }
 
@@ -66,11 +66,11 @@ export class CSVExporter {
           | { sector_name: string }[]
           | undefined
       ): string => {
-        if (!list || list.length === 0) return "Not available";
+        if (!list || list.length === 0) return "-";
         const names = list
           .map((s) => (typeof s === "string" ? s : s.sector_name))
           .filter(Boolean) as string[];
-        return names.length > 0 ? names.join(", ") : "Not available";
+        return names.length > 0 ? names.join(", ") : "-";
       };
 
       // Split counterparties into buyers/investors and sellers (match dashboard filters)
@@ -97,7 +97,7 @@ export class CSVExporter {
         event.advisors
           ?.map((advisor) => advisor._new_company?.name)
           .filter(Boolean)
-          .join(", ") || "Not Available";
+          .join(", ") || "-";
 
       // Generate the corporate event link
       const corporateEventLink =
@@ -114,14 +114,14 @@ export class CSVExporter {
               investment_data?: { Funding_stage?: string; funding_stage?: string };
             }).investment_data?.funding_stage ||
             "") as string
-        ).trim() || "Not Available";
+        ).trim() || "-";
 
       return {
-        Description: event.description || "Not Available",
+        Description: event.description || "-",
         Date: this.formatDate(event.announcement_date),
-        "Target Name": target?.name || "Not Available",
+        "Target Name": target?.name || "-",
         "Target HQ":
-          target?.country || target?._location?.Country || "Not Available",
+          target?.country || target?._location?.Country || "-",
         // Prefer new API fields; fallback to legacy
         "Primary Sector":
           formatSectorList(target?.primary_sectors) ||
@@ -129,7 +129,7 @@ export class CSVExporter {
         "Secondary Sectors":
           formatSectorList(target?.secondary_sectors) ||
           this.formatSectors(target?._sectors_secondary),
-        "Deal Type": event.deal_type || "Not Available",
+        "Deal Type": event.deal_type || "-",
         "Funding Stage": fundingStage,
         "Amount (m)": this.formatCurrency(
           event.investment_data?.investment_amount_m,
@@ -139,8 +139,8 @@ export class CSVExporter {
           event.ev_data?.enterprise_value_m,
           event.ev_data?.currency?.Currency
         ),
-        "Buyer(s)/Investor(s)": buyersInvestors || "Not Available",
-        "Seller(s)": sellers || "Not Available",
+        "Buyer(s)/Investor(s)": buyersInvestors || "-",
+        "Seller(s)": sellers || "-",
         Advisors: advisors,
         "Corporate Event Link": corporateEventLink,
       };
@@ -241,9 +241,9 @@ export class CSVExporter {
     return apiResponse.map((item) => {
       const formattedDate = item.date
         ? this.formatDate(item.date)
-        : "Not available";
+        : "-";
 
-      let formattedAmount = "Not available";
+      let formattedAmount = "-";
       if (item.amount_m !== null && item.amount_m !== undefined) {
         const amountValue =
           typeof item.amount_m === "string"
@@ -256,7 +256,7 @@ export class CSVExporter {
         }
       }
 
-      let formattedEV = "Not available";
+      let formattedEV = "-";
       if (item.ev_m !== null && item.ev_m !== undefined) {
         const evValue =
           typeof item.ev_m === "string" ? parseFloat(item.ev_m) : item.ev_m;
@@ -268,9 +268,9 @@ export class CSVExporter {
       }
 
       const safeString = (value: string | null | undefined): string => {
-        if (value == null) return "Not Available";
+        if (value == null) return "-";
         const trimmed = String(value).trim();
-        return trimmed === "" ? "Not Available" : trimmed;
+        return trimmed === "" ? "-" : trimmed;
       };
 
       return {

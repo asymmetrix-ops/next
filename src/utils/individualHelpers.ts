@@ -8,7 +8,7 @@ import {
 } from "../types/individual";
 
 export const formatLocation = (location: Location): string => {
-  if (!location) return "Not available";
+  if (!location) return "-";
   const parts = [
     location.City,
     location.State__Province__County,
@@ -18,17 +18,17 @@ export const formatLocation = (location: Location): string => {
 };
 
 export const formatCurrentRoles = (roles: CurrentRole[]): string => {
-  if (!roles || roles.length === 0) return "Not available";
+  if (!roles || roles.length === 0) return "-";
   return roles.map((role) => role.job_title).join(", ");
 };
 
 export const formatCurrentCompanies = (individual: Individual): string => {
-  if (!individual.current_company) return "Not available";
+  if (!individual.current_company) return "-";
   return individual.current_company;
 };
 
 export const getIndividualLocation = (individual: Individual): string => {
-  if (!individual._locations_individual) return "Not available";
+  if (!individual._locations_individual) return "-";
   const location = individual._locations_individual;
   const parts = [
     location.City,
@@ -61,7 +61,7 @@ export const getPageNumbers = (
 export const formatIndividualLocation = (
   location: IndividualLocation
 ): string => {
-  if (!location) return "Not available";
+  if (!location) return "-";
   const parts = [
     location.City,
     location.State__Province__County,
@@ -71,7 +71,7 @@ export const formatIndividualLocation = (
 };
 
 export const formatCurrency = (value: string, currency: string): string => {
-  if (!value || value === "0" || value === "") return "Not available";
+  if (!value || value === "0" || value === "") return "-";
 
   const numValue = parseFloat(value);
   const currencySymbols: { [key: string]: string } = {
@@ -89,7 +89,7 @@ export const formatCurrency = (value: string, currency: string): string => {
 };
 
 export const formatDate = (dateString: string): string => {
-  if (!dateString || dateString === "1900-01-01") return "Not available";
+  if (!dateString || dateString === "1900-01-01") return "-";
 
   const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
@@ -100,30 +100,30 @@ export const formatDate = (dateString: string): string => {
 };
 
 export const formatJobTitles = (jobTitles: JobTitle[]): string => {
-  if (!jobTitles || jobTitles.length === 0) return "Not available";
+  if (!jobTitles || jobTitles.length === 0) return "-";
   return jobTitles.map((title) => title.job_title).join(", ");
 };
 
 export const formatRelatedJobTitles = (
   jobTitles: Array<{ job_title: string }>
 ): string => {
-  if (!jobTitles || jobTitles.length === 0) return "Not available";
+  if (!jobTitles || jobTitles.length === 0) return "-";
   return jobTitles.map((title) => title.job_title).join(", ");
 };
 
 export const getCounterpartyRole = (event: CorporateEvent): string => {
   const advised = event._counterparty_advised_of_corporate_events[0];
-  return advised?._counterpartys_type?.counterparty_status || "Not available";
+  return advised?._counterpartys_type?.counterparty_status || "-";
 };
 
 export const formatIndividualsList = (
   individuals: EventIndividual[]
 ): string => {
-  if (!individuals || individuals.length === 0) return "Not available";
+  if (!individuals || individuals.length === 0) return "-";
   return individuals.map((ind) => ind.advisor_individuals).join(", ");
 };
 
 export const formatAdvisorsList = (advisors: RelatedAdvisor[]): string => {
-  if (!advisors || advisors.length === 0) return "Not available";
+  if (!advisors || advisors.length === 0) return "-";
   return advisors.map((advisor) => advisor._new_company.name).join(", ");
 };

@@ -172,7 +172,7 @@ const CorporateEventDetail = ({
   }, [counterparties, logoMap]);
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "Not available";
+    if (!dateString) return "-";
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       year: "numeric",
@@ -482,15 +482,15 @@ const CorporateEventDetail = ({
               {idx < counterparty.counterparty_individuals.length - 1 && ", "}
                               </span>
           ))
-        : "Not available";
+        : "-";
 
     return {
       id: counterparty.id,
-      name: nc?.name ?? "N/A",
+      name: nc?.name ?? "-",
       role:
         counterparty._counterpartys_type?.counterparty_status ||
                         counterparty._counterparty_type?.counterparty_status ||
-        "N/A",
+        "-",
       logo,
       individuals,
       href,
@@ -519,10 +519,10 @@ const CorporateEventDetail = ({
     const advising = advisingHref
       ? createClickableElement(
           advisingHref,
-                            nc?.name || "N/A",
+                            nc?.name || "-",
           "text-blue-600 hover:underline"
         )
-      : nc?.name || "N/A";
+      : nc?.name || "-";
 
                         const advisorList = Array.isArray(anyA?.individuals)
                           ? (anyA.individuals as Array<{
@@ -549,7 +549,7 @@ const CorporateEventDetail = ({
               {idx < advisorList.length - 1 && ", "}
                               </span>
                             ))
-                          : "Not available";
+                          : "-";
 
     return {
       id: a.id,
@@ -626,7 +626,7 @@ const CorporateEventDetail = ({
                       {name}
                     </a>
                   ) : (
-                    <span>{name || "N/A"}</span>
+                    <span>{name || "-"}</span>
                   );
                 return (
                   <span key={typeof id === "number" ? id : idx}>

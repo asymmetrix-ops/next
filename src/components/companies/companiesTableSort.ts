@@ -1,5 +1,6 @@
 /** Sort behaviour per Companies Search column (functional spec). */
 
+import { isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import {
   COMPANY_COLUMN_FIELD_ALIASES,
   getFieldAliasesForColumn,
@@ -64,10 +65,7 @@ export function getColumnSortKind(columnKey: string): ColumnSortKind | null {
 
 const isEmptySortValue = (value: unknown): boolean => {
   if (value == null) return true;
-  if (typeof value === "string") {
-    const t = value.trim();
-    return !t || t === "N/A" || t === "Not available" || t === "—";
-  }
+  if (typeof value === "string") return isEmptyDisplayValue(value);
   return false;
 };
 

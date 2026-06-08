@@ -43,6 +43,7 @@ import {
 } from "@/components/redesign/FinMetricsIncomeCard";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
 import { buildBenchmarkPeersData } from "@/lib/buildBenchmarkPeersData";
+import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import {
   buildSubsidiaryAcquisitionYearMap,
   type SubsidiaryAcquisitionEvent,
@@ -659,18 +660,18 @@ async function enrichSubsidiariesLinkedInGrowth(
 
 const formatWholeNumber = (value?: number | string | null): string => {
   const n = getNumeric(value);
-  if (n === undefined) return "Not available";
+  if (n === undefined) return "-";
   return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
 };
 
 // Plain number formatter (no currency, preserve decimals as given)
 const formatPlainNumber = (value?: number | string | null): string => {
-  if (value === undefined || value === null) return "Not available";
+  if (value === undefined || value === null) return "-";
   if (typeof value === "number") {
     return value.toLocaleString("en-US", { maximumFractionDigits: 10 });
   }
   const trimmed = String(value).trim();
-  if (trimmed.length === 0) return "Not available";
+  if (trimmed.length === 0) return "-";
   const num = Number(trimmed.replace(/,/g, ""));
   if (!Number.isFinite(num)) return trimmed;
   const match = trimmed.match(/\.([0-9]+)/);
@@ -700,8 +701,6 @@ const INSIGHTS_PREVIEW_COUNT = 2;
 /** Design-demo total for empty insights card (matches V3 mock pagination) */
 const INSIGHTS_EMPTY_STATE_DEMO_TOTAL = 17;
 
-const EM_DASH = "\u2014";
-
 // RANGE_DASH moved to InsightsCard component
 
 /** V3 template-style fallbacks for Product type / Data collection mix card */
@@ -710,28 +709,6 @@ const PRODUCT_MIX_DEMO_ROWS: { label: string; pct: number }[] = [
   { label: "Software", pct: 20 },
   { label: "Research", pct: 20 },
   { label: "News / Other Media", pct: 10 },
-];
-
-const DATA_COLLECTION_MIX_DEMO: {
-  label: string;
-  pct: number;
-  displayRight: string;
-}[] = [
-  {
-    label: "Licensed third-party data",
-    pct: 45,
-    displayRight: "45%",
-  },
-  {
-    label: "Proprietary collection",
-    pct: 35,
-    displayRight: "35%",
-  },
-  {
-    label: "User-generated / community",
-    pct: 20,
-    displayRight: "20%",
-  },
 ];
 
 const PRODUCT_USERS_DEMO: string[] = [
@@ -1040,13 +1017,13 @@ const sourceLabel = (code?: number | string | null): string | undefined => {
 // Format helpers for additional financial metrics
 const formatPercent = (value?: number | string | null): string => {
   const n = getNumeric(value);
-  if (n === undefined) return "Not available";
+  if (n === undefined) return "-";
   return `${Math.round(n)}%`;
 };
 
 const formatMultiple = (value?: number | string | null): string => {
   const n = getNumeric(value);
-  if (n === undefined) return "Not available";
+  if (n === undefined) return "-";
   const rounded = Math.round(n * 10) / 10;
   return `${rounded.toLocaleString()}x`;
 };
@@ -1068,7 +1045,7 @@ const getSourceText = (
   code?: number | string | null
 ): string => {
   const resolved = effectiveSourceLabel(label, code);
-  return resolved ?? "Not available";
+  return resolved ?? "-";
 };
 
 // Removed short currency helper; we now display plain numbers
@@ -1184,7 +1161,7 @@ const formatLastInvestmentDisplay = (
     }
   }
 
-  if (daysSince === undefined) return "—";
+  if (daysSince === undefined) return "-";
   if (daysSince < 365) {
     if (daysSince < 30) return "This month";
     const months = Math.max(1, Math.floor(daysSince / 30));
@@ -1209,7 +1186,7 @@ const getYearFoundedDisplay = (company: Company): string => {
     if (year !== null) return String(year);
   }
 
-  return EM_DASH;
+  return EMPTY_DISPLAY;
 };
 
 // Company Logo Component
@@ -1474,7 +1451,7 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${id}`;
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${id}`;
 
       // Attempt 1: Standard GET
       const getResponse = await fetch(endpoint, {
@@ -2622,7 +2599,7 @@ const CompanyDetail = () => {
   )
     .map((item) => ({
       label: String(item?.Product_Type || "").trim(),
-      // If percentage is missing, leave the cell empty instead of showing "Not available"
+      // If percentage is missing, leave the cell empty instead of showing "-"
       value:
         getNumeric(item?.pc_of_revenues) !== undefined
           ? `${Math.round(getNumeric(item?.pc_of_revenues) || 0)}%`
@@ -3197,12 +3174,7 @@ const CompanyDetail = () => {
           color: mixBarColors[i % mixBarColors.length],
         }));
 
-  const productDataToggleDataRows =
-    dataCollectionMethodRows.length > 0
-      ? dataCollectionMethodRows
-      : DATA_COLLECTION_MIX_DEMO.map((r) => ({
-          label: r.label,
-        }));
+  const productDataToggleDataRows = dataCollectionMethodRows;
 
   const responsiveCss = `
     .company-detail-page { overflow-x: hidden; }
@@ -3780,7 +3752,7 @@ const CompanyDetail = () => {
                       ) : null}
                     </>
                   ) : (
-                    EM_DASH
+                    EMPTY_DISPLAY
                   )}
                 </div>
               </div>
@@ -3862,7 +3834,7 @@ const CompanyDetail = () => {
                       ) : null}
                     </>
                   ) : (
-                    EM_DASH
+                    EMPTY_DISPLAY
                   )}
                 </div>
               </div>
@@ -3893,7 +3865,7 @@ const CompanyDetail = () => {
                       {formatWebsiteDisplayLabel(company.url)}
                     </a>
                   ) : (
-                    EM_DASH
+                    EMPTY_DISPLAY
                   )}
                 </span>
               </div>
@@ -3902,7 +3874,7 @@ const CompanyDetail = () => {
                   Ownership
                 </span>
                 <span style={styles.value} className="info-value">
-                  {company._ownership_type?.ownership?.trim() || EM_DASH}
+                  {company._ownership_type?.ownership?.trim() || EMPTY_DISPLAY}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
@@ -3910,7 +3882,7 @@ const CompanyDetail = () => {
                   HQ
                 </span>
                 <span style={styles.value} className="info-value">
-                  {fullAddress?.trim() || EM_DASH}
+                  {fullAddress?.trim() || EMPTY_DISPLAY}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
@@ -3918,7 +3890,7 @@ const CompanyDetail = () => {
                   Lifecycle stage
                 </span>
                 <span style={styles.value} className="info-value">
-                  {company.Lifecycle_stage?.Lifecycle_Stage?.trim() || EM_DASH}
+                  {company.Lifecycle_stage?.Lifecycle_Stage?.trim() || EMPTY_DISPLAY}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
@@ -3926,7 +3898,7 @@ const CompanyDetail = () => {
                   Total amount raised
                 </span>
                 <span style={styles.value} className="info-value">
-                  {totalAmountRaisedDisplay ?? EM_DASH}
+                  {totalAmountRaisedDisplay ?? EMPTY_DISPLAY}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
@@ -3973,7 +3945,7 @@ const CompanyDetail = () => {
                       ) : null}
                     </>
                   ) : (
-                    EM_DASH
+                    EMPTY_DISPLAY
                   )}
                 </div>
               </div>
@@ -4001,7 +3973,7 @@ const CompanyDetail = () => {
                           </div>
                         );
                       }
-                      return parentName || EM_DASH;
+                      return parentName || EMPTY_DISPLAY;
                     })()}
                   </div>
                 </div>
@@ -4042,7 +4014,7 @@ const CompanyDetail = () => {
                             );
                           }
                         }
-                        return EM_DASH;
+                        return EMPTY_DISPLAY;
                       })()}
                     </div>
                   </div>
@@ -4101,6 +4073,8 @@ const CompanyDetail = () => {
                 onPrev={() => setInsightsPageOffset((o) => Math.max(0, o - INSIGHTS_PREVIEW_COUNT))}
                 onNext={() => setInsightsPageOffset((o) => Math.min(Math.max(0, insightTotalCount - INSIGHTS_PREVIEW_COUNT), o + INSIGHTS_PREVIEW_COUNT))}
                 emptyStateTotal={INSIGHTS_EMPTY_STATE_DEMO_TOTAL}
+                companyId={company.id}
+                companyName={company.name}
               />
             </div>{/* end insights-summary-card */}
 
@@ -4268,7 +4242,6 @@ const CompanyDetail = () => {
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
                 incomeStatementCurrency={evCurrency || revenueCurrency || ""}
-                onViewMore={scrollToProfileFinancials}
               />
             </div>
 
@@ -4290,7 +4263,6 @@ const CompanyDetail = () => {
                 fillGridCell
                 subscription={finMetricsData.subscription}
                 other={finMetricsData.other}
-                onViewMore={scrollToProfileFinancials}
               />
             </div>
 
@@ -4311,7 +4283,6 @@ const CompanyDetail = () => {
               hasIncomeStatement={hasIncomeStatementData}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementCurrency={evCurrency || revenueCurrency || ""}
-              onViewMore={scrollToProfileFinancials}
             />
 
               <div style={{ marginTop: 20 }}>

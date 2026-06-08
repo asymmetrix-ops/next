@@ -1,22 +1,22 @@
 import { Location, Individual, CurrentRole } from "../types/individuals";
 
 export const formatLocation = (location: Location | null): string => {
-  if (!location) return "Not available";
+  if (!location) return "-";
   const parts = [
     location.City,
     location.State__Province__County,
     location.Country,
   ];
-  return parts.filter(Boolean).join(", ") || "Not available";
+  return parts.filter(Boolean).join(", ") || "-";
 };
 
 export const formatCurrentRoles = (roles: CurrentRole[]): string => {
-  if (!roles || roles.length === 0) return "Not available";
+  if (!roles || roles.length === 0) return "-";
   return roles.map((role) => role.job_title).join(", ");
 };
 
 export const formatCurrentCompanies = (individual: Individual): string => {
-  if (!individual.current_company) return "Not available";
+  if (!individual.current_company) return "-";
   return individual.current_company;
 };
 
@@ -30,7 +30,7 @@ export const getIndividualLocation = (individual: Individual): string => {
   ) {
     return formatLocation(individual.current_company_location[0]);
   }
-  return "Not available";
+  return "-";
 };
 
 export const getTotalPages = (totalItems: number, perPage: number): number => {

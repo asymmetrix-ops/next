@@ -285,17 +285,17 @@ export default function AdvisorProfilePage() {
   const getEventRowForCsv = (event: AdvisorCorporateEventItem): string[] => {
     const date = event.announcement_date
       ? formatDate(event.announcement_date)
-      : "—";
-    const counterparty = (event.company_advised_role || event.company_advised_name || "—").trim() || "—";
-    const clientName = (event.company_advised_name || "").trim() || "—";
+      : "-";
+    const counterparty = (event.company_advised_role || event.company_advised_name || "-").trim() || "-";
+    const clientName = (event.company_advised_name || "").trim() || "-";
     const sectors = (() => {
       const arr = coerceUnknownToArray(event.primary_sectors as unknown);
       return arr
         .map((s) => String((s as { sector_name?: string })?.sector_name || "").trim())
         .filter(Boolean)
-        .join(", ") || "—";
+        .join(", ") || "-";
     })();
-    let ev = "—";
+    let ev = "-";
     const value = event.enterprise_value_m;
     const currency = (event.currency_name || "").trim();
     if (value != null && value !== "") {
@@ -304,17 +304,17 @@ export default function AdvisorProfilePage() {
     const individuals = coerceUnknownToArray(event.advisor_individuals as unknown)
       .map((p) => String((p as { name?: string })?.name || "").trim())
       .filter(Boolean)
-      .join(", ") || "—";
+      .join(", ") || "-";
     const otherAdvisors = coerceUnknownToArray(event.other_advisors as unknown)
       .map((a) =>
         String((a as { advisor_company_name?: string })?.advisor_company_name || "").trim()
       )
       .filter(Boolean)
-      .join(", ") || "—";
+      .join(", ") || "-";
     return [
       event.description ?? "",
       date,
-      event.deal_type ?? "—",
+      event.deal_type ?? "-",
       counterparty,
       clientName,
       sectors,
@@ -403,7 +403,7 @@ export default function AdvisorProfilePage() {
       const value = event.enterprise_value_m ?? null;
       const evFormatted =
         value === null || value === undefined || value === ""
-          ? "—"
+          ? "-"
           : currency
           ? formatCurrency(String(value), currency)
           : String(value);
@@ -459,7 +459,7 @@ export default function AdvisorProfilePage() {
         announcement_date: event.announcement_date ?? null,
         announcement_date_display: event.announcement_date
           ? formatDate(event.announcement_date)
-          : "—",
+          : "-",
         deal_type: event.deal_type ?? null,
         company_advised: {
           id: companyAdvisedId,
@@ -564,7 +564,7 @@ export default function AdvisorProfilePage() {
         name: advisor?.name ?? "",
         description: advisor?.description ?? null,
         website_url: advisor?.url ?? null,
-        year_founded_display: advisor ? getAdvisorYearFoundedDisplay(advisor) : "Not available",
+        year_founded_display: advisor ? getAdvisorYearFoundedDisplay(advisor) : "-",
         hq: {
           city: loc?.City ?? null,
           state_province_county: loc?.State__Province__County ?? null,
@@ -1577,13 +1577,13 @@ export default function AdvisorProfilePage() {
                         ).map((event, index) => {
                           const companyAdvisedId = event.company_advised_id ?? null;
                           const companyAdvisedName =
-                            (event.company_advised_name || "").trim() || "—";
+                            (event.company_advised_name || "").trim() || "-";
                           const companyAdvisedRoleRaw = String(
                             event.company_advised_role || ""
                           ).trim();
                           const companyAdvisedRole = companyAdvisedRoleRaw.toLowerCase();
                           const companyAdvisedHref =
-                            companyAdvisedId && companyAdvisedName !== "—"
+                            companyAdvisedId && companyAdvisedName !== "-"
                               ? companyAdvisedRole.includes("investor")
                                 ? `/investors/${companyAdvisedId}`
                                 : `/company/${companyAdvisedId}`
@@ -1593,7 +1593,7 @@ export default function AdvisorProfilePage() {
                             const value = event.enterprise_value_m;
                             const currency = (event.currency_name || "").trim();
                             if (value === null || value === undefined || value === "")
-                              return "—";
+                              return "-";
                             if (currency) {
                               return formatCurrency(String(value), currency);
                             }
@@ -1650,18 +1650,18 @@ export default function AdvisorProfilePage() {
                               <td>
                                 {createClickableElement(
                                   `/corporate-event/${event.id}`,
-                                  event.description || "—",
+                                  event.description || "-",
                                   "event-link"
                                 )}
                               </td>
                               <td>
                                 {event.announcement_date
                                   ? formatDate(event.announcement_date)
-                                  : "—"}
+                                  : "-"}
                               </td>
-                              <td>{event.deal_type || "—"}</td>
+                              <td>{event.deal_type || "-"}</td>
                               <td>
-                                {companyAdvisedRoleRaw || "—"}
+                                {companyAdvisedRoleRaw || "-"}
                               </td>
                               <td>
                                 {companyAdvisedHref
@@ -1694,7 +1694,7 @@ export default function AdvisorProfilePage() {
                                         </span>
                                       );
                                     })
-                                  : "—"}
+                                  : "-"}
                               </td>
                               <td>{getEnterpriseValue()}</td>
                               <td>
@@ -1718,7 +1718,7 @@ export default function AdvisorProfilePage() {
                                           )}
                                         </span>
                                       ))
-                                  : "—"}
+                                  : "-"}
                               </td>
                             </tr>
                           );
@@ -1735,13 +1735,13 @@ export default function AdvisorProfilePage() {
                     ).map((event, index) => {
                       const companyAdvisedId = event.company_advised_id ?? null;
                       const companyAdvisedName =
-                        (event.company_advised_name || "").trim() || "—";
+                        (event.company_advised_name || "").trim() || "-";
                       const companyAdvisedRoleRaw = String(
                         event.company_advised_role || ""
                       ).trim();
                       const companyAdvisedRole = companyAdvisedRoleRaw.toLowerCase();
                       const companyAdvisedHref =
-                        companyAdvisedId && companyAdvisedName !== "—"
+                        companyAdvisedId && companyAdvisedName !== "-"
                           ? companyAdvisedRole.includes("investor")
                             ? `/investors/${companyAdvisedId}`
                             : `/company/${companyAdvisedId}`
@@ -1751,7 +1751,7 @@ export default function AdvisorProfilePage() {
                         const value = event.enterprise_value_m;
                         const currency = (event.currency_name || "").trim();
                         if (value === null || value === undefined || value === "")
-                          return "—";
+                          return "-";
                         if (currency) return formatCurrency(String(value), currency);
                         const n = Number(String(value).replace(/,/g, ""));
                         return Number.isFinite(n)
@@ -1807,7 +1807,7 @@ export default function AdvisorProfilePage() {
                         <div key={index} className="event-card">
                           {createClickableElement(
                             `/corporate-event/${event.id}`,
-                            event.description || "—",
+                            event.description || "-",
                             "event-card-title"
                           )}
                           <div className="event-card-info">
@@ -1818,13 +1818,13 @@ export default function AdvisorProfilePage() {
                               <span className="event-card-info-value">
                                 {event.announcement_date
                                   ? formatDate(event.announcement_date)
-                                  : "—"}
+                                  : "-"}
                               </span>
                             </div>
                             <div className="event-card-info-item">
                               <span className="event-card-info-label">Type:</span>
                               <span className="event-card-info-value">
-                                {event.deal_type || "—"}
+                                {event.deal_type || "-"}
                               </span>
                             </div>
                             <div className="event-card-info-item">
@@ -1832,7 +1832,7 @@ export default function AdvisorProfilePage() {
                                 Counterparty Advised:
                               </span>
                               <span className="event-card-info-value">
-                                {companyAdvisedRoleRaw || "—"}
+                                {companyAdvisedRoleRaw || "-"}
                               </span>
                             </div>
                             <div className="event-card-info-item">
@@ -1878,7 +1878,7 @@ export default function AdvisorProfilePage() {
                                         </span>
                                       );
                                     })
-                                  : "—"}
+                                  : "-"}
                               </span>
                             </div>
                             <div className="event-card-info-item">
@@ -1897,7 +1897,7 @@ export default function AdvisorProfilePage() {
                               <span className="event-card-info-value">
                                 {individuals.length > 0
                                   ? individuals.join(", ")
-                                  : "—"}
+                                  : "-"}
                               </span>
                             </div>
                           </div>
@@ -1940,7 +1940,7 @@ export default function AdvisorProfilePage() {
                 </div>
                 <div className="info-item">
                   <span className="info-label">HQ:</span>
-                  <span className="info-value">{hq || "Not available"}</span>
+                  <span className="info-value">{hq || "-"}</span>
                 </div>
                 <div className="info-item">
                   <span className="info-label">Website:</span>
@@ -1955,7 +1955,7 @@ export default function AdvisorProfilePage() {
                         {Advisor.url}
                       </a>
                     ) : (
-                      "Not available"
+                      "-"
                     )}
                   </span>
                 </div>
@@ -2003,7 +2003,7 @@ export default function AdvisorProfilePage() {
                   </div>
                 </div>
               ) : (
-                <div className="info-value">Not available</div>
+                <div className="info-value">-</div>
               )}
             </div>
 
@@ -2078,7 +2078,7 @@ export default function AdvisorProfilePage() {
                     }
                     return [];
                   })()}
-                  emptyMessage="Not available"
+                  emptyMessage="-"
                 />
               </div>
 
@@ -2118,7 +2118,7 @@ export default function AdvisorProfilePage() {
                       <IndividualCards
                         title="Past:"
                         individuals={pastAdvisors}
-                        emptyMessage="Not available"
+                        emptyMessage="-"
                       />
                     </div>
                   );

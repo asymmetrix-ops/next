@@ -261,7 +261,7 @@ const CE_PALETTE: Record<
 };
 
 const formatDate = (dateString: string | null | undefined): string => {
-  if (!dateString) return "Not available";
+  if (!dateString) return "-";
   try {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -270,7 +270,7 @@ const formatDate = (dateString: string | null | undefined): string => {
       day: "numeric",
     });
   } catch {
-    return "Not available";
+    return "-";
   }
 };
 
@@ -278,7 +278,7 @@ const truncateDescription = (
   description: string,
   maxLength: number = 150
 ): { text: string; isLong: boolean } => {
-  if (!description) return { text: "Not available", isLong: false };
+  if (!description) return { text: "-", isLong: false };
   const isLong = description.length > maxLength;
   const truncated = isLong
     ? description.substring(0, maxLength) + "..."
@@ -438,7 +438,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                 const legacyTargetId =
                   newEvent.target_counterparty?.new_company_counterparty;
                 const targetCountry =
-                  legacyTarget?._location?.Country || "Not Available";
+                  legacyTarget?._location?.Country || "-";
 
                 // Get advisors
                 const newAdvisors = newEvent.advisors || [];
@@ -668,7 +668,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                             }
                             return <span>{newEvent.target_company.name}</span>;
                           }
-                          return "Not Available";
+                          return "-";
                         })()}
                       </div>
 
@@ -1027,7 +1027,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 {idx < advisorList.length - 1 && ", "}
                               </span>
                             ))
-                          : "Not Available"}
+                          : "-"}
                       </div>
                     </td>
 
@@ -1108,7 +1108,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         )}
                         {primarySectors.length === 0 && secondarySectors.length === 0 && (
                         <div className="muted-row">
-                          <span>Not available</span>
+                          <span>-</span>
                         </div>
                         )}
                       </td>

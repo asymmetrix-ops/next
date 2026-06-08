@@ -67,7 +67,7 @@ const InvestmentTeam: React.FC<InvestmentTeamProps> = ({
             ))}
           </div>
         ) : (
-          <div>Not available</div>
+          <div>-</div>
         )}
       </div>
 
@@ -109,7 +109,7 @@ const InvestmentTeam: React.FC<InvestmentTeamProps> = ({
             ))}
           </div>
         ) : (
-          <div>Not available</div>
+          <div>-</div>
         )}
       </div>
     </div>

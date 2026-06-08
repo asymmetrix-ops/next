@@ -26,7 +26,7 @@ interface InsightsAnalysisCardProps {
 }
 
 const formatDate = (dateString: string) => {
-  if (!dateString) return "Not available";
+  if (!dateString) return "-";
   try {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -69,26 +69,26 @@ const stripHtmlToText = (html: string | undefined | null): string => {
 const formatSectors = (
   sectors: Array<Array<{ sector_name: string }>> | undefined
 ) => {
-  if (!Array.isArray(sectors) || sectors.length === 0) return "Not available";
+  if (!Array.isArray(sectors) || sectors.length === 0) return "-";
   const allSectors = sectors
     .filter(Boolean)
     .flat()
     .filter(Boolean)
     .map((s) => decodeHtmlEntities(s?.sector_name || ""))
     .filter((name): name is string => Boolean(name && name.trim().length));
-  return allSectors.length ? allSectors.join(", ") : "Not available";
+  return allSectors.length ? allSectors.join(", ") : "-";
 };
 
 const formatCompanies = (
   companies: ContentArticle["companies_mentioned"] | undefined
 ) => {
   if (!Array.isArray(companies) || companies.length === 0)
-    return "Not available";
+    return "-";
   const names = companies
     .filter(Boolean)
     .map((c) => decodeHtmlEntities(c?.name || ""))
     .filter((name): name is string => Boolean(name && name.trim().length));
-  return names.length ? names.join(", ") : "Not available";
+  return names.length ? names.join(", ") : "-";
 };
 
 const getCompanyNames = (
@@ -350,7 +350,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                 maxWidth: "100%",
               }}
             >
-              {plainHeadline || "Not available"}
+              {plainHeadline || "-"}
             </h3>
 
             {/* Transaction status badge – sits below the title */}
@@ -414,7 +414,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                   overflowWrap: "break-word",
                 }}
               >
-                {plainHeadline || "Not available"}
+                {plainHeadline || "-"}
               </h3>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
                 {effectiveContentType && (

@@ -172,7 +172,7 @@ function formatValue(
   fxRates: FXRates | null = null
 ): string {
   const n = toNumber(value);
-  if (n === null) return "—";
+  if (n === null) return "-";
 
   switch (format) {
     case "percent":
@@ -1175,7 +1175,7 @@ export default function FinancialMetricsTable({
                     >
                       {Number.isFinite(r.num_companies)
                         ? r.num_companies.toLocaleString()
-                        : "—"}
+                        : "-"}
                     </td>
                     {r.values.map((v, i) => (
                       <td

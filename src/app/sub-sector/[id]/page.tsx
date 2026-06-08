@@ -78,7 +78,7 @@ const DescriptionCell: React.FC<{ description?: string; index: number }> = ({
   description,
   index,
 }) => {
-  const full = description || "N/A";
+  const full = description || "-";
   const { text, isLong } = truncateDescription(full);
   const [expanded, setExpanded] = useState(false);
 
@@ -621,7 +621,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "Not available";
+    if (!dateString) return "-";
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
         year: "numeric",
@@ -637,9 +637,9 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
     amount: string | undefined,
     currency: string | undefined
   ) => {
-    if (!amount || !currency) return "Not available";
+    if (!amount || !currency) return "-";
     const n = Number(amount);
-    if (Number.isNaN(n)) return "Not available";
+    if (Number.isNaN(n)) return "-";
     return `${currency}${n.toLocaleString(undefined, {
       maximumFractionDigits: 3,
     })}`;
@@ -651,7 +651,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
       | undefined
   ): React.ReactNode => {
     if (!Array.isArray(sectors) || sectors.length === 0) {
-      return "Not available";
+      return "-";
     }
     const nodes: React.ReactNode[] = [];
     sectors.forEach((sector, index) => {
@@ -678,7 +678,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
         nodes.push(<span key={`sep-${index}`}>, </span>);
       }
     });
-    return nodes.length > 0 ? nodes : "Not available";
+    return nodes.length > 0 ? nodes : "-";
   };
 
   return (
@@ -1269,7 +1269,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                 const target = event.target_counterparty?.new_company;
                 const targetCounterpartyId =
                   event.target_counterparty?.new_company_counterparty;
-                const targetName = target?.name || "Not Available";
+                const targetName = target?.name || "-";
                 const targetHref = targetCounterpartyId
                   ? `/company/${targetCounterpartyId}`
                   : "";
@@ -1278,7 +1278,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                   (target as
                     | { _location?: { Country?: string } }
                     | undefined)?._location?.Country ||
-                  "Not Available";
+                  "-";
                 const fundingStage =
                   (
                     event.investment_data?.Funding_stage ||
@@ -1375,7 +1375,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                           href={`/corporate-event/${event.id}`}
                           className="font-medium text-blue-600 underline hover:text-blue-800"
                         >
-                          {event.description || "Not Available"}
+                          {event.description || "-"}
                         </a>
                       </div>
                       <div className="text-xs text-slate-600">
@@ -1417,7 +1417,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                             if (list.length === 0) {
                               return (
                                 <>
-                                  <strong>Buyer(s):</strong> Not Available
+                                  <strong>Buyer(s):</strong> -
                                 </>
                               );
                             }
@@ -1439,7 +1439,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                             return (
                               <>
                                 <strong>{label}:</strong>{" "}
-                                {names || "Not Available"}
+                                {names || "-"}
                               </>
                             );
                           })()}
@@ -1459,14 +1459,14 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                                     return /divestor|seller|vendor/i.test(status);
                                   });
                                 if (sellers.length === 0)
-                                  return "Not Available";
+                                  return "-";
                                 return sellers
                                   .map(
                                     (cp) => cp._new_company?.name || "Unknown"
                                   )
                                   .join(", ");
                               })()
-                            : "Not Available"}
+                            : "-"}
                         </div>
                       )}
                     </td>
@@ -1487,7 +1487,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                             )}
                           </span>
                         ) : (
-                          "Not Available"
+                          "-"
                         )}
                       </div>
                       <div>
@@ -1518,7 +1518,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                                 return nc?.name || "Unknown";
                               })
                               .join(", ")
-                          : "Not Available"}
+                          : "-"}
                       </div>
                     </td>
 
@@ -2610,7 +2610,7 @@ const SubSectorPage = () => {
                               />
                             </td>
                             <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
-                              {c.ownership || "N/A"}
+                              {c.ownership || "-"}
                             </td>
                             <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
                               {(() => {
@@ -2637,11 +2637,11 @@ const SubSectorPage = () => {
                                   }
                                 }
 
-                                return "N/A";
+                                return "-";
                               })()}
                             </td>
                             <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
-                              {c.country || "N/A"}
+                              {c.country || "-"}
                             </td>
                             <td className="py-3 pr-4 align-middle text-center text-slate-700">
                               {c.annual_revenue_m !== null &&
@@ -2649,7 +2649,7 @@ const SubSectorPage = () => {
                                 ? c.annual_revenue_m >= 1000
                                   ? `$${(c.annual_revenue_m / 1000).toFixed(1)}B`
                                   : `$${c.annual_revenue_m.toFixed(1)}M`
-                                : "N/A"}
+                                : "-"}
                             </td>
                             <td className="py-3 pr-4 text-center text-slate-700">
                               {typeof c.linkedin_members === "number"
@@ -2748,7 +2748,7 @@ const SubSectorPage = () => {
                         className="block p-4 bg-white rounded-lg border shadow-sm transition-shadow border-slate-200 hover:shadow-md"
                       >
                         <h3 className="text-base font-semibold text-slate-900">
-                          {article.Headline || "Not Available"}
+                          {article.Headline || "-"}
                         </h3>
                         <p className="mt-1 text-xs text-slate-500">
                           {article.Publication_Date
@@ -2759,7 +2759,7 @@ const SubSectorPage = () => {
                                 month: "long",
                                 day: "numeric",
                               })
-                            : "Not available"}
+                            : "-"}
                         </p>
                         {article.Content_Type && (
                           <span className="inline-block mt-2 px-2 py-0.5 text-xs rounded border bg-blue-50 text-blue-700 border-blue-200">

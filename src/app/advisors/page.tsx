@@ -820,7 +820,7 @@ const AdvisorsPage = () => {
 
   // Advisor Card Component for mobile
   const AdvisorCard = (advisor: Advisor, index: number) => {
-    const description = advisor.description || "N/A";
+    const description = advisor.description || "-";
     const isDescriptionLong = description.length > 220;
     const truncatedDescription = truncateDescription(description);
 
@@ -898,7 +898,7 @@ const AdvisorsPage = () => {
                 marginBottom: "4px",
               },
             },
-            advisor.name || "N/A"
+            advisor.name || "-"
           ),
           React.createElement(
             "div",
@@ -908,7 +908,7 @@ const AdvisorsPage = () => {
                 color: "#4a5568",
               },
             },
-            advisor.country || "N/A"
+            advisor.country || "-"
           )
         )
       ),
@@ -1048,7 +1048,7 @@ const AdvisorsPage = () => {
                 whiteSpace: "nowrap",
               },
             },
-            advisor.sectors || "N/A"
+            advisor.sectors || "-"
           )
         )
       )
@@ -1064,13 +1064,13 @@ const AdvisorsPage = () => {
     );
     return advisors.map((advisor, index) => {
       // Truncate description for display
-      const description = advisor.description || "N/A";
+      const description = advisor.description || "-";
       const isDescriptionLong = description.length > 220;
       const truncatedDescription = isDescriptionLong
         ? description.substring(0, 220) + "..."
         : description;
 
-      const sectorsText = advisor.sectors || "N/A";
+      const sectorsText = advisor.sectors || "-";
       const sectorsIsLong = (sectorsText || "").length > 100;
       const isSectorsExpanded = !!expandedSectors[index];
 
@@ -1115,7 +1115,7 @@ const AdvisorsPage = () => {
               className: "advisor-name",
               style: { fontWeight: "500" },
             },
-            advisor.name || "N/A"
+            advisor.name || "-"
           )
         ),
         React.createElement(
@@ -1201,7 +1201,7 @@ const AdvisorsPage = () => {
           )
         ),
         React.createElement("td", null, formatNumber(advisor.linkedin_members)),
-        React.createElement("td", null, advisor.country || "N/A"),
+        React.createElement("td", null, advisor.country || "-"),
         React.createElement(
           "td",
           { style: { textAlign: "center" } },

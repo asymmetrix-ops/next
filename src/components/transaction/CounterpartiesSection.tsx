@@ -63,10 +63,10 @@ export default function CounterpartiesSection({ counterparties, createClickableE
                     )}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {company.role || 'Not available'}
+                    {company.role || '-'}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {company.individuals || 'Not available'}
+                    {company.individuals || '-'}
                   </TableCell>
                 </TableRow>
               ))

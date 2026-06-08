@@ -68,8 +68,10 @@ export interface InsightsAnalysisFilters {
   Offset: number;
   Per_page: number;
   Transaction_status?: string;
+  company_id?: number | null;
   user_id?: number | null;
   portfolio_only?: boolean;
+  show_followed?: boolean;
 }
 
 // Types for API integration

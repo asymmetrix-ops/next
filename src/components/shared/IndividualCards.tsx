@@ -20,7 +20,7 @@ interface IndividualCardsProps {
 const IndividualCards: React.FC<IndividualCardsProps> = ({
   individuals,
   title,
-  emptyMessage = "Not available",
+  emptyMessage = "-",
 }) => {
   if (individuals.length === 0) {
     return (

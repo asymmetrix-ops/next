@@ -1,7 +1,7 @@
 import { AdvisedSector, AdvisorCorporateEvent } from "../types/advisor";
 
 export const formatCurrency = (value: string, currency: string): string => {
-  if (!value || value === "0" || value === "") return "Not available";
+  if (!value || value === "0" || value === "") return "-";
 
   const numValue = parseFloat(value);
   const currencySymbols: { [key: string]: string } = {
@@ -19,7 +19,7 @@ export const formatCurrency = (value: string, currency: string): string => {
 };
 
 export const formatDate = (dateString: string): string => {
-  if (dateString === "1900-01-01") return "Not available";
+  if (dateString === "1900-01-01") return "-";
 
   const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
@@ -94,5 +94,5 @@ export const getAdvisorYearFoundedDisplay = (advisor: {
     const y = extract(c);
     if (y !== null) return String(y);
   }
-  return "Not available";
+  return "-";
 };

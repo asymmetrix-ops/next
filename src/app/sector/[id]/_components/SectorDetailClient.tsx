@@ -152,7 +152,7 @@ const renderSectorLinks = (
   hrefBase: "/sector/" | "/sub-sector/" = "/sector/"
 ): React.ReactNode => {
   if (!Array.isArray(sectors) || sectors.length === 0) {
-    return "N/A";
+    return "-";
   }
   const nodes: React.ReactNode[] = [];
   sectors.forEach((sector, index) => {
@@ -179,7 +179,7 @@ const renderSectorLinks = (
 
     if (index < sectors.length - 1) nodes.push(<span key={`sep-${index}`}>, </span>);
   });
-  return nodes.length > 0 ? nodes : "N/A";
+  return nodes.length > 0 ? nodes : "-";
 };
 
 interface NewCompanyItem {
@@ -973,7 +973,7 @@ function MostActiveTableCard({
           <div className="block space-y-3 md:hidden">
             {!hasItems ? (
               <div className="py-6 text-sm text-center text-slate-500">
-                Not available
+                -
               </div>
             ) : (
               items.slice(0, 25).map((it) => {
@@ -1031,10 +1031,10 @@ function MostActiveTableCard({
                       </div>
                       <div className="text-right min-w-0 flex-1">
                         <p className="text-xs font-medium text-slate-900 truncate">
-                          {it.mostRecentTarget || "N/A"}
+                          {it.mostRecentTarget || "-"}
                         </p>
                         <p className="text-xs text-slate-500">
-                          {it.closedDate || "N/A"}
+                          {it.closedDate || "-"}
                         </p>
                       </div>
                     </div>
@@ -1087,7 +1087,7 @@ function MostActiveTableCard({
                       colSpan={3}
                       className="py-6 text-sm text-center text-slate-500"
                     >
-                      Not available
+                      -
                     </td>
                   </tr>
                 ) : (
@@ -1209,11 +1209,11 @@ function MostActiveTableCard({
                                   {it.mostRecentTarget}
                                 </a>
                               ) : (
-                                it.mostRecentTarget || "N/A"
+                                it.mostRecentTarget || "-"
                               )}
                             </p>
                             <p className="mt-1 text-xs text-slate-500">
-                              {it.closedDate || "N/A"}
+                              {it.closedDate || "-"}
                             </p>
                           </div>
                         </td>
@@ -1397,11 +1397,11 @@ function MostActiveFullTable({
                       {it.mostRecentTarget}
                     </a>
                   ) : (
-                    it.mostRecentTarget || "—"
+                    it.mostRecentTarget || "-"
                   )}
                 </td>
                 <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
-                  {it.closedDate || "—"}
+                  {it.closedDate || "-"}
                 </td>
               </tr>
             );
@@ -1478,7 +1478,7 @@ function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
                   )}
                 </td>
                 <td className="py-3 px-4 text-slate-700">
-                  {it.country || "—"}
+                  {it.country || "-"}
                 </td>
                 <td className="py-3 px-4 text-center">
                   <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-amber-50 text-amber-700">
@@ -1521,7 +1521,7 @@ function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
                       })}
                     </div>
                   ) : (
-                    it.sectorsCovered || "—"
+                    it.sectorsCovered || "-"
                   )}
                 </td>
               </tr>
@@ -2262,7 +2262,7 @@ function RecentTransactionsCard({
           <div className="block space-y-3 md:hidden">
             {!hasItems ? (
               <div className="py-6 text-sm text-center text-slate-500">
-                Not available
+                -
               </div>
             ) : (
               transactions.slice(0, 25).map((t, idx) => {
@@ -2532,7 +2532,7 @@ function RecentTransactionsCard({
                       colSpan={3}
                       className="py-6 text-sm text-center text-slate-500"
                     >
-                      Not available
+                      -
                     </td>
                   </tr>
                 )}
@@ -5403,15 +5403,15 @@ const SectorDetailPage = ({
                     targetCounterparty?.new_company;
                   const targetCounterpartyId =
                     event.target_counterparty?.new_company_counterparty;
-                  const targetName = target?.name || "Not Available";
+                  const targetName = target?.name || "-";
                   const targetHref = targetCounterpartyId
                     ? `/company/${targetCounterpartyId}`
                     : "";
                   const targetCountry = (target?._location?.Country ?? 
-                                        target?.country) || "Not Available";
+                                        target?.country) || "-";
 
                   const formatDate = (dateString: string) => {
-                    if (!dateString) return "Not available";
+                    if (!dateString) return "-";
                     try {
                       return new Date(dateString).toLocaleDateString("en-US", {
                         year: "numeric",
@@ -5427,9 +5427,9 @@ const SectorDetailPage = ({
                     amount: string | undefined,
                     currency: string | undefined
                   ) => {
-                    if (!amount || !currency) return "Not available";
+                    if (!amount || !currency) return "-";
                     const n = Number(amount);
-                    if (Number.isNaN(n)) return "Not available";
+                    if (Number.isNaN(n)) return "-";
                     return `${currency}${n.toLocaleString(undefined, {
                       maximumFractionDigits: 3,
                     })}m`;
@@ -5451,7 +5451,7 @@ const SectorDetailPage = ({
                     hrefBase: "/sector/" | "/sub-sector/" = "/sector/"
                   ): React.ReactNode => {
                     if (!Array.isArray(sectors) || sectors.length === 0) {
-                      return "Not available";
+                      return "-";
                     }
                     const nodes: React.ReactNode[] = [];
                     sectors.forEach((sector, index) => {
@@ -5487,7 +5487,7 @@ const SectorDetailPage = ({
                         nodes.push(<span key={`sep-${index}`}>, </span>);
                       }
                     });
-                    return nodes.length > 0 ? nodes : "Not available";
+                    return nodes.length > 0 ? nodes : "-";
                   };
 
                   const fundingStage =
@@ -5534,7 +5534,7 @@ const SectorDetailPage = ({
                             href={`/corporate-event/${event.id}`}
                             className="font-medium text-blue-600 underline hover:text-blue-800"
                           >
-                            {event.description || "Not Available"}
+                            {event.description || "-"}
                           </a>
                         </div>
                         <div className="text-xs text-slate-600">
@@ -5616,7 +5616,7 @@ const SectorDetailPage = ({
                               if (list.length === 0) {
                                 return (
                                   <>
-                                    <strong>Buyer(s):</strong> Not Available
+                                    <strong>Buyer(s):</strong> -
                                   </>
                                 );
                               }
@@ -5801,7 +5801,7 @@ const SectorDetailPage = ({
                               )}
                             </span>
                           ) : (
-                            "Not Available"
+                            "-"
                           )}
                         </div>
                         <div className="text-xs text-slate-600">
@@ -5850,7 +5850,7 @@ const SectorDetailPage = ({
                                   </span>
                                 );
                               })
-                            : "Not Available"}
+                            : "-"}
                         </div>
                       </td>
                       {/* Sectors */}
@@ -6068,7 +6068,7 @@ const SectorDetailPage = ({
     };
 
     const formatDate = (dateString: string) => {
-      if (!dateString) return "Not available";
+      if (!dateString) return "-";
       try {
         return new Date(dateString).toLocaleDateString("en-US", {
           year: "numeric",
@@ -6083,22 +6083,22 @@ const SectorDetailPage = ({
     const formatSectors = (
       sectors: Array<Array<{ sector_name: string }>> | undefined
     ) => {
-      if (!sectors || sectors.length === 0) return "Not available";
+      if (!sectors || sectors.length === 0) return "-";
       const allSectors = sectors
         .flat()
         .filter((s) => s && s.sector_name)
         .map((s) => s.sector_name);
-      return allSectors.length > 0 ? allSectors.join(", ") : "Not available";
+      return allSectors.length > 0 ? allSectors.join(", ") : "-";
     };
 
     const formatCompanies = (
       companies: ContentArticle["companies_mentioned"] | undefined
     ) => {
-      if (!companies || companies.length === 0) return "Not available";
+      if (!companies || companies.length === 0) return "-";
       const validCompanies = companies
         .filter((c) => c && c.name)
         .map((c) => c.name);
-      return validCompanies.length > 0 ? validCompanies.join(", ") : "Not available";
+      return validCompanies.length > 0 ? validCompanies.join(", ") : "-";
     };
 
     const badgeClassFor = (contentType?: string): string => {
@@ -6306,7 +6306,7 @@ const SectorDetailPage = ({
                   }}
                 >
                   <h3 className="article-title">
-                    {article.Headline || "Not Available"}
+                    {article.Headline || "-"}
                   </h3>
                   <p className="article-date">
                     {formatDate(article.Publication_Date)}
@@ -7488,7 +7488,7 @@ const SectorDetailPage = ({
                                     )}
                                   </>
                                 ) : (
-                                  "N/A"
+                                  "-"
                                 )}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
@@ -7509,7 +7509,7 @@ const SectorDetailPage = ({
                                   : "0"}
                               </td>
                               <td className="py-3 pr-4 text-center text-slate-700">
-                                {c.country || "N/A"}
+                                {c.country || "-"}
                               </td>
                             </tr>
                           );
@@ -8224,7 +8224,7 @@ const SectorDetailPage = ({
                                     )}
                                   </>
                                 ) : (
-                                  "N/A"
+                                  "-"
                                 )}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
@@ -8245,7 +8245,7 @@ const SectorDetailPage = ({
                                   : "0"}
                               </td>
                               <td className="py-3 pr-4 text-center text-slate-700">
-                                {c.country || "N/A"}
+                                {c.country || "-"}
                               </td>
                             </tr>
                           );

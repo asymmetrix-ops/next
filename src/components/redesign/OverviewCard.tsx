@@ -42,7 +42,7 @@ export type OverviewCardProps = {
   fillGridCell?: boolean;
 };
 
-const EM = "—";
+const EM = "-";
 
 function SectorTags({
   sectors,

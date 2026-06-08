@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { isNonEmptyDisplayString as isNonEmptyString } from "@/lib/emptyDisplay";
 
 export interface CorporateEventDealMetricsProps {
   dealType?: string | null;
@@ -36,19 +37,16 @@ export interface CorporateEventDealMetricsProps {
   evBandFallback?: string | null;
 }
 
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === "string" && value.trim().length > 0;
-
 const formatMillions = (
   amount: number | string | null | undefined,
   currency: string | null | undefined
 ): string => {
-  if (amount == null || !isNonEmptyString(currency)) return "Not available";
+  if (amount == null || !isNonEmptyString(currency)) return "-";
   const n =
     typeof amount === "number"
       ? amount
       : Number(String(amount).replace(/,/g, "").trim());
-  if (Number.isNaN(n)) return "Not available";
+  if (Number.isNaN(n)) return "-";
   // Values are already in millions; "(m)" is indicated in the field label.
   return `${currency}${n.toLocaleString(undefined, {
     maximumFractionDigits: 3,
@@ -78,7 +76,7 @@ export const CorporateEventDealMetrics: React.FC<
         {isNonEmptyString(dealType) ? (
           <span className="pill pill-blue">{dealType}</span>
         ) : (
-          <span>Not Available</span>
+          <span>-</span>
         )}
         {isNonEmptyString(fundingStage) && (
           <span className="pill pill-green" style={{ marginLeft: "4px" }}>
@@ -104,7 +102,7 @@ export const CorporateEventDealMetrics: React.FC<
               ? formatMillions(evMillions, evCurrency)
               : isNonEmptyString(evBandFallback)
               ? evBandFallback
-              : "Not available"}
+              : "-"}
           </div>
         </>
       )}

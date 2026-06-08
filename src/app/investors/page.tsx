@@ -823,7 +823,7 @@ const InvestorsPage = () => {
 
   const tableRows = investors.map((investor, index) => {
     // Truncate description for display
-    const description = investor.description || "N/A";
+    const description = investor.description || "-";
     const isDescriptionLong = description.length > 220;
     const truncatedDescription = isDescriptionLong
       ? description.substring(0, 220) + "..."
@@ -891,12 +891,12 @@ const InvestorsPage = () => {
                 },
                 title: "Open investor",
               },
-              investor.company_name || "N/A"
+              investor.company_name || "-"
             )
           : React.createElement(
               "span",
               { className: "investor-name" },
-              investor.company_name || "N/A"
+              investor.company_name || "-"
             )
       ),
       React.createElement(
@@ -904,7 +904,7 @@ const InvestorsPage = () => {
         null,
         investor.investor_type && investor.investor_type.length > 0
           ? investor.investor_type.join(", ")
-          : "N/A"
+          : "-"
       ),
       React.createElement(
         "td",
@@ -968,10 +968,10 @@ const InvestorsPage = () => {
         investor.da_primary_sector_names &&
           investor.da_primary_sector_names.length > 0
           ? investor.da_primary_sector_names.join(", ")
-          : "N/A"
+          : "-"
       ),
       React.createElement("td", null, formatNumber(investor.linkedin_members)),
-      React.createElement("td", null, investor.country || "N/A"),
+      React.createElement("td", null, investor.country || "-"),
       React.createElement(
         "td",
         { style: { textAlign: "center" } },
@@ -988,7 +988,7 @@ const InvestorsPage = () => {
 
   // Investor Card Component for mobile
   const InvestorCard = (investor: Investor, index: number) => {
-    const description = investor.description || "N/A";
+    const description = investor.description || "-";
     const isDescriptionLong = description.length > 220;
     const truncatedDescription = truncateDescription(description);
 
@@ -1080,7 +1080,7 @@ const InvestorsPage = () => {
                 router.push(`/investors/${investor.original_new_company_id}`);
               },
             },
-            investor.company_name || "N/A"
+            investor.company_name || "-"
           ),
           React.createElement(
             "div",
@@ -1092,7 +1092,7 @@ const InvestorsPage = () => {
             },
             investor.investor_type && investor.investor_type.length > 0
               ? investor.investor_type.join(", ")
-              : "N/A"
+              : "-"
           )
         )
       ),
@@ -1230,7 +1230,7 @@ const InvestorsPage = () => {
           React.createElement(
             "span",
             { style: { fontWeight: "600", color: "#1a202c" } },
-            investor.country || "N/A"
+            investor.country || "-"
           )
         ),
         React.createElement(
@@ -1264,7 +1264,7 @@ const InvestorsPage = () => {
             investor.da_primary_sector_names &&
               investor.da_primary_sector_names.length > 0
               ? investor.da_primary_sector_names.join(", ")
-              : "N/A"
+              : "-"
           )
         )
       )

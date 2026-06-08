@@ -296,7 +296,7 @@ export function Delta({ value }: { value: string | number }) {
 export function LinkedH({
   children,
   right,
-  showArrow = true,
+  showArrow = false,
   leftSlot,
 }: {
   children: React.ReactNode;

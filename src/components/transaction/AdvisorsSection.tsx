@@ -65,13 +65,13 @@ export default function AdvisorsSection({ advisors, createClickableElement }: {
                     )}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {advisor.role || 'Not available'}
+                    {advisor.role || '-'}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {advisor.advising || 'Not available'}
+                    {advisor.advising || '-'}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {advisor.individuals || 'Not available'}
+                    {advisor.individuals || '-'}
                   </TableCell>
                 </TableRow>
               ))

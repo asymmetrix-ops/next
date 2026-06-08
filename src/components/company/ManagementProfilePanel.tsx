@@ -119,7 +119,7 @@ export const ManagementProfilePanel: React.FC<ManagementProfilePanelProps> = ({
                     lineHeight: 1.45,
                   }}
                 >
-                  {person.role?.trim() ? person.role : "—"}
+                  {person.role?.trim() ? person.role : "-"}
                 </td>
                 <td
                   style={{

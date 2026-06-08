@@ -12,6 +12,7 @@ import {
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
 import type { CorporateEvent, Sector } from "./CorporateEventsTable";
+import { isNonEmptyDisplayString as isNonEmptyString } from "@/lib/emptyDisplay";
 
 export type CorporateEventsProfileTokens = {
   paper: string;
@@ -41,9 +42,6 @@ type CorporateEventsProfilePanelProps = {
   onAdvisorClick?: (advisorId?: number, advisorName?: string) => void;
 };
 
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === "string" && value.trim().length > 0;
-
 const sanitizeAmountValue = (
   value?: number | string | null
 ): number | string | null => {
@@ -71,16 +69,16 @@ const formatMillions = (
 };
 
 function formatMonthYear(iso?: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
     const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "—";
+    if (Number.isNaN(d.getTime())) return "-";
     return d.toLocaleDateString("en-US", {
       month: "short",
       year: "numeric",
     });
   } catch {
-    return "—";
+    return "-";
   }
 }
 
@@ -112,7 +110,7 @@ function companySectorLabel(primary: Sector[], secondary: Sector[]): string {
     ...primary.map((s) => s.sector_name).filter(Boolean),
     ...secondary.map((s) => s.sector_name).filter(Boolean),
   ] as string[];
-  if (names.length === 0) return "—";
+  if (names.length === 0) return "-";
   return names.slice(0, 3).join(", ");
 }
 
@@ -179,7 +177,7 @@ function formatAmountCell(event: CorporateEvent): string {
   };
 
   const dealType = ne.deal_type || le.deal_type || "";
-  if (/partnership/i.test(dealType)) return "—";
+  if (/partnership/i.test(dealType)) return "-";
 
   const anyEvent = event as unknown as typeof ne;
   const amountDisplay =
@@ -216,7 +214,7 @@ function formatAmountCell(event: CorporateEvent): string {
   const evNum = formatMillions(evMillions, evCurrency);
   if (evNum) return evNum;
   if (isNonEmptyString(evBandFallback)) return evBandFallback;
-  return "—";
+  return "-";
 }
 
 function dealTypePillTone(dealType: string): "acq" | "div" | "neu" {
@@ -323,7 +321,7 @@ function renderTargetCell(event: CorporateEvent, linkColor: string): React.React
   if (isNonEmptyString(le.target_label)) {
     return <span style={{ fontWeight: 500 }}>{le.target_label}</span>;
   }
-  return "—";
+  return "-";
 }
 
 const CE_HEADERS = [
@@ -464,7 +462,7 @@ export const CorporateEventsProfilePanel: React.FC<
               const le = event as { announcement_date?: string };
               const dateRaw = ne.announcement_date || le.announcement_date;
               const dealTypeStr =
-                (event as { deal_type?: string }).deal_type || "—";
+                (event as { deal_type?: string }).deal_type || "-";
               const pillTone = dealTypePillTone(dealTypeStr);
               const desc =
                 (event as { description?: string }).description || "";
@@ -558,7 +556,7 @@ export const CorporateEventsProfilePanel: React.FC<
                         }}
                       >
                         {advisorList.length === 0
-                          ? "—"
+                          ? "-"
                           : advisorList.map((advisor, idx) => (
                               <span key={`${advisor.name}-${idx}`}>
                                 <span

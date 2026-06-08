@@ -1,7 +1,7 @@
 import { Sector } from "../types/corporateEvents";
 
 export const formatSectors = (sectors: Sector[] | undefined): string => {
-  if (!sectors || sectors.length === 0) return "Not Available";
+  if (!sectors || sectors.length === 0) return "-";
   return sectors.map((s) => s.sector_name).join(", ");
 };
 
@@ -9,19 +9,19 @@ export const formatCurrency = (
   amount: string | undefined,
   currency: string | null
 ): string => {
-  if (!amount) return "Not Available";
+  if (!amount) return "-";
   return `${currency || ""} ${amount}`;
 };
 
 export const formatDate = (date: string | undefined): string => {
-  if (!date) return "Not Available";
+  if (!date) return "-";
   return date;
 };
 
 export const formatOtherCounterparties = (
   counterparties: { _new_company: { name: string } }[] | undefined
 ): string => {
-  if (!counterparties || counterparties.length === 0) return "Not Available";
+  if (!counterparties || counterparties.length === 0) return "-";
   return counterparties
     .map((cp) => cp._new_company?.name)
     .filter(Boolean)
@@ -31,7 +31,7 @@ export const formatOtherCounterparties = (
 export const formatAdvisors = (
   advisors: { _new_company: { name: string } }[] | undefined
 ): string => {
-  if (!advisors || advisors.length === 0) return "Not Available";
+  if (!advisors || advisors.length === 0) return "-";
   return advisors
     .map((advisor) => advisor._new_company?.name)
     .filter(Boolean)
