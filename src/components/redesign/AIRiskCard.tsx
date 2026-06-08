@@ -1,13 +1,12 @@
 "use client";
 /**
  * AIRiskCard — hand-built SVG radar chart (AI Exposure Index: risk vs. defensibility).
- * No charting library; click axes to show tier + blurb detail.
+ * No charting library; click axes to highlight on the radar.
  */
 import React, { useState } from "react";
 import { T } from "./tokens.jsx";
 import {
   AI_SCORE_MAX,
-  scoreToTierName,
   sortAiRiskAxesForRadar,
 } from "@/lib/companyAiRisks";
 
@@ -342,17 +341,6 @@ function RadarChart({
         >
           {ax.label}
         </text>
-        <text
-          x={lx}
-          y={ly + 13}
-          textAnchor={anchor}
-          dominantBaseline="middle"
-          fontFamily={T.sans}
-          fontSize="10"
-          fill={T.muted}
-        >
-          {scoreToTierName(ax.score)}
-        </text>
       </g>
     );
   });
@@ -402,9 +390,6 @@ export function AIRiskCard({
   }, [axes, active, defaultActiveKey]);
 
   if (!hasApiAxes) return null;
-
-  const activeAxis = axes.find((a) => a.key === active) || axes[0];
-  const tone = tierTone(activeAxis.score, activeAxis.group);
 
   const riskAxes = axes.filter((a) => a.group === "risk");
   const defAxes = axes.filter((a) => a.group === "def");
@@ -533,9 +518,10 @@ export function AIRiskCard({
 
       <div
         style={{
-          padding: "4px 12px 0",
+          padding: "4px 12px 14px",
           display: "flex",
           justifyContent: "center",
+          flex: fillGridCell ? "1 1 auto" : undefined,
         }}
       >
         <div style={{ width: "100%", maxWidth: 360 }}>
@@ -545,66 +531,6 @@ export function AIRiskCard({
             onPick={setActive}
             size={300}
           />
-        </div>
-      </div>
-
-      <div
-        style={{
-          margin: "6px 16px 14px",
-          marginTop: "auto",
-          padding: "10px 12px",
-          background: tone.bg,
-          border: `1px solid ${tone.ring}`,
-          borderRadius: 8,
-          display: "grid",
-          gridTemplateColumns: "1fr",
-          gap: 6,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 8,
-          }}
-        >
-          <div
-            style={{
-              fontFamily: T.sans,
-            fontSize: 13,
-            fontWeight: 600,
-            color: T.ink,
-            letterSpacing: -0.1,
-          }}
-        >
-          {activeAxis.label}
-          </div>
-          <div
-            style={{
-              fontFamily: T.sans,
-              fontSize: 10.5,
-              fontWeight: 600,
-              color: tone.fg,
-              background: "#fff",
-              padding: "3px 8px",
-              borderRadius: 999,
-              border: `1px solid ${tone.ring}`,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {activeAxis.tier}
-          </div>
-        </div>
-        <div
-          style={{
-            fontFamily: T.sans,
-            fontSize: 13,
-            lineHeight: 1.55,
-            color: T.body,
-          }}
-        >
-          {activeAxis.blurb}
         </div>
       </div>
     </div>
