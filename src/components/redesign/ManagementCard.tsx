@@ -1,0 +1,227 @@
+"use client";
+/**
+ * ManagementCard — name · role · tenure · LinkedIn (icon link).
+ */
+import React, { useState } from "react";
+import Link from "next/link";
+import {
+  LinkPanel,
+  LinkedH,
+  T,
+  MANAGEMENT_ROW_GRID,
+  profileTableCellStyle,
+  tableColHeaderBarStyle,
+  tableColHeaderStyle,
+} from "./primitives";
+import { isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+import { LinkedInProfileButton } from "./LinkedInProfileButton";
+
+export type ManagementPerson = {
+  id?: number;
+  name: string;
+  role: string;
+  tenure?: string;
+  individualId?: number;
+  linkedinUrl?: string;
+};
+
+type Props = {
+  current: ManagementPerson[];
+  past?: ManagementPerson[];
+  /** Number of rows shown before "See more". Default 4. */
+  maxVisible?: number;
+  fillGridCell?: boolean;
+};
+
+const COL_GAP = 6;
+
+function ColHeader() {
+  return (
+    <div
+      style={{
+        ...tableColHeaderBarStyle,
+        gridTemplateColumns: MANAGEMENT_ROW_GRID,
+        gap: COL_GAP,
+      }}
+    >
+      <div style={tableColHeaderStyle}>Name</div>
+      <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>Role</div>
+      <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>LinkedIn</div>
+    </div>
+  );
+}
+
+function PersonRow({
+  person,
+  last,
+}: {
+  person: ManagementPerson;
+  last: boolean;
+}) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: MANAGEMENT_ROW_GRID,
+        alignItems: "start",
+        gap: COL_GAP,
+        padding: "10px 16px",
+        borderBottom: last ? "none" : `1px solid ${T.hair}`,
+        ...profileTableCellStyle,
+      }}
+    >
+      <div style={{ minWidth: 0, paddingTop: 1, textAlign: "left" }}>
+        {person.individualId ? (
+          <Link
+            href={`/individual/${person.individualId}`}
+            prefetch={false}
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: T.azure,
+              textDecoration: "underline",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              display: "block",
+              textAlign: "left",
+            }}
+          >
+            {person.name}
+          </Link>
+        ) : (
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: T.ink,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              display: "block",
+              textAlign: "left",
+            }}
+          >
+            {person.name}
+          </span>
+        )}
+      </div>
+      <div
+        style={{
+          color: T.body,
+          textAlign: "center",
+          lineHeight: 1.55,
+          minWidth: 0,
+          paddingTop: 1,
+        }}
+      >
+        {isEmptyDisplayValue(person.role) ? "-" : normalizeEmptyDisplay(person.role)}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          paddingTop: 1,
+        }}
+      >
+        <LinkedInProfileButton href={person.linkedinUrl} />
+      </div>
+    </div>
+  );
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        padding: "10px 16px 2px",
+        fontSize: 10.5,
+        fontWeight: 500,
+        color: T.muted,
+        textTransform: "uppercase",
+        letterSpacing: 0.4,
+        background: T.paper,
+        borderBottom: `1px solid ${T.hair}`,
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+export function ManagementCard({
+  current,
+  past = [],
+  maxVisible = 4,
+  fillGridCell = false,
+}: Props) {
+  const [expanded, setExpanded] = useState(false);
+
+  const hasBoth = current.length > 0 && past.length > 0;
+  const total = current.length + past.length;
+
+  const headerRight = [
+    current.length > 0 && `${current.length} current`,
+    past.length > 0 && `${past.length} past`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const allPeople: { person: ManagementPerson; section: "current" | "past" }[] = [
+    ...current.map((p) => ({ person: p, section: "current" as const })),
+    ...past.map((p) => ({ person: p, section: "past" as const })),
+  ];
+
+  const visible = expanded ? allPeople : allPeople.slice(0, maxVisible);
+  const needsToggle = total > maxVisible;
+
+  let lastSection: string | null = null;
+
+  return (
+    <LinkPanel fillGridCell={fillGridCell}>
+      <LinkedH showArrow={false} right={headerRight || undefined}>
+        Management
+      </LinkedH>
+      <ColHeader />
+      <div>
+        {visible.map(({ person, section }, idx) => {
+          const showLabel = hasBoth && section !== lastSection && section !== "current";
+          if (showLabel) lastSection = section;
+          const isLastVisibleRow = idx === visible.length - 1;
+          return (
+            <React.Fragment key={`${section}-${person.id ?? person.individualId ?? idx}`}>
+              {showLabel && <SectionLabel label="Past" />}
+              <PersonRow person={person} last={isLastVisibleRow} />
+            </React.Fragment>
+          );
+        })}
+      </div>
+      {needsToggle && (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "10px 0 14px",
+            borderTop: `1px solid ${T.hair}`,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            style={{
+              background: "none",
+              border: "none",
+              color: T.azure,
+              textDecoration: "underline",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+              fontFamily: T.sans,
+            }}
+          >
+            {expanded ? "Show less" : "See more"}
+          </button>
+        </div>
+      )}
+    </LinkPanel>
+  );
+}
