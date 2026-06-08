@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   followPortfolioEntity,
   unfollowPortfolioEntity,
+  invalidateUserPortfolioRecordCache,
   type PortfolioFollowKey,
 } from "@/lib/portfolioFollow";
 import {
@@ -134,6 +135,7 @@ export function FollowButton({
         await followPortfolioEntity({ followKey, entityId });
         toast.success(`Following ${label}`);
       }
+      invalidateUserPortfolioRecordCache();
       await fetchPortfolio();
     } catch (e) {
       const err = e as Error & { status?: number };

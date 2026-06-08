@@ -1,5 +1,8 @@
 import { addEntityToPortfolioApi } from "@/lib/portfolioEntity";
-import { followPortfolioEntity } from "@/lib/portfolioFollow";
+import {
+  followPortfolioEntities,
+  invalidateUserPortfolioRecordCache,
+} from "@/lib/portfolioFollow";
 import { createUserListInXano } from "@/lib/userLists";
 
 export type BulkPortfolioAction =
@@ -88,28 +91,64 @@ export async function bulkAddCompaniesToPortfolio(
     }
   }
 
-  type Task = { companyId: number; listId?: number };
+  if (action.mode === "follow") {
+    onProgress?.({ total: ids.length, done: 0, success: 0, failed: 0 });
+    try {
+      await followPortfolioEntities({
+        followKey: "followed_companies",
+        entityIds: ids,
+      });
+      invalidateUserPortfolioRecordCache();
+      onProgress?.({
+        total: ids.length,
+        done: ids.length,
+        success: ids.length,
+        failed: 0,
+      });
+      return { success: ids.length, failed: 0, listIds: [] };
+    } catch {
+      onProgress?.({
+        total: ids.length,
+        done: ids.length,
+        success: 0,
+        failed: ids.length,
+      });
+      return { success: 0, failed: ids.length, listIds: [] };
+    }
+  }
 
-  const tasks: Task[] =
-    action.mode === "follow"
-      ? ids.map((companyId) => ({ companyId }))
-      : listIds.flatMap((listId) => ids.map((companyId) => ({ companyId, listId })));
+  type Task = { companyId: number; listId: number };
+  const tasks: Task[] = listIds.flatMap((listId) =>
+    ids.map((companyId) => ({ companyId, listId }))
+  );
+
+  onProgress?.({ total: tasks.length, done: 0, success: 0, failed: 0 });
+
+  try {
+    await followPortfolioEntities({
+      followKey: "followed_companies",
+      entityIds: ids,
+    });
+    invalidateUserPortfolioRecordCache();
+  } catch {
+    onProgress?.({
+      total: tasks.length,
+      done: tasks.length,
+      success: 0,
+      failed: tasks.length,
+    });
+    return { success: 0, failed: tasks.length, listIds };
+  }
 
   const result = await runWithConcurrency(
     tasks,
     CONCURRENCY,
     async (task) => {
-      if (action.mode === "follow") {
-        await followPortfolioEntity({
-          followKey: "followed_companies",
-          entityId: task.companyId,
-        });
-        return true;
-      }
       await addEntityToPortfolioApi({
-        portfolioId: task.listId!,
+        portfolioId: task.listId,
         entityType: "company",
         entityId: task.companyId,
+        skipGlobalFollow: true,
       });
       return true;
     },
