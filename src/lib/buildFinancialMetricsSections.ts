@@ -95,17 +95,36 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   JPY: "¥",
 };
 
+function normalizeCurrencyCode(raw: string): string {
+  const trimmed = raw.trim();
+  const compact = trimmed.replace(/\s/g, "").toUpperCase();
+  if (compact === "US$" || compact === "US" || compact === "U.S.$" || compact === "USD") {
+    return "USD";
+  }
+  return trimmed.toUpperCase();
+}
+
+/** Strip legacy "US$" prefixes from API/display strings. */
+function stripLegacyUsPrefix(value: string): string {
+  return value.replace(/US\$\s*/gi, "$");
+}
+
 /** Prefixes a formatted metric value with the currency symbol/code when available. */
 export function appendMetricCurrency(
   formatted: string,
   currencyCode?: string
 ): string {
-  if (!currencyCode || formatted === "-") return formatted;
-  const code = currencyCode.trim().toUpperCase();
-  if (code === "USD") return `US$ ${formatted}`;
+  const value = stripLegacyUsPrefix(formatted.trim());
+  if (value === "-") return value;
+  if (!currencyCode) return value;
+
+  const code = normalizeCurrencyCode(currencyCode);
   const sym = CURRENCY_SYMBOLS[code];
-  if (sym) return `${sym}${formatted}`;
-  return `${formatted} ${code}`;
+  if (sym) {
+    if (value.startsWith(sym)) return value;
+    return `${sym}${value}`;
+  }
+  return `${value} ${code}`;
 }
 
 type BuildSectionsInput = {
@@ -212,7 +231,7 @@ export function buildFinancialMetricsSections({
     ),
     row(
       "ARR (m):",
-      formatPlainNumber(fm?.ARR_m),
+      money(formatPlainNumber(fm?.ARR_m)),
       src(fm?.ARR_source_label, fm?.ARR_source)
     ),
     row(
@@ -260,7 +279,7 @@ export function buildFinancialMetricsSections({
   const otherRows: FinancialMetricRow[] = [
     row(
       "EBIT (m):",
-      formatPlainNumber(fm?.EBIT_m),
+      money(formatPlainNumber(fm?.EBIT_m)),
       src(fm?.EBIT_source_label, fm?.EBIT_source)
     ),
     row(
@@ -272,7 +291,7 @@ export function buildFinancialMetricsSections({
     ),
     row(
       "Revenue per client (k):",
-      formatWholeNumber(fm?.Rev_per_client),
+      money(formatWholeNumber(fm?.Rev_per_client)),
       src(fm?.Rev_per_client_source_label, fm?.Rev_per_client_source)
     ),
     row(
@@ -284,7 +303,7 @@ export function buildFinancialMetricsSections({
     ),
     row(
       "Revenue per employee (k):",
-      formatWholeNumber(fm?.Revenue_per_employee),
+      money(formatWholeNumber(fm?.Revenue_per_employee)),
       src(fm?.Revenue_per_employee_source_label, fm?.Rev_per_employee_source)
     ),
   ];

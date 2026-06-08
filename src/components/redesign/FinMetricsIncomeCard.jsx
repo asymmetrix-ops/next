@@ -26,23 +26,23 @@ export default function FinMetricsIncomeCard() {
   );
 
   const peers = {
-    'Enterprise value':  'US$ 6.2bn',
+    'Enterprise value':  '$6.2bn',
     'EV / Revenue':      '4.8x',
     'EV / EBITDA':       '17.2x',
     'Revenue growth':    '+7.3%',
     'EBITDA margin':     '24.0%',
     'Rule of 40':        '31',
-    'Recurring revenue': 'US$ 1.2bn',
+    'Recurring revenue': '$1.2bn',
     'NRR':               '105%',
   };
   const rows = [
-    ['Enterprise value',  `US$ ${c.ev}`],
+    ['Enterprise value',  `$${c.ev}`],
     ['EV / Revenue',      c.evRev],
     ['EV / EBITDA',       c.evEbitda],
     ['Revenue growth',    c.revGrowth],
     ['EBITDA margin',     `${c.fin[0].marg}%`],
     ['Rule of 40',        c.rule40],
-    ['Recurring revenue', `US$ ${c.arr}`],
+    ['Recurring revenue', `$${c.arr}`],
     ['NRR',               c.nrr],
   ];
 

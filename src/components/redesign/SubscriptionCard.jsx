@@ -11,7 +11,7 @@ export default function SubscriptionCard() {
     <LinkPanel target="subscription">
       <LinkedH target="subscription">Subscription Metrics</LinkedH>
       <div style={{ padding: '8px 16px 14px' }}>
-        <MiniKV k="Recurring rev" v={`US$ ${c.arr}`} mono />
+        <MiniKV k="Recurring rev" v={`$${c.arr}`} mono />
         <MiniKV k="ARR growth"    v={<Delta value="+9.1%" />} />
         <MiniKV k="NRR"           v={c.nrr} mono />
         <MiniKV k="GDR"           v={c.gdr} mono />

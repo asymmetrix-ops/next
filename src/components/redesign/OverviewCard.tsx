@@ -7,6 +7,7 @@
 import React from "react";
 import Link from "next/link";
 import { LinkPanel, LinkedH, KV, Delta, Pill, T } from "./primitives";
+import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 
 export type OverviewSector = {
   name: string;
@@ -42,7 +43,18 @@ export type OverviewCardProps = {
   fillGridCell?: boolean;
 };
 
-const EM = "-";
+const EM = EMPTY_DISPLAY;
+
+function faintDash() {
+  return <span style={{ color: T.faint }}>{EM}</span>;
+}
+
+function displayText(value: string | number | null | undefined): React.ReactNode {
+  if (value === null || value === undefined) return faintDash();
+  if (typeof value === "number") return String(value);
+  const normalized = normalizeEmptyDisplay(value);
+  return normalized === EM ? faintDash() : normalized;
+}
 
 function SectorTags({
   sectors,
@@ -164,7 +176,7 @@ export function OverviewCard({
     },
     {
       k: "Year founded",
-      v: yearFounded ?? <span style={{ color: T.faint }}>{EM}</span>,
+      v: displayText(yearFounded),
     },
     {
       k: "Website",
@@ -183,20 +195,21 @@ export function OverviewCard({
     },
     {
       k: "Ownership",
-      v: ownership?.trim() || <span style={{ color: T.faint }}>{EM}</span>,
+      v: displayText(ownership),
     },
-    { k: "HQ", v: hq?.trim() || <span style={{ color: T.faint }}>{EM}</span> },
+    { k: "HQ", v: displayText(hq) },
     {
       k: "Lifecycle stage",
-      v: lifecycle?.trim() || <span style={{ color: T.faint }}>{EM}</span>,
+      v: displayText(lifecycle),
     },
     {
       k: "Total amount raised",
-      v: totalAmountRaised ? (
-        <span style={{ fontFamily: T.mono }}>{totalAmountRaised}</span>
-      ) : (
-        <span style={{ color: T.faint }}>{EM}</span>
-      ),
+      v:
+        totalAmountRaised && !isEmptyDisplayValue(totalAmountRaised) ? (
+          <span style={{ fontFamily: T.mono }}>{normalizeEmptyDisplay(totalAmountRaised)}</span>
+        ) : (
+          faintDash()
+        ),
     },
     {
       k: "Employees",
@@ -243,7 +256,9 @@ export function OverviewCard({
     {
       k: "Yrs since last inv.",
       show: !hasParent,
-      v: lastInvestment ?? <span style={{ color: T.faint }}>{EM}</span>,
+      v: lastInvestment && !isEmptyDisplayValue(lastInvestment)
+        ? lastInvestment
+        : faintDash(),
     },
   ];
 
