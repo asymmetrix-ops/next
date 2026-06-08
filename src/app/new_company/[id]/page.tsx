@@ -4235,7 +4235,7 @@ const CompanyDetail = () => {
                 <AIRiskCard
                   fillGridCell
                   axes={aiRiskAxes}
-                  defaultActiveKey="data"
+                  defaultActiveKey="replic"
                 />
               </div>
             )}

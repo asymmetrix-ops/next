@@ -108,15 +108,6 @@ export const AI_RISK_AXES: AIRiskAxis[] = [
     blurb:
       "AI can analyse historical data once it exists, but cannot reconstruct a comparable permissioned transaction history after the fact.",
   },
-  {
-    key: "data",
-    label: "Data Moat",
-    score: 3,
-    group: "def",
-    tier: "High",
-    blurb:
-      "Defensibility comes from access to permissioned debit and credit card transaction data — not approximable from surveys, web traffic or social signals.",
-  },
 ];
 
 const GROUP_TONE = {
@@ -392,7 +383,7 @@ type AIRiskCardProps = {
 
 export function AIRiskCard({
   axes: axesProp,
-  defaultActiveKey = "data",
+  defaultActiveKey = "replic",
   fillGridCell = false,
 }: AIRiskCardProps) {
   const axes = React.useMemo(

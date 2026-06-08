@@ -20,8 +20,7 @@ const RADAR_AXIS_KEY_ORDER: Record<string, number> = {
   workflow: 3,
   authority: 4,
   history: 5,
-  data: 6,
-  human: 7,
+  human: 6,
 };
 
 export function sortAiRiskAxesForRadar(axes: AIRiskAxis[]): AIRiskAxis[] {
@@ -115,7 +114,6 @@ function inferAxisMeta(
   if (f.includes("workflow")) return { key: "workflow", group: "def", label: factor };
   if (f.includes("authority")) return { key: "authority", group: "def", label: factor };
   if (f.includes("historical")) return { key: "history", group: "def", label: factor };
-  if (f.includes("data moat")) return { key: "data", group: "def", label: factor };
   if (f.includes("human") || f.includes("expert") || f.includes("judgement"))
     return { key: "human", group: "def", label: factor };
   const key = f.replace(/[^a-z0-9]/g, "").slice(0, 14) || "other";
@@ -130,7 +128,9 @@ export function mapAiRisksV2ToAxes(
   items: CompanyAiRiskV2Item[]
 ): AIRiskAxis[] | null {
   if (!Array.isArray(items) || items.length === 0) return null;
-  const axes: AIRiskAxis[] = items.map((item) => {
+  const axes: AIRiskAxis[] = items
+    .filter((item) => !String(item.factor ?? "").toLowerCase().includes("data moat"))
+    .map((item) => {
     const { key, group, label } = inferAxisMeta(item.factor);
     const rawScore = group === "risk" ? item.risk_score : item.defense_score;
     const score = normalizeToThreeScore(rawScore, item.assessment, group);
@@ -253,14 +253,6 @@ const AXIS_META: AxisMeta[] = [
     apiKey: "historical_data",
     blurb:
       "Depth and continuity of historical records that cannot be recreated after the fact.",
-  },
-  {
-    key: "data",
-    label: "Data Moat",
-    group: "def",
-    apiKey: "data_moat",
-    blurb:
-      "Uniqueness of underlying data assets versus surveys, web traffic, or synthetic proxies.",
   },
 ];
 
