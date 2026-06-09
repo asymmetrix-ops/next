@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   profileTableCellStyle,
@@ -42,15 +43,72 @@ type CorporateEventsProfilePanelProps = {
   secondarySectors?: Sector[];
   /** Target company id → primary sector names (e.g. from subsidiaries on the company payload). */
   primarySectorsByCompanyId?: Record<number, string[]>;
+  /** @deprecated Use server pagination instead. */
   maxInitialEvents?: number;
+  totalCount?: number;
+  rangeStart?: number;
+  rangeEnd?: number;
+  canPrev?: boolean;
+  canNext?: boolean;
+  onPrev?: () => void;
+  onNext?: () => void;
+  browseAllHref?: string;
+  /** Stretch card body so paginator stays at the bottom (company profile grid). */
+  fillGridCell?: boolean;
   /** `narrow` = fewer columns; table scrolls inside card without widening the layout */
   layout?: "default" | "narrow";
   onEventClick?: (eventId: number, description?: string) => void;
   onAdvisorClick?: (advisorId?: number, advisorName?: string) => void;
 };
 
-function headerRightLine(events: CorporateEvent[], loading: boolean): string {
-  if (loading || events.length === 0) return "";
+function CePagerBtn({
+  label,
+  enabled,
+  onClick,
+  ariaLabel,
+  tokens: T,
+}: {
+  label: string;
+  enabled: boolean;
+  onClick: () => void;
+  ariaLabel: string;
+  tokens: CorporateEventsProfileTokens;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={!enabled}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      style={{
+        width: 26,
+        height: 26,
+        borderRadius: 6,
+        border: `1px solid ${T.inset}`,
+        background: T.paper,
+        color: T.body,
+        fontFamily: T.sans,
+        fontSize: 14,
+        lineHeight: 1,
+        cursor: enabled ? "pointer" : "default",
+        opacity: enabled ? 1 : 0.35,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function headerRightLine(
+  events: CorporateEvent[],
+  loading: boolean,
+  totalCount?: number
+): string {
+  const n = totalCount ?? events.length;
+  if (loading || n === 0) return "";
   const years = events
     .map((e) => {
       const ev = e as { announcement_date?: string };
@@ -66,7 +124,6 @@ function headerRightLine(events: CorporateEvent[], loading: boolean): string {
     const minY = Math.min(...years);
     span = Math.max(1, Math.min(99, now - minY + 1));
   }
-  const n = events.length;
   return `${n} event${n === 1 ? "" : "s"} · Last ${span} yrs`;
 }
 
@@ -189,6 +246,15 @@ export const CorporateEventsProfilePanel: React.FC<
   primarySectors = [],
   primarySectorsByCompanyId,
   maxInitialEvents = 3,
+  totalCount,
+  rangeStart = 0,
+  rangeEnd = 0,
+  canPrev = false,
+  canNext = false,
+  onPrev,
+  onNext,
+  browseAllHref = "/corporate-events",
+  fillGridCell = false,
   layout = "default",
   onEventClick,
   onAdvisorClick,
@@ -198,7 +264,7 @@ export const CorporateEventsProfilePanel: React.FC<
     ? (["Event Details", "Parties", "Deal Details"] as const)
     : CE_HEADERS;
   const router = useRouter();
-  const [showAll, setShowAll] = useState(false);
+  const usePagination = totalCount != null && onPrev != null && onNext != null;
 
   const handleEventNav = (eventId: number | undefined, description?: string) => {
     if (eventId && onEventClick) {
@@ -217,13 +283,21 @@ export const CorporateEventsProfilePanel: React.FC<
   };
 
   const right = useMemo(
-    () => headerRightLine(events, loading),
-    [events, loading]
+    () => headerRightLine(events, loading, totalCount),
+    [events, loading, totalCount]
   );
 
-  const displayed = showAll ? events : events.slice(0, maxInitialEvents);
+  const displayed = usePagination
+    ? events
+    : events.slice(0, maxInitialEvents);
 
-  if (loading) {
+  const resolvedTotal = totalCount ?? events.length;
+  const rangeLabel =
+    resolvedTotal > 0
+      ? `${rangeStart}–${rangeEnd} of ${resolvedTotal}`
+      : `0 of 0`;
+
+  if (loading && events.length === 0) {
     return (
       <div
         style={{
@@ -239,8 +313,24 @@ export const CorporateEventsProfilePanel: React.FC<
     );
   }
 
+  const pinFooter = fillGridCell && usePagination;
+
   return (
-    <div style={{ fontFamily: T.sans, minWidth: 0, maxWidth: "100%" }}>
+    <div
+      style={{
+        fontFamily: T.sans,
+        minWidth: 0,
+        maxWidth: "100%",
+        ...(pinFooter
+          ? {
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              minHeight: 0,
+            }
+          : {}),
+      }}
+    >
       <div
         style={{
           display: "flex",
@@ -248,6 +338,7 @@ export const CorporateEventsProfilePanel: React.FC<
           justifyContent: "space-between",
           padding: "14px 16px 12px",
           borderBottom: `1px solid ${T.hair}`,
+          flexShrink: 0,
         }}
       >
         <div
@@ -269,6 +360,7 @@ export const CorporateEventsProfilePanel: React.FC<
           overflowX: "auto",
           maxWidth: "100%",
           minWidth: 0,
+          ...(pinFooter ? { flex: 1, minHeight: 0 } : {}),
         }}
       >
         <div style={{ width: "100%", minWidth: narrow ? 520 : 720, ...profileTableCellStyle }}>
@@ -390,24 +482,58 @@ export const CorporateEventsProfilePanel: React.FC<
         </div>
       </div>
 
-      {events.length > maxInitialEvents ? (
-        <div style={{ textAlign: "center", padding: "12px 0 16px" }}>
-          <button
-            type="button"
-            onClick={() => setShowAll(!showAll)}
+      {usePagination ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "10px 16px",
+            borderTop: `1px solid ${T.hair}`,
+            fontFamily: T.sans,
+            fontSize: 13,
+            flexShrink: 0,
+            ...(pinFooter ? { marginTop: "auto" } : {}),
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <CePagerBtn
+              label="‹"
+              enabled={canPrev}
+              onClick={onPrev!}
+              ariaLabel="Previous corporate events"
+              tokens={T}
+            />
+            <CePagerBtn
+              label="›"
+              enabled={canNext}
+              onClick={onNext!}
+              ariaLabel="Next corporate events"
+              tokens={T}
+            />
+            <span style={{ color: T.muted, fontSize: 13 }}>
+              {loading ? "-" : `Showing ${rangeLabel}`}
+            </span>
+          </div>
+          <Link
+            href={browseAllHref}
+            prefetch={false}
             style={{
-              background: "none",
-              border: "none",
               color: T.azure,
-              textDecoration: "underline",
-              cursor: "pointer",
-              fontSize: "12.5px",
               fontWeight: 500,
+              textDecoration: "none",
               fontFamily: T.sans,
+              fontSize: 13,
             }}
           >
-            {showAll ? "Show less" : "See more"}
-          </button>
+            Browse all {loading ? "-" : resolvedTotal} →
+          </Link>
+        </div>
+      ) : events.length > maxInitialEvents ? (
+        <div style={{ textAlign: "center", padding: "12px 0 16px" }}>
+          <span style={{ fontSize: "12.5px", color: T.muted, fontFamily: T.sans }}>
+            {events.length} events total
+          </span>
         </div>
       ) : null}
     </div>

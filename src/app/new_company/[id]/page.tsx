@@ -48,6 +48,7 @@ import {
   buildSubsidiaryAcquisitionYearMap,
   type SubsidiaryAcquisitionEvent,
 } from "@/lib/subsidiaryAcquisitionYears";
+import { fetchCompanyCorporateEvents } from "@/lib/companyCorporateEvents";
 import {
   normalizeExternalProfileUrl,
   normalizeLinkedInProfileUrl,
@@ -695,6 +696,7 @@ const getNumeric = (value?: number | string | null): number | undefined => {
 const OVERVIEW_TAG_CAP = 3;
 
 const INSIGHTS_PREVIEW_COUNT = 2;
+const CE_PREVIEW_COUNT = 2;
 
 /** Design-demo total for empty insights card (matches V3 mock pagination) */
 const INSIGHTS_EMPTY_STATE_DEMO_TOTAL = 17;
@@ -1225,6 +1227,14 @@ const CompanyDetail = () => {
   const [corporateEvents, setCorporateEvents] = useState<
     CompanyCorporateEvent[]
   >([]);
+  const [corporateEventsForSubsidiaries, setCorporateEventsForSubsidiaries] =
+    useState<CompanyCorporateEvent[]>([]);
+  const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
+  const [cePage, setCePage] = useState(1);
+  const [ceTotal, setCeTotal] = useState(0);
+  const [ceTotalPages, setCeTotalPages] = useState(0);
+  const [ceShowingFrom, setCeShowingFrom] = useState(0);
+  const [ceShowingTo, setCeShowingTo] = useState(0);
   const [companyArticles, setCompanyArticles] = useState<ContentArticle[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
   const [insightsPage, setInsightsPage] = useState(1);
@@ -1378,10 +1388,10 @@ const CompanyDetail = () => {
     if (!company?.id) return {} as Record<number, number>;
     const map = buildSubsidiaryAcquisitionYearMap(
       company.id,
-      corporateEvents as SubsidiaryAcquisitionEvent[]
+      corporateEventsForSubsidiaries as SubsidiaryAcquisitionEvent[]
     );
     return Object.fromEntries(map) as Record<number, number>;
-  }, [company?.id, corporateEvents]);
+  }, [company?.id, corporateEventsForSubsidiaries]);
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1569,6 +1579,76 @@ const CompanyDetail = () => {
 
   useEffect(() => {
     setInsightsPage(1);
+  }, [company?.id]);
+
+  const fetchCompanyCorporateEventsPage = useCallback(
+    async (companyIdForEvents: string | number, page = 1) => {
+      if (companyIdForEvents === undefined || companyIdForEvents === null) {
+        return;
+      }
+      setCorporateEventsLoading(true);
+      try {
+        const data = await fetchCompanyCorporateEvents(
+          companyIdForEvents,
+          page,
+          CE_PREVIEW_COUNT
+        );
+        if (!data) {
+          setCorporateEvents([]);
+          setCeTotal(0);
+          setCeTotalPages(0);
+          setCeShowingFrom(0);
+          setCeShowingTo(0);
+          setCePage(1);
+          return;
+        }
+        setCorporateEvents(data.items as CompanyCorporateEvent[]);
+        setCeTotal(data.total);
+        setCeTotalPages(data.total_pages);
+        setCeShowingFrom(data.showing_from);
+        setCeShowingTo(data.showing_to);
+        setCePage(data.page);
+
+        if (page === 1 && data.total > 0) {
+          const subsPageSize = Math.min(Math.max(data.total, 1), 100);
+          if (subsPageSize > CE_PREVIEW_COUNT) {
+            const allData = await fetchCompanyCorporateEvents(
+              companyIdForEvents,
+              1,
+              subsPageSize
+            );
+            setCorporateEventsForSubsidiaries(
+              (allData?.items ?? data.items) as CompanyCorporateEvent[]
+            );
+          } else {
+            setCorporateEventsForSubsidiaries(
+              data.items as CompanyCorporateEvent[]
+            );
+          }
+        }
+      } catch {
+        setCorporateEvents([]);
+        setCorporateEventsForSubsidiaries([]);
+        setCeTotal(0);
+        setCeTotalPages(0);
+        setCeShowingFrom(0);
+        setCeShowingTo(0);
+        setCePage(1);
+      } finally {
+        setCorporateEventsLoading(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    setCePage(1);
+    setCorporateEvents([]);
+    setCorporateEventsForSubsidiaries([]);
+    setCeTotal(0);
+    setCeTotalPages(0);
+    setCeShowingFrom(0);
+    setCeShowingTo(0);
   }, [company?.id]);
 
   // Fetch financial metrics (auth required) with GET + POST fallbacks
@@ -1889,46 +1969,6 @@ const CompanyDetail = () => {
           }
         } catch {}
 
-        // Parse corporate events from Get_new_company payload (preferred, no auth)
-        try {
-          const newCounterparties = (
-            data as unknown as {
-              // Backward compatible: either an array of wrapper-objects
-              // with `items` (legacy) or an array of event objects directly.
-              new_counterparties?: Array<{ items?: unknown } | NewCorporateEvent>;
-            }
-          )?.new_counterparties;
-          const parsedEvents: NewCorporateEvent[] = [];
-          if (Array.isArray(newCounterparties)) {
-            for (const entry of newCounterparties) {
-              const raw = (entry as { items?: unknown })?.items;
-              // If `items` is present, treat this as the legacy wrapped shape
-              let payload: unknown = raw;
-              if (typeof raw === "string") {
-                try {
-                  payload = JSON.parse(raw as string);
-                } catch {
-                  // ignore malformed JSON
-                }
-              }
-              if (Array.isArray(payload)) {
-                parsedEvents.push(...(payload as NewCorporateEvent[]));
-              } else if (!raw && entry && typeof entry === "object") {
-                // Newer API may return the event object directly inside `new_counterparties`
-                // without an `items` wrapper; in that case treat `entry` as the event.
-                parsedEvents.push(entry as NewCorporateEvent);
-              }
-            }
-          }
-          if (parsedEvents.length > 0) {
-            setCorporateEvents(parsedEvents);
-          }
-        } catch {
-          // non-fatal
-        }
-
-        // Removed verbose logging of enriched object
-
         setCompany(enrichedCompany);
 
         const token = localStorage.getItem("asymmetrix_auth_token");
@@ -1954,9 +1994,10 @@ const CompanyDetail = () => {
             });
         }
 
-        // Trigger fetching related articles using company id (requires auth)
+        // Trigger fetching related articles + corporate events (requires auth)
         if (enrichedCompany?.id) {
           fetchCompanyArticles(enrichedCompany.id);
+          void fetchCompanyCorporateEventsPage(enrichedCompany.id, 1);
         }
       } catch (err) {
         const message =
@@ -2690,6 +2731,8 @@ const CompanyDetail = () => {
   const canInsightPrev = insightsTotal > 0 && insightsPage > 1;
   const canInsightNext =
     insightsTotal > 0 && insightsPage < insightsTotalPages;
+  const canCePrev = ceTotal > 0 && cePage > 1;
+  const canCeNext = ceTotal > 0 && cePage < ceTotalPages;
 
   // ── Design tokens (mirroring the HTML template's T object) ──────────────
   const T = {
@@ -3220,7 +3263,8 @@ const CompanyDetail = () => {
   const showCoreProducts = coreProductsSections.length > 0;
   const showDataCollection = dataCollectionMethodRows.length > 0;
   const showAiRisk = aiRiskAxes != null && aiRiskAxes.length > 0;
-  const showCorporateEvents = corporateEvents.length > 0;
+  const showCorporateEvents =
+    corporateEventsLoading || ceTotal > 0 || corporateEvents.length > 0;
 
   const col2StackWithoutRevenue =
     (showCoreProducts ? 1 : 0) + (showDataCollection ? 1 : 0);
@@ -4283,9 +4327,30 @@ const CompanyDetail = () => {
                       mono: T.mono,
                     }}
                     events={corporateEvents}
+                    loading={corporateEventsLoading}
                     primarySectors={augmentedPrimarySectors}
                     primarySectorsByCompanyId={corporateEventPrimarySectorsByCompanyId}
-                    maxInitialEvents={2}
+                    totalCount={ceTotal}
+                    rangeStart={ceShowingFrom}
+                    rangeEnd={ceShowingTo}
+                    canPrev={canCePrev}
+                    canNext={canCeNext}
+                    onPrev={() => {
+                      if (company?.id && cePage > 1) {
+                        void fetchCompanyCorporateEventsPage(company.id, cePage - 1);
+                      }
+                    }}
+                    onNext={() => {
+                      if (company?.id && cePage < ceTotalPages) {
+                        void fetchCompanyCorporateEventsPage(company.id, cePage + 1);
+                      }
+                    }}
+                    browseAllHref={
+                      company?.name
+                        ? `/corporate-events?search=${encodeURIComponent(company.name)}`
+                        : "/corporate-events"
+                    }
+                    fillGridCell
                   />
                 </LinkPanel>
               </div>

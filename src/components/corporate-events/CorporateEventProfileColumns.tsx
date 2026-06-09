@@ -236,7 +236,15 @@ function collectBuyers(event: CorporateEvent, isInvestmentDeal: boolean): PartyL
       entity_type?: string;
       is_investor?: boolean;
     }>;
-    buyers_investors?: Array<{ id?: number; name?: string; page_type?: string }>;
+    buyers_investors?: Array<{
+      id?: number;
+      name?: string;
+      page_type?: string;
+      route?: string;
+      path?: string;
+      entity_type?: string;
+      is_investor?: boolean;
+    }>;
   };
   const legacyEvent = event as {
     "0"?: Array<{
@@ -298,7 +306,19 @@ function collectBuyers(event: CorporateEvent, isInvestmentDeal: boolean): PartyL
   ) {
     newEvent.buyers_investors.forEach((c) => {
       if (c?.id && c.name && c.page_type !== "investor") {
-        buyers.push({ id: c.id, name: c.name, href: `/company/${c.id}` });
+        buyers.push({
+          id: c.id,
+          name: c.name,
+          href:
+            normalizeEntityHref({
+              id: c.id,
+              route: c.route,
+              page_type: c.page_type,
+              path: c.path,
+              entity_type: c.entity_type,
+              is_investor: c.is_investor,
+            }) ?? `/company/${c.id}`,
+        });
       }
     });
   }
