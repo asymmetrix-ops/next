@@ -44,7 +44,10 @@ export type FilterType =
   | "no_clients"
   | "rev_per_client"
   | "no_employees"
-  | "rev_per_employee";
+  | "rev_per_employee"
+  | "years_since_investment"
+  | "financial_year_range"
+  | "linkedin_growth_range";
 
 export type FilterValue =
   | { min?: number; max?: number }
@@ -82,6 +85,7 @@ const FINANCIAL_FIELD_MAP: Record<string, string> = {
   rev_per_client: '"Rev_per_client"',
   no_employees: '"No_Employees"',
   rev_per_employee: '"Revenue_per_employee"',
+  financial_year_range: '"Financial_Year"',
 };
 
 const FINANCIAL_TYPES = new Set(Object.keys(FINANCIAL_FIELD_MAP));
@@ -125,11 +129,16 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
       }
       case "linkedin_growth_min":
       case "linkedin_growth_max":
+      case "linkedin_growth_range":
         return buildRangeSql(`nc.linkedin_growth_1y_pct`, min, max);
       case "year_founded_min":
         return min != null ? `yr."Year"::int >= ${min}` : null;
       case "year_founded_max":
         return max != null ? `yr."Year"::int <= ${max}` : null;
+      case "years_since_investment": {
+        const expr = `EXTRACT(YEAR FROM AGE(NOW(), (nc.investment->>'last_investment_date')::date))`;
+        return buildRangeSql(expr, min, max);
+      }
       default:
         return null;
     }
@@ -218,20 +227,25 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
 }
 
 export function buildFiltersSql(clauses: FilterClause[]): string {
-  const parts: string[] = [];
+  let result = "";
 
-  for (let i = 0; i < clauses.length; i++) {
-    const clause = clauses[i];
+  for (const clause of clauses) {
     const sql = buildFilterClauseSql(clause);
     if (!sql) continue;
-    if (parts.length === 0) {
-      parts.push(sql);
+
+    if (!result) {
+      result = sql;
+      continue;
+    }
+
+    if (clause.op === "OR") {
+      result = `(${result} OR ${sql})`;
     } else {
-      parts.push(`${clause.op} ${sql}`);
+      result = `${result} AND ${sql}`;
     }
   }
 
-  return parts.join(" ");
+  return result;
 }
 
 export function deriveBackendSignals(clauses: FilterClause[]) {
@@ -255,9 +269,6 @@ export interface CompanySearchPayload {
   filters_sql?: string | null;
   has_financial_filters?: boolean;
   has_year_filter?: boolean;
-  min_growth_percent?: string | number;
-  max_growth_percent?: string | number;
-  time_frame?: string;
 }
 
 export function buildApiPayload(

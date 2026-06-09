@@ -9,53 +9,18 @@ import {
   type CompanySearchPayload,
   type FilterClause,
   type FilterOperator,
-  type FilterType,
 } from "@/lib/filterBuilder";
 
 type SectorRef = { id: number; sector_name: string };
 type OwnershipTypeRef = { id: number; ownership: string };
 
-const RANGE_FILTER_ID_TO_TYPE: Record<string, FilterType> = {
-  headcount: "linkedin_members_min",
-  revenue: "revenue_m",
-  ebitda: "ebitda_m",
-  enterprise_value: "ev",
-  rev_growth: "revenue_growth",
-  ebitda_margin: "ebitda_margin",
-  rev_multiple: "revenue_multiple",
-  rule_40: "rule_of_40",
-  arr: "arr_m",
-  arr_growth: "arr_pc",
-  churn: "churn",
-  grr: "grr",
-  nrr: "nrr",
-  new_client_growth: "new_client_growth",
-  upsell: "upsell",
-  cross_sell: "cross_sell",
-  price_increase: "price_increase",
-  rev_expansion: "rev_expansion",
-  ebit: "ebit_m",
-  num_clients: "no_clients",
-  rev_per_client: "rev_per_client",
-  num_employees: "no_employees",
-  rev_per_employee: "rev_per_employee",
-};
-
-const ENUM_FILTER_ID_TO_TYPE: Record<string, FilterType> = {
-  region: "continental_region",
-  sub_region: "sub_region",
-  country: "country",
-  state: "province",
-  city: "city",
-};
-
-function clauseOp(
-  index: number,
-  itemOp: FilterCombineLogic | undefined,
+function combineOp(
+  item: FilterItem,
+  hasPriorClause: boolean,
   defaultLogic: FilterCombineLogic
 ): FilterOperator {
-  if (index === 0) return "AND";
-  const logic = itemOp ?? defaultLogic;
+  if (!hasPriorClause) return "AND";
+  const logic = item.combineLogic ?? defaultLogic;
   return logic === "or" ? "OR" : "AND";
 }
 
@@ -63,77 +28,6 @@ function hasRangeValue(value: unknown): value is { min?: number; max?: number } 
   if (!value || typeof value !== "object") return false;
   const rv = value as { min?: number; max?: number };
   return rv.min !== undefined || rv.max !== undefined;
-}
-
-/** Map a plain filter item (ownership, location, range, etc.) to SQL clauses.
- *  portfolio / sector / business_focus are handled upstream — return [] here. */
-function filterItemToClauses(
-  item: FilterItem,
-  op: FilterOperator,
-  data: { ownershipTypes: OwnershipTypeRef[] }
-): FilterClause[] {
-  const v = item.value;
-  if (v == null) return [];
-
-  const base = { id: item.key, op };
-
-  if (item.id === "ownership") {
-    const names = Array.isArray(v) ? (v as string[]) : [];
-    const ids = names
-      .map((name) => data.ownershipTypes.find((o) => o.ownership === name)?.id)
-      .filter((id): id is number => id != null);
-    if (ids.length === 0) return [];
-    return [
-      {
-        ...base,
-        type: "ownership_type",
-        value: { value: ids.length === 1 ? ids[0] : ids },
-      },
-    ];
-  }
-
-  if (item.id === "transaction") {
-    const statuses = Array.isArray(v) ? (v as string[]) : [];
-    return statuses.map((status, index) => ({
-      id: `${item.key}-${index}`,
-      type: "transaction_status" as FilterType,
-      value: { value: status },
-      op: index === 0 ? op : ("OR" as FilterOperator),
-    }));
-  }
-
-  if (item.id === "year_founded" && hasRangeValue(v)) {
-    const clauses: FilterClause[] = [];
-    if (v.min !== undefined) {
-      clauses.push({
-        id: `${item.key}-min`,
-        type: "year_founded_min",
-        value: { min: v.min },
-        op: clauses.length === 0 ? op : "AND",
-      });
-    }
-    if (v.max !== undefined) {
-      clauses.push({
-        id: `${item.key}-max`,
-        type: "year_founded_max",
-        value: { max: v.max },
-        op: clauses.length === 0 ? op : "AND",
-      });
-    }
-    return clauses;
-  }
-
-  const rangeType = RANGE_FILTER_ID_TO_TYPE[item.id];
-  if (rangeType && hasRangeValue(v)) {
-    return [{ ...base, type: rangeType, value: { min: v.min, max: v.max } }];
-  }
-
-  const enumType = ENUM_FILTER_ID_TO_TYPE[item.id];
-  if (enumType && Array.isArray(v) && v.length > 0) {
-    return [{ ...base, type: enumType, value: { value: v as string[] } }];
-  }
-
-  return [];
 }
 
 export function buildCompaniesSearchPayload(args: {
@@ -161,40 +55,88 @@ export function buildCompaniesSearchPayload(args: {
     perPage = 20,
   } = args;
 
-  let minGrowthPercent: string | number = "0";
-  let maxGrowthPercent: string | number = "0";
-  let timeFrame = "";
-
   const clauses: FilterClause[] = [];
+  let hasPriorClause = false;
 
   for (const item of state.filters) {
     const v = item.value;
     if (v == null) continue;
 
-    const op = clauseOp(clauses.length, undefined, state.filterLogic);
+    const op = combineOp(item, hasPriorClause, state.filterLogic);
+    const pushClause = (clause: FilterClause) => {
+      clauses.push(clause);
+      hasPriorClause = true;
+    };
 
-    // ── Portfolio ──────────────────────────────────────────────────────────
-    if (item.id === "followed" && v === true) {
-      clauses.push({
+    // ── LOCATION ───────────────────────────────────────────────────────────
+    if (item.id === "region" && Array.isArray(v)) {
+      pushClause({
         id: item.key,
-        type: "portfolio_companies",
-        value: { value: portfolioCompanyIds.length > 0 ? portfolioCompanyIds : [-1] },
+        type: "continental_region",
+        value: { value: v as string[] },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "sub_region" && Array.isArray(v)) {
+      pushClause({
+        id: item.key,
+        type: "sub_region",
+        value: { value: v as string[] },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "country" && Array.isArray(v)) {
+      pushClause({
+        id: item.key,
+        type: "country",
+        value: { value: v as string[] },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "city" && Array.isArray(v)) {
+      pushClause({
+        id: item.key,
+        type: "city",
+        value: { value: v as string[] },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "state" && Array.isArray(v)) {
+      pushClause({
+        id: item.key,
+        type: "province",
+        value: { value: v as string[] },
         op,
       });
       continue;
     }
 
-    // ── Business focus ─────────────────────────────────────────────────────
+    // ── SECTORS & PORTFOLIO ────────────────────────────────────────────────
+    if (item.id === "followed" && v === true) {
+      pushClause({
+        id: item.key,
+        type: "portfolio_companies",
+        value: {
+          value: portfolioCompanyIds.length > 0 ? portfolioCompanyIds : [-1],
+        },
+        op,
+      });
+      continue;
+    }
     if (item.id === "business_focus" && typeof v === "string") {
       if (v === "Pure-play D&A" && hybridBusinessFocusIds.length > 0) {
-        clauses.push({
+        pushClause({
           id: item.key,
           type: "business_focus_exclude",
           value: { value: hybridBusinessFocusIds },
           op,
         });
       } else if (v === "Has non-D&A" && hybridBusinessFocusIds.length > 0) {
-        clauses.push({
+        pushClause({
           id: item.key,
           type: "business_focus_include",
           value: { value: hybridBusinessFocusIds },
@@ -203,14 +145,12 @@ export function buildCompaniesSearchPayload(args: {
       }
       continue;
     }
-
-    // ── Primary sectors ────────────────────────────────────────────────────
     if (item.id === "primary_sector" && Array.isArray(v)) {
       const ids = (v as string[])
         .map((name) => primarySectors.find((s) => s.sector_name === name)?.id)
         .filter((id): id is number => id != null);
       if (ids.length > 0) {
-        clauses.push({
+        pushClause({
           id: item.key,
           type: "primary_sector_ids",
           value: { value: ids },
@@ -219,14 +159,12 @@ export function buildCompaniesSearchPayload(args: {
       }
       continue;
     }
-
-    // ── Secondary sectors ──────────────────────────────────────────────────
     if (item.id === "secondary_sector" && Array.isArray(v)) {
       const ids = (v as string[])
         .map((name) => secondarySectors.find((s) => s.sector_name === name)?.id)
         .filter((id): id is number => id != null);
       if (ids.length > 0) {
-        clauses.push({
+        pushClause({
           id: item.key,
           type: "secondary_sector_ids",
           value: { value: ids },
@@ -236,16 +174,291 @@ export function buildCompaniesSearchPayload(args: {
       continue;
     }
 
-    // ── Headcount growth — structured param, not SQL ───────────────────────
+    // ── COMPANY DETAILS ────────────────────────────────────────────────────
+    if (item.id === "ownership" && Array.isArray(v)) {
+      const ids = (v as string[])
+        .map((name) => ownershipTypes.find((o) => o.ownership === name)?.id)
+        .filter((id): id is number => id != null);
+      if (ids.length > 0) {
+        pushClause({
+          id: item.key,
+          type: "ownership_type",
+          value: { value: ids },
+          op,
+        });
+      }
+      continue;
+    }
+    if (item.id === "headcount" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "linkedin_members_min",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "year_founded" && hasRangeValue(v)) {
+      if (v.min != null) {
+        pushClause({
+          id: `${item.key}-min`,
+          type: "year_founded_min",
+          value: { min: v.min },
+          op,
+        });
+      }
+      if (v.max != null) {
+        pushClause({
+          id: `${item.key}-max`,
+          type: "year_founded_max",
+          value: { max: v.max },
+          op: "AND",
+        });
+      }
+      continue;
+    }
     if (item.id === "headcount_growth" && hasRangeValue(v)) {
-      if (v.min !== undefined) minGrowthPercent = v.min;
-      if (v.max !== undefined) maxGrowthPercent = v.max;
-      timeFrame = "Last Year";
+      pushClause({
+        id: item.key,
+        type: "linkedin_growth_range",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "years_since_inv" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "years_since_investment",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "transaction" && Array.isArray(v)) {
+      (v as string[]).forEach((status, i) => {
+        pushClause({
+          id: `${item.key}-${i}`,
+          type: "transaction_status",
+          value: { value: status },
+          op: i === 0 ? op : "OR",
+        });
+      });
       continue;
     }
 
-    // ── Everything else ────────────────────────────────────────────────────
-    clauses.push(...filterItemToClauses(item, op, { ownershipTypes }));
+    // ── FINANCIAL METRICS ──────────────────────────────────────────────────
+    if (item.id === "revenue" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "revenue_m",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "ebitda" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "ebitda_m",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "enterprise_value" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "ev",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "rev_multiple" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "revenue_multiple",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "rev_growth" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "revenue_growth",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "ebitda_margin" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "ebitda_margin",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "rule_40" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "rule_of_40",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+
+    // ── SUBSCRIPTION METRICS ───────────────────────────────────────────────
+    if (item.id === "arr_growth" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "arr_pc",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "arr" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "arr_m",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "churn" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "churn",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "grr" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "grr",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "nrr" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "nrr",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "new_client_growth" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "new_client_growth",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "upsell" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "upsell",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "cross_sell" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "cross_sell",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "price_increase" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "price_increase",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "rev_expansion" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "rev_expansion",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+
+    // ── OTHER METRICS ──────────────────────────────────────────────────────
+    if (item.id === "ebit" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "ebit_m",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "num_clients" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "no_clients",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "rev_per_client" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "rev_per_client",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "num_employees" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "no_employees",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "rev_per_employee" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "rev_per_employee",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "financial_year" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "financial_year_range",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
   }
 
   // Tab-level ownership gate (e.g. PE tab)
@@ -270,9 +483,6 @@ export function buildCompaniesSearchPayload(args: {
     filters_sql,
     has_financial_filters,
     has_year_filter,
-    min_growth_percent: minGrowthPercent,
-    max_growth_percent: maxGrowthPercent,
-    time_frame: timeFrame,
   };
 }
 
@@ -307,18 +517,6 @@ export function companySearchPayloadToSearchParams(
     params.append("columns[]", col);
   });
 
-  params.append(
-    "min_growth_percent",
-    String(payload.min_growth_percent ?? "0")
-  );
-  params.append(
-    "max_growth_percent",
-    String(payload.max_growth_percent ?? "0")
-  );
-  if (payload.time_frame?.trim()) {
-    params.append("time_frame", payload.time_frame.trim());
-  }
-
   return params;
 }
 
@@ -327,12 +525,6 @@ export function companySearchPayloadToSearchParams(
 export function buildCountsRequestFromPayload(
   payload: CompanySearchPayload
 ): Record<string, unknown> {
-  const num = (value: string | number | null | undefined): string => {
-    if (value == null || value === "") return "0";
-    const n = typeof value === "number" ? value : Number.parseFloat(String(value));
-    return Number.isFinite(n) ? String(n) : "0";
-  };
-
   return {
     query: payload.query ?? null,
     Primary_sectors_ids: [],
@@ -372,8 +564,6 @@ export function buildCountsRequestFromPayload(
     New_Clients_Revenue_Growth_min: "0",
     New_Clients_Revenue_Growth_max: "0",
     keywords_search: "",
-    min_growth_percent: num(payload.min_growth_percent),
-    max_growth_percent: num(payload.max_growth_percent),
     Year_founded_min: "0",
     Year_founded_max: "0",
     transaction_status: [],
