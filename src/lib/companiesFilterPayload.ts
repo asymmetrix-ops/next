@@ -486,19 +486,10 @@ export function buildCompaniesSearchPayload(args: {
   };
 }
 
-/** Serialize payload for GET Get_new_companies (query string). */
-export function companySearchPayloadToSearchParams(
-  payload: CompanySearchPayload,
-  options?: { page?: number; perPage?: number }
-): URLSearchParams {
-  const params = new URLSearchParams();
-  const page = options?.page ?? payload.Offset ?? 1;
-  const perPageRaw = options?.perPage ?? payload.Per_page ?? 20;
-  const perPage = perPageRaw > 0 ? perPageRaw : 20;
-
-  params.append("Offset", String(page));
-  params.append("Per_page", String(perPage));
-
+function appendSharedCompanyFilterParams(
+  params: URLSearchParams,
+  payload: CompanySearchPayload
+): void {
   if (payload.query?.trim()) {
     params.append("query", payload.query.trim());
   }
@@ -516,59 +507,32 @@ export function companySearchPayloadToSearchParams(
   (payload.columns ?? []).forEach((col) => {
     params.append("columns[]", col);
   });
+}
+
+/** Serialize payload for GET Get_new_companies (query string). */
+export function companySearchPayloadToSearchParams(
+  payload: CompanySearchPayload,
+  options?: { page?: number; perPage?: number }
+): URLSearchParams {
+  const params = new URLSearchParams();
+  const page = options?.page ?? payload.Offset ?? 1;
+  const perPageRaw = options?.perPage ?? payload.Per_page ?? 20;
+  const perPage = perPageRaw > 0 ? perPageRaw : 20;
+
+  params.append("Offset", String(page));
+  params.append("Per_page", String(perPage));
+  appendSharedCompanyFilterParams(params, payload);
 
   return params;
 }
 
-/** Legacy counts endpoint adapter — sends structured params as best-effort zeros/empties
- *  since the new payload folds everything into filters_sql. */
-export function buildCountsRequestFromPayload(
+/** Serialize payload for GET companies_counts — same filter params as search, no pagination. */
+export function companyCountsPayloadToSearchParams(
   payload: CompanySearchPayload
-): Record<string, unknown> {
-  return {
-    query: payload.query ?? null,
-    Primary_sectors_ids: [],
-    Secondary_sectors_ids: [],
-    Ownership_types_ids: [],
-    Countries: [],
-    Provinces: [],
-    Cities: [],
-    exclude_business_focus: null,
-    Hybrid_Data_ids: [],
-    Continental_Region: "",
-    geographical_sub_region: "",
-    Revenue_min: "0",
-    Revenue_max: "0",
-    EBITDA_min: "0",
-    EBITDA_max: "0",
-    Enterprise_Value_min: "0",
-    Enterprise_Value_max: "0",
-    Revenue_Multiple_min: "0",
-    Revenue_Multiple_max: "0",
-    Revenue_Growth_min: "0",
-    Revenue_Growth_max: "0",
-    EBITDA_Margin_min: "0",
-    EBITDA_Margin_max: "0",
-    Rule_of_40_min: "0",
-    Rule_of_40_max: "0",
-    ARR_min: "0",
-    ARR_max: "0",
-    ARR_pc_min: "0",
-    ARR_pc_max: "0",
-    Churn_min: "0",
-    Churn_max: "0",
-    GRR_min: "0",
-    GRR_max: "0",
-    NRR_min: "0",
-    NRR_max: "0",
-    New_Clients_Revenue_Growth_min: "0",
-    New_Clients_Revenue_Growth_max: "0",
-    keywords_search: "",
-    Year_founded_min: "0",
-    Year_founded_max: "0",
-    transaction_status: [],
-    filter_mode: "",
-  };
+): URLSearchParams {
+  const params = new URLSearchParams();
+  appendSharedCompanyFilterParams(params, payload);
+  return params;
 }
 
 export type { CompanySearchPayload, FilterClause };

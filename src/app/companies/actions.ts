@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import type { CompanySearchPayload } from "@/lib/filterBuilder";
-import { buildCountsRequestFromPayload, companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
+import { companyCountsPayloadToSearchParams, companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
 import { normalizeCompaniesResponse } from "./normalizeCompaniesResponse";
 
 export type CompaniesFilters = CompanySearchPayload;
@@ -99,25 +99,6 @@ export interface CompaniesCountsResponse {
 const COMPANIES_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
 
-function countsBodyToSearchParams(body: Record<string, unknown>): URLSearchParams {
-  const params = new URLSearchParams();
-
-  Object.entries(body).forEach(([key, value]) => {
-    if (value === null || value === undefined) return;
-
-    if (Array.isArray(value)) {
-      value.forEach((item) => {
-        params.append(`${key}[]`, String(item));
-      });
-      return;
-    }
-
-    params.append(key, String(value));
-  });
-
-  return params;
-}
-
 export async function fetchCompaniesCountsServer(
   filters: CompaniesFilters = {}
 ): Promise<CompaniesCountsResponse | null> {
@@ -129,8 +110,16 @@ export async function fetchCompaniesCountsServer(
       return null;
     }
 
-    const body = buildCountsRequestFromPayload(filters);
-    const params = countsBodyToSearchParams(body);
+    const payload: CompanySearchPayload = {
+      ...filters,
+      query: filters.query?.trim() || null,
+      filters_sql: filters.filters_sql || null,
+      columns: filters.columns ?? [],
+      has_financial_filters: Boolean(filters.has_financial_filters),
+      has_year_filter: Boolean(filters.has_year_filter),
+    };
+
+    const params = companyCountsPayloadToSearchParams(payload);
     const url = `${COMPANIES_API_BASE}/companies_counts?${params.toString()}`;
 
     const response = await fetch(url, {
