@@ -2,7 +2,11 @@
 
 import { cookies } from "next/headers";
 import type { CompanySearchPayload } from "@/lib/filterBuilder";
-import { companyCountsPayloadToSearchParams, companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
+import {
+  COMPANIES_API_BASE,
+  companyCountsPayloadToSearchParams,
+  companySearchPayloadToSearchParams,
+} from "@/lib/companiesFilterPayload";
 import { normalizeCompaniesResponse } from "./normalizeCompaniesResponse";
 
 export type CompaniesFilters = CompanySearchPayload;
@@ -95,9 +99,6 @@ export interface CompaniesCountsResponse {
   acquiredCompanies: number;
   otherCompanies: number;
 }
-
-const COMPANIES_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
 
 export async function fetchCompaniesCountsServer(
   filters: CompaniesFilters = {}

@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  XANO_PORTFOLIO_LISTS_BASE,
+  XANO_USER_PORTFOLIO_BASE,
+} from "@/lib/portfolioApi";
 
 const FOLLOW_KEYS = [
   "followed_companies",
@@ -61,9 +65,7 @@ async function fetchWithAuthFallback(
   return lastResp!;
 }
 
-const XANO_PORTFOLIO_BASE_URLS = [
-  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop",
-] as const;
+const XANO_PORTFOLIO_BASE_URLS = [XANO_PORTFOLIO_LISTS_BASE] as const;
 
 export async function GET() {
   try {
@@ -82,7 +84,7 @@ export async function GET() {
 
     const authApiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
     const authResp = await fetchWithAuth(`${authApiUrl}/auth/me`, token, {
       method: "GET",
@@ -95,25 +97,8 @@ export async function GET() {
       );
     }
 
-    const authData = (await authResp.json().catch(() => null)) as unknown;
-    const userId =
-      authData && typeof authData === "object" && typeof (authData as { id?: unknown }).id === "number"
-        ? (authData as { id: number }).id
-        : authData && typeof authData === "object" && typeof (authData as { id?: unknown }).id === "string"
-        ? Number.parseInt(String((authData as { id: string }).id), 10)
-        : null;
-
-    if (userId == null || !Number.isFinite(userId)) {
-      return NextResponse.json(
-        { error: "Auth response missing user id" },
-        { status: 502 }
-      );
-    }
-
     const upstreamResp = await fetchWithAuthFallback(
-      XANO_PORTFOLIO_BASE_URLS.map(
-        (b) => `${b}/get_users_lists?user_id=${encodeURIComponent(String(userId))}`
-      ),
+      [`${XANO_USER_PORTFOLIO_BASE}/get_users_lists`],
       token,
       { method: "GET" }
     );
@@ -193,7 +178,7 @@ export async function POST(req: Request) {
 
     const authApiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
     const authResp = await fetchWithAuth(`${authApiUrl}/auth/me`, token, {
       method: "GET",

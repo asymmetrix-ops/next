@@ -1,7 +1,7 @@
 import { resolveAuthUserId } from "@/lib/userLists";
+import { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
 
-const XANO_USER_PORTFOLIO_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI";
+export { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
 
 export type PortfolioFollowKey =
   | "followed_companies"

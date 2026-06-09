@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
+const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R";
 
 const VALID_ENTITY_TYPES = new Set([
   "company",

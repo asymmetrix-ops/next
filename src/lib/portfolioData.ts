@@ -1,10 +1,11 @@
 import { authService } from "@/lib/auth";
 import type { PortfolioEntityRow } from "@/lib/portfolioEntity";
 import { parseUserId } from "@/lib/portfolioListUtils";
+import {
+  XANO_PORTFOLIO_LISTS_BASE,
+  XANO_USER_PORTFOLIO_BASE,
+} from "@/lib/portfolioApi";
 import { resolveAuthUserId } from "@/lib/userLists";
-
-const XANO_PORTFOLIO_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
 
 export type PortfolioDataCounts = {
   total: number;
@@ -128,7 +129,7 @@ export async function fetchUserPortfolioData(options?: {
   qs.set("search", options?.search?.trim() ?? "");
 
   const resp = await fetchWithAuth(
-    `${XANO_PORTFOLIO_BASE}/portfolio/data?${qs.toString()}`,
+    `${XANO_USER_PORTFOLIO_BASE}/portfolio/data?${qs.toString()}`,
     token,
     { method: "GET", signal: options?.signal }
   );
@@ -184,7 +185,7 @@ export async function fetchPortfolioDataFromXano(options?: {
   }
 
   const resp = await fetchWithAuth(
-    `${XANO_PORTFOLIO_BASE}/list/data?${qs.toString()}`,
+    `${XANO_PORTFOLIO_LISTS_BASE}/list/data?${qs.toString()}`,
     token,
     { method: "GET", signal: options?.signal }
   );

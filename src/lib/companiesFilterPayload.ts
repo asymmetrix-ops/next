@@ -11,6 +11,9 @@ import {
   type FilterOperator,
 } from "@/lib/filterBuilder";
 
+export const COMPANIES_API_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+
 type SectorRef = { id: number; sector_name: string };
 type OwnershipTypeRef = { id: number; ownership: string };
 

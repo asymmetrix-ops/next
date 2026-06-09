@@ -192,15 +192,45 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      // Load lists (tabs) and portfolio follow state in parallel
-      const [raw] = await Promise.all([
+      const [listsResult, portfolioResult] = await Promise.allSettled([
         fetchUserListsFromXano(),
-        fetchUserPortfolioData()
-          .then((pd) => { set({ userPortfolio: pd }); })
-          .catch(() => { /* silently ignore portfolio data errors */ }),
+        fetchUserPortfolioData(),
       ]);
-      get().setPortfolio(raw);
-      set({ loading: false, error: null, lastFetched: Date.now() });
+
+      if (portfolioResult.status === "fulfilled") {
+        set({ userPortfolio: portfolioResult.value });
+      }
+
+      if (listsResult.status === "fulfilled") {
+        get().setPortfolio(listsResult.value);
+      }
+
+      const listsError =
+        listsResult.status === "rejected"
+          ? (listsResult.reason as Error).message ?? "Failed to fetch user lists"
+          : null;
+      const portfolioError =
+        portfolioResult.status === "rejected"
+          ? (portfolioResult.reason as Error).message ??
+            "Failed to fetch portfolio data"
+          : null;
+
+      if (listsResult.status === "rejected" && portfolioResult.status === "rejected") {
+        set({
+          data: null,
+          portfolios: [],
+          userPortfolio: null,
+          loading: false,
+          error: portfolioError ?? listsError,
+        });
+        return;
+      }
+
+      set({
+        loading: false,
+        error: listsResult.status === "rejected" ? listsError : null,
+        lastFetched: Date.now(),
+      });
     } catch (e) {
       set({
         data: null,

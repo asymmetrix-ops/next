@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-
-const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
+import {
+  XANO_PORTFOLIO_LISTS_BASE,
+  XANO_USER_PORTFOLIO_BASE,
+} from "@/lib/portfolioApi";
 const XANO_AUTH_BASE =
   process.env.NEXT_PUBLIC_XANO_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
 async function fetchWithAuth(
   url: string,
@@ -70,13 +72,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing auth token" }, { status: 401 });
     }
 
-    const userId = await getUserId(token);
-    if (userId == null) {
-      return NextResponse.json({ error: "Auth failed" }, { status: 401 });
-    }
-
     const upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/get_users_lists?user_id=${encodeURIComponent(String(userId))}`,
+      `${XANO_USER_PORTFOLIO_BASE}/get_users_lists`,
       token,
       { method: "GET" }
     );
@@ -142,7 +139,7 @@ export async function POST(req: Request) {
     }
 
     const upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/user_lists`,
+      `${XANO_PORTFOLIO_LISTS_BASE}/user_lists`,
       token,
       {
         method: "POST",

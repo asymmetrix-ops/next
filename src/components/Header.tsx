@@ -156,6 +156,80 @@ const Header = () => {
     },
   };
 
+  const renderNavLink = (
+    item: string,
+    linkStyle: React.CSSProperties,
+    onNavigate?: () => void
+  ) => {
+    const getHref = (navItem: string) => {
+      const label = navItem.replace(/\u00A0/g, " ");
+      switch (label) {
+        case "Dashboard":
+          return "/home-user";
+        case "Companies":
+          return "/companies";
+        case "Sectors":
+          return "/sectors";
+        case "Investors":
+          return "/investors";
+        case "Advisors":
+          return "/advisors";
+        case "Individuals":
+          return "/individuals";
+        case "Corporate Events":
+          return "/corporate-events";
+        case "Insights & Analysis":
+          return "/insights-analysis";
+        case "My Portfolio":
+          return "/my-portfolio";
+        case "Settings":
+          return "/settings";
+        default:
+          if (/^insights/i.test(label)) return "/insights-analysis";
+          return "#";
+      }
+    };
+
+    const href = getHref(item);
+    const isDisabled = isTrialActive && !isAllowedTrialRoute(href);
+    const isMobileNav = linkStyle === styles.navLinkMobile;
+
+    return (
+      <Link
+        key={item}
+        href={href}
+        style={{
+          ...linkStyle,
+          ...(pathname === href
+            ? isMobileNav
+              ? { color: "#595959", fontWeight: "600" }
+              : styles.activeLink
+            : isMobileNav
+              ? { color: "#6b7280" }
+              : styles.inactiveLink),
+        }}
+        className={!isMobileNav ? "nav-link" : undefined}
+        onClick={(e) => {
+          if (isDisabled) {
+            e.preventDefault();
+            return;
+          }
+          onNavigate?.();
+        }}
+        onMouseOver={(e) => {
+          if (isMobileNav || pathname === href) return;
+          (e.target as HTMLElement).style.color = "#111827";
+        }}
+        onMouseOut={(e) => {
+          if (isMobileNav || pathname === href) return;
+          (e.target as HTMLElement).style.color = "#6b7280";
+        }}
+      >
+        {item}
+      </Link>
+    );
+  };
+
   return (
     <>
       <style jsx>{`
@@ -217,71 +291,9 @@ const Header = () => {
 
             {/* Desktop Navigation */}
             <nav style={styles.navDesktop} className="nav-desktop">
-              {navItems.map((item) => {
-                const getHref = (item: string) => {
-                  const label = item.replace(/\u00A0/g, " ");
-                  switch (label) {
-                    case "Dashboard":
-                      return "/home-user";
-                    case "Companies":
-                      return "/companies";
-                    case "Sectors":
-                      return "/sectors";
-                    case "Investors":
-                      return "/investors";
-                    case "Advisors":
-                      return "/advisors";
-                    case "Individuals":
-                      return "/individuals";
-                    case "Corporate Events":
-                      return "/corporate-events";
-                    case "Insights & Analysis":
-                      return "/insights-analysis";
-                    case "My Portfolio":
-                      return "/my-portfolio";
-                    case "Settings":
-                      return "/settings";
-                    default:
-                      if (/^insights/i.test(label)) return "/insights-analysis";
-                      return "#";
-                  }
-                };
-
-                const href = getHref(item);
-                const isDisabled = isTrialActive && !isAllowedTrialRoute(href);
-
-                return (
-                  <Link
-                    key={item}
-                    href={href}
-                    style={{
-                      ...styles.navLink,
-                      ...(pathname === href
-                        ? styles.activeLink
-                        : styles.inactiveLink),
-                    }}
-                    className="nav-link"
-                    onClick={(e) => {
-                      if (isDisabled) {
-                        e.preventDefault();
-                        return;
-                      }
-                    }}
-                    onMouseOver={(e) => {
-                      if (pathname !== href) {
-                        (e.target as HTMLElement).style.color = "#111827";
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      if (pathname !== href) {
-                        (e.target as HTMLElement).style.color = "#6b7280";
-                      }
-                    }}
-                  >
-                    {item}
-                  </Link>
-                );
-              })}
+              {navItems.map((item) =>
+                renderNavLink(item, styles.navLink)
+              )}
             </nav>
           </div>
 
@@ -337,62 +349,11 @@ const Header = () => {
           style={isMobileMenuOpen ? styles.navMobileOpen : styles.navMobile}
           className="nav-mobile"
         >
-          {navItems.map((item) => {
-            const getHref = (item: string) => {
-              const label = item.replace(/\u00A0/g, " ");
-              switch (label) {
-                case "Dashboard":
-                  return "/home-user";
-                case "Companies":
-                  return "/companies";
-                case "Sectors":
-                  return "/sectors";
-                case "Investors":
-                  return "/investors";
-                case "Advisors":
-                  return "/advisors";
-                case "Individuals":
-                  return "/individuals";
-                case "Corporate Events":
-                  return "/corporate-events";
-                case "Insights & Analysis":
-                  return "/insights-analysis";
-                case "My Portfolio":
-                  return "/my-portfolio";
-                case "Settings":
-                  return "/settings";
-                default:
-                  if (/^insights/i.test(label)) return "/insights-analysis";
-                  return "#";
-              }
-            };
-
-            const href = getHref(item);
-            const isDisabled = isTrialActive && !isAllowedTrialRoute(href);
-
-            return (
-              <Link
-                key={item}
-                href={href}
-                style={{
-                  ...styles.navLinkMobile,
-                  ...(pathname === href
-                    ? { color: "#595959", fontWeight: "600" }
-                    : { color: "#6b7280" }),
-                }}
-                onClick={(e) => {
-                  if (isDisabled) {
-                    e.preventDefault();
-                    return;
-                  }
-
-                  setIsMobileMenuOpen(false);
-                }}
-              >
-                {item}
-              </Link>
-            );
-          })}
+          {navItems.map((item) =>
+            renderNavLink(item, styles.navLinkMobile, () =>
+              setIsMobileMenuOpen(false)
+            )
+          )}
         </nav>
       </header>
     </>

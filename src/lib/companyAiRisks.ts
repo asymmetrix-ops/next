@@ -1,4 +1,5 @@
 import type { AIRiskAxis, AIRiskAxisGroup } from "@/components/redesign/AIRiskCard";
+import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
 
 /** Low = 1, Moderate = 2, High = 3 */
 export const AI_SCORE_MAX = 3;
@@ -95,8 +96,7 @@ export type CompanyAiRiskV2Item = {
   defense_score: number;
 };
 
-const COMPANY_AI_RISKS_V2_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_ai_risks_v2";
+const COMPANY_AI_RISKS_V2_BASE = `${COMPANIES_API_BASE}/company_ai_risks_v2`;
 
 /**
  * Derive radar axis key + colour group from the factor label.
@@ -194,8 +194,7 @@ export type CompanyAiRiskRecord = {
   defense?: CompanyAiRiskScores | null;
 };
 
-const COMPANY_AI_RISKS_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_ai_risks";
+const COMPANY_AI_RISKS_BASE = `${COMPANIES_API_BASE}/company_ai_risks`;
 
 type AxisMeta = {
   key: string;

@@ -27,7 +27,11 @@ import {
   CompaniesFilters as ServerFilters,
   type CompaniesFilters,
 } from "./actions";
-import { buildCompaniesSearchPayload, companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
+import {
+  buildCompaniesSearchPayload,
+  COMPANIES_API_BASE,
+  companySearchPayloadToSearchParams,
+} from "@/lib/companiesFilterPayload";
 import { fetchUserPortfolioRecord } from "@/lib/portfolioFollow";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import {
@@ -2327,16 +2331,23 @@ const CompanySection = ({
       }
 
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = currentFilters
-        ? companySearchPayloadToSearchParams(currentFilters)
-        : new URLSearchParams();
+      const exportPageSize = 25;
+      const baseFilters = currentFilters ?? createDefaultFilters();
+      const exportPayload: Filters = {
+        ...baseFilters,
+        query: baseFilters.query?.trim() || null,
+        filters_sql: baseFilters.filters_sql || null,
+        columns: getApiColumnsForSelectedKeys(selectedColumnKeys),
+        has_financial_filters: Boolean(baseFilters.has_financial_filters),
+        has_year_filter: Boolean(baseFilters.has_year_filter),
+      };
+      const buildExportParams = (page: number) =>
+        companySearchPayloadToSearchParams(exportPayload, {
+          page,
+          perPage: exportPageSize,
+        });
 
-      // First, fetch page 1 to get total page count
-      const baseParams = new URLSearchParams(params.toString());
-      baseParams.append("Offset", "1");
-      baseParams.append("Per_page", "25");
-      
-      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${baseParams.toString()}`;
+      const firstPageUrl = `${COMPANIES_API_BASE}/Export_new_companies_csv?${buildExportParams(1).toString()}`;
       
       const firstResp = await fetch(firstPageUrl, {
         method: "GET",
@@ -2413,11 +2424,7 @@ const CompanySection = ({
       // Fetch remaining pages if there are more
       if (totalPages > 1) {
         for (let page = 2; page <= totalPages; page++) {
-          const pageParams = new URLSearchParams(params.toString());
-          pageParams.append("Offset", page.toString());
-          pageParams.append("Per_page", "25");
-          
-          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${pageParams.toString()}`;
+          const pageUrl = `${COMPANIES_API_BASE}/Export_new_companies_csv?${buildExportParams(page).toString()}`;
           
           const pageResp = await fetch(pageUrl, {
             method: "GET",
@@ -2619,7 +2626,7 @@ const CompanySection = ({
         );
       }
     }
-  }, [currentFilters, companies]);
+  }, [currentFilters, companies, selectedColumnKeys]);
 
   // Register export function with parent so header Export CSV button works
   useEffect(() => {

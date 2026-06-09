@@ -27,7 +27,9 @@ type NewFeatureCalloutProps = {
    * Popover position relative to the anchor.
    * `auto` centers above/below; `right` / `left` sit beside the anchor (vertically centered).
    */
-  side?: "auto" | "left" | "right";
+  side?: "auto" | "left" | "right" | "bottom";
+  /** Horizontal alignment when tooltip is above/below the anchor. */
+  align?: "start" | "center" | "end";
   children: React.ReactNode;
 };
 
@@ -66,6 +68,7 @@ export function NewFeatureCallout({
   className,
   openWhenInView = false,
   side = "auto",
+  align = "center",
   children,
 }: NewFeatureCalloutProps) {
   const launchedAtMs = React.useMemo(() => toMs(launchedAt), [launchedAt]);
@@ -134,7 +137,9 @@ export function NewFeatureCallout({
       setIsMobile(typeof window !== "undefined" && window.innerWidth <= 768);
       const rect = el.getBoundingClientRect();
       setAnchorRect(rect);
-      if (side === "auto") {
+      if (side === "bottom") {
+        setPlacement("bottom");
+      } else if (side === "auto") {
         // If there's not enough space above, flip to bottom.
         setPlacement(rect.top < 120 ? "bottom" : "top");
       }
@@ -168,7 +173,7 @@ export function NewFeatureCallout({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, side]);
+  }, [open, side, align]);
 
   const visible = ready && withinWindow && !dismissed;
   if (!visible) return <>{children}</>;
@@ -228,18 +233,35 @@ export function NewFeatureCallout({
               }
 
               const center = anchorRect.left + anchorRect.width / 2;
-              const clampedLeft = Math.max(
+              const clampedCenter = Math.max(
                 padding + halfPopoverMax,
                 Math.min(viewportW - padding - halfPopoverMax, center)
               );
               const showBelow =
-                isMobile || placement === "bottom" || anchorRect.top < 140;
+                side === "bottom" ||
+                isMobile ||
+                placement === "bottom" ||
+                anchorRect.top < 140;
+
+              let left = clampedCenter;
+              let transform = showBelow
+                ? "translate(-50%, 0)"
+                : "translate(-50%, -100%)";
+
+              if (align === "start") {
+                left = Math.max(padding, anchorRect.left);
+                transform = showBelow ? "translate(0, 0)" : "translate(0, -100%)";
+              } else if (align === "end") {
+                left = Math.min(viewportW - padding, anchorRect.right);
+                transform = showBelow
+                  ? "translate(-100%, 0)"
+                  : "translate(-100%, -100%)";
+              }
+
               return {
-                left: clampedLeft,
+                left,
                 top: showBelow ? anchorRect.bottom + gap : anchorRect.top - gap,
-                transform: showBelow
-                  ? "translate(-50%, 0)"
-                  : "translate(-50%, -100%)",
+                transform,
               };
             })()}
           >

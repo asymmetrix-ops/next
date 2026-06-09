@@ -1,7 +1,7 @@
 import type { CorporateEvent } from "@/components/corporate-events/CorporateEventsTable";
+import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
 
-const COMPANY_CORPORATE_EVENTS_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_corporate_events";
+const COMPANY_CORPORATE_EVENTS_BASE = `${COMPANIES_API_BASE}/get_company_corporate_events`;
 
 export type CompanyCorporateEventsPage = {
   items: CorporateEvent[];

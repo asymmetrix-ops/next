@@ -18,6 +18,7 @@ import {
   parseLinkedInGrowthPctValue,
 } from "@/components/subsidiaries/SubsidiariesProfilePanel";
 import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
+import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
 import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
@@ -1449,7 +1450,7 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${id}`;
+      const endpoint = `${COMPANIES_API_BASE}/Get_new_company/${id}`;
 
       // Attempt 1: Standard GET
       const getResponse = await fetch(endpoint, {
@@ -1516,7 +1517,7 @@ const CompanyDetail = () => {
         params.append("new_company_id", String(companyIdForContent));
         params.append("page", String(page));
         params.append("per_page", String(INSIGHTS_PREVIEW_COUNT));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/companies_articles?${params.toString()}`;
+        const url = `${COMPANIES_API_BASE}/companies_articles?${params.toString()}`;
         const response = await fetch(url, { method: "GET" });
         if (!response.ok) {
           setCompanyArticles([]);
@@ -1729,7 +1730,7 @@ const CompanyDetail = () => {
         Accept: "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
-      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_products_services`;
+      const base = `${COMPANIES_API_BASE}/company_products_services`;
       const params = new URLSearchParams({ new_company_id: String(id) });
       const res = await fetch(`${base}?${params.toString()}`, {
         method: "GET",
@@ -1795,7 +1796,7 @@ const CompanyDetail = () => {
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
       const res = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_transaction_status?${params.toString()}`,
+        `${COMPANIES_API_BASE}/get_company_transaction_status?${params.toString()}`,
         { method: "GET" }
       );
       if (!res.ok) return;
