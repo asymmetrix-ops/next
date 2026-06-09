@@ -30,6 +30,8 @@ export type FilterType =
   | "revenue_growth"
   | "ebitda_margin"
   | "rule_of_40"
+  | "arr_m"
+  | "arr_pc"
   | "churn"
   | "grr"
   | "nrr"
@@ -42,11 +44,7 @@ export type FilterType =
   | "no_clients"
   | "rev_per_client"
   | "no_employees"
-  | "rev_per_employee"
-  | "years_since_investment"
-  | "financial_year_range"
-  | "linkedin_growth_range"
-  | "has_mcp";
+  | "rev_per_employee";
 
 export type FilterValue =
   | { min?: number; max?: number }
@@ -69,6 +67,8 @@ const FINANCIAL_FIELD_MAP: Record<string, string> = {
   revenue_growth: '"Rev_Growth_PC"',
   ebitda_margin: '"EBITDA_margin"',
   rule_of_40: '"Rule_of_40"',
+  arr_m: '"ARR_m"',
+  arr_pc: '"ARR_pc"',
   churn: '"Churn_pc"',
   grr: '"GRR_pc"',
   nrr: '"NRR"',
@@ -82,7 +82,6 @@ const FINANCIAL_FIELD_MAP: Record<string, string> = {
   rev_per_client: '"Rev_per_client"',
   no_employees: '"No_Employees"',
   rev_per_employee: '"Revenue_per_employee"',
-  financial_year_range: '"Financial_Year"',
 };
 
 const FINANCIAL_TYPES = new Set(Object.keys(FINANCIAL_FIELD_MAP));
@@ -126,24 +125,11 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
       }
       case "linkedin_growth_min":
       case "linkedin_growth_max":
-      case "linkedin_growth_range":
         return buildRangeSql(`nc.linkedin_growth_1y_pct`, min, max);
       case "year_founded_min":
         return min != null ? `yr."Year"::int >= ${min}` : null;
       case "year_founded_max":
         return max != null ? `yr."Year"::int <= ${max}` : null;
-      case "years_since_investment": {
-        const minDays = min != null ? min * 365 : undefined;
-        const maxDays = max != null ? max * 365 : undefined;
-        const hasMin = minDays != null && !Number.isNaN(minDays);
-        const hasMax = maxDays != null && !Number.isNaN(maxDays);
-        if (hasMin && hasMax) {
-          return `(ysli.days_since BETWEEN ${minDays} AND ${maxDays})`;
-        }
-        if (hasMin) return `(ysli.days_since >= ${minDays})`;
-        if (hasMax) return `(ysli.days_since <= ${maxDays})`;
-        return null;
-      }
       default:
         return null;
     }
@@ -186,7 +172,7 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
           ? `nc.ownership_type_id IN (${(val as number[]).join(",")})`
           : `nc.ownership_type_id = ${Number(val)}`;
       case "transaction_status":
-        return `LOWER(ts.label) = LOWER(${esc(String(val))})`;
+        return `LOWER(nc."Transaction_status") = LOWER(${esc(String(val))})`;
 
       case "portfolio_companies": {
         const ids = Array.isArray(val) ? (val as number[]) : [];
@@ -223,9 +209,6 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
         return `nc.primary_business_focus_id && ARRAY[${ids.join(",")}]::bigint[]`;
       }
 
-      case "has_mcp":
-        return Number(val) === 0 ? `nc.has_mcp = false` : `nc.has_mcp = true`;
-
       default:
         return null;
     }
@@ -234,47 +217,21 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
   return null;
 }
 
-function joinOrGroup(clauses: string[]): string {
-  if (clauses.length === 0) return "";
-  if (clauses.length === 1) return clauses[0];
-  return `(${clauses.join(" OR ")})`;
-}
-
-/** Combine SQL fragments respecting AND/OR precedence (OR groups, then AND). */
-export function combineFilterSqlParts(
-  parts: Array<{ sql: string; op: FilterOperator }>
-): string {
-  if (parts.length === 0) return "";
-  if (parts.length === 1) return parts[0].sql;
-
-  const groups: string[] = [];
-  let currentGroup: string[] = [parts[0].sql];
-
-  for (let i = 1; i < parts.length; i++) {
-    const part = parts[i];
-    if (part.op === "OR") {
-      currentGroup.push(part.sql);
-      continue;
-    }
-
-    groups.push(joinOrGroup(currentGroup));
-    currentGroup = [part.sql];
-  }
-
-  groups.push(joinOrGroup(currentGroup));
-  return groups.join(" AND ");
-}
-
 export function buildFiltersSql(clauses: FilterClause[]): string {
-  const parts: Array<{ sql: string; op: FilterOperator }> = [];
+  const parts: string[] = [];
 
-  for (const clause of clauses) {
+  for (let i = 0; i < clauses.length; i++) {
+    const clause = clauses[i];
     const sql = buildFilterClauseSql(clause);
     if (!sql) continue;
-    parts.push({ sql, op: clause.op });
+    if (parts.length === 0) {
+      parts.push(sql);
+    } else {
+      parts.push(`${clause.op} ${sql}`);
+    }
   }
 
-  return combineFilterSqlParts(parts);
+  return parts.join(" ");
 }
 
 export function deriveBackendSignals(clauses: FilterClause[]) {
@@ -293,20 +250,14 @@ export function deriveBackendSignals(clauses: FilterClause[]) {
 export interface CompanySearchPayload {
   query?: string | null;
   columns?: string[];
-  /** When exporting a selected subset, restrict the search to these company IDs. */
-  company_ids?: number[];
   Offset?: number;
   Per_page?: number;
   filters_sql?: string | null;
   has_financial_filters?: boolean;
   has_year_filter?: boolean;
-  sort_column?: string | null;
-  sort_direction?: "asc" | "desc" | null;
-  /** Top-level date-added range — handled by Xano, not filters_sql. */
-  created_at_from?: string;
-  created_at_to?: string;
-  /** Platform display currency — Xano converts financial columns server-side. */
-  preferred_currency_id?: number;
+  min_growth_percent?: string | number;
+  max_growth_percent?: string | number;
+  time_frame?: string;
 }
 
 export function buildApiPayload(

@@ -139,7 +139,7 @@ export interface FilterBarState {
   filters: FilterItem[];
   viewId: string | null;
   searchText: string;
-  /** How multiple active filters combine — FE-only until API support. */
+  /** How multiple active filters combine when sent to the API. */
   filterLogic: FilterCombineLogic;
 }
 
@@ -1951,25 +1951,61 @@ function FilterLogicToggle({
   );
 }
 
-function FilterLogicSeparator({ logic }: { logic: FilterCombineLogic }) {
+function FilterLogicSeparator({
+  logic,
+  onToggle,
+}: {
+  logic: FilterCombineLogic;
+  onToggle?: () => void;
+}) {
+  const label = logic.toUpperCase();
+  const style: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 28,
+    padding: "0 2px",
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    color: "var(--fg-4)",
+    userSelect: "none",
+  };
+
+  if (!onToggle) {
+    return (
+      <span aria-hidden="true" style={style}>
+        {label}
+      </span>
+    );
+  }
+
   return (
-    <span
-      aria-hidden="true"
+    <button
+      type="button"
+      aria-label={`Switch to ${logic === "and" ? "OR" : "AND"} between filters`}
+      title={`Combine with ${logic === "and" ? "OR" : "AND"} — click to switch`}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={onToggle}
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minWidth: 28,
-        padding: "0 2px",
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: "0.06em",
-        color: "var(--fg-4)",
-        userSelect: "none",
+        ...style,
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        borderRadius: 4,
+        transition: "color 120ms, background 120ms",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.color = "var(--ax-cyan-700)";
+        e.currentTarget.style.background = "var(--ax-cyan-50)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.color = "var(--fg-4)";
+        e.currentTarget.style.background = "transparent";
       }}
     >
-      {logic.toUpperCase()}
-    </span>
+      {label}
+    </button>
   );
 }
 
@@ -1983,6 +2019,17 @@ export function CompaniesFilterBar({
   totalCount,
 }: CompaniesFilterBarProps) {
   const { filters, searchText, filterLogic } = state;
+
+  const setFilterLogic = useCallback(
+    (next: FilterCombineLogic) => {
+      onStateChange((s) => ({ ...s, filterLogic: next, viewId: null }));
+    },
+    [onStateChange]
+  );
+
+  const toggleFilterLogic = useCallback(() => {
+    setFilterLogic(filterLogic === "and" ? "or" : "and");
+  }, [filterLogic, setFilterLogic]);
 
   const setFilters = useCallback(
     (updater: FilterItem[] | ((prev: FilterItem[]) => FilterItem[])) => {
@@ -2181,7 +2228,12 @@ export function CompaniesFilterBar({
               chipRefs.current[f.key] = { current: null } as React.RefObject<HTMLSpanElement>;
             return (
               <React.Fragment key={f.key}>
-                {index > 0 && <FilterLogicSeparator logic={filterLogic} />}
+                {index > 0 && (
+                  <FilterLogicSeparator
+                    logic={filterLogic}
+                    onToggle={filters.length > 1 ? toggleFilterLogic : undefined}
+                  />
+                )}
                 <span ref={chipRefs.current[f.key]}>
                   <Chip
                     def={def}
@@ -2198,9 +2250,7 @@ export function CompaniesFilterBar({
           {filters.length > 0 && (
             <FilterLogicToggle
               value={filterLogic}
-              onChange={(next) =>
-                onStateChange((s) => ({ ...s, filterLogic: next }))
-              }
+              onChange={setFilterLogic}
             />
           )}
 

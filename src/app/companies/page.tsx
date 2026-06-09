@@ -21,7 +21,14 @@ import {
 } from "@/utils/companiesCSVExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
-import { fetchCompaniesServer, fetchCompaniesCountsServer, CompaniesFilters as ServerFilters } from "./actions";
+import {
+  fetchCompaniesServer,
+  fetchCompaniesCountsServer,
+  CompaniesFilters as ServerFilters,
+  type CompaniesFilters,
+} from "./actions";
+import { buildCompaniesSearchPayload, companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
+import { fetchUserPortfolioRecord } from "@/lib/portfolioFollow";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import {
   CompaniesFilterBar,
@@ -65,8 +72,6 @@ import {
 } from "@/components/companies/companiesColumnFields";
 
 // Feature flags (master only)
-const ENABLE_COMPANIES_KEYWORD_SEARCH = false;
-
 // Extended CSV row type that includes financial and subscription metrics
 interface CompanyCSVRow extends BaseCompanyCSVRow {
   Revenue?: string;
@@ -135,124 +140,22 @@ interface SecondarySector {
   sector_name: string;
 }
 
-interface HybridBusinessFocus {
-  id: number;
-  business_focus: string;
-}
-
 interface OwnershipType {
   id: number;
   ownership: string;
 }
 
-interface Filters {
-  countries: string[];
-  provinces: string[];
-  cities: string[];
-  continentalRegions?: string[];
-  subRegions?: string[];
-  primarySectors: number[]; // Changed from string[] to number[]
-  secondarySectors: number[]; // Changed from string[] to number[]
-  hybridBusinessFocuses: number[];
-  exclude_business_focus?: boolean | null;
-  ownershipTypes: number[]; // Changed from string[] to number[]
-  linkedinMembersMin: number | null;
-  linkedinMembersMax: number | null;
-  lastInvestmentYearsMin: number | null;
-  lastInvestmentYearsMax: number | null;
-  searchQuery: string;
-  keywordSearch: string;
-  // Financial Metrics
-  revenueMin: number | null;
-  revenueMax: number | null;
-  ebitdaMin: number | null;
-  ebitdaMax: number | null;
-  enterpriseValueMin: number | null;
-  enterpriseValueMax: number | null;
-  revenueMultipleMin: number | null;
-  revenueMultipleMax: number | null;
-  revenueGrowthMin: number | null;
-  revenueGrowthMax: number | null;
-  ebitdaMarginMin: number | null;
-  ebitdaMarginMax: number | null;
-  ruleOf40Min: number | null;
-  ruleOf40Max: number | null;
-  // Subscription Metrics
-  arrMin: number | null;
-  arrMax: number | null;
-  arrPcMin: number | null;
-  arrPcMax: number | null;
-  churnMin: number | null;
-  churnMax: number | null;
-  grrMin: number | null;
-  grrMax: number | null;
-  nrrMin: number | null;
-  nrrMax: number | null;
-  newClientsRevenueGrowthMin: number | null;
-  newClientsRevenueGrowthMax: number | null;
-  // LinkedIn Growth Metrics
-  minGrowthPercent: number | null;
-  maxGrowthPercent: number | null;
-  timeFrame: string;
-  transactionStatus?: string[];
-  portfolio_only?: boolean;
-  filterMode?: "AND" | "OR";
-  // Overview
-  yearFoundedMin: number | null;
-  yearFoundedMax: number | null;
-}
+type Filters = CompaniesFilters;
 
 const createDefaultFilters = (): Filters => ({
-  countries: [],
-  provinces: [],
-  cities: [],
-  continentalRegions: [],
-  subRegions: [],
-  primarySectors: [],
-  secondarySectors: [],
-  hybridBusinessFocuses: [],
-  exclude_business_focus: null,
-  ownershipTypes: [],
-  linkedinMembersMin: null,
-  linkedinMembersMax: null,
-  lastInvestmentYearsMin: null,
-  lastInvestmentYearsMax: null,
-  searchQuery: "",
-  keywordSearch: "",
-  revenueMin: null,
-  revenueMax: null,
-  ebitdaMin: null,
-  ebitdaMax: null,
-  enterpriseValueMin: null,
-  enterpriseValueMax: null,
-  revenueMultipleMin: null,
-  revenueMultipleMax: null,
-  revenueGrowthMin: null,
-  revenueGrowthMax: null,
-  ebitdaMarginMin: null,
-  ebitdaMarginMax: null,
-  ruleOf40Min: null,
-  ruleOf40Max: null,
-  arrMin: null,
-  arrMax: null,
-  arrPcMin: null,
-  arrPcMax: null,
-  churnMin: null,
-  churnMax: null,
-  grrMin: null,
-  grrMax: null,
-  nrrMin: null,
-  nrrMax: null,
-  newClientsRevenueGrowthMin: null,
-  newClientsRevenueGrowthMax: null,
-  minGrowthPercent: null,
-  maxGrowthPercent: null,
-  timeFrame: "",
-  transactionStatus: [],
-  portfolio_only: false,
-  filterMode: "AND",
-  yearFoundedMin: null,
-  yearFoundedMax: null,
+  filters_sql: null,
+  has_financial_filters: false,
+  has_year_filter: false,
+  query: null,
+  columns: [],
+  min_growth_percent: "0",
+  max_growth_percent: "0",
+  time_frame: "",
 });
 
 // Shape returned by export API when sending JSON instead of CSV
@@ -395,74 +298,16 @@ const useCompaniesAPI = () => {
       }
 
       const filtersToUse =
-        filters !== undefined ? filters : currentFiltersRef.current;
+        filters !== undefined ? filters : currentFiltersRef.current ?? createDefaultFilters();
 
       try {
-        const serverFilters: ServerFilters = (() => {
-          if (!filtersToUse) return {};
-          const serverFiltersBase = {
-            countries: filtersToUse.countries,
-            provinces: filtersToUse.provinces,
-            cities: filtersToUse.cities,
-            continentalRegions: filtersToUse.continentalRegions,
-            subRegions: filtersToUse.subRegions,
-            primarySectors: filtersToUse.primarySectors,
-            secondarySectors: filtersToUse.secondarySectors,
-            hybridBusinessFocuses: filtersToUse.hybridBusinessFocuses,
-            exclude_business_focus: filtersToUse.exclude_business_focus,
-            ownershipTypes: filtersToUse.ownershipTypes,
-            linkedinMembersMin: filtersToUse.linkedinMembersMin,
-            linkedinMembersMax: filtersToUse.linkedinMembersMax,
-            lastInvestmentYearsMin: filtersToUse.lastInvestmentYearsMin,
-            lastInvestmentYearsMax: filtersToUse.lastInvestmentYearsMax,
-            searchQuery: filtersToUse.searchQuery,
-            keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH
-              ? filtersToUse.keywordSearch
-              : "",
-            revenueMin: filtersToUse.revenueMin,
-            revenueMax: filtersToUse.revenueMax,
-            ebitdaMin: filtersToUse.ebitdaMin,
-            ebitdaMax: filtersToUse.ebitdaMax,
-            enterpriseValueMin: filtersToUse.enterpriseValueMin,
-            enterpriseValueMax: filtersToUse.enterpriseValueMax,
-            revenueMultipleMin: filtersToUse.revenueMultipleMin,
-            revenueMultipleMax: filtersToUse.revenueMultipleMax,
-            revenueGrowthMin: filtersToUse.revenueGrowthMin,
-            revenueGrowthMax: filtersToUse.revenueGrowthMax,
-            ebitdaMarginMin: filtersToUse.ebitdaMarginMin,
-            ebitdaMarginMax: filtersToUse.ebitdaMarginMax,
-            ruleOf40Min: filtersToUse.ruleOf40Min,
-            ruleOf40Max: filtersToUse.ruleOf40Max,
-            arrMin: filtersToUse.arrMin,
-            arrMax: filtersToUse.arrMax,
-            arrPcMin: filtersToUse.arrPcMin,
-            arrPcMax: filtersToUse.arrPcMax,
-            churnMin: filtersToUse.churnMin,
-            churnMax: filtersToUse.churnMax,
-            grrMin: filtersToUse.grrMin,
-            grrMax: filtersToUse.grrMax,
-            nrrMin: filtersToUse.nrrMin,
-            nrrMax: filtersToUse.nrrMax,
-            newClientsRevenueGrowthMin: filtersToUse.newClientsRevenueGrowthMin,
-            newClientsRevenueGrowthMax: filtersToUse.newClientsRevenueGrowthMax,
-            minGrowthPercent: filtersToUse.minGrowthPercent,
-            maxGrowthPercent: filtersToUse.maxGrowthPercent,
-            timeFrame: filtersToUse.timeFrame,
-            transactionStatus: filtersToUse.transactionStatus,
-            portfolio_only: filtersToUse.portfolio_only,
-            filterMode: filtersToUse.filterMode,
-            yearFoundedMin: filtersToUse.yearFoundedMin,
-            yearFoundedMax: filtersToUse.yearFoundedMax,
-            columns: requestColumnsRef.current,
-          };
-          return serverFiltersBase;
-        })();
+        const serverFilters: ServerFilters = {
+          ...filtersToUse,
+          columns: requestColumnsRef.current,
+        };
 
         if (page === 1) {
-          scheduleCountsFetch({
-            ...serverFilters,
-            ownershipTypes: [],
-          });
+          scheduleCountsFetch(serverFilters);
         }
 
         const data = await fetchCompaniesServer(page, serverFilters);
@@ -772,11 +617,6 @@ const toPlainText = (value: unknown): string => {
     return "-";
   }
   return String(value);
-};
-
-const yearsToDays = (years: number | null | undefined): number | null => {
-  if (years == null || !Number.isFinite(years)) return null;
-  return Math.round(years * 365);
 };
 
 const readCompanyValue = (company: Company, aliases: string[]): unknown => {
@@ -1525,332 +1365,6 @@ function buildCompaniesFilterDefs({
   return [...extras, ...buildColumnLinkedFilterDefs(overrides)];
 }
 
-function mergeStringFilterValues(
-  existing: string[],
-  incoming: string[],
-  mode: "AND" | "OR"
-): string[] {
-  if (incoming.length === 0) return existing;
-  if (mode === "OR" || existing.length === 0) {
-    return Array.from(new Set([...existing, ...incoming]));
-  }
-  const incomingSet = new Set(incoming);
-  const intersection = existing.filter((value) => incomingSet.has(value));
-  return intersection.length > 0 ? intersection : incoming;
-}
-
-function mergeIdFilterValues(
-  existing: number[],
-  incoming: number[],
-  mode: "AND" | "OR"
-): number[] {
-  if (incoming.length === 0) return existing;
-  if (mode === "OR" || existing.length === 0) {
-    return Array.from(new Set([...existing, ...incoming]));
-  }
-  const incomingSet = new Set(incoming);
-  const intersection = existing.filter((id) => incomingSet.has(id));
-  return intersection.length > 0 ? intersection : incoming;
-}
-
-function mergeRangeFilterValues(
-  existingMin: number | null,
-  existingMax: number | null,
-  incoming: { min?: number; max?: number },
-  mode: "AND" | "OR"
-): { min: number | null; max: number | null } {
-  const inMin = incoming.min ?? null;
-  const inMax = incoming.max ?? null;
-  if (existingMin == null && existingMax == null) {
-    return { min: inMin, max: inMax };
-  }
-  if (mode === "AND") {
-    return {
-      min:
-        existingMin != null && inMin != null
-          ? Math.max(existingMin, inMin)
-          : existingMin ?? inMin,
-      max:
-        existingMax != null && inMax != null
-          ? Math.min(existingMax, inMax)
-          : existingMax ?? inMax,
-    };
-  }
-  return {
-    min:
-      existingMin != null && inMin != null
-        ? Math.min(existingMin, inMin)
-        : existingMin ?? inMin,
-    max:
-      existingMax != null && inMax != null
-        ? Math.max(existingMax, inMax)
-        : existingMax ?? inMax,
-  };
-}
-
-function buildFiltersFromState(
-  state: FilterBarState,
-  data: {
-    primarySectors: PrimarySector[];
-    secondarySectors: SecondarySector[];
-    hybridBusinessFocuses: HybridBusinessFocus[];
-    ownershipTypes: OwnershipType[];
-  }
-): Filters {
-  const f = createDefaultFilters();
-  f.searchQuery = state.searchText.trim();
-  const combineMode: "AND" | "OR" = state.filterLogic === "or" ? "OR" : "AND";
-  f.filterMode = combineMode;
-
-  for (const item of state.filters) {
-    const v = item.value;
-    if (v == null) continue;
-    switch (item.id) {
-      case "region":
-        f.continentalRegions = mergeStringFilterValues(
-          f.continentalRegions ?? [],
-          Array.isArray(v) ? (v as string[]) : [],
-          combineMode
-        );
-        break;
-      case "sub_region":
-        f.subRegions = mergeStringFilterValues(
-          f.subRegions ?? [],
-          Array.isArray(v) ? (v as string[]) : [],
-          combineMode
-        );
-        break;
-      case "country":
-        f.countries = mergeStringFilterValues(
-          f.countries ?? [],
-          Array.isArray(v) ? (v as string[]) : [],
-          combineMode
-        );
-        break;
-      case "state":
-        f.provinces = mergeStringFilterValues(
-          f.provinces ?? [],
-          Array.isArray(v) ? (v as string[]) : [],
-          combineMode
-        );
-        break;
-      case "city":
-        f.cities = mergeStringFilterValues(
-          f.cities ?? [],
-          Array.isArray(v) ? (v as string[]) : [],
-          combineMode
-        );
-        break;
-      case "primary_sector": {
-        const names = Array.isArray(v) ? (v as string[]) : [];
-        const ids = names
-          .map((name) => data.primarySectors.find((s) => s.sector_name === name)?.id)
-          .filter((id): id is number => id != null);
-        f.primarySectors = mergeIdFilterValues(f.primarySectors ?? [], ids, combineMode);
-        break;
-      }
-      case "secondary_sector": {
-        const names = Array.isArray(v) ? (v as string[]) : [];
-        const ids = names
-          .map((name) => data.secondarySectors.find((s) => s.sector_name === name)?.id)
-          .filter((id): id is number => id != null);
-        f.secondarySectors = mergeIdFilterValues(f.secondarySectors ?? [], ids, combineMode);
-        break;
-      }
-      case "business_focus": {
-        const seg = v as string;
-        f.exclude_business_focus =
-          seg === "Pure-play D&A" ? true : seg === "Has non-D&A" ? false : null;
-        break;
-      }
-      case "ownership": {
-        const names = Array.isArray(v) ? (v as string[]) : [];
-        const ids = names
-          .map((name) => data.ownershipTypes.find((o) => o.ownership === name)?.id)
-          .filter((id): id is number => id != null);
-        f.ownershipTypes = mergeIdFilterValues(f.ownershipTypes ?? [], ids, combineMode);
-        break;
-      }
-      case "transaction":
-        f.transactionStatus = mergeStringFilterValues(
-          f.transactionStatus ?? [],
-          Array.isArray(v) ? (v as string[]) : [],
-          combineMode
-        );
-        break;
-      case "headcount": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(
-          f.linkedinMembersMin,
-          f.linkedinMembersMax,
-          rv,
-          combineMode
-        );
-        f.linkedinMembersMin = merged.min;
-        f.linkedinMembersMax = merged.max;
-        break;
-      }
-      case "headcount_growth": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(
-          f.minGrowthPercent,
-          f.maxGrowthPercent,
-          rv,
-          combineMode
-        );
-        f.minGrowthPercent = merged.min;
-        f.maxGrowthPercent = merged.max;
-        break;
-      }
-      case "years_since_inv": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(
-          f.lastInvestmentYearsMin,
-          f.lastInvestmentYearsMax,
-          rv,
-          combineMode
-        );
-        f.lastInvestmentYearsMin = merged.min;
-        f.lastInvestmentYearsMax = merged.max;
-        break;
-      }
-      case "followed":
-        if (v === true) f.portfolio_only = true;
-        break;
-      case "revenue": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(f.revenueMin, f.revenueMax, rv, combineMode);
-        f.revenueMin = merged.min;
-        f.revenueMax = merged.max;
-        break;
-      }
-      case "ebitda": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(f.ebitdaMin, f.ebitdaMax, rv, combineMode);
-        f.ebitdaMin = merged.min;
-        f.ebitdaMax = merged.max;
-        break;
-      }
-      case "enterprise_value": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(
-          f.enterpriseValueMin,
-          f.enterpriseValueMax,
-          rv,
-          combineMode
-        );
-        f.enterpriseValueMin = merged.min;
-        f.enterpriseValueMax = merged.max;
-        break;
-      }
-      case "rev_growth": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(
-          f.revenueGrowthMin,
-          f.revenueGrowthMax,
-          rv,
-          combineMode
-        );
-        f.revenueGrowthMin = merged.min;
-        f.revenueGrowthMax = merged.max;
-        break;
-      }
-      case "ebitda_margin": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(
-          f.ebitdaMarginMin,
-          f.ebitdaMarginMax,
-          rv,
-          combineMode
-        );
-        f.ebitdaMarginMin = merged.min;
-        f.ebitdaMarginMax = merged.max;
-        break;
-      }
-      case "rev_multiple": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(
-          f.revenueMultipleMin,
-          f.revenueMultipleMax,
-          rv,
-          combineMode
-        );
-        f.revenueMultipleMin = merged.min;
-        f.revenueMultipleMax = merged.max;
-        break;
-      }
-      case "rule_40": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(f.ruleOf40Min, f.ruleOf40Max, rv, combineMode);
-        f.ruleOf40Min = merged.min;
-        f.ruleOf40Max = merged.max;
-        break;
-      }
-      case "arr": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(f.arrMin, f.arrMax, rv, combineMode);
-        f.arrMin = merged.min;
-        f.arrMax = merged.max;
-        break;
-      }
-      case "arr_growth": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(f.arrPcMin, f.arrPcMax, rv, combineMode);
-        f.arrPcMin = merged.min;
-        f.arrPcMax = merged.max;
-        break;
-      }
-      case "churn": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(f.churnMin, f.churnMax, rv, combineMode);
-        f.churnMin = merged.min;
-        f.churnMax = merged.max;
-        break;
-      }
-      case "nrr": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(f.nrrMin, f.nrrMax, rv, combineMode);
-        f.nrrMin = merged.min;
-        f.nrrMax = merged.max;
-        break;
-      }
-      case "grr": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(f.grrMin, f.grrMax, rv, combineMode);
-        f.grrMin = merged.min;
-        f.grrMax = merged.max;
-        break;
-      }
-      case "new_client_growth": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(
-          f.newClientsRevenueGrowthMin,
-          f.newClientsRevenueGrowthMax,
-          rv,
-          combineMode
-        );
-        f.newClientsRevenueGrowthMin = merged.min;
-        f.newClientsRevenueGrowthMax = merged.max;
-        break;
-      }
-      case "year_founded": {
-        const rv = v as { min?: number; max?: number };
-        const merged = mergeRangeFilterValues(
-          f.yearFoundedMin,
-          f.yearFoundedMax,
-          rv,
-          combineMode
-        );
-        f.yearFoundedMin = merged.min;
-        f.yearFoundedMax = merged.max;
-        break;
-      }
-    }
-  }
-  return f;
-}
-
-/** Xano ownership_type ids grouped under the "Other" ownership tab. */
 const OTHER_OWNERSHIP_TYPES = [
   { id: 6, ownership: "Consortium" },
   { id: 8, ownership: "Foundation" },
@@ -1981,14 +1495,6 @@ const OWNERSHIP_TAB_CONFIG: Record<
   },
 };
 
-function applyOwnershipTabToFilters(
-  filters: Filters,
-  tab: OwnershipTab,
-): void {
-  if (tab === "all") return;
-  filters.ownershipTypes = [...OWNERSHIP_TAB_CONFIG[tab].ownershipTypeIds];
-}
-
 // Filters Component
 const CompanyDashboard = ({
   onSearch,
@@ -2002,7 +1508,7 @@ const CompanyDashboard = ({
   columnsCount = 0,
   columnsActive = false,
 }: {
-  onSearch?: (filters: Filters) => void;
+  onSearch?: (filters: Filters, portfolioOnly?: boolean) => void;
   onFilterColumnsChange?: (payload: {
     filterIds: string[];
     ownershipTabActive: boolean;
@@ -2035,8 +1541,9 @@ const CompanyDashboard = ({
   const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
-  const [hybridBusinessFocuses, setHybridBusinessFocuses] = useState<HybridBusinessFocus[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
+  const [portfolioCompanyIds, setPortfolioCompanyIds] = useState<number[]>([]);
+  const [hybridBusinessFocusIds, setHybridBusinessFocusIds] = useState<number[]>([]);
 
   // ── Derived selected values for dependent fetches ───────────────────────
   const selectedCountries = useMemo(() => {
@@ -2060,7 +1567,6 @@ const CompanyDashboard = ({
     locationsService.getContinentalRegions().then(setContinentalRegions).catch(console.error);
     locationsService.getSubRegions().then(setSubRegions).catch(console.error);
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
-    locationsService.getHybridBusinessFocuses().then(setHybridBusinessFocuses).catch(console.error);
     locationsService.getOwnershipTypes().then(setOwnershipTypes).catch(console.error);
     // Load all secondary sectors up front so the Sectors filter always has options.
     locationsService
@@ -2068,6 +1574,17 @@ const CompanyDashboard = ({
       .then((sectors) =>
         setSecondarySectors(sectors.map((s) => ({ id: s.id, sector_name: s.sector_name })))
       )
+      .catch(console.error);
+    // Hybrid business focus IDs (for business_focus SQL filter)
+    locationsService
+      .getHybridBusinessFocuses()
+      .then((focuses) => setHybridBusinessFocusIds(focuses.map((f) => f.id)))
+      .catch(console.error);
+    // Portfolio company IDs (for portfolio_companies SQL filter)
+    fetchUserPortfolioRecord()
+      .then((record) => {
+        if (record) setPortfolioCompanyIds(record.companies);
+      })
       .catch(console.error);
   }, []);
 
@@ -2123,22 +1640,33 @@ const CompanyDashboard = ({
 
   // ── Auto-search on filter state or ownership tab changes ──────────────
   const buildSearchFilters = useCallback((): Filters => {
-    const filters = buildFiltersFromState(filterBarState, {
+    return buildCompaniesSearchPayload({
+      state: filterBarState,
       primarySectors,
       secondarySectors,
-      hybridBusinessFocuses,
       ownershipTypes,
+      ownershipTypeIds:
+        activeOwnershipTab !== "all"
+          ? [...OWNERSHIP_TAB_CONFIG[activeOwnershipTab].ownershipTypeIds]
+          : undefined,
+      portfolioCompanyIds,
+      hybridBusinessFocusIds,
     });
-    applyOwnershipTabToFilters(filters, activeOwnershipTab);
-    return filters;
   }, [
     filterBarState,
     activeOwnershipTab,
     primarySectors,
     secondarySectors,
-    hybridBusinessFocuses,
     ownershipTypes,
+    portfolioCompanyIds,
+    hybridBusinessFocusIds,
   ]);
+
+  const isPortfolioFilterActive = filterBarState.filters.some(
+    (f) => f.id === "followed" && f.value === true
+  );
+  const isPortfolioFilterActiveRef = useRef(isPortfolioFilterActive);
+  isPortfolioFilterActiveRef.current = isPortfolioFilterActive;
 
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipInitialSearchRef = useRef(true);
@@ -2146,15 +1674,16 @@ const CompanyDashboard = ({
   buildSearchFiltersRef.current = buildSearchFilters;
   const onSearchRef = useRef(onSearch);
   onSearchRef.current = onSearch;
+  const prevFilterLogicRef = useRef(filterBarState.filterLogic);
+  const skipInitialFilterLogicRef = useRef(true);
 
   const filterSearchKey = useMemo(
     () =>
       JSON.stringify({
         filters: filterBarState.filters,
         searchText: filterBarState.searchText,
-        filterLogic: filterBarState.filterLogic,
       }),
-    [filterBarState.filters, filterBarState.searchText, filterBarState.filterLogic]
+    [filterBarState.filters, filterBarState.searchText]
   );
 
   useEffect(() => {
@@ -2164,12 +1693,28 @@ const CompanyDashboard = ({
     }
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      onSearchRef.current?.(buildSearchFiltersRef.current());
+      onSearchRef.current?.(buildSearchFiltersRef.current(), isPortfolioFilterActiveRef.current);
     }, 350);
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
   }, [filterSearchKey]);
+
+  // AND/OR toggle — refetch immediately after state commits (not debounced).
+  useEffect(() => {
+    const prev = prevFilterLogicRef.current;
+    prevFilterLogicRef.current = filterBarState.filterLogic;
+
+    if (skipInitialFilterLogicRef.current) {
+      skipInitialFilterLogicRef.current = false;
+      return;
+    }
+    if (prev === filterBarState.filterLogic) return;
+    if (filterBarState.filters.length < 2) return;
+
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    onSearchRef.current?.(buildSearchFiltersRef.current(), isPortfolioFilterActiveRef.current);
+  }, [filterBarState.filterLogic, filterBarState.filters.length]);
 
   const skipInitialOwnershipTabRef = useRef(true);
   useEffect(() => {
@@ -2177,7 +1722,7 @@ const CompanyDashboard = ({
       skipInitialOwnershipTabRef.current = false;
       return;
     }
-    onSearchRef.current?.(buildSearchFiltersRef.current());
+    onSearchRef.current?.(buildSearchFiltersRef.current(), isPortfolioFilterActiveRef.current);
   }, [activeOwnershipTab]);
 
   // ── Ownership tabs data ────────────────────────────────────────────────
@@ -2423,6 +1968,7 @@ const CompanySection = ({
   onToggleCompanySelection,
   onTogglePageSelection,
   onClearSelection,
+  isPortfolioOnlyFilter = false,
 }: {
   companies: Company[];
   loading: boolean;
@@ -2450,6 +1996,7 @@ const CompanySection = ({
   onToggleCompanySelection: (id: number) => void;
   onTogglePageSelection: (ids: number[]) => void;
   onClearSelection: () => void;
+  isPortfolioOnlyFilter?: boolean;
 }) => {
   const router = useRouter();
   const sectionRef = useRef<HTMLDivElement | null>(null);
@@ -2772,118 +2319,9 @@ const CompanySection = ({
       }
 
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = new URLSearchParams();
-
-      // Apply filters if present
-      const f = currentFilters;
-      if (f) {
-        // Text inputs for new filters
-        if ((f.continentalRegions || []).length > 0)
-          params.append(
-            "Continental_Region",
-            (f.continentalRegions || []).join(",")
-          );
-        if ((f.subRegions || []).length > 0)
-          params.append(
-            "geographical_sub_region",
-            (f.subRegions || []).join(",")
-          );
-
-        (f.countries || []).forEach((v) => params.append("Countries[]", v));
-        (f.provinces || []).forEach((v) => params.append("Provinces[]", v));
-        (f.cities || []).forEach((v) => params.append("Cities[]", v));
-        (f.primarySectors || []).forEach((id) =>
-          params.append("Primary_sectors_ids[]", String(id))
-        );
-        (f.secondarySectors || []).forEach((id) =>
-          params.append("Secondary_sectors_ids[]", String(id))
-        );
-        (f.ownershipTypes || []).forEach((id) =>
-          params.append("Ownership_types_ids[]", String(id))
-        );
-        (f.hybridBusinessFocuses || []).forEach((id) =>
-          params.append("Hybrid_Data_ids[]", String(id))
-        );
-        const transactionStatuses = f.transactionStatus || [];
-        if (transactionStatuses.length > 0) {
-          transactionStatuses.forEach((status) => {
-            params.append("transaction_status[]", status);
-          });
-        }
-        params.append("portfolio_only", String(Boolean(f.portfolio_only)));
-        if (f.filterMode === "AND" || f.filterMode === "OR") {
-          params.append("filter_mode", f.filterMode);
-        }
-
-        // Helper function to only append if value exists
-        const appendIfValue = (key: string, value: number | null | undefined) => {
-          if (value != null && value !== undefined) {
-            params.append(key, value.toString());
-          }
-        };
-
-        // LinkedIn Members
-        appendIfValue("Min_linkedin_members", f.linkedinMembersMin);
-        appendIfValue("Max_linkedin_members", f.linkedinMembersMax);
-        appendIfValue(
-          "Last_investment_days_since_min",
-          yearsToDays(f.lastInvestmentYearsMin)
-        );
-        appendIfValue(
-          "Last_investment_days_since_max",
-          yearsToDays(f.lastInvestmentYearsMax)
-        );
-        appendIfValue("min_growth_percent", f.minGrowthPercent);
-        appendIfValue("max_growth_percent", f.maxGrowthPercent);
-        if (f.timeFrame && f.timeFrame.trim()) {
-          params.append("time_frame", f.timeFrame.trim());
-        }
-
-        // Financial Metrics min/max for export
-        appendIfValue("Revenue_min", f.revenueMin);
-        appendIfValue("Revenue_max", f.revenueMax);
-        appendIfValue("EBITDA_min", f.ebitdaMin);
-        appendIfValue("EBITDA_max", f.ebitdaMax);
-        appendIfValue("Enterprise_Value_min", f.enterpriseValueMin);
-        appendIfValue("Enterprise_Value_max", f.enterpriseValueMax);
-        appendIfValue("Revenue_Multiple_min", f.revenueMultipleMin);
-        appendIfValue("Revenue_Multiple_max", f.revenueMultipleMax);
-        appendIfValue("Revenue_Growth_min", f.revenueGrowthMin);
-        appendIfValue("Revenue_Growth_max", f.revenueGrowthMax);
-        appendIfValue("EBITDA_Margin_min", f.ebitdaMarginMin);
-        appendIfValue("EBITDA_Margin_max", f.ebitdaMarginMax);
-        appendIfValue("Rule_of_40_min", f.ruleOf40Min);
-        appendIfValue("Rule_of_40_max", f.ruleOf40Max);
-
-        // Subscription Metrics min/max for export
-        appendIfValue("ARR_min", f.arrMin);
-        appendIfValue("ARR_max", f.arrMax);
-        appendIfValue("ARR_pc_min", f.arrPcMin);
-        appendIfValue("ARR_pc_max", f.arrPcMax);
-        appendIfValue("Churn_min", f.churnMin);
-        appendIfValue("Churn_max", f.churnMax);
-        appendIfValue("GRR_min", f.grrMin);
-        appendIfValue("GRR_max", f.grrMax);
-        appendIfValue("NRR_min", f.nrrMin);
-        appendIfValue("NRR_max", f.nrrMax);
-        appendIfValue("New_Clients_Revenue_Growth_min", f.newClientsRevenueGrowthMin);
-        appendIfValue("New_Clients_Revenue_Growth_max", f.newClientsRevenueGrowthMax);
-        appendIfValue("Year_founded_min", f.yearFoundedMin);
-        appendIfValue("Year_founded_max", f.yearFoundedMax);
-
-        if (f.searchQuery && f.searchQuery.trim()) {
-          params.append("query", f.searchQuery.trim());
-        }
-
-        // Keyword search (searches across descriptions)
-        if (
-          ENABLE_COMPANIES_KEYWORD_SEARCH &&
-          f.keywordSearch &&
-          f.keywordSearch.trim()
-        ) {
-          params.append("keywords_search", f.keywordSearch.trim());
-        }
-      }
+      const params = currentFilters
+        ? companySearchPayloadToSearchParams(currentFilters)
+        : new URLSearchParams();
 
       // First, fetch page 1 to get total page count
       const baseParams = new URLSearchParams(params.toString());
@@ -4126,7 +3564,7 @@ const CompanySection = ({
     );
   }
 
-  if (companies.length === 0 && currentFilters?.portfolio_only === true) {
+  if (companies.length === 0 && isPortfolioOnlyFilter) {
     return React.createElement(
       "div",
       { className: "company-section", ref: sectionRef },
@@ -4603,8 +4041,11 @@ function CompaniesPageInner() {
     currentFilters,
   } = useCompaniesAPI();
 
+  const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
+
   const handleSearch = useCallback(
-    (filters: Filters) => {
+    (filters: Filters, portfolioOnly?: boolean) => {
+      setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
       fetchCompanies(1, filters);
     },
     [fetchCompanies]
@@ -4722,6 +4163,7 @@ function CompaniesPageInner() {
         onToggleCompanySelection={toggleCompanySelection}
         onTogglePageSelection={togglePageSelection}
         onClearSelection={clearSelection}
+        isPortfolioOnlyFilter={isPortfolioOnlyFilter}
       />
       <BulkAddToPortfolioModal
         isOpen={showBulkAddModal}
