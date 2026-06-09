@@ -153,9 +153,6 @@ const createDefaultFilters = (): Filters => ({
   has_year_filter: false,
   query: null,
   columns: [],
-  min_growth_percent: "0",
-  max_growth_percent: "0",
-  time_frame: "",
 });
 
 // Shape returned by export API when sending JSON instead of CSV
@@ -1674,8 +1671,19 @@ const CompanyDashboard = ({
   buildSearchFiltersRef.current = buildSearchFilters;
   const onSearchRef = useRef(onSearch);
   onSearchRef.current = onSearch;
-  const prevFilterLogicRef = useRef(filterBarState.filterLogic);
-  const skipInitialFilterLogicRef = useRef(true);
+  const prevFilterCombineKeyRef = useRef("");
+  const skipInitialFilterCombineRef = useRef(true);
+
+  const filterCombineKey = useMemo(
+    () =>
+      JSON.stringify({
+        filterLogic: filterBarState.filterLogic,
+        combine: filterBarState.filters.map((f, i) =>
+          i === 0 ? null : (f.combineLogic ?? filterBarState.filterLogic)
+        ),
+      }),
+    [filterBarState.filters, filterBarState.filterLogic]
+  );
 
   const filterSearchKey = useMemo(
     () =>
@@ -1700,21 +1708,21 @@ const CompanyDashboard = ({
     };
   }, [filterSearchKey]);
 
-  // AND/OR toggle — refetch immediately after state commits (not debounced).
+  // AND/OR per-separator — refetch immediately after state commits (not debounced).
   useEffect(() => {
-    const prev = prevFilterLogicRef.current;
-    prevFilterLogicRef.current = filterBarState.filterLogic;
+    const prev = prevFilterCombineKeyRef.current;
+    prevFilterCombineKeyRef.current = filterCombineKey;
 
-    if (skipInitialFilterLogicRef.current) {
-      skipInitialFilterLogicRef.current = false;
+    if (skipInitialFilterCombineRef.current) {
+      skipInitialFilterCombineRef.current = false;
       return;
     }
-    if (prev === filterBarState.filterLogic) return;
+    if (prev === filterCombineKey) return;
     if (filterBarState.filters.length < 2) return;
 
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     onSearchRef.current?.(buildSearchFiltersRef.current(), isPortfolioFilterActiveRef.current);
-  }, [filterBarState.filterLogic, filterBarState.filters.length]);
+  }, [filterCombineKey, filterBarState.filters.length]);
 
   const skipInitialOwnershipTabRef = useRef(true);
   useEffect(() => {

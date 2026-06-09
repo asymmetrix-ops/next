@@ -39,6 +39,8 @@ export interface FilterItem {
   /** Unique instance key — allows multiple filters of the same type. */
   key: string;
   value: unknown;
+  /** How this filter combines with the previous one (ignored for the first filter). */
+  combineLogic?: FilterCombineLogic;
 }
 
 let filterInstanceCounter = 0;
@@ -139,8 +141,18 @@ export interface FilterBarState {
   filters: FilterItem[];
   viewId: string | null;
   searchText: string;
-  /** How multiple active filters combine when sent to the API. */
+  /** Default combine logic for newly added filters (after the first). */
   filterLogic: FilterCombineLogic;
+}
+
+function describeActiveFilterLogic(
+  filters: FilterItem[],
+  defaultLogic: FilterCombineLogic
+): string {
+  if (filters.length <= 1) return defaultLogic;
+  const logics = filters.slice(1).map((f) => f.combineLogic ?? defaultLogic);
+  const first = logics[0];
+  return logics.every((logic) => logic === first) ? first : "mixed";
 }
 
 export interface CompaniesFilterBarProps {
@@ -1870,20 +1882,20 @@ function FilterLogicToggle({
     {
       id: "and",
       label: "AND",
-      title: "Companies must match every filter",
+      title: "Next filter will combine with AND",
     },
     {
       id: "or",
       label: "OR",
-      title: "Companies can match any filter",
+      title: "Next filter will combine with OR",
     },
   ];
 
   return (
     <div
       role="group"
-      aria-label="Filter combination logic"
-      title="How multiple filters combine"
+      aria-label="Default filter combination for new filters"
+      title="Default AND/OR when adding another filter"
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -2027,10 +2039,6 @@ export function CompaniesFilterBar({
     [onStateChange]
   );
 
-  const toggleFilterLogic = useCallback(() => {
-    setFilterLogic(filterLogic === "and" ? "or" : "and");
-  }, [filterLogic, setFilterLogic]);
-
   const setFilters = useCallback(
     (updater: FilterItem[] | ((prev: FilterItem[]) => FilterItem[])) => {
       onStateChange((s) => ({
@@ -2042,6 +2050,20 @@ export function CompaniesFilterBar({
     [onStateChange]
   );
 
+  const toggleFilterCombineLogic = useCallback(
+    (filterIndex: number) => {
+      if (filterIndex <= 0) return;
+      setFilters((prev) =>
+        prev.map((f, i) => {
+          if (i !== filterIndex) return f;
+          const current = f.combineLogic ?? filterLogic;
+          return { ...f, combineLogic: current === "and" ? "or" : "and" };
+        })
+      );
+    },
+    [setFilters, filterLogic]
+  );
+
   const [editing, setEditing] = useState<string | null>(null);
   const chipRefs = useRef<Record<string, React.RefObject<HTMLSpanElement>>>({});
   const filterBarRef = useRef<HTMLDivElement>(null);
@@ -2050,12 +2072,21 @@ export function CompaniesFilterBar({
     (def: FilterDef, value: unknown) => {
       if (isEmptyFilterValue(def, value)) return;
       const instanceKey = createFilterInstanceKey();
-      setFilters((f) => [
-        ...f,
-        { id: def.id, key: instanceKey, value },
-      ]);
+      onStateChange((s) => ({
+        ...s,
+        viewId: null,
+        filters: [
+          ...s.filters,
+          {
+            id: def.id,
+            key: instanceKey,
+            value,
+            ...(s.filters.length > 0 ? { combineLogic: s.filterLogic } : {}),
+          },
+        ],
+      }));
     },
-    [setFilters]
+    [onStateChange]
   );
 
   const updateFilter = useCallback(
@@ -2230,8 +2261,8 @@ export function CompaniesFilterBar({
               <React.Fragment key={f.key}>
                 {index > 0 && (
                   <FilterLogicSeparator
-                    logic={filterLogic}
-                    onToggle={filters.length > 1 ? toggleFilterLogic : undefined}
+                    logic={f.combineLogic ?? filterLogic}
+                    onToggle={() => toggleFilterCombineLogic(index)}
                   />
                 )}
                 <span ref={chipRefs.current[f.key]}>
@@ -2324,7 +2355,7 @@ export function CompaniesFilterBar({
                   <>
                     <span>·</span>
                     <span style={{ textTransform: "uppercase", fontWeight: 600 }}>
-                      {filterLogic} logic
+                      {describeActiveFilterLogic(filters, filterLogic)} logic
                     </span>
                   </>
                 )}

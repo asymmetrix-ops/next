@@ -177,9 +177,6 @@ export async function fetchCompaniesServer(
       filters_sql: filters.filters_sql || null,
       query: filters.query?.trim() || null,
       columns: filters.columns ?? [],
-      min_growth_percent: filters.min_growth_percent ?? "0",
-      max_growth_percent: filters.max_growth_percent ?? "0",
-      time_frame: filters.time_frame ?? "",
       has_financial_filters: Boolean(filters.has_financial_filters),
       has_year_filter: Boolean(filters.has_year_filter),
     };
