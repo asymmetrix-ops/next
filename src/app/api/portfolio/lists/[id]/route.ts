@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-
-const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R";
+import {
+  XANO_PORTFOLIO_LISTS_BASE,
+  XANO_USER_PORTFOLIO_BASE,
+} from "@/lib/portfolioApi";
 
 async function fetchWithAuth(
   url: string,
@@ -66,7 +68,7 @@ export async function GET(
 
     // GET must not include a body (fetch/Next will throw).
     let upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/user_list/${userPortfolioId}?${query}`,
+      `${XANO_PORTFOLIO_LISTS_BASE}/user_list/${userPortfolioId}?${query}`,
       token,
       { method: "GET" }
     );
@@ -74,7 +76,7 @@ export async function GET(
     // Some Xano stacks expect POST with JSON body instead of GET.
     if (!upstream.ok && (upstream.status === 404 || upstream.status === 405)) {
       upstream = await fetchWithAuth(
-        `${XANO_PORTFOLIO_BASE}/user_list/${userPortfolioId}`,
+        `${XANO_PORTFOLIO_LISTS_BASE}/user_list/${userPortfolioId}`,
         token,
         {
           method: "POST",
@@ -141,7 +143,7 @@ export async function PATCH(
     }
 
     const upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/lists/${portfolioId}`,
+      `${XANO_USER_PORTFOLIO_BASE}/lists/${portfolioId}`,
       token,
       {
         method: "PATCH",
@@ -190,17 +192,17 @@ export async function DELETE(
       return NextResponse.json({ error: "Missing auth token" }, { status: 401 });
     }
 
-    const userPortfolioId = Number.parseInt(params.id, 10);
-    if (!Number.isFinite(userPortfolioId) || userPortfolioId <= 0) {
+    const userListsId = Number.parseInt(params.id, 10);
+    if (!Number.isFinite(userListsId) || userListsId <= 0) {
       return NextResponse.json({ error: "Invalid portfolio id" }, { status: 400 });
     }
 
     const upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/user_list/${userPortfolioId}`,
+      `${XANO_USER_PORTFOLIO_BASE}/user_lists/${userListsId}`,
       token,
       {
         method: "DELETE",
-        body: JSON.stringify({ user_portfolio_id: userPortfolioId }),
+        body: JSON.stringify({ user_lists_id: userListsId }),
       }
     );
 

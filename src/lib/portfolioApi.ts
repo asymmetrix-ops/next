@@ -1,8 +1,8 @@
-/** Singular user portfolio, portfolio/data, get_users_lists, user_lists, list/data, portfolio/entities, lists/{id}/entities, lists/entity/check. */
+/** Singular user portfolio, portfolio/data, get_users_lists, user_lists, list/data, portfolio/entities, lists/{id}/entities, lists/entity/check, lists/{id} rename, user_lists/{id} delete. */
 export const XANO_USER_PORTFOLIO_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI";
 
-/** Legacy list routes still on xbsQ0H4R (rename/delete/check where not migrated). */
+/** Legacy list routes still on xbsQ0H4R (single-list GET). */
 export const XANO_PORTFOLIO_LISTS_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R";
 

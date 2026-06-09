@@ -954,6 +954,7 @@ export default function MyPortfolioPage() {
                     const href = getEntityHref(r);
                     const unfollowKey = `${r.entity}-${r.id}`;
                     const isUnfollowing = unfollowingId === unfollowKey;
+                    const isAllFollowedTab = activeTabId === ALL_FOLLOWED_TAB;
                     return (
                       <tr key={`${r.entity}:${r.id}:${idx}`} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3">
@@ -978,7 +979,13 @@ export default function MyPortfolioPage() {
                             disabled={isUnfollowing}
                             onClick={() => handleUnfollow(r)}
                           >
-                            {isUnfollowing ? "Removing…" : "Unfollow"}
+                            {isUnfollowing
+                              ? isAllFollowedTab
+                                ? "Unfollowing…"
+                                : "Removing…"
+                              : isAllFollowedTab
+                              ? "Unfollow"
+                              : "Remove"}
                           </Button>
                         </td>
                       </tr>
@@ -990,8 +997,8 @@ export default function MyPortfolioPage() {
           ) : (
             <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
               {activeTabId !== ALL_FOLLOWED_TAB && activePortfolio
-                ? getTabCount(activePortfolio) === 0
-                  ? "This portfolio has no entities yet."
+                  ? getTabCount(activePortfolio) === 0
+                  ? "This list has no entities yet."
                   : "No entities match your current filters."
                 : rows.length === 0
                 ? "No followed entities found."
