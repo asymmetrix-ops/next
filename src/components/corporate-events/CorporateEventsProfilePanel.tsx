@@ -3,7 +3,6 @@
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  profileTableColAlign,
   profileTableCellStyle,
   PROFILE_EVENTS_ROW_GAP,
   PROFILE_EVENTS_ROW_GRID,
@@ -176,6 +175,11 @@ const CE_HEADERS = [
 const CE_COL_GRID_NARROW =
   "minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.95fr)";
 
+/** Event Details, Parties, and Deal Details are left-aligned; other columns centered. */
+function ceColAlign(colIndex: number): "left" | "center" {
+  return colIndex <= 2 ? "left" : "center";
+}
+
 export const CorporateEventsProfilePanel: React.FC<
   CorporateEventsProfilePanelProps
 > = ({
@@ -283,7 +287,7 @@ export const CorporateEventsProfilePanel: React.FC<
                 key={h}
                 style={{
                   ...tableColHeaderStyle,
-                  textAlign: profileTableColAlign(colIndex),
+                  textAlign: ceColAlign(colIndex),
                 }}
               >
                 {h}
@@ -296,8 +300,7 @@ export const CorporateEventsProfilePanel: React.FC<
               const advisorList = collectAdvisors(event);
               const cellPad = narrow ? "10px 8px" : PROFILE_EVENTS_ROW_PAD.body;
               const last = index === displayed.length - 1;
-              const colAlign = (colIndex: number) =>
-                profileTableColAlign(colIndex);
+              const colAlign = ceColAlign;
 
               return (
                 <div
@@ -317,15 +320,11 @@ export const CorporateEventsProfilePanel: React.FC<
                     <CorporateEventDetailsColumn
                       event={event}
                       linkColor={T.azure}
-                      mutedColor={T.muted}
                       onEventClick={handleEventNav}
                     />
                   </div>
                   <div style={{ textAlign: colAlign(1), minWidth: 0 }}>
-                    <CorporateEventPartiesColumn
-                      event={event}
-                      linkColor={T.azure}
-                    />
+                    <CorporateEventPartiesColumn event={event} />
                   </div>
                   <div style={{ textAlign: colAlign(2), minWidth: 0 }}>
                     <CorporateEventDealDetailsColumn event={event} />
@@ -346,6 +345,7 @@ export const CorporateEventsProfilePanel: React.FC<
                                 <span
                                   style={{
                                     color: T.azure,
+                                    textDecoration: "none",
                                     cursor: advisor.id ? "pointer" : "default",
                                   }}
                                   onClick={() =>

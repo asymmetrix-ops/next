@@ -152,8 +152,12 @@ type RadarChartProps = {
 };
 
 // Extra viewBox space (in SVG user units) reserved for axis labels on each side.
-const RADAR_PAD_H = 118;
-const RADAR_PAD_V = 36;
+const RADAR_PAD_H = 158;
+const RADAR_PAD_V = 44;
+
+const AXIS_LABEL_FONT_SIZE = 15;
+const AXIS_LABEL_LINE_HEIGHT = 18;
+const AXIS_LABEL_RADIUS_OFFSET = 36;
 
 /** Split long axis labels onto multiple lines (prefer " / " breaks). */
 function splitAxisLabel(label: string): string[] {
@@ -165,13 +169,13 @@ function splitAxisLabel(label: string): string[] {
       .map((s) => s.trim())
       .filter(Boolean);
   }
-  if (trimmed.length <= 16) return [trimmed];
+  if (trimmed.length <= 14) return [trimmed];
   const words = trimmed.split(/\s+/);
   const lines: string[] = [];
   let cur = "";
   for (const word of words) {
     const next = cur ? `${cur} ${word}` : word;
-    if (next.length > 16 && cur) {
+    if (next.length > 14 && cur) {
       lines.push(cur);
       cur = word;
     } else {
@@ -340,7 +344,7 @@ function RadarChart({
 
   const labels = axes.map((ax, i) => {
     const a = angleFor(i);
-    const lr = R + 28;
+    const lr = R + AXIS_LABEL_RADIUS_OFFSET;
     const lx = cx + Math.cos(a) * lr;
     const ly = cy + Math.sin(a) * lr;
     const anchor =
@@ -351,7 +355,7 @@ function RadarChart({
           : "end";
     const isActive = active === ax.key;
     const lines = splitAxisLabel(ax.label);
-    const lineHeight = 13;
+    const lineHeight = AXIS_LABEL_LINE_HEIGHT;
     const firstDy = lines.length > 1 ? -((lines.length - 1) * lineHeight) / 2 : 0;
     return (
       <g
@@ -368,7 +372,7 @@ function RadarChart({
           textAnchor={anchor}
           dominantBaseline="middle"
           fontFamily={T.sans}
-          fontSize="10.5"
+          fontSize={AXIS_LABEL_FONT_SIZE}
           fontWeight={isActive ? 700 : 600}
           fill={isActive ? T.ink : T.body}
           style={{ letterSpacing: 0.1 }}

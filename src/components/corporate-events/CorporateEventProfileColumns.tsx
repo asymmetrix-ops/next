@@ -3,6 +3,7 @@
 import React from "react";
 import type { CorporateEvent } from "./CorporateEventsTable";
 import { CorporateEventDealMetrics } from "./CorporateEventDealMetrics";
+import { T } from "@/components/redesign/primitives";
 import {
   formatCorporateEventDate,
   normalizeEntityHref,
@@ -10,33 +11,51 @@ import {
 
 type PartyLink = { id?: number; name: string; href: string | null };
 
-const linkStyle = (color: string): React.CSSProperties => ({
+const titleLinkStyle = (color: string): React.CSSProperties => ({
   color,
   textDecoration: "underline",
   fontWeight: 500,
 });
 
-const metaStyle = (color: string): React.CSSProperties => ({
+const PARTY_LABEL_COLOR = "#64748b";
+const PARTY_LINK_COLOR = "#2563eb";
+
+const partyLabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 400,
+  color: PARTY_LABEL_COLOR,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+  marginBottom: 2,
+};
+
+const partyValueStyle: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 400,
+  lineHeight: 1.4,
+};
+
+const entityLinkStyle: React.CSSProperties = {
+  ...partyValueStyle,
+  color: PARTY_LINK_COLOR,
+  textDecoration: "none",
+};
+
+const metaStyle: React.CSSProperties = {
   fontSize: 12,
-  color,
+  color: T.body,
   marginTop: 4,
   lineHeight: 1.45,
-});
+};
 
-function PartyLinks({
-  links,
-  linkColor,
-}: {
-  links: PartyLink[];
-  linkColor: string;
-}) {
+function PartyLinks({ links }: { links: PartyLink[] }) {
   if (links.length === 0) return <>Not Available</>;
   return (
     <>
       {links.map((item, idx) => (
         <span key={`${item.name}-${item.id ?? idx}`}>
           {item.href ? (
-            <a href={item.href} style={linkStyle(linkColor)}>
+            <a href={item.href} style={entityLinkStyle}>
               {item.name}
             </a>
           ) : (
@@ -49,20 +68,47 @@ function PartyLinks({
   );
 }
 
+function formatPartyLabel(label: string): string {
+  return label.replace(/:$/, "").trim().toUpperCase();
+}
+
+function PartyBlock({
+  label,
+  children,
+  align = "left",
+}: {
+  label: string;
+  children: React.ReactNode;
+  align?: "left" | "center";
+}) {
+  return (
+    <div
+      style={{
+        marginBottom: 8,
+        textAlign: align,
+        width: align === "center" ? "100%" : undefined,
+      }}
+    >
+      <div style={partyLabelStyle}>{formatPartyLabel(label)}</div>
+      <div style={partyValueStyle}>{children}</div>
+    </div>
+  );
+}
+
 function PartyRow({
   label,
   links,
-  linkColor,
+  align = "left",
 }: {
   label: string;
   links: PartyLink[];
-  linkColor: string;
+  align?: "left" | "center";
 }) {
   if (links.length === 0) return null;
   return (
-    <div style={{ marginBottom: 4 }}>
-      <strong>{label}:</strong> <PartyLinks links={links} linkColor={linkColor} />
-    </div>
+    <PartyBlock label={label} align={align}>
+      <PartyLinks links={links} />
+    </PartyBlock>
   );
 }
 
@@ -79,8 +125,7 @@ function sanitizeAmountValue(
 
 function extractTargetLinks(
   event: CorporateEvent,
-  isPartnership: boolean,
-  linkColor: string
+  isPartnership: boolean
 ): React.ReactNode {
   const newEvent = event as {
     targets?: Array<{
@@ -130,7 +175,7 @@ function extractTargetLinks(
         }) ?? "#";
       return (
         <span key={`tgt-${tgt.id}-${i}`}>
-          <a href={href} style={linkStyle(linkColor)}>
+          <a href={href} style={entityLinkStyle}>
             {tgt.name}
           </a>
           {i < arr.length - 1 ? ", " : ""}
@@ -140,7 +185,7 @@ function extractTargetLinks(
   }
   if (legacyTarget?.name && legacyTargetId) {
     return (
-      <a href={`/company/${legacyTargetId}`} style={linkStyle(linkColor)}>
+      <a href={`/company/${legacyTargetId}`} style={entityLinkStyle}>
         {legacyTarget.name}
       </a>
     );
@@ -156,7 +201,7 @@ function extractTargetLinks(
     });
     if (href) {
       return (
-        <a href={href} style={linkStyle(linkColor)}>
+        <a href={href} style={entityLinkStyle}>
           {newEvent.target_company.name}
         </a>
       );
@@ -489,12 +534,10 @@ function collectSellers(event: CorporateEvent): PartyLink[] {
 export function CorporateEventDetailsColumn({
   event,
   linkColor,
-  mutedColor,
   onEventClick,
 }: {
   event: CorporateEvent;
   linkColor: string;
-  mutedColor: string;
   onEventClick: (eventId: number, description?: string) => void;
 }) {
   const newEvent = event as {
@@ -529,7 +572,7 @@ export function CorporateEventDetailsColumn({
         <a
           href={`/corporate-event/${event.id}`}
           style={{
-            ...linkStyle(linkColor),
+            ...titleLinkStyle(linkColor),
             lineHeight: 1.45,
             display: "inline-block",
           }}
@@ -543,8 +586,8 @@ export function CorporateEventDetailsColumn({
       ) : (
         <span style={{ lineHeight: 1.45 }}>{description}</span>
       )}
-      <div style={metaStyle(mutedColor)}>Date: {formatCorporateEventDate(dateRaw)}</div>
-      <div style={{ ...metaStyle(mutedColor), marginTop: 2 }}>
+      <div style={metaStyle}>Date: {formatCorporateEventDate(dateRaw)}</div>
+      <div style={{ ...metaStyle, marginTop: 2 }}>
         Target HQ: {targetCountry}
       </div>
     </div>
@@ -553,10 +596,10 @@ export function CorporateEventDetailsColumn({
 
 export function CorporateEventPartiesColumn({
   event,
-  linkColor,
+  align = "left",
 }: {
   event: CorporateEvent;
-  linkColor: string;
+  align?: "left" | "center";
 }) {
   const newEvent = event as {
     deal_type?: string;
@@ -572,27 +615,35 @@ export function CorporateEventPartiesColumn({
     (isPartnership ? "Target(s)" : "Target");
 
   return (
-    <div style={{ fontSize: 12, lineHeight: 1.45, minWidth: 0 }}>
-      <div style={{ marginBottom: 4 }}>
-        <strong>{targetLabel}:</strong>{" "}
-        {extractTargetLinks(event, isPartnership, linkColor)}
-      </div>
+    <div
+      style={{
+        minWidth: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: align === "center" ? "center" : "flex-start",
+        textAlign: align,
+        width: "100%",
+      }}
+    >
+      <PartyBlock label={targetLabel} align={align}>
+        {extractTargetLinks(event, isPartnership)}
+      </PartyBlock>
       {!isPartnership && (
         <>
           <PartyRow
             label="Buyer(s)"
             links={collectBuyers(event, isInvestmentDeal)}
-            linkColor={linkColor}
+            align={align}
           />
           <PartyRow
             label="Investor(s)"
             links={collectInvestors(event, isInvestmentDeal)}
-            linkColor={linkColor}
+            align={align}
           />
           <PartyRow
             label="Seller(s)"
             links={collectSellers(event)}
-            linkColor={linkColor}
+            align={align}
           />
         </>
       )}
@@ -602,8 +653,10 @@ export function CorporateEventPartiesColumn({
 
 export function CorporateEventDealDetailsColumn({
   event,
+  align = "left",
 }: {
   event: CorporateEvent;
+  align?: "left" | "center";
 }) {
   const newEvent = event as {
     deal_type?: string;
@@ -682,6 +735,7 @@ export function CorporateEventDealDetailsColumn({
       evMillions={evMillions}
       evCurrency={evCurrency}
       evBandFallback={evBandFallback}
+      align={align}
     />
   );
 }

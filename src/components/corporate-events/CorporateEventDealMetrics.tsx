@@ -1,6 +1,20 @@
 "use client";
 
 import React from "react";
+import { T } from "@/components/redesign/primitives";
+import { fundingStageBadgeStyle } from "@/lib/corporateEventDealTypeBadge";
+import { DealTypeBadge } from "./DealTypeBadge";
+
+const metricRowStyle = (
+  align: "left" | "center"
+): React.CSSProperties => ({
+  fontSize: 12,
+  color: T.muted,
+  margin: "4px 0",
+  lineHeight: 1.45,
+  textAlign: align,
+  width: "100%",
+});
 
 export interface CorporateEventDealMetricsProps {
   dealType?: string | null;
@@ -35,6 +49,7 @@ export interface CorporateEventDealMetricsProps {
    * (e.g. an EV band string).
    */
   evBandFallback?: string | null;
+  align?: "left" | "center";
 }
 
 const isNonEmptyString = (value: unknown): value is string =>
@@ -71,6 +86,7 @@ export const CorporateEventDealMetrics: React.FC<
   evMillions,
   evCurrency,
   evBandFallback,
+  align = "left",
 }) => {
   const hasEvDisplay = isNonEmptyString(evDisplay);
   const hasEvNumeric =
@@ -83,21 +99,35 @@ export const CorporateEventDealMetrics: React.FC<
   const hasEvBand = isNonEmptyString(evBandFallback);
   const shouldShowEvRow = hasEvDisplay || hasEvNumeric || hasEvBand;
 
+  const rowStyle = metricRowStyle(align);
+
   return (
-    <>
-      <div className="muted-row">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: align === "center" ? "center" : "flex-start",
+        width: "100%",
+        minWidth: 0,
+      }}
+    >
+      <div style={rowStyle}>
         <strong>Deal Type:</strong>{" "}
         {isNonEmptyString(dealType) || isNonEmptyString(fundingStage) ? (
-          <>
-            {isNonEmptyString(dealType) && (
-              <span className="pill pill-blue">{dealType}</span>
-            )}
+          <span
+            style={{
+              display: "inline-flex",
+              flexWrap: "wrap",
+              gap: 4,
+              justifyContent: align === "center" ? "center" : "flex-start",
+              verticalAlign: "middle",
+            }}
+          >
+            {isNonEmptyString(dealType) && <DealTypeBadge dealType={dealType} />}
             {isNonEmptyString(fundingStage) && (
-              <span className="pill pill-green" style={{ marginLeft: 4 }}>
-                {fundingStage}
-              </span>
+              <span style={fundingStageBadgeStyle()}>{fundingStage}</span>
             )}
-          </>
+          </span>
         ) : (
           <span>Not Available</span>
         )}
@@ -106,14 +136,14 @@ export const CorporateEventDealMetrics: React.FC<
       {/* For partnerships we intentionally hide amount / EV in list views */}
       {!isPartnership && (
         <>
-          <div className="muted-row">
+          <div style={rowStyle}>
             <strong>{amountLabel}:</strong>{" "}
             {isNonEmptyString(amountDisplay)
               ? amountDisplay
               : formatMillions(amountMillions, amountCurrency)}
           </div>
           {shouldShowEvRow && (
-            <div className="muted-row">
+            <div style={rowStyle}>
               <strong>{evLabel}:</strong>{" "}
               {isNonEmptyString(evDisplay)
                 ? evDisplay
@@ -126,7 +156,7 @@ export const CorporateEventDealMetrics: React.FC<
           )}
         </>
       )}
-    </>
+    </div>
   );
 };
 
