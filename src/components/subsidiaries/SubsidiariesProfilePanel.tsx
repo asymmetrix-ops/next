@@ -255,7 +255,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                   }}
                 >
                   {createClickableElement(
-                    `/new_company/${subsidiary.id}`,
+                    `/company/${subsidiary.id}`,
                     subsidiary.name,
                     undefined,
                     {

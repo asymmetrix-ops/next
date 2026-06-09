@@ -6,59 +6,18 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { FollowButton } from "@/components/FollowButton";
+import { useRightClick } from "@/hooks/useRightClick";
+import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
+import IndividualCards from "@/components/shared/IndividualCards";
 import {
-  BellIcon,
-  ArrowUpTrayIcon,
-  PlusIcon,
-} from "@heroicons/react/24/outline";
-import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
-import {
-  SubsidiariesProfilePanel,
-  parseLinkedInGrowthPctValue,
-} from "@/components/subsidiaries/SubsidiariesProfilePanel";
-import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
-import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
-import { ManagementCard } from "@/components/redesign/ManagementCard";
-import { HeadcountCard } from "@/components/redesign/HeadcountCard";
-import { OverviewCard } from "@/components/redesign/OverviewCard";
-import { RevenueModelCard } from "@/components/redesign/RevenueModelCard";
-import { InsightsCard } from "@/components/redesign/InsightsCard";
-import { DescriptionCard } from "@/components/redesign/DescriptionCard";
-import { ProductDataToggleCard } from "@/components/redesign/ProductDataToggleCard";
-import {
-  ProductUsersListCard,
-  type ProductUsersSection,
-} from "@/components/redesign/ProductUsersListCard";
-import {
-  LinkPanel,
-  descriptionBodyStyle,
-  kvLabelStyle,
-  kvValueStyle,
-} from "@/components/redesign/primitives";
-import {
-  FinMetricsIncomeCard,
-  FinMetricsPrimaryCard,
-  FinMetricsSecondaryCard,
-} from "@/components/redesign/FinMetricsIncomeCard";
-import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
-import { buildBenchmarkPeersData } from "@/lib/buildBenchmarkPeersData";
-import { EMPTY_DISPLAY, isEmptyDisplayValue } from "@/lib/emptyDisplay";
-import {
-  buildSubsidiaryAcquisitionYearMap,
-  type SubsidiaryAcquisitionEvent,
-} from "@/lib/subsidiaryAcquisitionYears";
-import { fetchCompanyCorporateEvents } from "@/lib/companyCorporateEvents";
-import {
-  normalizeExternalProfileUrl,
-  normalizeLinkedInProfileUrl,
-} from "@/lib/linkedinUrl";
-import { individualService } from "@/lib/individualService";
-import { AIRiskCard } from "@/components/redesign/AIRiskCard";
-import type { AIRiskAxis } from "@/components/redesign/AIRiskCard";
-import {
-  fetchCompanyAiRisksV2,
-} from "@/lib/companyAiRisks";
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
@@ -245,14 +204,6 @@ interface CompanyProductTypeItem {
   pc_of_revenues?: number | string | null;
 }
 
-/** One row from API `product_and_users` — segment → list of descriptive strings */
-interface ProductAndUsersEntry {
-  accounting_tax_firms?: unknown;
-  corporate_tax_departments?: unknown;
-  tax_attorneys?: unknown;
-  financial_advisors_wealth_managers?: unknown;
-}
-
 interface CompanyDataCollectionMethodItem {
   Data_Collection_Method?: string;
   Predominance?: string | null;
@@ -294,47 +245,6 @@ interface CompanyManagement {
   title: string;
   linkedin_url?: string;
   individual_id?: number;
-}
-
-type ManagementRoleRecord = {
-  id: number;
-  Individual_text: string;
-  individuals_id: number;
-  employee_new_company_id?: number;
-  current_employer_url?: string;
-  Status: string;
-  job_titles_id: Array<{
-    id: number;
-    job_title: string;
-  }>;
-  linkedin_url?: string;
-  linkedin_URL?: string;
-  LinkedIn_URL?: string;
-  _individuals?: { linkedin_URL?: string; LinkedIn_URL?: string };
-  Individual?: { linkedin_URL?: string; LinkedIn_URL?: string };
-};
-
-function managementProfileUrlFromRole(
-  person: ManagementRoleRecord,
-  byIndividualId: Map<number, string>,
-  fetchedLinkedInByIndividualId: Record<number, string>
-): string | undefined {
-  const fromRole =
-    normalizeLinkedInProfileUrl(person.linkedin_url) ||
-    normalizeLinkedInProfileUrl(person.linkedin_URL) ||
-    normalizeLinkedInProfileUrl(person.LinkedIn_URL) ||
-    normalizeLinkedInProfileUrl(person._individuals?.linkedin_URL) ||
-    normalizeLinkedInProfileUrl(person._individuals?.LinkedIn_URL) ||
-    normalizeLinkedInProfileUrl(person.Individual?.linkedin_URL) ||
-    normalizeLinkedInProfileUrl(person.Individual?.LinkedIn_URL);
-  if (fromRole) return fromRole;
-  if (typeof person.individuals_id === "number") {
-    const fromFetched = fetchedLinkedInByIndividualId[person.individuals_id];
-    if (fromFetched) return fromFetched;
-    const fromManagement = byIndividualId.get(person.individuals_id);
-    if (fromManagement) return fromManagement;
-  }
-  return normalizeExternalProfileUrl(person.current_employer_url);
 }
 
 interface CompanySubsidiary {
@@ -457,14 +367,16 @@ interface Company {
   url: string;
   _linkedin_data_of_new_company: CompanyLinkedInData;
   linkedin_data?: CompanyRootLinkedInData;
+  /** YoY LinkedIn employee count growth % from company payload */
+  linkedin_growth_1y_pct?: number | string | null;
   _locations: CompanyLocation;
   _ownership_type: CompanyOwnershipType;
   sectors_id: CompanySector[];
   revenues: CompanyRevenue;
   EBITDA: CompanyEBITDA;
   ev_data: CompanyEV;
-  _companies_employees_count_monthly: EmployeeCount[];
-  /** Root-level headcount history from Get_new_company (fallback when monthly array is empty) */
+  /** Legacy monthly series shape; superseded by root-level `employees_deduped` on API response */
+  _companies_employees_count_monthly?: EmployeeCount[];
   employees_deduped?: EmployeeCount[];
   Lifecycle_stage: LifecycleStage;
   // Optional list of former names from API
@@ -490,11 +402,28 @@ interface Company {
         linkedin_employee: number;
         linkedin_logo: string;
       };
-      linkedin_growth_1y_pct?: number | string | null;
     }>;
   };
-  Managmant_Roles_current?: ManagementRoleRecord[];
-  Managmant_Roles_past?: ManagementRoleRecord[];
+  Managmant_Roles_current?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
+  Managmant_Roles_past?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
   // Optional market fields if/when API provides them
   ticker?: string;
   exchange?: string;
@@ -503,14 +432,6 @@ interface Company {
   Revenue_Model_?: CompanyRevenueModelItem[] | string;
   have_parent_company?: HaveParentCompany;
   last_investment?: LastInvestment | null;
-  /** Optional: total private funding / raised-to-date when API provides it */
-  total_amount_raised?: string | number | null;
-  /** Optional: employees YoY % when API provides it (e.g. 6.4 for +6.4%) */
-  employees_yoy_pct?: number | null;
-  /** Optional: end-user / buyer segments for Product & users card (flat list fallback) */
-  product_users?: string[] | string | null;
-  /** Optional: structured Product & users segments (accordion); merged from API root or Company */
-  product_and_users?: ProductAndUsersEntry[];
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -534,11 +455,26 @@ interface CompanyResponse {
   new_sectors_data?: Array<{
     sectors_payload?: string | unknown;
   }>;
-  /** Headcount history at API root (Get_new_company) */
-  employees_deduped?: EmployeeCount[];
-  product_and_users?: ProductAndUsersEntry[];
-  Managmant_Roles_current?: ManagementRoleRecord[];
-  Managmant_Roles_past?: ManagementRoleRecord[];
+  Managmant_Roles_current?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
+  Managmant_Roles_past?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
   have_subsidiaries_companies?: {
     have_subsidiaries_companies: boolean;
     Subsidiaries_companies: Array<{
@@ -554,101 +490,27 @@ interface CompanyResponse {
         linkedin_employee: number;
         linkedin_logo: string;
       };
-      linkedin_growth_1y_pct?: number | string | null;
     }>;
   };
+  /** Deduplicated employee history (preferred for LinkedIn employee chart); may be omitted from nested `Company` */
+  employees_deduped?: EmployeeCount[];
 }
 
-type SubsidiariesBlock = NonNullable<Company["have_subsidiaries_companies"]>;
-type SubsidiaryRecord = SubsidiariesBlock["Subsidiaries_companies"][number];
-
-type RawSubsidiaryRecord = SubsidiaryRecord & {
-  linkedin_data?: {
-    LinkedIn_Employee?: number;
-    linkedin_logo?: string;
-    linkedin_growth_1y_pct?: number | string | null;
-    LinkedIn_Growth_1y_Pct?: number | string | null;
-  };
-};
-
-/** Normalize subsidiary shape from Get_new_company (linkedin_data vs legacy fields). */
-function normalizeSubsidiaryRecord(sub: RawSubsidiaryRecord): SubsidiaryRecord {
-  const ld = sub.linkedin_data;
-  const legacy = sub._linkedin_data_of_new_company;
-  const linkedin_employee =
-    legacy?.linkedin_employee ??
-    ld?.LinkedIn_Employee ??
-    0;
-  const linkedin_logo = legacy?.linkedin_logo || ld?.linkedin_logo || "";
-  const linkedin_growth_1y_pct =
-    sub.linkedin_growth_1y_pct ??
-    ld?.linkedin_growth_1y_pct ??
-    ld?.LinkedIn_Growth_1y_Pct ??
-    null;
-
-  return {
-    ...sub,
-    _linkedin_data_of_new_company: {
-      linkedin_employee,
-      linkedin_logo,
-    },
-    linkedin_growth_1y_pct,
-  };
-}
-
-/** Merge subsidiary lists from Company + root so fields like `linkedin_growth_1y_pct` are kept. */
-function mergeHaveSubsidiariesCompanies(
-  fromCompany?: SubsidiariesBlock,
-  fromRoot?: SubsidiariesBlock
-): SubsidiariesBlock {
-  const companyList = fromCompany?.Subsidiaries_companies ?? [];
-  const rootList = fromRoot?.Subsidiaries_companies ?? [];
-  if (companyList.length === 0 && rootList.length === 0) {
-    return { have_subsidiaries_companies: false, Subsidiaries_companies: [] };
-  }
-  const byId = new Map<number, RawSubsidiaryRecord>();
-  for (const s of rootList) {
-    if (typeof s?.id === "number") byId.set(s.id, s as RawSubsidiaryRecord);
-  }
-  for (const s of companyList) {
-    if (typeof s?.id === "number") {
-      const prev = byId.get(s.id);
-      byId.set(
-        s.id,
-        prev
-          ? { ...prev, ...(s as RawSubsidiaryRecord) }
-          : (s as RawSubsidiaryRecord)
-      );
-    }
-  }
-  const merged = Array.from(byId.values()).map(normalizeSubsidiaryRecord);
-  return {
-    have_subsidiaries_companies:
-      Boolean(fromCompany?.have_subsidiaries_companies) ||
-      Boolean(fromRoot?.have_subsidiaries_companies) ||
-      merged.length > 0,
-    Subsidiaries_companies: merged,
-  };
-}
-
-/** Get_new_company subsidiaries omit YoY growth; batch-fetch from get_company_table_data. */
-async function enrichSubsidiariesLinkedInGrowth(
-  subsidiaries: SubsidiaryRecord[],
-  token: string
-): Promise<SubsidiaryRecord[]> {
-  const ids = subsidiaries
-    .map((s) => s.id)
-    .filter((id) => typeof id === "number" && id > 0);
-  if (ids.length === 0) return subsidiaries;
-
-  const tableRows = await fetchCompanyTableDataByIds(ids, token);
-  return subsidiaries.map((sub) => {
-    const row = tableRows.get(sub.id);
-    if (!row) return sub;
-    const pct = parseLinkedInGrowthPctValue(row.linkedin_growth_1y_pct);
-    if (pct === null) return sub;
-    return { ...sub, linkedin_growth_1y_pct: pct };
-  });
+/** Prefer API root `employees_deduped`, then Company.`employees_deduped`, then legacy `_companies_employees_count_monthly`. */
+function resolveEmployeeTimeSeries(response: CompanyResponse): EmployeeCount[] {
+  const root = response.employees_deduped;
+  const nested = response.Company.employees_deduped;
+  const legacy = response.Company._companies_employees_count_monthly;
+  const pick =
+    Array.isArray(root) && root.length > 0
+      ? root
+      : Array.isArray(nested) && nested.length > 0
+        ? nested
+        : Array.isArray(legacy) && legacy.length > 0
+          ? legacy
+          : [];
+  if (!pick.length) return [];
+  return [...pick].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
 
 // Utility functions
@@ -656,23 +518,27 @@ async function enrichSubsidiariesLinkedInGrowth(
 
 // Normalize displays like "40 EUR" -> "EUR 40" and allow fallback currency
 // normalizeCurrencyDisplay removed; we now show currency once in heading
+const formatNumber = (num: number | undefined): string => {
+  if (num === undefined || num === null) return "0";
+  return num.toLocaleString();
+};
 
-const formatWholeNumber = (value?: number | string | null): string => {
-  const n = getNumeric(value);
-  if (n === undefined) return "-";
-  return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+const formatDate = (dateString: string): string => {
+  const [year, month] = dateString.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1);
+  return date.toLocaleDateString("en-US", { year: "numeric", month: "short" });
 };
 
 // Plain number formatter (no currency, preserve decimals as given)
 const formatPlainNumber = (value?: number | string | null): string => {
-  if (value === undefined || value === null) return "-";
+  if (value === undefined || value === null) return "Not available";
   if (typeof value === "number") {
     return value.toLocaleString("en-US", { maximumFractionDigits: 10 });
   }
   const trimmed = String(value).trim();
-  if (trimmed.length === 0 || isEmptyDisplayValue(trimmed)) return "-";
+  if (trimmed.length === 0) return "Not available";
   const num = Number(trimmed.replace(/,/g, ""));
-  if (!Number.isFinite(num)) return "-";
+  if (!Number.isFinite(num)) return trimmed;
   const match = trimmed.match(/\.([0-9]+)/);
   const frac = match ? Math.min(10, match[1].length) : 0;
   return num.toLocaleString("en-US", {
@@ -692,207 +558,35 @@ const getNumeric = (value?: number | string | null): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
-/** Max sector pills before "+N" overflow (matches V3 template) */
-const OVERVIEW_TAG_CAP = 3;
+// Format as a whole number with thousands separators (e.g. 54170 -> "54,170")
+const formatWholeNumber = (value?: number | string | null): string => {
+  const n = getNumeric(value);
+  if (n === undefined) return "Not available";
+  return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+};
 
-const INSIGHTS_PREVIEW_COUNT = 2;
-const CE_PREVIEW_COUNT = 2;
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  GBP: "£",
+  EUR: "€",
+  JPY: "¥",
+};
 
-/** Design-demo total for empty insights card (matches V3 mock pagination) */
-const INSIGHTS_EMPTY_STATE_DEMO_TOTAL = 17;
+const getCurrencySymbol = (currencyCode?: string): string | undefined => {
+  if (!currencyCode) return undefined;
+  return CURRENCY_SYMBOLS[currencyCode.trim().toUpperCase()];
+};
 
-// RANGE_DASH moved to InsightsCard component
-
-const PRODUCT_USERS_ACCORDION_FIELDS: {
-  key: keyof ProductAndUsersEntry;
-  title: string;
-}[] = [
-  { key: "accounting_tax_firms", title: "Accounting & Tax Firms" },
-  {
-    key: "corporate_tax_departments",
-    title: "Corporate Tax Departments",
-  },
-  { key: "tax_attorneys", title: "Tax Attorneys" },
-  {
-    key: "financial_advisors_wealth_managers",
-    title: "Financial Advisors & Wealth Managers",
-  },
-];
-
-function normalizeProductUsersStrings(v: unknown): string[] {
-  if (v == null) return [];
-  if (Array.isArray(v)) {
-    return v
-      .map((x) => String(x ?? "").trim())
-      .filter((s) => s.length > 0);
-  }
-  if (typeof v === "string") {
-    const t = v.trim();
-    return t ? [t] : [];
-  }
-  return [];
-}
-
-function buildProductUsersAccordionSections(
-  company: Company
-): ProductUsersSection[] {
-  const raw = company.product_and_users;
-  if (!Array.isArray(raw) || raw.length === 0) return [];
-  const merged: Partial<Record<keyof ProductAndUsersEntry, string[]>> = {};
-  for (const row of raw) {
-    if (!row || typeof row !== "object") continue;
-    const entry = row as ProductAndUsersEntry;
-    for (const { key } of PRODUCT_USERS_ACCORDION_FIELDS) {
-      const part = normalizeProductUsersStrings(entry[key]);
-      if (!merged[key]) merged[key] = [];
-      merged[key]!.push(...part);
-    }
-  }
-  return PRODUCT_USERS_ACCORDION_FIELDS.map(({ key, title }) => ({
-    title,
-    items: merged[key] ?? [],
-  })).filter((s) => s.items.length > 0);
-}
-
-function buildCoreProductsSections(
-  company: Company,
-  caSections: ProductUsersSection[] | null
-): ProductUsersSection[] {
-  if (caSections && caSections.length > 0) return caSections;
-  const accordion = buildProductUsersAccordionSections(company);
-  if (accordion.length > 0) return accordion;
-  const raw = company.product_users;
-  const lines: string[] = [];
-  if (Array.isArray(raw)) {
-    lines.push(...raw.map((x) => String(x).trim()).filter(Boolean));
-  } else if (typeof raw === "string" && raw.trim()) {
-    try {
-      const j = JSON.parse(raw) as unknown;
-      if (Array.isArray(j)) {
-        lines.push(...j.map((x) => String(x).trim()).filter(Boolean));
-      }
-    } catch {
-      lines.push(
-        ...raw
-          .split(/[,;\n]/)
-          .map((s) => s.trim())
-          .filter(Boolean)
-      );
-    }
-  }
-  if (lines.length > 0) {
-    return lines.map((title) => ({ title }));
-  }
-  return [];
-}
-
-// formatInsightBadgeLabel moved to InsightsCard component
-
-function formatWebsiteDisplayLabel(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "";
-  try {
-    const withProto = /^https?:\/\//i.test(trimmed)
-      ? trimmed
-      : `https://${trimmed}`;
-    const url = new URL(withProto);
-    const host = url.hostname.replace(/^www\./i, "");
-    const path =
-      url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
-    return path ? `${host}${path}` : host;
-  } catch {
-    return trimmed
-      .replace(/^https?:\/\//i, "")
-      .replace(/^www\./i, "")
-      .replace(/\/$/, "");
-  }
-}
-
-/** Picks a human-readable "total raised" string from known / future API keys */
-function pickTotalAmountRaisedDisplay(company: Company): string | null {
-  const c = company as unknown as Record<string, unknown>;
-  const keys = [
-    "total_amount_raised",
-    "Total_amount_raised",
-    "total_funding_raised",
-    "Total_funding_raised",
-    "funding_total",
-    "Funding_total",
-    "total_raised",
-    "Total_raised",
-  ];
-  for (const k of keys) {
-    const v = c[k];
-    if (v === null || v === undefined) continue;
-    if (typeof v === "number" && Number.isFinite(v)) {
-      if (v >= 1_000_000_000)
-        return `$${(v / 1_000_000_000).toFixed(1)}bn`;
-      if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(0)}m`;
-      if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}k`;
-      return `$${v.toLocaleString("en-US")}`;
-    }
-    const s = String(v).trim();
-    if (s.length > 0 && !isEmptyDisplayValue(s)) {
-      return s.replace(/US\$\s*/gi, "$");
-    }
-  }
-  return null;
-}
-
-/** Latest headcount shown on HeadcountCard (last point, or last non-zero). */
-function resolveChartEmployeeCount(data: EmployeeCount[]): number {
-  if (!Array.isArray(data) || data.length === 0) return 0;
-  const numericData = data.map((e) => e.employees_count);
-  const hasAnyNonZero = numericData.some((v) => v > 0);
-  const filtered = hasAnyNonZero
-    ? numericData.filter((v) => v > 0)
-    : numericData;
-  const lastNonZero =
-    filtered.length > 0 ? filtered[filtered.length - 1]! : 0;
-  const last = numericData[numericData.length - 1] ?? 0;
-  return last > 0 ? last : lastNonZero;
-}
-
-/** Approximate YoY from monthly employee counts when API does not send YoY */
-function computeEmployeeYoYFromMonthly(
-  data: EmployeeCount[]
-): string | null {
-  if (!Array.isArray(data) || data.length < 2) return null;
-  const sorted = [...data].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-  const latest = sorted[sorted.length - 1];
-  const latestCount = latest?.employees_count;
-  if (typeof latestCount !== "number" || latestCount <= 0) return null;
-  const latestT = new Date(latest.date).getTime();
-  const yearMs = 365 * 86_400_000;
-  let best: EmployeeCount | null = null;
-  let bestDiff = Infinity;
-  for (let i = sorted.length - 2; i >= 0; i--) {
-    const row = sorted[i];
-    const t = new Date(row.date).getTime();
-    const diff = latestT - t;
-    if (diff >= yearMs * 0.85 && diff <= yearMs * 1.15) {
-      const d = Math.abs(diff - yearMs);
-      if (d < bestDiff) {
-        bestDiff = d;
-        best = row;
-      }
-    }
-  }
-  if (
-    !best ||
-    typeof best.employees_count !== "number" ||
-    best.employees_count <= 0
-  ) {
-    return null;
-  }
-  const prev = best.employees_count;
-  const pct = ((latestCount - prev) / prev) * 100;
-  const rounded = Math.round(pct * 10) / 10;
-  const sign = rounded > 0 ? "+" : "";
-  return `${sign}${rounded}% YoY`;
-}
+const formatWholeNumberWithCurrency = (
+  value?: number | string | null,
+  currencyCode?: string
+): string => {
+  const formatted = formatWholeNumber(value);
+  if (formatted === "Not available") return formatted;
+  const symbol = getCurrencySymbol(currencyCode);
+  if (!symbol) return formatted;
+  return `${symbol}${formatted}`;
+};
 
 const parseStructuredArray = <T,>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[];
@@ -913,9 +607,8 @@ const parseStructuredArray = <T,>(value: unknown): T[] => {
 };
 
 /**
- * When merging API root + `Company`, root fields like `Data_Collection_Method: []`
- * are truthy in JS, so `root || company` incorrectly drops nested rows.
- * Prefer the first array with length > 0 or non-empty string; otherwise last defined.
+ * Root `[]` is truthy in JS — prefer nested `Company` data when root is empty.
+ * See new_company merge: `root || company` drops rows when root is `[]`.
  */
 function firstNonEmptyStructuredField(
   ...candidates: unknown[]
@@ -929,20 +622,6 @@ function firstNonEmptyStructuredField(
     if (c != null) return c;
   }
   return undefined;
-}
-
-/** Parse "12%" / "12" / numeric cell into 0–100 for mix progress bars */
-function parsePercentToken(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const m = trimmed.match(/(\d+(?:\.\d+)?)\s*%/);
-  if (m) {
-    const n = parseFloat(m[1]);
-    return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : null;
-  }
-  const n = getNumeric(trimmed.replace(/%/g, ""));
-  if (n !== undefined && n <= 100 && n >= 0) return n;
-  return null;
 }
 
 // Map Xano source codes to human-readable labels (best-known mapping)
@@ -1004,13 +683,13 @@ const sourceLabel = (code?: number | string | null): string | undefined => {
 // Format helpers for additional financial metrics
 const formatPercent = (value?: number | string | null): string => {
   const n = getNumeric(value);
-  if (n === undefined) return "-";
+  if (n === undefined) return "Not available";
   return `${Math.round(n)}%`;
 };
 
 const formatMultiple = (value?: number | string | null): string => {
   const n = getNumeric(value);
-  if (n === undefined) return "-";
+  if (n === undefined) return "Not available";
   const rounded = Math.round(n * 10) / 10;
   return `${rounded.toLocaleString()}x`;
 };
@@ -1032,7 +711,7 @@ const getSourceText = (
   code?: number | string | null
 ): string => {
   const resolved = effectiveSourceLabel(label, code);
-  return resolved ?? "-";
+  return resolved ?? "Not available";
 };
 
 // Removed short currency helper; we now display plain numbers
@@ -1044,8 +723,6 @@ const normalizeCurrency = (candidate: unknown): string | undefined => {
     const trimmed = candidate.trim();
     // If backend sent an id like "7", ignore it
     if (/^\d+$/.test(trimmed)) return undefined;
-    const compact = trimmed.replace(/\s/g, "").toUpperCase();
-    if (compact === "US$" || compact === "US") return "USD";
     return trimmed;
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1133,34 +810,6 @@ const formatFinancialMetricsPeriod = (
   return null;
 };
 
-const formatLastInvestmentDisplay = (
-  lastInvestment?: LastInvestment | null
-): string => {
-  const display = String(lastInvestment?.display ?? "").trim();
-  if (display && !isEmptyDisplayValue(display)) return display;
-
-  let daysSince = getNumeric(lastInvestment?.days_since);
-  if (daysSince === undefined && lastInvestment?.date) {
-    const investmentDate = new Date(lastInvestment.date);
-    if (!Number.isNaN(investmentDate.getTime())) {
-      daysSince = Math.max(
-        0,
-        Math.floor((Date.now() - investmentDate.getTime()) / 86_400_000)
-      );
-    }
-  }
-
-  if (daysSince === undefined) return "-";
-  if (daysSince < 365) {
-    if (daysSince < 30) return "This month";
-    const months = Math.max(1, Math.floor(daysSince / 30));
-    return `${months} ${months === 1 ? "month" : "months"}`;
-  }
-
-  const years = Math.floor(daysSince / 365);
-  return `${years} ${years === 1 ? "year" : "years"}`;
-};
-
 // Determines Year Founded using multiple fallbacks
 const getYearFoundedDisplay = (company: Company): string => {
   const candidates: Array<unknown> = [
@@ -1175,7 +824,7 @@ const getYearFoundedDisplay = (company: Company): string => {
     if (year !== null) return String(year);
   }
 
-  return EMPTY_DISPLAY;
+  return "Not available";
 };
 
 // Company Logo Component
@@ -1213,35 +862,110 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   return <div style={placeholderStyle}>No Logo</div>;
 };
 
+// Employee Chart Component
+const EmployeeChart = ({ data }: { data: EmployeeCount[] }) => {
+  const hasNonZeroEmployees = data.some(
+    (item) => (item.employees_count ?? 0) > 0
+  );
+  const filteredData = hasNonZeroEmployees
+    ? data.filter((item) => (item.employees_count ?? 0) > 0)
+    : data;
+  const chartData = filteredData.map((item) => ({
+    date: formatDate(item.date),
+    count: item.employees_count,
+    fullDate: item.date,
+  }));
+
+  interface TooltipProps {
+    active?: boolean;
+    payload?: Array<{
+      value: number;
+      dataKey: string;
+    }>;
+    label?: string;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
+    if (active && payload && payload.length) {
+      return (
+        <div
+          style={{
+            backgroundColor: "white",
+            border: "1px solid #ccc",
+            padding: "10px",
+            borderRadius: "4px",
+          }}
+        >
+          <p style={{ margin: 0 }}>{`Date: ${label}`}</p>
+          <p style={{ margin: 0, color: "#0075df" }}>
+            {`Employees: ${payload[0].value.toLocaleString()}`}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "300px",
+        minHeight: "250px",
+      }}
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 12 }}
+            angle={-45}
+            textAnchor="end"
+            height={80}
+          />
+          <YAxis tick={{ fontSize: 12 }} />
+          <Tooltip content={<CustomTooltip />} />
+          <Line
+            type="monotone"
+            dataKey="count"
+            stroke="#0075df"
+            strokeWidth={2}
+            dot={{
+              fill: "#0075df",
+              strokeWidth: 2,
+              r: 4,
+            }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 // Main Company Detail Component
 const CompanyDetail = () => {
   const params = useParams();
   const companyId = params.id as string;
+  const { createClickableElement } = useRightClick();
 
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(
+    new Set()
+  );
 
+  const [isMobile, setIsMobile] = useState(false);
   const [showAllPrimarySectors, setShowAllPrimarySectors] = useState(false);
   const [showAllSecondarySectors, setShowAllSecondarySectors] = useState(false);
   const [corporateEvents, setCorporateEvents] = useState<
     CompanyCorporateEvent[]
   >([]);
-  const [corporateEventsForSubsidiaries, setCorporateEventsForSubsidiaries] =
-    useState<CompanyCorporateEvent[]>([]);
-  const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
-  const [cePage, setCePage] = useState(1);
-  const [ceTotal, setCeTotal] = useState(0);
-  const [ceTotalPages, setCeTotalPages] = useState(0);
-  const [ceShowingFrom, setCeShowingFrom] = useState(0);
-  const [ceShowingTo, setCeShowingTo] = useState(0);
+  const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
+  const [showAllSubsidiaries, setShowAllSubsidiaries] = useState(false);
   const [companyArticles, setCompanyArticles] = useState<ContentArticle[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
-  const [insightsPage, setInsightsPage] = useState(1);
-  const [insightsTotal, setInsightsTotal] = useState(0);
-  const [insightsTotalPages, setInsightsTotalPages] = useState(0);
-  const [insightsShowingFrom, setInsightsShowingFrom] = useState(0);
-  const [insightsShowingTo, setInsightsShowingTo] = useState(0);
   // Optional preformatted displays from API (ebitda_data)
   const [, setMetricsDisplay] = useState<
     | {
@@ -1254,8 +978,6 @@ const CompanyDetail = () => {
   // Financial metrics from Xano `company_financial_metrics`
   const [financialMetrics, setFinancialMetrics] =
     useState<CompanyFinancialMetrics | null>(null);
-  const [aiRiskAxes, setAiRiskAxes] = useState<AIRiskAxis[] | null>(null);
-  const [productServicesData, setProductServicesData] = useState<ProductUsersSection[] | null>(null);
   // New investors from company_investors API endpoint
   const [apiInvestors, setApiInvestors] = useState<
     CompanyInvestorFromAPI[]
@@ -1267,14 +989,9 @@ const CompanyDetail = () => {
     useState<CompanyPdfExportType | null>(null);
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [rowTwoCardHeight, setRowTwoCardHeight] = useState(0);
+  const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
+  const [isOverviewNarrow, setIsOverviewNarrow] = useState(false);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
-  const insightsRowRef = useRef<HTMLDivElement | null>(null);
-  const financeSecondaryRowRef = useRef<HTMLDivElement | null>(null);
-  const financePrimaryGridRef = useRef<HTMLDivElement | null>(null);
-  const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
-  const [managementIndividualLinkedIn, setManagementIndividualLinkedIn] =
-    useState<Record<number, string>>({});
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const transactionStatusDisplayLabel = useMemo(() => {
@@ -1285,113 +1002,14 @@ const CompanyDetail = () => {
     return withoutTransaction.replace(/^anticipated\b/i, "Anticipated");
   }, [transactionStatusLabel]);
 
-  const managementLinkedInByIndividualId = useMemo(() => {
-    const map = new Map<number, string>();
-    const rows = [
-      ...(company?.management_current || []),
-      ...(company?.management_past || []),
-    ];
-    for (const row of rows) {
-      const url = normalizeLinkedInProfileUrl(row.linkedin_url);
-      const individualId = row.individual_id ?? row.id;
-      if (url && typeof individualId === "number") {
-        map.set(individualId, url);
-      }
-    }
-    return map;
-  }, [company?.management_current, company?.management_past]);
-
   useEffect(() => {
-    const roles = [
-      ...(company?.Managmant_Roles_current ?? []),
-      ...(company?.Managmant_Roles_past ?? []),
-    ];
-    const ids = Array.from(
-      new Set(
-        roles
-          .map((r) => r.individuals_id)
-          .filter((id): id is number => typeof id === "number")
-      )
-    );
-    if (ids.length === 0) {
-      setManagementIndividualLinkedIn({});
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      const next: Record<number, string> = {};
-      await Promise.all(
-        ids.map(async (individualId) => {
-          try {
-            const data = await individualService.getIndividual(individualId);
-            const url = normalizeLinkedInProfileUrl(
-              data.Individual?.linkedin_URL
-            );
-            if (url) next[individualId] = url;
-          } catch {
-            // skip failed individual lookups
-          }
-        })
-      );
-      if (!cancelled) setManagementIndividualLinkedIn(next);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    company?.id,
-    company?.Managmant_Roles_current,
-    company?.Managmant_Roles_past,
-  ]);
-
-  const managementCurrentPeople = useMemo(
-    () =>
-      (company?.Managmant_Roles_current || []).map((person) => ({
-        id: person.id,
-        name: person.Individual_text,
-        role: (person.job_titles_id || [])
-          .map((job) => job?.job_title)
-          .filter(Boolean)
-          .join(", "),
-        individualId: person.individuals_id,
-        linkedinUrl: managementProfileUrlFromRole(
-          person,
-          managementLinkedInByIndividualId,
-          managementIndividualLinkedIn
-        ),
-      })),
-    [company, managementLinkedInByIndividualId, managementIndividualLinkedIn]
-  );
-
-  const managementPastPeople = useMemo(
-    () =>
-      (company?.Managmant_Roles_past || []).map((person) => ({
-        id: person.id,
-        name: person.Individual_text,
-        role: (person.job_titles_id || [])
-          .map((job) => job?.job_title)
-          .filter(Boolean)
-          .join(", "),
-        individualId: person.individuals_id,
-        linkedinUrl: managementProfileUrlFromRole(
-          person,
-          managementLinkedInByIndividualId,
-          managementIndividualLinkedIn
-        ),
-      })),
-    [company, managementLinkedInByIndividualId, managementIndividualLinkedIn]
-  );
-
-  const subsidiaryAcquisitionYearByCompanyId = useMemo(() => {
-    if (!company?.id) return {} as Record<number, number>;
-    const map = buildSubsidiaryAcquisitionYearMap(
-      company.id,
-      corporateEventsForSubsidiaries as SubsidiaryAcquisitionEvent[]
-    );
-    return Object.fromEntries(map) as Record<number, number>;
-  }, [company?.id, corporateEventsForSubsidiaries]);
+    // Use the same breakpoint as the requested UI behavior (< 1280px)
+    const mql = window.matchMedia("(max-width: 1279px)");
+    const apply = () => setIsOverviewNarrow(mql.matches);
+    apply();
+    mql.addEventListener("change", apply);
+    return () => mql.removeEventListener("change", apply);
+  }, []);
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1439,6 +1057,18 @@ const CompanyDetail = () => {
   };
 
 
+  const toggleDescription = (subsidiaryId: number) => {
+    setExpandedDescriptions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(subsidiaryId)) {
+        newSet.delete(subsidiaryId);
+      } else {
+        newSet.add(subsidiaryId);
+      }
+      return newSet;
+    });
+  };
+
   // Fetch company with intelligent fallbacks (GET first, then POST with common payload keys)
   const requestCompany = useCallback(
     async (id: string): Promise<CompanyResponse> => {
@@ -1449,7 +1079,7 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${id}`;
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${id}`;
 
       // Attempt 1: Standard GET
       const getResponse = await fetch(endpoint, {
@@ -1507,149 +1137,31 @@ const CompanyDetail = () => {
 
   // Fetch Asymmetrix content articles via public companies_articles endpoint
   const fetchCompanyArticles = useCallback(
-    async (companyIdForContent: string | number, page = 1) => {
+    async (companyIdForContent: string | number) => {
       if (companyIdForContent === undefined || companyIdForContent === null)
         return;
       setArticlesLoading(true);
       try {
         const params = new URLSearchParams();
         params.append("new_company_id", String(companyIdForContent));
-        params.append("page", String(page));
-        params.append("per_page", String(INSIGHTS_PREVIEW_COUNT));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/companies_articles?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/companies_articles?${params.toString()}`;
         const response = await fetch(url, { method: "GET" });
         if (!response.ok) {
           setCompanyArticles([]);
-          setInsightsTotal(0);
-          setInsightsTotalPages(0);
-          setInsightsShowingFrom(0);
-          setInsightsShowingTo(0);
-          setInsightsPage(1);
         } else {
           const data = await response.json();
-          if (Array.isArray(data)) {
-            const items = data as ContentArticle[];
-            const total = items.length;
-            const start = total > 0 ? (page - 1) * INSIGHTS_PREVIEW_COUNT : 0;
-            setCompanyArticles(
-              items.slice(start, start + INSIGHTS_PREVIEW_COUNT)
-            );
-            setInsightsTotal(total);
-            setInsightsTotalPages(
-              total > 0 ? Math.ceil(total / INSIGHTS_PREVIEW_COUNT) : 0
-            );
-            setInsightsShowingFrom(total > 0 ? start + 1 : 0);
-            setInsightsShowingTo(
-              total > 0 ? Math.min(start + INSIGHTS_PREVIEW_COUNT, total) : 0
-            );
-            setInsightsPage(page);
-          } else {
-            const items = Array.isArray(data?.items)
-              ? (data.items as ContentArticle[])
-              : [];
-            setCompanyArticles(items);
-            setInsightsTotal(
-              typeof data?.total === "number" ? data.total : items.length
-            );
-            setInsightsTotalPages(
-              typeof data?.total_pages === "number" ? data.total_pages : 0
-            );
-            setInsightsShowingFrom(
-              typeof data?.showing_from === "number" ? data.showing_from : 0
-            );
-            setInsightsShowingTo(
-              typeof data?.showing_to === "number" ? data.showing_to : 0
-            );
-            setInsightsPage(typeof data?.page === "number" ? data.page : page);
-          }
+          setCompanyArticles(
+            Array.isArray(data) ? (data as ContentArticle[]) : []
+          );
         }
       } catch {
         setCompanyArticles([]);
-        setInsightsTotal(0);
-        setInsightsTotalPages(0);
-        setInsightsShowingFrom(0);
-        setInsightsShowingTo(0);
-        setInsightsPage(1);
       } finally {
         setArticlesLoading(false);
       }
     },
     []
   );
-
-  useEffect(() => {
-    setInsightsPage(1);
-  }, [company?.id]);
-
-  const fetchCompanyCorporateEventsPage = useCallback(
-    async (companyIdForEvents: string | number, page = 1) => {
-      if (companyIdForEvents === undefined || companyIdForEvents === null) {
-        return;
-      }
-      setCorporateEventsLoading(true);
-      try {
-        const data = await fetchCompanyCorporateEvents(
-          companyIdForEvents,
-          page,
-          CE_PREVIEW_COUNT
-        );
-        if (!data) {
-          setCorporateEvents([]);
-          setCeTotal(0);
-          setCeTotalPages(0);
-          setCeShowingFrom(0);
-          setCeShowingTo(0);
-          setCePage(1);
-          return;
-        }
-        setCorporateEvents(data.items as CompanyCorporateEvent[]);
-        setCeTotal(data.total);
-        setCeTotalPages(data.total_pages);
-        setCeShowingFrom(data.showing_from);
-        setCeShowingTo(data.showing_to);
-        setCePage(data.page);
-
-        if (page === 1 && data.total > 0) {
-          const subsPageSize = Math.min(Math.max(data.total, 1), 100);
-          if (subsPageSize > CE_PREVIEW_COUNT) {
-            const allData = await fetchCompanyCorporateEvents(
-              companyIdForEvents,
-              1,
-              subsPageSize
-            );
-            setCorporateEventsForSubsidiaries(
-              (allData?.items ?? data.items) as CompanyCorporateEvent[]
-            );
-          } else {
-            setCorporateEventsForSubsidiaries(
-              data.items as CompanyCorporateEvent[]
-            );
-          }
-        }
-      } catch {
-        setCorporateEvents([]);
-        setCorporateEventsForSubsidiaries([]);
-        setCeTotal(0);
-        setCeTotalPages(0);
-        setCeShowingFrom(0);
-        setCeShowingTo(0);
-        setCePage(1);
-      } finally {
-        setCorporateEventsLoading(false);
-      }
-    },
-    []
-  );
-
-  useEffect(() => {
-    setCePage(1);
-    setCorporateEvents([]);
-    setCorporateEventsForSubsidiaries([]);
-    setCeTotal(0);
-    setCeTotalPages(0);
-    setCeShowingFrom(0);
-    setCeShowingTo(0);
-  }, [company?.id]);
 
   // Fetch financial metrics (auth required) with GET + POST fallbacks
   const fetchFinancialMetrics = useCallback(async (id: string | number) => {
@@ -1710,46 +1222,6 @@ const CompanyDetail = () => {
     }
   }, []);
 
-  const fetchCompanyAiRisksData = useCallback(async (id: string | number) => {
-    setAiRiskAxes(null);
-    try {
-      const axes = await fetchCompanyAiRisksV2(id);
-      setAiRiskAxes(axes);
-    } catch (err) {
-      console.error("Error fetching company AI risks:", err);
-      setAiRiskAxes(null);
-    }
-  }, []);
-
-  // Fetch Core Products & Services from company_products_services API (CA)
-  const fetchProductServices = useCallback(async (id: string | number) => {
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const headers: Record<string, string> = {
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
-      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_products_services`;
-      const params = new URLSearchParams({ new_company_id: String(id) });
-      const res = await fetch(`${base}?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { title: string; body: string }[];
-      if (!Array.isArray(data) || data.length === 0) return;
-      setProductServicesData(
-        data.map((item) => ({
-          title: item.title,
-          body: item.body?.replace(/&nbsp;/g, " ").trim(),
-        }))
-      );
-    } catch {
-      // Non-fatal; fall back to static data
-    }
-  }, []);
-
   // Fetch investors from company_investors API endpoint
   const fetchCompanyInvestors = useCallback(async (id: string | number) => {
     setApiInvestorsLoading(true);
@@ -1795,7 +1267,7 @@ const CompanyDetail = () => {
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
       const res = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_transaction_status?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_transaction_status?${params.toString()}`,
         { method: "GET" }
       );
       if (!res.ok) return;
@@ -1858,11 +1330,10 @@ const CompanyDetail = () => {
             (data.Company as unknown as { Former_name?: string[] })
               ?.Former_name ||
             [],
-          // Merge Company + root subsidiary payloads (growth % may only exist on one).
-          have_subsidiaries_companies: mergeHaveSubsidiariesCompanies(
-            data.Company.have_subsidiaries_companies,
-            data.have_subsidiaries_companies
-          ),
+          have_subsidiaries_companies: data.have_subsidiaries_companies || {
+            have_subsidiaries_companies: false,
+            Subsidiaries_companies: [],
+          },
           // Prefer root-level new_sectors_data when present; fallback to Company-level
           new_sectors_data:
             data.new_sectors_data || data.Company?.new_sectors_data,
@@ -1912,28 +1383,12 @@ const CompanyDetail = () => {
             (data.Company as { last_investment?: LastInvestment | null })
               ?.last_investment ??
             null,
+          _companies_employees_count_monthly: resolveEmployeeTimeSeries(data),
           Lifecycle_stage:
             data.Company?.Lifecycle_stage ||
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
               .Lifecycle_stage ||
             undefined,
-          employees_deduped:
-            (data as unknown as { employees_deduped?: EmployeeCount[] })
-              .employees_deduped ??
-            (
-              data.Company as unknown as {
-                employees_deduped?: EmployeeCount[];
-              }
-            )?.employees_deduped,
-          product_and_users: firstNonEmptyStructuredField(
-            (data as unknown as { product_and_users?: ProductAndUsersEntry[] })
-              .product_and_users,
-            (
-              data.Company as unknown as {
-                product_and_users?: ProductAndUsersEntry[];
-              }
-            )?.product_and_users
-          ) as Company["product_and_users"],
         };
 
         // Parse optional ebitda_data with display strings
@@ -1969,35 +1424,52 @@ const CompanyDetail = () => {
           }
         } catch {}
 
-        setCompany(enrichedCompany);
-
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const initialSubs =
-          enrichedCompany.have_subsidiaries_companies?.Subsidiaries_companies ??
-          [];
-        if (token && initialSubs.length > 0) {
-          void enrichSubsidiariesLinkedInGrowth(initialSubs, token)
-            .then((enrichedSubs) => {
-              setCompany((prev) => {
-                if (!prev?.have_subsidiaries_companies) return prev;
-                return {
-                  ...prev,
-                  have_subsidiaries_companies: {
-                    ...prev.have_subsidiaries_companies,
-                    Subsidiaries_companies: enrichedSubs,
-                  },
-                };
-              });
-            })
-            .catch((err) => {
-              console.warn("[subsidiaries] linkedin growth enrich failed:", err);
-            });
+        // Parse corporate events from Get_new_company payload (preferred, no auth)
+        try {
+          const newCounterparties = (
+            data as unknown as {
+              // Backward compatible: either an array of wrapper-objects
+              // with `items` (legacy) or an array of event objects directly.
+              new_counterparties?: Array<{ items?: unknown } | NewCorporateEvent>;
+            }
+          )?.new_counterparties;
+          const parsedEvents: NewCorporateEvent[] = [];
+          if (Array.isArray(newCounterparties)) {
+            for (const entry of newCounterparties) {
+              const raw = (entry as { items?: unknown })?.items;
+              // If `items` is present, treat this as the legacy wrapped shape
+              let payload: unknown = raw;
+              if (typeof raw === "string") {
+                try {
+                  payload = JSON.parse(raw as string);
+                } catch {
+                  // ignore malformed JSON
+                }
+              }
+              if (Array.isArray(payload)) {
+                parsedEvents.push(...(payload as NewCorporateEvent[]));
+              } else if (!raw && entry && typeof entry === "object") {
+                // Newer API may return the event object directly inside `new_counterparties`
+                // without an `items` wrapper; in that case treat `entry` as the event.
+                parsedEvents.push(entry as NewCorporateEvent);
+              }
+            }
+          }
+          if (parsedEvents.length > 0) {
+            setCorporateEvents(parsedEvents);
+          }
+          setCorporateEventsLoading(false);
+        } catch {
+          // non-fatal - ensure loading state is reset even on error
+          setCorporateEventsLoading(false);
         }
 
-        // Trigger fetching related articles + corporate events (requires auth)
+        // Removed verbose logging of enriched object
+
+        setCompany(enrichedCompany);
+        // Trigger fetching related articles using company id (requires auth)
         if (enrichedCompany?.id) {
           fetchCompanyArticles(enrichedCompany.id);
-          void fetchCompanyCorporateEventsPage(enrichedCompany.id, 1);
         }
       } catch (err) {
         const message =
@@ -2027,8 +1499,6 @@ const CompanyDetail = () => {
       fetchFinancialMetrics(companyId);
       fetchCompanyInvestors(companyId);
       fetchCompanyTransactionStatus(companyId);
-      fetchCompanyAiRisksData(companyId);
-      fetchProductServices(companyId);
     }
   }, [
     companyId,
@@ -2037,8 +1507,6 @@ const CompanyDetail = () => {
     fetchFinancialMetrics,
     fetchCompanyInvestors,
     fetchCompanyTransactionStatus,
-    fetchCompanyAiRisksData,
-    fetchProductServices,
   ]);
 
 
@@ -2084,49 +1552,47 @@ const CompanyDetail = () => {
     }
   }, [company, corporateEvents]);
 
+  // Detect mobile once on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const check = () => setIsMobile(window.innerWidth <= 768);
+      check();
+      window.addEventListener("resize", check);
+      return () => window.removeEventListener("resize", check);
+    }
+  }, []);
 
   useEffect(() => {
     setIsDescriptionExpanded(false);
   }, [company?.description]);
 
-  // Match Insights + Subscription/Other metrics to the taller card's natural content height
   useEffect(() => {
-    setRowTwoCardHeight(0);
-  }, [
-    company?.id,
-    articlesLoading,
-    companyArticles.length,
-    insightsPage,
-    financialMetrics,
-  ]);
+    if (typeof window === "undefined") return;
 
-  useEffect(() => {
-    if (rowTwoCardHeight !== 0) return;
+    const checkDescriptionOverflow = () => {
+      const element = descriptionRef.current;
+      if (!element) {
+        setIsDescriptionExpandable(false);
+        return;
+      }
 
-    const insightsEl = insightsRowRef.current;
-    const financeEl = financeSecondaryRowRef.current;
-    if (!insightsEl || !financeEl || typeof ResizeObserver === "undefined") {
-      return;
-    }
+      const computedStyle = window.getComputedStyle(element);
+      const lineHeight = parseFloat(computedStyle.lineHeight || "0");
+      if (!lineHeight) {
+        setIsDescriptionExpandable(false);
+        return;
+      }
 
-    const measure = () => {
-      const max = Math.max(insightsEl.offsetHeight, financeEl.offsetHeight);
-      if (max > 0) setRowTwoCardHeight(max);
+      // Allow more of the description to be visible before collapsing
+      const collapsedHeight = lineHeight * 5;
+      setIsDescriptionExpandable(element.scrollHeight > collapsedHeight + 1);
     };
 
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(insightsEl);
-    ro.observe(financeEl);
-    return () => ro.disconnect();
-  }, [
-    rowTwoCardHeight,
-    company?.id,
-    articlesLoading,
-    companyArticles.length,
-    insightsPage,
-    financialMetrics,
-  ]);
+    checkDescriptionOverflow();
+    window.addEventListener("resize", checkDescriptionOverflow);
+
+    return () => window.removeEventListener("resize", checkDescriptionOverflow);
+  }, [company?.description, isMobile]);
 
   // Update page title when company data is loaded
   useEffect(() => {
@@ -2171,13 +1637,12 @@ const CompanyDetail = () => {
       const requestBody = isFinancialMetricsExport
         ? {
             company_id: company.id,
-            version: "v2",
             company_name: company.name,
             financial_metrics_period: financialMetricsPeriod,
             financial_metrics_year: financialMetricsYear,
             source: FINANCIAL_METRICS_EXPORT_SOURCE,
           }
-        : { company_id: company.id, version: "v2" };
+        : { company_id: company.id };
       const response = await fetch(
         "https://asymmetrix-pdf-service.fly.dev/api/export-company-pdf",
         {
@@ -2305,9 +1770,24 @@ const CompanyDetail = () => {
 
   // Removed render-phase debug logging to avoid noise/perf issues
 
-  const linkedinUrl = normalizeLinkedInProfileUrl(
-    company.linkedin_data?.LinkedIn_URL
-  );
+  // Compute a safe LinkedIn URL from API (only allow linkedin.com domains)
+  const linkedinUrl: string | undefined = (() => {
+    const raw = company.linkedin_data?.LinkedIn_URL;
+    if (!raw) return undefined;
+    const trimmed = String(raw).trim();
+    if (!trimmed) return undefined;
+    const candidate = /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`;
+    try {
+      const u = new URL(candidate);
+      const host = u.hostname.toLowerCase();
+      if (!host.endsWith("linkedin.com")) return undefined;
+      return u.toString();
+    } catch {
+      return undefined;
+    }
+  })();
 
   // Process sectors (prefer new_sectors_data.sectors_payload when present)
   const parsedNewSectors: {
@@ -2391,9 +1871,41 @@ const CompanyDetail = () => {
             sector_id: toNumber(it?.id),
           }))
           .filter((s) => Boolean(s.sector_name));
+      const primary = toPrimary(payload.primary_sectors || []);
+      const secondary = toSecondary(payload.secondary_sectors || []);
+
+      const secondaryIds = new Set(
+        secondary.map((s) => s.sector_id).filter((id) => id > 0)
+      );
+      const secondaryNames = new Set(
+        secondary
+          .map((s) => s.sector_name.toLowerCase())
+          .filter(Boolean)
+      );
+
+      // When the API lists the same sector as both primary and secondary,
+      // secondary importance wins (e.g. Private Equity for CEPRES).
+      const reconciledPrimary = primary.filter(
+        (s) =>
+          !(s.sector_id > 0 && secondaryIds.has(s.sector_id)) &&
+          !secondaryNames.has(s.sector_name.toLowerCase())
+      );
+
+      const dedupedSecondary: CompanySector[] = [];
+      const seenSecondaryKeys = new Set<string>();
+      for (const sector of secondary) {
+        const key =
+          sector.sector_id > 0
+            ? `id:${sector.sector_id}`
+            : `name:${sector.sector_name.toLowerCase()}`;
+        if (seenSecondaryKeys.has(key)) continue;
+        seenSecondaryKeys.add(key);
+        dedupedSecondary.push(sector);
+      }
+
       return {
-        primary: toPrimary(payload.primary_sectors || []),
-        secondary: toSecondary(payload.secondary_sectors || []),
+        primary: reconciledPrimary,
+        secondary: dedupedSecondary,
       };
     } catch {
       return null;
@@ -2401,8 +1913,9 @@ const CompanyDetail = () => {
   })();
 
   // Determine sectors to display:
-  // Prefer `new_sectors_data.sectors_payload` (it already splits primary vs secondary).
-  // Only fall back to `company.sectors_id` when `new_sectors_data` is missing/unparseable.
+  // Prefer `new_sectors_data.sectors_payload` for sector lists; if a sector appears in
+  // both primary and secondary, treat it as secondary. Fall back to `company.sectors_id`
+  // when `new_sectors_data` is missing/unparseable.
   const hasNewSectors = parsedNewSectors !== null;
 
   const primarySectors =
@@ -2433,35 +1946,6 @@ const CompanyDetail = () => {
 
   // Use API-provided primary sectors only
   const augmentedPrimarySectors = primarySectors;
-
-  const corporateEventPrimarySectorsByCompanyId: Record<number, string[]> =
-    (() => {
-      const map: Record<number, string[]> = {};
-      if (company?.id) {
-        map[company.id] = augmentedPrimarySectors
-          .map((s) => s.sector_name?.trim())
-          .filter((name): name is string => Boolean(name));
-      }
-      const subsidiaries =
-        company?.have_subsidiaries_companies?.Subsidiaries_companies ?? [];
-      for (const sub of subsidiaries) {
-        if (!sub?.id || !Array.isArray(sub.sectors_id)) continue;
-        const names = (
-          sub.sectors_id as Array<{
-            sector_name?: string;
-            Sector_importance?: string;
-          }>
-        )
-          .filter((s) => {
-            const importance = String(s?.Sector_importance ?? "Primary").trim();
-            return importance === "Primary";
-          })
-          .map((s) => String(s?.sector_name ?? "").trim())
-          .filter(Boolean);
-        if (names.length > 0) map[sub.id] = names;
-      }
-      return map;
-    })();
 
   // Process location
   const location = company._locations;
@@ -2531,10 +2015,6 @@ const CompanyDetail = () => {
       (financialMetrics as unknown as { EBIT_currency_display?: string | null })
         ?.EBIT_currency_display
     ) ||
-    normalizeCurrency(
-      (financialMetrics as unknown as { ARR_currency_display?: string | null })
-        ?.ARR_currency_display
-    ) ||
     // 2) Then fall back to structured currency objects
     normalizeCurrency(
       (financialMetrics as unknown as { _currency?: { Currency?: string } })
@@ -2544,9 +2024,11 @@ const CompanyDetail = () => {
     normalizeCurrency(financialMetrics?.Rev_Currency) ||
     normalizeCurrency(financialMetrics?.EBITDA_currency) ||
     normalizeCurrency(financialMetrics?.EV_currency) ||
-    normalizeCurrency(financialMetrics?.ARR_currency) ||
-    normalizeCurrency(financialMetrics?.EBIT_currency) ||
     displayCurrency;
+  const metricsCurrencySuffix = metricsCurrencyCode
+    ? ` (${metricsCurrencyCode})`
+    : "";
+
   const financialMetricsPeriodDisplay = formatFinancialMetricsPeriod(financialMetrics);
 
   // Extract last 3 income statement rows (public companies only)
@@ -2583,7 +2065,7 @@ const CompanyDetail = () => {
       cost_of_goods_sold_currency: row.cost_of_goods_sold_currency,
     }))
     .sort((a, b) => {
-      // Sort ascending by period_end_date; take the 3 most recent for display
+      // Sort descending by period_end_date; fallback to display string
       const da = a.period_end_date
         ? Date.parse(a.period_end_date)
         : Date.parse(
@@ -2594,9 +2076,9 @@ const CompanyDetail = () => {
         : Date.parse(
             (b.period_display_end_date || "").replace(/[^0-9-]/g, "")
           ) || 0;
-      return da - db;
+      return db - da;
     })
-    .slice(-3);
+    .slice(0, 3);
 
   // Show Income Statement only if there is at least one numeric value
   const hasIncomeStatementData =
@@ -2608,33 +2090,12 @@ const CompanyDetail = () => {
         typeof row.ebitda === "number"
     );
 
-  // Process employee data (monthly in Company, or root-level employees_deduped)
-  const fromMonthly = company._companies_employees_count_monthly || [];
-  const fromDeduped = company.employees_deduped || [];
-  const employeeData =
-    fromMonthly.length > 0 ? fromMonthly : fromDeduped;
-  const currentEmployeeCount = resolveChartEmployeeCount(employeeData);
-
-  const finMetricsData = buildFinancialMetricsSections({
-    financialMetrics,
-    hasIncomeStatementData,
-    revenuePlain,
-    ebitdaPlain,
-    evPlain,
-    currentEmployeeCount,
-    currencyCode: metricsCurrencyCode || displayCurrency,
-    getSourceText,
-    formatPercent,
-    formatMultiple,
-    formatPlainNumber,
-    formatWholeNumber,
-    getNumeric,
-    periodDisplay: financialMetricsPeriodDisplay || undefined,
-  });
-
-  const benchmarkPeersData = buildBenchmarkPeersData({
-    companyName: company.name?.trim() || "Company",
-  });
+  // Process employee data
+  const employeeData = company._companies_employees_count_monthly || [];
+  const currentEmployeeCount =
+    employeeData.length > 0
+      ? employeeData[employeeData.length - 1].employees_count
+      : 0;
 
   // Determine if there are subsidiaries to display
   const hasSubsidiaries = Boolean(
@@ -2662,41 +2123,22 @@ const CompanyDetail = () => {
   );
   const hasManagement = hasCurrentManagement || hasPastManagement;
 
-  const totalAmountRaisedDisplay = pickTotalAmountRaisedDisplay(company);
-
-  const fmEmployeeHeadcount = financialMetrics?.No_Employees;
-  const overviewHeadcount = (() => {
-    if (typeof currentEmployeeCount === "number" && currentEmployeeCount > 0) {
-      return currentEmployeeCount;
-    }
-    if (
-      typeof fmEmployeeHeadcount === "number" &&
-      fmEmployeeHeadcount > 0
-    ) {
-      return fmEmployeeHeadcount;
-    }
-    const li = company.linkedin_data?.LinkedIn_Employee;
-    if (typeof li === "number" && li > 0) return li;
-    return null;
-  })();
-
-  const overviewEmployeesYoY = (() => {
-    const direct = company.employees_yoy_pct;
-    if (typeof direct === "number" && Number.isFinite(direct)) {
-      const rounded = Math.round(direct * 10) / 10;
-      return `${rounded >= 0 ? "+" : ""}${rounded}% YoY`;
-    }
-    return computeEmployeeYoYFromMonthly(employeeData);
-  })();
-
   // Market Overview removed: no TradingView symbols computation
+
+  // Build a readable former name string if present
+  const formerNameDisplay =
+    Array.isArray(company?.Former_name) && company.Former_name.length > 0
+      ? company.Former_name.filter(
+          (v) => typeof v === "string" && v.trim().length > 0
+        ).join(", ")
+      : null;
 
   const productTypeRows = parseStructuredArray<CompanyProductTypeItem>(
     company.Product_Type
   )
     .map((item) => ({
       label: String(item?.Product_Type || "").trim(),
-      // If percentage is missing, leave the cell empty instead of showing "-"
+      // If percentage is missing, leave the cell empty instead of showing "Not available"
       value:
         getNumeric(item?.pc_of_revenues) !== undefined
           ? `${Math.round(getNumeric(item?.pc_of_revenues) || 0)}%`
@@ -2710,6 +2152,7 @@ const CompanyDetail = () => {
     )
       .map((item) => ({
         label: String(item?.Data_Collection_Method || "").trim(),
+        value: String(item?.Predominance || "").trim(),
       }))
       .filter((item) => item.label);
 
@@ -2720,51 +2163,34 @@ const CompanyDetail = () => {
   )
     .map((item) => ({
       label: String(item?.Revenue_Model_ || "").trim(),
+      // Leave cell empty when predominance is missing (no "Not available")
       value: String(item?.Predominance || "").trim(),
     }))
     .filter((item) => item.label);
 
-  const tickerDisplay = company.ticker && company.exchange
-    ? `${company.exchange}: ${company.ticker}`
-    : company.ticker || null;
-
-  const canInsightPrev = insightsTotal > 0 && insightsPage > 1;
-  const canInsightNext =
-    insightsTotal > 0 && insightsPage < insightsTotalPages;
-  const canCePrev = ceTotal > 0 && cePage > 1;
-  const canCeNext = ceTotal > 0 && cePage < ceTotalPages;
-
-  // ── Design tokens (mirroring the HTML template's T object) ──────────────
-  const T = {
-    paper:   "#FAFAF7",
-    panel:   "#FFFFFF",
-    inset:   "#F4F3EE",
-    divider: "rgba(15,17,21,0.08)",
-    hair:    "rgba(15,17,21,0.06)",
-    ink:     "#0F1115",
-    body:    "#2A2D33",
-    muted:   "#6B6E76",
-    faint:   "#9A9CA3",
-    azure:   "oklch(54% 0.22 258)",
-    azureSoft: "oklch(96% 0.035 258)",
-    emerald: "oklch(56% 0.13 158)",
-    emeraldSoft: "oklch(95% 0.05 158)",
-    coral:   "oklch(68% 0.13 25)",
-    coralSoft: "oklch(95% 0.04 25)",
-    lavender: "oklch(64% 0.16 285)",
-    lavenderSoft: "oklch(94% 0.045 285)",
-    up:      "oklch(55% 0.13 150)",
-    down:    "oklch(55% 0.17 25)",
-    r:       6,
-    rLg:     10,
-    sans:    'var(--font-geist-sans, "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif)',
-    mono:    'var(--font-geist-mono, "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace)',
-  };
+  const companyAttributeSections = [
+    {
+      title: "Product Type",
+      valueHeader: "% of revenue",
+      rows: productTypeRows,
+    },
+    {
+      title: "Data Collection Method",
+      valueHeader: "Predominance",
+      rows: dataCollectionMethodRows,
+    },
+    {
+      title: "Revenue Model",
+      valueHeader: "Predominance",
+      rows: revenueModelRows,
+    },
+  ].filter((section) => section.rows.length > 0);
 
   const styles = {
     container: {
-      backgroundColor: T.paper,
-      fontFamily: T.sans,
+      backgroundColor: "#f9fafb",
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       minHeight: "100vh",
       display: "flex",
       flexDirection: "column" as const,
@@ -2772,63 +2198,61 @@ const CompanyDetail = () => {
     maxWidth: {
       width: "100%",
       maxWidth: "100%",
-      padding: "18px",
+      padding: "24px",
       flex: "1",
       display: "flex",
       flexDirection: "column" as const,
       overflow: "hidden",
     },
     header: {
-      backgroundColor: T.panel,
-      borderRadius: "10px",
-      padding: "20px",
-      marginBottom: "16px",
-      border: `1px solid ${T.divider}`,
+      backgroundColor: "white",
+      borderRadius: "12px",
+      padding: "24px 24px",
+      marginBottom: "24px",
+      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
       flexWrap: "wrap" as const,
-      gap: "12px",
+      gap: "16px",
     },
     headerLeft: {
       display: "flex",
       alignItems: "center",
-      gap: "12px",
+      gap: "16px",
     },
     companyName: {
-      fontSize: "24px",
-      fontWeight: "600",
-      color: T.ink,
+      fontSize: "28px",
+      fontWeight: "700",
+      color: "#1a202c",
       margin: "0",
-      letterSpacing: "-0.4px",
     },
     formerName: {
-      marginTop: "2px",
-      fontSize: "12px",
-      color: T.muted,
+      marginTop: "4px",
+      fontSize: "14px",
+      color: "#4a5568",
     },
     headerRight: {
       display: "flex",
       alignItems: "center",
-      gap: "8px",
+      gap: "16px",
     },
     scoreBadge: {
-      backgroundColor: T.inset,
-      color: T.body,
-      padding: "2px 8px",
-      borderRadius: "4px",
-      fontSize: "11.5px",
+      backgroundColor: "#f7fafc",
+      color: "#4a5568",
+      padding: "8px 16px",
+      borderRadius: "20px",
+      fontSize: "14px",
       fontWeight: "500",
-      border: `1px solid ${T.divider}`,
     },
     reportButton: {
-      backgroundColor: T.emerald,
+      backgroundColor: "#38a169",
       color: "white",
       border: "none",
-      padding: "7px 14px",
+      padding: "8px 16px",
       borderRadius: "6px",
-      fontSize: "12.5px",
-      fontWeight: "600",
+      fontSize: "14px",
+      fontWeight: "500",
       cursor: "pointer",
       textDecoration: "none",
     },
@@ -2837,289 +2261,141 @@ const CompanyDetail = () => {
       padding: "10px 12px",
       backgroundColor: "transparent",
       border: "none",
-      color: T.body,
+      color: "#1a202c",
       cursor: "pointer",
       display: "block",
-      fontSize: "13px",
+      fontSize: "14px",
       fontWeight: 500,
       textAlign: "left" as const,
     },
 
     card: {
-      backgroundColor: T.panel,
-      borderRadius: `${T.rLg}px`,
-      overflow: "hidden",
-      border: `1px solid ${T.divider}`,
+      backgroundColor: "white",
+      borderRadius: "12px",
+      padding: "24px 20px",
+      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+      // Important for CSS grid: allow cards to shrink so inner overflow containers can scroll
       minWidth: 0,
     },
-    cardHeader: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      padding: "14px 16px 12px",
-      borderBottom: `1px solid ${T.hair}`,
-    },
-    cardHeaderTitle: {
-      fontFamily: T.sans,
-      fontSize: "13.5px",
-      fontWeight: 600,
-      color: T.ink,
-    },
-    cardArrow: {
-      fontSize: "14px",
-      color: T.azure,
-      fontWeight: 500,
-      cursor: "pointer",
-      lineHeight: 1,
-      padding: "2px 4px",
-    },
     sectionTitle: {
-      fontSize: "13.5px",
+      fontSize: "20px",
       fontWeight: "600",
-      color: T.ink,
-      marginBottom: "0",
+      color: "#1a202c",
+      marginBottom: "24px",
       marginTop: "0",
     },
-    finInfoRow: {
+    infoRow: {
       display: "grid",
       gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
       columnGap: "4px",
       alignItems: "center",
       padding: "10px 0",
-      borderBottom: `1px solid ${T.hair}`,
-      fontSize: "12.5px",
-    },
-    finSourceValue: {
-      fontSize: "11px",
-      color: T.muted,
-      textAlign: "right" as const,
-      whiteSpace: "nowrap" as const,
-      paddingLeft: "8px",
-    },
-    infoRow: {
-      display: "grid",
-      gridTemplateColumns: "120px 1fr",
-      columnGap: "10px",
-      alignItems: "start",
-      padding: "7px 0",
-      borderBottom: `1px solid ${T.hair}`,
+      borderBottom: "1px solid #e2e8f0",
     },
     infoRowLast: {
       display: "grid",
-      gridTemplateColumns: "120px 1fr",
-      columnGap: "10px",
+      gridTemplateColumns: "minmax(180px, 220px) 1fr",
+      columnGap: "4px",
       alignItems: "flex-start",
-      padding: "7px 0",
+      padding: "10px 0",
       borderBottom: "none",
     },
-    /** Right-rail metric values — matches CompanyProfile KV mono column */
-    v3RailValue: {
-      fontSize: "12.5px",
-      color: T.body,
-      fontWeight: "400",
-      textAlign: "left" as const,
-      marginLeft: "0",
-      fontFamily: T.mono,
-      fontVariantNumeric: "tabular-nums",
-      wordBreak: "break-word" as const,
-      overflowWrap: "break-word" as const,
-    },
-    v3RailHeadlineCount: {
-      fontSize: "26px",
-      fontWeight: 600,
-      color: T.ink,
-      marginBottom: "8px",
-      fontVariantNumeric: "tabular-nums",
-      letterSpacing: "-0.3px",
-      lineHeight: 1.2,
-    },
-    /** Financial tab rows — label left, value right (full width), matches design mocks */
-    v3TabFinRow: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "baseline",
-      gap: 16,
-      width: "100%",
-      minWidth: 0,
-      padding: "10px 0",
-      borderBottom: `1px solid ${T.hair}`,
-      fontSize: "12.5px",
-      boxSizing: "border-box" as const,
-    },
     label: {
-      ...kvLabelStyle,
+      fontSize: "14px",
+      color: "#4a5568",
+      fontWeight: "500",
+      width: "220px",
     },
     value: {
-      ...kvValueStyle,
+      fontSize: "14px",
+      color: "#1a202c",
+      fontWeight: "400",
       textAlign: "left" as const,
       marginLeft: "0",
       wordBreak: "break-word" as const,
       overflowWrap: "break-word" as const,
     },
     sourceValue: {
-      display: "none",
+      fontSize: "12px",
+      color: "#9ca3af",
+      textAlign: "right" as const,
+      whiteSpace: "nowrap" as const,
+      paddingLeft: "8px",
     },
     link: {
-      color: T.azure,
-      textDecoration: "none",
+      color: "#0075df",
+      textDecoration: "underline",
       cursor: "pointer",
     },
     description: {
-      ...descriptionBodyStyle,
+      fontSize: "14px",
+      color: "#1a202c",
+      lineHeight: "1.6",
+      marginTop: "16px",
     },
     chartContainer: {
-      marginTop: "20px",
+      marginTop: "24px",
       overflow: "hidden",
     },
     chartTitle: {
-      fontSize: "12px",
-      fontWeight: "500",
-      color: T.muted,
-      marginBottom: "8px",
-      textTransform: "uppercase" as const,
-      letterSpacing: "0.5px",
+      fontSize: "16px",
+      fontWeight: "600",
+      color: "#1a202c",
+      marginBottom: "16px",
     },
     currentCount: {
-      fontSize: "22px",
-      fontWeight: "600",
-      color: T.ink,
-      marginBottom: "12px",
-      fontVariantNumeric: "tabular-nums",
-      letterSpacing: "-0.3px",
-    },
-    financialTabs: {
-      display: "grid",
-      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-      borderBottom: `1px solid ${T.hair}`,
-      backgroundColor: T.panel,
-    },
-    financialTab: {
-      appearance: "none" as const,
-      border: "none",
-      borderRight: `1px solid ${T.hair}`,
-      backgroundColor: "transparent",
-      color: T.muted,
-      cursor: "pointer",
-      fontFamily: T.sans,
-      fontSize: "12px",
-      fontWeight: 500,
-      padding: "11px 8px",
-      lineHeight: 1.2,
-    },
-    financialTabActive: {
-      color: T.ink,
-      backgroundColor: T.inset,
-      boxShadow: `inset 0 -2px 0 ${T.azure}`,
-    },
-    productMixHeader: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      padding: "0 14px 0 8px",
-      borderBottom: `1px solid ${T.hair}`,
-      backgroundColor: T.panel,
-      minHeight: 44,
-    },
-    productMixTabInner: {
-      display: "flex",
-      flex: 1,
-      alignItems: "stretch",
-      gap: 0,
-    },
-    productMixTabButton: {
-      appearance: "none" as const,
-      border: "none",
-      background: "none",
-      cursor: "pointer",
-      fontFamily: T.sans,
-      fontSize: "12.5px",
-      fontWeight: 500,
-      color: T.muted,
-      padding: "12px 14px 10px",
-      lineHeight: 1.2,
-      borderBottom: "2px solid transparent",
-      marginBottom: -1,
-    },
-    productMixTabButtonActive: {
-      color: T.ink,
-      borderBottomColor: T.ink,
-    },
-    emptyState: {
-      color: T.muted,
-      fontSize: "12.5px",
-      lineHeight: "1.5",
-      padding: "12px 0",
+      fontSize: "24px",
+      fontWeight: "700",
+      color: "#0075df",
+      marginBottom: "16px",
     },
     linkedinLink: {
       display: "flex",
       alignItems: "center",
       gap: "8px",
-      color: T.azure,
+      color: "#0075df",
       textDecoration: "none",
-      fontSize: "13px",
+      fontSize: "14px",
       fontWeight: "500",
     },
     tagContainer: {
       display: "flex",
       flexWrap: "wrap" as const,
-      gap: "4px",
+      gap: "6px",
+      marginTop: "4px",
     },
     sectorTag: {
-      backgroundColor: T.coralSoft,
-      color: T.coral,
-      padding: "2px 8px",
+      backgroundColor: "#f3e5f5",
+      color: "#7b1fa2",
+      padding: "4px 8px",
       borderRadius: "4px",
-      fontSize: "11.5px",
+      fontSize: "12px",
       fontWeight: "500",
       cursor: "pointer",
-      transition: "opacity 0.15s ease",
+      transition: "background-color 0.2s ease",
       textDecoration: "none",
-      display: "inline-flex",
-      alignItems: "center",
-      border: "1px solid transparent",
-      whiteSpace: "nowrap" as const,
-      lineHeight: 1.5,
-    },
-    sectorTagSecondary: {
-      backgroundColor: T.lavenderSoft,
-      color: T.lavender,
-      padding: "2px 8px",
-      borderRadius: "4px",
-      fontSize: "11.5px",
-      fontWeight: "500",
-      cursor: "pointer",
-      transition: "opacity 0.15s ease",
-      textDecoration: "none",
-      display: "inline-flex",
-      alignItems: "center",
-      border: "1px solid transparent",
-      whiteSpace: "nowrap" as const,
-      lineHeight: 1.5,
+      display: "inline-block",
     },
     companyTag: {
-      backgroundColor: T.azureSoft,
-      color: T.azure,
-      padding: "2px 8px",
+      backgroundColor: "#e8f5e8",
+      color: "#2e7d32",
+      padding: "4px 8px",
       borderRadius: "4px",
-      fontSize: "11.5px",
+      fontSize: "12px",
       fontWeight: "500",
       cursor: "pointer",
-      transition: "opacity 0.15s ease",
+      transition: "background-color 0.2s ease",
       textDecoration: "none",
-      display: "inline-flex",
-      alignItems: "center",
-      border: "1px solid transparent",
-      whiteSpace: "nowrap" as const,
-      lineHeight: 1.5,
+      display: "inline-block",
     },
     responsiveGrid: {
       display: "grid",
-      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-      gap: "12px",
+      // Allow grid children to shrink and prevent wide tables from pushing/clipping the right column
+      gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
+      gap: "24px",
       flex: "1",
       maxWidth: "100%",
       overflow: "hidden",
-      alignItems: "stretch",
     },
     "@media (max-width: 768px)": {
       responsiveGrid: {
@@ -3147,284 +2423,96 @@ const CompanyDetail = () => {
         gap: "6px",
       },
       maxWidth: {
-        padding: "12px 4px",
+        padding: "16px 4px",
       },
       card: {
-        borderRadius: "8px",
+        padding: "14px 12px",
       },
       companyName: {
-        fontSize: "20px",
+        fontSize: "22px",
         lineHeight: "1.3",
       },
       formerName: {
-        fontSize: "11px",
+        fontSize: "12px",
       },
       sectionTitle: {
-        fontSize: "13px",
+        fontSize: "17px",
+        marginBottom: "12px",
       },
       infoRow: {
         display: "flex",
         flexDirection: "column",
         alignItems: "flex-start",
-        gap: "1px",
-        padding: "6px 0",
+        gap: "2px",
+        padding: "8px 0",
         width: "100%",
       },
       label: {
-        ...kvLabelStyle,
+        fontSize: "12px",
+        color: "#718096",
+        fontWeight: "600",
         minWidth: "auto",
-        marginBottom: "1px",
+        marginBottom: "2px",
       },
       value: {
-        ...kvValueStyle,
+        fontSize: "13px",
         textAlign: "left",
         marginLeft: "0",
+        lineHeight: "1.35",
         wordBreak: "break-word" as const,
         overflowWrap: "break-word" as const,
         width: "100%",
       },
       description: {
-        ...descriptionBodyStyle,
+        fontSize: "13px",
+        lineHeight: "1.5",
+        marginTop: "8px",
       },
       chartTitle: {
-        fontSize: "11px",
-        marginBottom: "8px",
+        fontSize: "15px",
+        marginBottom: "12px",
       },
       currentCount: {
         fontSize: "20px",
-        marginBottom: "10px",
+        marginBottom: "12px",
       },
+
       scoreBadge: {
-        fontSize: "11px",
-        padding: "2px 6px",
+        fontSize: "12px",
+        padding: "6px 12px",
       },
       reportButton: {
         fontSize: "12px",
         padding: "6px 12px",
       },
       linkedinLink: {
-        fontSize: "12.5px",
+        fontSize: "13px",
         justifyContent: "center",
-        padding: "10px",
-        backgroundColor: T.inset,
+        padding: "12px",
+        backgroundColor: "#f7fafc",
         borderRadius: "8px",
         width: "100%",
       },
+      // Hide chart in desktop financial metrics on mobile
       chartContainer: {
-        marginTop: "16px",
+        marginTop: "20px",
         overflow: "hidden",
-        padding: "0 6px",
+        padding: "0 8px",
         width: "100%",
-        display: "none",
+        display: "none", // Hide on mobile by default
       },
+      // Show mobile chart section on mobile
       mobileChartSection: {
         display: "block",
       },
     },
   };
 
-  const mixBarColors = [
-    T.azure,
-    T.lavender,
-    T.coral,
-    "oklch(72% 0.14 65)",
-    T.emerald,
-    T.muted,
-  ];
-
-  const coreProductsSections = buildCoreProductsSections(
-    company,
-    productServicesData
-  );
-
-  const productTypeBarRows = productTypeRows.map((row, i) => {
-          const rawPct = parsePercentToken(row.value);
-          const pct = Math.min(100, Math.max(0, rawPct ?? 0));
-          const displayRight =
-            row.value.includes("%") && row.value.trim()
-              ? row.value.trim()
-              : rawPct !== null
-                ? `${Math.round(rawPct)}%`
-                : `${Math.round(pct)}%`;
-          return {
-            label: row.label,
-            pct,
-            displayRight,
-            color: mixBarColors[i % mixBarColors.length],
-          };
-        });
-
-  const productDataToggleDataRows = dataCollectionMethodRows;
-
-  /** Dynamic grid rows — cards pack upward when optional sections are hidden */
-  const PRODUCT_ROW_START = 3;
-  const showProductType = productTypeRows.length > 0;
-  const showRevenueModel = revenueModelRows.length > 0;
-  const showCoreProducts = coreProductsSections.length > 0;
-  const showDataCollection = dataCollectionMethodRows.length > 0;
-  const showAiRisk = aiRiskAxes != null && aiRiskAxes.length > 0;
-  const showCorporateEvents =
-    corporateEventsLoading || ceTotal > 0 || corporateEvents.length > 0;
-
-  const col2StackWithoutRevenue =
-    (showCoreProducts ? 1 : 0) + (showDataCollection ? 1 : 0);
-
-  let productMixGridRow = 0;
-  let revenueModelGridCol = 1;
-  let revenueModelGridRow = 0;
-  let coreProductsGridRow = 0;
-  let dataCollectionGridRow = 0;
-  let headcountGridRow = 0;
-  let managementGridRow = 0;
-  let corporateEventsGridRow = 0;
-  let subsidiariesGridRow = 0;
-
-  if (showAiRisk) {
-    const col1Stack =
-      (showProductType ? 1 : 0) + (showRevenueModel ? 1 : 0);
-    const col2Stack = col2StackWithoutRevenue;
-    const productZoneHeight = Math.max(col1Stack, col2Stack, 2);
-    const wideSectionStartRow = PRODUCT_ROW_START + productZoneHeight;
-
-    productMixGridRow = showProductType ? PRODUCT_ROW_START : 0;
-    revenueModelGridCol = 1;
-    revenueModelGridRow = showRevenueModel
-      ? PRODUCT_ROW_START + (showProductType ? 1 : 0)
-      : 0;
-    coreProductsGridRow = showCoreProducts ? PRODUCT_ROW_START : 0;
-    dataCollectionGridRow = showDataCollection
-      ? PRODUCT_ROW_START + (showCoreProducts ? 1 : 0)
-      : 0;
-    headcountGridRow = wideSectionStartRow;
-    managementGridRow = hasManagement ? wideSectionStartRow + 1 : 0;
-    corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
-    subsidiariesGridRow = hasSubsidiaries
-      ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
-      : 0;
-  } else {
-    /** No AI risk: row 3 = product type | data collection | headcount;
-     *  wide cards under cols 1–2; revenue model under headcount (col 3). */
-    const leftTopStack = Math.max(
-      showProductType ? 1 : 0,
-      col2StackWithoutRevenue
-    );
-    const wideSectionStartRow = PRODUCT_ROW_START + leftTopStack;
-
-    productMixGridRow = showProductType ? PRODUCT_ROW_START : 0;
-    coreProductsGridRow = showCoreProducts ? PRODUCT_ROW_START : 0;
-    dataCollectionGridRow = showDataCollection
-      ? PRODUCT_ROW_START + (showCoreProducts ? 1 : 0)
-      : 0;
-    headcountGridRow = PRODUCT_ROW_START;
-    revenueModelGridCol = 3;
-    revenueModelGridRow = showRevenueModel ? PRODUCT_ROW_START + 1 : 0;
-    corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
-    subsidiariesGridRow = hasSubsidiaries
-      ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
-      : 0;
-    managementGridRow = hasManagement
-      ? showRevenueModel
-        ? PRODUCT_ROW_START + 2
-        : PRODUCT_ROW_START + 1
-      : 0;
-  }
-
   const responsiveCss = `
     .company-detail-page { overflow-x: hidden; }
-    .responsiveGrid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      max-width: 100%;
-      align-items: stretch;
-    }
-    .responsiveGrid > * { min-width: 0; min-height: 0; }
-    .company-grid-overview {
-      grid-column: 1;
-      grid-row: 1;
-      min-height: 0;
-      align-self: stretch;
-      display: flex;
-      flex-direction: column;
-    }
-    .company-grid-description {
-      grid-column: 2;
-      grid-row: 1;
-      min-height: 0;
-      align-self: stretch;
-      display: flex;
-      flex-direction: column;
-    }
-    .company-grid-finance-primary {
-      grid-column: 3;
-      grid-row: 1;
-      min-width: 0;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      align-self: stretch;
-    }
-    .company-grid-finance-secondary {
-      grid-column: 3;
-      grid-row: 2;
-      min-width: 0;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      align-self: start;
-    }
-    .company-grid-insights {
-      grid-column: 1 / span 2;
-      grid-row: 2;
-      min-height: 0;
-      align-self: start;
-      display: flex;
-      flex-direction: column;
-    }
-    .company-grid-product-mix { grid-column: 1; grid-row: ${productMixGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-revenue-model { grid-column: ${revenueModelGridCol}; grid-row: ${revenueModelGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-product-users { grid-column: 2; grid-row: ${coreProductsGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-data-collection { grid-column: 2; grid-row: ${dataCollectionGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-ai-risk { grid-column: 3; grid-row: ${PRODUCT_ROW_START} / span 2; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-corporate-events,
-    .company-grid-subsidiaries,
-    .company-grid-headcount,
-    .company-grid-management {
-      min-width: 0;
-      min-height: 0;
-      align-self: stretch;
-      display: flex;
-      flex-direction: column;
-    }
-    .company-grid-corporate-events { grid-column: 1 / span 2; grid-row: ${corporateEventsGridRow}; overflow: hidden; max-width: 100%; }
-    .company-grid-subsidiaries { grid-column: 1 / span 2; grid-row: ${subsidiariesGridRow}; overflow: hidden; max-width: 100%; }
-    .company-grid-corporate-events > *,
-    .company-grid-subsidiaries > * {
-      min-width: 0;
-      max-width: 100%;
-      width: 100%;
-    }
-    .company-grid-headcount { grid-column: 3; grid-row: ${headcountGridRow}; }
-    .company-grid-management { grid-column: 3; grid-row: ${managementGridRow}; }
-    .card {
-      background: ${T.panel};
-      border-radius: ${T.rLg}px;
-      min-width: 0;
-      border: 1px solid ${T.divider};
-      transition: box-shadow 160ms ease, border-color 160ms ease;
-    }
-    .card:hover,
-    .v3-finance-tabbed-card:hover,
-    .management-v3-card:hover {
-      border-color: oklch(58% 0.16 258 / 0.42);
-      box-shadow: 0 8px 28px oklch(54% 0.18 258 / 0.14);
-      z-index: 1;
-    }
-    .v3-finance-tabbed-card,
-    .management-v3-card {
-      transition: box-shadow 160ms ease, border-color 160ms ease;
-    }
-    /* insights-summary-card grid-column set via inline style */
+    .responsiveGrid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; max-width: 100%; }
+    .responsiveGrid > * { min-width: 0; }
+    .card { background: white; border-radius: 12px; min-width: 0; }
     .transaction-status-pill {
       display: inline-flex;
       align-items: center;
@@ -3433,7 +2521,9 @@ const CompanyDetail = () => {
       white-space: nowrap;
       max-width: 100%;
     }
-    /* overview-card now uses OverviewCard component — legacy overrides removed */
+    /* Give Overview right column more room on desktop */
+    .overview-card .info-row { grid-template-columns: minmax(140px, 170px) 1fr auto !important; }
+    .overview-card .info-label { width: 170px !important; }
     /* Hover tooltips for metric values using title attribute */
     .desktop-financial-metrics span[title],
     .mobile-financial-metrics span[title] {
@@ -3468,125 +2558,22 @@ const CompanyDetail = () => {
       z-index: 21;
       pointer-events: none;
     }
-    /* Financial Metrics rows aligned with Overview KV layout */
-    .fin-tab-scroll::-webkit-scrollbar {
-      display: none;
+    /* Tighter rows inside Financial Metrics */
+    .desktop-financial-metrics .info-row {
+      padding: 6px 0 !important;
+      grid-template-columns: minmax(150px, 170px) minmax(0, 1fr) auto !important;
+      column-gap: 12px !important;
     }
-    .desktop-financial-metrics .info-row:not(.income-statement-row),
-    .desktop-financial-metrics .fin-metric-period-header {
-      padding: 4px 0 !important;
-      grid-template-columns: 138px 1fr minmax(52px, auto) !important;
-      column-gap: 8px !important;
-      align-items: center !important;
-    }
-    .desktop-financial-metrics .fin-metric-period-header {
-      padding: 4px 12px 3px !important;
-    }
-    .desktop-financial-metrics .fin-metric-value,
-    .mobile-financial-metrics .fin-metric-value {
-      font-family: ${T.sans} !important;
-      font-size: 13px !important;
-      line-height: 1.55 !important;
-      font-weight: 400 !important;
-      color: ${T.body} !important;
-    }
-    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(2),
-    .desktop-financial-metrics .fin-metric-period-header > :nth-child(2) {
+    .desktop-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
-      text-align: center !important;
-      justify-self: center !important;
-      width: 100%;
     }
-    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(1) {
-      text-align: left !important;
-      justify-self: start !important;
-      font-family: ${T.sans} !important;
-      font-size: 13px !important;
-      line-height: 1.35 !important;
-      font-weight: 400 !important;
-      color: ${T.muted} !important;
+    .mobile-financial-metrics .info-row {
+      padding: 6px 0 !important;
+      grid-template-columns: minmax(150px, 170px) minmax(0, 1fr) auto !important;
+      column-gap: 12px !important;
     }
-    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3),
-    .desktop-financial-metrics .fin-metric-period-header > :nth-child(3) {
-      font-family: ${T.sans} !important;
-      font-size: 13px !important;
-      line-height: 1.35 !important;
-      font-weight: 400 !important;
-      color: ${T.muted} !important;
-      text-align: right !important;
-      justify-self: end !important;
-    }
-    .mobile-financial-metrics .info-row:not(.income-statement-row),
-    .mobile-financial-metrics .fin-metric-period-header {
-      padding: 4px 0 !important;
-      grid-template-columns: 138px 1fr minmax(52px, auto) !important;
-      column-gap: 8px !important;
-      align-items: center !important;
-    }
-    .mobile-financial-metrics .fin-metric-period-header {
-      padding: 4px 12px 3px !important;
-    }
-    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(2),
-    .mobile-financial-metrics .fin-metric-period-header > :nth-child(2) {
+    .mobile-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
-      text-align: center !important;
-      justify-self: center !important;
-      width: 100%;
-    }
-    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(1) {
-      text-align: left !important;
-      justify-self: start !important;
-      font-family: ${T.sans} !important;
-      font-size: 13px !important;
-      line-height: 1.35 !important;
-      font-weight: 400 !important;
-      color: ${T.muted} !important;
-    }
-    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3),
-    .mobile-financial-metrics .fin-metric-period-header > :nth-child(3) {
-      font-family: ${T.sans} !important;
-      font-size: 13px !important;
-      line-height: 1.35 !important;
-      font-weight: 400 !important;
-      color: ${T.muted} !important;
-      text-align: right !important;
-      justify-self: end !important;
-    }
-    /* Income Statement — table layout; year headers align with values */
-    .desktop-financial-metrics .income-statement-grid th,
-    .mobile-financial-metrics .income-statement-grid th {
-      font-family: ${T.sans} !important;
-    }
-    .desktop-financial-metrics .income-statement-grid td,
-    .mobile-financial-metrics .income-statement-grid td {
-      font-family: ${T.sans} !important;
-    }
-    .desktop-financial-metrics .income-statement-grid th,
-    .mobile-financial-metrics .income-statement-grid th {
-      font-size: 10px !important;
-      font-weight: 500 !important;
-      color: ${T.muted} !important;
-      text-transform: uppercase !important;
-      letter-spacing: 0.35px !important;
-      text-align: center !important;
-    }
-    .desktop-financial-metrics .income-statement-grid td:first-child,
-    .mobile-financial-metrics .income-statement-grid td:first-child {
-      font-family: ${T.sans} !important;
-      color: ${T.muted} !important;
-      font-size: 13px !important;
-      line-height: 1.35 !important;
-      font-weight: 400 !important;
-      text-align: left !important;
-    }
-    .desktop-financial-metrics .income-statement-grid td:not(:first-child),
-    .mobile-financial-metrics .income-statement-grid td:not(:first-child) {
-      text-align: center !important;
-      font-family: ${T.sans} !important;
-      font-size: 13px !important;
-      line-height: 1.55 !important;
-      font-weight: 400 !important;
-      color: ${T.body} !important;
     }
     /* Corporate Events styles (mirrors corporate-events list page) */
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
@@ -3600,8 +2587,12 @@ const CompanyDetail = () => {
     .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
     .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
     .pill-green { background-color: #dcfce7; color: #15803d; }
-    .management-profile-row:hover {
-      background-color: ${T.inset};
+    /* Management card hover effects */
+    .management-card:hover {
+      background-color: #e6f0ff !important;
+      border-color: #0075df !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
     }
     /* Insights & Analysis responsive grid */
     .insights-grid {
@@ -3616,116 +2607,143 @@ const CompanyDetail = () => {
         gap: 12px !important;
       }
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
-      .company-grid-overview,
-      .company-grid-description,
-      .company-grid-finance-primary,
-      .company-grid-finance-secondary,
-      .company-grid-insights,
-      .company-grid-product-mix,
-      .company-grid-revenue-model,
-      .company-grid-product-users,
-      .company-grid-data-collection,
-      .company-grid-ai-risk,
-      .company-grid-corporate-events,
-      .company-grid-subsidiaries,
-      .company-grid-headcount,
-      .company-grid-management {
-        grid-column: 1 / -1 !important;
-        grid-row: auto !important;
-        align-self: stretch !important;
-      }
       .desktop-financial-metrics { display: none !important; }
       .mobile-financial-metrics { display: block !important; }
       .desktop-linkedin-section { display: none !important; }
+      .management-grid { grid-template-columns: 1fr !important; }
       .overview-card .info-row { padding: 8px 0 !important; display: block !important; }
       .overview-card .info-label { font-size: 12px !important; color: #718096 !important; margin-bottom: 2px !important; }
       .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; word-break: break-word !important; overflow-wrap: break-word !important; }
       .overview-card { padding: 14px 8px !important; }
       .overview-grid { grid-template-columns: 1fr !important; }
-      .product-mix-users-row { grid-template-columns: 1fr !important; gap: 12px !important; }
+      .overview-description { order: 2; margin-top: 16px !important; }
+      .overview-fields { order: 1; }
     }
   `;
 
   return (
     <div className="company-detail-page" style={styles.container}>
       <Header />
-
-      {/* ── Company profile header bar ── */}
-      <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
-        {/* Top row: logo + name + badges + actions */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          flexWrap: "wrap" as const, gap: "12px", padding: "22px 0 16px",
-        }}>
-          {/* Left: logo + name */}
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0, flex: 1 }}>
+      <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <div className="company-detail-content" style={styles.maxWidth}>
+          {/* Desktop grid */}
+          <div style={styles.responsiveGrid} className="responsiveGrid">
+            {/* Overview card */}
+            <div style={styles.card} className="card overview-card">
+              {/* Company header moved into Overview */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "16px",
+                  paddingBottom: "16px",
+                  marginBottom: "16px",
+                  borderBottom: "1px solid #e2e8f0",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "16px",
+                    minWidth: 0,
+                  }}
+                >
                   <CompanyLogo
                     logo={company._linkedin_data_of_new_company?.linkedin_logo}
                     name={company.name}
                   />
-                  <span style={{
-                    fontSize: "24px", fontWeight: 600, color: T.ink,
-                    letterSpacing: "-0.4px", lineHeight: 1.2, fontFamily: T.sans,
-                  }}>
-                    {company.name}
-                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: "22px",
+                        fontWeight: 700,
+                        color: "#1a202c",
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {company.name}
+                    </div>
+                    {formerNameDisplay && (
+                      <div style={{ ...styles.formerName, marginTop: "4px" }}>
+                        (Formerly {formerNameDisplay})
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-          {/* Right: action buttons */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" as const }}>
-                  {companyId && !Number.isNaN(Number(companyId)) && (
-                    <FollowButton
-                      followKey="followed_companies"
-                      entityId={Number(companyId)}
-                      entityType="company"
-                      label="Company"
-                      icon={<BellIcon width={15} height={15} strokeWidth={2} aria-hidden />}
-                    />
-                  )}
-            <div ref={pdfExportMenuRef} style={{ position: "relative", display: "inline-block" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {}
+                  <div
+                    ref={pdfExportMenuRef}
+                    style={{ position: "relative", display: "inline-block" }}
+                  >
                     <button
                       type="button"
-                onClick={() => setShowPdfExportOptions((current) => !current)}
+                      onClick={() =>
+                        setShowPdfExportOptions((current) => !current)
+                      }
                       disabled={exportingPdf || !company?.id}
                       aria-haspopup="menu"
                       aria-expanded={showPdfExportOptions}
                       style={{
-                  display: "inline-flex", alignItems: "center", gap: "5px",
-                  fontFamily: T.sans, fontSize: "12.5px", fontWeight: 600,
-                  color: "#fff",
-                  backgroundColor: exportingPdf ? T.faint : "#475569",
-                  border: "none", borderRadius: "6px",
-                  padding: "8px 14px",
-                  cursor: exportingPdf || !company?.id ? "not-allowed" : "pointer",
+                        ...styles.reportButton,
+                        backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        cursor:
+                          exportingPdf || !company?.id
+                            ? "not-allowed"
+                            : "pointer",
                       }}
                     >
-                      <ArrowUpTrayIcon width={15} height={15} strokeWidth={2} aria-hidden />
                       {exportingPdf
                         ? exportingPdfType === "financial_metrics"
                           ? "Exporting Metrics..."
                           : "Exporting..."
                         : "Export PDF"}
+                      <span aria-hidden="true"></span>
                     </button>
                     {showPdfExportOptions && !exportingPdf && company?.id && (
                       <div
                         role="menu"
                         style={{
-                    position: "absolute", right: 0, top: "calc(100% + 6px)",
-                    zIndex: 30, minWidth: "220px", padding: "6px",
-                    backgroundColor: T.panel, border: `1px solid ${T.divider}`,
+                          position: "absolute",
+                          right: 0,
+                          top: "calc(100% + 6px)",
+                          zIndex: 30,
+                          minWidth: "220px",
+                          padding: "6px",
+                          backgroundColor: "#ffffff",
+                          border: "1px solid #e2e8f0",
                           borderRadius: "8px",
-                    boxShadow: "0 10px 20px rgba(15,17,21,0.12)",
+                          boxShadow: "0 10px 20px rgba(15, 23, 42, 0.12)",
                         }}
                       >
                         <button
-                    type="button" role="menuitem"
+                          type="button"
+                          role="menuitem"
                           onClick={() => handleExportPdf("profile")}
-                    style={{ ...styles.exportMenuItem, borderBottom: `1px solid ${T.hair}` }}
+                          style={{
+                            ...styles.exportMenuItem,
+                            borderBottom: "1px solid #edf2f7",
+                          }}
                         >
                           Export Whole Profile
                         </button>
                         <button
-                    type="button" role="menuitem"
+                          type="button"
+                          role="menuitem"
                           onClick={() => handleExportPdf("financial_metrics")}
                           style={styles.exportMenuItem}
                         >
@@ -3735,117 +2753,131 @@ const CompanyDetail = () => {
                     )}
                   </div>
                   <a
+                    style={{
+                      ...styles.reportButton,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      backgroundColor: "#38a169",
+                    }}
                     href="mailto:asymmetrix@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found."
                     target="_blank"
                     rel="noopener noreferrer"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "5px",
-                fontFamily: T.sans, fontSize: "12.5px", fontWeight: 600,
-                color: "#fff", backgroundColor: T.emerald,
-                borderRadius: "6px", padding: "8px 14px",
-                textDecoration: "none",
-              }}
                   >
-                    <PlusIcon width={15} height={15} strokeWidth={2} aria-hidden />
                     Contribute Data
                   </a>
                 </div>
               </div>
-
-        {/* Navigation tabs — Summary only until other sections are available */}
-        <div style={{ display: "flex", gap: "2px", overflowX: "auto" as const, scrollbarWidth: "none" as const }}>
-          <span
-            style={{
-              padding: "10px 14px",
-              fontFamily: T.sans,
-              fontSize: "13px",
-              fontWeight: 600,
-              color: T.ink,
-              borderBottom: `2px solid ${T.azure}`,
-              marginBottom: "-1px",
-              whiteSpace: "nowrap" as const,
-            }}
-          >
-            Summary
-          </span>
-        </div>
-      </div>
-
-      <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <div className="company-detail-content" style={styles.maxWidth}>
-          {/* Desktop grid */}
-          <div style={styles.responsiveGrid} className="responsiveGrid">
-
-            {/* ── Overview card (grid row 1, col 1) ── */}
-            <div
-              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
-              className="overview-card company-grid-overview"
-            >
-              <OverviewCard
-                fillGridCell
-                transactionStatus={transactionStatusDisplayLabel}
-                primarySectors={augmentedPrimarySectors
-                  .filter((s) => s?.sector_name)
-                  .map((s) => ({
-                    name: s.sector_name!,
-                    href: getSectorId(s) ? `/sector/${getSectorId(s)}` : undefined,
-                  }))}
-                secondarySectors={secondarySectors
-                  .filter((s) => s?.sector_name)
-                  .map((s) => ({
-                    name: s.sector_name!,
-                    href: getSectorId(s) ? `/sub-sector/${getSectorId(s)}` : undefined,
-                  }))}
-                yearFounded={getYearFoundedDisplay(company)}
-                website={company.url}
-                websiteLabel={company.url?.trim() ? formatWebsiteDisplayLabel(company.url) : undefined}
-                ownership={company._ownership_type?.ownership}
-                hq={fullAddress}
-                lifecycle={company.Lifecycle_stage?.Lifecycle_Stage}
-                totalAmountRaised={totalAmountRaisedDisplay ?? undefined}
-                employees={overviewHeadcount}
-                employeesYoY={overviewEmployeesYoY ?? undefined}
-                ticker={tickerDisplay ?? undefined}
-                parentCompany={
-                  haveParentCompany && company.have_parent_company?.Parant_companies?.[0]
-                    ? {
-                        id: company.have_parent_company.Parant_companies[0].id,
-                        name: (company.have_parent_company.Parant_companies[0].name || "").trim(),
-                      }
-                    : null
-                }
-                investors={
-                  !haveParentCompany && apiInvestors.length > 0
-                    ? apiInvestors
-                        .filter(
-                          (inv) =>
-                            inv &&
-                            typeof inv.investor_id === "number" &&
-                            inv.investor_name
-                        )
-                        .map((inv) => ({ id: inv.investor_id!, name: inv.investor_name! }))
-                    : []
-                }
-                investorsLoading={!haveParentCompany && apiInvestorsLoading}
-                lastInvestment={
-                  !haveParentCompany
-                    ? formatLastInvestmentDisplay(company.last_investment)
-                    : undefined
-                }
-              />
-            {/* legacy invisible wrappers closed below */}
-            <div style={{ display: "none" }} className="overview-fields">
+              <div
+                style={{
+                  display: "grid",
+                  // Give left column more room so Transaction Status can stay on one line
+                  gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 0.85fr)",
+                  gap: "24px",
+                }}
+                className="overview-grid"
+              >
+                {isOverviewNarrow && transactionStatusLabel && (
+                  <div
+                    style={{
+                      ...styles.infoRow,
+                      gridColumn: "1 / -1",
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #bfdbfe",
+                      borderRadius: "12px",
+                      boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
+                      padding: "8px 8px",
+                      marginBottom: "10px",
+                      gridTemplateColumns: "auto 1fr",
+                      columnGap: "4px",
+                    }}
+                    className="info-row"
+                  >
+                    <span
+                      style={{ ...styles.label, width: "auto" }}
+                      className="info-label"
+                    >
+                      Transaction Status:
+                    </span>
+                    <div
+                      style={{
+                        ...styles.value,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                      className="info-value"
+                    >
+                      <span
+                        className="transaction-status-pill"
+                        style={{
+                          backgroundColor: "#dcfce7",
+                          color: "#166534",
+                          border: "1.5px solid #4ade80",
+                          borderRadius: "999px",
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          padding: "5px 10px",
+                        }}
+                      >
+                        {transactionStatusDisplayLabel}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {/* Left column: Basic fields */}
+                <div className="overview-fields">
+              {!isOverviewNarrow && transactionStatusLabel && (
+                <div
+                  style={{
+                    ...styles.infoRow,
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: "12px",
+                    boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
+                    padding: "8px 8px",
+                    marginBottom: "10px",
+                    gridTemplateColumns: "auto 1fr",
+                    columnGap: "4px",
+                  }}
+                  className="info-row"
+                >
+                  <span
+                    style={{ ...styles.label, width: "auto" }}
+                    className="info-label"
+                  >
+                    Transaction Status:
+                  </span>
+                  <div
+                    style={{ ...styles.value, display: "flex", alignItems: "center" }}
+                    className="info-value"
+                  >
+                    <span
+                      className="transaction-status-pill"
+                      style={{
+                        backgroundColor: "#dcfce7",
+                        color: "#166534",
+                        border: "1.5px solid #4ade80",
+                        borderRadius: "999px",
+                        fontSize: "12px",
+                        fontWeight: 500,
+                        padding: "5px 10px",
+                      }}
+                    >
+                      {transactionStatusDisplayLabel}
+                    </span>
+                  </div>
+                </div>
+              )}
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Primary sector(s)
+                  Primary Sector(s):
                 </span>
                 <div style={styles.value} className="info-value">
                   {augmentedPrimarySectors.length > 0 ? (
                     <>
                       <div style={styles.tagContainer}>
-                        {(showAllPrimarySectors
-                          ? augmentedPrimarySectors
-                          : augmentedPrimarySectors.slice(0, OVERVIEW_TAG_CAP)
+                        {(isMobile && !showAllPrimarySectors
+                          ? augmentedPrimarySectors.slice(0, 4)
+                          : augmentedPrimarySectors
                         ).map((sector) => {
                           if (!sector || !sector.sector_name) return null;
                           const id = getSectorId(sector);
@@ -3855,6 +2887,12 @@ const CompanyDetail = () => {
                                 key={`sector-${id}`}
                                 href={`/sector/${id}`}
                                 style={styles.sectorTag}
+                                onMouseEnter={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e1bee7";
+                                }}
+                                onMouseLeave={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#f3e5f5";
+                                }}
                                 prefetch={false}
                               >
                                 {sector.sector_name}
@@ -3870,65 +2908,41 @@ const CompanyDetail = () => {
                             </span>
                           );
                         })}
-                        {!showAllPrimarySectors &&
-                        augmentedPrimarySectors.length > OVERVIEW_TAG_CAP ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowAllPrimarySectors(true)}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              borderRadius: "4px",
-                              fontSize: "11.5px",
-                              fontWeight: 500,
-                              lineHeight: 1.5,
-                              padding: "2px 8px",
-                              backgroundColor: T.inset,
-                              color: T.muted,
-                              border: "1px solid transparent",
-                              cursor: "pointer",
-                            }}
-                          >
-                            +
-                            {augmentedPrimarySectors.length - OVERVIEW_TAG_CAP}
-                          </button>
-                        ) : null}
                       </div>
-                      {showAllPrimarySectors &&
-                      augmentedPrimarySectors.length > OVERVIEW_TAG_CAP ? (
+                      {isMobile && augmentedPrimarySectors.length > 4 && (
                         <button
-                          type="button"
-                          onClick={() => setShowAllPrimarySectors(false)}
+                          onClick={() => setShowAllPrimarySectors((v) => !v)}
                           style={{
                             background: "none",
                             border: "none",
-                            color: T.azure,
+                            color: "#0075df",
                             cursor: "pointer",
-                            fontSize: "11.5px",
-                            marginTop: "4px",
+                            fontSize: "12px",
+                            textDecoration: "underline",
+                            marginTop: "8px",
                             padding: 0,
                           }}
                         >
-                          Show less
+                          {showAllPrimarySectors ? "Show less" : "Show more"}
                         </button>
-                      ) : null}
+                      )}
                     </>
                   ) : (
-                    EMPTY_DISPLAY
+                    "Not available"
                   )}
                 </div>
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Secondary sector(s)
+                  Secondary Sector(s):
                 </span>
                 <div style={styles.value} className="info-value">
                   {secondarySectors.length > 0 ? (
                     <>
                       <div style={styles.tagContainer}>
-                        {(showAllSecondarySectors
-                          ? secondarySectors
-                          : secondarySectors.slice(0, OVERVIEW_TAG_CAP)
+                        {(isMobile && !showAllSecondarySectors
+                          ? secondarySectors.slice(0, 4)
+                          : secondarySectors
                         ).map((sector) => {
                           if (!sector || !sector.sector_name) return null;
                           const id = getSectorId(sector);
@@ -3937,7 +2951,13 @@ const CompanyDetail = () => {
                               <Link
                                 key={`sub-sector-${id}`}
                                 href={`/sub-sector/${id}`}
-                                style={styles.sectorTagSecondary}
+                                style={styles.sectorTag}
+                                onMouseEnter={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e1bee7";
+                                }}
+                                onMouseLeave={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#f3e5f5";
+                                }}
                                 prefetch={false}
                               >
                                 {sector.sector_name}
@@ -3947,62 +2967,39 @@ const CompanyDetail = () => {
                           return (
                             <span
                               key={`sub-sector-${sector.sector_name}`}
-                              style={styles.sectorTagSecondary}
+                              style={styles.sectorTag}
                             >
                               {sector.sector_name}
                             </span>
                           );
                         })}
-                        {!showAllSecondarySectors &&
-                        secondarySectors.length > OVERVIEW_TAG_CAP ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowAllSecondarySectors(true)}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              borderRadius: "4px",
-                              fontSize: "11.5px",
-                              fontWeight: 500,
-                              lineHeight: 1.5,
-                              padding: "2px 8px",
-                              backgroundColor: T.inset,
-                              color: T.muted,
-                              border: "1px solid transparent",
-                              cursor: "pointer",
-                            }}
-                          >
-                            +{secondarySectors.length - OVERVIEW_TAG_CAP}
-                          </button>
-                        ) : null}
                       </div>
-                      {showAllSecondarySectors &&
-                      secondarySectors.length > OVERVIEW_TAG_CAP ? (
+                      {isMobile && secondarySectors.length > 4 && (
                         <button
-                          type="button"
-                          onClick={() => setShowAllSecondarySectors(false)}
+                          onClick={() => setShowAllSecondarySectors((v) => !v)}
                           style={{
                             background: "none",
                             border: "none",
-                            color: T.azure,
+                            color: "#0075df",
                             cursor: "pointer",
-                            fontSize: "11.5px",
-                            marginTop: "4px",
+                            fontSize: "12px",
+                            textDecoration: "underline",
+                            marginTop: "8px",
                             padding: 0,
                           }}
                         >
-                          Show less
+                          {showAllSecondarySectors ? "Show less" : "Show more"}
                         </button>
-                      ) : null}
+                      )}
                     </>
                   ) : (
-                    EMPTY_DISPLAY
+                    "Not available"
                   )}
                 </div>
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Year founded
+                  Year Founded:
                 </span>
                 <span style={styles.value} className="info-value">
                   {getYearFoundedDisplay(company)}
@@ -4010,111 +3007,51 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Website
+                  Website:
                 </span>
                 <span style={styles.value} className="info-value">
-                  {company.url?.trim() ? (
+                  {company.url ? (
                     <a
-                      href={
-                        /^https?:\/\//i.test(company.url.trim())
-                          ? company.url.trim()
-                          : `https://${company.url.trim()}`
-                      }
+                      href={company.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ ...styles.link, textDecoration: "none" }}
+                      style={styles.link}
                     >
-                      {formatWebsiteDisplayLabel(company.url)}
+                      {company.url}
                     </a>
                   ) : (
-                    EMPTY_DISPLAY
+                    "Not available"
                   )}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Ownership
+                  Ownership:
                 </span>
                 <span style={styles.value} className="info-value">
-                  {company._ownership_type?.ownership?.trim() || EMPTY_DISPLAY}
+                  {company._ownership_type?.ownership || "Not available"}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  HQ
+                  HQ:
                 </span>
                 <span style={styles.value} className="info-value">
-                  {fullAddress?.trim() || EMPTY_DISPLAY}
+                  {fullAddress || "Not available"}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Lifecycle stage
+                  Lifecycle stage:
                 </span>
                 <span style={styles.value} className="info-value">
-                  {company.Lifecycle_stage?.Lifecycle_Stage?.trim() || EMPTY_DISPLAY}
+                  {company.Lifecycle_stage?.Lifecycle_Stage || "Not available"}
                 </span>
-              </div>
-              <div style={styles.infoRow} className="info-row">
-                <span style={styles.label} className="info-label">
-                  Total amount raised
-                </span>
-                <span style={styles.value} className="info-value">
-                  {totalAmountRaisedDisplay ?? EMPTY_DISPLAY}
-                </span>
-              </div>
-              <div style={styles.infoRow} className="info-row">
-                <span style={styles.label} className="info-label">
-                  Employees
-                </span>
-                <div
-                  style={{
-                    ...styles.value,
-                    display: "flex",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    gap: "6px",
-                  }}
-                  className="info-value"
-                >
-                  {overviewHeadcount != null ? (
-                    <>
-                      <span>
-                        {overviewHeadcount.toLocaleString("en-US")}
-                      </span>
-                      {overviewEmployeesYoY ? (
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            fontSize: "11.5px",
-                            fontWeight: 500,
-                            color: overviewEmployeesYoY.trim().startsWith("-")
-                              ? T.down
-                              : T.up,
-                            backgroundColor:
-                              overviewEmployeesYoY.trim().startsWith("-")
-                                ? "oklch(95% 0.04 25)"
-                                : "oklch(95% 0.05 150)",
-                            border: "1px solid transparent",
-                            borderRadius: "4px",
-                            padding: "2px 8px",
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          {overviewEmployeesYoY}
-                        </span>
-                      ) : null}
-                    </>
-                  ) : (
-                    EMPTY_DISPLAY
-                  )}
-                </div>
               </div>
               {haveParentCompany && (
                 <div style={styles.infoRow} className="info-row">
                   <span style={styles.label} className="info-label">
-                    Parent company
+                    Parent Company:
                   </span>
                   <div style={styles.value} className="info-value">
                     {(() => {
@@ -4126,8 +3063,14 @@ const CompanyDetail = () => {
                         return (
                           <div style={styles.tagContainer}>
                             <Link
-                              href={`/new_company/${parentId}`}
+                              href={`/company/${parentId}`}
                               style={styles.companyTag}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
+                              }}
                               prefetch={false}
                             >
                               {parentName}
@@ -4135,7 +3078,7 @@ const CompanyDetail = () => {
                           </div>
                         );
                       }
-                      return parentName || EMPTY_DISPLAY;
+                      return parentName || "Not available";
                     })()}
                   </div>
                 </div>
@@ -4145,7 +3088,7 @@ const CompanyDetail = () => {
                 <>
                   <div style={styles.infoRow} className="info-row">
                     <span style={styles.label} className="info-label">
-                      Investors
+                      Investors:
                     </span>
                     <div style={styles.value} className="info-value">
                       {(() => {
@@ -4167,6 +3110,12 @@ const CompanyDetail = () => {
                                     key={`api-investor-${investor.investor_id}`}
                                     href={`/investors/${investor.investor_id}`}
                                     style={styles.companyTag}
+                                    onMouseEnter={(e) => {
+                                      (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
+                                    }}
                                     prefetch={false}
                                   >
                                     {investor.investor_name}
@@ -4176,292 +3125,1167 @@ const CompanyDetail = () => {
                             );
                           }
                         }
-                        return EMPTY_DISPLAY;
+                        return "Not available";
                       })()}
-                    </div>
-                  </div>
-                  <div style={styles.infoRow} className="info-row">
-                    <span style={styles.label} className="info-label">
-                      Years since last investment
-                    </span>
-                    <div style={styles.value} className="info-value">
-                      {formatLastInvestmentDisplay(company.last_investment)}
                     </div>
                   </div>
                 </>
               )}
-              </div>{/* end legacy hidden content */}
-            </div>{/* end overview card wrapper */}
+              {hasManagement && (
+                <div style={{ marginTop: "16px" }}>
+                  <h3
+                    style={{
+                      ...styles.sectionTitle,
+                      fontSize: "17px",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    Management
+                  </h3>
 
-            {/* ── Description card (grid row 1, col 2) ── */}
-            <div
-              style={{
-                minWidth: 0,
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                alignSelf: isDescriptionExpanded ? "start" : "stretch",
-                overflow: isDescriptionExpanded ? "visible" : "hidden",
-              }}
-              className="overview-description company-grid-description"
-            >
-              <DescriptionCard
-                text={company.description ?? ""}
-                expanded={isDescriptionExpanded}
-                onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
-                contentRef={descriptionRef}
-                fillGridCell={!isDescriptionExpanded}
-              />
-            </div>
+                  {hasCurrentManagement && (
+                    <div style={{ marginBottom: hasPastManagement ? "20px" : 0 }}>
+                      <IndividualCards
+                        title="Current:"
+                        individuals={(company.Managmant_Roles_current || []).map(
+                          (person) => ({
+                            id: person.id,
+                            name: person.Individual_text,
+                            jobTitles: (person.job_titles_id || [])
+                              .map((job) => job?.job_title)
+                              .filter(Boolean),
+                            individualId: person.individuals_id,
+                          })
+                        )}
+                        emptyMessage="Not available"
+                      />
+                    </div>
+                  )}
 
-            {/* ── Row 2: Insights (grid row 2, cols 1–2) ── */}
-            <div
-              ref={insightsRowRef}
-              className="insights-summary-card company-grid-insights"
-              style={{
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                ...(rowTwoCardHeight > 0 ? { height: rowTwoCardHeight } : {}),
-              }}
-            >
-              <InsightsCard
-                fillGridCell={rowTwoCardHeight > 0}
-                articles={companyArticles}
-                loading={articlesLoading}
-                totalCount={insightsTotal}
-                rangeStart={insightsShowingFrom}
-                rangeEnd={insightsShowingTo}
-                canPrev={canInsightPrev}
-                canNext={canInsightNext}
-                onPrev={() => {
-                  if (company?.id && insightsPage > 1) {
-                    fetchCompanyArticles(company.id, insightsPage - 1);
-                  }
-                }}
-                onNext={() => {
-                  if (company?.id && insightsPage < insightsTotalPages) {
-                    fetchCompanyArticles(company.id, insightsPage + 1);
-                  }
-                }}
-                emptyStateTotal={INSIGHTS_EMPTY_STATE_DEMO_TOTAL}
-                companyId={company.id}
-                companyName={company.name}
-              />
-            </div>{/* end insights-summary-card */}
-
-            {/* Rows 3–4: Product type + Revenue | Users + Data collection | AI Exposure Index (tall) */}
-            {productTypeRows.length > 0 && (
-              <div className="company-grid-product-mix">
-                <ProductDataToggleCard
-                  variant="product_type"
-                  productRows={productTypeBarRows}
-                  dataRows={productDataToggleDataRows}
-                  fillGridCell
-                />
-              </div>
-            )}
-
-            {revenueModelRows.length > 0 && (
-              <div className="company-grid-revenue-model">
-                <RevenueModelCard
-                  rows={revenueModelRows.map((r) => ({
-                    name: r.label,
-                    weight: r.value,
-                  }))}
-                  fillGridCell
-                />
-              </div>
-            )}
-
-            {coreProductsSections.length > 0 && (
-              <div className="company-grid-product-users">
-                <ProductUsersListCard
-                  sections={coreProductsSections}
-                  fillGridCell
-                />
-              </div>
-            )}
-
-            {dataCollectionMethodRows.length > 0 && (
-              <div className="company-grid-data-collection">
-                <ProductDataToggleCard
-                  variant="data_collection"
-                  productRows={productTypeBarRows}
-                  dataRows={productDataToggleDataRows}
-                  fillGridCell
-                />
-              </div>
-            )}
-
-            {aiRiskAxes != null && aiRiskAxes.length > 0 && (
-              <div className="company-grid-ai-risk">
-                <AIRiskCard
-                  fillGridCell
-                  axes={aiRiskAxes}
-                  defaultActiveKey="replic"
-                />
-              </div>
-            )}
-
-            {/* Rows 5–6: Col 1 = events + subs (Revenue-model width); Col 3 = headcount + management under AI Exposure Index */}
-            {corporateEvents.length > 0 && (
-              <div className="company-grid-corporate-events">
-                <LinkPanel
-                  fillGridCell
-                  className="corporate-events-v3-card"
+                  {hasPastManagement && (
+                    <div>
+                      <IndividualCards
+                        title="Past:"
+                        individuals={(company.Managmant_Roles_past || []).map(
+                          (person) => ({
+                            id: person.id,
+                            name: person.Individual_text,
+                            jobTitles: (person.job_titles_id || [])
+                              .map((job) => job?.job_title)
+                              .filter(Boolean),
+                            individualId: person.individuals_id,
+                          })
+                        )}
+                        emptyMessage="Not available"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+                </div>
+                {/* Right column: Description + Insights */}
+                <div
+                  className="overview-description"
+                  style={{
+                    alignSelf: "start",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                    minWidth: 0,
+                  }}
                 >
-                  <CorporateEventsProfilePanel
-                    tokens={{
-                      paper: T.paper,
-                      hair: T.hair,
-                      ink: T.ink,
-                      body: T.body,
-                      muted: T.muted,
-                      inset: T.inset,
-                      azure: T.azure,
-                      azureSoft: T.azureSoft,
-                      coralSoft: T.coralSoft,
-                      down: T.down,
-                      sans: T.sans,
-                      mono: T.mono,
+                  {/* Description */}
+                  <div
+                    style={{
+                      padding: "16px",
+                      backgroundColor: "#f9fafb",
+                      borderRadius: "8px",
+                      border: "1px solid #e2e8f0",
                     }}
-                    events={corporateEvents}
-                    loading={corporateEventsLoading}
-                    primarySectors={augmentedPrimarySectors}
-                    primarySectorsByCompanyId={corporateEventPrimarySectorsByCompanyId}
-                    totalCount={ceTotal}
-                    rangeStart={ceShowingFrom}
-                    rangeEnd={ceShowingTo}
-                    canPrev={canCePrev}
-                    canNext={canCeNext}
-                    onPrev={() => {
-                      if (company?.id && cePage > 1) {
-                        void fetchCompanyCorporateEventsPage(company.id, cePage - 1);
-                      }
-                    }}
-                    onNext={() => {
-                      if (company?.id && cePage < ceTotalPages) {
-                        void fetchCompanyCorporateEventsPage(company.id, cePage + 1);
-                      }
-                    }}
-                    browseAllHref={
-                      company?.name
-                        ? `/corporate-events?search=${encodeURIComponent(company.name)}`
-                        : "/corporate-events"
-                    }
-                    fillGridCell
-                  />
-                </LinkPanel>
+                  >
+                    <div
+                      ref={descriptionRef}
+                      style={{
+                        fontSize: "14px",
+                        color: "#1a202c",
+                        lineHeight: "1.6",
+                        overflow: "hidden",
+                        transition: "max-height 0.2s ease",
+                        display: isDescriptionExpanded ? "block" : "-webkit-box",
+                        WebkitBoxOrient: "vertical",
+                        // Show more lines in the collapsed state to improve readability
+                        WebkitLineClamp: isDescriptionExpanded ? "unset" : 5,
+                      }}
+                    >
+                      {company.description || "No description available"}
+                    </div>
+                    {isDescriptionExpandable && (
+                      <button
+                        onClick={() =>
+                          setIsDescriptionExpanded((expanded) => !expanded)
+                        }
+                        style={{
+                          marginTop: "8px",
+                          padding: 0,
+                          border: "none",
+                          background: "none",
+                          color: "#0075df",
+                          fontSize: "14px",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {isDescriptionExpanded ? "Show less" : "Expand"}
+                      </button>
+                    )}
+                  </div>
+
+                  {companyAttributeSections.length > 0 && (
+                    <div
+                      style={{
+                        padding: "16px",
+                        backgroundColor: "#f9fafb",
+                        borderRadius: "8px",
+                        border: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "14px",
+                        }}
+                      >
+                        {companyAttributeSections.map((section) => (
+                          <div key={section.title}>
+                            <div
+                              style={{
+                                fontSize: "14px",
+                                fontWeight: 600,
+                                color: "#334155",
+                                marginBottom: "8px",
+                              }}
+                            >
+                              {section.title}
+                            </div>
+                            <div style={{ overflowX: "auto" }}>
+                              <table
+                                style={{
+                                  width: "100%",
+                                  borderCollapse: "collapse",
+                                  fontSize: "14px",
+                                }}
+                              >
+                                <tbody>
+                                  {section.rows.map((row) => (
+                                    <tr key={`${section.title}-${row.label}`}>
+                                      <td
+                                        style={{
+                                          padding: "7px 0",
+                                          borderBottom: "1px solid #f1f5f9",
+                                          color: "#1e293b",
+                                        }}
+                                      >
+                                        {row.label}
+                                      </td>
+                                      <td
+                                        style={{
+                                          padding: "7px 0",
+                                          borderBottom: "1px solid #f1f5f9",
+                                          textAlign: "right",
+                                          color: "#475569",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        {row.value}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Insights & Analysis (scrollable card) */}
+                  {(articlesLoading || companyArticles.length > 0) && (
+                    <div
+                      className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col overflow-hidden"
+                      style={{
+                        height:
+                          articlesLoading || companyArticles.length >= 4
+                            ? "535px"
+                            : "auto",
+                      }}
+                    >
+                      <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
+                        <div className="flex justify-between items-center">
+                          <div className="flex gap-3 items-center min-w-0">
+                            <span className="inline-flex justify-center items-center w-8 h-8 bg-blue-50 rounded-lg flex-shrink-0">
+                              <svg
+                                className="w-4 h-4 text-blue-600"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                              </svg>
+                            </span>
+                            <span className="font-semibold text-slate-900 truncate">
+                              Recent Insights &amp; Analysis
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        className="px-5 py-4 overflow-hidden"
+                        style={{
+                          flex:
+                            articlesLoading || companyArticles.length >= 4
+                              ? "1 1 0"
+                              : "0 0 auto",
+                          minHeight: 0,
+                        }}
+                      >
+                        {articlesLoading ? (
+                          <div className="space-y-3 animate-pulse">
+                            {[1, 2, 3].map((i) => (
+                              <div
+                                key={i}
+                                className="space-y-1.5 pb-3 border-b border-slate-100 last:border-0"
+                              >
+                                <div className="h-3.5 bg-slate-200 rounded w-1/4"></div>
+                                <div className="h-4 bg-slate-200 rounded w-5/6"></div>
+                                <div className="h-3 bg-slate-200 rounded w-full"></div>
+                                <div className="h-3 bg-slate-200 rounded w-4/5"></div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : companyArticles.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center h-full text-center">
+                            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                              <svg
+                                className="w-6 h-6 text-slate-400"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                                />
+                              </svg>
+                            </div>
+                            <p className="text-slate-500 text-sm">
+                              No insights available for this company yet
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-slate-100 overflow-y-auto overflow-x-hidden h-full">
+                            {companyArticles.map((article) => {
+                                const contentType = (article.Content_Type || "")
+                                  .toLowerCase()
+                                  .trim();
+                                const pinnedRaw = (
+                                  article as unknown as { pinned?: unknown }
+                                )?.pinned;
+                                const isPinned =
+                                  pinnedRaw === true ||
+                                  pinnedRaw === 1 ||
+                                  String(pinnedRaw ?? "")
+                                    .trim()
+                                    .toLowerCase() === "yes" ||
+                                  String(pinnedRaw ?? "")
+                                    .trim()
+                                    .toLowerCase() === "true";
+                                const badgeStyle =
+                                  contentType === "company analysis"
+                                    ? {
+                                        background: "#ecfdf5",
+                                        color: "#065f46",
+                                        border: "1px solid #a7f3d0",
+                                      }
+                                    : contentType === "deal analysis"
+                                    ? {
+                                        background: "#eff6ff",
+                                        color: "#1e40af",
+                                        border: "1px solid #bfdbfe",
+                                      }
+                                    : contentType === "sector analysis"
+                                    ? {
+                                        background: "#f5f3ff",
+                                        color: "#5b21b6",
+                                        border: "1px solid #ddd6fe",
+                                      }
+                                    : contentType === "hot take"
+                                    ? {
+                                        background: "#fff7ed",
+                                        color: "#9a3412",
+                                        border: "1px solid #fed7aa",
+                                      }
+                                    : contentType === "executive interview"
+                                    ? {
+                                        background: "#f0fdf4",
+                                        color: "#166534",
+                                        border: "1px solid #bbf7d0",
+                                      }
+                                    : {
+                                        background: "#f8fafc",
+                                        color: "#475569",
+                                        border: "1px solid #e2e8f0",
+                                      };
+
+                                const dateLabel = (() => {
+                                  if (!article.Publication_Date) return "";
+                                  try {
+                                    return new Date(
+                                      article.Publication_Date
+                                    ).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "long",
+                                      day: "numeric",
+                                    });
+                                  } catch {
+                                    return "";
+                                  }
+                                })();
+
+                                return (
+                                  <a
+                                    key={article.id}
+                                    href={`/article/${article.id}`}
+                                    className="block py-3 first:pt-0 group hover:bg-slate-50/50 -mx-5 px-5 transition-colors duration-150"
+                                  >
+                                    <div className="flex items-center gap-2 mb-1">
+                                      {article.Content_Type && (
+                                        <span
+                                          className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
+                                          style={badgeStyle}
+                                        >
+                                          {article.Content_Type}
+                                        </span>
+                                      )}
+                                      {isPinned && (
+                                        <span
+                                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
+                                          style={{
+                                            background: "#fff7ed",
+                                            color: "#9a3412",
+                                            border: "1px solid #fed7aa",
+                                          }}
+                                          title="Pinned"
+                                        >
+                                          <svg
+                                            width="12"
+                                            height="12"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            aria-hidden="true"
+                                          >
+                                            <path
+                                              d="M14 3L21 10L19 12L16 9L10 15V18L8 20V15L3 10L5 8H8L14 3Z"
+                                              fill="currentColor"
+                                            />
+                                          </svg>
+                                          Pinned
+                                        </span>
+                                      )}
+                                      {dateLabel && (
+                                        <span className="text-xs text-slate-400 flex-shrink-0">
+                                          {dateLabel}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h3 className="text-sm font-semibold text-slate-900 leading-snug mb-1 group-hover:text-blue-700 transition-colors line-clamp-1">
+                                      {article.Headline || "Untitled"}
+                                    </h3>
+                                    {article.Strapline && (
+                                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+                                        {article.Strapline}
+                                      </p>
+                                    )}
+                                  </a>
+                                );
+                              })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-
-            <div className="company-grid-headcount">
-              <HeadcountCard
-                fillGridCell
-                data={employeeData.map((e) => e.employees_count)}
-                dates={employeeData.map((e) => e.date)}
-                count={currentEmployeeCount}
-                yoyLabel={overviewEmployeesYoY || undefined}
-                asOf={(() => {
-                  const nonZero = employeeData.filter((e) => e.employees_count > 0);
-                  const ref =
-                    nonZero.length > 0
-                      ? nonZero[nonZero.length - 1]
-                      : employeeData[employeeData.length - 1];
-                  if (!ref?.date) return undefined;
-                  try {
-                    return new Date(ref.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      year: "numeric",
-                    });
-                  } catch {
-                    return undefined;
-                  }
-                })()}
-                linkedinUrl={linkedinUrl}
+              {/* Corporate Events moved into Overview */}
+              <CorporateEventsSection
+                events={corporateEvents}
+                loading={corporateEventsLoading}
+                showSectors={true}
+                primarySectors={augmentedPrimarySectors}
+                secondarySectors={secondarySectors}
+                maxInitialEvents={3}
+                truncateDescriptionLength={180}
+                hideWhenEmpty={true}
+                dividerTop={true}
+                titleStyle={{
+                  ...styles.sectionTitle,
+                  fontSize: "17px",
+                  marginBottom: "12px",
+                }}
               />
-            </div>
 
-            {hasSubsidiaries && (
-              <div className="company-grid-subsidiaries">
-                <LinkPanel
-                  fillGridCell
-                  className="subsidiaries-profile-card"
+              {/* Current Subsidiaries section */}
+              {hasSubsidiaries && (
+                <div
+                  style={{
+                    marginTop: "16px",
+                    paddingTop: "16px",
+                    borderTop: "1px solid #e2e8f0",
+                  }}
                 >
-                  <SubsidiariesProfilePanel
-                    tokens={{
-                      paper: T.paper,
-                      hair: T.hair,
-                      ink: T.ink,
-                      body: T.body,
-                      muted: T.muted,
-                      inset: T.inset,
-                      azure: T.azure,
-                      azureSoft: T.azureSoft,
-                      coralSoft: T.coralSoft,
-                      down: T.down,
-                      sans: T.sans,
-                      mono: T.mono,
-                      up: T.up,
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "24px",
                     }}
-                    subsidiaries={
-                      company.have_subsidiaries_companies
-                        ?.Subsidiaries_companies ?? []
-                    }
-                    acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
-                    maxInitial={3}
-                  />
-                  </LinkPanel>
-              </div>
-            )}
+                  >
+                    <h3
+                      style={{
+                        ...styles.sectionTitle,
+                        fontSize: "17px",
+                        marginBottom: "0",
+                      }}
+                    >
+                      Current Subsidiaries
+                    </h3>
+                    {company.have_subsidiaries_companies?.Subsidiaries_companies &&
+                    company.have_subsidiaries_companies.Subsidiaries_companies
+                      .length > 3 ? (
+                      <button
+                        onClick={() => setShowAllSubsidiaries((prev) => !prev)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#0075df",
+                          fontSize: "14px",
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {showAllSubsidiaries ? "Show less" : "See more"}
+                      </button>
+                    ) : null}
+                  </div>
+                  <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+                    <table
+                      style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                        minWidth: "800px",
+                      }}
+                    >
+                      <thead>
+                        <tr>
+                          {[
+                            "Logo",
+                            "Name",
+                            "Description",
+                            "Sectors",
+                            "LinkedIn Members",
+                            "Country",
+                          ].map((header) => (
+                            <th
+                              key={header}
+                              style={{
+                                textAlign: "left",
+                                padding: "12px 8px",
+                                borderBottom: "1px solid #e2e8f0",
+                                fontSize: "14px",
+                                fontWeight: "600",
+                                color: "#4a5568",
+                              }}
+                            >
+                              {header}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(
+                          company.have_subsidiaries_companies
+                            ?.Subsidiaries_companies ?? []
+                        )
+                          .filter(
+                            // Ensure valid objects with numeric ids before rendering
+                            (s) =>
+                              typeof s === "object" &&
+                              s !== null &&
+                              typeof (s as { id?: unknown }).id === "number"
+                          )
+                          .slice(0, showAllSubsidiaries ? undefined : 3)
+                          .map((subsidiary) => (
+                            <tr key={subsidiary.id}>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                }}
+                              >
+                                {subsidiary._linkedin_data_of_new_company
+                                  ?.linkedin_logo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={`data:image/jpeg;base64,${subsidiary._linkedin_data_of_new_company.linkedin_logo}`}
+                                    alt={`${subsidiary.name} logo`}
+                                    style={{
+                                      width: "40px",
+                                      height: "30px",
+                                      objectFit: "contain",
+                                    }}
+                                  />
+                                ) : (
+                                  <div
+                                    style={{
+                                      width: "40px",
+                                      height: "30px",
+                                      backgroundColor: "#f7fafc",
+                                      borderRadius: "4px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: "10px",
+                                      color: "#718096",
+                                    }}
+                                  >
+                                    N/A
+                                  </div>
+                                )}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                }}
+                              >
+                                {createClickableElement(
+                                  `/company/${subsidiary.id}`,
+                                  subsidiary.name
+                                )}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  fontSize: "14px",
+                                  maxWidth: "250px",
+                                  wordBreak: "break-word" as const,
+                                  overflowWrap: "break-word" as const,
+                                }}
+                              >
+                                {subsidiary.description ? (
+                                  <div>
+                                    {expandedDescriptions.has(subsidiary.id) ||
+                                    subsidiary.description.length <= 100
+                                      ? subsidiary.description
+                                      : `${subsidiary.description.substring(
+                                          0,
+                                          100
+                                        )}...`}
+                                    {subsidiary.description.length > 100 && (
+                                      <button
+                                        onClick={() =>
+                                          toggleDescription(subsidiary.id)
+                                        }
+                                        style={{
+                                          background: "none",
+                                          border: "none",
+                                          color: "#0075df",
+                                          cursor: "pointer",
+                                          fontSize: "12px",
+                                          textDecoration: "underline",
+                                          marginLeft: "4px",
+                                          padding: "0",
+                                        }}
+                                      >
+                                        {expandedDescriptions.has(subsidiary.id)
+                                          ? "Show less"
+                                          : "Expand description"}
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  "N/A"
+                                )}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  fontSize: "14px",
+                                }}
+                              >
+                                {subsidiary.sectors_id
+                                  ?.filter(
+                                    (s) => s && typeof s.sector_name === "string"
+                                  )
+                                  .map((sector) => sector.sector_name)
+                                  .join(", ") || "N/A"}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  fontSize: "14px",
+                                  textAlign: "center",
+                                }}
+                              >
+                                {subsidiary._linkedin_data_of_new_company &&
+                                subsidiary._linkedin_data_of_new_company
+                                  .linkedin_employee !== undefined &&
+                                subsidiary._linkedin_data_of_new_company
+                                  .linkedin_employee !== null
+                                  ? formatNumber(
+                                      subsidiary._linkedin_data_of_new_company
+                                        .linkedin_employee
+                                    )
+                                  : "N/A"}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  fontSize: "14px",
+                                }}
+                              >
+                                {subsidiary._locations?.Country || "N/A"}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
-            {hasManagement && (
-              <div className="company-grid-management">
-                <ManagementCard
-                  fillGridCell
-                  current={managementCurrentPeople}
-                  past={managementPastPeople}
-                  maxVisible={4}
-                />
-              </div>
-            )}
-
-            {/* ══ Col 3 row 1: Primary financial metrics (aligned with Overview + Description) ══ */}
-            <div
-              id="profile-financials"
-              ref={financePrimaryGridRef}
-              className="company-grid-finance-primary desktop-financial-metrics v3-right-rail"
-              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", width: "100%", scrollMarginTop: 24 }}
-            >
-              <FinMetricsPrimaryCard
-                fillGridCell
-                primary={finMetricsData.primary}
-                benchmarkData={benchmarkPeersData}
-                hasIncomeStatement={hasIncomeStatementData}
-                incomeStatementRows={normalizedIncomeStatements}
-                incomeStatementCurrency={evCurrency || revenueCurrency || ""}
-              />
             </div>
 
-            {/* ══ Col 3 row 2: Subscription / other metrics (aligned with Insights) ══ */}
-            <div
-              ref={financeSecondaryRowRef}
-              className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
-              style={{
-                minWidth: 0,
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                width: "100%",
-                ...(rowTwoCardHeight > 0 ? { height: rowTwoCardHeight } : {}),
-              }}
-            >
-              <FinMetricsSecondaryCard
-                fillGridCell={rowTwoCardHeight > 0}
-                subscription={finMetricsData.subscription}
-                other={finMetricsData.other}
-              />
+            {/* Desktop Financial Metrics */}
+            <div style={styles.card} className="card desktop-financial-metrics">
+              <h2 style={styles.sectionTitle}>
+                Financial Metrics{metricsCurrencySuffix}
+              </h2>
+              {financialMetricsPeriodDisplay && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
+                    marginTop: "-12px",
+                    marginBottom: "4px",
+                    fontSize: "13px",
+                    color: "#6b7280",
+                    fontWeight: 500,
+                  }}
+                >
+                  <span></span>
+                  <span style={{ textAlign: "left" }}>
+                    {financialMetricsPeriodDisplay}
+                  </span>
+                  <span style={{ ...styles.sourceValue, fontSize: "11px" }}>
+                    Source
+                  </span>
+                </div>
+              )}
+              {!hasIncomeStatementData && (
+                <div style={styles.infoRow}>
+                  <span style={styles.label}>Revenue (m):</span>
+                  <span style={styles.value}>{revenuePlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.Revenue_source_label,
+                      financialMetrics?.Rev_source
+                    )}
+                  </span>
+                </div>
+              )}
+              {!hasIncomeStatementData && (
+                <div style={styles.infoRow}>
+                  <span style={styles.label}>EBITDA (m):</span>
+                  <span style={styles.value}>{ebitdaPlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.EBITDA_source_label,
+                      financialMetrics?.EBITDA_source
+                    )}
+                  </span>
+                </div>
+              )}
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Enterprise Value (m):</span>
+                <span style={styles.value}>{evPlain}</span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EV_source_label,
+                    financialMetrics?.EV_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue multiple:</span>
+                <span style={styles.value}>
+                  {formatMultiple(financialMetrics?.Revenue_multiple)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_multiple_source_label,
+                    financialMetrics?.Rev_x_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue Growth:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Rev_Growth_PC)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_growth_source_label,
+                    financialMetrics?.Rev_Growth_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>EBITDA margin:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.EBITDA_margin)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBITDA_margin_source_label,
+                    financialMetrics?.EBITDA_margin_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Rule of 40:</span>
+                <span style={styles.value}>
+                  {(() => {
+                    const n = getNumeric(financialMetrics?.Rule_of_40);
+                    return n !== undefined
+                      ? Math.round(n).toLocaleString()
+                      : "Not available";
+                  })()}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rule_of_40_source_label,
+                    financialMetrics?.Rule_of_40_source
+                  )}
+                </span>
+              </div>
+              {hasIncomeStatementData && (
+                <div style={{ marginTop: "16px" }}>
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: 600,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Income statement
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table
+                      style={{ width: "100%", borderCollapse: "collapse" }}
+                    >
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            Financial Period
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            Revenue (m)
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            EBIT (m)
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            EBITDA (m)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {normalizedIncomeStatements.map((row) => {
+                          const period = (
+                            row.period_display_end_date || ""
+                          ).replace(/[,\s]/g, "");
+                          const currency =
+                            row.cost_of_goods_sold_currency ||
+                            evCurrency ||
+                            revenueCurrency ||
+                            "";
+                          const fmt = (v?: number | null) =>
+                            typeof v === "number"
+                              ? (() => {
+                                  const millions = Math.round(v / 1_000_000);
+                                  return `${currency}${millions.toLocaleString()}`;
+                                })()
+                              : "—";
+                          return (
+                            <tr key={row.id}>
+                              <td
+                                style={{
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                }}
+                              >
+                                {period || "—"}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                }}
+                              >
+                                {fmt(row.revenue)}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                }}
+                              >
+                                {fmt(row.ebit)}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                }}
+                              >
+                                {fmt(row.ebitda)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              {/* Subscription Metrics */}
+              <div
+                style={{ ...styles.chartTitle, marginTop: 20, marginBottom: 8 }}
+              >
+                Subscription Metrics
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Recurring Revenue:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.ARR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>ARR (m):</span>
+                <span style={styles.value}>
+                  {formatPlainNumber(financialMetrics?.ARR_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Churn:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Churn_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Churn_source_label,
+                    financialMetrics?.Churn_Source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>GRR:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.GRR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.GRR_source_label,
+                    financialMetrics?.GRR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Upsell:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Upsell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Upsell_source_label,
+                    financialMetrics?.Upsell_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Cross-sell:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Cross_sell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Cross_sell_source_label,
+                    financialMetrics?.Cross_sell_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Price increase:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Price_increase_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Price_increase_source_label,
+                    financialMetrics?.Price_increase_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue expansion:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Rev_expansion_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_expansion_source_label,
+                    financialMetrics?.Rev_expansion_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>NRR:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.NRR)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.NRR_source_label,
+                    financialMetrics?.NRR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>New clients revenue growth:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.New_client_growth_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.New_client_growth_source_label,
+                    financialMetrics?.New_Client_Growth_Source
+                  )}
+                </span>
+              </div>
+
+              {/* Other Metrics */}
+              <div
+                style={{ ...styles.chartTitle, marginTop: 20, marginBottom: 8 }}
+              >
+                Other Metrics
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>EBIT (m):</span>
+                <span style={styles.value}>
+                  {formatPlainNumber(financialMetrics?.EBIT_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBIT_source_label,
+                    financialMetrics?.EBIT_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Number of clients:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.No_of_Clients === "number"
+                    ? financialMetrics.No_of_Clients.toLocaleString()
+                    : "Not available"}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_of_Clients_source_label,
+                    financialMetrics?.No_Clients_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue per client:</span>
+                <span style={styles.value}>
+                  {formatWholeNumberWithCurrency(
+                    financialMetrics?.Rev_per_client,
+                    metricsCurrencyCode
+                  )}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_per_client_source_label,
+                    financialMetrics?.Rev_per_client_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Number of employees:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.No_Employees === "number"
+                    ? financialMetrics.No_Employees.toLocaleString()
+                    : formatNumber(currentEmployeeCount)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_Employees_source_label,
+                    financialMetrics?.No_Employees_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue per employee:</span>
+                <span style={styles.value}>
+                  {formatWholeNumberWithCurrency(
+                    financialMetrics?.Revenue_per_employee,
+                    metricsCurrencyCode
+                  )}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_per_employee_source_label,
+                    financialMetrics?.Rev_per_employee_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.chartContainer} className="chartContainer">
+                <div style={styles.chartTitle}>LinkedIn Employee Count</div>
+                <div style={styles.currentCount}>
+                  {formatNumber(currentEmployeeCount)} employees
+                </div>
+                {employeeData.length > 0 ? (
+                  <EmployeeChart data={employeeData} />
+                ) : (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "40px",
+                      color: "#666",
+                      fontSize: "14px",
+                    }}
+                  >
+                    No employee data available
+                  </div>
+                )}
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>
+                  LinkedIn growth (1 yr):
+                </span>
+                <span style={styles.value}>
+                  {formatPercent(company.linkedin_growth_1y_pct)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getNumeric(company.linkedin_growth_1y_pct) !== undefined
+                    ? "LinkedIn"
+                    : ""}
+                </span>
+              </div>
+              {/* LinkedIn Logo - Redirects to company LinkedIn */}
+              {linkedinUrl && (
+                <div
+                  style={{
+                    textAlign: "left",
+                    marginTop: "16px",
+                    paddingTop: "16px",
+                    borderTop: "1px solid #e2e8f0",
+                  }}
+                >
+                  <a
+                    href={linkedinUrl || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "30px",
+                      height: "30px",
+                      backgroundColor: "#0077b5",
+                      borderRadius: "6px",
+                      color: "white",
+                      textDecoration: "none",
+                      transition: "background-color 0.2s ease",
+                    }}
+                    onMouseOver={(e) =>
+                      (e.currentTarget.style.backgroundColor = "#005582")
+                    }
+                    onMouseOut={(e) =>
+                      (e.currentTarget.style.backgroundColor = "#0077b5")
+                    }
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                    </svg>
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Market Overview removed */}
@@ -4469,82 +4293,490 @@ const CompanyDetail = () => {
 
           {/* Mobile Financial Metrics */}
           <div
-            id="profile-financials-mobile"
-            ref={profileFinancialsMobileRef}
-            style={{ display: "none", marginTop: "8px", scrollMarginTop: 24 }}
+            style={{ display: "none", marginTop: "8px" }}
             className="mobile-financial-metrics"
           >
-            <FinMetricsIncomeCard
-              fillGridCell={false}
-              data={finMetricsData}
-              benchmarkData={benchmarkPeersData}
-              hasIncomeStatement={hasIncomeStatementData}
-              incomeStatementRows={normalizedIncomeStatements}
-              incomeStatementCurrency={evCurrency || revenueCurrency || ""}
-            />
-
-              <div style={{ marginTop: 20 }}>
-                <HeadcountCard
-                  data={employeeData.map((e) => e.employees_count)}
-                  dates={employeeData.map((e) => e.date)}
-                  count={currentEmployeeCount}
-                  yoyLabel={overviewEmployeesYoY || undefined}
-                  asOf={(() => {
-                    const nonZero = employeeData.filter((e) => e.employees_count > 0);
-                    const ref =
-                      nonZero.length > 0
-                        ? nonZero[nonZero.length - 1]
-                        : employeeData[employeeData.length - 1];
-                    if (!ref?.date) return undefined;
-                    try {
-                      return new Date(ref.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        year: "numeric",
-                      });
-                    } catch {
-                      return undefined;
-                    }
-                  })()}
-                  linkedinUrl={linkedinUrl}
-                />
-              </div>
-              {hasManagement && (
+            <div
+              style={{
+                ...styles.card,
+                width: "100%",
+                padding: "20px 16px",
+              }}
+            >
+              <h2 style={styles.sectionTitle}>
+                Financial Metrics{metricsCurrencySuffix}
+              </h2>
+              {financialMetricsPeriodDisplay && (
                 <div
                   style={{
-                    ...styles.card,
-                    padding: 0,
-                    overflow: "hidden",
-                    marginTop: 20,
-                    width: "100%",
+                    display: "grid",
+                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
+                    marginTop: "-10px",
+                    marginBottom: "4px",
+                    fontSize: "13px",
+                    color: "#6b7280",
+                    fontWeight: 500,
                   }}
-                  className="management-v3-card"
                 >
-                  <ManagementProfilePanel
-                    tokens={{
-                      paper: T.paper,
-                      hair: T.hair,
-                      ink: T.ink,
-                      body: T.body,
-                      muted: T.muted,
-                      inset: T.inset,
-                      azure: T.azure,
-                      azureSoft: T.azureSoft,
-                      coralSoft: T.coralSoft,
-                      down: T.down,
-                      sans: T.sans,
-                      mono: T.mono,
-                    }}
-                    current={managementCurrentPeople}
-                    past={managementPastPeople}
-                    maxInitialPerSection={8}
-                  />
+                  <span></span>
+                  <span style={{ textAlign: "left" }}>
+                    {financialMetricsPeriodDisplay}
+                  </span>
+                  <span style={{ ...styles.sourceValue, fontSize: "11px" }}>
+                    Source
+                  </span>
                 </div>
               )}
+              {!hasIncomeStatementData && (
+                <div style={styles.infoRow}>
+                  <span style={styles.label}>Revenue (m):</span>
+                  <span style={styles.value}>{revenuePlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.Revenue_source_label,
+                      financialMetrics?.Rev_source
+                    )}
+                  </span>
+                </div>
+              )}
+              {!hasIncomeStatementData && (
+                <div style={styles.infoRow}>
+                  <span style={styles.label}>EBITDA (m):</span>
+                  <span style={styles.value}>{ebitdaPlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.EBITDA_source_label,
+                      financialMetrics?.EBITDA_source
+                    )}
+                  </span>
+                </div>
+              )}
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Enterprise Value (m):</span>
+                <span style={styles.value}>{evPlain}</span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EV_source_label,
+                    financialMetrics?.EV_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue multiple:</span>
+                <span style={styles.value}>
+                  {formatMultiple(financialMetrics?.Revenue_multiple)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_multiple_source_label,
+                    financialMetrics?.Rev_x_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue Growth:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Rev_Growth_PC)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_growth_source_label,
+                    financialMetrics?.Rev_Growth_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>EBITDA margin:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.EBITDA_margin)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBITDA_margin_source_label,
+                    financialMetrics?.EBITDA_margin_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Rule of 40:</span>
+                <span style={styles.value}>
+                  {(() => {
+                    const n = getNumeric(financialMetrics?.Rule_of_40);
+                    return n !== undefined
+                      ? Math.round(n).toLocaleString()
+                      : "Not available";
+                  })()}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rule_of_40_source_label,
+                    financialMetrics?.Rule_of_40_source
+                  )}
+                </span>
+              </div>
+              {hasIncomeStatementData && (
+                <div style={{ marginTop: 12 }}>
+                  <div
+                    style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}
+                  >
+                    Income statement
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table
+                      style={{ width: "100%", borderCollapse: "collapse" }}
+                    >
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: 6,
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: 12,
+                            }}
+                          >
+                            Financial Period
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: 6,
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: 12,
+                            }}
+                          >
+                            Revenue (m)
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: 6,
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: 12,
+                            }}
+                          >
+                            EBIT (m)
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: 6,
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: 12,
+                            }}
+                          >
+                            EBITDA (m)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {normalizedIncomeStatements.map((row) => {
+                          const period = (
+                            row.period_display_end_date || ""
+                          ).replace(/[,\s]/g, "");
+                          const currency =
+                            row.cost_of_goods_sold_currency ||
+                            evCurrency ||
+                            revenueCurrency ||
+                            "";
+                          const fmt = (v?: number | null) =>
+                            typeof v === "number"
+                              ? (() => {
+                                  const millions = Math.round(v / 1_000_000);
+                                  return `${currency}${millions.toLocaleString()}`;
+                                })()
+                              : "—";
+                          return (
+                            <tr key={row.id}>
+                              <td
+                                style={{
+                                  padding: 6,
+                                  borderBottom: "1px solid #e2e8f0",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {period || "—"}
+                              </td>
+                              <td
+                                style={{
+                                  padding: 6,
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {fmt(row.revenue)}
+                              </td>
+                              <td
+                                style={{
+                                  padding: 6,
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {fmt(row.ebit)}
+                              </td>
+                              <td
+                                style={{
+                                  padding: 6,
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {fmt(row.ebitda)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              {/* Subscription Metrics */}
+              <div
+                style={{ ...styles.chartTitle, marginTop: 20, marginBottom: 8 }}
+              >
+                Subscription Metrics
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Recurring Revenue:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.ARR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>ARR (m):</span>
+                <span style={styles.value}>
+                  {formatPlainNumber(financialMetrics?.ARR_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Churn:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Churn_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Churn_source_label,
+                    financialMetrics?.Churn_Source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>GRR:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.GRR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.GRR_source_label,
+                    financialMetrics?.GRR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Upsell:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Upsell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Upsell_source_label,
+                    financialMetrics?.Upsell_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Cross-sell:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Cross_sell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Cross_sell_source_label,
+                    financialMetrics?.Cross_sell_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Price increase:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Price_increase_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Price_increase_source_label,
+                    financialMetrics?.Price_increase_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue expansion:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Rev_expansion_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_expansion_source_label,
+                    financialMetrics?.Rev_expansion_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>NRR:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.NRR)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.NRR_source_label,
+                    financialMetrics?.NRR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>New clients revenue growth:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.New_client_growth_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.New_client_growth_source_label,
+                    financialMetrics?.New_Client_Growth_Source
+                  )}
+                </span>
+              </div>
+
+              {/* Other Metrics */}
+              <div
+                style={{ ...styles.chartTitle, marginTop: 20, marginBottom: 8 }}
+              >
+                Other Metrics
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>EBIT (m):</span>
+                <span style={styles.value}>
+                  {formatPlainNumber(financialMetrics?.EBIT_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBIT_source_label,
+                    financialMetrics?.EBIT_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Number of clients:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.No_of_Clients === "number"
+                    ? financialMetrics.No_of_Clients.toLocaleString()
+                    : "Not available"}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_of_Clients_source_label,
+                    financialMetrics?.No_Clients_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue per client:</span>
+                <span style={styles.value}>
+                  {formatWholeNumberWithCurrency(
+                    financialMetrics?.Rev_per_client,
+                    metricsCurrencyCode
+                  )}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_per_client_source_label,
+                    financialMetrics?.Rev_per_client_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Number of employees:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.No_Employees === "number"
+                    ? financialMetrics.No_Employees.toLocaleString()
+                    : formatNumber(currentEmployeeCount)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_Employees_source_label,
+                    financialMetrics?.No_Employees_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue per employee:</span>
+                <span style={styles.value}>
+                  {formatWholeNumberWithCurrency(
+                    financialMetrics?.Revenue_per_employee,
+                    metricsCurrencyCode
+                  )}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_per_employee_source_label,
+                    financialMetrics?.Rev_per_employee_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.chartContainer}>
+                <div style={styles.chartTitle}>LinkedIn Employee Count</div>
+                <div style={styles.currentCount}>
+                  {formatNumber(currentEmployeeCount)} employees
+                </div>
+                {employeeData.length > 0 ? (
+                  <EmployeeChart data={employeeData} />
+                ) : (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "40px",
+                      color: "#666",
+                      fontSize: "14px",
+                    }}
+                  >
+                    No employee data available
+                  </div>
+                )}
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>
+                  LinkedIn growth (1 yr):
+                </span>
+                <span style={styles.value}>
+                  {formatPercent(company.linkedin_growth_1y_pct)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getNumeric(company.linkedin_growth_1y_pct) !== undefined
+                    ? "LinkedIn"
+                    : ""}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* LinkedIn section (desktop only) removed per request */}
 
-          {/* Management: desktop under LinkedIn rail; mobile block above */}
+          {/* Management section moved into Overview above */}
 
 
         </div>
