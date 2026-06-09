@@ -290,7 +290,7 @@ export function buildFinancialMetricsSections({
       src(fm?.No_of_Clients_source_label, fm?.No_Clients_source)
     ),
     row(
-      "Revenue per client (k):",
+      "Revenue per client:",
       money(formatWholeNumber(fm?.Rev_per_client)),
       src(fm?.Rev_per_client_source_label, fm?.Rev_per_client_source)
     ),
@@ -302,7 +302,7 @@ export function buildFinancialMetricsSections({
       src(fm?.No_Employees_source_label, fm?.No_Employees_source)
     ),
     row(
-      "Revenue per employee (k):",
+      "Revenue per employee:",
       money(formatWholeNumber(fm?.Revenue_per_employee)),
       src(fm?.Revenue_per_employee_source_label, fm?.Rev_per_employee_source)
     ),

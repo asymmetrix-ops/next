@@ -54,6 +54,7 @@ function PeriodHeader({ period }: { period?: string }) {
   if (!period) return null;
   return (
     <div
+      className="info-row fin-metric-period-header"
       style={{
         display: "grid",
         gridTemplateColumns: GRID_COLS,
@@ -66,9 +67,7 @@ function PeriodHeader({ period }: { period?: string }) {
       }}
     >
       <span />
-      <span />
       <span style={finMetricPeriodColStyle}>{period}</span>
-      <span />
       <span
         style={{
           ...finMetricLabelStyle,
@@ -100,11 +99,9 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
       >
         {row.label}
       </span>
-      <span />
       <span className={FIN_METRIC_VALUE_CLASS} style={finMetricValueColStyle}>
         {row.value}
       </span>
-      <span />
       <span
         style={{
           ...finMetricLabelStyle,
@@ -280,13 +277,12 @@ function TabHeader<T extends string>({
       <div
         style={{
           display: "flex",
-          alignItems: "flex-end",
+          alignItems: "center",
           gap: 14,
           flexWrap: "nowrap",
           minWidth: 0,
           flex: 1,
           overflowX: "auto",
-          overflowY: "hidden",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
         }}
@@ -303,13 +299,15 @@ function TabHeader<T extends string>({
               onTabChange(tab.id);
             }}
             style={{
+              display: "flex",
+              alignItems: "center",
               background: "transparent",
               border: "none",
               padding: 0,
-              paddingBottom: 2,
               cursor: "pointer",
               ...FIN_METRICS_TAB_STYLE,
               color: activeTab === tab.id ? T.ink : T.muted,
+              fontWeight: activeTab === tab.id ? 600 : 500,
               borderBottom: `2px solid ${activeTab === tab.id ? T.azure : "transparent"}`,
               whiteSpace: "nowrap",
               flexShrink: 0,

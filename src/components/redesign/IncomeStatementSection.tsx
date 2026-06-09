@@ -14,6 +14,7 @@ import {
 export type IncomeStatementRow = {
   id: number;
   period_display_end_date?: string;
+  period_end_date?: string;
   revenue?: number | null;
   ebit?: number | null;
   ebitda?: number | null;
@@ -33,6 +34,26 @@ function formatIncomeValue(value: number | null | undefined): string {
 
 function formatPeriod(period?: string): string {
   return (period || "").replace(/[,\s]/g, "") || "-";
+}
+
+function parseIncomeStatementPeriod(row: IncomeStatementRow): number {
+  if (row.period_end_date) {
+    const parsed = Date.parse(row.period_end_date);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  const fromDisplay = Date.parse(
+    (row.period_display_end_date || "").replace(/[^0-9-]/g, "")
+  );
+  return Number.isNaN(fromDisplay) ? 0 : fromDisplay;
+}
+
+/** Oldest → newest (left-to-right in the table). */
+export function sortIncomeStatementRowsAsc(
+  rows: IncomeStatementRow[]
+): IncomeStatementRow[] {
+  return [...rows].sort(
+    (a, b) => parseIncomeStatementPeriod(a) - parseIncomeStatementPeriod(b)
+  );
 }
 
 const INCOME_METRICS: {
@@ -76,6 +97,8 @@ export function IncomeStatementTable({
 }) {
   if (rows.length === 0) return null;
 
+  const orderedRows = sortIncomeStatementRowsAsc(rows);
+
   return (
     <div
       className="income-statement-table"
@@ -91,8 +114,8 @@ export function IncomeStatementTable({
       >
         <colgroup>
           <col style={{ width: "38%" }} />
-          {rows.map((row) => (
-            <col key={row.id} style={{ width: `${62 / rows.length}%` }} />
+          {orderedRows.map((row) => (
+            <col key={row.id} style={{ width: `${62 / orderedRows.length}%` }} />
           ))}
         </colgroup>
         <thead>
@@ -104,7 +127,7 @@ export function IncomeStatementTable({
             }}
           >
             <th style={{ ...thStyle, textAlign: "left", paddingLeft: 0 }} />
-            {rows.map((row) => (
+            {orderedRows.map((row) => (
               <th key={row.id} style={thStyle}>
                 {formatPeriod(row.period_display_end_date)}
               </th>
@@ -124,7 +147,7 @@ export function IncomeStatementTable({
               }}
             >
               <td style={tdLabelStyle}>{metric.label}</td>
-              {rows.map((row) => (
+              {orderedRows.map((row) => (
                 <td
                   key={`${row.id}-${metric.label}`}
                   className={FIN_METRIC_VALUE_CLASS}

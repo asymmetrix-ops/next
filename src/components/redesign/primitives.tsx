@@ -45,6 +45,7 @@ export const CARD_TITLE_STYLE: React.CSSProperties = {
   fontWeight: 600,
   color: T.ink,
   lineHeight: 1.25,
+  whiteSpace: "nowrap",
 };
 
 /** Fixed-height title bar so adjacent cards align (arrow / metadata do not shift row). */
@@ -58,6 +59,7 @@ export const CARD_HEADER_BAR_STYLE: React.CSSProperties = {
   minWidth: 0,
   boxSizing: "border-box",
   minHeight: 44,
+  flexShrink: 0,
 };
 
 /** Overview KV label column width. */
@@ -95,24 +97,14 @@ export const descriptionBodyStyle: React.CSSProperties = {
 export const CARD_BODY_X_PAD = 14;
 export const overviewBodyPadding = "2px 14px 8px";
 
-/** Compact tab bar for Financial / Subscription metrics cards (fits fixed grid height). */
+/** Tab bar for Financial / Subscription metrics cards — identical shell to LinkedH. */
 export const FIN_METRICS_TAB_BAR_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 8,
-  padding: "8px 12px 5px",
-  borderBottom: `1px solid ${T.hair}`,
-  minWidth: 0,
-  flexShrink: 0,
+  ...CARD_HEADER_BAR_STYLE,
 };
 
+/** Tab labels in fin-metrics headers — same typography as LinkedH titles. */
 export const FIN_METRICS_TAB_STYLE: React.CSSProperties = {
-  fontFamily: T.sans,
-  fontSize: 12.5,
-  fontWeight: 600,
-  lineHeight: 1.2,
-  color: T.ink,
+  ...CARD_TITLE_STYLE,
 };
 
 /** Period row (DEC-2026 · Source) — tighter than table col headers elsewhere. */
@@ -128,11 +120,11 @@ export const finMetricsPeriodHeaderStyle: React.CSSProperties = {
 export const finMetricsBodyPadding = "2px 12px 4px";
 
 /**
- * Financial metrics row grid — label left, value + period centered, source right.
- * Symmetric 1fr spacers keep the date/value column in the middle of the card.
+ * Financial metrics row grid — label left, value centered, source right.
+ * Single center column keeps period header and values aligned (no per-row width drift).
  */
 export const FIN_METRIC_GRID_COLS =
-  "minmax(118px, max-content) 1fr minmax(72px, max-content) 1fr minmax(52px, max-content)";
+  "138px 1fr minmax(52px, max-content)";
 
 /** Income Statement — equal-width fiscal-year columns so headers align with values. */
 export function finMetricIncomeStatementGridCols(periodCount: number): string {

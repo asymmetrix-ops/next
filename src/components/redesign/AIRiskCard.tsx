@@ -152,8 +152,39 @@ type RadarChartProps = {
 };
 
 // Extra viewBox space (in SVG user units) reserved for axis labels on each side.
-const RADAR_PAD_H = 78;
-const RADAR_PAD_V = 28;
+const RADAR_PAD_H = 118;
+const RADAR_PAD_V = 36;
+
+/** Split long axis labels onto multiple lines (prefer " / " breaks). */
+function splitAxisLabel(label: string): string[] {
+  const trimmed = label.trim();
+  if (!trimmed) return [];
+  if (trimmed.includes(" / ")) {
+    return trimmed
+      .split(" / ")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  if (trimmed.length <= 16) return [trimmed];
+  const words = trimmed.split(/\s+/);
+  const lines: string[] = [];
+  let cur = "";
+  for (const word of words) {
+    const next = cur ? `${cur} ${word}` : word;
+    if (next.length > 16 && cur) {
+      lines.push(cur);
+      cur = word;
+    } else {
+      cur = next;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines.length > 0 ? lines : [trimmed];
+}
+
+function formatAiScorePair(avg: number): string {
+  return `${avg.toFixed(1)} / ${AI_SCORE_MAX.toFixed(1)}`;
+}
 
 function RadarChart({
   axes,
@@ -309,7 +340,7 @@ function RadarChart({
 
   const labels = axes.map((ax, i) => {
     const a = angleFor(i);
-    const lr = R + 22;
+    const lr = R + 28;
     const lx = cx + Math.cos(a) * lr;
     const ly = cy + Math.sin(a) * lr;
     const anchor =
@@ -319,6 +350,9 @@ function RadarChart({
           ? "start"
           : "end";
     const isActive = active === ax.key;
+    const lines = splitAxisLabel(ax.label);
+    const lineHeight = 13;
+    const firstDy = lines.length > 1 ? -((lines.length - 1) * lineHeight) / 2 : 0;
     return (
       <g
         key={`lbl-${ax.key}`}
@@ -334,24 +368,35 @@ function RadarChart({
           textAnchor={anchor}
           dominantBaseline="middle"
           fontFamily={T.sans}
-          fontSize="11"
+          fontSize="10.5"
           fontWeight={isActive ? 700 : 600}
           fill={isActive ? T.ink : T.body}
           style={{ letterSpacing: 0.1 }}
         >
-          {ax.label}
+          {lines.map((line, li) => (
+            <tspan
+              key={li}
+              x={lx}
+              dy={li === 0 ? firstDy : lineHeight}
+            >
+              {line}
+            </tspan>
+          ))}
         </text>
       </g>
     );
   });
 
+  const vbW = size + 2 * RADAR_PAD_H;
+  const vbH = size + 2 * RADAR_PAD_V;
+
   return (
     <svg
-      viewBox={`${-RADAR_PAD_H} ${-RADAR_PAD_V} ${size + 2 * RADAR_PAD_H} ${size + 2 * RADAR_PAD_V}`}
+      viewBox={`${-RADAR_PAD_H} ${-RADAR_PAD_V} ${vbW} ${vbH}`}
       width="100%"
-      height={size}
+      height="auto"
       preserveAspectRatio="xMidYMid meet"
-      style={{ display: "block" }}
+      style={{ display: "block", aspectRatio: `${vbW} / ${vbH}` }}
     >
       {rings}
       {spokes}
@@ -405,6 +450,10 @@ export function AIRiskCard({
     defAvg,
     riskAvg
   );
+  const activeAxis = axes.find((a) => a.key === active) ?? axes[0];
+  const activeTone = activeAxis
+    ? tierTone(activeAxis.score, activeAxis.group)
+    : null;
 
   return (
     <div
@@ -467,7 +516,7 @@ export function AIRiskCard({
                 background: GROUP_TONE.risk.fill,
               }}
             />
-            <span>Risk {riskAvg.toFixed(1)}/{AI_SCORE_MAX}</span>
+            <span>Risk {formatAiScorePair(riskAvg)}</span>
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
             <span
@@ -478,7 +527,7 @@ export function AIRiskCard({
                 background: GROUP_TONE.def.fill,
               }}
             />
-            <span>Defensibility {defAvg.toFixed(1)}/{AI_SCORE_MAX}</span>
+            <span>Defensibility {formatAiScorePair(defAvg)}</span>
           </span>
         </span>
       </div>
@@ -518,13 +567,13 @@ export function AIRiskCard({
 
       <div
         style={{
-          padding: "4px 12px 14px",
+          padding: "4px 12px 8px",
           display: "flex",
           justifyContent: "center",
-          flex: fillGridCell ? "1 1 auto" : undefined,
+          flex: fillGridCell ? "0 0 auto" : undefined,
         }}
       >
-        <div style={{ width: "100%", maxWidth: 360 }}>
+        <div style={{ width: "100%", maxWidth: 360, overflow: "visible" }}>
           <RadarChart
             axes={axes}
             active={active}
@@ -533,6 +582,62 @@ export function AIRiskCard({
           />
         </div>
       </div>
+
+      {activeAxis?.blurb ? (
+        <div
+          style={{
+            margin: "0 14px 14px",
+            padding: "12px 14px",
+            borderRadius: T.rLg,
+            background: activeTone?.bg ?? T.inset,
+            border: `1px solid ${activeTone?.ring ?? T.hair}`,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+              gap: 8,
+              marginBottom: 6,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: T.sans,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: T.ink,
+                lineHeight: 1.35,
+              }}
+            >
+              {activeAxis.label}
+            </div>
+            <span
+              style={{
+                fontFamily: T.mono,
+                fontSize: 11,
+                fontWeight: 600,
+                color: activeTone?.fg ?? T.muted,
+                flexShrink: 0,
+              }}
+            >
+              {activeAxis.tier} · {activeAxis.score.toFixed(1)} /{" "}
+              {AI_SCORE_MAX.toFixed(1)}
+            </span>
+          </div>
+          <div
+            style={{
+              fontFamily: T.sans,
+              fontSize: 12.5,
+              lineHeight: 1.55,
+              color: T.body,
+            }}
+          >
+            {activeAxis.blurb}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

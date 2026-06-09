@@ -64,6 +64,8 @@ export interface InsightsAnalysisFilters {
   Cities: string[];
   Offset: number;
   Per_page: number;
+  /** When set, filters articles to this company (Get_All_Content_Articles company_id). */
+  company_id?: number;
 }
 
 // Types for API integration

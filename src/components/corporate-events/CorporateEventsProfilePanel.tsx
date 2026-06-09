@@ -13,6 +13,7 @@ import {
 } from "@/components/redesign/primitives";
 import type { CorporateEvent, Sector } from "./CorporateEventsTable";
 import { isNonEmptyDisplayString as isNonEmptyString } from "@/lib/emptyDisplay";
+import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 
 export type CorporateEventsProfileTokens = {
   paper: string;
@@ -66,10 +67,33 @@ const formatMillions = (
       ? amount
       : Number(String(amount).replace(/,/g, "").trim());
   if (Number.isNaN(n)) return null;
-  return `${currency}${n.toLocaleString(undefined, {
-    maximumFractionDigits: 3,
-  })}`;
+  return appendMetricCurrency(
+    n.toLocaleString(undefined, { maximumFractionDigits: 3 }),
+    currency
+  );
 };
+
+/** Normalize API display strings like "15 USD" to Financial Metrics style ($15). */
+function normalizeAmountDisplayText(
+  raw: string,
+  currencyHint?: string
+): string {
+  const trimmed = raw.trim();
+  const numThenCurrency = trimmed.match(/^([\d,]+(?:\.\d+)?)\s*([A-Za-z$£€¥]+)$/);
+  if (numThenCurrency) {
+    return appendMetricCurrency(numThenCurrency[1], numThenCurrency[2]);
+  }
+  const currencyThenNum = trimmed.match(/^([A-Za-z$£€¥]+)\s*([\d,]+(?:\.\d+)?)$/);
+  if (currencyThenNum) {
+    return appendMetricCurrency(currencyThenNum[2], currencyThenNum[1]);
+  }
+  if (/[$£€¥]/.test(trimmed)) return trimmed;
+  const numOnly = trimmed.match(/^([\d,]+(?:\.\d+)?)/);
+  if (numOnly && currencyHint) {
+    return appendMetricCurrency(numOnly[1], currencyHint);
+  }
+  return trimmed;
+}
 
 function formatMonthYear(iso?: string | null): string {
   if (!iso) return "-";
@@ -258,10 +282,14 @@ function formatAmountCell(event: CorporateEvent): string {
     ne.ev_display ?? le.ev_display ?? null;
   const evBandFallback = hasEvNumeric ? null : evDataRaw?.ev_band || null;
 
-  if (isNonEmptyString(amountDisplay)) return amountDisplay;
   const inv = formatMillions(amountMillions, amountCurrency);
   if (inv) return inv;
-  if (isNonEmptyString(evDisplay)) return evDisplay;
+  if (isNonEmptyString(amountDisplay)) {
+    return normalizeAmountDisplayText(amountDisplay, amountCurrency);
+  }
+  if (isNonEmptyString(evDisplay)) {
+    return normalizeAmountDisplayText(evDisplay, evCurrency);
+  }
   const evNum = formatMillions(evMillions, evCurrency);
   if (evNum) return evNum;
   if (isNonEmptyString(evBandFallback)) return evBandFallback;
@@ -381,7 +409,7 @@ const CE_HEADERS = [
   "Target / Counterparty",
   "Advisors",
   "Sector",
-  "Amount",
+  "Amount (m)",
 ] as const;
 
 const CE_COL_GRID_NARROW =

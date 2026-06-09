@@ -1263,7 +1263,6 @@ const CompanyDetail = () => {
   const financeSecondaryRowRef = useRef<HTMLDivElement | null>(null);
   const financePrimaryGridRef = useRef<HTMLDivElement | null>(null);
   const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
-  const [activeProfileTab, setActiveProfileTab] = useState("Summary");
   const [managementIndividualLinkedIn, setManagementIndividualLinkedIn] =
     useState<Record<number, string>>({});
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
@@ -2088,19 +2087,6 @@ const CompanyDetail = () => {
     financialMetrics,
   ]);
 
-  const scrollToProfileFinancials = useCallback(() => {
-    setActiveProfileTab("Financials");
-    const isMobile =
-      typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 768px)").matches;
-    const target = isMobile
-      ? profileFinancialsMobileRef.current
-      : financePrimaryGridRef.current;
-    requestAnimationFrame(() => {
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, []);
-
   // Update page title when company data is loaded
   useEffect(() => {
     if (company?.name && typeof document !== "undefined") {
@@ -2556,7 +2542,7 @@ const CompanyDetail = () => {
       cost_of_goods_sold_currency: row.cost_of_goods_sold_currency,
     }))
     .sort((a, b) => {
-      // Sort descending by period_end_date; fallback to display string
+      // Sort ascending by period_end_date; take the 3 most recent for display
       const da = a.period_end_date
         ? Date.parse(a.period_end_date)
         : Date.parse(
@@ -2567,9 +2553,9 @@ const CompanyDetail = () => {
         : Date.parse(
             (b.period_display_end_date || "").replace(/[^0-9-]/g, "")
           ) || 0;
-      return db - da;
+      return da - db;
     })
-    .slice(0, 3);
+    .slice(-3);
 
   // Show Income Statement only if there is at least one numeric value
   const hasIncomeStatementData =
@@ -3442,11 +3428,15 @@ const CompanyDetail = () => {
     .fin-tab-scroll::-webkit-scrollbar {
       display: none;
     }
-    .desktop-financial-metrics .info-row:not(.income-statement-row) {
+    .desktop-financial-metrics .info-row:not(.income-statement-row),
+    .desktop-financial-metrics .fin-metric-period-header {
       padding: 4px 0 !important;
-      grid-template-columns: minmax(118px, 138px) 1fr minmax(72px, max-content) 1fr minmax(52px, auto) !important;
+      grid-template-columns: 138px 1fr minmax(52px, auto) !important;
       column-gap: 8px !important;
       align-items: center !important;
+    }
+    .desktop-financial-metrics .fin-metric-period-header {
+      padding: 4px 12px 3px !important;
     }
     .desktop-financial-metrics .fin-metric-value,
     .mobile-financial-metrics .fin-metric-value {
@@ -3456,7 +3446,8 @@ const CompanyDetail = () => {
       font-weight: 400 !important;
       color: ${T.body} !important;
     }
-    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3) {
+    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(2),
+    .desktop-financial-metrics .fin-metric-period-header > :nth-child(2) {
       min-width: 0;
       text-align: center !important;
       justify-self: center !important;
@@ -3471,24 +3462,28 @@ const CompanyDetail = () => {
       font-weight: 400 !important;
       color: ${T.muted} !important;
     }
-    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
+    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3),
+    .desktop-financial-metrics .fin-metric-period-header > :nth-child(3) {
       font-family: ${T.sans} !important;
       font-size: 13px !important;
       line-height: 1.35 !important;
       font-weight: 400 !important;
       color: ${T.muted} !important;
-    }
-    .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
       text-align: right !important;
       justify-self: end !important;
     }
-    .mobile-financial-metrics .info-row:not(.income-statement-row) {
+    .mobile-financial-metrics .info-row:not(.income-statement-row),
+    .mobile-financial-metrics .fin-metric-period-header {
       padding: 4px 0 !important;
-      grid-template-columns: minmax(118px, 138px) 1fr minmax(72px, max-content) 1fr minmax(52px, auto) !important;
+      grid-template-columns: 138px 1fr minmax(52px, auto) !important;
       column-gap: 8px !important;
       align-items: center !important;
     }
-    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3) {
+    .mobile-financial-metrics .fin-metric-period-header {
+      padding: 4px 12px 3px !important;
+    }
+    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(2),
+    .mobile-financial-metrics .fin-metric-period-header > :nth-child(2) {
       min-width: 0;
       text-align: center !important;
       justify-self: center !important;
@@ -3503,14 +3498,13 @@ const CompanyDetail = () => {
       font-weight: 400 !important;
       color: ${T.muted} !important;
     }
-    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
+    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3),
+    .mobile-financial-metrics .fin-metric-period-header > :nth-child(3) {
       font-family: ${T.sans} !important;
       font-size: 13px !important;
       line-height: 1.35 !important;
       font-weight: 400 !important;
       color: ${T.muted} !important;
-    }
-    .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(5) {
       text-align: right !important;
       justify-self: end !important;
     }
@@ -3714,42 +3708,23 @@ const CompanyDetail = () => {
                 </div>
               </div>
 
-        {/* Navigation tabs */}
+        {/* Navigation tabs — Summary only until other sections are available */}
         <div style={{ display: "flex", gap: "2px", overflowX: "auto" as const, scrollbarWidth: "none" as const }}>
-          {[
-            "Summary", "Products", "Methodology", "People",
-            "Financials", "Insights", "Deals", "Ownership", "Market",
-          ].map((tab) => {
-            const active = tab === activeProfileTab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => {
-                  setActiveProfileTab(tab);
-                  if (tab === "Financials") scrollToProfileFinancials();
-                }}
-                style={{
-                  padding: "10px 14px",
-                  fontFamily: T.sans, fontSize: "13px",
-                  fontWeight: active ? 600 : 500,
-                  color: active ? T.ink : T.muted,
-                  borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
-                  marginBottom: "-1px",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap" as const,
-                  transition: "color 120ms",
-                  background: "transparent",
-                  borderTop: "none",
-                  borderLeft: "none",
-                  borderRight: "none",
-                }}
-              >
-                {tab}
-              </button>
-            );
-          })}
-                  </div>
+          <span
+            style={{
+              padding: "10px 14px",
+              fontFamily: T.sans,
+              fontSize: "13px",
+              fontWeight: 600,
+              color: T.ink,
+              borderBottom: `2px solid ${T.azure}`,
+              marginBottom: "-1px",
+              whiteSpace: "nowrap" as const,
+            }}
+          >
+            Summary
+          </span>
+        </div>
       </div>
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>

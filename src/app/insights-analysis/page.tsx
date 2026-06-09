@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -10,6 +11,10 @@ import {
   InsightsAnalysisFilters,
 } from "../../types/insightsAnalysis";
 import { locationsService } from "@/lib/locationsService";
+import {
+  fetchAllContentArticles,
+  parseCompanyIdFromSearch,
+} from "@/lib/fetchAllContentArticles";
 import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 
 // Shared styles object
@@ -322,21 +327,41 @@ const InsightsAnalysisCards = ({
   );
 };
 
-// Main Insights Analysis Page Component
-const InsightsAnalysisPage = () => {
-  const { isTrialActive } = useAuth();
-  // State for filters
-  const [filters, setFilters] = useState<InsightsAnalysisFilters>({
-    search_query: "",
-    primary_sectors_ids: [],
-    Secondary_sectors_ids: [],
-    Countries: [],
-    Provinces: [],
-    Cities: [],
-    Offset: 1,
-    Per_page: 12,
-  });
+const DEFAULT_INSIGHTS_FILTERS: InsightsAnalysisFilters = {
+  search_query: "",
+  primary_sectors_ids: [],
+  Secondary_sectors_ids: [],
+  Countries: [],
+  Provinces: [],
+  Cities: [],
+  Offset: 1,
+  Per_page: 12,
+};
 
+// Main Insights Analysis Page Component
+const InsightsAnalysisPageContent = () => {
+  const { isTrialActive } = useAuth();
+  const searchParams = useSearchParams();
+
+  const companyIdFromUrl = useMemo(
+    () => parseCompanyIdFromSearch(searchParams),
+    [searchParams]
+  );
+
+  const applyCompanyFilter = useCallback(
+    (next: InsightsAnalysisFilters): InsightsAnalysisFilters => ({
+      ...next,
+      company_id: companyIdFromUrl ?? next.company_id,
+    }),
+    [companyIdFromUrl]
+  );
+
+  // State for filters
+  const [filters, setFilters] = useState<InsightsAnalysisFilters>(
+    DEFAULT_INSIGHTS_FILTERS
+  );
+
+  const [companyFilterName, setCompanyFilterName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [contentTypes, setContentTypes] = useState<string[]>([]);
@@ -361,18 +386,21 @@ const InsightsAnalysisPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchInsightsAnalysis = async (filters: InsightsAnalysisFilters) => {
-    try {
-      setLoading(true);
-      setError(null);
+  const fetchInsightsAnalysis = useCallback(
+    async (incomingFilters: InsightsAnalysisFilters) => {
+      const activeFilters = applyCompanyFilter(incomingFilters);
 
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) {
-        setError("Authentication required");
-        return;
-      }
+      try {
+        setLoading(true);
+        setError(null);
 
-      if (isTrialActive) {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          setError("Authentication required");
+          return;
+        }
+
+        if (isTrialActive && !activeFilters.company_id) {
         // Trial: show all Hot Takes, plus 3 most recent Company Analysis and 3 most recent Deal Analysis
         const fetchByType = async (contentType: string, perPage = 100) => {
           const p = new URLSearchParams();
@@ -423,76 +451,49 @@ const InsightsAnalysisPage = () => {
         return;
       }
 
-      // Build GET query params per API spec
-      const params = new URLSearchParams();
-      params.append("Offset", String(filters.Offset));
-      params.append("Per_page", String(filters.Per_page));
-      if (filters.search_query)
-        params.append("search_query", filters.search_query);
-      if (filters.Countries?.length)
-        params.append("Countries", filters.Countries.join(","));
-      if (filters.Provinces?.length)
-        params.append("Provinces", filters.Provinces.join(","));
-      if (filters.Cities?.length)
-        params.append("Cities", filters.Cities.join(","));
-      if (filters.primary_sectors_ids?.length)
-        params.append(
-          "primary_sectors_ids",
-          filters.primary_sectors_ids.join(",")
+        const data = await fetchAllContentArticles(
+          activeFilters,
+          token,
+          searchParams
         );
-      if (filters.Secondary_sectors_ids?.length)
-        params.append(
-          "Secondary_sectors_ids",
-          filters.Secondary_sectors_ids.join(",")
+
+        setArticles(data.items);
+        setPagination({
+          itemsReceived: data.itemsReceived,
+          curPage: data.curPage,
+          nextPage: data.nextPage,
+          prevPage: data.prevPage,
+          offset: data.offset,
+          perPage: activeFilters.Per_page,
+          pageTotal: data.pageTotal,
+        });
+      } catch (error) {
+        console.error("Error fetching insights analysis:", error);
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch insights analysis"
         );
-      const ct = (filters.Content_Type || filters.content_type || "").trim();
-      if (ct) params.append("content_type", ct);
-      const ts = filters.Transaction_status;
-      if (ts != null) params.append("Transaction_status", String(ts));
-
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      } finally {
+        setLoading(false);
       }
+    },
+    [applyCompanyFilter, isTrialActive, searchParams]
+  );
 
-      const data: InsightsAnalysisResponse = await response.json();
-
-      setArticles(data.items);
-      setPagination({
-        itemsReceived: data.itemsReceived,
-        curPage: data.curPage,
-        nextPage: data.nextPage,
-        prevPage: data.prevPage,
-        offset: data.offset,
-        perPage: filters.Per_page,
-        pageTotal: data.pageTotal,
-      });
-    } catch (error) {
-      console.error("Error fetching insights analysis:", error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to fetch insights analysis"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initial data fetch
+  // Initial data fetch (respect company_id from URL when opened from company profile)
   useEffect(() => {
-    // Initial fetch of all articles
-    fetchInsightsAnalysis(filters);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const companyName = searchParams.get("company_name")?.trim() || "";
+    setCompanyFilterName(companyName);
+
+    const initialFilters = applyCompanyFilter({
+      ...DEFAULT_INSIGHTS_FILTERS,
+      Offset: 1,
+    });
+
+    setFilters(initialFilters);
+    void fetchInsightsAnalysis(initialFilters);
+  }, [companyIdFromUrl, searchParams, applyCompanyFilter, fetchInsightsAnalysis]);
 
   // Fetch content type options and primary sectors (cached via locationsService)
   useEffect(() => {
@@ -514,21 +515,23 @@ const InsightsAnalysisPage = () => {
   }, []);
 
   // Handle search
+  const activeCompanyId = companyIdFromUrl ?? filters.company_id;
+
   const handleSearch = () => {
-    const updatedFilters = {
+    const updatedFilters = applyCompanyFilter({
       ...filters,
       search_query: searchTerm,
-      Offset: 1, // Reset to first page when searching
-    };
+      Offset: 1,
+    });
     setFilters(updatedFilters);
-    fetchInsightsAnalysis(updatedFilters);
+    void fetchInsightsAnalysis(updatedFilters);
   };
 
   // Handle page change
   const handlePageChange = (page: number) => {
-    const updatedFilters = { ...filters, Offset: page };
+    const updatedFilters = applyCompanyFilter({ ...filters, Offset: page });
     setFilters(updatedFilters);
-    fetchInsightsAnalysis(updatedFilters);
+    void fetchInsightsAnalysis(updatedFilters);
   };
 
   const style = `
@@ -865,6 +868,21 @@ const InsightsAnalysisPage = () => {
               >
                 Insights & Analysis
               </h2>
+              {activeCompanyId ? (
+                <p
+                  style={{
+                    margin: "0 0 16px",
+                    fontSize: "14px",
+                    color: "#4a5568",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Showing articles for{" "}
+                  <strong style={{ color: "#1a202c" }}>
+                    {companyFilterName || `Company #${activeCompanyId}`}
+                  </strong>
+                </p>
+              ) : null}
 
               {/* Search row – input, Search, Show Filters (same height, global styles) */}
               <div className="search-bar" style={{ flexWrap: "wrap", gap: "12px", marginBottom: "0" }}>
@@ -900,8 +918,8 @@ const InsightsAnalysisPage = () => {
                   type="button"
                   onClick={() => {
                     setSearchTerm("");
-                    const resetFilters: InsightsAnalysisFilters = {
-                      ...filters,
+                    const resetFilters = applyCompanyFilter({
+                      ...DEFAULT_INSIGHTS_FILTERS,
                       search_query: "",
                       Content_Type: undefined,
                       content_type: undefined,
@@ -909,9 +927,12 @@ const InsightsAnalysisPage = () => {
                       primary_sectors_ids: [],
                       Secondary_sectors_ids: [],
                       Offset: 1,
-                    };
+                    });
                     setFilters(resetFilters);
-                    fetchInsightsAnalysis(resetFilters);
+                    if (!companyIdFromUrl) {
+                      setCompanyFilterName("");
+                    }
+                    void fetchInsightsAnalysis(resetFilters);
                   }}
                   className="search-bar-button"
                   style={{
@@ -933,14 +954,14 @@ const InsightsAnalysisPage = () => {
                     <select
                       value={filters.Content_Type || ""}
                       onChange={(e) => {
-                        const updated = {
+                        const updated = applyCompanyFilter({
                           ...filters,
                           Content_Type: e.target.value || undefined,
                           content_type: e.target.value || undefined,
                           Offset: 1,
-                        };
+                        });
                         setFilters(updated);
-                        fetchInsightsAnalysis(updated);
+                        void fetchInsightsAnalysis(updated);
                       }}
                       style={styles.select}
                       className="filters-input"
@@ -959,16 +980,16 @@ const InsightsAnalysisPage = () => {
                       value={filters.primary_sectors_ids?.[0]?.toString() || ""}
                       onChange={(e) => {
                         const value = e.target.value;
-                        const updated = {
+                        const updated = applyCompanyFilter({
                           ...filters,
                           primary_sectors_ids:
                             value === ""
                               ? []
                               : [Number.parseInt(value, 10)],
                           Offset: 1,
-                        };
+                        });
                         setFilters(updated);
-                        fetchInsightsAnalysis(updated);
+                        void fetchInsightsAnalysis(updated);
                       }}
                       style={styles.select}
                       className="filters-input"
@@ -990,15 +1011,15 @@ const InsightsAnalysisPage = () => {
                           : ""
                       }
                       onChange={(e) => {
-                        const updated = {
+                        const updated = applyCompanyFilter({
                           ...filters,
                           Transaction_status: e.target.value
                             ? Number.parseInt(e.target.value, 10)
                             : undefined,
                           Offset: 1,
-                        };
+                        });
                         setFilters(updated);
-                        fetchInsightsAnalysis(updated);
+                        void fetchInsightsAnalysis(updated);
                       }}
                       style={styles.select}
                       className="filters-input"
@@ -1044,5 +1065,21 @@ const InsightsAnalysisPage = () => {
     </div>
   );
 };
+
+const InsightsAnalysisPage = () => (
+  <Suspense
+    fallback={
+      <div className="min-h-screen">
+        <Header />
+        <div style={{ padding: "40px", textAlign: "center", color: "#666" }}>
+          Loading insights...
+        </div>
+        <Footer />
+      </div>
+    }
+  >
+    <InsightsAnalysisPageContent />
+  </Suspense>
+);
 
 export default InsightsAnalysisPage;

@@ -57,8 +57,20 @@ function parseSummaryItems(val: unknown): string[] {
       if (Array.isArray(parsed)) return parseSummaryItems(parsed);
     } catch { /* not JSON */ }
     const htmlItems = extractSummaryItemsFromHtml(trimmed);
-    if (htmlItems.length > 0) return htmlItems;
-    return [trimmed];
+    if (htmlItems.length > 1) return htmlItems;
+    if (htmlItems.length === 1) {
+      const lines = htmlItems[0]
+        .split(/\r?\n+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (lines.length > 1) return lines;
+      return htmlItems;
+    }
+    const lines = trimmed
+      .split(/\r?\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return lines.length > 0 ? lines : [trimmed];
   }
   return [];
 }
@@ -115,7 +127,11 @@ function decodeHtmlEntities(input: string): string {
 }
 
 // ── skeleton row ─────────────────────────────────────────────────────────────
-function SkeletonRow() {
+/** Minimum list height for two insight rows (keeps pager from jumping). */
+const INSIGHTS_LIST_MIN_HEIGHT = 220;
+const INSIGHTS_ROW_SLOT_MIN_HEIGHT = 100;
+
+function SkeletonRow({ flexSlot = false }: { flexSlot?: boolean }) {
   return (
     <div
       style={{
@@ -124,6 +140,7 @@ function SkeletonRow() {
         gap: 16,
         padding: "14px 16px",
         borderBottom: `1px solid ${T.hair}`,
+        ...(flexSlot ? { flex: 1, minHeight: INSIGHTS_ROW_SLOT_MIN_HEIGHT } : {}),
       }}
     >
       <div style={{ height: 18, background: T.inset, borderRadius: 4 }} />
@@ -150,7 +167,13 @@ const DEMO_ARTICLES = [
   },
 ];
 
-function DemoRow({ item }: { item: (typeof DEMO_ARTICLES)[number] }) {
+function DemoRow({
+  item,
+  flexSlot = false,
+}: {
+  item: (typeof DEMO_ARTICLES)[number];
+  flexSlot?: boolean;
+}) {
   return (
     <div
       style={{
@@ -159,6 +182,7 @@ function DemoRow({ item }: { item: (typeof DEMO_ARTICLES)[number] }) {
         gap: 16,
         padding: "14px 16px",
         borderBottom: `1px solid ${T.hair}`,
+        ...(flexSlot ? { flex: 1, minHeight: INSIGHTS_ROW_SLOT_MIN_HEIGHT } : {}),
       }}
     >
       <div>
@@ -215,6 +239,19 @@ function DemoRow({ item }: { item: (typeof DEMO_ARTICLES)[number] }) {
   );
 }
 
+function InsightRowPlaceholder() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        flex: 1,
+        minHeight: INSIGHTS_ROW_SLOT_MIN_HEIGHT,
+        borderBottom: `1px solid ${T.hair}`,
+      }}
+    />
+  );
+}
+
 // ── Summary modal ─────────────────────────────────────────────────────────────
 function SummaryModal({
   article,
@@ -264,17 +301,26 @@ function SummaryModal({
             gap: 12,
           }}
         >
-          <div
+          <Link
+            href={`/article/${article.id}`}
+            prefetch={false}
             style={{
               fontSize: 14,
               fontWeight: 600,
               color: T.ink,
               lineHeight: 1.45,
               flex: 1,
+              textDecoration: "none",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = T.azure;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = T.ink;
             }}
           >
             {headline}
-          </div>
+          </Link>
           <button
             type="button"
             onClick={onClose}
@@ -311,16 +357,21 @@ function SummaryModal({
         <ul
           style={{
             margin: 0,
-            padding: "0 0 0 18px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
+            paddingLeft: 20,
+            listStyleType: "disc",
+            listStylePosition: "outside",
           }}
         >
           {items.map((item, i) => (
             <li
               key={i}
-              style={{ fontSize: 13, lineHeight: 1.6, color: T.body }}
+              style={{
+                fontSize: 13,
+                lineHeight: 1.6,
+                color: T.body,
+                marginBottom: i < items.length - 1 ? 10 : 0,
+                display: "list-item",
+              }}
               dangerouslySetInnerHTML={{ __html: item }}
             />
           ))}
@@ -562,19 +613,35 @@ export function InsightsCard({
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH>Recent Insights &amp; Analysis</LinkedH>
 
-      {/* rows */}
-      {loading ? (
-        <>
-          <SkeletonRow />
-          <SkeletonRow />
-        </>
-      ) : isEmpty ? (
-        DEMO_ARTICLES.map((item) => <DemoRow key={item.tag} item={item} />)
-      ) : (
-        articles.map((a) => (
-          <ArticleRow key={a.id} article={a} onViewSummary={handleViewSummary} />
-        ))
-      )}
+      <div
+        style={{
+          flex: fillGridCell ? 1 : undefined,
+          minHeight: fillGridCell ? 0 : INSIGHTS_LIST_MIN_HEIGHT,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {loading ? (
+          <>
+            <SkeletonRow flexSlot />
+            <SkeletonRow flexSlot />
+          </>
+        ) : isEmpty ? (
+          DEMO_ARTICLES.map((item) => (
+            <DemoRow key={item.tag} item={item} flexSlot />
+          ))
+        ) : (
+          <>
+            {articles.map((a) => (
+              <ArticleRow key={a.id} article={a} onViewSummary={handleViewSummary} />
+            ))}
+            {articles.length < 2 &&
+              Array.from({ length: 2 - articles.length }).map((_, i) => (
+                <InsightRowPlaceholder key={`insights-row-pad-${i}`} />
+              ))}
+          </>
+        )}
+      </div>
 
       {/* footer pager */}
       <div
@@ -586,6 +653,7 @@ export function InsightsCard({
           borderTop: `1px solid ${T.hair}`,
           fontFamily: T.sans,
           fontSize: 13,
+          flexShrink: 0,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

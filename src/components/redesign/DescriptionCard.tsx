@@ -3,7 +3,7 @@
  * DescriptionCard — Row 1, column 2.
  * When collapsed, stretches to the overview row height; expand → shows full text.
  */
-import React from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { LinkPanel, LinkedH, T, descriptionBodyStyle } from "./primitives";
 
 const EM = "-";
@@ -25,7 +25,42 @@ export function DescriptionCard({
   fillGridCell = false,
 }: Props) {
   const body = text?.trim() || EM;
-  const isLong = body !== EM && body.length > 120;
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const [canExpand, setCanExpand] = useState(false);
+
+  const setContentRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      innerRef.current = node;
+      if (typeof contentRef === "function") contentRef(node);
+      else if (contentRef && "current" in contentRef) {
+        (contentRef as React.MutableRefObject<HTMLDivElement | null>).current =
+          node;
+      }
+    },
+    [contentRef]
+  );
+
+  useEffect(() => {
+    if (expanded) return;
+
+    const el = innerRef.current;
+    if (!el || body === EM) {
+      setCanExpand(false);
+      return;
+    }
+
+    const measure = () => {
+      setCanExpand(el.scrollHeight > el.clientHeight + 1);
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    const parent = el.parentElement;
+    if (parent) ro.observe(parent);
+
+    return () => ro.disconnect();
+  }, [expanded, body, fillGridCell]);
 
   return (
     <LinkPanel fillGridCell={fillGridCell || expanded}>
@@ -41,7 +76,7 @@ export function DescriptionCard({
         }}
       >
         <div
-          ref={contentRef}
+          ref={setContentRef}
           style={{
             ...descriptionBodyStyle,
             textAlign: "justify" as const,
@@ -54,7 +89,7 @@ export function DescriptionCard({
         </div>
 
         {/* Show less — visible only when expanded */}
-        {expanded && isLong && (
+        {expanded && canExpand && (
           <button
             type="button"
             onClick={onToggleExpand}
@@ -78,7 +113,7 @@ export function DescriptionCard({
       </div>
 
       {/* Gradient fade + Expand button — visible only when collapsed */}
-      {!expanded && isLong && (
+      {!expanded && canExpand && (
         <div
           aria-hidden={false}
           style={{
