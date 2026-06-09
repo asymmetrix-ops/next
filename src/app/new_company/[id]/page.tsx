@@ -4285,7 +4285,7 @@ const CompanyDetail = () => {
                     events={corporateEvents}
                     primarySectors={augmentedPrimarySectors}
                     primarySectorsByCompanyId={corporateEventPrimarySectorsByCompanyId}
-                    maxInitialEvents={3}
+                    maxInitialEvents={2}
                   />
                 </LinkPanel>
               </div>
