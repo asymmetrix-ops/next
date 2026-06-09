@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useRef,
   useEffect,
+  useLayoutEffect,
   useCallback,
 } from "react";
 
@@ -219,9 +220,9 @@ function Pop({
   boundaryRef,
 }: PopProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     function place() {
       if (!anchorRef.current || !ref.current) return;
       const a = anchorRef.current.getBoundingClientRect();
@@ -267,7 +268,13 @@ function Pop({
   return (
     <div
       ref={ref}
-      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+      style={{
+        position: "fixed",
+        top: pos?.top ?? 0,
+        left: pos?.left ?? 0,
+        visibility: pos ? "visible" : "hidden",
+        zIndex: 9999,
+      }}
     >
       {children}
     </div>
@@ -317,7 +324,7 @@ function summarize(def: FilterDef, value: unknown): string {
   if (def.editor === "segmented") return String(value);
   if (def.editor === "boolean") {
     if (value !== true) return "";
-    return def.id === "followed" ? "Followed only" : "On";
+    return def.id === "followed" ? "My Portfolio only" : "On";
   }
   return "";
 }
@@ -1700,7 +1707,22 @@ function BooleanEditor({
   onDismiss,
   onClose,
 }: BooleanEditorProps) {
-  const [on, setOn] = useState<boolean>(value !== false);
+  const [on, setOn] = useState<boolean>(value === true);
+  const isPortfolioFilter = def.id === "followed";
+
+  const handleApply = () => {
+    if (on) {
+      onChange(true);
+      onClose();
+      return;
+    }
+    // Unchecked: remove active filter (if any) and show all companies.
+    if (onRemove) {
+      onRemove();
+    }
+    onClose();
+  };
+
   return (
     <EditorShell
       title={def.fullLabel}
@@ -1709,19 +1731,15 @@ function BooleanEditor({
         <EditorFooter
           onRemove={onRemove}
           onBack={onBack}
-          onApply={() => {
-            onChange(on);
-            onClose();
-          }}
-          applyDisabled={!on}
+          onApply={handleApply}
         />
       }
-      width={260}
+      width={300}
     >
       <label
         style={{
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           gap: 10,
           padding: "8px 10px",
           borderRadius: "var(--r-md)",
@@ -1734,14 +1752,31 @@ function BooleanEditor({
           type="checkbox"
           checked={on}
           onChange={(e) => setOn(e.target.checked)}
-          style={{ width: 16, height: 16, accentColor: "var(--ax-cyan-700)" }}
+          style={{
+            width: 16,
+            height: 16,
+            marginTop: 2,
+            accentColor: "var(--ax-cyan-700)",
+          }}
         />
-        <span style={{ fontSize: "var(--fs-13)", color: "var(--fg-1)" }}>
-          {def.id === "followed"
-            ? "Show only companies in My Portfolio"
+        <span style={{ fontSize: "var(--fs-13)", color: "var(--fg-1)", lineHeight: 1.45 }}>
+          {isPortfolioFilter
+            ? "Show only My Portfolio companies (followed or on a list)"
             : def.fullLabel}
         </span>
       </label>
+      {isPortfolioFilter && (
+        <p
+          style={{
+            margin: "8px 0 0",
+            fontSize: "var(--fs-12)",
+            color: "var(--fg-4)",
+            lineHeight: 1.45,
+          }}
+        >
+          Uncheck and apply to show all companies, or remove the filter chip.
+        </p>
+      )}
     </EditorShell>
   );
 }
@@ -1978,11 +2013,23 @@ export function CompaniesFilterBar({
 
   const updateFilter = useCallback(
     (instanceKey: string, value: unknown) => {
+      const existing = filters.find((x) => x.key === instanceKey);
+      const def = existing
+        ? filterDefs.find((d) => d.id === existing.id)
+        : undefined;
+      if (
+        def?.editor === "boolean" &&
+        value !== true
+      ) {
+        setFilters((f) => f.filter((x) => x.key !== instanceKey));
+        setEditing((e) => (e === instanceKey ? null : e));
+        return;
+      }
       setFilters((f) =>
         f.map((x) => (x.key === instanceKey ? { ...x, value } : x))
       );
     },
-    [setFilters]
+    [setFilters, filters, filterDefs]
   );
 
   const removeFilter = useCallback(

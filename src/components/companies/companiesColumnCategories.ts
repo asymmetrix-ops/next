@@ -142,7 +142,7 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
       {
         id: "state",
         columnKey: "state",
-        label: "State / Province",
+        label: "State",
         type: "text",
         defaultVisible: false,
       },

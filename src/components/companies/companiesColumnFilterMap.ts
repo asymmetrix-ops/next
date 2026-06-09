@@ -281,15 +281,6 @@ export const EXTRA_FILTER_DEFS: Pick<
   "id" | "label" | "fullLabel" | "category" | "type" | "editor" | "options"
 >[] = [
   {
-    id: "country",
-    label: "Country",
-    fullLabel: "Country",
-    category: "location",
-    type: "Aa",
-    editor: "enum",
-    options: [],
-  },
-  {
     id: "region",
     label: "Region",
     fullLabel: "Continental Region",
@@ -300,8 +291,17 @@ export const EXTRA_FILTER_DEFS: Pick<
   },
   {
     id: "sub_region",
-    label: "Sub-region",
+    label: "Sub-Region",
     fullLabel: "Sub-Region",
+    category: "location",
+    type: "Aa",
+    editor: "enum",
+    options: [],
+  },
+  {
+    id: "country",
+    label: "Country",
+    fullLabel: "Country",
     category: "location",
     type: "Aa",
     editor: "enum",
@@ -319,7 +319,7 @@ export const EXTRA_FILTER_DEFS: Pick<
   {
     id: "followed",
     label: "My Portfolio",
-    fullLabel: "Companies in My Portfolio",
+    fullLabel: "My Portfolio",
     category: "lists",
     type: "Aa",
     editor: "boolean",
