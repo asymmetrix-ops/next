@@ -203,12 +203,11 @@ export const profileTableCellStyle: React.CSSProperties = {
 };
 
 /**
- * Shared 6-column grid for Corporate Events + Current Subsidiaries on the company
- * profile (rows 5–6). Subsidiaries place Company across cols 1–2; Sector aligns
- * with Target / Counterparty (col 3).
+ * Five-column grid for Corporate Events on the company profile:
+ * Event Details | Parties | Deal Details | Advisors | Sector
  */
 export const PROFILE_EVENTS_ROW_GRID =
-  "minmax(88px, auto) minmax(108px, auto) minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(96px, auto)";
+  "minmax(0, 1.35fr) minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 0.85fr) minmax(0, 0.85fr)";
 
 export const PROFILE_EVENTS_ROW_GAP = 8;
 
