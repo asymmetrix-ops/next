@@ -6,6 +6,7 @@ import Image from "next/image";
 import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { FollowButton } from "@/components/FollowButton";
 import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
 import { useIndividualProfile } from "../../../hooks/useIndividualProfile";
 import {
@@ -253,6 +254,14 @@ export default function IndividualProfilePage() {
               </h1>
             </div>
           </div>
+          {individualId && !Number.isNaN(individualId) && (
+            <FollowButton
+              followKey="followed_individuals"
+              entityId={individualId}
+              entityType="individual"
+              label="Individual"
+            />
+          )}
           <a
             href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
               `Contribute Individual Data – ${

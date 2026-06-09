@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { FollowButton } from "@/components/FollowButton";
 import { locationsService } from "@/lib/locationsService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import {
@@ -2447,7 +2448,16 @@ const SubSectorPage = () => {
                 </h1>
               </div>
             </div>
-            <div className="text-sm text-right text-slate-700 whitespace-normal">
+            <div className="flex items-center gap-4">
+              {!Number.isNaN(subSectorId) && subSectorId > 0 && (
+                <FollowButton
+                  followKey="followed_sectors"
+                  entityId={subSectorId}
+                  entityType="sector"
+                  label="Sub-Sector"
+                />
+              )}
+              <div className="text-sm text-right text-slate-700 whitespace-normal">
               <span className="font-semibold text-slate-900">
                 Primary Sector(s){headerPrimarySectors.length === 1 ? "" : "s"}:
               </span>{" "}
@@ -2466,6 +2476,7 @@ const SubSectorPage = () => {
                   </React.Fragment>
                 ))
               )}
+              </div>
             </div>
           </div>
         </div>

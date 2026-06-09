@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { FollowButton } from "@/components/FollowButton";
+import { BellIcon } from "@heroicons/react/24/outline";
 import { useRightClick } from "@/hooks/useRightClick";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
@@ -2682,7 +2684,15 @@ const CompanyDetail = () => {
                     flexWrap: "wrap",
                   }}
                 >
-                  {}
+                  {companyId && !Number.isNaN(Number(companyId)) && (
+                    <FollowButton
+                      followKey="followed_companies"
+                      entityId={Number(companyId)}
+                      entityType="company"
+                      label="Company"
+                      icon={<BellIcon width={15} height={15} strokeWidth={2} aria-hidden />}
+                    />
+                  )}
                   <div
                     ref={pdfExportMenuRef}
                     style={{ position: "relative", display: "inline-block" }}
