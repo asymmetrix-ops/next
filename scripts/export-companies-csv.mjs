@@ -30,7 +30,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const API_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies_dynamic_sql";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
