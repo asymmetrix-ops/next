@@ -32,7 +32,7 @@ import {
   COMPANIES_API_BASE,
   companySearchPayloadToSearchParams,
 } from "@/lib/companiesFilterPayload";
-import { fetchUserPortfolioRecord } from "@/lib/portfolioFollow";
+import { fetchUserPortfolioData } from "@/lib/portfolioData";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import {
   CompaniesFilterBar,
@@ -1582,9 +1582,11 @@ const CompanyDashboard = ({
       .then((focuses) => setHybridBusinessFocusIds(focuses.map((f) => f.id)))
       .catch(console.error);
     // Portfolio company IDs (for portfolio_companies SQL filter)
-    fetchUserPortfolioRecord()
-      .then((record) => {
-        if (record) setPortfolioCompanyIds(record.companies);
+    fetchUserPortfolioData()
+      .then(({ items }) => {
+        setPortfolioCompanyIds(
+          items.filter((item) => item.entity === "company").map((item) => item.id)
+        );
       })
       .catch(console.error);
   }, []);

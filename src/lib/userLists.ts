@@ -1,7 +1,7 @@
 import { authService } from "@/lib/auth";
 import { extractPortfolioList, parseUserId } from "@/lib/portfolioListUtils";
 import {
-  XANO_PORTFOLIO_LISTS_BASE,
+  buildCreateUserListPayload,
   XANO_USER_PORTFOLIO_BASE,
 } from "@/lib/portfolioApi";
 
@@ -80,24 +80,21 @@ export async function createUserListInXano(listName: string): Promise<unknown> {
     throw new Error("Missing auth token");
   }
 
-  const userId = await resolveAuthUserId();
-  if (userId == null) {
-    throw new Error("Could not resolve user id");
-  }
-
   const name = listName.trim();
   if (!name) {
     throw new Error("List name is required");
   }
 
-  const resp = await fetchWithAuth(`${XANO_PORTFOLIO_LISTS_BASE}/user_lists`, token, {
-    method: "POST",
-    body: JSON.stringify({
-      user_id: userId,
-      portfolio_label: name,
-      list_name: name,
-    }),
-  });
+  const userId = (await resolveAuthUserId()) ?? 0;
+
+  const resp = await fetchWithAuth(
+    `${XANO_USER_PORTFOLIO_BASE}/user_lists`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify(buildCreateUserListPayload(name, userId)),
+    }
+  );
 
   const text = await resp.text().catch(() => "");
   let data: unknown = null;

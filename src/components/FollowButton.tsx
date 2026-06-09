@@ -96,19 +96,17 @@ export function FollowButton({
         setMembershipLoading(false);
       }
     }
-  }, [namedPortfolios, entityType, entityId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entityType, entityId]);
 
+  // Only fetch membership when the dropdown opens — avoids cascading
+  // AbortController cancellations when the portfolio store updates.
   useEffect(() => {
+    if (!dropdownOpen) return;
     void loadListMembership();
     return () => {
       membershipAbortRef.current?.abort();
     };
-  }, [loadListMembership]);
-
-  useEffect(() => {
-    if (dropdownOpen) {
-      void loadListMembership();
-    }
   }, [dropdownOpen, loadListMembership]);
 
   // Close dropdown on outside click
@@ -170,18 +168,24 @@ export function FollowButton({
             entityType,
             entityId,
           });
+          setMembershipMap((prev) => ({ ...prev, [portfolioId]: false }));
           toast.success(`Removed from "${portfolioLabel}"`);
         } else {
+          if (!isFollowed) {
+            await followPortfolioEntity({ followKey, entityId });
+            invalidateUserPortfolioRecordCache();
+          }
           await addEntityToPortfolioApi({
             portfolioId,
             entityType,
             entityId,
+            skipGlobalFollow: true,
           });
+          setMembershipMap((prev) => ({ ...prev, [portfolioId]: true }));
           toast.success(`Added to "${portfolioLabel}"`);
         }
 
         await fetchPortfolio();
-        await loadListMembership();
       } catch (e) {
         toast.error(
           e instanceof Error ? e.message : "Failed to update portfolio"
@@ -190,7 +194,7 @@ export function FollowButton({
         setTogglingListId(null);
       }
     },
-    [entityType, entityId, togglingListId, fetchPortfolio, loadListMembership]
+    [entityType, entityId, followKey, isFollowed, togglingListId, fetchPortfolio, loadListMembership]
   );
 
   const isLoading = loading || portfolioLoading;

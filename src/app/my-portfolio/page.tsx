@@ -14,6 +14,7 @@ import {
 import {
   followPortfolioEntity,
   unfollowPortfolioEntity,
+  invalidateUserPortfolioRecordCache,
   type PortfolioFollowKey,
 } from "@/lib/portfolioFollow";
 import {
@@ -456,6 +457,7 @@ export default function MyPortfolioPage() {
       try {
         if (activeTabId === ALL_FOLLOWED_TAB) {
           await unfollowPortfolioEntity({ followKey, entityId: row.id });
+          invalidateUserPortfolioRecordCache();
           toast.success(`Unfollowed ${row.name}`);
         } else {
           const portfolioId = Number.parseInt(activeTabId, 10);
@@ -484,30 +486,50 @@ export default function MyPortfolioPage() {
       const followKey = getFollowKeyForSearchType(result.type);
       if (!entityType || !followKey || !Number.isFinite(result.id) || result.id <= 0) return;
 
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("asymmetrix_auth_token")
+          : null;
+      if (!token) {
+        toast.error("Please sign in to follow.");
+        return;
+      }
+
       const key = `${result.type}-${result.id}`;
       setFollowingId(key);
       try {
-        if (activeTabId === ALL_FOLLOWED_TAB) {
-          await followPortfolioEntity({ followKey, entityId: result.id });
-          toast.success(`Following ${result.title}`);
-        } else {
+        await followPortfolioEntity({ followKey, entityId: result.id });
+        invalidateUserPortfolioRecordCache();
+
+        if (activeTabId !== ALL_FOLLOWED_TAB) {
           const portfolioId = Number.parseInt(activeTabId, 10);
-          if (!Number.isFinite(portfolioId) || portfolioId <= 0) return;
-          await addEntityToPortfolioApi({
-            portfolioId,
-            entityType,
-            entityId: result.id,
-          });
-          const label = activePortfolio?.portfolio_label ?? "portfolio";
-          toast.success(`Added ${result.title} to "${label}"`);
+          if (Number.isFinite(portfolioId) && portfolioId > 0) {
+            await addEntityToPortfolioApi({
+              portfolioId,
+              entityType,
+              entityId: result.id,
+              skipGlobalFollow: true,
+            });
+          }
         }
+
+        toast.success(
+          activeTabId === ALL_FOLLOWED_TAB
+            ? `Following ${result.title}`
+            : `Added ${result.title} to "${activePortfolio?.portfolio_label ?? "list"}"`
+        );
 
         setSearchResults((prev) =>
           prev.filter((r) => !(r.type === result.type && r.id === result.id))
         );
         await reloadAfterFollowChange();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to add entity");
+        const err = e as Error & { status?: number };
+        if (err.status === 401) {
+          toast.error("Please sign in to follow.");
+        } else {
+          toast.error(err.message || "Failed to follow entity");
+        }
       } finally {
         setFollowingId(null);
       }

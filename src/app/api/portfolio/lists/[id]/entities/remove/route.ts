@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R";
+import { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
 
 const VALID_ENTITY_TYPES = new Set([
   "company",
@@ -103,7 +102,7 @@ export async function PATCH(
     }
 
     const upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/lists/${portfolioId}/entities/remove`,
+      `${XANO_USER_PORTFOLIO_BASE}/lists/${portfolioId}/entities/remove`,
       token,
       {
         method: "PATCH",
