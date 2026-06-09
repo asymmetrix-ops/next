@@ -3,18 +3,8 @@
  */
 
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import type { CompanyColumnType } from "@/components/companies/companiesColumnCategories";
 import { EMPTY_DISPLAY, normalizeEmptyDisplay, isEmptyDisplayValue } from "@/lib/emptyDisplay";
-
-type CompanyColumnType =
-  | "text"
-  | "paragraph"
-  | "url"
-  | "number"
-  | "currency"
-  | "percent"
-  | "date"
-  | "logo"
-  | "follow";
 
 export const COMPANY_TABLE_DATA_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data";

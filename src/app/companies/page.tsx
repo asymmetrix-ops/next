@@ -9,27 +9,71 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
+import { InlineFollowButton } from "@/components/InlineFollowButton";
+import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { locationsService } from "@/lib/locationsService";
-import SearchableSelect from "@/components/ui/SearchableSelect";
 import {
   CompaniesCSVExporter,
   CompanyCSVRow as BaseCompanyCSVRow,
 } from "@/utils/companiesCSVExport";
-import { downloadFile } from "@/utils/downloadFile";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
-import { useAuth } from "@/components/providers/AuthProvider";
-import { trackEvent } from "@/lib/tracking";
-import { fetchCompaniesServer, CompaniesFilters as ServerFilters } from "./actions";
+import {
+  fetchCompaniesServer,
+  fetchCompaniesCountsServer,
+  CompaniesFilters as ServerFilters,
+  type CompaniesFilters,
+} from "./actions";
+import { buildCompaniesSearchPayload, companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
+import { fetchUserPortfolioRecord } from "@/lib/portfolioFollow";
+import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
+import {
+  CompaniesFilterBar,
+  FilterBarState,
+  FilterDef,
+  FilterCategory,
+} from "@/components/companies/CompaniesFilterBar";
+import {
+  CANONICAL_COMPANY_COLUMN_KEYS,
+  DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS,
+  PROD_DEFAULT_COMPANY_COLUMN_KEYS,
+  FROZEN_COLUMN_KEYS,
+  ALL_COMPANIES_COLUMN_META,
+  enforceColumnKeyOrder,
+  getEffectiveFrozenColumnKeys,
+  columnKeysToVisibility,
+  visibilityToColumnKeys,
+  reorderColumnKeys,
+} from "@/components/companies/companiesColumnCategories";
+import {
+  buildColumnLinkedFilterDefs,
+  EXTRA_FILTER_DEFS,
+  FILTER_PINNED_TOOLTIP,
+  getColumnKeysForActiveFilters,
+} from "@/components/companies/companiesColumnFilterMap";
+import {
+  compareSortValues,
+  getColumnSortKind,
+  getSortValueForColumn,
+} from "@/components/companies/companiesTableSort";
+import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
+import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
+import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
+import {
+  getApiColumnsForSelectedKeys,
+  getApiColumnsSignature,
+} from "@/components/companies/companiesApiColumns";
+import {
+  getFieldAliasesForColumn,
+  LIST_JSON_COLUMN_KEYS,
+} from "@/components/companies/companiesColumnFields";
 
 // Feature flags (master only)
-const ENABLE_COMPANIES_KEYWORD_SEARCH = false;
-
 // Extended CSV row type that includes financial and subscription metrics
 interface CompanyCSVRow extends BaseCompanyCSVRow {
-  "Asymmetrix Profile Link"?: string;
   Revenue?: string;
   EBITDA?: string;
   "Enterprise Value"?: string;
@@ -56,16 +100,22 @@ type SectorRef =
 interface Company {
   id: number;
   name: string;
-  description: string;
-  primary_sectors: SectorRef[];
-  secondary_sectors: SectorRef[];
-  ownership_type_id: number;
-  ownership: string;
-  country: string;
-  linkedin_logo: string;
-  linkedin_members_latest: number;
-  linkedin_members_old: number;
-  linkedin_members: number;
+  description?: string;
+  primary_sectors?: SectorRef[] | string;
+  secondary_sectors?: SectorRef[] | string;
+  ownership_type_id?: number;
+  ownership?: string;
+  country?: string;
+  linkedin_logo?: string;
+  linkedin_members_latest?: number;
+  linkedin_members_old?: number;
+  linkedin_members?: number;
+  [key: string]: unknown;
+  last_investment?: {
+    display?: string | null;
+    date?: string | null;
+    days_since?: number | string | null;
+  } | null;
 }
 
 interface Country {
@@ -90,116 +140,19 @@ interface SecondarySector {
   sector_name: string;
 }
 
-interface HybridBusinessFocus {
-  id: number;
-  business_focus: string;
-}
-
 interface OwnershipType {
   id: number;
   ownership: string;
 }
 
-interface TransactionStatusOption {
-  id: number;
-  label: string;
-}
-
-interface Filters {
-  countries: string[];
-  provinces: string[];
-  cities: string[];
-  continentalRegions?: string[];
-  subRegions?: string[];
-  primarySectors: number[]; // Changed from string[] to number[]
-  secondarySectors: number[]; // Changed from string[] to number[]
-  hybridBusinessFocuses: number[];
-  exclude_business_focus?: boolean | null;
-  ownershipTypes: number[]; // Changed from string[] to number[]
-  linkedinMembersMin: number | null;
-  linkedinMembersMax: number | null;
-  searchQuery: string;
-  keywordSearch: string;
-  // Financial Metrics
-  revenueMin: number | null;
-  revenueMax: number | null;
-  ebitdaMin: number | null;
-  ebitdaMax: number | null;
-  enterpriseValueMin: number | null;
-  enterpriseValueMax: number | null;
-  revenueMultipleMin: number | null;
-  revenueMultipleMax: number | null;
-  revenueGrowthMin: number | null;
-  revenueGrowthMax: number | null;
-  ebitdaMarginMin: number | null;
-  ebitdaMarginMax: number | null;
-  ruleOf40Min: number | null;
-  ruleOf40Max: number | null;
-  // Subscription Metrics
-  arrMin: number | null;
-  arrMax: number | null;
-  arrPcMin: number | null;
-  arrPcMax: number | null;
-  churnMin: number | null;
-  churnMax: number | null;
-  grrMin: number | null;
-  grrMax: number | null;
-  nrrMin: number | null;
-  nrrMax: number | null;
-  newClientsRevenueGrowthMin: number | null;
-  newClientsRevenueGrowthMax: number | null;
-  // LinkedIn Growth Metrics
-  minGrowthPercent: number | null;
-  maxGrowthPercent: number | null;
-  timeFrame: string;
-  transactionStatus?: number[];
-}
+type Filters = CompaniesFilters;
 
 const createDefaultFilters = (): Filters => ({
-  countries: [],
-  provinces: [],
-  cities: [],
-  continentalRegions: [],
-  subRegions: [],
-  primarySectors: [],
-  secondarySectors: [],
-  hybridBusinessFocuses: [],
-  exclude_business_focus: null,
-  ownershipTypes: [],
-  linkedinMembersMin: null,
-  linkedinMembersMax: null,
-  searchQuery: "",
-  keywordSearch: "",
-  revenueMin: null,
-  revenueMax: null,
-  ebitdaMin: null,
-  ebitdaMax: null,
-  enterpriseValueMin: null,
-  enterpriseValueMax: null,
-  revenueMultipleMin: null,
-  revenueMultipleMax: null,
-  revenueGrowthMin: null,
-  revenueGrowthMax: null,
-  ebitdaMarginMin: null,
-  ebitdaMarginMax: null,
-  ruleOf40Min: null,
-  ruleOf40Max: null,
-  arrMin: null,
-  arrMax: null,
-  arrPcMin: null,
-  arrPcMax: null,
-  churnMin: null,
-  churnMax: null,
-  grrMin: null,
-  grrMax: null,
-  nrrMin: null,
-  nrrMax: null,
-  newClientsRevenueGrowthMin: null,
-  newClientsRevenueGrowthMax: null,
-  minGrowthPercent: null,
-  maxGrowthPercent: null,
-  timeFrame: "",
-  transactionStatus: [],
+  filters_sql: null,
+  has_financial_filters: false,
+  has_year_filter: false,
+  query: null,
+  columns: [],
 });
 
 // Shape returned by export API when sending JSON instead of CSV
@@ -212,7 +165,6 @@ interface ExportCompanyJson {
   ownership?: string;
   linkedin_members?: number | string;
   country?: string;
-  url?: string;
   asymmetrix_url?: string;
   company_link?: string;
   // Financial Metrics (exact API field names)
@@ -234,152 +186,6 @@ interface ExportCompanyJson {
 }
 
 // Shared styles object
-const styles = {
-  container: {
-    backgroundColor: "#f9fafb",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  },
-  maxWidth: {
-    padding: "16px",
-    display: "flex" as const,
-    flexDirection: "column" as const,
-    gap: "12px",
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: "8px",
-    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-    padding: "16px",
-    marginBottom: "0",
-  },
-  heading: {
-    fontSize: "20px",
-    fontWeight: "700",
-    color: "#1a202c",
-    marginBottom: "4px",
-    marginTop: "0px",
-  },
-  subHeading: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#1a202c",
-    marginBottom: "8px",
-  },
-  searchDiv: {
-    display: "flex" as const,
-    flexDirection: "column" as const,
-  },
-  input: {
-    width: "100%",
-    maxWidth: "560px",
-    padding: "8px 12px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    fontSize: "14px",
-    color: "#4a5568",
-    outline: "none",
-    marginBottom: "8px",
-  },
-  button: {
-    width: "100%",
-    maxWidth: "300px",
-    backgroundColor: "#0075df",
-    color: "white",
-    fontWeight: "600",
-    padding: "8px 12px",
-    borderRadius: "6px",
-    border: "none",
-    cursor: "pointer",
-    marginTop: "4px",
-  },
-  linkButton: {
-    color: "#000",
-    fontWeight: "400",
-    textDecoration: "underline",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "14px",
-    marginTop: "16px",
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(5, 1fr)",
-    gap: "12px 20px",
-    marginBottom: "12px",
-    marginTop: "12px",
-  },
-  gridItem: {
-    display: "flex" as const,
-    flexDirection: "column" as const,
-  },
-  label: {
-    color: "#00050B",
-    fontWeight: "600",
-    fontSize: "16px",
-    marginBottom: "6px",
-    marginTop: "8px",
-  },
-  toggleRow: {
-    display: "flex" as const,
-    gap: "8px",
-    marginBottom: "8px",
-  },
-  toggleButton: {
-    flex: 1,
-    padding: "8px 10px",
-    borderRadius: "6px",
-    border: "1px solid #e2e8f0",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "700",
-    backgroundColor: "#ffffff",
-    color: "#1a202c",
-  },
-  toggleButtonActive: {
-    backgroundColor: "#0075df",
-    borderColor: "#0075df",
-    color: "#ffffff",
-  },
-  select: {
-    width: "100%",
-    padding: "13px 14px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    fontSize: "16px",
-    color: "#718096",
-    outline: "none",
-    marginBottom: "0px",
-    appearance: "none" as const,
-    background:
-      "white url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%234a5568' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E\") no-repeat right 12px center",
-    cursor: "pointer",
-  },
-  rangeInput: {
-    width: "100%",
-    padding: "13px 14px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    fontSize: "16px",
-    color: "#4a5568",
-    outline: "none",
-    marginBottom: "12px",
-  },
-  loading: {
-    textAlign: "center" as const,
-    padding: "20px",
-    color: "#666",
-  },
-  error: {
-    textAlign: "center" as const,
-    padding: "20px",
-    color: "#e53e3e",
-    backgroundColor: "#fed7d7",
-    borderRadius: "6px",
-    marginBottom: "16px",
-  },
-};
 
 // Utility functions
 const formatNumber = (num: number | undefined): string => {
@@ -401,14 +207,40 @@ const isExportCompanyJson = (value: unknown): value is ExportCompanyJson => {
 
 
 // API service
+type CompaniesOwnershipCounts = {
+  totalCount: number;
+  publicCompanies: number;
+  peOwnedCompanies: number;
+  vcOwnedCompanies: number;
+  privateCompanies: number;
+  subsidiaryCompanies: number;
+  acquiredCompanies: number;
+  otherCompanies: number;
+};
+
+const EMPTY_OWNERSHIP_COUNTS: CompaniesOwnershipCounts = {
+  totalCount: 0,
+  publicCompanies: 0,
+  peOwnedCompanies: 0,
+  vcOwnedCompanies: 0,
+  privateCompanies: 0,
+  subsidiaryCompanies: 0,
+  acquiredCompanies: 0,
+  otherCompanies: 0,
+};
+
 const useCompaniesAPI = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const lastRequestIdRef = useRef(0);
+  const lastCountsRequestIdRef = useRef(0);
+  const countsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentFiltersRef = useRef<Filters | undefined>(undefined);
+  const requestColumnsRef = useRef<string[]>([]);
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
     undefined
-  ); // Track current filters
+  );
   const [pagination, setPagination] = useState({
     itemsReceived: 0,
     curPage: 1,
@@ -418,126 +250,95 @@ const useCompaniesAPI = () => {
     perPage: 20,
     pageTotal: 0,
   });
-  const [ownershipCounts, setOwnershipCounts] = useState({
-    publicCompanies: 0,
-    peOwnedCompanies: 0,
-    vcOwnedCompanies: 0,
-    privateCompanies: 0,
-    subsidiaryCompanies: 0,
-  });
+  const [ownershipCounts, setOwnershipCounts] =
+    useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
+
+  const setRequestColumns = useCallback((columns: string[]) => {
+    requestColumnsRef.current = columns;
+  }, []);
+
+  const scheduleCountsFetch = useCallback((countsFilters: ServerFilters) => {
+    if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
+    countsTimeoutRef.current = setTimeout(() => {
+      const countsRequestId = ++lastCountsRequestIdRef.current;
+      void fetchCompaniesCountsServer(countsFilters)
+        .then((countsData) => {
+          if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
+            return;
+          }
+          setOwnershipCounts({
+            totalCount: countsData.totalCount || 0,
+            publicCompanies: countsData.publicCompanies || 0,
+            peOwnedCompanies: countsData.peOwnedCompanies || 0,
+            vcOwnedCompanies: countsData.vcOwnedCompanies || 0,
+            privateCompanies: countsData.privateCompanies || 0,
+            subsidiaryCompanies: countsData.subsidiaryCompanies || 0,
+            acquiredCompanies: countsData.acquiredCompanies || 0,
+            otherCompanies: countsData.otherCompanies || 0,
+          });
+        })
+        .catch((countsError) => {
+          console.error("Error fetching companies counts:", countsError);
+        });
+    }, 400);
+  }, []);
 
   const fetchCompanies = useCallback(
     async (page: number = 1, filters?: Filters) => {
+      const requestId = ++lastRequestIdRef.current;
       setLoading(true);
       setError(null);
 
-      // Update current filters if new filters are provided
       if (filters !== undefined) {
+        currentFiltersRef.current = filters;
         setCurrentFilters(filters);
       }
 
-      // Use current filters if no filters provided (for pagination)
-      const filtersToUse = filters !== undefined ? filters : currentFilters;
+      const filtersToUse =
+        filters !== undefined ? filters : currentFiltersRef.current ?? createDefaultFilters();
 
       try {
-        const requestId = ++lastRequestIdRef.current;
+        const serverFilters: ServerFilters = {
+          ...filtersToUse,
+          columns: requestColumnsRef.current,
+        };
 
-        // Convert local Filters type to server action filters
-        // Note: build the object first to avoid excess-property checks.
-        const serverFilters: ServerFilters = (() => {
-          if (!filtersToUse) return {};
-          const serverFiltersBase = {
-            countries: filtersToUse.countries,
-            provinces: filtersToUse.provinces,
-            cities: filtersToUse.cities,
-            continentalRegions: filtersToUse.continentalRegions,
-            subRegions: filtersToUse.subRegions,
-            primarySectors: filtersToUse.primarySectors,
-            secondarySectors: filtersToUse.secondarySectors,
-            hybridBusinessFocuses: filtersToUse.hybridBusinessFocuses,
-            exclude_business_focus: filtersToUse.exclude_business_focus,
-            ownershipTypes: filtersToUse.ownershipTypes,
-            linkedinMembersMin: filtersToUse.linkedinMembersMin,
-            linkedinMembersMax: filtersToUse.linkedinMembersMax,
-            searchQuery: filtersToUse.searchQuery,
-            keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH
-              ? filtersToUse.keywordSearch
-              : "",
-            // Financial Metrics
-            revenueMin: filtersToUse.revenueMin,
-            revenueMax: filtersToUse.revenueMax,
-            ebitdaMin: filtersToUse.ebitdaMin,
-            ebitdaMax: filtersToUse.ebitdaMax,
-            enterpriseValueMin: filtersToUse.enterpriseValueMin,
-            enterpriseValueMax: filtersToUse.enterpriseValueMax,
-            revenueMultipleMin: filtersToUse.revenueMultipleMin,
-            revenueMultipleMax: filtersToUse.revenueMultipleMax,
-            revenueGrowthMin: filtersToUse.revenueGrowthMin,
-            revenueGrowthMax: filtersToUse.revenueGrowthMax,
-            ebitdaMarginMin: filtersToUse.ebitdaMarginMin,
-            ebitdaMarginMax: filtersToUse.ebitdaMarginMax,
-            ruleOf40Min: filtersToUse.ruleOf40Min,
-            ruleOf40Max: filtersToUse.ruleOf40Max,
-            // Subscription Metrics
-            arrMin: filtersToUse.arrMin,
-            arrMax: filtersToUse.arrMax,
-            arrPcMin: filtersToUse.arrPcMin,
-            arrPcMax: filtersToUse.arrPcMax,
-            churnMin: filtersToUse.churnMin,
-            churnMax: filtersToUse.churnMax,
-            grrMin: filtersToUse.grrMin,
-            grrMax: filtersToUse.grrMax,
-            nrrMin: filtersToUse.nrrMin,
-            nrrMax: filtersToUse.nrrMax,
-            newClientsRevenueGrowthMin: filtersToUse.newClientsRevenueGrowthMin,
-            newClientsRevenueGrowthMax: filtersToUse.newClientsRevenueGrowthMax,
-            minGrowthPercent: filtersToUse.minGrowthPercent,
-            maxGrowthPercent: filtersToUse.maxGrowthPercent,
-            timeFrame: filtersToUse.timeFrame,
-            transactionStatus: filtersToUse.transactionStatus,
-          };
-          return serverFiltersBase;
-        })();
+        if (page === 1) {
+          scheduleCountsFetch(serverFilters);
+        }
 
-        // Use server action for data fetching
         const data = await fetchCompaniesServer(page, serverFilters);
 
         if (!data) {
           throw new Error("Failed to fetch companies - authentication required");
         }
 
-        // Ignore stale responses
         if (requestId === lastRequestIdRef.current) {
-          setCompanies(data.result1?.items || []);
+          setCompanies((data.result1?.items || []) as Company[]);
           setPagination({
             itemsReceived: data.result1?.itemsReceived || 0,
             curPage: data.result1?.curPage || 1,
             nextPage: data.result1?.nextPage || null,
             prevPage: data.result1?.prevPage || null,
             offset: data.result1?.offset || 0,
-            perPage: data.result1?.perPage || 25,
+            perPage: data.result1?.perPage || 20,
             pageTotal: data.result1?.pageTotal || 0,
-          });
-
-          const ownershipData = data.result1?.ownershipCounts || {};
-          setOwnershipCounts({
-            publicCompanies: ownershipData.publicCompanies || 0,
-            peOwnedCompanies: ownershipData.peOwnedCompanies || 0,
-            vcOwnedCompanies: ownershipData.vcOwnedCompanies || 0,
-            privateCompanies: ownershipData.privateCompanies || 0,
-            subsidiaryCompanies: ownershipData.subsidiaryCompanies || 0,
           });
         }
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch companies"
-        );
+        if (requestId === lastRequestIdRef.current) {
+          setError(
+            err instanceof Error ? err.message : "Failed to fetch companies"
+          );
+        }
         console.error("Error fetching companies:", err);
       } finally {
-        setLoading(false);
+        if (requestId === lastRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
-    [currentFilters]
+    [scheduleCountsFetch]
   );
 
   // Initial fetch on mount
@@ -553,14 +354,15 @@ const useCompaniesAPI = () => {
     pagination,
     ownershipCounts,
     fetchCompanies,
+    setRequestColumns,
     currentFilters,
   };
 };
 
 // Company Logo Component
-const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
-  if (logo) {
-    return (
+const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => (
+  <div className="company-logo-cell">
+    {logo ? (
       <Image
         src={`data:image/jpeg;base64,${logo}`}
         alt={`${name} logo`}
@@ -569,27 +371,11 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
         className="company-logo"
         style={{ objectFit: "contain" }}
       />
-    );
-  }
-
-  return (
-    <div
-      style={{
-        width: "60px",
-        height: "40px",
-        backgroundColor: "#f7fafc",
-        borderRadius: "8px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "10px",
-        color: "#718096",
-      }}
-    >
-      No Logo
-    </div>
-  );
-};
+    ) : (
+      <div className="company-logo-placeholder">No Logo</div>
+    )}
+  </div>
+);
 
 // Helper to get sector info from API response
 
@@ -611,7 +397,7 @@ const renderSectorLinks = (
   sectors: unknown[] | undefined,
   kind: "primary" | "secondary"
 ): React.ReactNode => {
-  if (!Array.isArray(sectors) || sectors.length === 0) return "N/A";
+  if (!Array.isArray(sectors) || sectors.length === 0) return "-";
 
   const nodes: React.ReactNode[] = [];
   sectors.forEach((s, index) => {
@@ -643,7 +429,503 @@ const renderSectorLinks = (
     if (index < sectors.length - 1) nodes.push(<span key={`sep-${kind}-${index}`}>, </span>);
   });
 
-  return nodes.length > 0 ? nodes : "N/A";
+  return nodes.length > 0 ? nodes : "-";
+};
+
+const getInvestorInfo = (investor: unknown): { name: string; id?: number } => {
+  if (typeof investor === "string" || typeof investor === "number") {
+    const name = String(investor).trim();
+    return name ? { name } : { name: "" };
+  }
+  if (!investor || typeof investor !== "object") return { name: "" };
+  const rec = investor as Record<string, unknown>;
+  const name = String(
+    rec.name ?? rec.investor_name ?? rec.company_name ?? ""
+  ).trim();
+  const idRaw =
+    rec.investor_id ?? rec.original_new_company_id ?? rec.id;
+  const id =
+    typeof idRaw === "number" && Number.isFinite(idRaw) && idRaw > 0
+      ? idRaw
+      : undefined;
+  return { name, id };
+};
+
+const readInvestorsFromCompany = (company: Company): unknown[] => {
+  const rec = company as unknown as Record<string, unknown>;
+
+  const structuredKeys = [
+    "investors",
+    "_companies_investors",
+    "investors_new_company",
+  ] as const;
+
+  for (const key of structuredKeys) {
+    const items = parseListField(rec[key]);
+    if (items.length === 0) continue;
+    if (items.some((item) => getInvestorInfo(item).id != null)) {
+      return items;
+    }
+  }
+
+  for (const key of ["_companies_investors", "investors_new_company"] as const) {
+    const items = parseListField(rec[key]);
+    if (items.length > 0) return items;
+  }
+
+  const fromInvestors = parseListField(rec.investors);
+  if (fromInvestors.length > 0) return fromInvestors;
+
+  return parseListField(rec.investor_names);
+};
+
+const renderInvestorLinks = (investors: unknown[]): React.ReactNode => {
+  if (!Array.isArray(investors) || investors.length === 0) return "-";
+
+  const nodes: React.ReactNode[] = [];
+  investors.forEach((investor, index) => {
+    const { name, id } = getInvestorInfo(investor);
+    if (!name) return;
+
+    const href = id != null ? `/investors/${id}` : undefined;
+    nodes.push(
+      href ? (
+        <a
+          key={`investor-${id}-${name}-${index}`}
+          href={href}
+          className="text-blue-600 underline hover:text-blue-800"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {name}
+        </a>
+      ) : (
+        <span key={`investor-${name}-${index}`}>{name}</span>
+      )
+    );
+
+    if (index < investors.length - 1) {
+      nodes.push(<span key={`investor-sep-${index}`}>, </span>);
+    }
+  });
+
+  return nodes.length > 0 ? nodes : "-";
+};
+
+type CompanyColumnRenderContext = {
+  index: number;
+  onCompanyClick: (companyId: number) => void;
+};
+
+interface CompanyColumnDefinition {
+  key: string;
+  label: string;
+  group: string;
+  wrap?: boolean;
+  minWidth?: number;
+  render: (
+    company: Company,
+    context: CompanyColumnRenderContext
+  ) => React.ReactNode;
+}
+
+const COMPANIES_COLUMNS_STORAGE_KEY = "companies-search-column-keys-v1";
+
+/** Normalize API list fields (sectors, investors) from arrays, JSON strings, or objects. */
+const parseListField = (value: unknown): unknown[] => {
+  if (value == null || value === "") return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === "[]" || trimmed === "{}") return [];
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed && typeof parsed === "object") return Object.values(parsed);
+      } catch {
+        // Fall through.
+      }
+    }
+    return trimmed
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>);
+  }
+  return [];
+};
+
+const toPlainText = (value: unknown): string => {
+  if (value == null || value === "") return "-";
+  if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString() : "-";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === "[]" || trimmed === "{}") return "-";
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (Array.isArray(parsed) || (parsed && typeof parsed === "object")) {
+          return toPlainText(parsed);
+        }
+      } catch {
+        // Fall through to plain string.
+      }
+    }
+    return trimmed;
+  }
+  if (Array.isArray(value)) {
+    const text = value
+      .map((item) => {
+        if (typeof item === "string" || typeof item === "number") return String(item);
+        if (item && typeof item === "object") {
+          const rec = item as Record<string, unknown>;
+          return (
+            rec.name ??
+            rec.sector_name ??
+            rec.investor_name ??
+            rec.Product_Type ??
+            rec.Data_Collection_Method ??
+            rec.Revenue_Model_ ??
+            ""
+          );
+        }
+        return "";
+      })
+      .map((item) => String(item).trim())
+      .filter(Boolean)
+      .join(", ");
+    return text || "-";
+  }
+  if (typeof value === "object") {
+    const rec = value as Record<string, unknown>;
+    const preferred =
+      rec.name ??
+      rec.ownership ??
+      rec.sector_name ??
+      rec.City ??
+      rec.Country ??
+      rec.Currency ??
+      rec.display ??
+      rec.label;
+    if (preferred != null) return toPlainText(preferred);
+    return "-";
+  }
+  return String(value);
+};
+
+const readCompanyValue = (company: Company, aliases: string[]): unknown => {
+  const rec = company as unknown as Record<string, unknown>;
+  for (const alias of aliases) {
+    const parts = alias.split(".");
+    let current: unknown = rec;
+    for (const part of parts) {
+      if (!current || typeof current !== "object") {
+        current = undefined;
+        break;
+      }
+      current = (current as Record<string, unknown>)[part];
+    }
+    if (current != null && current !== "") return current;
+  }
+  return undefined;
+};
+
+const COLUMN_TYPE_BY_KEY = new Map(
+  ALL_COMPANIES_COLUMN_META.map((column) => [column.columnKey, column.type])
+);
+
+const makeTextColumn = (
+  key: string,
+  label: string,
+  group: string,
+  options: Pick<CompanyColumnDefinition, "wrap" | "minWidth"> = {}
+): CompanyColumnDefinition => ({
+  key,
+  label,
+  group,
+  ...options,
+  render: (company) => {
+    const raw = readCompanyValue(company, [...getFieldAliasesForColumn(key)]);
+    if (LIST_JSON_COLUMN_KEYS.has(key)) {
+      const items = parseListField(raw);
+      return toPlainText(items.length > 0 ? items : raw);
+    }
+    const columnType = COLUMN_TYPE_BY_KEY.get(key) ?? "text";
+    if (columnType === "text" || columnType === "paragraph" || columnType === "url") {
+      return toPlainText(raw);
+    }
+    return formatCompanyColumnDisplay(key, columnType, raw);
+  },
+});
+
+const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinition[] }> = [
+  {
+    group: "Identity",
+    cols: [
+      {
+        key: "logo",
+        label: "Logo",
+        group: "Identity",
+        minWidth: 88,
+        render: (company) => (
+          <CompanyLogo logo={String(company.linkedin_logo || "")} name={company.name} />
+        ),
+      },
+      {
+        key: "name",
+        label: "Name",
+        group: "Identity",
+        minWidth: 160,
+        render: (company, { onCompanyClick }) => (
+          <a
+            href={`/company/${company.id}`}
+            className="company-name"
+            style={{ textDecoration: "none", color: "#3b82f6" }}
+            onClick={(e) => {
+              if (
+                e.defaultPrevented ||
+                e.button !== 0 ||
+                e.metaKey ||
+                e.ctrlKey ||
+                e.shiftKey ||
+                e.altKey
+              ) {
+                return;
+              }
+              e.preventDefault();
+              onCompanyClick(company.id);
+            }}
+          >
+            {company.name || "-"}
+          </a>
+        ),
+      },
+      {
+        key: "website",
+        label: "Website",
+        group: "Identity",
+        wrap: true,
+        minWidth: 220,
+        render: (company) => {
+          const raw = readCompanyValue(company, [
+            ...getFieldAliasesForColumn("website"),
+          ]);
+          const href = normalizeWebsiteUrl(raw);
+          if (!href) return toPlainText(raw);
+          return (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="company-website-link"
+              style={{ color: "#3b82f6", textDecoration: "none" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {formatWebsiteLabel(href)}
+            </a>
+          );
+        },
+      },
+    ],
+  },
+  {
+    group: "Lists",
+    cols: [
+      {
+        key: "follow",
+        label: "My Portfolio",
+        group: "Lists",
+        minWidth: 120,
+        render: (company) => {
+          const id =
+            typeof company.id === "number"
+              ? company.id
+              : Number.parseInt(String(company.id ?? ""), 10);
+          if (!Number.isFinite(id) || id <= 0) return null;
+          return (
+            <div
+              className="company-follow-cell"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <InlineFollowButton
+                followKey="followed_companies"
+                entityId={id}
+                label={String(company.name || "")}
+                icon="star"
+              />
+            </div>
+          );
+        },
+      },
+    ],
+  },
+  {
+    group: "Default",
+    cols: [
+      {
+        key: "description",
+        label: "Description",
+        group: "Default",
+        wrap: true,
+        minWidth: 280,
+        render: (company, { index }) => (
+          <CompanyDescription description={company.description || "-"} index={index} />
+        ),
+      },
+      {
+        key: "primary_sectors",
+        label: "Primary Sector(s)",
+        group: "Default",
+        wrap: true,
+        minWidth: 190,
+        render: (company) =>
+          renderSectorLinks(parseListField(company.primary_sectors), "primary"),
+      },
+      {
+        key: "secondary_sectors",
+        label: "Secondary Sector(s)",
+        group: "Default",
+        wrap: true,
+        minWidth: 190,
+        render: (company) =>
+          renderSectorLinks(parseListField(company.secondary_sectors), "secondary"),
+      },
+      makeTextColumn("ownership", "Ownership", "Default"),
+      makeTextColumn("linkedin_members", "LinkedIn Members", "Default", {
+        minWidth: 130,
+      }),
+      makeTextColumn("hq", "HQ", "Default", { wrap: true, minWidth: 220 }),
+    ],
+  },
+  {
+    group: "Overview",
+    cols: [
+      makeTextColumn("year_founded", "Year Founded", "Overview"),
+      makeTextColumn("city", "City", "Overview"),
+      makeTextColumn("state", "State/Province", "Overview"),
+      {
+        key: "linkedin_url",
+        label: "LinkedIn URL",
+        group: "Overview",
+        wrap: true,
+        minWidth: 220,
+        render: (company) => {
+          const raw = readCompanyValue(company, [
+            ...getFieldAliasesForColumn("linkedin_url"),
+          ]);
+          const href =
+            normalizeLinkedInProfileUrl(raw) ?? normalizeWebsiteUrl(raw);
+          if (!href) return toPlainText(raw);
+          return (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="company-website-link"
+              style={{ color: "#3b82f6", textDecoration: "none" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {formatWebsiteLabel(href)}
+            </a>
+          );
+        },
+      },
+      makeTextColumn("linkedin_growth", "LinkedIn Growth (%)", "Overview"),
+      {
+        key: "investors",
+        label: "Investors",
+        group: "Overview",
+        wrap: true,
+        minWidth: 220,
+        render: (company) => renderInvestorLinks(readInvestorsFromCompany(company)),
+      },
+      makeTextColumn("years_since_last_investment", "Years Since Last Investment", "Overview", {
+        minWidth: 190,
+      }),
+      makeTextColumn("lifecycle_stage", "Lifecycle Stage", "Overview"),
+      makeTextColumn("product_type", "Product Type", "Overview", {
+        wrap: true,
+        minWidth: 220,
+      }),
+      makeTextColumn("data_collection_method", "Data Collection Method", "Overview", {
+        wrap: true,
+        minWidth: 220,
+      }),
+      makeTextColumn("revenue_model", "Revenue Model", "Overview", {
+        wrap: true,
+        minWidth: 220,
+      }),
+      makeTextColumn("transaction_status", "Transaction Status", "Overview", {
+        wrap: true,
+        minWidth: 200,
+      }),
+    ],
+  },
+  {
+    group: "Financial Metrics",
+    cols: [
+      makeTextColumn("revenue_m", "Revenue (m)", "Financial Metrics"),
+      makeTextColumn("ebitda_m", "EBITDA (m)", "Financial Metrics"),
+      makeTextColumn("enterprise_value", "Enterprise Value (m)", "Financial Metrics"),
+      makeTextColumn("revenue_multiple", "Revenue Multiple", "Financial Metrics"),
+      makeTextColumn("revenue_growth", "Revenue Growth", "Financial Metrics"),
+      makeTextColumn("ebitda_margin", "EBITDA Margin", "Financial Metrics"),
+      makeTextColumn("rule_of_40", "Rule of 40", "Financial Metrics"),
+    ],
+  },
+  {
+    group: "Subscription Metrics",
+    cols: [
+      makeTextColumn("arr_pc", "Recurring Revenue", "Subscription Metrics"),
+      makeTextColumn("arr_m", "ARR (m)", "Subscription Metrics"),
+      makeTextColumn("churn_pc", "Churn", "Subscription Metrics"),
+      makeTextColumn("grr_pc", "GRR", "Subscription Metrics"),
+      makeTextColumn("nrr", "NRR", "Subscription Metrics"),
+      makeTextColumn("new_client_growth_pc", "New Clients Revenue Growth", "Subscription Metrics"),
+      makeTextColumn("upsell_pc", "Upsell", "Subscription Metrics"),
+      makeTextColumn("cross_sell_pc", "Cross-sell", "Subscription Metrics"),
+      makeTextColumn("price_increase_pc", "Price Increase", "Subscription Metrics"),
+      makeTextColumn("rev_expansion_pc", "Revenue Expansion", "Subscription Metrics"),
+    ],
+  },
+  {
+    group: "Other Metrics",
+    cols: [
+      makeTextColumn("ebit_m", "EBIT (m)", "Other Metrics"),
+      makeTextColumn("no_of_clients", "Number of Clients", "Other Metrics"),
+      makeTextColumn("rev_per_client", "Revenue per Client", "Other Metrics"),
+      makeTextColumn("no_employees", "Number of Employees", "Other Metrics"),
+      makeTextColumn("rev_per_employee", "Revenue per Employee", "Other Metrics"),
+      makeTextColumn("financial_year", "Financial Year", "Other Metrics"),
+    ],
+  },
+];
+
+const ALL_COMPANY_COLUMNS = COMPANY_COLUMN_GROUPS.flatMap((group) => group.cols);
+const ALL_COMPANY_COLUMN_KEYS = CANONICAL_COMPANY_COLUMN_KEYS;
+const DEFAULT_COMPANY_COLUMN_KEYS = DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS;
+
+const getValidColumnKeys = (
+  keys: string[],
+  filterPinnedKeys: string[] = []
+): string[] => {
+  const seen = new Set<string>();
+  const valid: string[] = [];
+  keys.forEach((key) => {
+    const normalizedKey = key === "country" ? "hq" : key;
+    if (ALL_COMPANY_COLUMN_KEYS.includes(normalizedKey) && !seen.has(normalizedKey)) {
+      seen.add(normalizedKey);
+      valid.push(normalizedKey);
+    }
+  });
+  return enforceColumnKeyOrder(
+    valid.length > 0 ? valid : [...PROD_DEFAULT_COMPANY_COLUMN_KEYS],
+    filterPinnedKeys
+  );
 };
 
 // Company Card Component for Mobile - Optimized with React state
@@ -660,15 +942,14 @@ const CompanyCardBase = ({
     router.push(`/company/${company.id}`);
   };
 
-  const description = company.description || "N/A";
+  const description = company.description || "-";
   const isLong = description.length > 250;
 
   // Just use the primary sectors from the API - no derivation needed
-  const computedPrimarySectors = React.useMemo(() => {
-    return Array.isArray(company.primary_sectors)
-      ? company.primary_sectors
-      : [];
-  }, [company.primary_sectors]);
+  const computedPrimarySectors = React.useMemo(
+    () => parseListField(company.primary_sectors),
+    [company.primary_sectors]
+  );
 
   return React.createElement(
     "div",
@@ -697,7 +978,7 @@ const CompanyCardBase = ({
           className: "company-card-name",
           onClick: handleCompanyClick,
         },
-        company.name || "N/A"
+        company.name || "-"
       )
     ),
     React.createElement(
@@ -716,7 +997,7 @@ const CompanyCardBase = ({
           { className: "company-card-value" },
           computedPrimarySectors.length > 0
             ? renderSectorLinks(computedPrimarySectors as unknown[], "primary")
-            : "N/A"
+            : "-"
         )
       ),
       React.createElement(
@@ -730,10 +1011,9 @@ const CompanyCardBase = ({
         React.createElement(
           "span",
           { className: "company-card-value" },
-          Array.isArray(company.secondary_sectors) &&
-          company.secondary_sectors.length > 0
-            ? renderSectorLinks(company.secondary_sectors as unknown[], "secondary")
-            : "N/A"
+          parseListField(company.secondary_sectors).length > 0
+            ? renderSectorLinks(parseListField(company.secondary_sectors), "secondary")
+            : "-"
         )
       ),
       React.createElement(
@@ -747,7 +1027,7 @@ const CompanyCardBase = ({
         React.createElement(
           "span",
           { className: "company-card-value" },
-          company.ownership || "N/A"
+          company.ownership || "-"
         )
       ),
       React.createElement(
@@ -770,12 +1050,14 @@ const CompanyCardBase = ({
         React.createElement(
           "span",
           { className: "company-card-label" },
-          "Country:"
+          "HQ:"
         ),
         React.createElement(
           "span",
           { className: "company-card-value" },
-          company.country || "N/A"
+          toPlainText(
+            readCompanyValue(company, [...getFieldAliasesForColumn("hq")])
+          )
         )
       ),
       React.createElement(
@@ -835,2138 +1117,844 @@ const CompanyDescriptionBase = ({
 const CompanyDescription = React.memo(CompanyDescriptionBase);
 CompanyDescription.displayName = "CompanyDescription";
 
+// ── Filter helpers ─────────────────────────────────────────────────────────
+
+const FILTER_CATEGORIES: FilterCategory[] = [
+  { id: "lists",        name: "Lists" },
+  { id: "location",     name: "Location" },
+  { id: "sectors",      name: "Sectors" },
+  { id: "company",      name: "Company details" },
+  { id: "financial",    name: "Financial metrics" },
+  { id: "subscription", name: "Subscription metrics" },
+  { id: "other",        name: "Other metrics" },
+];
+
+function buildCompaniesFilterDefs({
+  continentalRegions,
+  subRegions,
+  countries,
+  provinces,
+  cities,
+  primarySectors,
+  secondarySectors,
+  ownershipTypes,
+}: {
+  continentalRegions: string[];
+  subRegions: string[];
+  countries: Country[];
+  provinces: Province[];
+  cities: City[];
+  primarySectors: PrimarySector[];
+  secondarySectors: SecondarySector[];
+  ownershipTypes: OwnershipType[];
+}): FilterDef[] {
+  const overrides: Record<string, Partial<FilterDef>> = {
+    region: { options: continentalRegions },
+    sub_region: { options: subRegions },
+    country: { options: countries.map((c) => c.locations_Country) },
+    state: { options: provinces.map((p) => p.State__Province__County) },
+    city: { options: cities.map((c) => c.City) },
+    primary_sector: { options: primarySectors.map((s) => s.sector_name) },
+    secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
+    ownership: { options: ownershipTypes.map((o) => o.ownership) },
+    transaction: {
+      options: [
+        "Rumoured in Market",
+        "Transaction anticipated within 18 months",
+        "Reported in Market",
+      ],
+    },
+    year_founded: {
+      min: 1800,
+      max: 2030,
+      presets: [
+        ["Pre-2000", 1800, 1999],
+        ["2000–2009", 2000, 2009],
+        ["2010–2019", 2010, 2019],
+        ["2020+", 2020, 2030],
+      ],
+    },
+    headcount: {
+      min: 0,
+      max: 100000,
+      presets: [
+        ["<100", 0, 99],
+        ["100–999", 100, 999],
+        ["1k–9.9k", 1000, 9999],
+        ["10k+", 10000, 100000],
+      ],
+    },
+    headcount_growth: {
+      unit: "%",
+      min: -50,
+      max: 200,
+      presets: [
+        ["Declining", -50, -1],
+        ["0–9%", 0, 9],
+        ["10–24%", 10, 24],
+        ["25–49%", 25, 49],
+        ["50%+", 50, 200],
+      ],
+    },
+    years_since_inv: {
+      unit: "yrs",
+      min: 0,
+      max: 20,
+      presets: [
+        ["0–2y", 0, 2],
+        ["3–5y", 3, 5],
+        ["6y+", 6, 20],
+      ],
+    },
+    revenue: {
+      unit: "$m",
+      min: 0,
+      max: 5000,
+      presets: [
+        ["<$10m", 0, 9],
+        ["$10–49m", 10, 49],
+        ["$50–99m", 50, 99],
+        ["$100–499m", 100, 499],
+        ["$500m+", 500, 5000],
+      ],
+    },
+    ebitda: {
+      unit: "$m",
+      min: -100,
+      max: 2000,
+      presets: [
+        ["Negative", -100, -1],
+        ["$0–9m", 0, 9],
+        ["$10–49m", 10, 49],
+        ["$50–499m", 50, 499],
+        ["$500m+", 500, 2000],
+      ],
+    },
+    enterprise_value: {
+      unit: "$m",
+      min: 0,
+      max: 50000,
+      presets: [
+        ["<$100m", 0, 99],
+        ["$100–999m", 100, 999],
+        ["$1–9.9b", 1000, 9999],
+        ["$10b+", 10000, 50000],
+      ],
+    },
+    rev_growth: {
+      unit: "%",
+      min: -50,
+      max: 200,
+      presets: [
+        ["<0%", -50, -1],
+        ["0–9%", 0, 9],
+        ["10–24%", 10, 24],
+        ["25–49%", 25, 49],
+        ["50%+", 50, 200],
+      ],
+    },
+    ebitda_margin: {
+      unit: "%",
+      min: -50,
+      max: 80,
+      presets: [
+        ["<0%", -50, -1],
+        ["0–19%", 0, 19],
+        ["20–29%", 20, 29],
+        ["30–39%", 30, 39],
+        ["40%+", 40, 80],
+      ],
+    },
+    rev_multiple: {
+      unit: "x",
+      min: 0,
+      max: 30,
+      presets: [
+        ["<3x", 0, 2],
+        ["3–6x", 3, 6],
+        ["7x+", 7, 30],
+      ],
+    },
+    rule_40: {
+      unit: "%",
+      min: 0,
+      max: 150,
+      presets: [
+        ["<40%", 0, 39],
+        ["40–59%", 40, 59],
+        ["60%+", 60, 150],
+      ],
+    },
+    arr: {
+      unit: "$m",
+      min: 0,
+      max: 5000,
+      presets: [
+        ["<$10m", 0, 9],
+        ["$10–49m", 10, 49],
+        ["$50–99m", 50, 99],
+        ["$100–499m", 100, 499],
+        ["$500m+", 500, 5000],
+      ],
+    },
+    arr_growth: {
+      unit: "%",
+      min: -20,
+      max: 200,
+      presets: [
+        ["<0%", -20, -1],
+        ["0–19%", 0, 19],
+        ["20–39%", 20, 39],
+        ["40%+", 40, 200],
+      ],
+    },
+    churn: {
+      unit: "%",
+      min: 0,
+      max: 50,
+      presets: [
+        ["<5%", 0, 4],
+        ["5–9%", 5, 9],
+        ["10–19%", 10, 19],
+        ["20%+", 20, 50],
+      ],
+    },
+    nrr: {
+      unit: "%",
+      min: 50,
+      max: 200,
+      presets: [
+        ["<100%", 50, 99],
+        ["100–109%", 100, 109],
+        ["110–119%", 110, 119],
+        ["120%+", 120, 200],
+      ],
+    },
+    grr: {
+      unit: "%",
+      min: 50,
+      max: 100,
+      presets: [
+        ["<90%", 50, 89],
+        ["90–94%", 90, 94],
+        ["95–99%", 95, 99],
+        ["100%", 100, 100],
+      ],
+    },
+    new_client_growth: {
+      unit: "%",
+      min: -20,
+      max: 100,
+      presets: [
+        ["<0%", -20, -1],
+        ["0–9%", 0, 9],
+        ["10–24%", 10, 24],
+        ["25%+", 25, 100],
+      ],
+    },
+  };
+
+  const extras: FilterDef[] = EXTRA_FILTER_DEFS.map((extra) => ({
+    ...extra,
+    ...overrides[extra.id],
+  }));
+
+  return [...extras, ...buildColumnLinkedFilterDefs(overrides)];
+}
+
+const OTHER_OWNERSHIP_TYPES = [
+  { id: 6, ownership: "Consortium" },
+  { id: 8, ownership: "Foundation" },
+  { id: 9, ownership: "Public Benefit Corporation" },
+  { id: 10, ownership: "Family Office" },
+  { id: 11, ownership: "Not-For-Profit" },
+  { id: 12, ownership: "Industry Association" },
+  { id: 13, ownership: "Inter-Governmental Organisation" },
+  { id: 14, ownership: "University" },
+  { id: 15, ownership: "Charity" },
+  { id: 16, ownership: "Government" },
+  { id: 17, ownership: "Fund" },
+  { id: 18, ownership: "Partnership" },
+  { id: 20, ownership: "ICO" },
+  { id: 21, ownership: "Employee-Owned" },
+  { id: 22, ownership: "Closed" },
+] as const;
+
+const OTHER_OWNERSHIP_TYPE_IDS = OTHER_OWNERSHIP_TYPES.map((item) => item.id);
+
+const OTHER_OWNERSHIP_TOOLTIP_LABELS = OTHER_OWNERSHIP_TYPES.map(
+  (item) => item.ownership
+)
+  .slice()
+  .sort((a, b) => a.localeCompare(b));
+
+const OWNERSHIP_OTHER_TOOLTIP_STYLES = `
+  .ownership-tab-other-tooltip-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+  .ownership-tab-other-tooltip {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    z-index: 60;
+    min-width: 220px;
+    max-width: 300px;
+    padding: 10px 12px;
+    background: #1e293b;
+    color: #f8fafc;
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.2);
+    font-size: 12px;
+    line-height: 1.45;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity 0.1s ease, transform 0.1s ease, visibility 0.1s;
+  }
+  .ownership-tab-other-tooltip-wrap:hover .ownership-tab-other-tooltip,
+  .ownership-tab-other-tooltip-wrap:focus-within .ownership-tab-other-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+  .ownership-tab-other-tooltip ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ownership-tab-other-tooltip li + li {
+    margin-top: 3px;
+  }
+`;
+
+type OwnershipTab =
+  | "all"
+  | "public"
+  | "pe"
+  | "vc"
+  | "private"
+  | "subsidiary"
+  | "acquired"
+  | "other";
+
+const OWNERSHIP_TAB_CONFIG: Record<
+  Exclude<OwnershipTab, "all">,
+  {
+    label: string;
+    dot: string;
+    countKey: keyof CompaniesOwnershipCounts;
+    ownershipTypeIds: readonly number[];
+  }
+> = {
+  public: {
+    label: "Public",
+    dot: "#7c3aed",
+    countKey: "publicCompanies",
+    ownershipTypeIds: [7],
+  },
+  pe: {
+    label: "PE-owned",
+    dot: "#0ea5e9",
+    countKey: "peOwnedCompanies",
+    ownershipTypeIds: [1],
+  },
+  vc: {
+    label: "VC-backed",
+    dot: "#10b981",
+    countKey: "vcOwnedCompanies",
+    ownershipTypeIds: [3],
+  },
+  private: {
+    label: "Private",
+    dot: "#f59e0b",
+    countKey: "privateCompanies",
+    ownershipTypeIds: [2],
+  },
+  subsidiary: {
+    label: "Subsidiary",
+    dot: "#6366f1",
+    countKey: "subsidiaryCompanies",
+    ownershipTypeIds: [5],
+  },
+  acquired: {
+    label: "Acquired",
+    dot: "#ec4899",
+    countKey: "acquiredCompanies",
+    ownershipTypeIds: [4],
+  },
+  other: {
+    label: "Other",
+    dot: "#78716c",
+    countKey: "otherCompanies",
+    ownershipTypeIds: OTHER_OWNERSHIP_TYPE_IDS,
+  },
+};
+
 // Filters Component
 const CompanyDashboard = ({
   onSearch,
+  onFilterColumnsChange,
   initialSearch,
-  totalCount = 0,
-  ownershipCounts = {
-    publicCompanies: 0,
-    peOwnedCompanies: 0,
-    vcOwnedCompanies: 0,
-    privateCompanies: 0,
-    subsidiaryCompanies: 0,
-  },
+  ownershipCounts = EMPTY_OWNERSHIP_COUNTS,
+  onColumnsClick,
+  onExportCSVClick,
+  onAddToPortfolioClick,
+  selectedCount = 0,
+  columnsCount = 0,
+  columnsActive = false,
 }: {
-  onSearch?: (filters: Filters) => void;
+  onSearch?: (filters: Filters, portfolioOnly?: boolean) => void;
+  onFilterColumnsChange?: (payload: {
+    filterIds: string[];
+    ownershipTabActive: boolean;
+  }) => void;
   initialSearch?: string;
-  totalCount?: number;
-  ownershipCounts?: {
-    publicCompanies: number;
-    peOwnedCompanies: number;
-    vcOwnedCompanies: number;
-    privateCompanies: number;
-    subsidiaryCompanies: number;
-  };
+  ownershipCounts?: CompaniesOwnershipCounts;
+  onColumnsClick?: () => void;
+  columnsActive?: boolean;
+  onExportCSVClick?: () => void;
+  onAddToPortfolioClick?: () => void;
+  selectedCount?: number;
+  columnsCount?: number;
 }) => {
-  const { user } = useAuth();
-  const [searchTerm, setSearchTerm] = useState(initialSearch || "");
-  const [keywordSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
+  // Unified filter bar state — replaces all the individual selected-* state vars
+  const [filterBarState, setFilterBarState] = useState<FilterBarState>({
+    filters: [],
+    viewId: null,
+    searchText: initialSearch || "",
+    filterLogic: "and",
+  });
 
-  // Filter data state
+  // Ownership quick-filter tab — independent of FilterBar chips
+  const [activeOwnershipTab, setActiveOwnershipTab] = useState<OwnershipTab>("all");
+
+  // Option data (fetched from API)
   const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
-  const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
-    []
-  );
-  const [hybridBusinessFocuses, setHybridBusinessFocuses] = useState<
-    HybridBusinessFocus[]
-  >([]);
+  const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
+  const [portfolioCompanyIds, setPortfolioCompanyIds] = useState<number[]>([]);
+  const [hybridBusinessFocusIds, setHybridBusinessFocusIds] = useState<number[]>([]);
 
-  // Selected filters state
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [selectedContinentalRegions, setSelectedContinentalRegions] = useState<
-    string[]
-  >([]);
-  const [selectedSubRegions, setSelectedSubRegions] = useState<string[]>([]);
-  const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
-  const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const [selectedPrimarySectors, setSelectedPrimarySectors] = useState<
-    number[]
-  >([]);
-  const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
-    number[]
-  >([]);
-  const [selectedHybridBusinessFocuses, setSelectedHybridBusinessFocuses] =
-    useState<number[]>([]);
-  // null means the business focus filter is not applied yet.
-  const [excludeBusinessFocus, setExcludeBusinessFocus] = useState<boolean | null>(
-    null
-  );
-  const [selectedOwnershipTypes, setSelectedOwnershipTypes] = useState<
-    number[]
-  >([]);
-  const [linkedinMembersMin, setLinkedinMembersMin] = useState<number | null>(
-    null
-  );
-  const [linkedinMembersMax, setLinkedinMembersMax] = useState<number | null>(
-    null
-  );
-  // Local display states for linkedin members inputs — committed only on blur/Enter
-  const [linkedinMembersMinInput, setLinkedinMembersMinInput] = useState<string>("");
-  const [linkedinMembersMaxInput, setLinkedinMembersMaxInput] = useState<string>("");
+  // ── Derived selected values for dependent fetches ───────────────────────
+  const selectedCountries = useMemo(() => {
+    const item = filterBarState.filters.find((f) => f.id === "country");
+    return Array.isArray(item?.value) ? (item.value as string[]) : [];
+  }, [filterBarState.filters]);
 
-  // Financial Metrics min/max
-  const [revenueMin, setRevenueMin] = useState<number | null>(null);
-  const [revenueMax, setRevenueMax] = useState<number | null>(null);
-  const [ebitdaMin, setEbitdaMin] = useState<number | null>(null);
-  const [ebitdaMax, setEbitdaMax] = useState<number | null>(null);
-  const [enterpriseValueMin, setEnterpriseValueMin] = useState<number | null>(null);
-  const [enterpriseValueMax, setEnterpriseValueMax] = useState<number | null>(null);
-  const [revenueMultipleMin, setRevenueMultipleMin] = useState<number | null>(null);
-  const [revenueMultipleMax, setRevenueMultipleMax] = useState<number | null>(null);
-  const [revenueGrowthMin, setRevenueGrowthMin] = useState<number | null>(null);
-  const [revenueGrowthMax, setRevenueGrowthMax] = useState<number | null>(null);
-  const [ebitdaMarginMin, setEbitdaMarginMin] = useState<number | null>(null);
-  const [ebitdaMarginMax, setEbitdaMarginMax] = useState<number | null>(null);
-  const [ruleOf40Min, setRuleOf40Min] = useState<number | null>(null);
-  const [ruleOf40Max, setRuleOf40Max] = useState<number | null>(null);
+  const selectedProvinces = useMemo(() => {
+    const item = filterBarState.filters.find((f) => f.id === "state");
+    return Array.isArray(item?.value) ? (item.value as string[]) : [];
+  }, [filterBarState.filters]);
 
-  // Subscription Metrics min/max
-  const [arrMin, setArrMin] = useState<number | null>(null);
-  const [arrMax, setArrMax] = useState<number | null>(null);
-  const [arrPcMin, setArrPcMin] = useState<number | null>(null);
-  const [arrPcMax, setArrPcMax] = useState<number | null>(null);
-  const [churnMin, setChurnMin] = useState<number | null>(null);
-  const [churnMax, setChurnMax] = useState<number | null>(null);
-  const [grrMin, setGrrMin] = useState<number | null>(null);
-  const [grrMax, setGrrMax] = useState<number | null>(null);
-  const [nrrMin, setNrrMin] = useState<number | null>(null);
-  const [nrrMax, setNrrMax] = useState<number | null>(null);
-  const [newClientsRevenueGrowthMin, setNewClientsRevenueGrowthMin] = useState<number | null>(null);
-  const [newClientsRevenueGrowthMax, setNewClientsRevenueGrowthMax] = useState<number | null>(null);
-  const [minGrowthPercent, setMinGrowthPercent] = useState<number | null>(null);
-  const [maxGrowthPercent, setMaxGrowthPercent] = useState<number | null>(null);
-  const [timeFrame, setTimeFrame] = useState<string>("");
+  const selectedPrimaryNames = useMemo(() => {
+    const item = filterBarState.filters.find((f) => f.id === "primary_sector");
+    return Array.isArray(item?.value) ? (item.value as string[]) : [];
+  }, [filterBarState.filters]);
 
-  const [selectedTransactionStatus, setSelectedTransactionStatus] = useState<number[]>(
-    []
-  );
-  const [transactionStatuses, setTransactionStatuses] = useState<
-    TransactionStatusOption[]
-  >([]);
-
-  // Loading states
-  const [loadingCountries, setLoadingCountries] = useState(false);
-  const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [loadingCities, setLoadingCities] = useState(false);
-  const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
-  const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
-  const [loadingHybridBusinessFocuses, setLoadingHybridBusinessFocuses] =
-    useState(false);
-  const [loadingOwnershipTypes, setLoadingOwnershipTypes] = useState(false);
-  const [loadingTransactionStatuses, setLoadingTransactionStatuses] =
-    useState(false);
-
-  // Fetch countries and primary sectors on component mount
+  // ── Reference data fetching ───────────────────────────────────────────
   useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        setLoadingCountries(true);
-        const countriesData = await locationsService.getCountries();
-        setCountries(countriesData);
-      } catch (error) {
-        console.error("Error fetching countries:", error);
-      } finally {
-        setLoadingCountries(false);
-      }
-    };
-
-    const fetchContinentalRegions = async () => {
-      try {
-        const list = await locationsService.getContinentalRegions();
-        setContinentalRegions(list);
-      } catch (error) {
-        console.error("Error fetching continental regions:", error);
-      }
-    };
-
-    const fetchSubRegions = async () => {
-      try {
-        const list = await locationsService.getSubRegions();
-        setSubRegions(list);
-      } catch (error) {
-        console.error("Error fetching sub-regions:", error);
-      }
-    };
-
-    const fetchPrimarySectors = async () => {
-      try {
-        setLoadingPrimarySectors(true);
-        const sectorsData = await locationsService.getPrimarySectors();
-        setPrimarySectors(sectorsData);
-      } catch (error) {
-        console.error("Error fetching primary sectors:", error);
-      } finally {
-        setLoadingPrimarySectors(false);
-      }
-    };
-
-    const fetchHybridBusinessFocuses = async () => {
-      try {
-        setLoadingHybridBusinessFocuses(true);
-        const hybridData = await locationsService.getHybridBusinessFocuses();
-        setHybridBusinessFocuses(hybridData);
-      } catch (error) {
-        console.error("Error fetching hybrid business focuses:", error);
-      } finally {
-        setLoadingHybridBusinessFocuses(false);
-      }
-    };
-
-    const fetchOwnershipTypes = async () => {
-      try {
-        setLoadingOwnershipTypes(true);
-        const ownershipData = await locationsService.getOwnershipTypes();
-        setOwnershipTypes(ownershipData);
-      } catch (error) {
-        console.error("Error fetching ownership types:", error);
-      } finally {
-        setLoadingOwnershipTypes(false);
-      }
-    };
-
-    const fetchTransactionStatuses = async () => {
-      try {
-        setLoadingTransactionStatuses(true);
-        const statusData = await locationsService.getTransactionStatuses();
-        setTransactionStatuses(statusData);
-      } catch (error) {
-        console.error("Error fetching transaction statuses:", error);
-      } finally {
-        setLoadingTransactionStatuses(false);
-      }
-    };
-
-    fetchCountries();
-    fetchPrimarySectors();
-    fetchContinentalRegions();
-    fetchSubRegions();
-    fetchHybridBusinessFocuses();
-    fetchOwnershipTypes();
-    fetchTransactionStatuses();
+    locationsService.getCountries().then(setCountries).catch(console.error);
+    locationsService.getContinentalRegions().then(setContinentalRegions).catch(console.error);
+    locationsService.getSubRegions().then(setSubRegions).catch(console.error);
+    locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
+    locationsService.getOwnershipTypes().then(setOwnershipTypes).catch(console.error);
+    // Load all secondary sectors up front so the Sectors filter always has options.
+    locationsService
+      .getAllSecondarySectorsWithPrimary()
+      .then((sectors) =>
+        setSecondarySectors(sectors.map((s) => ({ id: s.id, sector_name: s.sector_name })))
+      )
+      .catch(console.error);
+    // Hybrid business focus IDs (for business_focus SQL filter)
+    locationsService
+      .getHybridBusinessFocuses()
+      .then((focuses) => setHybridBusinessFocusIds(focuses.map((f) => f.id)))
+      .catch(console.error);
+    // Portfolio company IDs (for portfolio_companies SQL filter)
+    fetchUserPortfolioRecord()
+      .then((record) => {
+        if (record) setPortfolioCompanyIds(record.companies);
+      })
+      .catch(console.error);
   }, []);
 
-  // Fetch provinces when countries are selected
+  // Provinces depend on selected countries
   useEffect(() => {
-    const fetchProvinces = async () => {
-      if (selectedCountries.length === 0) {
-        setProvinces([]);
-        setSelectedProvinces([]);
-        return;
-      }
-
-      try {
-        setLoadingProvinces(true);
-        const provincesData = await locationsService.getProvinces(
-          selectedCountries
-        );
-        setProvinces(provincesData);
-        // Reset selected provinces when countries change
-        setSelectedProvinces([]);
-      } catch (error) {
-        console.error("Error fetching provinces:", error);
-      } finally {
-        setLoadingProvinces(false);
-      }
-    };
-
-    fetchProvinces();
+    if (selectedCountries.length === 0) { setProvinces([]); return; }
+    locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
   }, [selectedCountries]);
 
-  // Fetch cities when countries or provinces are selected
+  // Cities depend on selected countries + provinces
   useEffect(() => {
-    const fetchCities = async () => {
-      if (selectedCountries.length === 0) {
-        setCities([]);
-        setSelectedCities([]);
-        return;
-      }
-
-      try {
-        setLoadingCities(true);
-        const citiesData = await locationsService.getCities(
-          selectedCountries,
-          selectedProvinces
-        );
-        setCities(citiesData);
-        // Reset selected cities when countries or provinces change
-        setSelectedCities([]);
-      } catch (error) {
-        console.error("Error fetching cities:", error);
-      } finally {
-        setLoadingCities(false);
-      }
-    };
-
-    fetchCities();
+    if (selectedCountries.length === 0) { setCities([]); return; }
+    locationsService.getCities(selectedCountries, selectedProvinces).then(setCities).catch(console.error);
   }, [selectedCountries, selectedProvinces]);
 
-  const removeCountry = (country: string) => {
-    setSelectedCountries(selectedCountries.filter((c) => c !== country));
-  };
-
-  const removeProvince = (province: string) => {
-    setSelectedProvinces(selectedProvinces.filter((p) => p !== province));
-  };
-
-  const removeCity = (city: string) => {
-    setSelectedCities(selectedCities.filter((c) => c !== city));
-  };
-
-  const removePrimarySector = (sectorId: number) => {
-    setSelectedPrimarySectors(
-      selectedPrimarySectors.filter((s) => s !== sectorId)
-    );
-  };
-
-  // Fetch secondary sectors when primary sectors are selected
+  // When specific primary sectors are selected, narrow the secondary sector list.
+  // When none are selected we keep the full list loaded on mount.
   useEffect(() => {
-    const fetchSecondarySectors = async () => {
-      if (selectedPrimarySectors.length === 0) {
-        setSecondarySectors([]);
-        setSelectedSecondarySectors([]);
-        return;
-      }
-
-      try {
-        setLoadingSecondarySectors(true);
-
-        // Get the IDs of selected primary sectors
-        const selectedPrimarySectorIds = primarySectors
-          .filter((sector) => selectedPrimarySectors.includes(sector.id))
-          .map((sector) => sector.id);
-
-        const secondarySectorsData = await locationsService.getSecondarySectors(
-          selectedPrimarySectorIds
-        );
-        setSecondarySectors(secondarySectorsData);
-        // Reset selected secondary sectors when primary sectors change
-        setSelectedSecondarySectors([]);
-      } catch (error) {
-        console.error("Error fetching secondary sectors:", error);
-      } finally {
-        setLoadingSecondarySectors(false);
-      }
-    };
-
-    fetchSecondarySectors();
-  }, [selectedPrimarySectors, primarySectors]);
-
-  const removeSecondarySector = (sectorId: number) => {
-    setSelectedSecondarySectors(
-      selectedSecondarySectors.filter((s) => s !== sectorId)
-    );
-  };
-
-  const removeHybridBusinessFocus = (focusId: number) => {
-    setSelectedHybridBusinessFocuses(
-      selectedHybridBusinessFocuses.filter((f) => f !== focusId)
-    );
-  };
-
-  const removeOwnershipType = (ownershipTypeId: number) => {
-    setSelectedOwnershipTypes(
-      selectedOwnershipTypes.filter((o) => o !== ownershipTypeId)
-    );
-  };
-
-  const removeTransactionStatus = (statusId: number) => {
-    setSelectedTransactionStatus(
-      selectedTransactionStatus.filter((value) => value !== statusId)
-    );
-  };
-
-  const handleSearch = useCallback(
-    (overrides?: Partial<Pick<Filters, "exclude_business_focus">>) => {
-      const filters: Filters = {
-        countries: selectedCountries,
-        continentalRegions: selectedContinentalRegions,
-        subRegions: selectedSubRegions,
-        provinces: selectedProvinces,
-        cities: selectedCities,
-        primarySectors: selectedPrimarySectors,
-        secondarySectors: selectedSecondarySectors,
-        hybridBusinessFocuses: selectedHybridBusinessFocuses,
-        exclude_business_focus:
-          overrides?.exclude_business_focus ?? excludeBusinessFocus,
-        ownershipTypes: selectedOwnershipTypes,
-        linkedinMembersMin,
-        linkedinMembersMax,
-        searchQuery: searchTerm,
-        keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH ? keywordSearch : "",
-        // Financial Metrics min/max
-        revenueMin,
-        revenueMax,
-        ebitdaMin,
-        ebitdaMax,
-        enterpriseValueMin,
-        enterpriseValueMax,
-        revenueMultipleMin,
-        revenueMultipleMax,
-        revenueGrowthMin,
-        revenueGrowthMax,
-        ebitdaMarginMin,
-        ebitdaMarginMax,
-        ruleOf40Min,
-        ruleOf40Max,
-        // Subscription Metrics min/max
-        arrMin,
-        arrMax,
-        arrPcMin,
-        arrPcMax,
-        churnMin,
-        churnMax,
-        grrMin,
-        grrMax,
-        nrrMin,
-        nrrMax,
-        newClientsRevenueGrowthMin,
-        newClientsRevenueGrowthMax,
-        minGrowthPercent,
-        maxGrowthPercent,
-        timeFrame,
-        transactionStatus: selectedTransactionStatus,
-      };
-      console.log("Searching with filters:", filters);
-
-      // Call the search function from parent component
-      if (onSearch) {
-        onSearch(filters);
-      }
-    },
-    [
-      onSearch,
-      selectedCountries,
-      selectedContinentalRegions,
-      selectedSubRegions,
-      selectedProvinces,
-      selectedCities,
-      selectedPrimarySectors,
-      selectedSecondarySectors,
-      selectedHybridBusinessFocuses,
-      excludeBusinessFocus,
-      selectedOwnershipTypes,
-      linkedinMembersMin,
-      linkedinMembersMax,
-      searchTerm,
-      keywordSearch,
-      // Financial Metrics min/max
-      revenueMin,
-      revenueMax,
-      ebitdaMin,
-      ebitdaMax,
-      enterpriseValueMin,
-      enterpriseValueMax,
-      revenueMultipleMin,
-      revenueMultipleMax,
-      revenueGrowthMin,
-      revenueGrowthMax,
-      ebitdaMarginMin,
-      ebitdaMarginMax,
-      ruleOf40Min,
-      ruleOf40Max,
-      // Subscription Metrics min/max
-      arrMin,
-      arrMax,
-      arrPcMin,
-      arrPcMax,
-      churnMin,
-      churnMax,
-      grrMin,
-      grrMax,
-      nrrMin,
-      nrrMax,
-      newClientsRevenueGrowthMin,
-      newClientsRevenueGrowthMax,
-      minGrowthPercent,
-      maxGrowthPercent,
-      timeFrame,
-      selectedTransactionStatus,
-    ]
-  );
-
-  const handleBusinessFocusToggle = useCallback(
-    (nextExcludeBusinessFocus: boolean) => {
-      if (nextExcludeBusinessFocus === excludeBusinessFocus) return;
-
-      setExcludeBusinessFocus(nextExcludeBusinessFocus);
-      handleSearch({
-        exclude_business_focus: nextExcludeBusinessFocus,
-      });
-    },
-    [excludeBusinessFocus, handleSearch]
-  );
-
-  const handleSearchClick = useCallback(() => {
-    // Fire-and-forget activity tracking (do not block the actual search)
-    try {
-      const parsedUserId = Number.parseInt(String(user?.id || ""), 10);
-      const userId =
-        Number.isFinite(parsedUserId) && parsedUserId > 0
-          ? (parsedUserId as number)
-          : undefined;
-
-      const query =
-        typeof searchTerm === "string" && searchTerm.trim()
-          ? searchTerm.trim()
-          : null;
-
-      const range = (min: number | null, max: number | null) => {
-        if (min == null && max == null) return undefined;
-        return { min, max };
-      };
-
-      const primarySectorsUsed =
-        selectedPrimarySectors.length > 0
-          ? selectedPrimarySectors.map((id) => {
-              const sector = primarySectors.find((s) => s.id === id);
-              return {
-                sector_id: id,
-                sector_name: sector?.sector_name ?? null,
-              };
-            })
-          : undefined;
-
-      const secondarySectorsUsed =
-        selectedSecondarySectors.length > 0
-          ? selectedSecondarySectors.map((id) => {
-              const sector = secondarySectors.find((s) => s.id === id);
-              return {
-                sector_id: id,
-                sector_name: sector?.sector_name ?? null,
-              };
-            })
-          : undefined;
-
-      const ownershipTypesUsed =
-        selectedOwnershipTypes.length > 0
-          ? selectedOwnershipTypes.map((id) => {
-              const o = ownershipTypes.find((x) => x.id === id);
-              return {
-                ownership_type_id: id,
-                ownership_type_name: o?.ownership ?? null,
-              };
-            })
-          : undefined;
-
-      const hybridFocusUsed =
-        selectedHybridBusinessFocuses.length > 0
-          ? {
-              mode:
-                excludeBusinessFocus === true
-                  ? "without"
-                  : excludeBusinessFocus === false
-                    ? "with"
-                    : null,
-              focuses: selectedHybridBusinessFocuses.map((id) => {
-                const f = hybridBusinessFocuses.find((x) => x.id === id);
-                return {
-                  focus_id: id,
-                  focus_name: f?.business_focus ?? null,
-                };
-              }),
-            }
-          : undefined;
-
-      const filtersUsed: Record<string, unknown> = {};
-
-      if (selectedContinentalRegions.length > 0) {
-        filtersUsed.continental_regions = selectedContinentalRegions.slice();
-      }
-      if (selectedSubRegions.length > 0) {
-        filtersUsed.sub_regions = selectedSubRegions.slice();
-      }
-      if (selectedCountries.length > 0) {
-        filtersUsed.countries = selectedCountries.slice();
-      }
-      if (selectedProvinces.length > 0) {
-        filtersUsed.provinces = selectedProvinces.slice();
-      }
-      if (selectedCities.length > 0) {
-        filtersUsed.cities = selectedCities.slice();
-      }
-      if (primarySectorsUsed) {
-        filtersUsed.primary_sectors = primarySectorsUsed;
-      }
-      if (secondarySectorsUsed) {
-        filtersUsed.secondary_sectors = secondarySectorsUsed;
-      }
-      if (ownershipTypesUsed) {
-        filtersUsed.ownership_types = ownershipTypesUsed;
-      }
-      if (hybridFocusUsed) {
-        filtersUsed.hybrid_business_focus = hybridFocusUsed;
-      }
-      if (selectedTransactionStatus.length > 0) {
-        filtersUsed.transaction_statuses = selectedTransactionStatus.map((id) => {
-          const status = transactionStatuses.find((x) => x.id === id);
-          return {
-            transaction_status_id: id,
-            transaction_status_label: status?.label ?? null,
-          };
-        });
-      }
-
-      const linkedinRange = range(linkedinMembersMin, linkedinMembersMax);
-      if (linkedinRange) {
-        filtersUsed.linkedin_members = linkedinRange;
-      }
-
-      const financial: Record<string, unknown> = {};
-      const revenueRange = range(revenueMin, revenueMax);
-      const ebitdaRange = range(ebitdaMin, ebitdaMax);
-      const evRange = range(enterpriseValueMin, enterpriseValueMax);
-      const revenueMultipleRange = range(revenueMultipleMin, revenueMultipleMax);
-      const revenueGrowthRange = range(revenueGrowthMin, revenueGrowthMax);
-      const ebitdaMarginRange = range(ebitdaMarginMin, ebitdaMarginMax);
-      const ruleOf40Range = range(ruleOf40Min, ruleOf40Max);
-      if (revenueRange) financial.revenue_m = revenueRange;
-      if (ebitdaRange) financial.ebitda_m = ebitdaRange;
-      if (evRange) financial.enterprise_value_m = evRange;
-      if (revenueMultipleRange) financial.revenue_multiple_x = revenueMultipleRange;
-      if (revenueGrowthRange) financial.revenue_growth_pct = revenueGrowthRange;
-      if (ebitdaMarginRange) financial.ebitda_margin_pct = ebitdaMarginRange;
-      if (ruleOf40Range) financial.rule_of_40_pct = ruleOf40Range;
-      if (Object.keys(financial).length > 0) {
-        filtersUsed.financial_metrics = financial;
-      }
-
-      const subscription: Record<string, unknown> = {};
-      const arrRange = range(arrMin, arrMax);
-      const arrPcRange = range(arrPcMin, arrPcMax);
-      const churnRange = range(churnMin, churnMax);
-      const grrRange = range(grrMin, grrMax);
-      const nrrRange = range(nrrMin, nrrMax);
-      const newClientsRange = range(
-        newClientsRevenueGrowthMin,
-        newClientsRevenueGrowthMax
-      );
-      if (arrRange) subscription.arr_m = arrRange;
-      if (arrPcRange) subscription.arr_pct = arrPcRange;
-      if (churnRange) subscription.churn_pct = churnRange;
-      if (grrRange) subscription.grr_pct = grrRange;
-      if (nrrRange) subscription.nrr_pct = nrrRange;
-      if (newClientsRange)
-        subscription.new_clients_revenue_growth_pct = newClientsRange;
-      if (Object.keys(subscription).length > 0) {
-        filtersUsed.subscription_metrics = subscription;
-      }
-
-      trackEvent({
-        eventType: "company_search",
-        userId,
-        pageHeading: "Asymmetrix – Companies",
-        query,
-        filtersUsed,
-      });
-    } catch {
-      // ignore tracking failures
+    if (selectedPrimaryNames.length === 0) return;
+    const ids = selectedPrimaryNames
+      .map((name) => primarySectors.find((s) => s.sector_name === name)?.id)
+      .filter((id): id is number => id != null);
+    if (ids.length > 0) {
+      locationsService.getSecondarySectors(ids).then(setSecondarySectors).catch(console.error);
     }
+  }, [selectedPrimaryNames, primarySectors]);
 
-    handleSearch();
+  // ── Build dynamic filter defs from API data ────────────────────────────
+  const filterDefs = useMemo(
+    () =>
+      buildCompaniesFilterDefs({
+        continentalRegions,
+        subRegions,
+        countries,
+        provinces,
+        cities,
+        primarySectors,
+        secondarySectors,
+        ownershipTypes,
+      }),
+    [continentalRegions, subRegions, countries, provinces, cities, primarySectors, secondarySectors, ownershipTypes]
+  );
+
+  const onFilterColumnsChangeRef = useRef(onFilterColumnsChange);
+  onFilterColumnsChangeRef.current = onFilterColumnsChange;
+
+  useEffect(() => {
+    onFilterColumnsChangeRef.current?.({
+      filterIds: filterBarState.filters.map((filter) => filter.id),
+      ownershipTabActive: activeOwnershipTab !== "all",
+    });
+  }, [filterBarState.filters, activeOwnershipTab]);
+
+  // ── Auto-search on filter state or ownership tab changes ──────────────
+  const buildSearchFilters = useCallback((): Filters => {
+    return buildCompaniesSearchPayload({
+      state: filterBarState,
+      primarySectors,
+      secondarySectors,
+      ownershipTypes,
+      ownershipTypeIds:
+        activeOwnershipTab !== "all"
+          ? [...OWNERSHIP_TAB_CONFIG[activeOwnershipTab].ownershipTypeIds]
+          : undefined,
+      portfolioCompanyIds,
+      hybridBusinessFocusIds,
+    });
   }, [
-    user?.id,
-    searchTerm,
-    selectedContinentalRegions,
-    selectedSubRegions,
-    selectedCountries,
-    selectedProvinces,
-    selectedCities,
-    selectedPrimarySectors,
-    selectedSecondarySectors,
-    selectedOwnershipTypes,
-    selectedTransactionStatus,
-    selectedHybridBusinessFocuses,
-    excludeBusinessFocus,
+    filterBarState,
+    activeOwnershipTab,
     primarySectors,
     secondarySectors,
     ownershipTypes,
-    hybridBusinessFocuses,
-    transactionStatuses,
-    linkedinMembersMin,
-    linkedinMembersMax,
-    revenueMin,
-    revenueMax,
-    ebitdaMin,
-    ebitdaMax,
-    enterpriseValueMin,
-    enterpriseValueMax,
-    revenueMultipleMin,
-    revenueMultipleMax,
-    revenueGrowthMin,
-    revenueGrowthMax,
-    ebitdaMarginMin,
-    ebitdaMarginMax,
-    ruleOf40Min,
-    ruleOf40Max,
-    arrMin,
-    arrMax,
-    arrPcMin,
-    arrPcMax,
-    churnMin,
-    churnMax,
-    grrMin,
-    grrMax,
-    nrrMin,
-    nrrMax,
-    newClientsRevenueGrowthMin,
-    newClientsRevenueGrowthMax,
-    handleSearch,
+    portfolioCompanyIds,
+    hybridBusinessFocusIds,
   ]);
 
-  const handleResetFilters = useCallback(() => {
-    setSearchTerm("");
-    setSelectedContinentalRegions([]);
-    setSelectedSubRegions([]);
-    setSelectedCountries([]);
-    setSelectedProvinces([]);
-    setSelectedCities([]);
-    setSelectedPrimarySectors([]);
-    setSelectedSecondarySectors([]);
-    setSelectedHybridBusinessFocuses([]);
-    setExcludeBusinessFocus(null);
-    setSelectedOwnershipTypes([]);
-    setLinkedinMembersMin(null);
-    setLinkedinMembersMax(null);
-    setLinkedinMembersMinInput("");
-    setLinkedinMembersMaxInput("");
-    setRevenueMin(null);
-    setRevenueMax(null);
-    setEbitdaMin(null);
-    setEbitdaMax(null);
-    setEnterpriseValueMin(null);
-    setEnterpriseValueMax(null);
-    setRevenueMultipleMin(null);
-    setRevenueMultipleMax(null);
-    setRevenueGrowthMin(null);
-    setRevenueGrowthMax(null);
-    setEbitdaMarginMin(null);
-    setEbitdaMarginMax(null);
-    setRuleOf40Min(null);
-    setRuleOf40Max(null);
-    setArrMin(null);
-    setArrMax(null);
-    setArrPcMin(null);
-    setArrPcMax(null);
-    setChurnMin(null);
-    setChurnMax(null);
-    setGrrMin(null);
-    setGrrMax(null);
-    setNrrMin(null);
-    setNrrMax(null);
-    setNewClientsRevenueGrowthMin(null);
-    setNewClientsRevenueGrowthMax(null);
-    setMinGrowthPercent(null);
-    setMaxGrowthPercent(null);
-    setTimeFrame("");
-    setSelectedTransactionStatus([]);
-    if (onSearch) onSearch(createDefaultFilters());
-  }, [onSearch]);
+  const isPortfolioFilterActive = filterBarState.filters.some(
+    (f) => f.id === "followed" && f.value === true
+  );
+  const isPortfolioFilterActiveRef = useRef(isPortfolioFilterActive);
+  isPortfolioFilterActiveRef.current = isPortfolioFilterActive;
 
-  // Auto-run search if initialSearch prop is provided
-  useEffect(() => {
-    if (initialSearch) {
-      setSearchTerm(initialSearch);
-      handleSearch(); // Trigger search with initial term
-    }
-  }, [initialSearch, handleSearch]);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipInitialSearchRef = useRef(true);
+  const buildSearchFiltersRef = useRef(buildSearchFilters);
+  buildSearchFiltersRef.current = buildSearchFilters;
+  const onSearchRef = useRef(onSearch);
+  onSearchRef.current = onSearch;
+  const prevFilterCombineKeyRef = useRef("");
+  const skipInitialFilterCombineRef = useRef(true);
 
-  // Auto-apply new location filters without requiring a button click
+  const filterCombineKey = useMemo(
+    () =>
+      JSON.stringify({
+        filterLogic: filterBarState.filterLogic,
+        combine: filterBarState.filters.map((f, i) =>
+          i === 0 ? null : (f.combineLogic ?? filterBarState.filterLogic)
+        ),
+      }),
+    [filterBarState.filters, filterBarState.filterLogic]
+  );
+
+  const filterSearchKey = useMemo(
+    () =>
+      JSON.stringify({
+        filters: filterBarState.filters,
+        searchText: filterBarState.searchText,
+      }),
+    [filterBarState.filters, filterBarState.searchText]
+  );
+
   useEffect(() => {
-    // Only trigger when user has applied at least one of the new filters
-    if (
-      selectedContinentalRegions.length > 0 ||
-      selectedSubRegions.length > 0
-    ) {
-      handleSearch();
+    if (skipInitialSearchRef.current) {
+      skipInitialSearchRef.current = false;
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedContinentalRegions, selectedSubRegions]);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      onSearchRef.current?.(buildSearchFiltersRef.current(), isPortfolioFilterActiveRef.current);
+    }, 350);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [filterSearchKey]);
+
+  // AND/OR per-separator — refetch immediately after state commits (not debounced).
+  useEffect(() => {
+    const prev = prevFilterCombineKeyRef.current;
+    prevFilterCombineKeyRef.current = filterCombineKey;
+
+    if (skipInitialFilterCombineRef.current) {
+      skipInitialFilterCombineRef.current = false;
+      return;
+    }
+    if (prev === filterCombineKey) return;
+    if (filterBarState.filters.length < 2) return;
+
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    onSearchRef.current?.(buildSearchFiltersRef.current(), isPortfolioFilterActiveRef.current);
+  }, [filterCombineKey, filterBarState.filters.length]);
+
+  const skipInitialOwnershipTabRef = useRef(true);
+  useEffect(() => {
+    if (skipInitialOwnershipTabRef.current) {
+      skipInitialOwnershipTabRef.current = false;
+      return;
+    }
+    onSearchRef.current?.(buildSearchFiltersRef.current(), isPortfolioFilterActiveRef.current);
+  }, [activeOwnershipTab]);
+
+  // ── Ownership tabs data ────────────────────────────────────────────────
+  const ownershipTabOrder: Exclude<OwnershipTab, "all">[] = [
+    "public",
+    "pe",
+    "vc",
+    "private",
+    "subsidiary",
+    "acquired",
+    "other",
+  ];
+
+  const ownershipTabs: { id: OwnershipTab; label: string; count: number; dot: string }[] = [
+    { id: "all", label: "All", count: ownershipCounts.totalCount, dot: "#64748b" },
+    ...ownershipTabOrder.map((id) => ({
+      id,
+      label: OWNERSHIP_TAB_CONFIG[id].label,
+      count: ownershipCounts[OWNERSHIP_TAB_CONFIG[id].countKey],
+      dot: OWNERSHIP_TAB_CONFIG[id].dot,
+    })),
+  ];
+
+  const matchCount =
+    activeOwnershipTab === "all"
+      ? ownershipCounts.totalCount
+      : ownershipTabs.find((tab) => tab.id === activeOwnershipTab)?.count ??
+        ownershipCounts.totalCount;
 
   return (
-    <div style={styles.container}>
-      <div style={styles.maxWidth}>
+    <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+      <style dangerouslySetInnerHTML={{ __html: OWNERSHIP_OTHER_TOOLTIP_STYLES }} />
+      <div style={{ width: "100%", padding: "20px 28px 0" }}>
+
+        {/* ── Header row: eyebrow + title + action buttons ── */}
         <div
           style={{
-            ...styles.card,
-            ...(showFilters ? {} : { padding: "12px 16px" }),
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 18,
           }}
-          className="filters-card"
         >
-          {/* Page Title */}
-          <h2
-            style={{ ...styles.heading, marginBottom: "16px" }}
-            className="filters-heading"
-          >
-            Companies
-          </h2>
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+                color: "#94a3b8",
+                marginBottom: 5,
+              }}
+            >
+              Companies
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 26,
+                fontWeight: 700,
+                color: "#0f172a",
+                display: "flex",
+                alignItems: "baseline",
+                gap: 10,
+                lineHeight: 1.2,
+              }}
+            >
+              Company search
+              <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
+                {matchCount.toLocaleString()} matches
+              </span>
+            </h1>
+          </div>
 
-          {/* Stat cards row – 5 cards: type name, X companies */}
-          <div
-            style={{
-              display: "flex",
-              gap: "12px",
-              flexWrap: "wrap",
-              marginBottom: "16px",
-            }}
-          >
-            {[
-              {
-                label: "Companies",
-                value: totalCount,
-                color: "#2563EB",
-                letter: "C",
-              },
-              {
-                label: "Public",
-                value: ownershipCounts.publicCompanies,
-                color: "#0891B2",
-                letter: "P",
-              },
-              {
-                label: "PE-owned",
-                value: ownershipCounts.peOwnedCompanies,
-                color: "#7C3AED",
-                letter: "PE",
-              },
-              {
-                label: "VC-owned",
-                value: ownershipCounts.vcOwnedCompanies,
-                color: "#059669",
-                letter: "VC",
-              },
-              {
-                label: "Private",
-                value: ownershipCounts.privateCompanies,
-                color: "#b45309",
-                letter: "Pr",
-              },
-            ].map((card) => (
-              <div
-                key={card.label}
+          {/* Action buttons */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6 }}>
+            <button
+              onClick={onColumnsClick}
+              aria-pressed={columnsActive}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                height: 36, padding: "0 14px",
+                background: columnsActive ? "#0f172a" : "#fff",
+                border: columnsActive ? "1px solid #0f172a" : "1px solid #e2e8f0",
+                borderRadius: 8,
+                fontSize: 13, fontWeight: 500,
+                color: columnsActive ? "#fff" : "#374151",
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                transition: "background 150ms, color 150ms, border-color 150ms",
+              }}
+            >
+              <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
+                <path d="M0 1h14M0 5h10M0 9h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              Columns {columnsCount}/{ALL_COMPANY_COLUMN_KEYS.length}
+            </button>
+            <button
+              onClick={onExportCSVClick}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                height: 36, padding: "0 14px",
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                fontSize: 13, fontWeight: 500, color: "#374151",
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+              }}
+            >
+              <svg width="12" height="14" viewBox="0 0 12 14" fill="none" aria-hidden="true">
+                <path d="M6 1v8M3 6l3 3 3-3M1 13h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Export CSV
+            </button>
+            <button
+              onClick={onAddToPortfolioClick}
+              disabled={selectedCount === 0}
+              title={
+                selectedCount === 0
+                  ? "Select companies in the table first"
+                  : `Add ${selectedCount} selected ${selectedCount === 1 ? "company" : "companies"} to portfolio`
+              }
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                height: 36, padding: "0 16px",
+                background: selectedCount > 0 ? "#0f172a" : "#94a3b8",
+                color: "#fff",
+                border: "none", borderRadius: 8,
+                fontSize: 13, fontWeight: 600,
+                cursor: selectedCount > 0 ? "pointer" : "not-allowed",
+                opacity: selectedCount > 0 ? 1 : 0.85,
+              }}
+            >
+              + Add to portfolio
+              {selectedCount > 0 ? ` (${selectedCount.toLocaleString()})` : ""}
+            </button>
+          </div>
+        </div>
+
+        {/* ── Ownership quick-filter tabs ── */}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {ownershipTabs.map((tab) => {
+            const active = activeOwnershipTab === tab.id;
+            const tabButton = (
+              <button
+                onClick={() => setActiveOwnershipTab(tab.id)}
                 style={{
-                  flex: "1 1 160px",
-                  minWidth: "140px",
-                  background: "#fff",
-                  border: "1px solid #E2E8F0",
-                  borderRadius: "8px",
-                  padding: "12px 14px",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                  display: "flex", alignItems: "center", gap: 6,
+                  height: 34, padding: "0 14px",
+                  background: active ? "#0f172a" : "transparent",
+                  color: active ? "#fff" : "#64748b",
+                  border: "1px solid",
+                  borderColor: active ? "#0f172a" : "transparent",
+                  borderBottom: "none",
+                  borderRadius: "8px 8px 0 0",
+                  fontSize: 13, fontWeight: active ? 600 : 500,
+                  cursor: "pointer",
+                  transition: "background 0.12s, color 0.12s",
+                  whiteSpace: "nowrap",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                  <div
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: "50%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      color: "#fff",
-                      flexShrink: 0,
-                      background: card.color,
-                    }}
-                  >
-                    {card.letter}
-                  </div>
-                  <span style={{ fontSize: "14px", fontWeight: 600, color: "#1a202c" }}>
-                    {card.label}
-                  </span>
-                </div>
-                <div style={{ fontSize: "13px", color: "#64748B" }}>
-                  <span style={{ fontWeight: 700, color: "#0F172A", fontSize: "15px" }}>
-                    {card.value.toLocaleString()}
-                  </span>{" "}
-                  companies
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Search row – input, Search, Show Filters, Export CSV (same height) */}
-          <div className="search-bar" style={{ flexWrap: "wrap", gap: "12px", marginBottom: "0" }}>
-            <input
-              type="text"
-              placeholder="Enter company name here"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-bar-input search-bar-input-wide filters-input"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSearchClick();
-              }}
-            />
-            <button
-              type="button"
-              className="search-bar-button filters-button"
-              onClick={handleSearchClick}
-            >
-              Search
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowFilters(!showFilters)}
-              className="search-bar-button"
-              style={{
-                backgroundColor: "#fff",
-                color: "#1a202c",
-                border: "1px solid #e2e8f0",
-                fontWeight: 500,
-              }}
-            >
-              {showFilters ? "Hide Filters" : "Show Filters"}
-            </button>
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="search-bar-button"
-              style={{
-                backgroundColor: "#fff",
-                color: "#1a202c",
-                border: "1px solid #e2e8f0",
-                fontWeight: 500,
-              }}
-            >
-              Reset Filters
-            </button>
-          </div>
-
-          {showFilters && (
-            <div style={styles.grid} className="filters-grid">
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Location
-                </h3>
-                <span style={styles.label}>By Continental Region</span>
-                <SearchableSelect
-                  options={continentalRegions.map((r) => ({
-                    value: r,
-                    label: r,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedContinentalRegions.includes(value)
-                    ) {
-                      setSelectedContinentalRegions([
-                        ...selectedContinentalRegions,
-                        value,
-                      ]);
-                    }
+                <span
+                  style={{
+                    width: 7, height: 7, borderRadius: "50%",
+                    background: active ? "rgba(255,255,255,0.7)" : tab.dot,
+                    flexShrink: 0,
                   }}
-                  placeholder={"Select Continental Region"}
-                  style={styles.select}
                 />
-                {selectedContinentalRegions.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "6px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedContinentalRegions.map((r) => (
-                      <span
-                        key={r}
-                        style={{
-                          backgroundColor: "#e3f2fd",
-                          color: "#1976d2",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {r}
-                        <button
-                          onClick={() =>
-                            setSelectedContinentalRegions(
-                              selectedContinentalRegions.filter((x) => x !== r)
-                            )
-                          }
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#1976d2",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <span style={styles.label}>By Sub-Region</span>
-                <SearchableSelect
-                  options={subRegions.map((r) => ({ value: r, label: r }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedSubRegions.includes(value)
-                    ) {
-                      setSelectedSubRegions([...selectedSubRegions, value]);
-                    }
-                  }}
-                  placeholder={"Select Sub-Region"}
-                  style={styles.select}
-                />
-                {selectedSubRegions.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "6px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedSubRegions.map((r) => (
-                      <span
-                        key={r}
-                        style={{
-                          backgroundColor: "#e3f2fd",
-                          color: "#1976d2",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {r}
-                        <button
-                          onClick={() =>
-                            setSelectedSubRegions(
-                              selectedSubRegions.filter((x) => x !== r)
-                            )
-                          }
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#1976d2",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <span style={styles.label}>By Country</span>
-                <SearchableSelect
-                  options={countries.map((country) => ({
-                    value: country.locations_Country,
-                    label: country.locations_Country,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCountries.includes(value)
-                    ) {
-                      setSelectedCountries([...selectedCountries, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCountries ? "Loading countries..." : "Select Country"
-                  }
-                  disabled={loadingCountries}
-                  style={styles.select}
-                />
-
-                {/* Selected Countries Tags */}
-                {selectedCountries.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedCountries.map((country) => (
-                      <span
-                        key={country}
-                        style={{
-                          backgroundColor: "#e3f2fd",
-                          color: "#1976d2",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {country}
-                        <button
-                          onClick={() => removeCountry(country)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#1976d2",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <span style={styles.label}>By State/County/Province</span>
-                <SearchableSelect
-                  options={provinces.map((province) => ({
-                    value: province.State__Province__County,
-                    label: province.State__Province__County,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedProvinces.includes(value)
-                    ) {
-                      setSelectedProvinces([...selectedProvinces, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingProvinces
-                      ? "Loading provinces..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select Province"
-                  }
-                  disabled={loadingProvinces || selectedCountries.length === 0}
-                  style={styles.select}
-                />
-
-                {/* Selected Provinces Tags */}
-                {selectedProvinces.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedProvinces.map((province) => (
-                      <span
-                        key={province}
-                        style={{
-                          backgroundColor: "#e8f5e8",
-                          color: "#2e7d32",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {province}
-                        <button
-                          onClick={() => removeProvince(province)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#2e7d32",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <span style={styles.label}>By City</span>
-                <SearchableSelect
-                  options={cities.map((city) => ({
-                    value: city.City,
-                    label: city.City,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCities.includes(value)
-                    ) {
-                      setSelectedCities([...selectedCities, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCities
-                      ? "Loading cities..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select City"
-                  }
-                  disabled={loadingCities || selectedCountries.length === 0}
-                  style={styles.select}
-                />
-
-                {/* Selected Cities Tags */}
-                {selectedCities.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedCities.map((city) => (
-                      <span
-                        key={city}
-                        style={{
-                          backgroundColor: "#fff3e0",
-                          color: "#f57c00",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {city}
-                        <button
-                          onClick={() => removeCity(city)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#f57c00",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Sectors
-                </h3>
-                <span style={styles.label}>By Primary Sectors</span>
-                <SearchableSelect
-                  options={primarySectors.map((sector) => ({
-                    value: sector.id,
-                    label: sector.sector_name,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedPrimarySectors.includes(value)
-                    ) {
-                      setSelectedPrimarySectors([
-                        ...selectedPrimarySectors,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingPrimarySectors
-                      ? "Loading sectors..."
-                      : "Select Primary Sector"
-                  }
-                  disabled={loadingPrimarySectors}
-                  style={styles.select}
-                />
-
-                {/* Selected Primary Sectors Tags */}
-                {selectedPrimarySectors.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedPrimarySectors.map((sectorId) => {
-                      const sector = primarySectors.find(
-                        (s) => s.id === sectorId
-                      );
-                      return (
-                        <span
-                          key={sectorId}
-                          style={{
-                            backgroundColor: "#f3e5f5",
-                            color: "#7b1fa2",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {sector?.sector_name || `Sector ${sectorId}`}
-                          <button
-                            onClick={() => removePrimarySector(sectorId)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#7b1fa2",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-                <span style={styles.label}>By Secondary Sectors</span>
-                <SearchableSelect
-                  options={secondarySectors.map((sector) => ({
-                    value: sector.id,
-                    label: sector.sector_name,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedSecondarySectors.includes(value)
-                    ) {
-                      setSelectedSecondarySectors([
-                        ...selectedSecondarySectors,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingSecondarySectors
-                      ? "Loading sectors..."
-                      : selectedPrimarySectors.length === 0
-                      ? "Select primary sectors first"
-                      : "Select Secondary Sector"
-                  }
-                  disabled={
-                    loadingSecondarySectors ||
-                    selectedPrimarySectors.length === 0
-                  }
-                  style={styles.select}
-                />
-
-                {/* Selected Secondary Sectors Tags */}
-                {selectedSecondarySectors.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedSecondarySectors.map((sectorId) => {
-                      const sector = secondarySectors.find(
-                        (s) => s.id === sectorId
-                      );
-                      return (
-                        <span
-                          key={sectorId}
-                          style={{
-                            backgroundColor: "#e8f5e8",
-                            color: "#2e7d32",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {sector?.sector_name || `Sector ${sectorId}`}
-                          <button
-                            onClick={() => removeSecondarySector(sectorId)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#2e7d32",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <span style={styles.label}>
-                Data & Analytics Companies with/without non-D&A Products/Services
+                {tab.label}
+                <span style={{ fontSize: 12, opacity: 0.75 }}>
+                  {tab.count.toLocaleString()}
                 </span>
-                <div style={styles.toggleRow}>
-                  <button
-                    type="button"
-                    onClick={() => handleBusinessFocusToggle(true)}
-                    aria-pressed={excludeBusinessFocus === true}
-                    style={{
-                      ...styles.toggleButton,
-                      ...(excludeBusinessFocus === true
-                        ? styles.toggleButtonActive
-                        : {}),
-                    }}
-                  >
-                    Without
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBusinessFocusToggle(false)}
-                    aria-pressed={excludeBusinessFocus === false}
-                    style={{
-                      ...styles.toggleButton,
-                      ...(excludeBusinessFocus === false
-                        ? styles.toggleButtonActive
-                        : {}),
-                    }}
-                  >
-                    With
-                  </button>
-                </div>
-                <SearchableSelect
-                  options={hybridBusinessFocuses.map((focus) => ({
-                    value: focus.id,
-                    label: focus.business_focus,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedHybridBusinessFocuses.includes(value)
-                    ) {
-                      setSelectedHybridBusinessFocuses([
-                        ...selectedHybridBusinessFocuses,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingHybridBusinessFocuses
-                      ? "Loading business focuses..."
-                      : "Select Business Focus"
-                  }
-                  disabled={loadingHybridBusinessFocuses}
-                  style={styles.select}
-                />
+              </button>
+            );
 
-                {/* Selected Hybrid Business Focuses Tags */}
-                {selectedHybridBusinessFocuses.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedHybridBusinessFocuses.map((focusId) => {
-                      const focus = hybridBusinessFocuses.find(
-                        (f) => f.id === focusId
-                      );
-                      return (
-                        <span
-                          key={focusId}
-                          style={{
-                            backgroundColor: "#fff8e1",
-                            color: "#f57f17",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {focus?.business_focus || `Focus ${focusId}`}
-                          <button
-                            onClick={() => removeHybridBusinessFocus(focusId)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#f57f17",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Company Details
-                </h3>
-                <span style={styles.label}>By Ownership Type</span>
-                <SearchableSelect
-                  options={ownershipTypes.map((ownershipType) => ({
-                    value: ownershipType.id,
-                    label: ownershipType.ownership,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedOwnershipTypes.includes(value)
-                    ) {
-                      setSelectedOwnershipTypes([
-                        ...selectedOwnershipTypes,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingOwnershipTypes
-                      ? "Loading ownership types..."
-                      : "Select Ownership Type"
-                  }
-                  disabled={loadingOwnershipTypes}
-                  style={styles.select}
-                />
+            if (tab.id !== "other") {
+              return React.cloneElement(tabButton, { key: tab.id });
+            }
 
-                {/* Selected Ownership Types Tags */}
-                {selectedOwnershipTypes.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedOwnershipTypes.map((ownershipTypeId) => {
-                      const ownershipType = ownershipTypes.find(
-                        (o) => o.id === ownershipTypeId
-                      );
-                      return (
-                        <span
-                          key={ownershipTypeId}
-                          style={{
-                            backgroundColor: "#f3e5f5",
-                            color: "#7b1fa2",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {ownershipType?.ownership ||
-                            `Ownership ${ownershipTypeId}`}
-                          <button
-                            onClick={() => removeOwnershipType(ownershipTypeId)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#7b1fa2",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-                <span style={styles.label}>Transaction Status</span>
-                <SearchableSelect
-                  options={transactionStatuses.map((status) => ({
-                    value: status.id,
-                    label: status.label,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedTransactionStatus.includes(value)
-                    ) {
-                      setSelectedTransactionStatus([
-                        ...selectedTransactionStatus,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingTransactionStatuses
-                      ? "Loading transaction statuses..."
-                      : "All Transaction Statuses"
-                  }
-                  disabled={loadingTransactionStatuses}
-                  style={styles.select}
-                />
-                {selectedTransactionStatus.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      marginBottom: "12px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedTransactionStatus.map((statusId) => {
-                      const status = transactionStatuses.find(
-                        (s) => s.id === statusId
-                      );
-                      return (
-                      <span
-                        key={statusId}
-                        style={{
-                          backgroundColor: "#e0f2fe",
-                          color: "#0369a1",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {status?.label || `Status ${statusId}`}
-                        <button
-                          onClick={() => removeTransactionStatus(statusId)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#0369a1",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                      );
-                    })}
-                  </div>
-                )}
-                <span style={styles.label}>LinkedIn Members Range</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={linkedinMembersMinInput}
-                    onChange={(e) => setLinkedinMembersMinInput(e.target.value)}
-                    onBlur={(e) =>
-                      setLinkedinMembersMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const val = (e.target as HTMLInputElement).value;
-                        setLinkedinMembersMin(val ? Number(val) : null);
-                      }
-                    }}
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={linkedinMembersMaxInput}
-                    onChange={(e) => setLinkedinMembersMaxInput(e.target.value)}
-                    onBlur={(e) =>
-                      setLinkedinMembersMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const val = (e.target as HTMLInputElement).value;
-                        setLinkedinMembersMax(val ? Number(val) : null);
-                      }
-                    }}
-                  />
-                </div>
-
-                <span style={styles.label}>LinkedIn Growth (%) Range</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min %"
-                    value={minGrowthPercent ?? ""}
-                    onChange={(e) =>
-                      setMinGrowthPercent(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max %"
-                    value={maxGrowthPercent ?? ""}
-                    onChange={(e) =>
-                      setMaxGrowthPercent(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <div style={{ display: "none" }} aria-hidden>
-                  <span style={styles.label}>Growth Time Frame</span>
-                  <select
-                    style={styles.select}
-                    value={timeFrame}
-                    onChange={(e) => setTimeFrame(e.target.value)}
-                  >
-                    <option value="">Select Time Frame</option>
-                    <option value="Last Quarter">Last Quarter</option>
-                    <option value="Last Year">Last Year</option>
-                    <option value="Last 4 Quarters">Last 4 Quarters</option>
-                    <option value="YTD">YTD</option>
-                    <option value="Last 2 Years">Last 2 Years</option>
-                  </select>
+            return (
+              <div
+                key={tab.id}
+                className="ownership-tab-other-tooltip-wrap"
+              >
+                {tabButton}
+                <div className="ownership-tab-other-tooltip" role="tooltip">
+                  <ul>
+                    {OTHER_OWNERSHIP_TOOLTIP_LABELS.map((label) => (
+                      <li key={label}>{label}</li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Financial Metrics
-                </h3>
-                <span style={styles.label}>Revenue ($m)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={revenueMin ?? ""}
-                    onChange={(e) =>
-                      setRevenueMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={revenueMax ?? ""}
-                    onChange={(e) =>
-                      setRevenueMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
+            );
+          })}
+        </div>
+      </div>
 
-                <span style={styles.label}>EBITDA ($m)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={ebitdaMin ?? ""}
-                    onChange={(e) =>
-                      setEbitdaMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={ebitdaMax ?? ""}
-                    onChange={(e) =>
-                      setEbitdaMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Enterprise Value ($m)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={enterpriseValueMin ?? ""}
-                    onChange={(e) =>
-                      setEnterpriseValueMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={enterpriseValueMax ?? ""}
-                    onChange={(e) =>
-                      setEnterpriseValueMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Revenue Multiple (x)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={revenueMultipleMin ?? ""}
-                    onChange={(e) =>
-                      setRevenueMultipleMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={revenueMultipleMax ?? ""}
-                    onChange={(e) =>
-                      setRevenueMultipleMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Revenue Growth (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={revenueGrowthMin ?? ""}
-                    onChange={(e) =>
-                      setRevenueGrowthMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={revenueGrowthMax ?? ""}
-                    onChange={(e) =>
-                      setRevenueGrowthMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>EBITDA Margin (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={ebitdaMarginMin ?? ""}
-                    onChange={(e) =>
-                      setEbitdaMarginMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={ebitdaMarginMax ?? ""}
-                    onChange={(e) =>
-                      setEbitdaMarginMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Rule of 40 (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={ruleOf40Min ?? ""}
-                    onChange={(e) =>
-                      setRuleOf40Min(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={ruleOf40Max ?? ""}
-                    onChange={(e) =>
-                      setRuleOf40Max(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-              </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Subscription Metrics
-                </h3>
-                <span style={styles.label}>ARR ($m)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={arrMin ?? ""}
-                    onChange={(e) =>
-                      setArrMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={arrMax ?? ""}
-                    onChange={(e) =>
-                      setArrMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>ARR (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={arrPcMin ?? ""}
-                    onChange={(e) =>
-                      setArrPcMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={arrPcMax ?? ""}
-                    onChange={(e) =>
-                      setArrPcMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Churn (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={churnMin ?? ""}
-                    onChange={(e) =>
-                      setChurnMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={churnMax ?? ""}
-                    onChange={(e) =>
-                      setChurnMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>GRR (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={grrMin ?? ""}
-                    onChange={(e) =>
-                      setGrrMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={grrMax ?? ""}
-                    onChange={(e) =>
-                      setGrrMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>NRR (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={nrrMin ?? ""}
-                    onChange={(e) =>
-                      setNrrMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={nrrMax ?? ""}
-                    onChange={(e) =>
-                      setNrrMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>New Clients Revenue Growth (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={newClientsRevenueGrowthMin ?? ""}
-                    onChange={(e) =>
-                      setNewClientsRevenueGrowthMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={newClientsRevenueGrowthMax ?? ""}
-                    onChange={(e) =>
-                      setNewClientsRevenueGrowthMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
+      {/* ── Filter bar card ── */}
+      <div
+        style={{
+          background: "#fff",
+          borderTop: "1px solid #e2e8f0",
+          borderBottom: "1px solid #e2e8f0",
+        }}
+      >
+        <div style={{ width: "100%", padding: "10px 28px 12px" }}>
+          <CompaniesFilterBar
+            filterDefs={filterDefs}
+            filterCategories={FILTER_CATEGORIES}
+            state={filterBarState}
+            onStateChange={setFilterBarState}
+            totalCount={matchCount}
+          />
         </div>
       </div>
     </div>
   );
 };
+
 
 // Main Companies Component
 const CompanySection = ({
@@ -2976,8 +1964,19 @@ const CompanySection = ({
   pagination,
   ownershipCounts,
   fetchCompanies,
+  setRequestColumns,
   currentFilters,
+  filterPinnedColumnKeys = [],
   onEditCompany,
+  externalShowColumnsModal,
+  externalSetShowColumnsModal,
+  onColumnsCountChange,
+  onRegisterExportCSV,
+  selectedCompanyIds,
+  onToggleCompanySelection,
+  onTogglePageSelection,
+  onClearSelection,
+  isPortfolioOnlyFilter = false,
 }: {
   companies: Company[];
   loading: boolean;
@@ -2991,82 +1990,333 @@ const CompanySection = ({
     perPage: number;
     pageTotal: number;
   };
-  ownershipCounts: {
-    publicCompanies: number;
-    peOwnedCompanies: number;
-    vcOwnedCompanies: number;
-    privateCompanies: number;
-    subsidiaryCompanies: number;
-  };
+  ownershipCounts: CompaniesOwnershipCounts;
   fetchCompanies: (page?: number, filters?: Filters) => Promise<void>;
+  setRequestColumns: (columns: string[]) => void;
   currentFilters: Filters | undefined;
+  filterPinnedColumnKeys?: string[];
   onEditCompany?: (id: number) => void;
+  externalShowColumnsModal?: boolean;
+  externalSetShowColumnsModal?: (v: boolean) => void;
+  onColumnsCountChange?: (count: number) => void;
+  onRegisterExportCSV?: (fn: () => void) => void;
+  selectedCompanyIds: Set<number>;
+  onToggleCompanySelection: (id: number) => void;
+  onTogglePageSelection: (ids: number[]) => void;
+  onClearSelection: () => void;
+  isPortfolioOnlyFilter?: boolean;
 }) => {
   const router = useRouter();
-  const { isTrialActive } = useAuth();
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
-  const [isExporting, setIsExporting] = useState(false);
+  const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
+  const showColumnsModal = externalShowColumnsModal !== undefined ? externalShowColumnsModal : internalShowColumnsModal;
+  const setShowColumnsModal = externalSetShowColumnsModal ?? setInternalShowColumnsModal;
+  const [sortState, setSortState] = useState<{
+    key: string;
+    dir: "asc" | "desc";
+  } | null>(null);
+  const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
+  const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
+    DEFAULT_COMPANY_COLUMN_KEYS
+  );
 
-  // Check if any filters are applied
-  const hasActiveFilters = () => {
-    if (!currentFilters) return false;
-    return (
-      (currentFilters.continentalRegions || []).length > 0 ||
-      (currentFilters.subRegions || []).length > 0 ||
-      currentFilters.countries.length > 0 ||
-      currentFilters.provinces.length > 0 ||
-      currentFilters.cities.length > 0 ||
-      currentFilters.primarySectors.length > 0 ||
-      currentFilters.secondarySectors.length > 0 ||
-      typeof currentFilters.exclude_business_focus === "boolean" ||
-      currentFilters.hybridBusinessFocuses.length > 0 ||
-      currentFilters.ownershipTypes.length > 0 ||
-      currentFilters.linkedinMembersMin !== null ||
-      currentFilters.linkedinMembersMax !== null ||
-      currentFilters.searchQuery.trim() !== "" ||
-      (ENABLE_COMPANIES_KEYWORD_SEARCH &&
-        currentFilters.keywordSearch.trim() !== "") ||
-      // Financial Metrics
-      currentFilters.revenueMin !== null ||
-      currentFilters.revenueMax !== null ||
-      currentFilters.ebitdaMin !== null ||
-      currentFilters.ebitdaMax !== null ||
-      currentFilters.enterpriseValueMin !== null ||
-      currentFilters.enterpriseValueMax !== null ||
-      currentFilters.revenueMultipleMin !== null ||
-      currentFilters.revenueMultipleMax !== null ||
-      currentFilters.revenueGrowthMin !== null ||
-      currentFilters.revenueGrowthMax !== null ||
-      currentFilters.ebitdaMarginMin !== null ||
-      currentFilters.ebitdaMarginMax !== null ||
-      currentFilters.ruleOf40Min !== null ||
-      currentFilters.ruleOf40Max !== null ||
-      // Subscription Metrics
-      currentFilters.arrMin !== null ||
-      currentFilters.arrMax !== null ||
-      currentFilters.arrPcMin !== null ||
-      currentFilters.arrPcMax !== null ||
-      currentFilters.churnMin !== null ||
-      currentFilters.churnMax !== null ||
-      currentFilters.grrMin !== null ||
-      currentFilters.grrMax !== null ||
-      currentFilters.nrrMin !== null ||
-      currentFilters.nrrMax !== null ||
-      currentFilters.newClientsRevenueGrowthMin !== null ||
-      currentFilters.newClientsRevenueGrowthMax !== null ||
-      currentFilters.minGrowthPercent !== null ||
-      currentFilters.maxGrowthPercent !== null ||
-      currentFilters.timeFrame.trim() !== "" ||
-      (currentFilters.transactionStatus || []).length > 0
+  useEffect(() => {
+    if (filterPinnedColumnKeys.length === 0) return;
+    setSelectedColumnKeys((current) => {
+      const merged = enforceColumnKeyOrder(
+        Array.from(new Set([...current, ...filterPinnedColumnKeys])),
+        filterPinnedColumnKeys
+      );
+      if (
+        merged.length === current.length &&
+        merged.every((key, index) => key === current[index])
+      ) {
+        return current;
+      }
+      return merged;
+    });
+  }, [filterPinnedColumnKeys]);
+  const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
+  const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
+  const headerDidDragRef = useRef(false);
+
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+  const phantomScrollRef = useRef<HTMLDivElement | null>(null);
+  const pendingScrollLeftRef = useRef<number | null>(null);
+  const apiColumnsSigRef = useRef<string | null>(null);
+  const prevSelectedColumnKeysRef = useRef<string[]>([]);
+  const [loadingColumnKeys, setLoadingColumnKeys] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const [showPhantomScroll, setShowPhantomScroll] = useState(false);
+
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      setTableScrollWidth(el.scrollWidth);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowPhantomScroll(!!entry?.isIntersecting),
+      { threshold: 0.01 }
     );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const table = tableScrollRef.current;
+    const phantom = phantomScrollRef.current;
+    if (!table || !phantom) return;
+    let syncing = false;
+    const syncFromTable = () => {
+      if (syncing) return;
+      syncing = true;
+      phantom.scrollLeft = table.scrollLeft;
+      syncing = false;
+    };
+    const syncFromPhantom = () => {
+      if (syncing) return;
+      syncing = true;
+      table.scrollLeft = phantom.scrollLeft;
+      syncing = false;
+    };
+    table.addEventListener("scroll", syncFromTable, { passive: true });
+    phantom.addEventListener("scroll", syncFromPhantom, { passive: true });
+    return () => {
+      table.removeEventListener("scroll", syncFromTable);
+      phantom.removeEventListener("scroll", syncFromPhantom);
+    };
+  }, [showPhantomScroll]);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setSelectedColumnKeys(
+            getValidColumnKeys(parsed.filter((key): key is string => typeof key === "string"))
+          );
+        }
+      }
+    } catch (error) {
+      console.warn("Unable to load company column preferences:", error);
+    } finally {
+      setColumnPrefsLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!columnPrefsLoaded) return;
+    try {
+      window.localStorage.setItem(
+        COMPANIES_COLUMNS_STORAGE_KEY,
+        JSON.stringify(selectedColumnKeys)
+      );
+    } catch (error) {
+      console.warn("Unable to save company column preferences:", error);
+    }
+  }, [columnPrefsLoaded, selectedColumnKeys]);
+
+  useEffect(() => {
+    if (!columnPrefsLoaded) return;
+    const apiColumns = getApiColumnsForSelectedKeys(selectedColumnKeys);
+    setRequestColumns(apiColumns);
+
+    const sig = getApiColumnsSignature(selectedColumnKeys);
+    if (apiColumnsSigRef.current === sig) return;
+
+    const isInitialColumnFetch = apiColumnsSigRef.current === null;
+    if (!isInitialColumnFetch) {
+      const prevKeys = new Set(prevSelectedColumnKeysRef.current);
+      const addedKeys = selectedColumnKeys.filter(
+        (key) =>
+          !prevKeys.has(key) && key !== "logo" && key !== "name"
+      );
+      if (addedKeys.length > 0) {
+        setLoadingColumnKeys(new Set(addedKeys));
+      }
+    }
+
+    prevSelectedColumnKeysRef.current = selectedColumnKeys;
+    apiColumnsSigRef.current = sig;
+
+    const table = tableScrollRef.current;
+    if (table && table.scrollLeft > 0) {
+      pendingScrollLeftRef.current = table.scrollLeft;
+    }
+
+    void fetchCompanies(1, currentFilters);
+    // Re-fetch only when the set of requested API columns changes (add/remove), not reorder.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedColumnKeys, columnPrefsLoaded]);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingColumnKeys(new Set());
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    if (loading || pendingScrollLeftRef.current == null) return;
+    const left = pendingScrollLeftRef.current;
+    pendingScrollLeftRef.current = null;
+    requestAnimationFrame(() => {
+      const table = tableScrollRef.current;
+      const phantom = phantomScrollRef.current;
+      if (table) table.scrollLeft = left;
+      if (phantom) phantom.scrollLeft = left;
+    });
+  }, [loading]);
+
+  const selectedColumns = useMemo(() => {
+    const columnsByKey = new Map(ALL_COMPANY_COLUMNS.map((column) => [column.key, column]));
+    return getValidColumnKeys(selectedColumnKeys, filterPinnedColumnKeys)
+      .map((key) => columnsByKey.get(key))
+      .filter((column): column is CompanyColumnDefinition => Boolean(column));
+  }, [selectedColumnKeys, filterPinnedColumnKeys]);
+
+  const columnVisibilityInitial = useMemo(
+    () => columnKeysToVisibility(selectedColumnKeys),
+    [selectedColumnKeys]
+  );
+
+  const handleApplyColumnVisibility = useCallback(
+    (visible: Record<string, boolean>, order?: string[]) => {
+      if (order && order.length > 0) {
+        setSelectedColumnKeys(getValidColumnKeys(order, filterPinnedColumnKeys));
+      } else {
+        setSelectedColumnKeys((current) =>
+          getValidColumnKeys(
+            visibilityToColumnKeys(visible, current),
+            filterPinnedColumnKeys
+          )
+        );
+      }
+      setShowColumnsModal(false);
+    },
+    [filterPinnedColumnKeys, setShowColumnsModal]
+  );
+
+  const handleReorderTableColumns = useCallback((dragKey: string, dropKey: string) => {
+    setSelectedColumnKeys((current) =>
+      getValidColumnKeys(
+        reorderColumnKeys(current, dragKey, dropKey, filterPinnedColumnKeys),
+        filterPinnedColumnKeys
+      )
+    );
+  }, [filterPinnedColumnKeys]);
+
+  useEffect(() => {
+    if (sortState && !selectedColumnKeys.includes(sortState.key)) {
+      setSortState(null);
+    }
+  }, [selectedColumnKeys, sortState]);
+
+  // Report selected columns count to parent (for header button label)
+  useEffect(() => {
+    onColumnsCountChange?.(selectedColumns.length);
+  }, [selectedColumns.length, onColumnsCountChange]);
+
+
+  const handleSortColumn = useCallback((columnKey: string) => {
+    if (!getColumnSortKind(columnKey)) return;
+    setSortState((current) => {
+      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
+      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
+    });
+  }, []);
+
+  const sortedCompanies = useMemo(() => {
+    if (!sortState || !getColumnSortKind(sortState.key)) {
+      return companies;
+    }
+    const { key, dir } = sortState;
+    return [...companies].sort((companyA, companyB) => {
+      const rowA = companyA as unknown as Record<string, unknown>;
+      const rowB = companyB as unknown as Record<string, unknown>;
+      return compareSortValues(
+        getSortValueForColumn(rowA, key),
+        getSortValueForColumn(rowB, key),
+        dir
+      );
+    });
+  }, [companies, sortState]);
+
+  const SELECT_COLUMN_WIDTH = 44;
+
+  const frozenColumnKeys = useMemo(
+    () => getEffectiveFrozenColumnKeys(filterPinnedColumnKeys),
+    [filterPinnedColumnKeys]
+  );
+
+  const stickyColumnOffsets = useMemo(() => {
+    const offsets = new Map<string, number>();
+    let left = SELECT_COLUMN_WIDTH;
+    for (const key of frozenColumnKeys) {
+      offsets.set(key, left);
+      const col = ALL_COMPANY_COLUMNS.find((c) => c.key === key);
+      left += col?.minWidth ?? (key === "logo" ? 88 : 120);
+    }
+    return offsets;
+  }, [frozenColumnKeys]);
+
+  const getStickyColumnStyle = useCallback(
+    (
+      columnKey: string,
+      minWidth?: number,
+      header = false,
+      selected = false
+    ): React.CSSProperties | undefined => {
+      const left = stickyColumnOffsets.get(columnKey);
+      if (left == null) return undefined;
+      return {
+        position: "sticky",
+        left,
+        zIndex: header ? 7 : 3,
+        minWidth,
+        background: header ? "#f9fafb" : selected ? "#EFF6FF" : "#fff",
+        boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
+      };
+    },
+    [stickyColumnOffsets]
+  );
+
+  const isFrozenColumnKey = (key: string) => frozenColumnKeys.includes(key);
+
+  const isFilterPinnedColumnKey = (key: string) =>
+    filterPinnedColumnKeys.includes(key) &&
+    !(FROZEN_COLUMN_KEYS as readonly string[]).includes(key);
+
+  const getTableColumnClassName = (
+    column: CompanyColumnDefinition,
+    extra?: string | (string | undefined)[]
+  ): string | undefined => {
+    const extras = extra == null ? [] : Array.isArray(extra) ? extra : [extra];
+    const classes = [
+      ...extras,
+      column.wrap ? "company-table-cell-wrap" : undefined,
+      isFrozenColumnKey(column.key) ? "company-table-sticky-frozen" : undefined,
+      column.key === "logo" ? "company-table-sticky-logo" : undefined,
+      column.key === "follow" ? "company-table-col-follow" : undefined,
+    ].filter(Boolean);
+    return classes.length > 0 ? classes.join(" ") : undefined;
   };
+
 
   // Handle CSV export using backend endpoint and include active filters
   const handleExportCSV = useCallback(async () => {
-    if (isExporting) return;
-    setIsExporting(true);
     try {
       // Check export limit first
       const limitCheck = await checkExportLimit();
@@ -3077,111 +2327,16 @@ const CompanySection = ({
       }
 
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = new URLSearchParams();
-
-      // Apply filters if present
-      const f = currentFilters;
-      if (f) {
-        // Text inputs for new filters
-        if ((f.continentalRegions || []).length > 0)
-          params.append(
-            "Continental_Region",
-            (f.continentalRegions || []).join(",")
-          );
-        if ((f.subRegions || []).length > 0)
-          params.append(
-            "geographical_sub_region",
-            (f.subRegions || []).join(",")
-          );
-
-        (f.countries || []).forEach((v) => params.append("Countries[]", v));
-        (f.provinces || []).forEach((v) => params.append("Provinces[]", v));
-        (f.cities || []).forEach((v) => params.append("Cities[]", v));
-        (f.primarySectors || []).forEach((id) =>
-          params.append("Primary_sectors_ids[]", String(id))
-        );
-        (f.secondarySectors || []).forEach((id) =>
-          params.append("Secondary_sectors_ids[]", String(id))
-        );
-        (f.ownershipTypes || []).forEach((id) =>
-          params.append("Ownership_types_ids[]", String(id))
-        );
-        (f.hybridBusinessFocuses || []).forEach((id) =>
-          params.append("Hybrid_Data_ids[]", String(id))
-        );
-        const transactionStatuses = f.transactionStatus || [];
-        if (transactionStatuses.length > 0) {
-          transactionStatuses.forEach((statusId) => {
-            params.append("transaction_status[]", String(statusId));
-          });
-        }
-
-        // Helper function to only append if value exists
-        const appendIfValue = (key: string, value: number | null | undefined) => {
-          if (value != null && value !== undefined) {
-            params.append(key, value.toString());
-          }
-        };
-
-        // LinkedIn Members
-        appendIfValue("Min_linkedin_members", f.linkedinMembersMin);
-        appendIfValue("Max_linkedin_members", f.linkedinMembersMax);
-        appendIfValue("min_growth_percent", f.minGrowthPercent);
-        appendIfValue("max_growth_percent", f.maxGrowthPercent);
-        if (f.timeFrame && f.timeFrame.trim()) {
-          params.append("time_frame", f.timeFrame.trim());
-        }
-
-        // Financial Metrics min/max for export
-        appendIfValue("Revenue_min", f.revenueMin);
-        appendIfValue("Revenue_max", f.revenueMax);
-        appendIfValue("EBITDA_min", f.ebitdaMin);
-        appendIfValue("EBITDA_max", f.ebitdaMax);
-        appendIfValue("Enterprise_Value_min", f.enterpriseValueMin);
-        appendIfValue("Enterprise_Value_max", f.enterpriseValueMax);
-        appendIfValue("Revenue_Multiple_min", f.revenueMultipleMin);
-        appendIfValue("Revenue_Multiple_max", f.revenueMultipleMax);
-        appendIfValue("Revenue_Growth_min", f.revenueGrowthMin);
-        appendIfValue("Revenue_Growth_max", f.revenueGrowthMax);
-        appendIfValue("EBITDA_Margin_min", f.ebitdaMarginMin);
-        appendIfValue("EBITDA_Margin_max", f.ebitdaMarginMax);
-        appendIfValue("Rule_of_40_min", f.ruleOf40Min);
-        appendIfValue("Rule_of_40_max", f.ruleOf40Max);
-
-        // Subscription Metrics min/max for export
-        appendIfValue("ARR_min", f.arrMin);
-        appendIfValue("ARR_max", f.arrMax);
-        appendIfValue("ARR_pc_min", f.arrPcMin);
-        appendIfValue("ARR_pc_max", f.arrPcMax);
-        appendIfValue("Churn_min", f.churnMin);
-        appendIfValue("Churn_max", f.churnMax);
-        appendIfValue("GRR_min", f.grrMin);
-        appendIfValue("GRR_max", f.grrMax);
-        appendIfValue("NRR_min", f.nrrMin);
-        appendIfValue("NRR_max", f.nrrMax);
-        appendIfValue("New_Clients_Revenue_Growth_min", f.newClientsRevenueGrowthMin);
-        appendIfValue("New_Clients_Revenue_Growth_max", f.newClientsRevenueGrowthMax);
-
-        if (f.searchQuery && f.searchQuery.trim()) {
-          params.append("query", f.searchQuery.trim());
-        }
-
-        // Keyword search (searches across descriptions)
-        if (
-          ENABLE_COMPANIES_KEYWORD_SEARCH &&
-          f.keywordSearch &&
-          f.keywordSearch.trim()
-        ) {
-          params.append("keywords_search", f.keywordSearch.trim());
-        }
-      }
+      const params = currentFilters
+        ? companySearchPayloadToSearchParams(currentFilters)
+        : new URLSearchParams();
 
       // First, fetch page 1 to get total page count
       const baseParams = new URLSearchParams(params.toString());
       baseParams.append("Offset", "1");
       baseParams.append("Per_page", "25");
       
-      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${baseParams.toString()}`;
+      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${baseParams.toString()}`;
       
       const firstResp = await fetch(firstPageUrl, {
         method: "GET",
@@ -3262,7 +2417,7 @@ const CompanySection = ({
           pageParams.append("Offset", page.toString());
           pageParams.append("Per_page", "25");
           
-          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${pageParams.toString()}`;
+          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${pageParams.toString()}`;
           
           const pageResp = await fetch(pageUrl, {
             method: "GET",
@@ -3357,73 +2512,70 @@ const CompanySection = ({
           
           // Create row with ALL columns always present
           const row: CompanyCSVRow = {
-            Name: it.name ?? "N/A",
-            Description: it.description ?? "N/A",
+            Name: it.name ?? "-",
+            Description: it.description ?? "-",
             "Primary Sector(s)": CompaniesCSVExporter.formatSectors(primary),
-            Sectors: CompaniesCSVExporter.formatSectors(secondary),
-            Ownership: it.ownership ?? "N/A",
+            "Secondary Sector(s)": CompaniesCSVExporter.formatSectors(secondary),
+            Ownership: it.ownership ?? "-",
             "LinkedIn Members": CompaniesCSVExporter.formatLinkedinMembers(
               typeof it.linkedin_members === "number"
                 ? it.linkedin_members
                 : Number(it.linkedin_members)
             ),
-            Country: it.country ?? "N/A",
-            "Company Link": companyLink || "N/A",
-            "Company URL": it.url ?? "",
-            "Asymmetrix Profile Link": it.company_link ?? "",
+            HQ: toPlainText(
+              readCompanyValue(it as Company, [...getFieldAliasesForColumn("hq")])
+            ),
+            "Company Link": companyLink || "-",
+            "Company URL": it.company_link ?? "",
             // Financial Metrics - exact field names from API
             Revenue:
               it.Revenue_m != null && it.Revenue_m !== ""
                 ? `${it.Revenue_m}M`
-                : "N/A",
+                : "-",
             EBITDA:
               it.EBITDA_m != null && it.EBITDA_m !== ""
                 ? `${it.EBITDA_m}M`
-                : "N/A",
+                : "-",
             "Enterprise Value":
-              it.EV != null && it.EV !== "" ? `${it.EV}M` : "N/A",
+              it.EV != null && it.EV !== "" ? `${it.EV}M` : "-",
             "Revenue Multiple":
               it.Revenue_multiple != null && it.Revenue_multiple !== ""
                 ? String(it.Revenue_multiple)
-                : "N/A",
+                : "-",
             "Revenue Growth":
               it.Rev_Growth_PC != null && it.Rev_Growth_PC !== ""
                 ? `${it.Rev_Growth_PC}%`
-                : "N/A",
+                : "-",
             "EBITDA Margin":
               it.EBITDA_margin != null && it.EBITDA_margin !== ""
                 ? `${it.EBITDA_margin}%`
-                : "N/A",
+                : "-",
             "Rule of 40":
               it.Rule_of_40 != null && it.Rule_of_40 !== ""
                 ? String(it.Rule_of_40)
-                : "N/A",
+                : "-",
             // Subscription Metrics - exact field names from API
             "Recurring Revenue": CompaniesCSVExporter.formatPercent(arrPc),
-            ARR: it.ARR_m != null && it.ARR_m !== "" ? `${it.ARR_m}M` : "N/A",
+            ARR: it.ARR_m != null && it.ARR_m !== "" ? `${it.ARR_m}M` : "-",
             Churn:
               it.Churn_pc != null && it.Churn_pc !== ""
                 ? `${it.Churn_pc}%`
-                : "N/A",
+                : "-",
             GRR:
               it.GRR_pc != null && it.GRR_pc !== ""
                 ? `${it.GRR_pc}%`
-                : "N/A",
-            NRR: it.NRR != null && it.NRR !== "" ? `${it.NRR}%` : "N/A",
+                : "-",
+            NRR: it.NRR != null && it.NRR !== "" ? `${it.NRR}%` : "-",
             "New Clients Revenue Growth":
               it.New_client_growth_pc != null && it.New_client_growth_pc !== ""
                 ? `${it.New_client_growth_pc}%`
-                : "N/A",
+                : "-",
           };
           return row;
         });
         
         const csv = CompaniesCSVExporter.convertToCSV(rows);
-        if (!csv || csv.trim() === "" || csv === "\uFEFF") {
-          throw new Error("CSV content is empty after conversion");
-        }
-        const timestamp = new Date().toISOString().split("T")[0];
-        await downloadFile(csv, `companies_filtered_${timestamp}.csv`);
+        CompaniesCSVExporter.downloadCSV(csv, "companies_filtered");
       } else {
         // Fallback: If API returns CSV directly, use it as-is
         // Note: This may not include all financial columns if the server CSV is incomplete
@@ -3431,20 +2583,28 @@ const CompanySection = ({
         console.warn("API returned CSV directly - financial columns may be missing and only first page will be exported");
         const normalized = firstPageText.replace(/\r?\n/g, "\r\n");
         const contentWithBOM = "\uFEFF" + normalized;
-        await downloadFile(contentWithBOM, "companies_filtered.csv");
+        const blob = new Blob([contentWithBOM], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const link = document.createElement("a");
+        const urlObject = URL.createObjectURL(blob);
+        link.href = urlObject;
+        link.download = "companies_filtered.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(urlObject);
       }
     } catch (e) {
       console.error("Error exporting CSV:", e);
       // Fallback to client-side CSV if API export fails
       if (companies.length > 0) {
         // `CompaniesCSVExporter` expects sectors as string arrays; normalize in case API returns objects.
-        const toStringArray = (vals: unknown): string[] => {
-          if (!Array.isArray(vals)) return [];
-          return vals
+        const toStringArray = (vals: unknown): string[] =>
+          parseListField(vals)
             .map((v) => getSectorInfo(v).name)
             .map((n) => String(n ?? "").trim())
             .filter(Boolean);
-        };
         const normalizedCompanies = companies.map((c) => ({
           ...c,
           primary_sectors: toStringArray(c.primary_sectors),
@@ -3458,10 +2618,14 @@ const CompanySection = ({
           "companies_filtered"
         );
       }
-    } finally {
-      setIsExporting(false);
     }
-  }, [currentFilters, companies, isExporting]);
+  }, [currentFilters, companies]);
+
+  // Register export function with parent so header Export CSV button works
+  useEffect(() => {
+    onRegisterExportCSV?.(handleExportCSV);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleExportCSV]);
 
   const handleCompanyClick = useCallback(
     (companyId: number) => {
@@ -3472,7 +2636,11 @@ const CompanySection = ({
 
   const handlePageChange = useCallback(
     (page: number) => {
-      const totalPages = pagination.pageTotal || 1;
+      const totalPages =
+        pagination.pageTotal ||
+        (pagination.nextPage != null
+          ? Math.max(pagination.nextPage, pagination.curPage + 1)
+          : 1);
       if (loading || page < 1 || page > totalPages || page === pagination.curPage) {
         return;
       }
@@ -3483,63 +2651,84 @@ const CompanySection = ({
     [fetchCompanies, currentFilters, loading, pagination.curPage, pagination.pageTotal]
   );
 
+  const pageCompanyIds = useMemo(
+    () =>
+      sortedCompanies
+        .map((company) => Number(company.id))
+        .filter((id) => Number.isFinite(id) && id > 0),
+    [sortedCompanies]
+  );
+
+  const pageSelectionState = useMemo(() => {
+    if (pageCompanyIds.length === 0) {
+      return { allSelected: false, someSelected: false };
+    }
+    let selectedOnPage = 0;
+    for (const id of pageCompanyIds) {
+      if (selectedCompanyIds.has(id)) selectedOnPage += 1;
+    }
+    return {
+      allSelected: selectedOnPage === pageCompanyIds.length,
+      someSelected: selectedOnPage > 0 && selectedOnPage < pageCompanyIds.length,
+    };
+  }, [pageCompanyIds, selectedCompanyIds]);
+
   const tableRows = useMemo(
     () =>
-      companies.map((company, index) => {
-        // Just use what the API returns - no derivation needed
-        const primaryDisplay = Array.isArray(company.primary_sectors)
-          ? company.primary_sectors
-          : [];
-        const secondaryDisplay = Array.isArray(company.secondary_sectors)
-          ? company.secondary_sectors
-          : [];
+      sortedCompanies.map((company, index) => {
+        const displayCompany = company;
 
+        const isRowSelected = selectedCompanyIds.has(company.id);
         return (
-          <tr key={company.id || index}>
-            <td>
-              <CompanyLogo logo={company.linkedin_logo} name={company.name} />
-            </td>
-            <td>
-              <a
-                href={`/company/${company.id}`}
-                className="company-name"
-                style={{
-                  textDecoration: "none",
-                  color: "#3b82f6",
-                }}
-                onClick={(e) => {
-                  if (
-                    e.defaultPrevented ||
-                    e.button !== 0 ||
-                    e.metaKey ||
-                    e.ctrlKey ||
-                    e.shiftKey ||
-                    e.altKey
-                  ) {
-                    return;
-                  }
-                  e.preventDefault();
-                  handleCompanyClick(company.id);
-                }}
-              >
-                {company.name || "N/A"}
-              </a>
-            </td>
-            <td>
-              <CompanyDescription
-                description={company.description || "N/A"}
-                index={index}
+          <tr
+            key={company.id || index}
+            className={isRowSelected ? "company-table-row-selected" : undefined}
+          >
+            <td
+              className="company-table-select-cell"
+              style={{
+                minWidth: 44,
+                width: 44,
+                textAlign: "center",
+                background: isRowSelected ? "#EFF6FF" : "#fff",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isRowSelected}
+                onChange={() => onToggleCompanySelection(company.id)}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Select ${company.name || "company"}`}
               />
             </td>
-            <td className="sectors-list">
-              {renderSectorLinks(primaryDisplay as unknown[], "primary")}
-            </td>
-            <td className="sectors-list">
-              {renderSectorLinks(secondaryDisplay as unknown[], "secondary")}
-            </td>
-            <td>{company.ownership || "N/A"}</td>
-            <td>{formatNumber(company.linkedin_members)}</td>
-            <td>{company.country || "N/A"}</td>
+            {selectedColumns.map((column) => (
+              <td
+                key={`${company.id || index}-${column.key}`}
+                className={getTableColumnClassName(column)}
+                style={{
+                  minWidth: column.minWidth,
+                  ...getStickyColumnStyle(
+                    column.key,
+                    column.minWidth,
+                    false,
+                    isRowSelected
+                  ),
+                }}
+              >
+                {loadingColumnKeys.has(column.key) ? (
+                  <div
+                    className="loading-skeleton"
+                    style={{ width: "80%", height: 18, minWidth: 48 }}
+                    aria-label="Loading column data"
+                  />
+                ) : (
+                  column.render(displayCompany, {
+                    index,
+                    onCompanyClick: handleCompanyClick,
+                  })
+                )}
+              </td>
+            ))}
             {onEditCompany && (
               <td>
                 <button
@@ -3559,13 +2748,25 @@ const CompanySection = ({
           </tr>
         );
       }),
-    [companies, handleCompanyClick, onEditCompany]
+    [
+      sortedCompanies,
+      handleCompanyClick,
+      onEditCompany,
+      selectedColumns,
+      selectedCompanyIds,
+      onToggleCompanySelection,
+      loadingColumnKeys,
+      getStickyColumnStyle,
+      getTableColumnClassName,
+    ]
   );
 
   const generatePaginationButtons = () => {
     const buttons: React.ReactNode[] = [];
     const maxVisible = 7;
-    const totalPages = pagination.pageTotal || 0;
+    const totalPages =
+      pagination.pageTotal ||
+      (pagination.nextPage != null ? Math.max(pagination.nextPage, pagination.curPage + 1) : 0);
     const prevPage = pagination.prevPage ?? pagination.curPage - 1;
     const nextPage = pagination.nextPage ?? pagination.curPage + 1;
 
@@ -3685,13 +2886,18 @@ const CompanySection = ({
       animation: shimmer 1.5s ease-in-out infinite;
       border-radius: 4px;
     }
+    .company-table-col-loading {
+      background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
     @keyframes shimmer {
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
     .company-section {
-      padding: 16px 12px;
-      border-radius: 8px;
+      width: 100%;
+      padding: 16px 28px;
     }
     .company-stats {
       background: #fff;
@@ -3733,50 +2939,63 @@ const CompanySection = ({
       font-weight: 600;
     }
     .company-table {
-      width: 100%;
+      width: max-content;
+      min-width: 100%;
       background: #fff;
       padding: 16px;
       box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
       border-radius: 8px;
       border-collapse: collapse;
-      table-layout: fixed;
+      table-layout: auto;
     }
-    .company-table th:nth-child(1), 
-    .company-table td:nth-child(1) { 
-      width: 8%; 
-    } /* Logo */
-    .company-table th:nth-child(2), 
-    .company-table td:nth-child(2) { 
-      width: 12%; 
-    } /* Name */
-    .company-table th:nth-child(3), 
-    .company-table td:nth-child(3) { 
-      width: 35%; 
-    } /* Description - Much wider */
-    .company-table th:nth-child(4), 
-    .company-table td:nth-child(4) { 
-      width: 15%; 
-    } /* Primary Sectors */
-    .company-table th:nth-child(5), 
-    .company-table td:nth-child(5) { 
-      width: 12%; 
-    } /* Sectors */
-    .company-table th:nth-child(6), 
-    .company-table td:nth-child(6) { 
-      width: 8%; 
-    } /* Ownership */
-    .company-table th:nth-child(7), 
-    .company-table td:nth-child(7) { 
-      width: 7%; 
-    } /* LinkedIn Members */
-    .company-table th:nth-child(8), 
-    .company-table td:nth-child(8) { 
-      width: 7%; 
-    } /* Country */
-    .company-table th:nth-child(9), 
-    .company-table td:nth-child(9) { 
-      width: 5%; 
-    } /* Edit - when present */
+    .company-table-scroll {
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      max-height: min(72vh, calc(100vh - 240px));
+      border-radius: 8px;
+      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
+      background: #fff;
+    }
+    .company-table-scroll .company-table {
+      box-shadow: none;
+      border-radius: 0;
+      margin: 0;
+    }
+    .company-columns-button {
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      color: #1a202c;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .company-columns-button.primary {
+      border-color: #0075df;
+      color: #0075df;
+    }
+    .company-table-cell-wrap {
+      white-space: normal !important;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      max-width: 320px;
+    }
+    .company-table-select-cell {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      background: #fff;
+      box-shadow: 1px 0 0 #e2e8f0;
+    }
+    .company-table thead .company-table-select-cell {
+      z-index: 6;
+    }
+    .company-table td.company-table-sticky-frozen,
+    .company-table td.company-table-sticky-logo {
+      background: #fff;
+    }
     .edit-company-btn {
       padding: 4px 10px;
       font-size: 12px;
@@ -3800,6 +3019,7 @@ const CompanySection = ({
       border-bottom: 1px solid #e2e8f0;
       word-wrap: break-word;
       overflow-wrap: break-word;
+      min-width: 120px;
     }
     .company-table th {
       font-weight: 600;
@@ -3807,6 +3027,102 @@ const CompanySection = ({
       font-size: 14px;
       background: #f9fafb;
       border-bottom: 2px solid #e2e8f0;
+      position: sticky;
+      top: 0;
+      z-index: 4;
+    }
+    .company-table-th-sortable {
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .company-table-th-sortable:hover {
+      background: #f1f5f9;
+    }
+    .company-table-th-draggable {
+      cursor: grab;
+    }
+    .company-table-th-draggable:active {
+      cursor: grabbing;
+    }
+    .company-table-th-dragging {
+      opacity: 0.55;
+    }
+    .company-table-th-drag-over {
+      box-shadow: inset 0 -3px 0 #0370aa;
+      background: #eff6ff;
+    }
+    .company-table-sort-indicator {
+      margin-left: 4px;
+      font-size: 10px;
+      color: #64748b;
+    }
+    .company-table-pin-indicator {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 4px;
+      color: #94a3b8;
+      vertical-align: middle;
+    }
+    .company-table-sticky-logo {
+      min-width: 88px;
+      max-width: 88px;
+      width: 88px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .company-table td.company-table-sticky-logo .company-logo-cell {
+      width: 60px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    .company-table td.company-table-sticky-logo .company-logo-placeholder {
+      width: 60px;
+      height: 40px;
+      background-color: #f7fafc;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #718096;
+    }
+    .company-table th.company-table-col-follow,
+    .company-table td.company-table-col-follow {
+      text-align: left;
+      min-width: 120px;
+      max-width: 140px;
+    }
+    .company-table th.company-table-col-follow {
+      z-index: 4;
+      background: #f9fafb;
+    }
+    .company-table td.company-table-col-follow {
+      position: relative;
+      z-index: 0;
+    }
+    .company-follow-cell {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      text-align: left;
+      position: relative;
+      z-index: 0;
+    }
+    .company-table-row-selected {
+      background: #EFF6FF;
+    }
+    .company-table tr.company-table-row-selected > td.company-table-sticky-frozen,
+    .company-table tr.company-table-row-selected > td.company-table-sticky-logo,
+    .company-table tr.company-table-row-selected > td.company-table-select-cell {
+      background: #EFF6FF;
+    }
+    .company-table thead th.company-table-sticky-frozen,
+    .company-table thead th.company-table-sticky-logo {
+      z-index: 7;
+      background: #f9fafb;
     }
     .company-table td {
       font-size: 14px;
@@ -3816,6 +3132,8 @@ const CompanySection = ({
     .company-logo {
       width: 60px;
       height: 40px;
+      max-width: 100%;
+      max-height: 100%;
       object-fit: contain;
       vertical-align: middle;
       border-radius: 8px;
@@ -4075,7 +3393,33 @@ const CompanySection = ({
     }
   `;
 
-  if (loading) {
+  const columnsModalLayer = [
+    showColumnsModal &&
+      React.createElement("div", {
+        key: "columns-backdrop",
+        style: {
+          position: "fixed",
+          inset: 0,
+          zIndex: 199,
+          cursor: "default",
+        },
+        onClick: () => setShowColumnsModal(false),
+        "aria-hidden": true,
+      }),
+    showColumnsModal &&
+      React.createElement(ColumnsControlRoom, {
+        key: "columns-panel",
+        initial: columnVisibilityInitial,
+        initialOrder: selectedColumnKeys,
+        filterPinnedColumnKeys,
+        onCancel: () => setShowColumnsModal(false),
+        onApply: handleApplyColumnVisibility,
+      }),
+  ];
+
+  const showInitialLoadingSkeleton = loading && companies.length === 0;
+
+  if (showInitialLoadingSkeleton) {
     const skeletonRow = (i: number) =>
       React.createElement(
         "tr",
@@ -4197,7 +3541,7 @@ const CompanySection = ({
             React.createElement("th", null, "Secondary Sectors"),
             React.createElement("th", null, "Ownership"),
             React.createElement("th", null, "LinkedIn"),
-            React.createElement("th", null, "Country"),
+            React.createElement("th", null, "HQ"),
             ...(onEditCompany
               ? [React.createElement("th", { key: "edit" }, "")]
               : [])
@@ -4209,6 +3553,7 @@ const CompanySection = ({
           ...[...Array(10)].map((_, i) => skeletonRow(i))
         )
       ),
+      ...columnsModalLayer,
       React.createElement("style", {
         dangerouslySetInnerHTML: { __html: style },
       })
@@ -4220,6 +3565,19 @@ const CompanySection = ({
       "div",
       { className: "company-section", ref: sectionRef },
       React.createElement("div", { className: "error" }, error),
+      ...columnsModalLayer,
+      React.createElement("style", {
+        dangerouslySetInnerHTML: { __html: style },
+      })
+    );
+  }
+
+  if (companies.length === 0 && isPortfolioOnlyFilter) {
+    return React.createElement(
+      "div",
+      { className: "company-section", ref: sectionRef },
+      React.createElement(FollowedOnlyEmptyState, { entity: "companies" }),
+      ...columnsModalLayer,
       React.createElement("style", {
         dangerouslySetInnerHTML: { __html: style },
       })
@@ -4358,7 +3716,7 @@ const CompanySection = ({
                 fontWeight: "500",
               },
             },
-            "VC-owned companies: "
+            "VC-backed companies: "
           ),
           React.createElement(
             "span",
@@ -4408,33 +3766,52 @@ const CompanySection = ({
         )
       )
     ),
-    // Export Button - Show only when filters are applied
-    hasActiveFilters() &&
-      companies.length > 0 &&
+    ...columnsModalLayer,
+    selectedCompanyIds.size > 0 &&
       React.createElement(
         "div",
         {
           style: {
             display: "flex",
-            justifyContent: "flex-end",
-            marginBottom: "16px",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 10,
+            padding: "10px 14px",
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            borderRadius: 8,
+            fontSize: 13,
+            color: "#1e3a8a",
           },
         },
         React.createElement(
+          "span",
+          { style: { fontWeight: 600 } },
+          `${selectedCompanyIds.size.toLocaleString()} selected`
+        ),
+        React.createElement(
           "button",
           {
-            onClick: handleExportCSV,
-            className: "export-button",
-            disabled: loading || isTrialActive || isExporting,
-            title: isTrialActive ? "Export disabled during Trial" : undefined,
+            type: "button",
+            onClick: onClearSelection,
+            style: {
+              background: "transparent",
+              border: "none",
+              color: "#2563eb",
+              fontWeight: 600,
+              cursor: "pointer",
+              fontSize: 13,
+            },
           },
-          isExporting ? "Exporting..." : "Export CSV"
+          "Clear selection"
         )
       ),
     React.createElement(
       "div",
       { className: "company-cards" },
-      companies.map((company, index) =>
+      sortedCompanies.map((company, index) =>
         React.createElement(CompanyCard, {
           key: company.id || index,
           company: company,
@@ -4443,29 +3820,203 @@ const CompanySection = ({
       )
     ),
     React.createElement(
-      "table",
-      { className: "company-table" },
+      "div",
+      { className: "company-table-scroll", ref: tableScrollRef },
       React.createElement(
-        "thead",
-        null,
+        "table",
+        { className: "company-table" },
         React.createElement(
-          "tr",
+          "thead",
           null,
-          React.createElement("th", null, "Logo"),
-          React.createElement("th", null, "Name"),
-          React.createElement("th", null, "Description"),
-          React.createElement("th", null, "Primary Sector(s)"),
-          React.createElement("th", null, "Sectors"),
-          React.createElement("th", null, "Ownership"),
-          React.createElement("th", null, "LinkedIn Members"),
-          React.createElement("th", null, "Country"),
-          ...(onEditCompany
-            ? [React.createElement("th", { key: "edit" }, "Edit")]
-            : [])
-        )
-      ),
-      React.createElement("tbody", null, tableRows)
+          React.createElement(
+            "tr",
+            null,
+            React.createElement(
+              "th",
+              {
+                key: "select",
+                className: "company-table-select-cell",
+                style: { minWidth: 44, width: 44, textAlign: "center" },
+              },
+              React.createElement("input", {
+                type: "checkbox",
+                checked: pageSelectionState.allSelected,
+                ref: (el: HTMLInputElement | null) => {
+                  if (el) {
+                    el.indeterminate = pageSelectionState.someSelected;
+                  }
+                },
+                onChange: () => onTogglePageSelection(pageCompanyIds),
+                "aria-label": "Select all companies on this page",
+              })
+            ),
+            ...selectedColumns.map((column) => {
+              const sortKind = getColumnSortKind(column.key);
+              const isActive = sortState?.key === column.key;
+              const isDraggable = !isFrozenColumnKey(column.key);
+              const isDragging = headerDragKey === column.key;
+              const isDragOver =
+                headerDragOverKey === column.key && headerDragKey !== column.key;
+              return React.createElement(
+                "th",
+                {
+                  key: column.key,
+                  className: getTableColumnClassName(column, [
+                    sortKind ? "company-table-th-sortable" : undefined,
+                    isDraggable ? "company-table-th-draggable" : undefined,
+                    isDragging ? "company-table-th-dragging" : undefined,
+                    isDragOver ? "company-table-th-drag-over" : undefined,
+                  ]),
+                  style: {
+                    minWidth: column.minWidth,
+                    ...getStickyColumnStyle(column.key, column.minWidth, true),
+                  },
+                  draggable: isDraggable,
+                  onDragStart: isDraggable
+                    ? (event: React.DragEvent<HTMLTableCellElement>) => {
+                        headerDidDragRef.current = false;
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", column.key);
+                        setHeaderDragKey(column.key);
+                        setHeaderDragOverKey(null);
+                      }
+                    : undefined,
+                  onDragOver: (event: React.DragEvent<HTMLTableCellElement>) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                    setHeaderDragOverKey(column.key);
+                  },
+                  onDrop: (event: React.DragEvent<HTMLTableCellElement>) => {
+                    event.preventDefault();
+                    const dragKey =
+                      event.dataTransfer.getData("text/plain") || headerDragKey;
+                    if (dragKey) {
+                      headerDidDragRef.current = true;
+                      handleReorderTableColumns(dragKey, column.key);
+                    }
+                    setHeaderDragKey(null);
+                    setHeaderDragOverKey(null);
+                  },
+                  onDragEnd: () => {
+                    setHeaderDragKey(null);
+                    setHeaderDragOverKey(null);
+                  },
+                  onClick: sortKind
+                    ? () => {
+                        if (headerDidDragRef.current) {
+                          headerDidDragRef.current = false;
+                          return;
+                        }
+                        handleSortColumn(column.key);
+                      }
+                    : undefined,
+                  "aria-sort": sortKind
+                    ? isActive
+                      ? sortState?.dir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                    : undefined,
+                },
+                column.key === "follow"
+                  ? React.createElement(
+                      "span",
+                      {
+                        className: "company-follow-header-label",
+                        style: { display: "block", textAlign: "left" },
+                      },
+                      column.label
+                    )
+                  : column.label,
+                loadingColumnKeys.has(column.key) &&
+                  React.createElement(
+                    "span",
+                    {
+                      className: "company-table-col-loading",
+                      style: {
+                        display: "inline-block",
+                        marginLeft: 6,
+                        width: 36,
+                        height: 10,
+                        verticalAlign: "middle",
+                        borderRadius: 4,
+                      },
+                      "aria-hidden": true,
+                    }
+                  ),
+                isFilterPinnedColumnKey(column.key) &&
+                  React.createElement(
+                    "span",
+                    {
+                      className: "company-table-pin-indicator",
+                      title: FILTER_PINNED_TOOLTIP,
+                      "aria-label": FILTER_PINNED_TOOLTIP,
+                    },
+                    React.createElement(
+                      "svg",
+                      {
+                        width: 11,
+                        height: 11,
+                        viewBox: "0 0 12 12",
+                        fill: "none",
+                        "aria-hidden": true,
+                      },
+                      React.createElement("rect", {
+                        x: 2.25,
+                        y: 5.25,
+                        width: 7.5,
+                        height: 5.5,
+                        rx: 1.1,
+                        stroke: "currentColor",
+                        strokeWidth: 1.2,
+                      }),
+                      React.createElement("path", {
+                        d: "M4 5.25V3.75a2 2 0 014 0v1.5",
+                        stroke: "currentColor",
+                        strokeWidth: 1.2,
+                        strokeLinecap: "round",
+                      })
+                    )
+                  ),
+                sortKind &&
+                  React.createElement(
+                    "span",
+                    { className: "company-table-sort-indicator" },
+                    isActive ? (sortState?.dir === "asc" ? " ▲" : " ▼") : " ⇅"
+                  )
+              );
+            }),
+            ...(onEditCompany
+              ? [React.createElement("th", { key: "edit" }, "Edit")]
+              : [])
+          )
+        ),
+        React.createElement("tbody", null, tableRows)
+      )
     ),
+    showPhantomScroll &&
+      React.createElement(
+        "div",
+        {
+          ref: phantomScrollRef,
+          style: {
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 14,
+            overflowX: "auto",
+            overflowY: "hidden",
+            zIndex: 50,
+            background: "rgba(255,255,255,0.95)",
+            boxShadow: "0 -1px 6px rgba(0,0,0,0.10)",
+            borderTop: "1px solid #e2e8f0",
+          },
+        },
+        React.createElement("div", {
+          style: { width: tableScrollWidth, height: 1 },
+        })
+      ),
     React.createElement(
       "div",
       { className: "pagination" },
@@ -4494,15 +4045,37 @@ function CompaniesPageInner() {
     pagination,
     ownershipCounts,
     fetchCompanies,
+    setRequestColumns,
     currentFilters,
   } = useCompaniesAPI();
 
+  const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
+
   const handleSearch = useCallback(
-    (filters: Filters) => {
-      console.log("Searching with filters:", filters);
+    (filters: Filters, portfolioOnly?: boolean) => {
+      setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
       fetchCompanies(1, filters);
     },
     [fetchCompanies]
+  );
+
+  const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
+    []
+  );
+
+  const handleFilterColumnsChange = useCallback(
+    ({
+      filterIds,
+      ownershipTabActive,
+    }: {
+      filterIds: string[];
+      ownershipTabActive: boolean;
+    }) => {
+      setFilterPinnedColumnKeys(
+        getColumnKeysForActiveFilters(filterIds, ownershipTabActive)
+      );
+    },
+    []
   );
 
   const [initialSearch, setInitialSearch] = useState<string | undefined>(
@@ -4517,14 +4090,67 @@ function CompaniesPageInner() {
     }
   }, []);
 
+  // Lifted state for Columns modal + Export CSV (shared between header and table)
+  const [showColumnsModal, setShowColumnsModal] = useState(false);
+  const [columnsCount, setColumnsCount] = useState(DEFAULT_COMPANY_COLUMN_KEYS.length);
+  const exportCSVRef = useRef<(() => void) | null>(null);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<number>>(() => new Set());
+  const [showBulkAddModal, setShowBulkAddModal] = useState(false);
+
+  const filtersKey = useMemo(
+    () => JSON.stringify(currentFilters ?? {}),
+    [currentFilters]
+  );
+
+  useEffect(() => {
+    setSelectedCompanyIds(new Set());
+  }, [filtersKey]);
+
+  const toggleCompanySelection = useCallback((id: number) => {
+    setSelectedCompanyIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const togglePageSelection = useCallback((ids: number[]) => {
+    setSelectedCompanyIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = ids.length > 0 && ids.every((id) => next.has(id));
+      if (allSelected) {
+        ids.forEach((id) => next.delete(id));
+      } else {
+        ids.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedCompanyIds(new Set());
+  }, []);
+
+  const selectedCompanyIdList = useMemo(
+    () => Array.from(selectedCompanyIds),
+    [selectedCompanyIds]
+  );
+
   return (
     <div className="min-h-screen">
       <Header />
       <CompanyDashboard
         onSearch={handleSearch}
+        onFilterColumnsChange={handleFilterColumnsChange}
         initialSearch={initialSearch}
-        totalCount={pagination.itemsReceived}
         ownershipCounts={ownershipCounts}
+        onColumnsClick={() => setShowColumnsModal((v) => !v)}
+        onExportCSVClick={() => exportCSVRef.current?.()}
+        onAddToPortfolioClick={() => setShowBulkAddModal(true)}
+        selectedCount={selectedCompanyIds.size}
+        columnsCount={columnsCount}
+        columnsActive={showColumnsModal}
       />
       <CompanySection
         companies={companies}
@@ -4533,8 +4159,25 @@ function CompaniesPageInner() {
         pagination={pagination}
         ownershipCounts={ownershipCounts}
         fetchCompanies={fetchCompanies}
+        setRequestColumns={setRequestColumns}
         currentFilters={currentFilters}
+        filterPinnedColumnKeys={filterPinnedColumnKeys}
         onEditCompany={React.useContext(CompaniesEditContext)}
+        externalShowColumnsModal={showColumnsModal}
+        externalSetShowColumnsModal={setShowColumnsModal}
+        onColumnsCountChange={setColumnsCount}
+        onRegisterExportCSV={(fn) => { exportCSVRef.current = fn; }}
+        selectedCompanyIds={selectedCompanyIds}
+        onToggleCompanySelection={toggleCompanySelection}
+        onTogglePageSelection={togglePageSelection}
+        onClearSelection={clearSelection}
+        isPortfolioOnlyFilter={isPortfolioOnlyFilter}
+      />
+      <BulkAddToPortfolioModal
+        isOpen={showBulkAddModal}
+        onClose={() => setShowBulkAddModal(false)}
+        companyIds={selectedCompanyIdList}
+        onComplete={clearSelection}
       />
       <Footer />
     </div>

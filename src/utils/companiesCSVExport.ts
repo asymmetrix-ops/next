@@ -1,5 +1,3 @@
-import { downloadFile } from "@/utils/downloadFile";
-
 // Types for companies data
 interface Company {
   id: number;
@@ -26,11 +24,11 @@ export interface CompanyCSVRow {
   Name: string;
   Description: string;
   "Primary Sector(s)": string;
-  Sectors: string;
+  "Secondary Sector(s)": string;
   Ownership: string;
   "LinkedIn Members": string;
-  Country: string;
-  "Company Link": string;
+  HQ: string;
+  "Company Link"?: string;
   "Company URL": string;
   // Optional Financial Metrics
   Revenue?: string;
@@ -79,7 +77,7 @@ export class CompaniesCSVExporter {
   }
 
   static formatSectors(sectors: string[] | undefined): string {
-    if (!sectors || sectors.length === 0) return "N/A";
+    if (!sectors || sectors.length === 0) return "-";
     return sectors.join(", ");
   }
 
@@ -90,12 +88,12 @@ export class CompaniesCSVExporter {
   static formatMillions(
     value: number | string | undefined
   ): string {
-    if (value === undefined || value === null || value === "") return "N/A";
+    if (value === undefined || value === null || value === "") return "-";
     const num =
       typeof value === "number"
         ? value
         : Number(String(value).replace(/[^0-9.-]/g, ""));
-    if (!isFinite(num)) return "N/A";
+    if (!isFinite(num)) return "-";
     return `${num.toFixed(1)}M`;
   }
 
@@ -107,12 +105,12 @@ export class CompaniesCSVExporter {
   static formatPercent(
     value: number | string | undefined
   ): string {
-    if (value === undefined || value === null || value === "") return "N/A";
+    if (value === undefined || value === null || value === "") return "-";
     const num =
       typeof value === "number"
         ? value
         : Number(String(value).replace(/[^0-9.-]/g, ""));
-    if (!isFinite(num)) return "N/A";
+    if (!isFinite(num)) return "-";
     const pct = Math.abs(num) <= 1 ? num * 100 : num;
     const decimals = Math.abs(pct) % 1 === 0 ? 0 : 1;
     return `${pct.toFixed(decimals)}%`;
@@ -125,9 +123,9 @@ export class CompaniesCSVExporter {
   static cleanARR(
     value: number | string | undefined
   ): string {
-    if (value === undefined || value === null || value === "") return "N/A";
+    if (value === undefined || value === null || value === "") return "-";
     const str = String(value).trim();
-    if (str === "N/A" || str === "") return "N/A";
+    if (str === "-" || str === "") return "-";
     
     // Extract just the numeric part from "8 EURM" or "8.5 GBPM"
     // Match the number (with optional decimal) before any text
@@ -139,7 +137,7 @@ export class CompaniesCSVExporter {
       }
     }
     
-    return "N/A";
+    return "-";
   }
   
   /**
@@ -149,9 +147,9 @@ export class CompaniesCSVExporter {
   static fixNRR(
     value: number | string | undefined
   ): string {
-    if (value === undefined || value === null || value === "") return "N/A";
+    if (value === undefined || value === null || value === "") return "-";
     const str = String(value).trim();
-    if (str === "N/A" || str === "") return "N/A";
+    if (str === "-" || str === "") return "-";
     
     // If it has %, extract the number
     if (str.includes("%")) {
@@ -174,9 +172,9 @@ export class CompaniesCSVExporter {
   static formatRuleOf40(
     value: number | string | undefined
   ): string {
-    if (value === undefined || value === null || value === "") return "N/A";
+    if (value === undefined || value === null || value === "") return "-";
     const str = String(value).trim();
-    if (str === "N/A" || str === "") return "N/A";
+    if (str === "-" || str === "") return "-";
     
     // If it already has %, return as-is
     if (str.includes("%")) return str;
@@ -193,15 +191,15 @@ export class CompaniesCSVExporter {
           : `/company/${company.id}`;
 
       return {
-        Name: company.name || "N/A",
-        Description: company.description || "N/A",
+        Name: company.name || "-",
+        Description: company.description || "-",
         "Primary Sector(s)": this.formatSectors(company.primary_sectors),
-        Sectors: this.formatSectors(company.secondary_sectors),
-        Ownership: company.ownership || "N/A",
+        "Secondary Sector(s)": this.formatSectors(company.secondary_sectors),
+        Ownership: company.ownership || "-",
         "LinkedIn Members": this.formatLinkedinMembers(
           company.linkedin_members
         ),
-        Country: company.country || "N/A",
+        HQ: company.country || "-",
         "Company Link": companyLink,
         "Company URL": "",
         "Recurring Revenue": this.formatPercent(this.getARRPercent(company)),
@@ -237,9 +235,23 @@ export class CompaniesCSVExporter {
   }
 
   static downloadCSV(csvContent: string, filename: string = "companies"): void {
+    // Add timestamp to filename
     const timestamp = new Date().toISOString().split("T")[0];
     const fullFilename = `${filename}_${timestamp}.csv`;
-    void downloadFile(csvContent, fullFilename);
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", fullFilename);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   }
 
   static exportCompanies(companies: Company[], filename?: string): void {

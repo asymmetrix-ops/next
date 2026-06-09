@@ -30,7 +30,7 @@ async function searchCompaniesForMention(
   const q = query.trim();
   if (!q) return [];
   try {
-    const res = await fetchCompaniesServer(1, { searchQuery: q });
+    const res = await fetchCompaniesServer(1, { query: q });
     const items = res?.result1?.items ?? [];
     return items.map((c) => ({ id: c.id, name: c.name }));
   } catch {
