@@ -31,6 +31,7 @@ const Header = () => {
     "Individuals",
     "Corporate Events",
     "Insights & Analysis",
+    "My Portfolio",
     "Settings",
   ];
 
@@ -236,6 +237,8 @@ const Header = () => {
                       return "/corporate-events";
                     case "Insights & Analysis":
                       return "/insights-analysis";
+                    case "My Portfolio":
+                      return "/my-portfolio";
                     case "Settings":
                       return "/settings";
                     default:
@@ -354,6 +357,8 @@ const Header = () => {
                   return "/corporate-events";
                 case "Insights & Analysis":
                   return "/insights-analysis";
+                case "My Portfolio":
+                  return "/my-portfolio";
                 case "Settings":
                   return "/settings";
                 default:

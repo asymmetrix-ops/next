@@ -6,6 +6,7 @@ import "./globals.css";
 import "react-h5-audio-player/lib/styles.css";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { PortfolioHydrator } from "@/components/providers/PortfolioHydrator";
 import { Toaster } from "react-hot-toast";
 import DownloadMessageListener from "@/components/DownloadMessageListener";
 import TitleUpdater from "@/components/TitleUpdater";
@@ -136,6 +137,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <AnalyticsProvider>
+            <PortfolioHydrator />
             <ChunkErrorRecovery />
             <TitleUpdater />
             <AuthRouteGuard />
