@@ -857,10 +857,10 @@ const IndividualsPage = () => {
         );
       }
 
-      // Add job titles as comma-separated values
-      if (filters.Job_Titles.length > 0) {
-        params.append("job_titles_ids", filters.Job_Titles.join(","));
-      }
+      // Add job titles as array of integers
+      filters.Job_Titles.forEach((id) => {
+        params.append("job_titles_ids[]", String(id));
+      });
 
       // Add statuses as comma-separated values
       if (filters.Statuses.length > 0) {

@@ -167,9 +167,9 @@ function dealRadarStageStyle(
 
 function dealRadarStageLabel(status: string): string {
   const s = status.toLowerCase();
-  if (s.includes("reported")) return "Reported";
-  if (s.includes("rumoured") || s.includes("rumored")) return "Rumoured";
-  if (s.includes("anticipated")) return "Anticipated";
+  if (s.includes("reported")) return "Reported in Market";
+  if (s.includes("rumoured") || s.includes("rumored")) return "Rumored in Market";
+  if (s.includes("anticipated")) return "Anticipated within\n18 months";
   return status;
 }
 
@@ -1877,19 +1877,19 @@ export default function HomeUserPage() {
                 <div className="min-w-0 w-full">
                     <table className="w-full table-fixed">
                       <colgroup>
-                        <col style={{ width: "32%" }} />
-                        <col style={{ width: "38%" }} />
+                        <col style={{ width: "26%" }} />
                         <col style={{ width: "30%" }} />
+                        <col style={{ width: "44%" }} />
                       </colgroup>
                       <thead className="sticky top-0 z-10 bg-gray-50">
                         <tr>
-                          <th className="px-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="pl-3 pr-1 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Company
                           </th>
-                          <th className="pl-2 pr-3 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="px-2 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
                             Sector
                           </th>
-                          <th className="px-2 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase bg-gray-50">
+                          <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
                             Stage
                           </th>
                         </tr>
@@ -1905,7 +1905,7 @@ export default function HomeUserPage() {
                               key={item.companyId}
                               className="align-top hover:bg-gray-50"
                             >
-                              <td className="px-3 py-3 min-w-0 align-top">
+                              <td className="pl-3 pr-1 py-3 min-w-0 align-top">
                                 <div className="space-y-1 min-w-0">
                                   <a
                                     href={`/company/${item.companyId}`}
@@ -1957,53 +1957,59 @@ export default function HomeUserPage() {
                                   )}
                                 </div>
                               </td>
-                              <td className="pl-2 pr-3 py-3 min-w-0 text-sm text-gray-700 align-top break-words">
+                              <td className="px-2 py-3 min-w-0 text-sm text-gray-700 align-top text-center">
                                 {item.primarySectors.length > 0 ? (
-                                  item.primarySectors.map((sector, idx) => (
-                                    <span key={`${sector.id}-${sector.name}-${idx}`}>
-                                      {sector.id > 0 ? (
-                                        <a
-                                          href={`/sector/${sector.id}`}
-                                          className="text-blue-700 hover:text-blue-900 hover:underline"
-                                          onClick={(
-                                            e: React.MouseEvent<HTMLAnchorElement>
-                                          ) => {
-                                            if (
-                                              e.defaultPrevented ||
-                                              e.button !== 0 ||
-                                              e.metaKey ||
-                                              e.ctrlKey ||
-                                              e.shiftKey ||
-                                              e.altKey
-                                            ) {
-                                              return;
-                                            }
-                                            e.preventDefault();
-                                            router.push(`/sector/${sector.id}`);
-                                          }}
-                                        >
-                                          {sector.name}
-                                        </a>
-                                      ) : (
-                                        sector.name
-                                      )}
-                                      {idx < item.primarySectors.length - 1 && ", "}
-                                    </span>
-                                  ))
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    {item.primarySectors.map((sector, idx) => (
+                                      <div
+                                        key={`${sector.id}-${sector.name}-${idx}`}
+                                        className="leading-snug break-normal"
+                                      >
+                                        {sector.id > 0 ? (
+                                          <a
+                                            href={`/sector/${sector.id}`}
+                                            className="text-blue-700 hover:text-blue-900 hover:underline"
+                                            onClick={(
+                                              e: React.MouseEvent<HTMLAnchorElement>
+                                            ) => {
+                                              if (
+                                                e.defaultPrevented ||
+                                                e.button !== 0 ||
+                                                e.metaKey ||
+                                                e.ctrlKey ||
+                                                e.shiftKey ||
+                                                e.altKey
+                                              ) {
+                                                return;
+                                              }
+                                              e.preventDefault();
+                                              router.push(`/sector/${sector.id}`);
+                                            }}
+                                          >
+                                            {sector.name}
+                                          </a>
+                                        ) : (
+                                          sector.name
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
                                 ) : (
                                   "—"
                                 )}
                               </td>
-                              <td className="px-2 py-3 text-right align-top whitespace-nowrap">
+                              <td className="px-3 py-3 text-center align-top">
                                 <span
-                                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium whitespace-nowrap"
+                                  className="inline-flex items-start gap-1.5 rounded-2xl px-2.5 py-1.5 text-xs font-medium leading-snug text-center max-w-full"
                                   style={stageStyle.pill}
                                 >
                                   <span
-                                    className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                                    className="inline-block w-1.5 h-1.5 rounded-full shrink-0 mt-1"
                                     style={{ backgroundColor: stageStyle.dot }}
                                   />
-                                  {dealRadarStageLabel(item.transactionStatus)}
+                                  <span className="whitespace-pre-line">
+                                    {dealRadarStageLabel(item.transactionStatus)}
+                                  </span>
                                 </span>
                               </td>
                             </tr>

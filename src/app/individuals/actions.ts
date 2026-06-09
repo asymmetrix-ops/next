@@ -81,9 +81,11 @@ export async function fetchIndividualsServer(
       );
     }
 
-    // Add job titles
+    // Add job titles as array of integers
     if (filters.Job_Titles && filters.Job_Titles.length > 0) {
-      params.append("job_titles_ids", filters.Job_Titles.join(","));
+      filters.Job_Titles.forEach((id) => {
+        params.append("job_titles_ids[]", String(id));
+      });
     }
 
     // Add statuses
