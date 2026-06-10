@@ -46,6 +46,44 @@ export interface ExportableArticle {
     | string;
 }
 
+export function getArticleContentType(article: ExportableArticle): string {
+  return (
+    article.Content_Type ||
+    article.content_type ||
+    article.Content?.Content_type ||
+    article.Content?.Content_Type ||
+    ""
+  ).trim();
+}
+
+/** PDF viewer/download title: Asymmetrix - [Content Type] - [Article Headline] */
+export function getArticlePdfTitle(article: ExportableArticle): string {
+  const ct = getArticleContentType(article);
+  let headline = (article.Headline || "Document").trim();
+
+  // Only strip a leading "Content Type – …" prefix when it matches the article type
+  // (e.g. "Company Analysis – FromCounsel"). Do not split on hyphens inside the title.
+  if (ct) {
+    const prefixRe = new RegExp(
+      `^${ct.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[–—-]\\s*`,
+      "i"
+    );
+    const stripped = headline.replace(prefixRe, "").trim();
+    if (stripped) headline = stripped;
+  }
+
+  return ct ? `Asymmetrix - ${ct} - ${headline}` : `Asymmetrix - ${headline}`;
+}
+
+export function getArticlePdfFilename(article: ExportableArticle): string {
+  const base = getArticlePdfTitle(article)
+    .replace(/[\\/:*?"<>|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
+  return `${base}.pdf`;
+}
+
 const formatDate = (dateString: string | undefined) => {
   if (!dateString) return "Not available";
   try {
@@ -266,30 +304,7 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
     const a = document.createElement("a");
     a.href = blobUrl;
     
-    // Extract company/subject name from headline (e.g., "Company Analysis – FromCounsel" -> "FromCounsel")
-    const headlineParts = (article.Headline || "").split(/\s*[–—-]\s*/);
-    const subjectName = headlineParts.length > 1 
-      ? headlineParts.slice(1).join(" - ").trim() 
-      : (article.Headline || "Document");
-    
-    const ct = (
-      article.Content_Type ||
-      article.content_type ||
-      article.Content?.Content_type ||
-      article.Content?.Content_Type ||
-      ""
-    ).trim();
-    
-    // Format: "Asymmetrix - [Content Type] - [Content Title]"
-    const filenameBase = ct && subjectName
-      ? `Asymmetrix - ${ct} - ${subjectName}`
-      : `Asymmetrix - ${(article.Headline || "Article").toString()}`;
-    
-    a.download = `${filenameBase
-      .replace(/[\\/:*?"<>|]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 180)}.pdf`;
+    a.download = getArticlePdfFilename(article);
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -357,26 +372,7 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
   const title = `Asymmetrix – ${ct || "Article"} – ${
     article.Headline || "Untitled"
   }`;
-  const pdfFilename = (() => {
-    // Extract company/subject name from headline (e.g., "Company Analysis – FromCounsel" -> "FromCounsel")
-    const headlineParts = (article.Headline || "").split(/\s*[–—-]\s*/);
-    const subjectName = headlineParts.length > 1 
-      ? headlineParts.slice(1).join(" - ").trim() 
-      : (article.Headline || "Document");
-    
-    // Format: "Asymmetrix - [Content Type] - [Content Title]"
-    const base = ct && subjectName
-      ? `Asymmetrix - ${ct} - ${subjectName}`
-      : `Asymmetrix - ${(article.Headline || "Article").toString()}`;
-    
-    // Sanitize filename for cross-platform safety
-    const sanitized = base
-      .replace(/[\\/:*?"<>|]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 180);
-    return `${sanitized}.pdf`;
-  })();
+  const pdfFilename = getArticlePdfFilename(article);
 
   const baseUrl =
     (typeof window !== "undefined" && window.location?.origin) || "";

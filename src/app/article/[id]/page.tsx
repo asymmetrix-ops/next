@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { generateArticlePdfBlobUrl } from "@/utils/exportArticlePdf";
+import {
+  generateArticlePdfBlobUrl,
+  getArticlePdfTitle,
+} from "@/utils/exportArticlePdf";
 import { trackEvent } from "@/lib/tracking";
 import InlineAudioPlayer from "@/components/article/InlineAudioPlayer";
 import EmbeddedPdfViewer from "@/components/article/EmbeddedPdfViewer";
@@ -1916,7 +1919,7 @@ const ArticleDetailPage = () => {
                     pdfUrl={pdf.url}
                     isLoading={false}
                     onClose={() => {}}
-                    articleTitle={pdf.name}
+                    articleTitle={getArticlePdfTitle(article)}
                     onDownload={trackPdfDownload}
                     variant="inline"
                   />
@@ -3380,31 +3383,16 @@ const ArticleDetailPage = () => {
       )}
 
       {/* Embedded PDF Viewer Modal (manual open/generate) */}
-      {showPdfViewer && (() => {
-        const ct = (
-          article.Content_Type ||
-          article.content_type ||
-          article.Content?.Content_type ||
-          article.Content?.Content_Type ||
-          ""
-        ).trim();
-        // Extract company/subject name from headline (e.g., "Company Analysis – FromCounsel" -> "FromCounsel")
-        const headlineParts = (article.Headline || "").split(/\s*[–—-]\s*/);
-        const subjectName = headlineParts.length > 1 ? headlineParts.slice(1).join(" – ").trim() : (article.Headline || "Document");
-        const pdfTitle = ct && subjectName 
-          ? `Asymmetrix - ${ct} - ${subjectName}`
-          : `Asymmetrix - ${article.Headline || "Document"}`;
-        return (
+      {showPdfViewer && (
           <EmbeddedPdfViewer
             pdfUrl={pdfBlobUrl}
             isLoading={pdfLoading}
             onClose={handleClosePdfViewer}
-            articleTitle={pdfTitle}
+            articleTitle={getArticlePdfTitle(article)}
             onDownload={trackPdfDownload}
             variant="modal"
           />
-        );
-      })()}
+      )}
 
       <style
         dangerouslySetInnerHTML={{
