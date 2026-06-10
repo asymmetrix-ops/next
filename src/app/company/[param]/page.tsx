@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -43,7 +43,6 @@ import {
   FinMetricsSecondaryCard,
 } from "@/components/redesign/FinMetricsIncomeCard";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
-import { buildBenchmarkPeersData } from "@/lib/buildBenchmarkPeersData";
 import { EMPTY_DISPLAY, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import {
   buildSubsidiaryAcquisitionYearMap,
@@ -1268,7 +1267,10 @@ const CompanyDetail = () => {
     useState<CompanyPdfExportType | null>(null);
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [rowOneCardHeight, setRowOneCardHeight] = useState(0);
   const [rowTwoCardHeight, setRowTwoCardHeight] = useState(0);
+  const overviewGridRef = useRef<HTMLDivElement | null>(null);
+  const descriptionGridRef = useRef<HTMLDivElement | null>(null);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
   const insightsRowRef = useRef<HTMLDivElement | null>(null);
   const financeSecondaryRowRef = useRef<HTMLDivElement | null>(null);
@@ -2090,6 +2092,65 @@ const CompanyDetail = () => {
     setIsDescriptionExpanded(false);
   }, [company?.description]);
 
+  const rowOneHeightStyle = useMemo((): React.CSSProperties => {
+    if (rowOneCardHeight <= 0) return {};
+    return {
+      height: rowOneCardHeight,
+      minHeight: rowOneCardHeight,
+      maxHeight: rowOneCardHeight,
+    };
+  }, [rowOneCardHeight]);
+
+  // Lock Overview + Description + Financial Metrics to the same height (driven by Overview / Finance, not description text)
+  useEffect(() => {
+    setRowOneCardHeight(0);
+  }, [
+    company?.id,
+    financialMetrics,
+    transactionStatusDisplayLabel,
+    apiInvestorsLoading,
+    company?.have_parent_company,
+  ]);
+
+  useEffect(() => {
+    if (!isDescriptionExpanded) {
+      setRowOneCardHeight(0);
+    }
+  }, [isDescriptionExpanded]);
+
+  useLayoutEffect(() => {
+    if (isDescriptionExpanded || rowOneCardHeight !== 0) return;
+
+    const overviewEl = overviewGridRef.current;
+    const financeEl = financePrimaryGridRef.current;
+    const descEl = descriptionGridRef.current;
+    if (!overviewEl || !financeEl || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const measure = () => {
+      const prevDisplay = descEl?.style.display ?? "";
+      if (descEl) descEl.style.display = "none";
+      const max = Math.max(overviewEl.offsetHeight, financeEl.offsetHeight);
+      if (descEl) descEl.style.display = prevDisplay;
+      if (max > 0) setRowOneCardHeight(max);
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(overviewEl);
+    ro.observe(financeEl);
+    return () => ro.disconnect();
+  }, [
+    rowOneCardHeight,
+    isDescriptionExpanded,
+    company?.id,
+    financialMetrics,
+    transactionStatusDisplayLabel,
+    apiInvestorsLoading,
+    company?.have_parent_company,
+  ]);
+
   // Match Insights + Subscription/Other metrics to the taller card's natural content height
   useEffect(() => {
     setRowTwoCardHeight(0);
@@ -2631,10 +2692,6 @@ const CompanyDetail = () => {
     formatWholeNumber,
     getNumeric,
     periodDisplay: financialMetricsPeriodDisplay || undefined,
-  });
-
-  const benchmarkPeersData = buildBenchmarkPeersData({
-    companyName: company.name?.trim() || "Company",
   });
 
   // Determine if there are subsidiaries to display
@@ -3355,6 +3412,7 @@ const CompanyDetail = () => {
       align-self: stretch;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
     .company-grid-finance-primary {
       grid-column: 3;
@@ -3779,7 +3837,15 @@ const CompanyDetail = () => {
 
             {/* ── Overview card (grid row 1, col 1) ── */}
             <div
-              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
+              ref={overviewGridRef}
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                width: "100%",
+                ...rowOneHeightStyle,
+              }}
               className="overview-card company-grid-overview"
             >
               <OverviewCard
@@ -4196,13 +4262,16 @@ const CompanyDetail = () => {
 
             {/* ── Description card (grid row 1, col 2) ── */}
             <div
+              ref={descriptionGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
                 display: "flex",
                 flexDirection: "column",
+                width: "100%",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
+                ...(!isDescriptionExpanded ? rowOneHeightStyle : {}),
               }}
               className="overview-description company-grid-description"
             >
@@ -4433,12 +4502,19 @@ const CompanyDetail = () => {
               id="profile-financials"
               ref={financePrimaryGridRef}
               className="company-grid-finance-primary desktop-financial-metrics v3-right-rail"
-              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", width: "100%", scrollMarginTop: 24 }}
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                width: "100%",
+                scrollMarginTop: 24,
+                ...rowOneHeightStyle,
+              }}
             >
               <FinMetricsPrimaryCard
                 fillGridCell
                 primary={finMetricsData.primary}
-                benchmarkData={benchmarkPeersData}
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
                 incomeStatementCurrency={evCurrency || revenueCurrency || ""}
@@ -4478,7 +4554,6 @@ const CompanyDetail = () => {
             <FinMetricsIncomeCard
               fillGridCell={false}
               data={finMetricsData}
-              benchmarkData={benchmarkPeersData}
               hasIncomeStatement={hasIncomeStatementData}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementCurrency={evCurrency || revenueCurrency || ""}

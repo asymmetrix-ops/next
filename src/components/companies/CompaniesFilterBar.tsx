@@ -2211,7 +2211,7 @@ export function CompaniesFilterBar({
               onChange={(e) =>
                 onStateChange((s) => ({ ...s, searchText: e.target.value }))
               }
-              placeholder="Company name, ticker…"
+              placeholder="Company name…"
               style={{
                 flex: 1,
                 minWidth: 0,
