@@ -1260,6 +1260,7 @@ const CompanyDetail = () => {
     useState<CompanyFinancialMetrics | null>(null);
   const [aiRiskAxes, setAiRiskAxes] = useState<AIRiskAxis[] | null>(null);
   const [productServicesData, setProductServicesData] = useState<ProductUsersSection[] | null>(null);
+  const [usersUseCasesData, setUsersUseCasesData] = useState<ProductUsersSection[] | null>(null);
   // New investors from company_investors API endpoint
   const [apiInvestors, setApiInvestors] = useState<
     CompanyInvestorFromAPI[]
@@ -1757,6 +1758,35 @@ const CompanyDetail = () => {
     }
   }, []);
 
+  const fetchUsersUseCases = useCallback(async (id: string | number) => {
+    setUsersUseCasesData(null);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const headers: Record<string, string> = {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+      const base = `${COMPANIES_API_BASE}/company_users_use_cases`;
+      const params = new URLSearchParams({ new_company_id: String(id) });
+      const res = await fetch(`${base}?${params.toString()}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { title: string; body: string }[];
+      if (!Array.isArray(data) || data.length === 0) return;
+      setUsersUseCasesData(
+        data.map((item) => ({
+          title: item.title,
+          body: item.body?.replace(/&nbsp;/g, " ").trim(),
+        }))
+      );
+    } catch {
+      // Non-fatal
+    }
+  }, []);
+
   // Fetch investors from company_investors API endpoint
   const fetchCompanyInvestors = useCallback(async (id: string | number) => {
     setApiInvestorsLoading(true);
@@ -2036,6 +2066,7 @@ const CompanyDetail = () => {
       fetchCompanyTransactionStatus(companyId);
       fetchCompanyAiRisksData(companyId);
       fetchProductServices(companyId);
+      fetchUsersUseCases(companyId);
     }
   }, [
     companyId,
@@ -2046,6 +2077,7 @@ const CompanyDetail = () => {
     fetchCompanyTransactionStatus,
     fetchCompanyAiRisksData,
     fetchProductServices,
+    fetchUsersUseCases,
   ]);
 
 
@@ -3298,6 +3330,7 @@ const CompanyDetail = () => {
     company,
     productServicesData
   );
+  const usersUseCaseSections = usersUseCasesData ?? [];
 
   const productTypeBarRows = productTypeRows.map((row, i) => {
           const rawPct = parsePercentToken(row.value);
@@ -3322,7 +3355,8 @@ const CompanyDetail = () => {
   const PRODUCT_ROW_START = 3;
   const showProductType = productTypeRows.length > 0;
   const showRevenueModel = revenueModelRows.length > 0;
-  const showCoreProducts = coreProductsSections.length > 0;
+  const showCoreProducts =
+    coreProductsSections.length > 0 || usersUseCaseSections.length > 0;
   const showDataCollection = dataCollectionMethodRows.length > 0;
   const showAiRisk = aiRiskAxes != null && aiRiskAxes.length > 0;
   const showCorporateEvents =
@@ -4393,10 +4427,11 @@ const CompanyDetail = () => {
               </div>
             )}
 
-            {coreProductsSections.length > 0 && (
+            {showCoreProducts && (
               <div className="company-grid-product-users">
                 <ProductUsersListCard
                   sections={coreProductsSections}
+                  useCaseSections={usersUseCaseSections}
                   fillGridCell
                 />
               </div>
