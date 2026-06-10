@@ -283,8 +283,10 @@ const useCompaniesAPI = () => {
     }, 400);
   }, []);
 
+  const currentCountsFiltersRef = useRef<Filters | undefined>(undefined);
+
   const fetchCompanies = useCallback(
-    async (page: number = 1, filters?: Filters) => {
+    async (page: number = 1, filters?: Filters, countsFilters?: Filters) => {
       const requestId = ++lastRequestIdRef.current;
       setLoading(true);
       setError(null);
@@ -293,18 +295,29 @@ const useCompaniesAPI = () => {
         currentFiltersRef.current = filters;
         setCurrentFilters(filters);
       }
+      if (countsFilters !== undefined) {
+        currentCountsFiltersRef.current = countsFilters;
+      }
 
       const filtersToUse =
         filters !== undefined ? filters : currentFiltersRef.current ?? createDefaultFilters();
+      const countsFiltersToUse =
+        countsFilters ??
+        currentCountsFiltersRef.current ??
+        filtersToUse;
 
       try {
         const serverFilters: ServerFilters = {
           ...filtersToUse,
           columns: requestColumnsRef.current,
         };
+        const countsServerFilters: ServerFilters = {
+          ...countsFiltersToUse,
+          columns: requestColumnsRef.current,
+        };
 
         if (page === 1) {
-          scheduleCountsFetch(serverFilters);
+          scheduleCountsFetch(countsServerFilters);
         }
 
         const data = await fetchCompaniesServer(page, serverFilters);
@@ -1505,7 +1518,7 @@ const CompanyDashboard = ({
   columnsCount = 0,
   columnsActive = false,
 }: {
-  onSearch?: (filters: Filters, portfolioOnly?: boolean) => void;
+  onSearch?: (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => void;
   onFilterColumnsChange?: (payload: {
     filterIds: string[];
     ownershipTabActive: boolean;
@@ -1636,6 +1649,25 @@ const CompanyDashboard = ({
   }, [filterBarState.filters, activeOwnershipTab]);
 
   // ── Auto-search on filter state or ownership tab changes ──────────────
+  const buildGlobalSearchFilters = useCallback((): Filters => {
+    return buildCompaniesSearchPayload({
+      state: filterBarState,
+      primarySectors,
+      secondarySectors,
+      ownershipTypes,
+      applyOwnershipTabFilter: false,
+      portfolioCompanyIds,
+      hybridBusinessFocusIds,
+    });
+  }, [
+    filterBarState,
+    primarySectors,
+    secondarySectors,
+    ownershipTypes,
+    portfolioCompanyIds,
+    hybridBusinessFocusIds,
+  ]);
+
   const buildSearchFilters = useCallback((): Filters => {
     return buildCompaniesSearchPayload({
       state: filterBarState,
@@ -1658,6 +1690,9 @@ const CompanyDashboard = ({
     portfolioCompanyIds,
     hybridBusinessFocusIds,
   ]);
+
+  const buildGlobalSearchFiltersRef = useRef(buildGlobalSearchFilters);
+  buildGlobalSearchFiltersRef.current = buildGlobalSearchFilters;
 
   const isPortfolioFilterActive = filterBarState.filters.some(
     (f) => f.id === "followed" && f.value === true
@@ -1701,7 +1736,11 @@ const CompanyDashboard = ({
     }
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      onSearchRef.current?.(buildSearchFiltersRef.current(), isPortfolioFilterActiveRef.current);
+      onSearchRef.current?.(
+        buildSearchFiltersRef.current(),
+        buildGlobalSearchFiltersRef.current(),
+        isPortfolioFilterActiveRef.current
+      );
     }, 350);
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -1721,7 +1760,11 @@ const CompanyDashboard = ({
     if (filterBarState.filters.length < 2) return;
 
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    onSearchRef.current?.(buildSearchFiltersRef.current(), isPortfolioFilterActiveRef.current);
+    onSearchRef.current?.(
+      buildSearchFiltersRef.current(),
+      buildGlobalSearchFiltersRef.current(),
+      isPortfolioFilterActiveRef.current
+    );
   }, [filterCombineKey, filterBarState.filters.length]);
 
   const skipInitialOwnershipTabRef = useRef(true);
@@ -1730,7 +1773,11 @@ const CompanyDashboard = ({
       skipInitialOwnershipTabRef.current = false;
       return;
     }
-    onSearchRef.current?.(buildSearchFiltersRef.current(), isPortfolioFilterActiveRef.current);
+    onSearchRef.current?.(
+      buildSearchFiltersRef.current(),
+      buildGlobalSearchFiltersRef.current(),
+      isPortfolioFilterActiveRef.current
+    );
   }, [activeOwnershipTab]);
 
   // ── Ownership tabs data ────────────────────────────────────────────────
@@ -1991,7 +2038,7 @@ const CompanySection = ({
     pageTotal: number;
   };
   ownershipCounts: CompaniesOwnershipCounts;
-  fetchCompanies: (page?: number, filters?: Filters) => Promise<void>;
+  fetchCompanies: (page?: number, filters?: Filters, countsFilters?: Filters) => Promise<void>;
   setRequestColumns: (columns: string[]) => void;
   currentFilters: Filters | undefined;
   filterPinnedColumnKeys?: string[];
@@ -4052,9 +4099,9 @@ function CompaniesPageInner() {
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
 
   const handleSearch = useCallback(
-    (filters: Filters, portfolioOnly?: boolean) => {
+    (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      fetchCompanies(1, filters);
+      fetchCompanies(1, listFilters, countsFilters);
     },
     [fetchCompanies]
   );
