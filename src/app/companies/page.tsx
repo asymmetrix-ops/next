@@ -39,7 +39,7 @@ import {
   COMPANIES_API_BASE,
   companySearchPayloadToSearchParams,
 } from "@/lib/companiesFilterPayload";
-import { fetchUserPortfolioData } from "@/lib/portfolioData";
+import { usePortfolioStore } from "@/store/portfolioStore";
 const ColumnsControlRoom = dynamic(
   () => import("@/components/companies/ColumnsControlRoom").then((m) => ({ default: m.ColumnsControlRoom })),
   { ssr: false }
@@ -222,7 +222,7 @@ const isExportCompanyJson = (value: unknown): value is ExportCompanyJson => {
 
 const useCompaniesAPI = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastRequestIdRef = useRef(0);
   const currentFiltersRef = useRef<Filters | undefined>(undefined);
@@ -297,12 +297,6 @@ const useCompaniesAPI = () => {
     },
     []
   );
-
-  // Initial fetch on mount
-  useEffect(() => {
-    fetchCompanies(1, createDefaultFilters());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
 
   return {
     companies,
@@ -1485,7 +1479,16 @@ const CompanyDashboard = ({
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
-  const [portfolioCompanyIds, setPortfolioCompanyIds] = useState<number[]>([]);
+  const storeUserPortfolio = usePortfolioStore((s) => s.userPortfolio);
+  const portfolioCompanyIds = useMemo(
+    () =>
+      storeUserPortfolio
+        ? storeUserPortfolio.items
+            .filter((item) => item.entity === "company")
+            .map((item) => item.id)
+        : [],
+    [storeUserPortfolio]
+  );
   const [hybridBusinessFocusIds, setHybridBusinessFocusIds] = useState<number[]>([]);
 
   // ── Derived selected values for dependent fetches ───────────────────────
@@ -1522,14 +1525,6 @@ const CompanyDashboard = ({
     locationsService
       .getHybridBusinessFocuses()
       .then((focuses) => setHybridBusinessFocusIds(focuses.map((f) => f.id)))
-      .catch(console.error);
-    // Portfolio company IDs (for portfolio_companies SQL filter)
-    fetchUserPortfolioData()
-      .then(({ items }) => {
-        setPortfolioCompanyIds(
-          items.filter((item) => item.entity === "company").map((item) => item.id)
-        );
-      })
       .catch(console.error);
   }, []);
 
@@ -1950,10 +1945,26 @@ const CompanySection = ({
     key: string;
     dir: "asc" | "desc";
   } | null>(null);
-  const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
-  const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
-    DEFAULT_COMPANY_COLUMN_KEYS
-  );
+  const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(() => {
+    if (typeof window === "undefined") return DEFAULT_COMPANY_COLUMN_KEYS;
+    try {
+      const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as unknown;
+        if (Array.isArray(parsed)) {
+          const valid = getValidColumnKeys(
+            parsed.filter((k): k is string => typeof k === "string")
+          );
+          if (valid.length > 0) return valid;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_COMPANY_COLUMN_KEYS;
+  });
+  // Prefs are synchronously loaded above — always true on the client.
+  const columnPrefsLoaded = typeof window !== "undefined";
 
   useEffect(() => {
     if (filterPinnedColumnKeys.length === 0) return;
@@ -2032,23 +2043,6 @@ const CompanySection = ({
     };
   }, [showPhantomScroll]);
 
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSelectedColumnKeys(
-            getValidColumnKeys(parsed.filter((key): key is string => typeof key === "string"))
-          );
-        }
-      }
-    } catch (error) {
-      console.warn("Unable to load company column preferences:", error);
-    } finally {
-      setColumnPrefsLoaded(true);
-    }
-  }, []);
 
   useEffect(() => {
     if (!columnPrefsLoaded) return;
