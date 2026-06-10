@@ -13,7 +13,6 @@ import type { SuggestionProps } from "@tiptap/suggestion";
 import {
   Extension,
   Mark,
-  Node as TipTapNode,
   mergeAttributes,
   type CommandProps,
 } from "@tiptap/core";
@@ -29,8 +28,9 @@ declare module "@tiptap/core" {
       toggleKeyPoint: () => ReturnType;
       unsetKeyPoint: () => ReturnType;
     };
-    highlightSection: {
-      toggleHighlightSection: () => ReturnType;
+    highlight: {
+      toggleHighlight: () => ReturnType;
+      unsetHighlight: () => ReturnType;
     };
   }
 }
@@ -299,41 +299,41 @@ const KeyPointExtension = Mark.create({
   },
 });
 
-const HighlightSectionExtension = TipTapNode.create({
-  name: "highlightSection",
+const HIGHLIGHT_HTML_ATTRIBUTES = {
+  class: "asymmetrix-highlight",
+  "data-highlight": "true",
+  style:
+    "background-color: #fff3bf; border-radius: 3px; padding: 0 2px; box-decoration-break: clone; -webkit-box-decoration-break: clone;",
+};
 
-  group: "block",
-
-  content: "block+",
-
-  defining: true,
+const HighlightExtension = Mark.create({
+  name: "highlight",
 
   parseHTML() {
     return [
-      { tag: 'div[data-highlight-section="true"]' },
-      { tag: "div.asymmetrix-highlight-section" },
+      { tag: 'span[data-highlight="true"]' },
+      { tag: "span.asymmetrix-highlight" },
     ];
   },
 
   renderHTML({ HTMLAttributes }) {
     return [
-      "div",
-      mergeAttributes(HTMLAttributes, {
-        "data-highlight-section": "true",
-        class: "asymmetrix-highlight-section",
-        style:
-          "background-color:#f1f3fe;border-left:4px solid #5071f1;padding:12px 14px;margin:14px 0;border-radius:6px;",
-      }),
+      "span",
+      mergeAttributes(HTMLAttributes, HIGHLIGHT_HTML_ATTRIBUTES),
       0,
     ];
   },
 
   addCommands() {
     return {
-      toggleHighlightSection:
+      toggleHighlight:
         () =>
         ({ commands }) =>
-          commands.toggleWrap(this.name),
+          commands.toggleMark(this.name),
+      unsetHighlight:
+        () =>
+        ({ commands }) =>
+          commands.unsetMark(this.name),
     };
   },
 });
@@ -424,7 +424,7 @@ export default function TiptapSimpleEditor({
       StarterKit,
       IndentExtension,
       KeyPointExtension,
-      HighlightSectionExtension,
+      HighlightExtension,
       TableKit.configure({
         table: {
           HTMLAttributes: { class: "border-collapse w-full my-2" },
@@ -481,6 +481,7 @@ export default function TiptapSimpleEditor({
           "[&_table]:border-collapse [&_table]:w-full [&_table]:my-2",
           "[&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1.5 [&_th]:bg-gray-100 [&_th]:font-semibold [&_th]:text-left",
           "[&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top",
+          "[&_.asymmetrix-highlight]:bg-[#fff3bf] [&_.asymmetrix-highlight]:rounded-sm [&_.asymmetrix-highlight]:px-0.5",
         ].join(" "),
         style: `min-height: ${minHeightPx}px;`,
       },
@@ -614,13 +615,11 @@ export default function TiptapSimpleEditor({
           onClick={() => editor?.chain().focus().toggleKeyPoint().run()}
         />
         <ToolbarButton
-          label="Highlight section"
-          active={editor?.isActive("highlightSection")}
+          label="Highlight"
+          active={editor?.isActive("highlight")}
           disabled={!canUse}
-          title="Wrap selected blocks in a highlighted callout box"
-          onClick={() =>
-            editor?.chain().focus().toggleHighlightSection().run()
-          }
+          title="Highlight selected text in yellow"
+          onClick={() => editor?.chain().focus().toggleHighlight().run()}
         />
         <ToolbarButton
           label="H2"

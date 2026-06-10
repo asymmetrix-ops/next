@@ -693,6 +693,26 @@ export default function ArticlePreviewPage() {
             box-shadow: 0 4px 12px rgba(17, 24, 39, 0.18);
             pointer-events: none;
           }
+          .article-body .asymmetrix-highlight {
+            display: inline;
+            background-color: #fff3bf;
+            border-radius: 3px;
+            padding: 0 2px;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+          }
+          .article-body .asymmetrix-highlight-section {
+            background-color: #fff3bf;
+            padding: 8px 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+          }
+          .article-body .asymmetrix-highlight-section > :first-child {
+            margin-top: 0 !important;
+          }
+          .article-body .asymmetrix-highlight-section > :last-child {
+            margin-bottom: 0 !important;
+          }
           .article-body img { max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; }
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }

@@ -594,7 +594,8 @@ function buildBrandedEmailHtml(params: {
       .card td { font-size:14px; line-height:1.5; padding:12px; border-top:1px solid #e5e7eb; color:#333333; }
       .col-date { width:110px; }
       .asymmetrix-key-point { background-color:#fff3bf; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
-      .asymmetrix-highlight-section { background-color:#f1f3fe;border-left:4px solid #5071f1;padding:12px 14px;margin:14px 0;border-radius:6px; }
+      .asymmetrix-highlight { background-color:#fff3bf; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
+      .asymmetrix-highlight-section { background-color:#fff3bf;padding:8px 10px;margin:10px 0;border-radius:4px; }
       .asymmetrix-highlight-section > :first-child { margin-top:0 !important; }
       .asymmetrix-highlight-section > :last-child { margin-bottom:0 !important; }
 
@@ -3352,10 +3353,10 @@ function ContentTab() {
           insert a blue link to its profile (same search as the Companies directory). Images
           are uploaded to Xano and inserted automatically. Select one or more paragraphs (or
           headings, lists, etc.), then click{" "}
-          <span className="font-medium text-gray-700">Highlight section</span> to wrap
-          them in a shaded callout.{" "}
-          <span className="font-medium text-gray-700">Key Point</span> still highlights only
-          the selected phrase.
+          <span className="font-medium text-gray-700">Highlight</span> to mark selected
+          text in yellow.{" "}
+          <span className="font-medium text-gray-700">Key Point</span> also highlights
+          selected text and shows a tooltip on the published article.
         </p>
       </div>
 
