@@ -165,7 +165,7 @@ function ViewMoreArrow({ onClick }: { onClick: () => void }) {
         background: "transparent",
         border: "none",
         cursor: "pointer",
-        fontSize: 12,
+        fontSize: 16,
         color: T.azure,
         fontWeight: 500,
         lineHeight: 1,
@@ -276,7 +276,7 @@ function PrimaryFinCard({
   }, [tabs, activeTab]);
 
   return (
-    <LinkPanel fillGridCell={fillGridCell}>
+    <LinkPanel fillGridCell={fillGridCell} className="fin-metrics-card--primary">
       <TabHeader
         tabs={tabs}
         activeTab={activeTab}
@@ -326,7 +326,7 @@ function SecondaryFinCard({
   const [activeTab, setActiveTab] = useState<SecondaryFinTab>("subscription");
 
   return (
-    <LinkPanel fillGridCell={fillGridCell}>
+    <LinkPanel fillGridCell={fillGridCell} className="fin-metrics-card--secondary">
       <TabHeader
         tabs={tabs}
         activeTab={activeTab}

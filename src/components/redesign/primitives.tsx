@@ -97,6 +97,18 @@ export const descriptionBodyStyle: React.CSSProperties = {
 export const CARD_BODY_X_PAD = 14;
 export const overviewBodyPadding = "2px 14px 8px";
 
+/** Fin metrics typography — +2px twice vs Overview for right-rail legibility. */
+export const FIN_METRIC_BODY_FONT_SIZE = 17;
+export const FIN_METRIC_PERIOD_FONT_SIZE = 14;
+export const FIN_METRIC_TAB_FONT_SIZE = 17.5;
+export const FIN_METRIC_LABEL_COL_WIDTH = 168;
+
+/** Compact fin metrics — original sizes (Subscription / Other Metrics card). */
+export const FIN_METRIC_COMPACT_BODY_FONT_SIZE = 13;
+export const FIN_METRIC_COMPACT_PERIOD_FONT_SIZE = 10;
+export const FIN_METRIC_COMPACT_TAB_FONT_SIZE = 13.5;
+export const FIN_METRIC_COMPACT_LABEL_COL_WIDTH = 138;
+
 /** Tab bar for Financial / Subscription metrics cards — identical shell to LinkedH. */
 export const FIN_METRICS_TAB_BAR_STYLE: React.CSSProperties = {
   ...CARD_HEADER_BAR_STYLE,
@@ -105,12 +117,13 @@ export const FIN_METRICS_TAB_BAR_STYLE: React.CSSProperties = {
 /** Tab labels in fin-metrics headers — same typography as LinkedH titles. */
 export const FIN_METRICS_TAB_STYLE: React.CSSProperties = {
   ...CARD_TITLE_STYLE,
+  fontSize: FIN_METRIC_TAB_FONT_SIZE,
 };
 
 /** Period row (DEC-2026 · Source) — tighter than table col headers elsewhere. */
 export const finMetricsPeriodHeaderStyle: React.CSSProperties = {
   fontFamily: T.sans,
-  fontSize: 10,
+  fontSize: FIN_METRIC_PERIOD_FONT_SIZE,
   fontWeight: 500,
   color: T.muted,
   textTransform: "uppercase",
@@ -126,8 +139,11 @@ export const finMetricsBodyPadding = "2px 0 4px";
  * Financial metrics row grid — label left, value centered, source right.
  * Single center column keeps period header and values aligned (no per-row width drift).
  */
+export const FIN_METRIC_COMPACT_GRID_COLS =
+  `${FIN_METRIC_COMPACT_LABEL_COL_WIDTH}px 1fr minmax(52px, max-content)`;
+
 export const FIN_METRIC_GRID_COLS =
-  "138px 1fr minmax(52px, max-content)";
+  `${FIN_METRIC_LABEL_COL_WIDTH}px 1fr minmax(60px, max-content)`;
 
 /** Income Statement — equal-width fiscal-year columns so headers align with values. */
 export function finMetricIncomeStatementGridCols(periodCount: number): string {
@@ -146,6 +162,7 @@ export const finMetricRowStyle: React.CSSProperties = {
 
 export const finMetricLabelStyle: React.CSSProperties = {
   ...kvLabelStyle,
+  fontSize: FIN_METRIC_BODY_FONT_SIZE,
   whiteSpace: "nowrap",
   textAlign: "left",
   justifySelf: "start",
@@ -157,6 +174,7 @@ export const FIN_METRIC_SOURCE_COL_PAD_RIGHT = 2;
 /** Source column in data rows — right-aligned within the padded content area. */
 export const finMetricSourceColStyle: React.CSSProperties = {
   ...kvLabelStyle,
+  fontSize: FIN_METRIC_BODY_FONT_SIZE,
   textAlign: "right",
   whiteSpace: "nowrap",
   justifySelf: "end",
@@ -175,6 +193,7 @@ export const finMetricPeriodSourceColStyle: React.CSSProperties = {
 /** Numeric / currency values in Financial, Subscription, and Income Statement tabs. */
 export const finMetricValueStyle: React.CSSProperties = {
   ...descriptionBodyStyle,
+  fontSize: FIN_METRIC_BODY_FONT_SIZE,
 };
 
 /** CSS class for fin-metric value cells (page-level typography guard). */
