@@ -356,6 +356,12 @@ const useCompaniesAPI = () => {
     [scheduleCountsFetch]
   );
 
+  // Initial fetch on mount
+  useEffect(() => {
+    fetchCompanies(1, createDefaultFilters());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
   return {
     companies,
     loading,
@@ -2028,26 +2034,10 @@ const CompanySection = ({
     key: string;
     dir: "asc" | "desc";
   } | null>(null);
-  const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(() => {
-    try {
-      if (typeof window !== "undefined") {
-        const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved) as unknown;
-          if (Array.isArray(parsed)) {
-            const valid = getValidColumnKeys(
-              parsed.filter((k): k is string => typeof k === "string")
-            );
-            if (valid.length > 0) return valid;
-          }
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return DEFAULT_COMPANY_COLUMN_KEYS;
-  });
-  const [columnPrefsLoaded] = useState(true);
+  const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
+  const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
+    DEFAULT_COMPANY_COLUMN_KEYS
+  );
 
   useEffect(() => {
     if (filterPinnedColumnKeys.length === 0) return;
@@ -2128,6 +2118,25 @@ const CompanySection = ({
 
   useEffect(() => {
     try {
+      const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setSelectedColumnKeys(
+            getValidColumnKeys(parsed.filter((key): key is string => typeof key === "string"))
+          );
+        }
+      }
+    } catch (error) {
+      console.warn("Unable to load company column preferences:", error);
+    } finally {
+      setColumnPrefsLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!columnPrefsLoaded) return;
+    try {
       window.localStorage.setItem(
         COMPANIES_COLUMNS_STORAGE_KEY,
         JSON.stringify(selectedColumnKeys)
@@ -2135,7 +2144,7 @@ const CompanySection = ({
     } catch (error) {
       console.warn("Unable to save company column preferences:", error);
     }
-  }, [selectedColumnKeys]);
+  }, [columnPrefsLoaded, selectedColumnKeys]);
 
   useEffect(() => {
     if (!columnPrefsLoaded) return;
@@ -2165,7 +2174,10 @@ const CompanySection = ({
       pendingScrollLeftRef.current = table.scrollLeft;
     }
 
-    void fetchCompanies(1, currentFilters);
+    // Pass no filters so fetchCompanies falls back to currentFiltersRef.current,
+    // which is always synchronously up-to-date (unlike the currentFilters state prop,
+    // which lags one render and would wipe filters_sql on column changes).
+    void fetchCompanies(1);
     // Re-fetch only when the set of requested API columns changes (add/remove), not reorder.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedColumnKeys, columnPrefsLoaded]);

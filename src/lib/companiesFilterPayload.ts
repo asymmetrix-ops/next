@@ -61,6 +61,18 @@ export function buildCompaniesSearchPayload(args: {
   const clauses: FilterClause[] = [];
   let hasPriorClause = false;
 
+  // Convert free-text search into a name_search SQL clause so it combines
+  // correctly with other filters_sql clauses via AND.
+  if (state.searchText?.trim()) {
+    clauses.push({
+      id: "name_search_text",
+      type: "name_search",
+      value: { value: state.searchText.trim() },
+      op: "AND",
+    });
+    hasPriorClause = true;
+  }
+
   for (const item of state.filters) {
     const v = item.value;
     if (v == null) continue;
@@ -476,10 +488,9 @@ export function buildCompaniesSearchPayload(args: {
 
   const { has_financial_filters, has_year_filter } = deriveBackendSignals(clauses);
   const filters_sql = buildFiltersSql(clauses) || null;
-  const query = state.searchText?.trim() || null;
 
   return {
-    query,
+    query: null,
     columns,
     Offset: page,
     Per_page: perPage,

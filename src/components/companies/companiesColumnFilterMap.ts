@@ -37,6 +37,8 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
  * Filter ids match buildFiltersFromState switch cases where API-backed.
  */
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
+  region: "hq",
+  sub_region: "hq",
   country: "hq",
   state: "state",
   city: "city",
