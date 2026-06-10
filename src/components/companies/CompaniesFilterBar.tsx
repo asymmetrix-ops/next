@@ -570,7 +570,7 @@ function getInitialFilterValue(def: FilterDef): unknown {
     return { min: p[1], max: p[2] };
   }
   if (def.editor === "segmented") return def.options?.[0] ?? null;
-  if (def.editor === "boolean") return true;
+  if (def.editor === "boolean") return false;
   return null;
 }
 
@@ -1725,7 +1725,9 @@ function BooleanEditor({
   const handleApply = () => {
     if (on) {
       onChange(true);
-      onClose();
+      // Dismiss the entire picker when applying from the add-filter flow,
+      // fall back to onClose when editing an existing chip.
+      (onDismiss ?? onClose)();
       return;
     }
     // Unchecked: remove active filter (if any) and show all companies.
