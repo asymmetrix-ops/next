@@ -117,7 +117,10 @@ export const finMetricsPeriodHeaderStyle: React.CSSProperties = {
   letterSpacing: 0.35,
 };
 
-export const finMetricsBodyPadding = "2px 12px 4px";
+/** Horizontal inset for fin-metrics body — matches Overview card (`2px 14px 8px`). */
+export const finMetricsContentXPad = CARD_BODY_X_PAD;
+
+export const finMetricsBodyPadding = "2px 0 4px";
 
 /**
  * Financial metrics row grid — label left, value centered, source right.
@@ -146,6 +149,27 @@ export const finMetricLabelStyle: React.CSSProperties = {
   whiteSpace: "nowrap",
   textAlign: "left",
   justifySelf: "start",
+};
+
+/** Shared right inset so header "Source" lines up with row values like "Estimate". */
+export const FIN_METRIC_SOURCE_COL_PAD_RIGHT = 2;
+
+/** Source column in data rows — right-aligned within the padded content area. */
+export const finMetricSourceColStyle: React.CSSProperties = {
+  ...kvLabelStyle,
+  textAlign: "right",
+  whiteSpace: "nowrap",
+  justifySelf: "end",
+  paddingRight: FIN_METRIC_SOURCE_COL_PAD_RIGHT,
+};
+
+/** Source column in the period header row — matches period header typography. */
+export const finMetricPeriodSourceColStyle: React.CSSProperties = {
+  ...finMetricsPeriodHeaderStyle,
+  textAlign: "right",
+  whiteSpace: "nowrap",
+  justifySelf: "end",
+  paddingRight: FIN_METRIC_SOURCE_COL_PAD_RIGHT,
 };
 
 /** Numeric / currency values in Financial, Subscription, and Income Statement tabs. */

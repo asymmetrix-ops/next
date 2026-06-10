@@ -14,7 +14,9 @@ import {
   finMetricPeriodColStyle,
   FIN_METRIC_VALUE_CLASS,
   finMetricValueColStyle,
-  finMetricsBodyPadding,
+  finMetricSourceColStyle,
+  finMetricPeriodSourceColStyle,
+  finMetricsContentXPad,
   finMetricsPeriodHeaderStyle,
   FIN_METRIC_GRID_COLS,
   FIN_METRICS_TAB_BAR_STYLE,
@@ -52,22 +54,15 @@ function PeriodHeader({ period }: { period?: string }) {
         gridTemplateColumns: GRID_COLS,
         gap: 8,
         alignItems: "center",
-        padding: "4px 12px 3px",
+        padding: `6px ${finMetricsContentXPad}px 4px`,
         background: T.paper,
         borderBottom: `1px solid ${T.hair}`,
         ...finMetricsPeriodHeaderStyle,
       }}
     >
       <span />
-      <span style={finMetricPeriodColStyle}>{period}</span>
-      <span
-        style={{
-          ...finMetricLabelStyle,
-          textAlign: "right",
-          justifySelf: "end",
-          whiteSpace: "nowrap",
-        }}
-      >
+      <span className={FIN_METRIC_VALUE_CLASS} style={finMetricPeriodColStyle}>{period}</span>
+      <span className="fin-metric-period-source-col" style={finMetricPeriodSourceColStyle}>
         Source
       </span>
     </div>
@@ -94,14 +89,7 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
       <span className={FIN_METRIC_VALUE_CLASS} style={finMetricValueColStyle}>
         {row.value}
       </span>
-      <span
-        style={{
-          ...finMetricLabelStyle,
-          textAlign: "right",
-          justifySelf: "end",
-          whiteSpace: "nowrap",
-        }}
-      >
+      <span className="fin-metric-source-col" style={finMetricSourceColStyle}>
         {row.source}
       </span>
     </div>
@@ -123,13 +111,22 @@ function MetricSectionBody({
     />
   ));
 
+  const metricsBody = (
+    <>
+      <PeriodHeader period={section.periodDisplay} />
+      <div
+        style={{
+          padding: `0 ${finMetricsContentXPad}px`,
+          paddingBottom: 4,
+        }}
+      >
+        {rows}
+      </div>
+    </>
+  );
+
   if (!fillAvailable) {
-    return (
-      <>
-        <PeriodHeader period={section.periodDisplay} />
-        <div style={{ padding: finMetricsBodyPadding }}>{rows}</div>
-      </>
-    );
+    return metricsBody;
   }
 
   return (
@@ -142,16 +139,14 @@ function MetricSectionBody({
         overflow: "hidden",
       }}
     >
-      <PeriodHeader period={section.periodDisplay} />
       <div
         style={{
-          padding: finMetricsBodyPadding,
           flex: 1,
           minHeight: 0,
           overflow: "auto",
         }}
       >
-        {rows}
+        {metricsBody}
       </div>
     </div>
   );

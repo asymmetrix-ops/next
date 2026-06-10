@@ -8,7 +8,6 @@ import {
   finMetricLabelStyle,
   finMetricValueStyle,
   finMetricsPeriodHeaderStyle,
-  finMetricsBodyPadding,
 } from "./primitives";
 
 export type IncomeStatementRow = {
@@ -102,7 +101,7 @@ export function IncomeStatementTable({
   return (
     <div
       className="income-statement-table"
-      style={{ padding: finMetricsBodyPadding, width: "100%", minWidth: 0 }}
+      style={{ padding: "2px 12px 4px", width: "100%", minWidth: 0 }}
     >
       <table
         className="income-statement-grid"

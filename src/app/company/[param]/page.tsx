@@ -3531,15 +3531,17 @@ const CompanyDetail = () => {
     .fin-tab-scroll::-webkit-scrollbar {
       display: none;
     }
-    .desktop-financial-metrics .info-row:not(.income-statement-row),
-    .desktop-financial-metrics .fin-metric-period-header {
+    .desktop-financial-metrics .info-row:not(.income-statement-row):not(.fin-metric-period-header) {
       padding: 4px 0 !important;
-      grid-template-columns: 138px 1fr minmax(52px, auto) !important;
+      grid-template-columns: 138px 1fr minmax(52px, max-content) !important;
       column-gap: 8px !important;
       align-items: center !important;
     }
     .desktop-financial-metrics .fin-metric-period-header {
-      padding: 4px 12px 3px !important;
+      padding: 6px 14px 4px !important;
+      grid-template-columns: 138px 1fr minmax(52px, max-content) !important;
+      column-gap: 8px !important;
+      align-items: center !important;
     }
     .desktop-financial-metrics .fin-metric-value,
     .mobile-financial-metrics .fin-metric-value {
@@ -3566,7 +3568,7 @@ const CompanyDetail = () => {
       color: ${T.muted} !important;
     }
     .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3),
-    .desktop-financial-metrics .fin-metric-period-header > :nth-child(3) {
+    .desktop-financial-metrics .fin-metric-source-col {
       font-family: ${T.sans} !important;
       font-size: 13px !important;
       line-height: 1.35 !important;
@@ -3574,16 +3576,32 @@ const CompanyDetail = () => {
       color: ${T.muted} !important;
       text-align: right !important;
       justify-self: end !important;
+      padding-right: 2px !important;
     }
-    .mobile-financial-metrics .info-row:not(.income-statement-row),
-    .mobile-financial-metrics .fin-metric-period-header {
+    .desktop-financial-metrics .fin-metric-period-header > :nth-child(3),
+    .desktop-financial-metrics .fin-metric-period-source-col {
+      font-family: ${T.sans} !important;
+      font-size: 10px !important;
+      line-height: 1.4 !important;
+      font-weight: 500 !important;
+      color: ${T.muted} !important;
+      letter-spacing: 0.35px !important;
+      text-transform: uppercase !important;
+      text-align: right !important;
+      justify-self: end !important;
+      padding-right: 2px !important;
+    }
+    .mobile-financial-metrics .info-row:not(.income-statement-row):not(.fin-metric-period-header) {
       padding: 4px 0 !important;
-      grid-template-columns: 138px 1fr minmax(52px, auto) !important;
+      grid-template-columns: 138px 1fr minmax(52px, max-content) !important;
       column-gap: 8px !important;
       align-items: center !important;
     }
     .mobile-financial-metrics .fin-metric-period-header {
-      padding: 4px 12px 3px !important;
+      padding: 6px 14px 4px !important;
+      grid-template-columns: 138px 1fr minmax(52px, max-content) !important;
+      column-gap: 8px !important;
+      align-items: center !important;
     }
     .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(2),
     .mobile-financial-metrics .fin-metric-period-header > :nth-child(2) {
@@ -3602,7 +3620,7 @@ const CompanyDetail = () => {
       color: ${T.muted} !important;
     }
     .mobile-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3),
-    .mobile-financial-metrics .fin-metric-period-header > :nth-child(3) {
+    .mobile-financial-metrics .fin-metric-source-col {
       font-family: ${T.sans} !important;
       font-size: 13px !important;
       line-height: 1.35 !important;
@@ -3610,6 +3628,20 @@ const CompanyDetail = () => {
       color: ${T.muted} !important;
       text-align: right !important;
       justify-self: end !important;
+      padding-right: 2px !important;
+    }
+    .mobile-financial-metrics .fin-metric-period-header > :nth-child(3),
+    .mobile-financial-metrics .fin-metric-period-source-col {
+      font-family: ${T.sans} !important;
+      font-size: 10px !important;
+      line-height: 1.4 !important;
+      font-weight: 500 !important;
+      color: ${T.muted} !important;
+      letter-spacing: 0.35px !important;
+      text-transform: uppercase !important;
+      text-align: right !important;
+      justify-self: end !important;
+      padding-right: 2px !important;
     }
     /* Income Statement — table layout; year headers align with values */
     .desktop-financial-metrics .income-statement-grid th,
