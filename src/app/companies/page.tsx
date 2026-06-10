@@ -31,7 +31,6 @@ const ExportLimitModal = dynamic(
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import {
   fetchCompaniesServer,
-  fetchCompaniesCountsServer,
   CompaniesFilters as ServerFilters,
   type CompaniesFilters,
 } from "./actions";
@@ -221,36 +220,11 @@ const isExportCompanyJson = (value: unknown): value is ExportCompanyJson => {
 };
 
 
-// API service
-type CompaniesOwnershipCounts = {
-  totalCount: number;
-  publicCompanies: number;
-  peOwnedCompanies: number;
-  vcOwnedCompanies: number;
-  privateCompanies: number;
-  subsidiaryCompanies: number;
-  acquiredCompanies: number;
-  otherCompanies: number;
-};
-
-const EMPTY_OWNERSHIP_COUNTS: CompaniesOwnershipCounts = {
-  totalCount: 0,
-  publicCompanies: 0,
-  peOwnedCompanies: 0,
-  vcOwnedCompanies: 0,
-  privateCompanies: 0,
-  subsidiaryCompanies: 0,
-  acquiredCompanies: 0,
-  otherCompanies: 0,
-};
-
 const useCompaniesAPI = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const lastRequestIdRef = useRef(0);
-  const lastCountsRequestIdRef = useRef(0);
-  const countsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentFiltersRef = useRef<Filters | undefined>(undefined);
   const requestColumnsRef = useRef<string[]>([]);
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
@@ -265,37 +239,9 @@ const useCompaniesAPI = () => {
     perPage: 20,
     pageTotal: 0,
   });
-  const [ownershipCounts, setOwnershipCounts] =
-    useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
 
   const setRequestColumns = useCallback((columns: string[]) => {
     requestColumnsRef.current = columns;
-  }, []);
-
-  const scheduleCountsFetch = useCallback((countsFilters: ServerFilters) => {
-    if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
-    countsTimeoutRef.current = setTimeout(() => {
-      const countsRequestId = ++lastCountsRequestIdRef.current;
-      void fetchCompaniesCountsServer(countsFilters)
-        .then((countsData) => {
-          if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
-            return;
-          }
-          setOwnershipCounts({
-            totalCount: countsData.totalCount || 0,
-            publicCompanies: countsData.publicCompanies || 0,
-            peOwnedCompanies: countsData.peOwnedCompanies || 0,
-            vcOwnedCompanies: countsData.vcOwnedCompanies || 0,
-            privateCompanies: countsData.privateCompanies || 0,
-            subsidiaryCompanies: countsData.subsidiaryCompanies || 0,
-            acquiredCompanies: countsData.acquiredCompanies || 0,
-            otherCompanies: countsData.otherCompanies || 0,
-          });
-        })
-        .catch((countsError) => {
-          console.error("Error fetching companies counts:", countsError);
-        });
-    }, 400);
   }, []);
 
   const fetchCompanies = useCallback(
@@ -317,10 +263,6 @@ const useCompaniesAPI = () => {
           ...filtersToUse,
           columns: requestColumnsRef.current,
         };
-
-        if (page === 1) {
-          scheduleCountsFetch(serverFilters);
-        }
 
         const data = await fetchCompaniesServer(page, serverFilters);
 
@@ -353,7 +295,7 @@ const useCompaniesAPI = () => {
         }
       }
     },
-    [scheduleCountsFetch]
+    []
   );
 
   // Initial fetch on mount
@@ -367,7 +309,6 @@ const useCompaniesAPI = () => {
     loading,
     error,
     pagination,
-    ownershipCounts,
     fetchCompanies,
     setRequestColumns,
     currentFilters,
@@ -1459,50 +1400,42 @@ const OWNERSHIP_TAB_CONFIG: Record<
   {
     label: string;
     dot: string;
-    countKey: keyof CompaniesOwnershipCounts;
     ownershipTypeIds: readonly number[];
   }
 > = {
   public: {
     label: "Public",
     dot: "#7c3aed",
-    countKey: "publicCompanies",
     ownershipTypeIds: [7],
   },
   pe: {
     label: "PE-owned",
     dot: "#0ea5e9",
-    countKey: "peOwnedCompanies",
     ownershipTypeIds: [1],
   },
   vc: {
     label: "VC-backed",
     dot: "#10b981",
-    countKey: "vcOwnedCompanies",
     ownershipTypeIds: [3],
   },
   private: {
     label: "Private",
     dot: "#f59e0b",
-    countKey: "privateCompanies",
     ownershipTypeIds: [2],
   },
   subsidiary: {
     label: "Subsidiary",
     dot: "#6366f1",
-    countKey: "subsidiaryCompanies",
     ownershipTypeIds: [5],
   },
   acquired: {
     label: "Acquired",
     dot: "#ec4899",
-    countKey: "acquiredCompanies",
     ownershipTypeIds: [4],
   },
   other: {
     label: "Other",
     dot: "#78716c",
-    countKey: "otherCompanies",
     ownershipTypeIds: OTHER_OWNERSHIP_TYPE_IDS,
   },
 };
@@ -1512,7 +1445,6 @@ const CompanyDashboard = ({
   onSearch,
   onFilterColumnsChange,
   initialSearch,
-  ownershipCounts = EMPTY_OWNERSHIP_COUNTS,
   onColumnsClick,
   onExportCSVClick,
   onAddToPortfolioClick,
@@ -1526,7 +1458,6 @@ const CompanyDashboard = ({
     ownershipTabActive: boolean;
   }) => void;
   initialSearch?: string;
-  ownershipCounts?: CompaniesOwnershipCounts;
   onColumnsClick?: () => void;
   columnsActive?: boolean;
   onExportCSVClick?: () => void;
@@ -1761,21 +1692,14 @@ const CompanyDashboard = ({
     "other",
   ];
 
-  const ownershipTabs: { id: OwnershipTab; label: string; count: number; dot: string }[] = [
-    { id: "all", label: "All", count: ownershipCounts.totalCount, dot: "#64748b" },
+  const ownershipTabs: { id: OwnershipTab; label: string; dot: string }[] = [
+    { id: "all", label: "All", dot: "#64748b" },
     ...ownershipTabOrder.map((id) => ({
       id,
       label: OWNERSHIP_TAB_CONFIG[id].label,
-      count: ownershipCounts[OWNERSHIP_TAB_CONFIG[id].countKey],
       dot: OWNERSHIP_TAB_CONFIG[id].dot,
     })),
   ];
-
-  const matchCount =
-    activeOwnershipTab === "all"
-      ? ownershipCounts.totalCount
-      : ownershipTabs.find((tab) => tab.id === activeOwnershipTab)?.count ??
-        ownershipCounts.totalCount;
 
   return (
     <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
@@ -1819,9 +1743,6 @@ const CompanyDashboard = ({
               }}
             >
               Company search
-              <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
-                {matchCount.toLocaleString()} matches
-              </span>
             </h1>
           </div>
 
@@ -1921,9 +1842,6 @@ const CompanyDashboard = ({
                   }}
                 />
                 {tab.label}
-                <span style={{ fontSize: 12, opacity: 0.75 }}>
-                  {tab.count.toLocaleString()}
-                </span>
               </button>
             );
 
@@ -1964,7 +1882,7 @@ const CompanyDashboard = ({
             filterCategories={FILTER_CATEGORIES}
             state={filterBarState}
             onStateChange={setFilterBarState}
-            totalCount={matchCount}
+            totalCount={undefined}
           />
         </div>
       </div>
@@ -1979,7 +1897,6 @@ const CompanySection = ({
   loading,
   error,
   pagination,
-  ownershipCounts,
   fetchCompanies,
   setRequestColumns,
   currentFilters,
@@ -2007,7 +1924,6 @@ const CompanySection = ({
     perPage: number;
     pageTotal: number;
   };
-  ownershipCounts: CompaniesOwnershipCounts;
   fetchCompanies: (page?: number, filters?: Filters) => Promise<void>;
   setRequestColumns: (columns: string[]) => void;
   currentFilters: Filters | undefined;
@@ -3610,185 +3526,6 @@ const CompanySection = ({
   return React.createElement(
     "div",
     { className: "company-section", ref: sectionRef },
-    React.createElement(
-      "div",
-      { className: "company-stats", style: { display: "none" } },
-      null,
-      React.createElement(
-        "div",
-        { className: "stats-column" },
-        React.createElement(
-          "div",
-          {
-            style: {
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 0",
-              borderBottom: "1px solid #e2e8f0",
-            },
-          },
-          React.createElement(
-            "span",
-            {
-              style: {
-                fontSize: "14px",
-                color: "#4a5568",
-                fontWeight: "500",
-              },
-            },
-            "Companies: "
-          ),
-          React.createElement(
-            "span",
-            {
-              style: {
-                fontSize: "16px",
-                color: "#000",
-                fontWeight: "600",
-              },
-            },
-            pagination.itemsReceived.toLocaleString()
-          )
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 0",
-              borderBottom: "1px solid #e2e8f0",
-            },
-          },
-          React.createElement(
-            "span",
-            {
-              style: {
-                fontSize: "14px",
-                color: "#4a5568",
-                fontWeight: "500",
-              },
-            },
-            "Public companies: "
-          ),
-          React.createElement(
-            "span",
-            {
-              style: {
-                fontSize: "16px",
-                color: "#000",
-                fontWeight: "600",
-              },
-            },
-            ownershipCounts.publicCompanies.toLocaleString()
-          )
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 0",
-              borderBottom: "1px solid #e2e8f0",
-            },
-          },
-          React.createElement(
-            "span",
-            {
-              style: {
-                fontSize: "14px",
-                color: "#4a5568",
-                fontWeight: "500",
-              },
-            },
-            "PE-owned companies: "
-          ),
-          React.createElement(
-            "span",
-            {
-              style: {
-                fontSize: "16px",
-                color: "#000",
-                fontWeight: "600",
-              },
-            },
-            ownershipCounts.peOwnedCompanies.toLocaleString()
-          )
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 0",
-              borderBottom: "1px solid #e2e8f0",
-            },
-          },
-          React.createElement(
-            "span",
-            {
-              style: {
-                fontSize: "14px",
-                color: "#4a5568",
-                fontWeight: "500",
-              },
-            },
-            "VC-backed companies: "
-          ),
-          React.createElement(
-            "span",
-            {
-              style: {
-                fontSize: "16px",
-                color: "#000",
-                fontWeight: "600",
-              },
-            },
-            ownershipCounts.vcOwnedCompanies.toLocaleString()
-          )
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 0",
-              borderBottom: "none",
-            },
-          },
-          React.createElement(
-            "span",
-            {
-              style: {
-                fontSize: "14px",
-                color: "#4a5568",
-                fontWeight: "500",
-              },
-            },
-            "Private companies: "
-          ),
-          React.createElement(
-            "span",
-            {
-              style: {
-                fontSize: "16px",
-                color: "#000",
-                fontWeight: "600",
-              },
-            },
-            ownershipCounts.privateCompanies.toLocaleString()
-          )
-        )
-      )
-    ),
     ...columnsModalLayer,
     selectedCompanyIds.size > 0 &&
       React.createElement(
@@ -4066,7 +3803,6 @@ function CompaniesPageInner() {
     loading,
     error,
     pagination,
-    ownershipCounts,
     fetchCompanies,
     setRequestColumns,
     currentFilters,
@@ -4167,7 +3903,6 @@ function CompaniesPageInner() {
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
         initialSearch={initialSearch}
-        ownershipCounts={ownershipCounts}
         onColumnsClick={() => setShowColumnsModal((v) => !v)}
         onExportCSVClick={() => exportCSVRef.current?.()}
         onAddToPortfolioClick={() => setShowBulkAddModal(true)}
@@ -4180,7 +3915,6 @@ function CompaniesPageInner() {
         loading={loading}
         error={error}
         pagination={pagination}
-        ownershipCounts={ownershipCounts}
         fetchCompanies={fetchCompanies}
         setRequestColumns={setRequestColumns}
         currentFilters={currentFilters}
