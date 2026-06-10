@@ -36,6 +36,8 @@ export function buildCompaniesSearchPayload(args: {
   secondarySectors: SectorRef[];
   ownershipTypes: OwnershipTypeRef[];
   ownershipTypeIds?: number[];
+  /** When false, tab-level ownershipTypeIds are not applied (e.g. companies_counts). Default true. */
+  applyOwnershipTabFilter?: boolean;
   portfolioCompanyIds?: number[];
   hybridBusinessFocusIds?: number[];
   columns?: string[];
@@ -48,6 +50,7 @@ export function buildCompaniesSearchPayload(args: {
     secondarySectors,
     ownershipTypes,
     ownershipTypeIds,
+    applyOwnershipTabFilter = true,
     portfolioCompanyIds = [],
     hybridBusinessFocusIds = [],
     columns = [],
@@ -461,8 +464,12 @@ export function buildCompaniesSearchPayload(args: {
     }
   }
 
-  // Tab-level ownership gate (e.g. PE tab)
-  if (ownershipTypeIds && ownershipTypeIds.length > 0) {
+  // Tab-level ownership gate (e.g. PE tab) — omitted for companies_counts
+  if (
+    applyOwnershipTabFilter &&
+    ownershipTypeIds &&
+    ownershipTypeIds.length > 0
+  ) {
     clauses.push({
       id: "ownership-tab",
       type: "ownership_type",
