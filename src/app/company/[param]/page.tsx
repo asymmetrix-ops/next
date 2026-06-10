@@ -37,12 +37,9 @@ import {
   kvLabelStyle,
   kvValueStyle,
   FIN_METRIC_BODY_FONT_SIZE,
-  FIN_METRIC_PERIOD_FONT_SIZE,
-  FIN_METRIC_LABEL_COL_WIDTH,
   FIN_METRIC_COMPACT_BODY_FONT_SIZE,
   FIN_METRIC_COMPACT_PERIOD_FONT_SIZE,
   FIN_METRIC_COMPACT_LABEL_COL_WIDTH,
-  FIN_METRIC_COMPACT_TAB_FONT_SIZE,
 } from "@/components/redesign/primitives";
 import {
   FinMetricsIncomeCard,
@@ -3547,115 +3544,47 @@ const CompanyDetail = () => {
       justify-self: center !important;
       width: 100%;
     }
-    /* Primary card — large typography (Financial Metrics / Income Statement) */
+    /* Shared fin-metrics grid + period headers (both cards align when stacked) */
     .company-grid-finance-primary.desktop-financial-metrics .info-row:not(.income-statement-row):not(.fin-metric-period-header),
-    .mobile-financial-metrics .fin-metrics-card--primary .info-row:not(.income-statement-row):not(.fin-metric-period-header) {
-      padding: 4px 0 !important;
-      grid-template-columns: ${FIN_METRIC_LABEL_COL_WIDTH}px 1fr minmax(60px, max-content) !important;
-      column-gap: 8px !important;
-      align-items: center !important;
-    }
-    .company-grid-finance-primary.desktop-financial-metrics .fin-metric-period-header,
-    .mobile-financial-metrics .fin-metrics-card--primary .fin-metric-period-header {
-      padding: 6px 14px 4px !important;
-      grid-template-columns: ${FIN_METRIC_LABEL_COL_WIDTH}px 1fr minmax(60px, max-content) !important;
-      column-gap: 8px !important;
-      align-items: center !important;
-    }
-    .company-grid-finance-primary.desktop-financial-metrics .fin-metric-value,
-    .mobile-financial-metrics .fin-metrics-card--primary .fin-metric-value {
-      font-family: ${T.sans} !important;
-      font-size: ${FIN_METRIC_BODY_FONT_SIZE}px !important;
-      line-height: 1.55 !important;
-      font-weight: 400 !important;
-      color: ${T.body} !important;
-    }
-    .company-grid-finance-primary.desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(1),
-    .mobile-financial-metrics .fin-metrics-card--primary .info-row:not(.income-statement-row) > :nth-child(1) {
-      text-align: left !important;
-      justify-self: start !important;
-      font-family: ${T.sans} !important;
-      font-size: ${FIN_METRIC_BODY_FONT_SIZE}px !important;
-      line-height: 1.35 !important;
-      font-weight: 400 !important;
-      color: ${T.muted} !important;
-    }
-    .company-grid-finance-primary.desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3),
-    .company-grid-finance-primary.desktop-financial-metrics .fin-metric-source-col,
-    .mobile-financial-metrics .fin-metrics-card--primary .info-row:not(.income-statement-row) > :nth-child(3),
-    .mobile-financial-metrics .fin-metrics-card--primary .fin-metric-source-col {
-      font-family: ${T.sans} !important;
-      font-size: ${FIN_METRIC_BODY_FONT_SIZE}px !important;
-      line-height: 1.35 !important;
-      font-weight: 400 !important;
-      color: ${T.muted} !important;
-      text-align: right !important;
-      justify-self: end !important;
-      padding-right: 2px !important;
-    }
-    .company-grid-finance-primary.desktop-financial-metrics .fin-metric-period-header > :nth-child(3),
-    .company-grid-finance-primary.desktop-financial-metrics .fin-metric-period-source-col,
-    .mobile-financial-metrics .fin-metrics-card--primary .fin-metric-period-header > :nth-child(3),
-    .mobile-financial-metrics .fin-metrics-card--primary .fin-metric-period-source-col {
-      font-family: ${T.sans} !important;
-      font-size: ${FIN_METRIC_PERIOD_FONT_SIZE}px !important;
-      line-height: 1.4 !important;
-      font-weight: 500 !important;
-      color: ${T.muted} !important;
-      letter-spacing: 0.35px !important;
-      text-transform: uppercase !important;
-      text-align: right !important;
-      justify-self: end !important;
-      padding-right: 2px !important;
-    }
-    /* Secondary card — compact typography (Subscription / Other Metrics) */
     .company-grid-finance-secondary.desktop-financial-metrics .info-row:not(.income-statement-row):not(.fin-metric-period-header),
+    .mobile-financial-metrics .fin-metrics-card--primary .info-row:not(.income-statement-row):not(.fin-metric-period-header),
     .mobile-financial-metrics .fin-metrics-card--secondary .info-row:not(.income-statement-row):not(.fin-metric-period-header) {
       padding: 4px 0 !important;
       grid-template-columns: ${FIN_METRIC_COMPACT_LABEL_COL_WIDTH}px 1fr minmax(52px, max-content) !important;
       column-gap: 8px !important;
       align-items: center !important;
     }
+    .company-grid-finance-primary.desktop-financial-metrics .fin-metric-period-header,
     .company-grid-finance-secondary.desktop-financial-metrics .fin-metric-period-header,
+    .mobile-financial-metrics .fin-metrics-card--primary .fin-metric-period-header,
     .mobile-financial-metrics .fin-metrics-card--secondary .fin-metric-period-header {
       padding: 6px 14px 4px !important;
       grid-template-columns: ${FIN_METRIC_COMPACT_LABEL_COL_WIDTH}px 1fr minmax(52px, max-content) !important;
       column-gap: 8px !important;
       align-items: center !important;
     }
-    .company-grid-finance-secondary.desktop-financial-metrics .fin-metric-value,
-    .mobile-financial-metrics .fin-metrics-card--secondary .fin-metric-value {
+    .company-grid-finance-primary.desktop-financial-metrics .fin-metric-period-header > :nth-child(2),
+    .company-grid-finance-primary.desktop-financial-metrics .fin-metric-period-col,
+    .company-grid-finance-secondary.desktop-financial-metrics .fin-metric-period-header > :nth-child(2),
+    .company-grid-finance-secondary.desktop-financial-metrics .fin-metric-period-col,
+    .mobile-financial-metrics .fin-metrics-card--primary .fin-metric-period-header > :nth-child(2),
+    .mobile-financial-metrics .fin-metrics-card--primary .fin-metric-period-col,
+    .mobile-financial-metrics .fin-metrics-card--secondary .fin-metric-period-header > :nth-child(2),
+    .mobile-financial-metrics .fin-metrics-card--secondary .fin-metric-period-col {
       font-family: ${T.sans} !important;
-      font-size: ${FIN_METRIC_COMPACT_BODY_FONT_SIZE}px !important;
-      line-height: 1.55 !important;
-      font-weight: 400 !important;
-      color: ${T.body} !important;
-    }
-    .company-grid-finance-secondary.desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(1),
-    .mobile-financial-metrics .fin-metrics-card--secondary .info-row:not(.income-statement-row) > :nth-child(1) {
-      text-align: left !important;
-      justify-self: start !important;
-      font-family: ${T.sans} !important;
-      font-size: ${FIN_METRIC_COMPACT_BODY_FONT_SIZE}px !important;
-      line-height: 1.35 !important;
-      font-weight: 400 !important;
+      font-size: ${FIN_METRIC_COMPACT_PERIOD_FONT_SIZE}px !important;
+      line-height: 1.4 !important;
+      font-weight: 500 !important;
       color: ${T.muted} !important;
+      letter-spacing: 0.35px !important;
+      text-transform: uppercase !important;
     }
-    .company-grid-finance-secondary.desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3),
-    .company-grid-finance-secondary.desktop-financial-metrics .fin-metric-source-col,
-    .mobile-financial-metrics .fin-metrics-card--secondary .info-row:not(.income-statement-row) > :nth-child(3),
-    .mobile-financial-metrics .fin-metrics-card--secondary .fin-metric-source-col {
-      font-family: ${T.sans} !important;
-      font-size: ${FIN_METRIC_COMPACT_BODY_FONT_SIZE}px !important;
-      line-height: 1.35 !important;
-      font-weight: 400 !important;
-      color: ${T.muted} !important;
-      text-align: right !important;
-      justify-self: end !important;
-      padding-right: 2px !important;
-    }
+    .company-grid-finance-primary.desktop-financial-metrics .fin-metric-period-header > :nth-child(3),
+    .company-grid-finance-primary.desktop-financial-metrics .fin-metric-period-source-col,
     .company-grid-finance-secondary.desktop-financial-metrics .fin-metric-period-header > :nth-child(3),
     .company-grid-finance-secondary.desktop-financial-metrics .fin-metric-period-source-col,
+    .mobile-financial-metrics .fin-metrics-card--primary .fin-metric-period-header > :nth-child(3),
+    .mobile-financial-metrics .fin-metrics-card--primary .fin-metric-period-source-col,
     .mobile-financial-metrics .fin-metrics-card--secondary .fin-metric-period-header > :nth-child(3),
     .mobile-financial-metrics .fin-metrics-card--secondary .fin-metric-period-source-col {
       font-family: ${T.sans} !important;
@@ -3669,9 +3598,69 @@ const CompanyDetail = () => {
       justify-self: end !important;
       padding-right: 2px !important;
     }
-    .company-grid-finance-secondary.desktop-financial-metrics [role="tab"],
-    .mobile-financial-metrics .fin-metrics-card--secondary [role="tab"] {
-      font-size: ${FIN_METRIC_COMPACT_TAB_FONT_SIZE}px !important;
+    /* Primary card — large row typography only (Financial Metrics / Income Statement) */
+    .company-grid-finance-primary.desktop-financial-metrics .info-row:not(.fin-metric-period-header) .fin-metric-value,
+    .mobile-financial-metrics .fin-metrics-card--primary .info-row:not(.fin-metric-period-header) .fin-metric-value {
+      font-family: ${T.sans} !important;
+      font-size: ${FIN_METRIC_BODY_FONT_SIZE}px !important;
+      line-height: 1.55 !important;
+      font-weight: 400 !important;
+      color: ${T.body} !important;
+    }
+    .company-grid-finance-primary.desktop-financial-metrics .info-row:not(.income-statement-row):not(.fin-metric-period-header) > :nth-child(1),
+    .mobile-financial-metrics .fin-metrics-card--primary .info-row:not(.income-statement-row):not(.fin-metric-period-header) > :nth-child(1) {
+      text-align: left !important;
+      justify-self: start !important;
+      font-family: ${T.sans} !important;
+      font-size: ${FIN_METRIC_BODY_FONT_SIZE}px !important;
+      line-height: 1.35 !important;
+      font-weight: 400 !important;
+      color: ${T.muted} !important;
+    }
+    .company-grid-finance-primary.desktop-financial-metrics .info-row:not(.income-statement-row):not(.fin-metric-period-header) > :nth-child(3),
+    .company-grid-finance-primary.desktop-financial-metrics .info-row:not(.fin-metric-period-header) .fin-metric-source-col,
+    .mobile-financial-metrics .fin-metrics-card--primary .info-row:not(.income-statement-row):not(.fin-metric-period-header) > :nth-child(3),
+    .mobile-financial-metrics .fin-metrics-card--primary .info-row:not(.fin-metric-period-header) .fin-metric-source-col {
+      font-family: ${T.sans} !important;
+      font-size: ${FIN_METRIC_BODY_FONT_SIZE}px !important;
+      line-height: 1.35 !important;
+      font-weight: 400 !important;
+      color: ${T.muted} !important;
+      text-align: right !important;
+      justify-self: end !important;
+      padding-right: 2px !important;
+    }
+    /* Secondary card — compact row typography (Subscription / Other Metrics) */
+    .company-grid-finance-secondary.desktop-financial-metrics .info-row:not(.fin-metric-period-header) .fin-metric-value,
+    .mobile-financial-metrics .fin-metrics-card--secondary .info-row:not(.fin-metric-period-header) .fin-metric-value {
+      font-family: ${T.sans} !important;
+      font-size: ${FIN_METRIC_COMPACT_BODY_FONT_SIZE}px !important;
+      line-height: 1.55 !important;
+      font-weight: 400 !important;
+      color: ${T.body} !important;
+    }
+    .company-grid-finance-secondary.desktop-financial-metrics .info-row:not(.income-statement-row):not(.fin-metric-period-header) > :nth-child(1),
+    .mobile-financial-metrics .fin-metrics-card--secondary .info-row:not(.income-statement-row):not(.fin-metric-period-header) > :nth-child(1) {
+      text-align: left !important;
+      justify-self: start !important;
+      font-family: ${T.sans} !important;
+      font-size: ${FIN_METRIC_COMPACT_BODY_FONT_SIZE}px !important;
+      line-height: 1.35 !important;
+      font-weight: 400 !important;
+      color: ${T.muted} !important;
+    }
+    .company-grid-finance-secondary.desktop-financial-metrics .info-row:not(.income-statement-row):not(.fin-metric-period-header) > :nth-child(3),
+    .company-grid-finance-secondary.desktop-financial-metrics .info-row:not(.fin-metric-period-header) .fin-metric-source-col,
+    .mobile-financial-metrics .fin-metrics-card--secondary .info-row:not(.income-statement-row):not(.fin-metric-period-header) > :nth-child(3),
+    .mobile-financial-metrics .fin-metrics-card--secondary .info-row:not(.fin-metric-period-header) .fin-metric-source-col {
+      font-family: ${T.sans} !important;
+      font-size: ${FIN_METRIC_COMPACT_BODY_FONT_SIZE}px !important;
+      line-height: 1.35 !important;
+      font-weight: 400 !important;
+      color: ${T.muted} !important;
+      text-align: right !important;
+      justify-self: end !important;
+      padding-right: 2px !important;
     }
     /* Income Statement — table layout; year headers align with values (primary card only) */
     .company-grid-finance-primary.desktop-financial-metrics .income-statement-grid th,
@@ -3682,7 +3671,7 @@ const CompanyDetail = () => {
     }
     .company-grid-finance-primary.desktop-financial-metrics .income-statement-grid th,
     .mobile-financial-metrics .fin-metrics-card--primary .income-statement-grid th {
-      font-size: ${FIN_METRIC_PERIOD_FONT_SIZE}px !important;
+      font-size: ${FIN_METRIC_COMPACT_PERIOD_FONT_SIZE}px !important;
       font-weight: 500 !important;
       color: ${T.muted} !important;
       text-transform: uppercase !important;

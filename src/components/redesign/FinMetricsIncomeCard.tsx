@@ -61,7 +61,7 @@ function PeriodHeader({ period }: { period?: string }) {
       }}
     >
       <span />
-      <span className={FIN_METRIC_VALUE_CLASS} style={finMetricPeriodColStyle}>{period}</span>
+      <span className="fin-metric-period-col" style={finMetricPeriodColStyle}>{period}</span>
       <span className="fin-metric-period-source-col" style={finMetricPeriodSourceColStyle}>
         Source
       </span>
