@@ -11,15 +11,23 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
-import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
+import dynamic from "next/dynamic";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+
+const BulkAddToPortfolioModal = dynamic(
+  () => import("@/components/companies/BulkAddToPortfolioModal").then((m) => ({ default: m.BulkAddToPortfolioModal })),
+  { ssr: false }
+);
 import { locationsService } from "@/lib/locationsService";
 import {
   CompaniesCSVExporter,
   CompanyCSVRow as BaseCompanyCSVRow,
 } from "@/utils/companiesCSVExport";
-import { ExportLimitModal } from "@/components/ExportLimitModal";
+const ExportLimitModal = dynamic(
+  () => import("@/components/ExportLimitModal").then((m) => ({ default: m.ExportLimitModal })),
+  { ssr: false }
+);
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import {
   fetchCompaniesServer,
@@ -33,7 +41,10 @@ import {
   companySearchPayloadToSearchParams,
 } from "@/lib/companiesFilterPayload";
 import { fetchUserPortfolioData } from "@/lib/portfolioData";
-import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
+const ColumnsControlRoom = dynamic(
+  () => import("@/components/companies/ColumnsControlRoom").then((m) => ({ default: m.ColumnsControlRoom })),
+  { ssr: false }
+);
 import {
   CompaniesFilterBar,
   FilterBarState,
@@ -344,12 +355,6 @@ const useCompaniesAPI = () => {
     },
     [scheduleCountsFetch]
   );
-
-  // Initial fetch on mount
-  useEffect(() => {
-    fetchCompanies(1, createDefaultFilters());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
 
   return {
     companies,
@@ -2023,10 +2028,26 @@ const CompanySection = ({
     key: string;
     dir: "asc" | "desc";
   } | null>(null);
-  const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
-  const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
-    DEFAULT_COMPANY_COLUMN_KEYS
-  );
+  const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved) as unknown;
+          if (Array.isArray(parsed)) {
+            const valid = getValidColumnKeys(
+              parsed.filter((k): k is string => typeof k === "string")
+            );
+            if (valid.length > 0) return valid;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_COMPANY_COLUMN_KEYS;
+  });
+  const [columnPrefsLoaded] = useState(true);
 
   useEffect(() => {
     if (filterPinnedColumnKeys.length === 0) return;
@@ -2107,25 +2128,6 @@ const CompanySection = ({
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSelectedColumnKeys(
-            getValidColumnKeys(parsed.filter((key): key is string => typeof key === "string"))
-          );
-        }
-      }
-    } catch (error) {
-      console.warn("Unable to load company column preferences:", error);
-    } finally {
-      setColumnPrefsLoaded(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!columnPrefsLoaded) return;
-    try {
       window.localStorage.setItem(
         COMPANIES_COLUMNS_STORAGE_KEY,
         JSON.stringify(selectedColumnKeys)
@@ -2133,7 +2135,7 @@ const CompanySection = ({
     } catch (error) {
       console.warn("Unable to save company column preferences:", error);
     }
-  }, [columnPrefsLoaded, selectedColumnKeys]);
+  }, [selectedColumnKeys]);
 
   useEffect(() => {
     if (!columnPrefsLoaded) return;
