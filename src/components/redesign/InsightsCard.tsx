@@ -169,94 +169,6 @@ function SkeletonRow({ flexSlot = false }: { flexSlot?: boolean }) {
   );
 }
 
-// ── placeholder row (empty state) ────────────────────────────────────────────
-const DEMO_ARTICLES = [
-  {
-    tag: "Company Update",
-    tone: "coral" as const,
-    date: "Apr 10, 2026",
-    title: "Morningstar Q1 earnings beat expectations",
-    body: "Morningstar reports strong Q1 driven by PitchBook and Indexes; management flagged accelerating demand for private-markets data and a disciplined approach to GenAI-driven research automation.",
-  },
-  {
-    tag: "Sector Analysis",
-    tone: "azure" as const,
-    date: "Mar 22, 2026",
-    title: "Private markets data vendors trade at premium multiples",
-    body: "Morningstar is increasingly viewed as a private-markets pure-play proxy via its PitchBook segment.",
-  },
-];
-
-function DemoRow({
-  item,
-  flexSlot = false,
-}: {
-  item: (typeof DEMO_ARTICLES)[number];
-  flexSlot?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        ...insightsRowGridStyle,
-        ...(flexSlot ? { flex: 1, minHeight: INSIGHTS_ROW_SLOT_MIN_HEIGHT } : {}),
-      }}
-    >
-      <div style={insightsMetaColStyle}>
-        <Pill tone={item.tone} style={insightTagPillStyle}>
-          {item.tag}
-        </Pill>
-        <div
-          style={{
-            fontSize: 13,
-            color: T.muted,
-            fontVariantNumeric: "tabular-nums",
-            marginTop: 8,
-          }}
-        >
-          {item.date}
-        </div>
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 13.5,
-            fontWeight: 600,
-            lineHeight: 1.4,
-            color: T.ink,
-            marginBottom: 6,
-          }}
-        >
-          {item.title}
-        </div>
-        <div
-          style={{
-            fontSize: 13,
-            lineHeight: 1.55,
-            color: T.body,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {item.body}
-        </div>
-        <div
-          style={{
-            color: T.azure,
-            fontSize: 13,
-            fontWeight: 500,
-            marginTop: 8,
-            opacity: 0.45,
-          }}
-        >
-          Open report →
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function InsightRowPlaceholder() {
   return (
     <div
@@ -575,8 +487,6 @@ type Props = {
   canNext: boolean;
   onPrev: () => void;
   onNext: () => void;
-  /** Shown in header + footer when there are no real articles yet */
-  emptyStateTotal?: number;
   fillGridCell?: boolean;
   /** When set, "Browse all" links to I&A pre-filtered by this company */
   companyId?: number | null;
@@ -593,16 +503,13 @@ export function InsightsCard({
   canNext,
   onPrev,
   onNext,
-  emptyStateTotal = 17,
   fillGridCell = false,
   companyId,
   companyName,
 }: Props) {
   const isEmpty = !loading && totalCount === 0;
-  const displayTotal = isEmpty ? emptyStateTotal : totalCount;
-  const rangeLabel = isEmpty
-    ? `1–2 of ${emptyStateTotal}`
-    : `${rangeStart}–${rangeEnd} of ${totalCount}`;
+  const rangeLabel =
+    totalCount > 0 ? `${rangeStart}–${rangeEnd} of ${totalCount}` : "0 of 0";
 
   const [summaryArticle, setSummaryArticle] = useState<ContentArticle | null>(null);
   const handleViewSummary = useCallback((a: ContentArticle) => setSummaryArticle(a), []);
@@ -639,9 +546,22 @@ export function InsightsCard({
             <SkeletonRow flexSlot />
           </>
         ) : isEmpty ? (
-          DEMO_ARTICLES.map((item) => (
-            <DemoRow key={item.tag} item={item} flexSlot />
-          ))
+          <div
+            style={{
+              flex: fillGridCell ? 1 : undefined,
+              minHeight: fillGridCell ? INSIGHTS_ROW_SLOT_MIN_HEIGHT : undefined,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "24px 16px",
+              color: T.muted,
+              fontSize: 13,
+              lineHeight: 1.5,
+              textAlign: "center",
+            }}
+          >
+            No insights available for this company.
+          </div>
         ) : (
           <>
             {articles.map((a) => (
@@ -680,7 +600,7 @@ export function InsightsCard({
           prefetch={false}
           style={{ color: T.azure, fontWeight: 500, textDecoration: "none" }}
         >
-          Browse all {loading ? "-" : displayTotal} →
+          Browse all{loading || totalCount === 0 ? "" : ` ${totalCount}`} →
         </Link>
       </div>
     </LinkPanel>

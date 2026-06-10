@@ -702,9 +702,6 @@ const OVERVIEW_TAG_CAP = 3;
 const INSIGHTS_PREVIEW_COUNT = 2;
 const CE_PREVIEW_COUNT = 2;
 
-/** Design-demo total for empty insights card (matches V3 mock pagination) */
-const INSIGHTS_EMPTY_STATE_DEMO_TOTAL = 17;
-
 // RANGE_DASH moved to InsightsCard component
 
 const PRODUCT_USERS_ACCORDION_FIELDS: {
@@ -4397,7 +4394,6 @@ const CompanyDetail = () => {
                     fetchCompanyArticles(company.id, insightsPage + 1);
                   }
                 }}
-                emptyStateTotal={INSIGHTS_EMPTY_STATE_DEMO_TOTAL}
                 companyId={company.id}
                 companyName={company.name}
               />
