@@ -130,16 +130,36 @@ function decodeHtmlEntities(input: string): string {
 /** Minimum list height for two insight rows (keeps pager from jumping). */
 const INSIGHTS_LIST_MIN_HEIGHT = 220;
 const INSIGHTS_ROW_SLOT_MIN_HEIGHT = 100;
+const INSIGHTS_META_COL_WIDTH = 140;
+
+const insightsRowGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: `${INSIGHTS_META_COL_WIDTH}px 1fr`,
+  gap: 16,
+  padding: "14px 16px",
+  borderBottom: `1px solid ${T.hair}`,
+  minWidth: 0,
+};
+
+const insightsMetaColStyle: React.CSSProperties = {
+  minWidth: 0,
+  maxWidth: INSIGHTS_META_COL_WIDTH,
+};
+
+/** Long content-type labels must wrap inside the meta column (Pill defaults to nowrap). */
+const insightTagPillStyle: React.CSSProperties = {
+  display: "inline-block",
+  maxWidth: "100%",
+  whiteSpace: "normal",
+  wordBreak: "break-word",
+  boxSizing: "border-box",
+};
 
 function SkeletonRow({ flexSlot = false }: { flexSlot?: boolean }) {
   return (
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns: "140px 1fr",
-        gap: 16,
-        padding: "14px 16px",
-        borderBottom: `1px solid ${T.hair}`,
+        ...insightsRowGridStyle,
         ...(flexSlot ? { flex: 1, minHeight: INSIGHTS_ROW_SLOT_MIN_HEIGHT } : {}),
       }}
     >
@@ -177,16 +197,14 @@ function DemoRow({
   return (
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns: "140px 1fr",
-        gap: 16,
-        padding: "14px 16px",
-        borderBottom: `1px solid ${T.hair}`,
+        ...insightsRowGridStyle,
         ...(flexSlot ? { flex: 1, minHeight: INSIGHTS_ROW_SLOT_MIN_HEIGHT } : {}),
       }}
     >
-      <div>
-        <Pill tone={item.tone}>{item.tag}</Pill>
+      <div style={insightsMetaColStyle}>
+        <Pill tone={item.tone} style={insightTagPillStyle}>
+          {item.tag}
+        </Pill>
         <div
           style={{
             fontSize: 13,
@@ -198,7 +216,7 @@ function DemoRow({
           {item.date}
         </div>
       </div>
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div
           style={{
             fontSize: 13.5,
@@ -415,17 +433,11 @@ function ArticleRow({
   const showSummaryBtn = hasSummary(article);
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "140px 1fr",
-        gap: 16,
-        padding: "14px 16px",
-        borderBottom: `1px solid ${T.hair}`,
-      }}
-    >
-      <div>
-        <Pill tone={tone}>{tag}</Pill>
+    <div style={insightsRowGridStyle}>
+      <div style={insightsMetaColStyle}>
+        <Pill tone={tone} style={insightTagPillStyle}>
+          {tag}
+        </Pill>
         <div
           style={{
             fontSize: 13,
@@ -437,7 +449,7 @@ function ArticleRow({
           {date || "-"}
         </div>
       </div>
-      <div>
+      <div style={{ minWidth: 0 }}>
         {headline ? (
           <div
             style={{
