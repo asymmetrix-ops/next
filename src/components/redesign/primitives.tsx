@@ -102,9 +102,12 @@ export const FIN_METRIC_COMPACT_BODY_FONT_SIZE = 13;
 export const FIN_METRIC_COMPACT_PERIOD_FONT_SIZE = 10;
 export const FIN_METRIC_COMPACT_LABEL_COL_WIDTH = 138;
 
+/** Fixed width so header "Source" and row values share the same column bounds. */
+export const FIN_METRIC_SOURCE_COL_WIDTH = 80;
+
 /** Single grid for both fin-metrics cards so stacked columns align. */
 export const FIN_METRIC_GRID_COLS =
-  `${FIN_METRIC_COMPACT_LABEL_COL_WIDTH}px 1fr minmax(52px, max-content)`;
+  `${FIN_METRIC_COMPACT_LABEL_COL_WIDTH}px 1fr ${FIN_METRIC_SOURCE_COL_WIDTH}px`;
 
 /** @deprecated alias — use FIN_METRIC_GRID_COLS */
 export const FIN_METRIC_COMPACT_GRID_COLS = FIN_METRIC_GRID_COLS;
@@ -156,25 +159,24 @@ export const finMetricLabelStyle: React.CSSProperties = {
   justifySelf: "start",
 };
 
-/** Shared right inset so header "Source" lines up with row values like "Estimate". */
-export const FIN_METRIC_SOURCE_COL_PAD_RIGHT = 2;
-
-/** Source column in data rows — right-aligned within the padded content area. */
+/** Source column in data rows — centered under the period header. */
 export const finMetricSourceColStyle: React.CSSProperties = {
   ...kvLabelStyle,
-  textAlign: "right",
+  textAlign: "center",
   whiteSpace: "nowrap",
-  justifySelf: "end",
-  paddingRight: FIN_METRIC_SOURCE_COL_PAD_RIGHT,
+  justifySelf: "stretch",
+  width: "100%",
+  minWidth: 0,
 };
 
 /** Source column in the period header row — matches period header typography. */
 export const finMetricPeriodSourceColStyle: React.CSSProperties = {
   ...finMetricsPeriodHeaderStyle,
-  textAlign: "right",
+  textAlign: "center",
   whiteSpace: "nowrap",
-  justifySelf: "end",
-  paddingRight: FIN_METRIC_SOURCE_COL_PAD_RIGHT,
+  justifySelf: "stretch",
+  width: "100%",
+  minWidth: 0,
 };
 
 /** Numeric / currency values in Financial, Subscription, and Income Statement tabs. */

@@ -39,6 +39,7 @@ import {
   FIN_METRIC_COMPACT_BODY_FONT_SIZE,
   FIN_METRIC_COMPACT_PERIOD_FONT_SIZE,
   FIN_METRIC_COMPACT_LABEL_COL_WIDTH,
+  FIN_METRIC_SOURCE_COL_WIDTH,
 } from "@/components/redesign/primitives";
 import {
   FinMetricsIncomeCard,
@@ -1583,7 +1584,15 @@ const CompanyDetail = () => {
 
   useEffect(() => {
     setInsightsPage(1);
+    setCompanyArticles([]);
+    setInsightsTotal(0);
+    setInsightsTotalPages(0);
+    setInsightsShowingFrom(0);
+    setInsightsShowingTo(0);
   }, [company?.id]);
+
+  /** Only render I&A when the company has linked articles. */
+  const showInsights = insightsTotal > 0;
 
   const fetchCompanyCorporateEventsPage = useCallback(
     async (companyIdForEvents: string | number, page = 1) => {
@@ -2188,6 +2197,7 @@ const CompanyDetail = () => {
     setRowTwoCardHeight(0);
   }, [
     company?.id,
+    showInsights,
     articlesLoading,
     companyArticles.length,
     insightsPage,
@@ -2195,7 +2205,7 @@ const CompanyDetail = () => {
   ]);
 
   useEffect(() => {
-    if (rowTwoCardHeight !== 0) return;
+    if (!showInsights || rowTwoCardHeight !== 0) return;
 
     const insightsEl = insightsRowRef.current;
     const financeEl = financeSecondaryRowRef.current;
@@ -2215,6 +2225,7 @@ const CompanyDetail = () => {
     return () => ro.disconnect();
   }, [
     rowTwoCardHeight,
+    showInsights,
     company?.id,
     articlesLoading,
     companyArticles.length,
@@ -3348,7 +3359,7 @@ const CompanyDetail = () => {
   const productDataToggleDataRows = dataCollectionMethodRows;
 
   /** Dynamic grid rows — cards pack upward when optional sections are hidden */
-  const PRODUCT_ROW_START = 3;
+  const PRODUCT_ROW_START = showInsights ? 3 : 2;
   const showProductType = productTypeRows.length > 0;
   const showRevenueModel = revenueModelRows.length > 0;
   const showCoreProducts =
@@ -3580,7 +3591,7 @@ const CompanyDetail = () => {
     .mobile-financial-metrics .fin-metrics-card--primary .info-row:not(.income-statement-row):not(.fin-metric-period-header),
     .mobile-financial-metrics .fin-metrics-card--secondary .info-row:not(.income-statement-row):not(.fin-metric-period-header) {
       padding: 4px 0 !important;
-      grid-template-columns: ${FIN_METRIC_COMPACT_LABEL_COL_WIDTH}px 1fr minmax(52px, max-content) !important;
+      grid-template-columns: ${FIN_METRIC_COMPACT_LABEL_COL_WIDTH}px 1fr ${FIN_METRIC_SOURCE_COL_WIDTH}px !important;
       column-gap: 8px !important;
       align-items: center !important;
     }
@@ -3589,7 +3600,7 @@ const CompanyDetail = () => {
     .mobile-financial-metrics .fin-metrics-card--primary .fin-metric-period-header,
     .mobile-financial-metrics .fin-metrics-card--secondary .fin-metric-period-header {
       padding: 6px 14px 4px !important;
-      grid-template-columns: ${FIN_METRIC_COMPACT_LABEL_COL_WIDTH}px 1fr minmax(52px, max-content) !important;
+      grid-template-columns: ${FIN_METRIC_COMPACT_LABEL_COL_WIDTH}px 1fr ${FIN_METRIC_SOURCE_COL_WIDTH}px !important;
       column-gap: 8px !important;
       align-items: center !important;
     }
@@ -3624,9 +3635,10 @@ const CompanyDetail = () => {
       color: ${T.muted} !important;
       letter-spacing: 0.35px !important;
       text-transform: uppercase !important;
-      text-align: right !important;
-      justify-self: end !important;
-      padding-right: 2px !important;
+      text-align: center !important;
+      justify-self: stretch !important;
+      width: 100% !important;
+      min-width: 0 !important;
     }
     /* Shared fin-metrics row typography (Financial + Subscription cards) */
     .company-grid-finance-primary.desktop-financial-metrics .info-row:not(.fin-metric-period-header) .fin-metric-value,
@@ -3664,9 +3676,10 @@ const CompanyDetail = () => {
       line-height: 1.35 !important;
       font-weight: 400 !important;
       color: ${T.muted} !important;
-      text-align: right !important;
-      justify-self: end !important;
-      padding-right: 2px !important;
+      text-align: center !important;
+      justify-self: stretch !important;
+      width: 100% !important;
+      min-width: 0 !important;
     }
     /* Income Statement — table layout; year headers align with values (primary card only) */
     .company-grid-finance-primary.desktop-financial-metrics .income-statement-grid th,
@@ -4339,40 +4352,42 @@ const CompanyDetail = () => {
               />
             </div>
 
-            {/* ── Row 2: Insights (grid row 2, cols 1–2) ── */}
-            <div
-              ref={insightsRowRef}
-              className="insights-summary-card company-grid-insights"
-              style={{
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                ...(rowTwoCardHeight > 0 ? { height: rowTwoCardHeight } : {}),
-              }}
-            >
-              <InsightsCard
-                fillGridCell={rowTwoCardHeight > 0}
-                articles={companyArticles}
-                loading={articlesLoading}
-                totalCount={insightsTotal}
-                rangeStart={insightsShowingFrom}
-                rangeEnd={insightsShowingTo}
-                canPrev={canInsightPrev}
-                canNext={canInsightNext}
-                onPrev={() => {
-                  if (company?.id && insightsPage > 1) {
-                    fetchCompanyArticles(company.id, insightsPage - 1);
-                  }
+            {/* ── Row 2: Insights (grid row 2, cols 1–2) — hidden when no I&A ── */}
+            {showInsights && (
+              <div
+                ref={insightsRowRef}
+                className="insights-summary-card company-grid-insights"
+                style={{
+                  minHeight: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  ...(rowTwoCardHeight > 0 ? { height: rowTwoCardHeight } : {}),
                 }}
-                onNext={() => {
-                  if (company?.id && insightsPage < insightsTotalPages) {
-                    fetchCompanyArticles(company.id, insightsPage + 1);
-                  }
-                }}
-                companyId={company.id}
-                companyName={company.name}
-              />
-            </div>{/* end insights-summary-card */}
+              >
+                <InsightsCard
+                  fillGridCell={rowTwoCardHeight > 0}
+                  articles={companyArticles}
+                  loading={articlesLoading}
+                  totalCount={insightsTotal}
+                  rangeStart={insightsShowingFrom}
+                  rangeEnd={insightsShowingTo}
+                  canPrev={canInsightPrev}
+                  canNext={canInsightNext}
+                  onPrev={() => {
+                    if (company?.id && insightsPage > 1) {
+                      fetchCompanyArticles(company.id, insightsPage - 1);
+                    }
+                  }}
+                  onNext={() => {
+                    if (company?.id && insightsPage < insightsTotalPages) {
+                      fetchCompanyArticles(company.id, insightsPage + 1);
+                    }
+                  }}
+                  companyId={company.id}
+                  companyName={company.name}
+                />
+              </div>
+            )}
 
             {/* Rows 3–4: Product type + Revenue | Users + Data collection | AI Exposure Index (tall) */}
             {productTypeRows.length > 0 && (
@@ -4576,7 +4591,7 @@ const CompanyDetail = () => {
               />
             </div>
 
-            {/* ══ Col 3 row 2: Subscription / other metrics (aligned with Insights) ══ */}
+            {/* ══ Col 3 row 2: Subscription / other metrics (aligned with Insights when shown) ══ */}
             <div
               ref={financeSecondaryRowRef}
               className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
@@ -4586,11 +4601,13 @@ const CompanyDetail = () => {
                 display: "flex",
                 flexDirection: "column",
                 width: "100%",
-                ...(rowTwoCardHeight > 0 ? { height: rowTwoCardHeight } : {}),
+                ...(showInsights && rowTwoCardHeight > 0
+                  ? { height: rowTwoCardHeight }
+                  : {}),
               }}
             >
               <FinMetricsSecondaryCard
-                fillGridCell={rowTwoCardHeight > 0}
+                fillGridCell={showInsights && rowTwoCardHeight > 0}
                 subscription={finMetricsData.subscription}
                 other={finMetricsData.other}
               />
