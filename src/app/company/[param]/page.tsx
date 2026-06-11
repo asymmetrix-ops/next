@@ -467,6 +467,8 @@ interface Company {
   revenues: CompanyRevenue;
   EBITDA: CompanyEBITDA;
   ev_data: CompanyEV;
+  /** LinkedIn 1y headcount growth % (root or Company). */
+  linkedin_growth_1y_pct?: number | string | null;
   _companies_employees_count_monthly: EmployeeCount[];
   /** Root-level headcount history from Get_new_company (fallback when monthly array is empty) */
   employees_deduped?: EmployeeCount[];
@@ -840,18 +842,41 @@ function pickTotalAmountRaisedDisplay(company: Company): string | null {
   return null;
 }
 
-/** Latest headcount shown on HeadcountCard (last point, or last non-zero). */
+/** Parse employee series date (full ISO or YYYY-MM buckets). */
+function parseEmployeeSeriesDate(iso: string): number {
+  const trimmed = String(iso ?? "").trim();
+  if (!trimmed) return 0;
+  const parsed = new Date(trimmed).getTime();
+  if (!Number.isNaN(parsed)) return parsed;
+  const [year, month, day] = trimmed.split("-").map((p) => parseInt(p, 10));
+  if (Number.isFinite(year) && Number.isFinite(month)) {
+    return new Date(year, month - 1, day || 1).getTime();
+  }
+  return 0;
+}
+
+/** Employee headcount history — root `employees_deduped` from Get_new_company. */
+function resolveEmployeeTimeSeries(
+  company: Pick<Company, "employees_deduped">
+): EmployeeCount[] {
+  const series = company.employees_deduped;
+  if (!Array.isArray(series) || series.length === 0) return [];
+  return [...series].sort(
+    (a, b) => parseEmployeeSeriesDate(a.date) - parseEmployeeSeriesDate(b.date)
+  );
+}
+
+/** Latest headcount from deduped series (most recent date). */
 function resolveChartEmployeeCount(data: EmployeeCount[]): number {
   if (!Array.isArray(data) || data.length === 0) return 0;
-  const numericData = data.map((e) => e.employees_count);
-  const hasAnyNonZero = numericData.some((v) => v > 0);
-  const filtered = hasAnyNonZero
-    ? numericData.filter((v) => v > 0)
-    : numericData;
-  const lastNonZero =
-    filtered.length > 0 ? filtered[filtered.length - 1]! : 0;
-  const last = numericData[numericData.length - 1] ?? 0;
-  return last > 0 ? last : lastNonZero;
+  const sorted = [...data].sort(
+    (a, b) => parseEmployeeSeriesDate(a.date) - parseEmployeeSeriesDate(b.date)
+  );
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const count = sorted[i]?.employees_count;
+    if (typeof count === "number" && count > 0) return count;
+  }
+  return sorted[sorted.length - 1]?.employees_count ?? 0;
 }
 
 /** Approximate YoY from monthly employee counts when API does not send YoY */
@@ -1967,6 +1992,14 @@ const CompanyDetail = () => {
                 employees_deduped?: EmployeeCount[];
               }
             )?.employees_deduped,
+          linkedin_growth_1y_pct:
+            (data as unknown as { linkedin_growth_1y_pct?: number | string })
+              .linkedin_growth_1y_pct ??
+            (
+              data.Company as unknown as {
+                linkedin_growth_1y_pct?: number | string;
+              }
+            )?.linkedin_growth_1y_pct,
           product_and_users: firstNonEmptyStructuredField(
             (data as unknown as { product_and_users?: ProductAndUsersEntry[] })
               .product_and_users,
@@ -2713,11 +2746,7 @@ const CompanyDetail = () => {
         typeof row.ebitda === "number"
     );
 
-  // Process employee data (monthly in Company, or root-level employees_deduped)
-  const fromMonthly = company._companies_employees_count_monthly || [];
-  const fromDeduped = company.employees_deduped || [];
-  const employeeData =
-    fromMonthly.length > 0 ? fromMonthly : fromDeduped;
+  const employeeData = resolveEmployeeTimeSeries(company);
   const currentEmployeeCount = resolveChartEmployeeCount(employeeData);
 
   const finMetricsData = buildFinancialMetricsSections({
@@ -2776,8 +2805,6 @@ const CompanyDetail = () => {
     ) {
       return fmEmployeeHeadcount;
     }
-    const li = company.linkedin_data?.LinkedIn_Employee;
-    if (typeof li === "number" && li > 0) return li;
     return null;
   })();
 
@@ -2785,6 +2812,11 @@ const CompanyDetail = () => {
     const direct = company.employees_yoy_pct;
     if (typeof direct === "number" && Number.isFinite(direct)) {
       const rounded = Math.round(direct * 10) / 10;
+      return `${rounded >= 0 ? "+" : ""}${rounded}% YoY`;
+    }
+    const liGrowth = parseLinkedInGrowthPctValue(company.linkedin_growth_1y_pct);
+    if (liGrowth !== null) {
+      const rounded = Math.round(liGrowth * 10) / 10;
       return `${rounded >= 0 ? "+" : ""}${rounded}% YoY`;
     }
     return computeEmployeeYoYFromMonthly(employeeData);
@@ -3360,6 +3392,11 @@ const CompanyDetail = () => {
 
   /** Dynamic grid rows — cards pack upward when optional sections are hidden */
   const PRODUCT_ROW_START = showInsights ? 3 : 2;
+  /** Col 3 row 2 is always subscription/other metrics; headcount stacks below. */
+  const FINANCE_SECONDARY_ROW = 2;
+  const rightRailHeadcountRow = showInsights
+    ? PRODUCT_ROW_START
+    : FINANCE_SECONDARY_ROW + 1;
   const showProductType = productTypeRows.length > 0;
   const showRevenueModel = revenueModelRows.length > 0;
   const showCoreProducts =
@@ -3398,8 +3435,8 @@ const CompanyDetail = () => {
     dataCollectionGridRow = showDataCollection
       ? PRODUCT_ROW_START + (showCoreProducts ? 1 : 0)
       : 0;
-    headcountGridRow = wideSectionStartRow;
-    managementGridRow = hasManagement ? wideSectionStartRow + 1 : 0;
+    headcountGridRow = Math.max(wideSectionStartRow, rightRailHeadcountRow);
+    managementGridRow = hasManagement ? headcountGridRow + 1 : 0;
     corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
     subsidiariesGridRow = hasSubsidiaries
       ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
@@ -3418,17 +3455,17 @@ const CompanyDetail = () => {
     dataCollectionGridRow = showDataCollection
       ? PRODUCT_ROW_START + (showCoreProducts ? 1 : 0)
       : 0;
-    headcountGridRow = PRODUCT_ROW_START;
+    headcountGridRow = rightRailHeadcountRow;
     revenueModelGridCol = 3;
-    revenueModelGridRow = showRevenueModel ? PRODUCT_ROW_START + 1 : 0;
+    revenueModelGridRow = showRevenueModel ? rightRailHeadcountRow + 1 : 0;
     corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
     subsidiariesGridRow = hasSubsidiaries
       ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
       : 0;
     managementGridRow = hasManagement
       ? showRevenueModel
-        ? PRODUCT_ROW_START + 2
-        : PRODUCT_ROW_START + 1
+        ? rightRailHeadcountRow + 2
+        : rightRailHeadcountRow + 1
       : 0;
   }
 
@@ -3470,7 +3507,7 @@ const CompanyDetail = () => {
     }
     .company-grid-finance-secondary {
       grid-column: 3;
-      grid-row: 2;
+      grid-row: ${FINANCE_SECONDARY_ROW};
       min-width: 0;
       min-height: 0;
       display: flex;
@@ -4496,6 +4533,7 @@ const CompanyDetail = () => {
               </div>
             )}
 
+            {employeeData.length > 0 && (
             <div className="company-grid-headcount">
               <HeadcountCard
                 fillGridCell
@@ -4504,14 +4542,10 @@ const CompanyDetail = () => {
                 count={currentEmployeeCount}
                 yoyLabel={overviewEmployeesYoY || undefined}
                 asOf={(() => {
-                  const nonZero = employeeData.filter((e) => e.employees_count > 0);
-                  const ref =
-                    nonZero.length > 0
-                      ? nonZero[nonZero.length - 1]
-                      : employeeData[employeeData.length - 1];
-                  if (!ref?.date) return undefined;
+                  const latest = employeeData[employeeData.length - 1];
+                  if (!latest?.date) return undefined;
                   try {
-                    return new Date(ref.date).toLocaleDateString("en-US", {
+                    return new Date(latest.date).toLocaleDateString("en-US", {
                       month: "short",
                       year: "numeric",
                     });
@@ -4522,6 +4556,7 @@ const CompanyDetail = () => {
                 linkedinUrl={linkedinUrl}
               />
             </div>
+            )}
 
             {hasSubsidiaries && (
               <div className="company-grid-subsidiaries">
