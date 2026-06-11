@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import CompactPagination from "@/components/ui/CompactPagination";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
 // import { useRightClick } from "@/hooks/useRightClick";
@@ -1714,164 +1715,6 @@ const AdvisorsPage = () => {
   );
 
   // Generate pagination buttons
-  const generatePaginationButtons = () => {
-    const buttons = [];
-    const currentPage = pagination.curPage;
-    const totalPages = pagination.pageTotal;
-
-    // Previous button
-    buttons.push(
-      React.createElement(
-        "button",
-        {
-          key: "prev",
-          className: "pagination-button",
-          onClick: () => handlePageChange(currentPage - 1),
-          disabled: !pagination.prevPage,
-        },
-        "<"
-      )
-    );
-
-    // Page numbers
-    if (totalPages <= 7) {
-      // Show all pages if total is 7 or less
-      for (let i = 1; i <= totalPages; i++) {
-        buttons.push(
-          React.createElement(
-            "button",
-            {
-              key: i,
-              className: `pagination-button ${
-                i === currentPage ? "active" : ""
-              }`,
-              onClick: () => handlePageChange(i),
-            },
-            i.toString()
-          )
-        );
-      }
-    } else {
-      // Show first page
-      buttons.push(
-        React.createElement(
-          "button",
-          {
-            key: 1,
-            className: `pagination-button ${currentPage === 1 ? "active" : ""}`,
-            onClick: () => handlePageChange(1),
-          },
-          "1"
-        )
-      );
-
-      // Show second page if not first
-      if (currentPage > 2) {
-        buttons.push(
-          React.createElement(
-            "button",
-            {
-              key: 2,
-              className: "pagination-button",
-              onClick: () => handlePageChange(2),
-            },
-            "2"
-          )
-        );
-      }
-
-      // Show ellipsis if needed
-      if (currentPage > 3) {
-        buttons.push(
-          React.createElement(
-            "span",
-            { key: "ellipsis1", className: "pagination-ellipsis" },
-            "..."
-          )
-        );
-      }
-
-      // Show current page and neighbors
-      for (
-        let i = Math.max(3, currentPage - 1);
-        i <= Math.min(totalPages - 2, currentPage + 1);
-        i++
-      ) {
-        if (i > 2 && i < totalPages - 1) {
-          buttons.push(
-            React.createElement(
-              "button",
-              {
-                key: i,
-                className: `pagination-button ${
-                  i === currentPage ? "active" : ""
-                }`,
-                onClick: () => handlePageChange(i),
-              },
-              i.toString()
-            )
-          );
-        }
-      }
-
-      // Show ellipsis if needed
-      if (currentPage < totalPages - 2) {
-        buttons.push(
-          React.createElement(
-            "span",
-            { key: "ellipsis2", className: "pagination-ellipsis" },
-            "..."
-          )
-        );
-      }
-
-      // Show second to last page if not last
-      if (currentPage < totalPages - 1) {
-        buttons.push(
-          React.createElement(
-            "button",
-            {
-              key: totalPages - 1,
-              className: "pagination-button",
-              onClick: () => handlePageChange(totalPages - 1),
-            },
-            (totalPages - 1).toString()
-          )
-        );
-      }
-
-      // Show last page
-      buttons.push(
-        React.createElement(
-          "button",
-          {
-            key: totalPages,
-            className: `pagination-button ${
-              currentPage === totalPages ? "active" : ""
-            }`,
-            onClick: () => handlePageChange(totalPages),
-          },
-          totalPages.toString()
-        )
-      );
-    }
-
-    // Next button
-    buttons.push(
-      React.createElement(
-        "button",
-        {
-          key: "next",
-          className: "pagination-button",
-          onClick: () => handlePageChange(currentPage + 1),
-          disabled: !pagination.nextPage,
-        },
-        ">"
-      )
-    );
-
-    return buttons;
-  };
 
   return (
     <div className="min-h-screen">
@@ -2689,7 +2532,14 @@ const AdvisorsPage = () => {
         {/* Skeleton on initial load */}
         {loading && advisors.length === 0 && <TableSkeleton />}
 
-        <div className="pagination">{generatePaginationButtons()}</div>
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+          <CompactPagination
+            curPage={pagination.curPage}
+            pageTotal={pagination.pageTotal}
+            onPageChange={handlePageChange}
+            disabled={loading}
+          />
+        </div>
       </div>
 
       <Footer />

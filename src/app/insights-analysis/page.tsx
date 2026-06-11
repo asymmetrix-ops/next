@@ -4,6 +4,7 @@ import React, { Suspense, useState, useEffect, useMemo, useCallback } from "reac
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import CompactPagination from "@/components/ui/CompactPagination";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
   ContentArticle,
@@ -140,160 +141,6 @@ const styles = {
 };
 
 // Generate pagination buttons (similar to advisors page)
-const generatePaginationButtons = (
-  pagination: {
-    curPage: number;
-    pageTotal: number;
-    prevPage: number | null;
-    nextPage: number | null;
-  },
-  handlePageChange: (page: number) => void
-) => {
-  const buttons = [];
-  const currentPage = pagination.curPage;
-  const totalPages = pagination.pageTotal;
-
-  // Previous button
-  buttons.push(
-    <button
-      key="prev"
-      className="pagination-button"
-      onClick={() =>
-        handlePageChange(
-          typeof pagination.prevPage === "number"
-            ? pagination.prevPage
-            : currentPage - 1
-        )
-      }
-      disabled={!pagination.prevPage}
-    >
-      &lt;
-    </button>
-  );
-
-  // Page numbers
-  if (totalPages <= 7) {
-    // Show all pages if total is 7 or less
-    for (let i = 1; i <= totalPages; i++) {
-      buttons.push(
-        <button
-          key={i}
-          className={`pagination-button ${i === currentPage ? "active" : ""}`}
-          onClick={() => handlePageChange(i)}
-        >
-          {i.toString()}
-        </button>
-      );
-    }
-  } else {
-    // Show first page
-    buttons.push(
-      <button
-        key={1}
-        className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
-        onClick={() => handlePageChange(1)}
-      >
-        1
-      </button>
-    );
-
-    // Show second page if not first
-    if (currentPage > 2) {
-      buttons.push(
-        <button
-          key={2}
-          className="pagination-button"
-          onClick={() => handlePageChange(2)}
-        >
-          2
-        </button>
-      );
-    }
-
-    // Show ellipsis if needed
-    if (currentPage > 3) {
-      buttons.push(
-        <span key="ellipsis1" className="pagination-ellipsis">
-          ...
-        </span>
-      );
-    }
-
-    // Show current page and neighbors
-    for (
-      let i = Math.max(3, currentPage - 1);
-      i <= Math.min(totalPages - 2, currentPage + 1);
-      i++
-    ) {
-      if (i > 2 && i < totalPages - 1) {
-        buttons.push(
-          <button
-            key={i}
-            className={`pagination-button ${i === currentPage ? "active" : ""}`}
-            onClick={() => handlePageChange(i)}
-          >
-            {i.toString()}
-          </button>
-        );
-      }
-    }
-
-    // Show ellipsis if needed
-    if (currentPage < totalPages - 2) {
-      buttons.push(
-        <span key="ellipsis2" className="pagination-ellipsis">
-          ...
-        </span>
-      );
-    }
-
-    // Show second to last page if not last
-    if (currentPage < totalPages - 1) {
-      buttons.push(
-        <button
-          key={totalPages - 1}
-          className="pagination-button"
-          onClick={() => handlePageChange(totalPages - 1)}
-        >
-          {(totalPages - 1).toString()}
-        </button>
-      );
-    }
-
-    // Show last page
-    buttons.push(
-      <button
-        key={totalPages}
-        className={`pagination-button ${
-          currentPage === totalPages ? "active" : ""
-        }`}
-        onClick={() => handlePageChange(totalPages)}
-      >
-        {totalPages.toString()}
-      </button>
-    );
-  }
-
-  // Next button
-  buttons.push(
-    <button
-      key="next"
-      className="pagination-button"
-      onClick={() =>
-        handlePageChange(
-          typeof pagination.nextPage === "number"
-            ? pagination.nextPage
-            : currentPage + 1
-        )
-      }
-      disabled={!pagination.nextPage}
-    >
-      &gt;
-    </button>
-  );
-
-  return buttons;
-};
 
 // Insights Analysis Cards Component (uses shared card)
 const InsightsAnalysisCards = ({
@@ -1053,9 +900,14 @@ const InsightsAnalysisPageContent = () => {
         )}
 
         {/* Pagination */}
-        {!isTrialActive && pagination.pageTotal > 1 && (
-          <div className="pagination">
-            {generatePaginationButtons(pagination, handlePageChange)}
+        {!isTrialActive && (
+          <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+            <CompactPagination
+              curPage={pagination.curPage}
+              pageTotal={pagination.pageTotal}
+              onPageChange={handlePageChange}
+              disabled={loading}
+            />
           </div>
         )}
       </div>

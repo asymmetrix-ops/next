@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 // import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import CompactPagination from "@/components/ui/CompactPagination";
 import { locationsService } from "@/lib/locationsService";
 import { BuildingOfficeIcon } from "@heroicons/react/24/outline";
 import SearchableSelect from "@/components/ui/SearchableSelect";
@@ -3881,117 +3882,6 @@ const SectorDetailPage = ({
       }
     };
 
-    // Generate pagination buttons
-    const generatePaginationButtons = () => {
-      const buttons = [];
-      const currentPage = pagination.curPage;
-      const totalPages = pagination.pageTotal;
-
-      // Previous button
-      buttons.push(
-        <button
-          key="prev"
-          className="pagination-button"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={!pagination.prevPage}
-        >
-          &lt;
-        </button>
-      );
-
-      // Page numbers
-      if (totalPages <= 7) {
-        for (let i = 1; i <= totalPages; i++) {
-          buttons.push(
-            <button
-              key={i}
-              className={`pagination-button ${
-                i === currentPage ? "active" : ""
-              }`}
-              onClick={() => handlePageChange(i)}
-            >
-              {i.toString()}
-            </button>
-          );
-        }
-      } else {
-        // Show first page
-        buttons.push(
-          <button
-            key={1}
-            className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
-            onClick={() => handlePageChange(1)}
-          >
-            1
-          </button>
-        );
-
-        if (currentPage > 3) {
-          buttons.push(
-            <span key="ellipsis1" className="pagination-ellipsis">
-              ...
-            </span>
-          );
-        }
-
-        // Show current page and neighbors
-        for (
-          let i = Math.max(2, currentPage - 1);
-          i <= Math.min(totalPages - 1, currentPage + 1);
-          i++
-        ) {
-          if (i > 1 && i < totalPages) {
-            buttons.push(
-              <button
-                key={i}
-                className={`pagination-button ${
-                  i === currentPage ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(i)}
-              >
-                {i.toString()}
-              </button>
-            );
-          }
-        }
-
-        if (currentPage < totalPages - 2) {
-          buttons.push(
-            <span key="ellipsis2" className="pagination-ellipsis">
-              ...
-            </span>
-          );
-        }
-
-        // Show last page
-        buttons.push(
-          <button
-            key={totalPages}
-            className={`pagination-button ${
-              currentPage === totalPages ? "active" : ""
-            }`}
-            onClick={() => handlePageChange(totalPages)}
-          >
-            {totalPages.toString()}
-          </button>
-        );
-      }
-
-      // Next button
-      buttons.push(
-        <button
-          key="next"
-          className="pagination-button"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={!pagination.nextPage}
-        >
-          &gt;
-        </button>
-      );
-
-      return buttons;
-    };
-
     return (
       <div className="space-y-6">
         {/* Filters Section */}
@@ -5117,11 +5007,14 @@ const SectorDetailPage = ({
         )}
 
         {/* Pagination */}
-        {pagination.pageTotal > 1 && (
-          <div className="flex gap-2 justify-center items-center mt-6">
-            {generatePaginationButtons()}
-          </div>
-        )}
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+          <CompactPagination
+            curPage={pagination.curPage}
+            pageTotal={pagination.pageTotal}
+            onPageChange={handlePageChange}
+            disabled={loading}
+          />
+        </div>
 
         {/* CSS for pagination */}
         <style jsx>{`
@@ -5357,110 +5250,6 @@ const SectorDetailPage = ({
       return "badge";
     };
 
-    const generatePaginationButtons = () => {
-      const buttons = [];
-      const currentPage = pagination.curPage;
-      const totalPages = pagination.pageTotal;
-
-      buttons.push(
-        <button
-          key="prev"
-          className="pagination-button"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={!pagination.prevPage}
-        >
-          &lt;
-        </button>
-      );
-
-      if (totalPages <= 7) {
-        for (let i = 1; i <= totalPages; i++) {
-          buttons.push(
-            <button
-              key={i}
-              className={`pagination-button ${
-                i === currentPage ? "active" : ""
-              }`}
-              onClick={() => handlePageChange(i)}
-            >
-              {i.toString()}
-            </button>
-          );
-        }
-      } else {
-        buttons.push(
-          <button
-            key={1}
-            className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
-            onClick={() => handlePageChange(1)}
-          >
-            1
-          </button>
-        );
-
-        if (currentPage > 3) {
-          buttons.push(
-            <span key="ellipsis1" className="pagination-ellipsis">
-              ...
-            </span>
-          );
-        }
-
-        for (
-          let i = Math.max(2, currentPage - 1);
-          i <= Math.min(totalPages - 1, currentPage + 1);
-          i++
-        ) {
-          if (i > 1 && i < totalPages) {
-            buttons.push(
-              <button
-                key={i}
-                className={`pagination-button ${
-                  i === currentPage ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(i)}
-              >
-                {i.toString()}
-              </button>
-            );
-          }
-        }
-
-        if (currentPage < totalPages - 2) {
-          buttons.push(
-            <span key="ellipsis2" className="pagination-ellipsis">
-              ...
-            </span>
-          );
-        }
-
-        buttons.push(
-          <button
-            key={totalPages}
-            className={`pagination-button ${
-              currentPage === totalPages ? "active" : ""
-            }`}
-            onClick={() => handlePageChange(totalPages)}
-          >
-            {totalPages.toString()}
-          </button>
-        );
-      }
-
-      buttons.push(
-        <button
-          key="next"
-          className="pagination-button"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={!pagination.nextPage}
-        >
-          &gt;
-        </button>
-      );
-
-      return buttons;
-    };
-
     return (
       <div className="space-y-6">
         {/* Filters Section */}
@@ -5591,11 +5380,14 @@ const SectorDetailPage = ({
         )}
 
         {/* Pagination */}
-        {pagination.pageTotal > 1 && (
-          <div className="flex gap-2 justify-center items-center mt-6">
-            {generatePaginationButtons()}
-          </div>
-        )}
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+          <CompactPagination
+            curPage={pagination.curPage}
+            pageTotal={pagination.pageTotal}
+            onPageChange={handlePageChange}
+            disabled={loading}
+          />
+        </div>
 
         {/* CSS Styles */}
         <style jsx>{`

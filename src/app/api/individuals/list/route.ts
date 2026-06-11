@@ -29,12 +29,12 @@ function getBearerFromCookie(): string | null {
 }
 
 function isInitialParams(sp: URLSearchParams): { offset: number; perPage: number; ok: boolean } {
-  const offset = Number(sp.get('Offset') ?? '0');
+  const offset = Number(sp.get('Offset') ?? '1');
   const perPage = Number(sp.get('Per_page') ?? '50');
-  // Cache only when only {Offset, Per_page} are present and Offset=0.
+  // Cache only when only {Offset, Per_page} are present and Offset=1 (first page).
   const keys = Array.from(sp.keys());
   const allowed = new Set(['Offset', 'Per_page']);
-  const ok = offset === 0 && keys.every((k) => allowed.has(k));
+  const ok = offset === 1 && keys.every((k) => allowed.has(k));
   return { offset, perPage, ok };
 }
 

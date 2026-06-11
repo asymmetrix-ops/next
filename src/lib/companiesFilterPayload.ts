@@ -540,6 +540,7 @@ export function companySearchPayloadToSearchParams(
   const perPageRaw = options?.perPage ?? payload.Per_page ?? 20;
   const perPage = perPageRaw > 0 ? perPageRaw : 20;
 
+  // Backend Offset is the 1-based page number (1, 2, 3…), not an item index.
   params.append("Offset", String(page));
   params.append("Per_page", String(perPage));
   appendSharedCompanyFilterParams(params, payload);
