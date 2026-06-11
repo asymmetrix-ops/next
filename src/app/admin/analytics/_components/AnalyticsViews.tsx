@@ -2783,6 +2783,544 @@ function eaPeriodToDays(p: EAPeriod) {
   return p === "24h" ? 1 : parseInt(p);
 }
 
+// ─── Daily send log (Xano) ────────────────────────────────────────────────────
+
+const EMAIL_DAILY_LOG_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/email_daily_log";
+const GET_UNSENT_EMAILS_URL = "/api/admin/unsent-emails";
+
+type EmailDailyScheduledByType = {
+  item_type: string;
+  email_frequency: string;
+  scheduled_count: number;
+};
+
+type EmailDailyUnsent = {
+  item_type: string;
+  email_frequency: string;
+  scheduled_count: number;
+  unsent_ids: number[];
+};
+
+type EmailDailyLog = {
+  id: number;
+  created_at: number;
+  date: string;
+  day_of_week: string;
+  scheduled_daily: number;
+  scheduled_weekly: number;
+  ce_as_added_sent: number;
+  ia_as_added_sent: number;
+  ce_digest_sent: number;
+  ia_digest_sent: number;
+  digest_sent: number;
+  total_scheduled: number;
+  total_sent: number;
+  send_rate_pct: number;
+  scheduled_by_type: EmailDailyScheduledByType[];
+  unsent: EmailDailyUnsent[];
+};
+
+type UnsentEmailUser = {
+  id: number;
+  name: string;
+  email: string;
+  Company?: number;
+  Email_alerts?: string;
+};
+
+type UnsentEmailDetail = {
+  id: number;
+  user_id: number;
+  item_type: string;
+  email_frequency: string;
+  day_of_week: string;
+  timezone: string;
+  send_time_local: string;
+  next_run_at_utc: number | null;
+  last_sent_at_utc: number | null;
+  status: string;
+  is_active: boolean;
+  _user?: UnsentEmailUser;
+};
+
+function formatEmailItemType(type: string): string {
+  const labels: Record<string, string> = {
+    corporate_events: "Corporate Events",
+    digest: "Digest",
+    insights_analysis: "Insights & Analysis",
+  };
+  return labels[type] ?? type.replace(/_/g, " ");
+}
+
+function emailDailyUnsentCount(
+  row: EmailDailyScheduledByType,
+  unsent: EmailDailyUnsent[]
+): number {
+  const match = unsent.find(
+    (u) =>
+      u.item_type === row.item_type &&
+      u.email_frequency === row.email_frequency
+  );
+  return match?.scheduled_count ?? 0;
+}
+
+function emailDailyUnsentTotal(unsent: EmailDailyUnsent[]): number {
+  return unsent.reduce((sum, item) => sum + item.scheduled_count, 0);
+}
+
+function formatUnsentScheduledTime(
+  alert: UnsentEmailDetail,
+  logDate: string
+): string {
+  const tz = alert.timezone?.trim() || "UTC";
+  const time = alert.send_time_local?.trim() || "";
+
+  if (alert.email_frequency === "weekly" && alert.day_of_week) {
+    const day =
+      alert.day_of_week.charAt(0).toUpperCase() +
+      alert.day_of_week.slice(1).toLowerCase();
+    return time
+      ? `${day}s at ${time} (${tz})`
+      : `${day}s (${tz})`;
+  }
+
+  if (logDate && time) {
+    try {
+      const dateLabel = new Intl.DateTimeFormat("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(new Date(`${logDate}T12:00:00`));
+      return `${dateLabel} at ${time} (${tz})`;
+    } catch {
+      return `${logDate} at ${time} (${tz})`;
+    }
+  }
+
+  if (alert.next_run_at_utc) {
+    try {
+      return (
+        new Intl.DateTimeFormat("en-GB", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: tz,
+        }).format(new Date(alert.next_run_at_utc)) + ` (${tz})`
+      );
+    } catch {
+      return formatTimestamp(alert.next_run_at_utc);
+    }
+  }
+
+  return "—";
+}
+
+async function fetchUnsentEmailDetails(
+  ids: number[],
+  token: string
+): Promise<UnsentEmailDetail[]> {
+  if (ids.length === 0) return [];
+
+  const res = await fetch(GET_UNSENT_EMAILS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ user_email_alerts_id: ids }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${text}`);
+  }
+
+  const json = (await res.json()) as UnsentEmailDetail[];
+  return Array.isArray(json) ? json : [];
+}
+
+function EmailDailySendLogSection() {
+  const [selectedDate, setSelectedDate] = useState(
+    () => new Date().toISOString().split("T")[0]
+  );
+  const [log, setLog] = useState<EmailDailyLog | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [unsentDetails, setUnsentDetails] = useState<UnsentEmailDetail[]>([]);
+  const [loadingUnsent, setLoadingUnsent] = useState(false);
+  const [unsentError, setUnsentError] = useState<string | null>(null);
+
+  const fetchDailyLog = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("asymmetrix_auth_token")
+          : "";
+      const url = `${EMAIL_DAILY_LOG_URL}?date=${encodeURIComponent(selectedDate)}`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`${res.status} ${text}`);
+      }
+      const json = (await res.json()) as EmailDailyLog | EmailDailyLog[];
+      const row = Array.isArray(json) ? json[0] ?? null : json;
+      setLog(row);
+    } catch (e) {
+      setLog(null);
+      setError(e instanceof Error ? e.message : "Failed to load daily send log");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    fetchDailyLog();
+  }, [fetchDailyLog]);
+
+  const allUnsentIds = useMemo(() => {
+    if (!log) return [];
+    return Array.from(
+      new Set(log.unsent.flatMap((u) => u.unsent_ids))
+    );
+  }, [log]);
+
+  useEffect(() => {
+    if (allUnsentIds.length === 0) {
+      setUnsentDetails([]);
+      setUnsentError(null);
+      return;
+    }
+
+    let aborted = false;
+    async function loadUnsentDetails() {
+      setLoadingUnsent(true);
+      setUnsentError(null);
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : "";
+        const details = await fetchUnsentEmailDetails(allUnsentIds, token ?? "");
+        if (!aborted) setUnsentDetails(details);
+      } catch (e) {
+        if (!aborted) {
+          setUnsentDetails([]);
+          setUnsentError(
+            e instanceof Error ? e.message : "Failed to load unsent email details"
+          );
+        }
+      } finally {
+        if (!aborted) setLoadingUnsent(false);
+      }
+    }
+
+    loadUnsentDetails();
+    return () => {
+      aborted = true;
+    };
+  }, [allUnsentIds]);
+
+  const unsentTotal = log ? emailDailyUnsentTotal(log.unsent) : 0;
+
+  return (
+    <div className="bg-white rounded border">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200">
+        <div>
+          <h2 className="text-sm font-medium">Daily send rate</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Scheduled vs sent emails for the selected day
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="text-sm border rounded px-2 py-1.5"
+          />
+          <button
+            onClick={fetchDailyLog}
+            disabled={loading}
+            className="text-sm border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {loading ? "Loading…" : "↻ Refresh"}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mx-4 mt-4 bg-red-50 text-red-700 rounded border border-red-200 px-3 py-2 text-sm">
+          Failed to load: {error}
+        </div>
+      )}
+
+      {loading && !log && !error && (
+        <div className="text-center py-8 text-sm text-gray-500">Loading…</div>
+      )}
+
+      {!loading && !log && !error && (
+        <div className="text-center py-8 text-sm text-gray-500">
+          No send log data for {selectedDate}.
+        </div>
+      )}
+
+      {log && (
+        <div className="p-4 space-y-4">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+            <span className="capitalize">{log.day_of_week}</span>
+            <span>·</span>
+            <span>{log.date}</span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded border px-4 py-3">
+              <div className="text-xs text-gray-500 mb-1">Scheduled</div>
+              <div className="text-2xl font-medium text-gray-900">
+                {log.total_scheduled.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                {log.scheduled_daily} daily · {log.scheduled_weekly} weekly
+              </div>
+            </div>
+            <div className="rounded border px-4 py-3">
+              <div className="text-xs text-gray-500 mb-1">Sent</div>
+              <div className="text-2xl font-medium text-green-700">
+                {log.total_sent.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                {unsentTotal} not sent
+              </div>
+            </div>
+            <div className="rounded border px-4 py-3">
+              <div className="text-xs text-gray-500 mb-1">Send rate</div>
+              <div
+                className={`text-2xl font-medium ${
+                  log.send_rate_pct >= 100
+                    ? "text-green-700"
+                    : log.send_rate_pct >= 90
+                    ? "text-amber-700"
+                    : "text-red-700"
+                }`}
+              >
+                {log.send_rate_pct}%
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                {log.total_sent} of {log.total_scheduled}
+              </div>
+            </div>
+            <div
+              className={`rounded border px-4 py-3 ${
+                unsentTotal > 0 ? "border-red-200 bg-red-50" : ""
+              }`}
+            >
+              <div
+                className={`text-xs mb-1 ${
+                  unsentTotal > 0 ? "text-red-600" : "text-gray-500"
+                }`}
+              >
+                Not sent
+              </div>
+              <div
+                className={`text-2xl font-medium ${
+                  unsentTotal > 0 ? "text-red-700" : "text-gray-900"
+                }`}
+              >
+                {unsentTotal.toLocaleString()}
+              </div>
+              <div
+                className={`text-xs mt-1 ${
+                  unsentTotal > 0 ? "text-red-500" : "text-gray-400"
+                }`}
+              >
+                from unsent log
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  {["Type", "Frequency", "Scheduled", "Sent", "Not sent"].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="text-left font-normal text-xs text-gray-500 px-3 py-2"
+                      >
+                        {h}
+                      </th>
+                    )
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {log.scheduled_by_type.map((row) => {
+                  const notSent = emailDailyUnsentCount(row, log.unsent);
+                  const sent = row.scheduled_count - notSent;
+                  const hasUnsent = notSent > 0;
+                  return (
+                    <tr
+                      key={`${row.item_type}-${row.email_frequency}`}
+                      className={`border-b border-gray-100 last:border-0 ${
+                        hasUnsent ? "bg-red-50" : ""
+                      }`}
+                    >
+                      <td
+                        className={`px-3 py-2 ${
+                          hasUnsent ? "text-red-800 font-medium" : ""
+                        }`}
+                      >
+                        {formatEmailItemType(row.item_type)}
+                      </td>
+                      <td
+                        className={`px-3 py-2 capitalize ${
+                          hasUnsent ? "text-red-700" : "text-gray-600"
+                        }`}
+                      >
+                        {row.email_frequency}
+                      </td>
+                      <td className="px-3 py-2">{row.scheduled_count}</td>
+                      <td
+                        className={`px-3 py-2 ${
+                          hasUnsent ? "text-gray-700" : "text-green-700"
+                        }`}
+                      >
+                        {sent}
+                      </td>
+                      <td
+                        className={`px-3 py-2 font-medium ${
+                          hasUnsent ? "text-red-700" : "text-gray-400"
+                        }`}
+                      >
+                        {notSent}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {log.unsent.length > 0 && (
+            <div className="rounded border border-red-200 bg-red-50 px-4 py-3 space-y-3">
+              <h3 className="text-sm font-medium text-red-800">
+                Unsent emails
+              </h3>
+
+              {unsentError && (
+                <div className="text-sm text-red-700 bg-red-100 border border-red-200 rounded px-3 py-2">
+                  Failed to load details: {unsentError}
+                </div>
+              )}
+
+              {loadingUnsent ? (
+                <div className="text-sm text-red-600">Loading unsent details…</div>
+              ) : unsentDetails.length > 0 ? (
+                <div className="overflow-x-auto rounded border border-red-200 bg-white">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-red-100 bg-red-50">
+                        {[
+                          "User",
+                          "Email",
+                          "Alert type",
+                          "Scheduled send",
+                          "Status",
+                          "Last sent",
+                        ].map((h) => (
+                          <th
+                            key={h}
+                            className="text-left font-normal text-xs text-red-700 px-3 py-2"
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {unsentDetails.map((alert) => (
+                        <tr
+                          key={alert.id}
+                          className="border-b border-red-50 last:border-0"
+                        >
+                          <td className="px-3 py-2.5 font-medium text-red-900">
+                            {alert._user?.name || "—"}
+                          </td>
+                          <td className="px-3 py-2.5 text-red-800">
+                            {alert._user?.email || "—"}
+                          </td>
+                          <td className="px-3 py-2.5 text-red-800">
+                            {formatEmailItemType(alert.item_type)}
+                            <span className="text-red-600 capitalize">
+                              {" "}
+                              ({alert.email_frequency})
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-red-800 whitespace-nowrap">
+                            {formatUnsentScheduledTime(alert, log.date)}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 capitalize">
+                              {alert.status || "unsent"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-red-700 whitespace-nowrap">
+                            {alert.last_sent_at_utc
+                              ? formatTimestamp(alert.last_sent_at_utc)
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {log.unsent.map((u) => (
+                    <li
+                      key={`${u.item_type}-${u.email_frequency}`}
+                      className="text-sm text-red-700"
+                    >
+                      <span className="font-medium">
+                        {formatEmailItemType(u.item_type)}
+                      </span>
+                      <span className="text-red-600 capitalize">
+                        {" "}
+                        ({u.email_frequency})
+                      </span>
+                      {" — "}
+                      {u.scheduled_count} not sent
+                      {u.unsent_ids.length > 0 && (
+                        <span className="text-red-600">
+                          {" "}
+                          · IDs: {u.unsent_ids.join(", ")}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EmailAnalyticsTab() {
   const [data, setData] = useState<EAData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -2882,6 +3420,8 @@ export function EmailAnalyticsTab() {
 
   return (
     <div className="space-y-4">
+      <EmailDailySendLogSection />
+
       {/* Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
