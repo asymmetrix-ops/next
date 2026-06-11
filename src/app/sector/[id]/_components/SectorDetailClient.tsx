@@ -23,6 +23,19 @@ import {
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "@/types/insightsAnalysis";
+import type { CompaniesFilters } from "@/app/companies/actions";
+import {
+  CompaniesSearchDashboard,
+  EMPTY_OWNERSHIP_COUNTS,
+  type CompaniesOwnershipCounts,
+} from "@/components/companies/CompaniesSearchDashboard";
+import {
+  fetchAllCompaniesClientPages,
+  fetchCompaniesClient,
+  fetchCompaniesCountsClient,
+} from "@/lib/companiesClientApi";
+import { ownershipFilterParamToTab } from "@/lib/companiesSearchFilterConfig";
+import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
 
 // Types for API integration
 interface SectorData {
@@ -181,6 +194,44 @@ const renderSectorLinks = (
     if (index < sectors.length - 1) nodes.push(<span key={`sep-${index}`}>, </span>);
   });
   return nodes.length > 0 ? nodes : "N/A";
+};
+
+/** Columns required for the sector All Companies table (API omits fields not listed). */
+const SECTOR_ALL_COMPANIES_API_COLUMNS = getApiColumnsForSelectedKeys([
+  "description",
+  "primary_sectors",
+  "secondary_sectors",
+  "linkedin_members",
+  "hq",
+]);
+
+const parseSectorList = (value: unknown): SectorLinkItem[] => {
+  if (value == null || value === "") return [];
+  if (Array.isArray(value)) return value as SectorLinkItem[];
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === "[]" || trimmed === "{}") return [];
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (Array.isArray(parsed)) return parsed as SectorLinkItem[];
+        if (parsed && typeof parsed === "object") {
+          return Object.values(parsed as Record<string, SectorLinkItem>);
+        }
+      } catch {
+        // fall through
+      }
+    }
+    return trimmed
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((sector_name) => ({ sector_name }));
+  }
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, SectorLinkItem>);
+  }
+  return [];
 };
 
 interface NewCompanyItem {
@@ -1878,19 +1929,6 @@ const SectorDetailPage = ({
     linkedin_logo: string; // base64
     linkedin_members: number;
   }
-  interface AllCompaniesFilters {
-    countries: string[];
-    provinces: string[];
-    cities: string[];
-    continentalRegions?: string[];
-    subRegions?: string[];
-    secondarySectors: number[];
-    hybridBusinessFocuses: number[];
-    ownershipTypes: number[];
-    linkedinMembersMin: number | null;
-    linkedinMembersMax: number | null;
-    searchQuery: string;
-  }
   const [allCompanies, setAllCompanies] = useState<AllCompanyItem[]>([]);
   const [allCompaniesLoading, setAllCompaniesLoading] = useState(false);
   const [allCompaniesError, setAllCompaniesError] = useState<string | null>(
@@ -1908,63 +1946,14 @@ const SectorDetailPage = ({
   const [allExpandedDescriptions, setAllExpandedDescriptions] = useState<
     Record<number, boolean>
   >({});
-
-  // All Companies - filter state and options (mirrors Companies page, excluding Primary Sectors)
-  const [allShowFilters, setAllShowFilters] = useState(false);
-  const [allSearchTerm, setAllSearchTerm] = useState("");
-
-  // Options
-  const [allCountries, setAllCountries] = useState<
-    Array<{ locations_Country: string }>
-  >([]);
-  const [allContinentalRegions, setAllContinentalRegions] = useState<string[]>(
-    []
-  );
-  const [allSubRegions, setAllSubRegions] = useState<string[]>([]);
-  const [allProvinces, setAllProvinces] = useState<
-    Array<{ State__Province__County: string }>
-  >([]);
-  const [allCities, setAllCities] = useState<Array<{ City: string }>>([]);
-  const [allSecondarySectors, setAllSecondarySectors] = useState<
-    Array<{ id: number; sector_name: string }>
-  >([]);
-  const [allHybridBusinessFocuses, setAllHybridBusinessFocuses] = useState<
-    Array<{ id: number; business_focus: string }>
-  >([]);
-  const [allOwnershipTypes, setAllOwnershipTypes] = useState<
-    Array<{ id: number; ownership: string }>
-  >([]);
-
-  // Selected
-  const [selCountries, setSelCountries] = useState<string[]>([]);
-  const [selContinentalRegions, setSelContinentalRegions] = useState<string[]>(
-    []
-  );
-  const [selSubRegions, setSelSubRegions] = useState<string[]>([]);
-  const [selProvinces, setSelProvinces] = useState<string[]>([]);
-  const [selCities, setSelCities] = useState<string[]>([]);
-  const [selSecondarySectors, setSelSecondarySectors] = useState<number[]>([]);
-  const [selHybridBusinessFocuses, setSelHybridBusinessFocuses] = useState<
-    number[]
-  >([]);
-  const [selOwnershipTypes, setSelOwnershipTypes] = useState<number[]>([]);
-  const [selLinkedinMin, setSelLinkedinMin] = useState<number | null>(null);
-  const [selLinkedinMax, setSelLinkedinMax] = useState<number | null>(null);
-
-  // Current filters for pagination reuse
   const [allCompaniesCurrentFilters, setAllCompaniesCurrentFilters] = useState<
-    AllCompaniesFilters | undefined
+    CompaniesFilters | undefined
   >(undefined);
-
-  // Loading flags
-  const [loadingAllCountries, setLoadingAllCountries] = useState(false);
-  const [loadingAllProvinces, setLoadingAllProvinces] = useState(false);
-  const [loadingAllCities, setLoadingAllCities] = useState(false);
-  const [loadingAllSecondarySectors, setLoadingAllSecondarySectors] =
-    useState(false);
-  const [loadingAllHybridFocus, setLoadingAllHybridFocus] = useState(false);
-  const [loadingAllOwnershipTypes, setLoadingAllOwnershipTypes] =
-    useState(false);
+  const [allCompaniesOwnershipCounts, setAllCompaniesOwnershipCounts] =
+    useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
+  const allCompaniesCountsTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   // Public Companies (reuse companies API with primary sector filter and ownership Public)
   const [publicCompanies, setPublicCompanies] = useState<AllCompanyItem[]>([]);
@@ -1984,37 +1973,6 @@ const SectorDetailPage = ({
   const [publicExpandedDescriptions, setPublicExpandedDescriptions] = useState<
     Record<number, boolean>
   >({});
-
-  // Ownership type id mapping (from API)
-  const [ownershipTypeIds, setOwnershipTypeIds] = useState<
-    Record<string, number>
-  >({});
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const list = await locationsService.getOwnershipTypes();
-        if (!cancelled && Array.isArray(list)) {
-          const map: Record<string, number> = {};
-          for (const o of list) {
-            const id = (o as { id?: number }).id;
-            const name = (o as { ownership?: string }).ownership || "";
-            if (typeof id === "number" && name) {
-              const key = name.trim().toLowerCase();
-              map[key] = id;
-            }
-          }
-          setOwnershipTypeIds(map);
-        }
-      } catch {
-        // ignore
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Load secondary->primary mapping once (not required in the new overview layout)
   // useEffect(() => {
@@ -2223,142 +2181,49 @@ const SectorDetailPage = ({
 
   // Note: fetchSplitDatasets removed - now part of /api/sector/[id]/overview route
 
-  // Fetch All Companies via generic companies endpoint filtered by primary sector id
   const fetchAllCompaniesForSector = useCallback(
-    async (page: number = 1, filters?: AllCompaniesFilters) => {
+    async (page: number = 1, filters?: CompaniesFilters) => {
       setAllCompaniesLoading(true);
       setAllCompaniesError(null);
 
       try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
         const Sector_id = Number(sectorId);
         if (Number.isNaN(Sector_id)) {
           throw new Error("Invalid sector id");
         }
 
-        const perPage = 25;
-        const offset = page; // companies page uses 1-based Offset
-
-        const params = new URLSearchParams();
-        params.append("Offset", String(offset));
-        params.append("Per_page", String(perPage));
-        // Always send default values; override with filters when provided
-        params.append("Min_linkedin_members", "0");
-        params.append("Max_linkedin_members", "0");
-        params.append("Horizontals_ids", "");
-        params.append("Primary_sectors_ids[]", String(Sector_id));
-        // Apply ownership filter from URL to keep page sizes consistent
-        if (ownershipFilter) {
-          // Explicit mapping per product requirements
-          const ownershipMap: Record<string, number> = {
-            public: 7,
-            private_equity_owned: 1,
-            venture_capital_backed: 3,
-            private: 2,
-          };
-          const mappedId = ownershipMap[ownershipFilter];
-          if (mappedId) {
-            params.append("Ownership_types_ids[]", String(mappedId));
-          }
-        }
-
-        // Merge with current filters when none provided (pagination)
-        const filtersToUse = filters ?? allCompaniesCurrentFilters;
         if (filters !== undefined) {
           setAllCompaniesCurrentFilters(filters);
         }
-        if (filtersToUse) {
-          if ((filtersToUse.continentalRegions || []).length > 0) {
-            params.append(
-              "Continental_Region",
-              (filtersToUse.continentalRegions || []).join(",")
-            );
-          }
-          if ((filtersToUse.subRegions || []).length > 0) {
-            params.append(
-              "geographical_sub_region",
-              (filtersToUse.subRegions || []).join(",")
-            );
-          }
-          if ((filtersToUse.countries || []).length > 0) {
-            (filtersToUse.countries || []).forEach((v) =>
-              params.append("Countries[]", v)
-            );
-          }
-          if ((filtersToUse.provinces || []).length > 0) {
-            (filtersToUse.provinces || []).forEach((v) =>
-              params.append("Provinces[]", v)
-            );
-          }
-          if ((filtersToUse.cities || []).length > 0) {
-            (filtersToUse.cities || []).forEach((v) =>
-              params.append("Cities[]", v)
-            );
-          }
-          if ((filtersToUse.secondarySectors || []).length > 0) {
-            (filtersToUse.secondarySectors || []).forEach((id) =>
-              params.append("Secondary_sectors_ids[]", String(id))
-            );
-          }
-          if ((filtersToUse.ownershipTypes || []).length > 0) {
-            (filtersToUse.ownershipTypes || []).forEach((id) =>
-              params.append("Ownership_types_ids[]", String(id))
-            );
-          }
-          if ((filtersToUse.hybridBusinessFocuses || []).length > 0) {
-            (filtersToUse.hybridBusinessFocuses || []).forEach((id) =>
-              params.append("Hybrid_Data_ids[]", String(id))
-            );
-          }
-          params.set(
-            "Min_linkedin_members",
-            String(filtersToUse.linkedinMembersMin ?? 0)
-          );
-          params.set(
-            "Max_linkedin_members",
-            String(filtersToUse.linkedinMembersMax ?? 0)
-          );
-          if (filtersToUse.searchQuery) {
-            params.append("query", filtersToUse.searchQuery);
-          }
+        const filtersToUse =
+          filters ??
+          allCompaniesCurrentFilters ?? {
+            filters_sql: null,
+            query: null,
+            columns: [],
+            has_financial_filters: false,
+            has_year_filter: false,
+          };
+
+        const data = await fetchCompaniesClient(page, {
+          ...filtersToUse,
+          columns: SECTOR_ALL_COMPANIES_API_COLUMNS,
+          Per_page: 25,
+        });
+
+        if (!data?.result1) {
+          throw new Error("Failed to fetch companies");
         }
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(
-            `API request failed: ${response.status} ${response.statusText} - ${errorText}`
-          );
-        }
-        const data = JSON.parse(await response.text()) as {
-          result1?: {
-            items?: AllCompanyItem[];
-            itemsReceived?: number;
-            curPage?: number;
-            nextPage?: number | null;
-            prevPage?: number | null;
-            offset?: number;
-            perPage?: number;
-            pageTotal?: number;
-          };
-        };
-        const r1 = data.result1 || {};
-        setAllCompanies(r1.items || []);
+        const r1 = data.result1;
+        setAllCompanies((r1.items || []) as AllCompanyItem[]);
         setAllCompaniesPagination({
           itemsReceived: r1.itemsReceived || 0,
           curPage: r1.curPage || 1,
           nextPage: r1.nextPage || null,
           prevPage: r1.prevPage || null,
           offset: r1.offset || 0,
-          perPage: r1.perPage || perPage,
+          perPage: r1.perPage || 25,
           pageTotal: r1.pageTotal || 0,
         });
       } catch (err) {
@@ -2369,7 +2234,51 @@ const SectorDetailPage = ({
         setAllCompaniesLoading(false);
       }
     },
-    [sectorId, ownershipFilter, allCompaniesCurrentFilters]
+    [sectorId, allCompaniesCurrentFilters]
+  );
+
+  const scheduleAllCompaniesCountsFetch = useCallback(
+    (countsFilters: CompaniesFilters) => {
+      if (allCompaniesCountsTimeoutRef.current) {
+        clearTimeout(allCompaniesCountsTimeoutRef.current);
+      }
+      allCompaniesCountsTimeoutRef.current = setTimeout(() => {
+        void fetchCompaniesCountsClient(countsFilters)
+          .then((countsData) => {
+            if (!countsData) return;
+            setAllCompaniesOwnershipCounts({
+              totalCount: countsData.totalCount || 0,
+              publicCompanies: countsData.publicCompanies || 0,
+              peOwnedCompanies: countsData.peOwnedCompanies || 0,
+              vcOwnedCompanies: countsData.vcOwnedCompanies || 0,
+              privateCompanies: countsData.privateCompanies || 0,
+              subsidiaryCompanies: countsData.subsidiaryCompanies || 0,
+              acquiredCompanies: countsData.acquiredCompanies || 0,
+              otherCompanies: countsData.otherCompanies || 0,
+            });
+          })
+          .catch(console.error);
+      }, 400);
+    },
+    []
+  );
+
+  const handleAllCompaniesSearch = useCallback(
+    (listFilters: CompaniesFilters, countsFilters: CompaniesFilters) => {
+      scheduleAllCompaniesCountsFetch(countsFilters);
+      void fetchAllCompaniesForSector(1, listFilters);
+    },
+    [fetchAllCompaniesForSector, scheduleAllCompaniesCountsFetch]
+  );
+
+  const forcedPrimarySectorIds = useMemo(() => {
+    const id = Number(sectorId);
+    return Number.isFinite(id) && id > 0 ? [id] : [];
+  }, [sectorId]);
+
+  const initialAllCompaniesOwnershipTab = useMemo(
+    () => ownershipFilterParamToTab(ownershipFilter),
+    [ownershipFilter]
   );
 
   // Fetch Public Companies for sector (ownership type Public)
@@ -2447,110 +2356,6 @@ const SectorDetailPage = ({
     [sectorId]
   );
 
-  useEffect(() => {
-    if (activeTab === "all") {
-      fetchAllCompaniesForSector(1);
-    }
-  }, [activeTab, fetchAllCompaniesForSector]);
-
-  // Load All Companies filter options when All tab is first opened
-  useEffect(() => {
-    if (activeTab !== "all") return;
-    let cancelled = false;
-    const loadOpts = async () => {
-      try {
-        setLoadingAllCountries(true);
-        setLoadingAllHybridFocus(true);
-        setLoadingAllOwnershipTypes(true);
-        const [countries, continents, subs, hybrid, ownership] =
-          await Promise.all([
-            locationsService.getCountries(),
-            locationsService.getContinentalRegions(),
-            locationsService.getSubRegions(),
-            locationsService.getHybridBusinessFocuses(),
-            locationsService.getOwnershipTypes(),
-          ]);
-        if (!cancelled) {
-          setAllCountries(countries || []);
-          setAllContinentalRegions(Array.isArray(continents) ? continents : []);
-          setAllSubRegions(Array.isArray(subs) ? subs : []);
-          setAllHybridBusinessFocuses(hybrid || []);
-          setAllOwnershipTypes(ownership || []);
-        }
-      } catch {
-        // ignore
-      } finally {
-        setLoadingAllCountries(false);
-        setLoadingAllHybridFocus(false);
-        setLoadingAllOwnershipTypes(false);
-      }
-      try {
-        setLoadingAllSecondarySectors(true);
-        const secs = await locationsService.getAllSecondarySectorsWithPrimary();
-        if (!cancelled) {
-          setAllSecondarySectors(
-            Array.isArray(secs)
-              ? (secs as Array<{ id: number; sector_name: string }>)
-              : []
-          );
-        }
-      } catch {
-        // ignore
-      } finally {
-        setLoadingAllSecondarySectors(false);
-      }
-    };
-    loadOpts();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab]);
-
-  // Dependent options for provinces/cities
-  useEffect(() => {
-    const loadProvinces = async () => {
-      if (selCountries.length === 0) {
-        setAllProvinces([]);
-        setSelProvinces([]);
-        return;
-      }
-      try {
-        setLoadingAllProvinces(true);
-        const prov = await locationsService.getProvinces(selCountries);
-        setAllProvinces(prov || []);
-        setSelProvinces([]);
-      } catch {
-        // ignore
-      } finally {
-        setLoadingAllProvinces(false);
-      }
-    };
-    loadProvinces();
-  }, [selCountries]);
-
-  useEffect(() => {
-    const loadCities = async () => {
-      if (selCountries.length === 0) {
-        setAllCities([]);
-        setSelCities([]);
-        return;
-      }
-      try {
-        setLoadingAllCities(true);
-        const cities = await locationsService.getCities(
-          selCountries,
-          selProvinces
-        );
-        setAllCities(cities || []);
-        setSelCities([]);
-      } catch {
-        // ignore
-      } finally {
-        setLoadingAllCities(false);
-      }
-    };
-    loadCities();
-  }, [selCountries, selProvinces]);
 
   // Fetch all overview data via Next.js API route (cached for 5 min).
   // Single request aggregates all Xano calls server-side → faster for users far from Xano.
@@ -3039,107 +2844,39 @@ const SectorDetailPage = ({
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
       const origin = typeof window !== "undefined" ? window.location.origin : "";
-      // Use current UI filter selections (same shape as Search button)
-      const f: AllCompaniesFilters = {
-        countries: selCountries,
-        provinces: selProvinces,
-        cities: selCities,
-        continentalRegions: selContinentalRegions,
-        subRegions: selSubRegions,
-        secondarySectors: selSecondarySectors,
-        hybridBusinessFocuses: selHybridBusinessFocuses,
-        ownershipTypes: selOwnershipTypes,
-        linkedinMembersMin: selLinkedinMin,
-        linkedinMembersMax: selLinkedinMax,
-        searchQuery: allSearchTerm,
+      const filtersToUse = allCompaniesCurrentFilters ?? {
+        filters_sql: null,
+        query: null,
+        columns: [],
+        has_financial_filters: false,
+        has_year_filter: false,
       };
+      const filtersApplied = filtersToUse.filters_sql
+        ? `filters_sql: ${filtersToUse.filters_sql}`
+        : undefined;
 
-      const params = new URLSearchParams();
-      params.set("Per_page", "500");
-      params.set("Min_linkedin_members", String(f?.linkedinMembersMin ?? 0));
-      params.set("Max_linkedin_members", String(f?.linkedinMembersMax ?? 0));
-      params.set("Horizontals_ids", "");
-      params.append("Primary_sectors_ids[]", String(Number(sectorId)));
-      if (ownershipFilter && BUCKET_TYPE_IDS[ownershipFilter]) {
-        params.append("Ownership_types_ids[]", String(BUCKET_TYPE_IDS[ownershipFilter]));
-      }
-      if (f?.ownershipTypes?.length) {
-        f.ownershipTypes.forEach((id) => params.append("Ownership_types_ids[]", String(id)));
-      }
-      if (f?.continentalRegions?.length) params.set("Continental_Region", f.continentalRegions.join(","));
-      if (f?.subRegions?.length) params.set("geographical_sub_region", f.subRegions.join(","));
-      if (f?.countries?.length) f.countries.forEach((v) => params.append("Countries[]", v));
-      if (f?.provinces?.length) f.provinces.forEach((v) => params.append("Provinces[]", v));
-      if (f?.cities?.length) f.cities.forEach((v) => params.append("Cities[]", v));
-      if (f?.secondarySectors?.length) f.secondarySectors.forEach((id) => params.append("Secondary_sectors_ids[]", String(id)));
-      if (f?.hybridBusinessFocuses?.length) f.hybridBusinessFocuses.forEach((id) => params.append("Hybrid_Data_ids[]", String(id)));
-      if (f?.searchQuery) params.set("query", f.searchQuery);
-
-      // Build filter description for the Filters column (must mirror all active API params)
-      const ownershipLabels: Record<string, string> = {
-        public: "Public",
-        private_equity_owned: "Private Equity Owned",
-        venture_capital_backed: "Venture Capital Backed",
-        private: "Private",
-      };
-      const filterParts: string[] = [];
-      if (ownershipFilter) {
-        filterParts.push(`Ownership: ${ownershipLabels[ownershipFilter] ?? ownershipFilter}`);
-      }
-      if (f?.ownershipTypes?.length) {
-        const names = f.ownershipTypes
-          .map((id) => allOwnershipTypes.find((o) => o.id === id)?.ownership ?? String(id))
-          .join(", ");
-        filterParts.push(`Ownership Types: ${names}`);
-      }
-      if (f?.continentalRegions?.length) filterParts.push(`Regions: ${f.continentalRegions.join(", ")}`);
-      if (f?.subRegions?.length) filterParts.push(`Sub-Regions: ${f.subRegions.join(", ")}`);
-      if (f?.countries?.length) filterParts.push(`Countries: ${f.countries.join(", ")}`);
-      if (f?.provinces?.length) filterParts.push(`Provinces: ${f.provinces.join(", ")}`);
-      if (f?.cities?.length) filterParts.push(`Cities: ${f.cities.join(", ")}`);
-      if (f?.secondarySectors?.length) {
-        const names = f.secondarySectors
-          .map((id) => allSecondarySectors.find((s) => s.id === id)?.sector_name ?? String(id))
-          .join(", ");
-        filterParts.push(`Secondary Sectors: ${names}`);
-      }
-      if (f?.hybridBusinessFocuses?.length) {
-        const names = f.hybridBusinessFocuses
-          .map((id) => allHybridBusinessFocuses.find((h) => h.id === id)?.business_focus ?? String(id))
-          .join(", ");
-        filterParts.push(`Hybrid Business Focus: ${names}`);
-      }
-      if (f?.linkedinMembersMin) filterParts.push(`LinkedIn min: ${f.linkedinMembersMin}`);
-      if (f?.linkedinMembersMax) filterParts.push(`LinkedIn max: ${f.linkedinMembersMax}`);
-      if (f?.searchQuery) filterParts.push(`Search: "${f.searchQuery}"`);
-      const filtersApplied = filterParts.join(" | ");
-
-      const items = await fetchAllCompanyPages(params, token);
-      const rows = items.map((c) => buildExportRow(c, origin, filtersApplied || undefined));
-      const ownershipSlug = ownershipFilter ? `_${ownershipLabels[ownershipFilter].replace(/\s+/g, "_")}` : "";
-      await downloadExcelExport(rows, `${sectorNameSlug}_All_Companies${ownershipSlug}`);
+      const items = await fetchAllCompaniesClientPages<AllCompanyItem>(
+        {
+          ...filtersToUse,
+          columns: SECTOR_ALL_COMPANIES_API_COLUMNS,
+          Per_page: 500,
+        },
+        { perPage: 500, token }
+      );
+      const rows = items.map((c) =>
+        buildExportRow(c, origin, filtersApplied || undefined)
+      );
+      const ownershipSlug = ownershipFilter
+        ? `_${ownershipFilter.replace(/_/g, " ")}`.replace(/\s+/g, "_")
+        : "";
+      await downloadExcelExport(
+        rows,
+        `${sectorNameSlug}_All_Companies${ownershipSlug}`
+      );
     } finally {
       setAllExporting(false);
     }
-  }, [
-    sectorId,
-    sectorNameSlug,
-    ownershipFilter,
-    selCountries,
-    selProvinces,
-    selCities,
-    selContinentalRegions,
-    selSubRegions,
-    selSecondarySectors,
-    selHybridBusinessFocuses,
-    selOwnershipTypes,
-    selLinkedinMin,
-    selLinkedinMax,
-    allSearchTerm,
-    allSecondarySectors,
-    allHybridBusinessFocuses,
-    allOwnershipTypes,
-  ]);
+  }, [sectorNameSlug, ownershipFilter, allCompaniesCurrentFilters]);
 
   // Only block rendering for critical errors (auth/not found)
   if (error) {
@@ -5826,7 +5563,7 @@ const SectorDetailPage = ({
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-slate-600">
-                      {allCompaniesPagination.itemsReceived.toLocaleString()} total
+                      {allCompaniesOwnershipCounts.totalCount.toLocaleString()} matches
                     </span>
                     <button
                       onClick={handleExportAllCompanies}
@@ -5841,559 +5578,17 @@ const SectorDetailPage = ({
                   </div>
                 </div>
               </div>
+              <div className="px-5 pt-2 pb-1">
+                <CompaniesSearchDashboard
+                  key={`${sectorId}-${ownershipFilter ?? "all"}`}
+                  embedded
+                  forcedPrimarySectorIds={forcedPrimarySectorIds}
+                  initialOwnershipTab={initialAllCompaniesOwnershipTab}
+                  ownershipCounts={allCompaniesOwnershipCounts}
+                  onSearch={handleAllCompaniesSearch}
+                />
+              </div>
               <div className="px-5 py-4">
-                {ownershipFilter && (
-                  <div className="px-3 py-2 mb-3 bg-blue-50 rounded border border-blue-200">
-                    <span className="text-sm text-blue-900">
-                      Viewing a pre-filtered list:{" "}
-                      <strong>
-                        {ownershipFilter === "public"
-                          ? "Public Companies"
-                          : ownershipFilter === "private_equity_owned"
-                          ? "Private Equity Owned"
-                          : ownershipFilter === "venture_capital_backed"
-                          ? "Venture Capital Backed"
-                          : "Private Companies"}
-                      </strong>
-                    </span>
-                    <button
-                      onClick={() => {
-                        try {
-                          if (typeof window !== "undefined") {
-                            const url = new URL(window.location.href);
-                            url.searchParams.delete("ownership");
-                            url.searchParams.set("tab", "all");
-                            window.history.replaceState({}, "", url.toString());
-                          }
-                        } finally {
-                          setOwnershipFilter(null);
-                          fetchAllCompaniesForSector(1);
-                        }
-                      }}
-                      className="ml-3 text-sm font-semibold text-blue-700 underline hover:text-blue-900"
-                    >
-                      Clear filter
-                    </button>
-                  </div>
-                )}
-                <div className="p-4 mb-3 bg-white rounded-xl border shadow-lg border-slate-200/60">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-base font-semibold text-slate-900">
-                      Filters
-                    </h3>
-                    <button
-                      onClick={() => setAllShowFilters(!allShowFilters)}
-                      className="text-sm text-blue-600 underline"
-                    >
-                      {allShowFilters ? "Hide Filters" : "Show Filters"}
-                    </button>
-                  </div>
-                  {allShowFilters && (
-                    <div className="grid grid-cols-1 gap-6 mt-4 md:grid-cols-3">
-                      <div>
-                        <h4 className="mb-3 text-sm font-semibold text-slate-900">
-                          Location
-                        </h4>
-                        <span className="block mb-1 text-sm text-slate-700">
-                          By Continental Region
-                        </span>
-                        <SearchableSelect
-                          options={allContinentalRegions.map((r) => ({
-                            value: r,
-                            label: r,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "string" &&
-                              v &&
-                              !selContinentalRegions.includes(v)
-                            ) {
-                              setSelContinentalRegions([
-                                ...selContinentalRegions,
-                                v,
-                              ]);
-                            }
-                          }}
-                          placeholder="Select Continental Region"
-                        />
-                        {selContinentalRegions.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selContinentalRegions.map((r) => (
-                              <span
-                                key={r}
-                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                              >
-                                {r}
-                                <button
-                                  onClick={() =>
-                                    setSelContinentalRegions(
-                                      selContinentalRegions.filter(
-                                        (x) => x !== r
-                                      )
-                                    )
-                                  }
-                                  className="font-bold"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <span className="block mt-3 mb-1 text-sm text-slate-700">
-                          By Sub-Region
-                        </span>
-                        <SearchableSelect
-                          options={allSubRegions.map((r) => ({
-                            value: r,
-                            label: r,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "string" &&
-                              v &&
-                              !selSubRegions.includes(v)
-                            ) {
-                              setSelSubRegions([...selSubRegions, v]);
-                            }
-                          }}
-                          placeholder="Select Sub-Region"
-                        />
-                        {selSubRegions.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selSubRegions.map((r) => (
-                              <span
-                                key={r}
-                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                              >
-                                {r}
-                                <button
-                                  onClick={() =>
-                                    setSelSubRegions(
-                                      selSubRegions.filter((x) => x !== r)
-                                    )
-                                  }
-                                  className="font-bold"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <span className="block mt-3 mb-1 text-sm text-slate-700">
-                          By Country
-                        </span>
-                        <SearchableSelect
-                          options={allCountries.map((c) => ({
-                            value: c.locations_Country,
-                            label: c.locations_Country,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "string" &&
-                              v &&
-                              !selCountries.includes(v)
-                            ) {
-                              setSelCountries([...selCountries, v]);
-                            }
-                          }}
-                          placeholder={
-                            loadingAllCountries
-                              ? "Loading countries..."
-                              : "Select Country"
-                          }
-                          disabled={loadingAllCountries}
-                        />
-                        {selCountries.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selCountries.map((r) => (
-                              <span
-                                key={r}
-                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                              >
-                                {r}
-                                <button
-                                  onClick={() =>
-                                    setSelCountries(
-                                      selCountries.filter((x) => x !== r)
-                                    )
-                                  }
-                                  className="font-bold"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <span className="block mt-3 mb-1 text-sm text-slate-700">
-                          By State/County/Province
-                        </span>
-                        <SearchableSelect
-                          options={allProvinces.map((p) => ({
-                            value: p.State__Province__County,
-                            label: p.State__Province__County,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "string" &&
-                              v &&
-                              !selProvinces.includes(v)
-                            ) {
-                              setSelProvinces([...selProvinces, v]);
-                            }
-                          }}
-                          placeholder={
-                            loadingAllProvinces
-                              ? "Loading provinces..."
-                              : selCountries.length === 0
-                              ? "Select country first"
-                              : "Select Province"
-                          }
-                          disabled={
-                            loadingAllProvinces || selCountries.length === 0
-                          }
-                        />
-                        {selProvinces.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selProvinces.map((r) => (
-                              <span
-                                key={r}
-                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
-                              >
-                                {r}
-                                <button
-                                  onClick={() =>
-                                    setSelProvinces(
-                                      selProvinces.filter((x) => x !== r)
-                                    )
-                                  }
-                                  className="font-bold"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <span className="block mt-3 mb-1 text-sm text-slate-700">
-                          By City
-                        </span>
-                        <SearchableSelect
-                          options={allCities.map((c) => ({
-                            value: c.City,
-                            label: c.City,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "string" &&
-                              v &&
-                              !selCities.includes(v)
-                            ) {
-                              setSelCities([...selCities, v]);
-                            }
-                          }}
-                          placeholder={
-                            loadingAllCities
-                              ? "Loading cities..."
-                              : selCountries.length === 0
-                              ? "Select country first"
-                              : "Select City"
-                          }
-                          disabled={
-                            loadingAllCities || selCountries.length === 0
-                          }
-                        />
-                        {selCities.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selCities.map((r) => (
-                              <span
-                                key={r}
-                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
-                              >
-                                {r}
-                                <button
-                                  onClick={() =>
-                                    setSelCities(
-                                      selCities.filter((x) => x !== r)
-                                    )
-                                  }
-                                  className="font-bold"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="mb-3 text-sm font-semibold text-slate-900">
-                          Sectors
-                        </h4>
-                        <span className="block mb-1 text-sm text-slate-700">
-                          By Secondary Sectors
-                        </span>
-                        <SearchableSelect
-                          options={allSecondarySectors.map((s) => ({
-                            value: s.id,
-                            label: s.sector_name,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "number" &&
-                              v &&
-                              !selSecondarySectors.includes(v)
-                            ) {
-                              setSelSecondarySectors([
-                                ...selSecondarySectors,
-                                v,
-                              ]);
-                            }
-                          }}
-                          placeholder={
-                            loadingAllSecondarySectors
-                              ? "Loading sectors..."
-                              : "Select Secondary Sector"
-                          }
-                          disabled={loadingAllSecondarySectors}
-                        />
-                        {selSecondarySectors.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selSecondarySectors.map((id) => {
-                              const s = allSecondarySectors.find(
-                                (x) => x.id === id
-                              );
-                              return (
-                                <span
-                                  key={id}
-                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
-                                >
-                                  {s?.sector_name || `Sector ${id}`}
-                                  <button
-                                    onClick={() =>
-                                      setSelSecondarySectors(
-                                        selSecondarySectors.filter(
-                                          (x) => x !== id
-                                        )
-                                      )
-                                    }
-                                    className="font-bold"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                        <span className="block mt-3 mb-1 text-sm text-slate-700">
-                          Hybrid Business Focus
-                        </span>
-                        <SearchableSelect
-                          options={allHybridBusinessFocuses.map((f) => ({
-                            value: f.id,
-                            label: f.business_focus,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "number" &&
-                              v &&
-                              !selHybridBusinessFocuses.includes(v)
-                            ) {
-                              setSelHybridBusinessFocuses([
-                                ...selHybridBusinessFocuses,
-                                v,
-                              ]);
-                            }
-                          }}
-                          placeholder={
-                            loadingAllHybridFocus
-                              ? "Loading business focuses..."
-                              : "Select Business Focus"
-                          }
-                          disabled={loadingAllHybridFocus}
-                        />
-                        {selHybridBusinessFocuses.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selHybridBusinessFocuses.map((id) => {
-                              const f = allHybridBusinessFocuses.find(
-                                (x) => x.id === id
-                              );
-                              return (
-                                <span
-                                  key={id}
-                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-amber-700 bg-amber-50 rounded"
-                                >
-                                  {f?.business_focus || `Focus ${id}`}
-                                  <button
-                                    onClick={() =>
-                                      setSelHybridBusinessFocuses(
-                                        selHybridBusinessFocuses.filter(
-                                          (x) => x !== id
-                                        )
-                                      )
-                                    }
-                                    className="font-bold"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="mb-3 text-sm font-semibold text-slate-900">
-                          Company Details
-                        </h4>
-                        <span className="block mb-1 text-sm text-slate-700">
-                          By Ownership Type
-                        </span>
-                        <SearchableSelect
-                          options={allOwnershipTypes.map((o) => ({
-                            value: o.id,
-                            label: o.ownership,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "number" &&
-                              v &&
-                              !selOwnershipTypes.includes(v)
-                            ) {
-                              setSelOwnershipTypes([...selOwnershipTypes, v]);
-                            }
-                          }}
-                          placeholder={
-                            loadingAllOwnershipTypes
-                              ? "Loading ownership types..."
-                              : "Select Ownership Type"
-                          }
-                          disabled={loadingAllOwnershipTypes}
-                        />
-                        {selOwnershipTypes.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selOwnershipTypes.map((id) => {
-                              const o = allOwnershipTypes.find(
-                                (x) => x.id === id
-                              );
-                              return (
-                                <span
-                                  key={id}
-                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-purple-700 bg-purple-50 rounded"
-                                >
-                                  {o?.ownership || `Ownership ${id}`}
-                                  <button
-                                    onClick={() =>
-                                      setSelOwnershipTypes(
-                                        selOwnershipTypes.filter(
-                                          (x) => x !== id
-                                        )
-                                      )
-                                    }
-                                    className="font-bold"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                        <span className="block mt-3 mb-1 text-sm text-slate-700">
-                          LinkedIn Members Range
-                        </span>
-                        <div className="flex gap-3">
-                          <input
-                            type="number"
-                            className="px-3 py-2 w-full text-sm rounded border"
-                            placeholder="Min"
-                            value={selLinkedinMin ?? ""}
-                            onChange={(e) =>
-                              setSelLinkedinMin(
-                                e.target.value ? Number(e.target.value) : null
-                              )
-                            }
-                          />
-                          <input
-                            type="number"
-                            className="px-3 py-2 w-full text-sm rounded border"
-                            placeholder="Max"
-                            value={selLinkedinMax ?? ""}
-                            onChange={(e) =>
-                              setSelLinkedinMax(
-                                e.target.value ? Number(e.target.value) : null
-                              )
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div className="mt-4">
-                    <h4 className="mb-2 text-sm font-semibold text-slate-900">
-                      Search for Company
-                    </h4>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <input
-                        type="text"
-                        className="px-3 py-2 w-full max-w-md text-sm rounded border"
-                        placeholder="Enter company name here"
-                        value={allSearchTerm}
-                        onChange={(e) => setAllSearchTerm(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            const f: AllCompaniesFilters = {
-                              countries: selCountries,
-                              provinces: selProvinces,
-                              cities: selCities,
-                              continentalRegions: selContinentalRegions,
-                              subRegions: selSubRegions,
-                              secondarySectors: selSecondarySectors,
-                              hybridBusinessFocuses: selHybridBusinessFocuses,
-                              ownershipTypes: selOwnershipTypes,
-                              linkedinMembersMin: selLinkedinMin,
-                              linkedinMembersMax: selLinkedinMax,
-                              searchQuery: allSearchTerm,
-                            };
-                            fetchAllCompaniesForSector(1, f);
-                          }
-                        }}
-                      />
-                      <button
-                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded hover:bg-blue-700"
-                        onClick={() => {
-                          const f: AllCompaniesFilters = {
-                            countries: selCountries,
-                            provinces: selProvinces,
-                            cities: selCities,
-                            continentalRegions: selContinentalRegions,
-                            subRegions: selSubRegions,
-                            secondarySectors: selSecondarySectors,
-                            hybridBusinessFocuses: selHybridBusinessFocuses,
-                            ownershipTypes: selOwnershipTypes,
-                            linkedinMembersMin: selLinkedinMin,
-                            linkedinMembersMax: selLinkedinMax,
-                            searchQuery: allSearchTerm,
-                          };
-                          fetchAllCompaniesForSector(1, f);
-                        }}
-                      >
-                        Search
-                      </button>
-                    </div>
-                  </div>
-                </div>
                 {allCompaniesLoading ? (
                   <div className="py-10 text-center text-slate-500">
                     Loading companies...
@@ -6435,40 +5630,11 @@ const SectorDetailPage = ({
                         </tr>
                       </thead>
                       <tbody>
-                        {(ownershipFilter &&
-                        !ownershipTypeIds[
-                          ownershipFilter
-                            .replace(/_/g, " ")
-                            .replace(
-                              "venture capital backed",
-                              "venture capital"
-                            )
-                            .replace("private equity owned", "private equity")
-                            .trim()
-                        ]
-                          ? allCompanies.filter((c) => {
-                              const own = (c.ownership || "").toLowerCase();
-                              if (ownershipFilter === "public")
-                                return own.includes("public");
-                              if (ownershipFilter === "private_equity_owned")
-                                return own.includes("private equity");
-                              if (ownershipFilter === "venture_capital_backed")
-                                return own.includes("venture");
-                              if (ownershipFilter === "private")
-                                return (
-                                  !own.includes("public") &&
-                                  !own.includes("private equity") &&
-                                  !own.includes("venture")
-                                );
-                              return true;
-                            })
-                          : allCompanies
-                        ).map((c) => {
-                          const primaryDisplay = Array.isArray(
-                            c.primary_sectors
-                          )
-                            ? c.primary_sectors
-                            : [];
+                        {allCompanies.map((c) => {
+                          const primaryDisplay = parseSectorList(c.primary_sectors);
+                          const secondaryDisplay = parseSectorList(
+                            c.secondary_sectors
+                          );
                           const expanded = !!allExpandedDescriptions[c.id];
                           return (
                             <tr key={c.id} className="hover:bg-slate-50/50">
@@ -6539,14 +5705,11 @@ const SectorDetailPage = ({
                                 )}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {renderSectorLinks(
-                                  primaryDisplay as SectorLinkItem[] | undefined,
-                                  "/sector/"
-                                )}
+                                {renderSectorLinks(primaryDisplay, "/sector/")}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
                                 {renderSectorLinks(
-                                  c.secondary_sectors as SectorLinkItem[] | undefined,
+                                  secondaryDisplay,
                                   "/sub-sector/"
                                 )}
                               </td>
@@ -6566,542 +5729,6 @@ const SectorDetailPage = ({
                   </div>
                 )}
               </div>
-              {/* All Companies Filters (same as Companies search, minus Primary Sectors) */}
-              {false && (
-                <div className="px-5 pb-2">
-                  <div className="p-4 bg-white rounded-xl border shadow-lg border-slate-200/60">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-base font-semibold text-slate-900">
-                        Filters
-                      </h3>
-                      <button
-                        onClick={() => setAllShowFilters(!allShowFilters)}
-                        className="text-sm text-blue-600 underline"
-                      >
-                        {allShowFilters ? "Hide Filters" : "Show Filters"}
-                      </button>
-                    </div>
-                    {allShowFilters && (
-                      <div className="grid grid-cols-1 gap-6 mt-4 md:grid-cols-3">
-                        {/* Location */}
-                        <div>
-                          <h4 className="mb-3 text-sm font-semibold text-slate-900">
-                            Location
-                          </h4>
-                          <span className="block mb-1 text-sm text-slate-700">
-                            By Continental Region
-                          </span>
-                          <SearchableSelect
-                            options={allContinentalRegions.map((r) => ({
-                              value: r,
-                              label: r,
-                            }))}
-                            value=""
-                            onChange={(v) => {
-                              if (
-                                typeof v === "string" &&
-                                v &&
-                                !selContinentalRegions.includes(v)
-                              ) {
-                                setSelContinentalRegions([
-                                  ...selContinentalRegions,
-                                  v,
-                                ]);
-                              }
-                            }}
-                            placeholder="Select Continental Region"
-                          />
-                          {selContinentalRegions.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {selContinentalRegions.map((r) => (
-                                <span
-                                  key={r}
-                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                                >
-                                  {r}
-                                  <button
-                                    onClick={() =>
-                                      setSelContinentalRegions(
-                                        selContinentalRegions.filter(
-                                          (x) => x !== r
-                                        )
-                                      )
-                                    }
-                                    className="font-bold"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          <span className="block mt-3 mb-1 text-sm text-slate-700">
-                            By Sub-Region
-                          </span>
-                          <SearchableSelect
-                            options={allSubRegions.map((r) => ({
-                              value: r,
-                              label: r,
-                            }))}
-                            value=""
-                            onChange={(v) => {
-                              if (
-                                typeof v === "string" &&
-                                v &&
-                                !selSubRegions.includes(v)
-                              ) {
-                                setSelSubRegions([...selSubRegions, v]);
-                              }
-                            }}
-                            placeholder="Select Sub-Region"
-                          />
-                          {selSubRegions.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {selSubRegions.map((r) => (
-                                <span
-                                  key={r}
-                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                                >
-                                  {r}
-                                  <button
-                                    onClick={() =>
-                                      setSelSubRegions(
-                                        selSubRegions.filter((x) => x !== r)
-                                      )
-                                    }
-                                    className="font-bold"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          <span className="block mt-3 mb-1 text-sm text-slate-700">
-                            By Country
-                          </span>
-                          <SearchableSelect
-                            options={allCountries.map((c) => ({
-                              value: c.locations_Country,
-                              label: c.locations_Country,
-                            }))}
-                            value=""
-                            onChange={(v) => {
-                              if (
-                                typeof v === "string" &&
-                                v &&
-                                !selCountries.includes(v)
-                              ) {
-                                setSelCountries([...selCountries, v]);
-                              }
-                            }}
-                            placeholder={
-                              loadingAllCountries
-                                ? "Loading countries..."
-                                : "Select Country"
-                            }
-                            disabled={loadingAllCountries}
-                          />
-                          {selCountries.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {selCountries.map((r) => (
-                                <span
-                                  key={r}
-                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                                >
-                                  {r}
-                                  <button
-                                    onClick={() =>
-                                      setSelCountries(
-                                        selCountries.filter((x) => x !== r)
-                                      )
-                                    }
-                                    className="font-bold"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          <span className="block mt-3 mb-1 text-sm text-slate-700">
-                            By State/County/Province
-                          </span>
-                          <SearchableSelect
-                            options={allProvinces.map((p) => ({
-                              value: p.State__Province__County,
-                              label: p.State__Province__County,
-                            }))}
-                            value=""
-                            onChange={(v) => {
-                              if (
-                                typeof v === "string" &&
-                                v &&
-                                !selProvinces.includes(v)
-                              ) {
-                                setSelProvinces([...selProvinces, v]);
-                              }
-                            }}
-                            placeholder={
-                              loadingAllProvinces
-                                ? "Loading provinces..."
-                                : selCountries.length === 0
-                                ? "Select country first"
-                                : "Select Province"
-                            }
-                            disabled={
-                              loadingAllProvinces || selCountries.length === 0
-                            }
-                          />
-                          {selProvinces.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {selProvinces.map((r) => (
-                                <span
-                                  key={r}
-                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
-                                >
-                                  {r}
-                                  <button
-                                    onClick={() =>
-                                      setSelProvinces(
-                                        selProvinces.filter((x) => x !== r)
-                                      )
-                                    }
-                                    className="font-bold"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          <span className="block mt-3 mb-1 text-sm text-slate-700">
-                            By City
-                          </span>
-                          <SearchableSelect
-                            options={allCities.map((c) => ({
-                              value: c.City,
-                              label: c.City,
-                            }))}
-                            value=""
-                            onChange={(v) => {
-                              if (
-                                typeof v === "string" &&
-                                v &&
-                                !selCities.includes(v)
-                              ) {
-                                setSelCities([...selCities, v]);
-                              }
-                            }}
-                            placeholder={
-                              loadingAllCities
-                                ? "Loading cities..."
-                                : selCountries.length === 0
-                                ? "Select country first"
-                                : "Select City"
-                            }
-                            disabled={
-                              loadingAllCities || selCountries.length === 0
-                            }
-                          />
-                          {selCities.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {selCities.map((r) => (
-                                <span
-                                  key={r}
-                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
-                                >
-                                  {r}
-                                  <button
-                                    onClick={() =>
-                                      setSelCities(
-                                        selCities.filter((x) => x !== r)
-                                      )
-                                    }
-                                    className="font-bold"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Sectors */}
-                        <div>
-                          <h4 className="mb-3 text-sm font-semibold text-slate-900">
-                            Sectors
-                          </h4>
-                          <span className="block mb-1 text-sm text-slate-700">
-                            By Secondary Sectors
-                          </span>
-                          <SearchableSelect
-                            options={allSecondarySectors.map((s) => ({
-                              value: s.id,
-                              label: s.sector_name,
-                            }))}
-                            value=""
-                            onChange={(v) => {
-                              if (
-                                typeof v === "number" &&
-                                v &&
-                                !selSecondarySectors.includes(v)
-                              ) {
-                                setSelSecondarySectors([
-                                  ...selSecondarySectors,
-                                  v,
-                                ]);
-                              }
-                            }}
-                            placeholder={
-                              loadingAllSecondarySectors
-                                ? "Loading sectors..."
-                                : "Select Secondary Sector"
-                            }
-                            disabled={loadingAllSecondarySectors}
-                          />
-                          {selSecondarySectors.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {selSecondarySectors.map((id) => {
-                                const s = allSecondarySectors.find(
-                                  (x) => x.id === id
-                                );
-                                return (
-                                  <span
-                                    key={id}
-                                    className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
-                                  >
-                                    {s?.sector_name || `Sector ${id}`}
-                                    <button
-                                      onClick={() =>
-                                        setSelSecondarySectors(
-                                          selSecondarySectors.filter(
-                                            (x) => x !== id
-                                          )
-                                        )
-                                      }
-                                      className="font-bold"
-                                    >
-                                      ×
-                                    </button>
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          <span className="block mt-3 mb-1 text-sm text-slate-700">
-                            Hybrid Business Focus
-                          </span>
-                          <SearchableSelect
-                            options={allHybridBusinessFocuses.map((f) => ({
-                              value: f.id,
-                              label: f.business_focus,
-                            }))}
-                            value=""
-                            onChange={(v) => {
-                              if (
-                                typeof v === "number" &&
-                                v &&
-                                !selHybridBusinessFocuses.includes(v)
-                              ) {
-                                setSelHybridBusinessFocuses([
-                                  ...selHybridBusinessFocuses,
-                                  v,
-                                ]);
-                              }
-                            }}
-                            placeholder={
-                              loadingAllHybridFocus
-                                ? "Loading business focuses..."
-                                : "Select Business Focus"
-                            }
-                            disabled={loadingAllHybridFocus}
-                          />
-                          {selHybridBusinessFocuses.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {selHybridBusinessFocuses.map((id) => {
-                                const f = allHybridBusinessFocuses.find(
-                                  (x) => x.id === id
-                                );
-                                return (
-                                  <span
-                                    key={id}
-                                    className="inline-flex gap-1 items-center px-2 py-1 text-xs text-amber-700 bg-amber-50 rounded"
-                                  >
-                                    {f?.business_focus || `Focus ${id}`}
-                                    <button
-                                      onClick={() =>
-                                        setSelHybridBusinessFocuses(
-                                          selHybridBusinessFocuses.filter(
-                                            (x) => x !== id
-                                          )
-                                        )
-                                      }
-                                      className="font-bold"
-                                    >
-                                      ×
-                                    </button>
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Company Details */}
-                        <div>
-                          <h4 className="mb-3 text-sm font-semibold text-slate-900">
-                            Company Details
-                          </h4>
-                          <span className="block mb-1 text-sm text-slate-700">
-                            By Ownership Type
-                          </span>
-                          <SearchableSelect
-                            options={allOwnershipTypes.map((o) => ({
-                              value: o.id,
-                              label: o.ownership,
-                            }))}
-                            value=""
-                            onChange={(v) => {
-                              if (
-                                typeof v === "number" &&
-                                v &&
-                                !selOwnershipTypes.includes(v)
-                              ) {
-                                setSelOwnershipTypes([...selOwnershipTypes, v]);
-                              }
-                            }}
-                            placeholder={
-                              loadingAllOwnershipTypes
-                                ? "Loading ownership types..."
-                                : "Select Ownership Type"
-                            }
-                            disabled={loadingAllOwnershipTypes}
-                          />
-                          {selOwnershipTypes.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {selOwnershipTypes.map((id) => {
-                                const o = allOwnershipTypes.find(
-                                  (x) => x.id === id
-                                );
-                                return (
-                                  <span
-                                    key={id}
-                                    className="inline-flex gap-1 items-center px-2 py-1 text-xs text-purple-700 bg-purple-50 rounded"
-                                  >
-                                    {o?.ownership || `Ownership ${id}`}
-                                    <button
-                                      onClick={() =>
-                                        setSelOwnershipTypes(
-                                          selOwnershipTypes.filter(
-                                            (x) => x !== id
-                                          )
-                                        )
-                                      }
-                                      className="font-bold"
-                                    >
-                                      ×
-                                    </button>
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          <span className="block mt-3 mb-1 text-sm text-slate-700">
-                            LinkedIn Members Range
-                          </span>
-                          <div className="flex gap-3">
-                            <input
-                              type="number"
-                              className="px-3 py-2 w-full text-sm rounded border"
-                              placeholder="Min"
-                              value={selLinkedinMin ?? ""}
-                              onChange={(e) =>
-                                setSelLinkedinMin(
-                                  e.target.value ? Number(e.target.value) : null
-                                )
-                              }
-                            />
-                            <input
-                              type="number"
-                              className="px-3 py-2 w-full text-sm rounded border"
-                              placeholder="Max"
-                              value={selLinkedinMax ?? ""}
-                              onChange={(e) =>
-                                setSelLinkedinMax(
-                                  e.target.value ? Number(e.target.value) : null
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Search */}
-                    <div className="mt-4">
-                      <h4 className="mb-2 text-sm font-semibold text-slate-900">
-                        Search for Company
-                      </h4>
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <input
-                          type="text"
-                          className="px-3 py-2 w-full max-w-md text-sm rounded border"
-                          placeholder="Enter company name here"
-                          value={allSearchTerm}
-                          onChange={(e) => setAllSearchTerm(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              const f: AllCompaniesFilters = {
-                                countries: selCountries,
-                                provinces: selProvinces,
-                                cities: selCities,
-                                continentalRegions: selContinentalRegions,
-                                subRegions: selSubRegions,
-                                secondarySectors: selSecondarySectors,
-                                hybridBusinessFocuses: selHybridBusinessFocuses,
-                                ownershipTypes: selOwnershipTypes,
-                                linkedinMembersMin: selLinkedinMin,
-                                linkedinMembersMax: selLinkedinMax,
-                                searchQuery: allSearchTerm,
-                              };
-                              fetchAllCompaniesForSector(1, f);
-                            }
-                          }}
-                        />
-                        <button
-                          className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded hover:bg-blue-700"
-                          onClick={() => {
-                            const f: AllCompaniesFilters = {
-                              countries: selCountries,
-                              provinces: selProvinces,
-                              cities: selCities,
-                              continentalRegions: selContinentalRegions,
-                              subRegions: selSubRegions,
-                              secondarySectors: selSecondarySectors,
-                              hybridBusinessFocuses: selHybridBusinessFocuses,
-                              ownershipTypes: selOwnershipTypes,
-                              linkedinMembersMin: selLinkedinMin,
-                              linkedinMembersMax: selLinkedinMax,
-                              searchQuery: allSearchTerm,
-                            };
-                            fetchAllCompaniesForSector(1, f);
-                          }}
-                        >
-                          Search
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
             {allCompaniesPagination.pageTotal > 1 && (
               <div className="flex gap-2 justify-center items-center">
@@ -7200,11 +5827,10 @@ const SectorDetailPage = ({
                       </thead>
                       <tbody>
                         {publicCompanies.map((c) => {
-                          const primaryDisplay = Array.isArray(
-                            c.primary_sectors
-                          )
-                            ? c.primary_sectors
-                            : [];
+                          const primaryDisplay = parseSectorList(c.primary_sectors);
+                          const secondaryDisplay = parseSectorList(
+                            c.secondary_sectors
+                          );
                           const expanded = !!publicExpandedDescriptions[c.id];
                           return (
                             <tr key={c.id} className="hover:bg-slate-50/50">
@@ -7275,14 +5901,11 @@ const SectorDetailPage = ({
                                 )}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {renderSectorLinks(
-                                  primaryDisplay as SectorLinkItem[] | undefined,
-                                  "/sector/"
-                                )}
+                                {renderSectorLinks(primaryDisplay, "/sector/")}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
                                 {renderSectorLinks(
-                                  c.secondary_sectors as SectorLinkItem[] | undefined,
+                                  secondaryDisplay,
                                   "/sub-sector/"
                                 )}
                               </td>

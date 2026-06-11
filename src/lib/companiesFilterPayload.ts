@@ -43,6 +43,8 @@ export function buildCompaniesSearchPayload(args: {
   applyOwnershipTabFilter?: boolean;
   portfolioCompanyIds?: number[];
   hybridBusinessFocusIds?: number[];
+  /** Always AND these primary sector ids (e.g. sector detail page). */
+  forcedPrimarySectorIds?: number[];
   columns?: string[];
   page?: number;
   perPage?: number;
@@ -56,6 +58,7 @@ export function buildCompaniesSearchPayload(args: {
     applyOwnershipTabFilter = true,
     portfolioCompanyIds = [],
     hybridBusinessFocusIds = [],
+    forcedPrimarySectorIds = [],
     columns = [],
     page = 1,
     perPage = 20,
@@ -489,6 +492,18 @@ export function buildCompaniesSearchPayload(args: {
       id: "ownership-tab",
       type: "ownership_type",
       value: { value: ownershipTypeIds },
+      op: clauses.length === 0 ? "AND" : "AND",
+    });
+  }
+
+  const forcedSectorIds = forcedPrimarySectorIds.filter(
+    (id) => Number.isFinite(id) && id > 0
+  );
+  if (forcedSectorIds.length > 0) {
+    clauses.push({
+      id: "forced-primary-sector",
+      type: "primary_sector_ids",
+      value: { value: forcedSectorIds },
       op: clauses.length === 0 ? "AND" : "AND",
     });
   }
