@@ -35,6 +35,15 @@ import {
   fetchCompaniesCountsClient,
 } from "@/lib/companiesClientApi";
 import { ownershipFilterParamToTab } from "@/lib/companiesSearchFilterConfig";
+import {
+  CompaniesDataTable,
+  ALL_COMPANY_COLUMN_KEYS,
+} from "@/components/companies/CompaniesDataTable";
+import {
+  DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS,
+  SECTOR_ALL_COMPANIES_COLUMNS_STORAGE_KEY,
+  type CompanyRow,
+} from "@/components/companies/companyColumnDefinitions";
 import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
 
 // Types for API integration
@@ -195,15 +204,6 @@ const renderSectorLinks = (
   });
   return nodes.length > 0 ? nodes : "N/A";
 };
-
-/** Columns required for the sector All Companies table (API omits fields not listed). */
-const SECTOR_ALL_COMPANIES_API_COLUMNS = getApiColumnsForSelectedKeys([
-  "description",
-  "primary_sectors",
-  "secondary_sectors",
-  "linkedin_members",
-  "hq",
-]);
 
 const parseSectorList = (value: unknown): SectorLinkItem[] => {
   if (value == null || value === "") return [];
@@ -1943,9 +1943,14 @@ const SectorDetailPage = ({
     perPage: 25,
     pageTotal: 0,
   });
-  const [allExpandedDescriptions, setAllExpandedDescriptions] = useState<
-    Record<number, boolean>
-  >({});
+  const [showAllCompaniesColumnsModal, setShowAllCompaniesColumnsModal] =
+    useState(false);
+  const [allCompaniesColumnsCount, setAllCompaniesColumnsCount] = useState<number>(
+    DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS.length
+  );
+  const allCompaniesApiColumnsRef = useRef<string[]>(
+    getApiColumnsForSelectedKeys([...DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS])
+  );
   const [allCompaniesCurrentFilters, setAllCompaniesCurrentFilters] = useState<
     CompaniesFilters | undefined
   >(undefined);
@@ -2207,7 +2212,7 @@ const SectorDetailPage = ({
 
         const data = await fetchCompaniesClient(page, {
           ...filtersToUse,
-          columns: SECTOR_ALL_COMPANIES_API_COLUMNS,
+          columns: allCompaniesApiColumnsRef.current,
           Per_page: 25,
         });
 
@@ -2263,6 +2268,10 @@ const SectorDetailPage = ({
     []
   );
 
+  const handleAllCompaniesApiColumnsChange = useCallback((apiColumns: string[]) => {
+    allCompaniesApiColumnsRef.current = apiColumns;
+  }, []);
+
   const handleAllCompaniesSearch = useCallback(
     (listFilters: CompaniesFilters, countsFilters: CompaniesFilters) => {
       scheduleAllCompaniesCountsFetch(countsFilters);
@@ -2270,6 +2279,10 @@ const SectorDetailPage = ({
     },
     [fetchAllCompaniesForSector, scheduleAllCompaniesCountsFetch]
   );
+
+  const refetchAllCompaniesFirstPage = useCallback(() => {
+    void fetchAllCompaniesForSector(1);
+  }, [fetchAllCompaniesForSector]);
 
   const forcedPrimarySectorIds = useMemo(() => {
     const id = Number(sectorId);
@@ -2858,7 +2871,7 @@ const SectorDetailPage = ({
       const items = await fetchAllCompaniesClientPages<AllCompanyItem>(
         {
           ...filtersToUse,
-          columns: SECTOR_ALL_COMPANIES_API_COLUMNS,
+          columns: allCompaniesApiColumnsRef.current,
           Per_page: 500,
         },
         { perPage: 500, token }
@@ -5566,6 +5579,21 @@ const SectorDetailPage = ({
                       {allCompaniesOwnershipCounts.totalCount.toLocaleString()} matches
                     </span>
                     <button
+                      type="button"
+                      onClick={() => setShowAllCompaniesColumnsModal((v) => !v)}
+                      aria-pressed={showAllCompaniesColumnsModal}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors duration-150 ${
+                        showAllCompaniesColumnsModal
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
+                      }`}
+                    >
+                      <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
+                        <path d="M0 1h14M0 5h10M0 9h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                      Columns {allCompaniesColumnsCount}/{ALL_COMPANY_COLUMN_KEYS.length}
+                    </button>
+                    <button
                       onClick={handleExportAllCompanies}
                       disabled={allExporting}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors duration-150 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -5589,145 +5617,20 @@ const SectorDetailPage = ({
                 />
               </div>
               <div className="px-5 py-4">
-                {allCompaniesLoading ? (
-                  <div className="py-10 text-center text-slate-500">
-                    Loading companies...
-                  </div>
-                ) : allCompaniesError ? (
-                  <div className="py-4 text-center text-red-600">
-                    {allCompaniesError}
-                  </div>
-                ) : allCompanies.length === 0 ? (
-                  <div className="py-10 text-center text-slate-500">
-                    No companies found for this sector.
-                  </div>
-                ) : (
-                  <div className="overflow-x-hidden">
-                    <table className="w-full text-sm table-fixed">
-                      <thead className="bg-slate-50/80">
-                        <tr className="hover:bg-slate-50/80">
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[8%]">
-                            Logo
-                          </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[17%]">
-                            Name
-                          </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[20%]">
-                            Description
-                          </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[16%]">
-                            Primary Sector(s)
-                          </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
-                            Sub-Sector(s)
-                          </th>
-                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
-                            LinkedIn Members
-                          </th>
-                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
-                            Country
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {allCompanies.map((c) => {
-                          const primaryDisplay = parseSectorList(c.primary_sectors);
-                          const secondaryDisplay = parseSectorList(
-                            c.secondary_sectors
-                          );
-                          const expanded = !!allExpandedDescriptions[c.id];
-                          return (
-                            <tr key={c.id} className="hover:bg-slate-50/50">
-                              <td className="py-3 pr-4">
-                                {c.linkedin_logo ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={`data:image/jpeg;base64,${c.linkedin_logo}`}
-                                    alt={`${c.name} logo`}
-                                    className="object-contain w-12 h-8 rounded"
-                                    onError={(e) => {
-                                      (
-                                        e.target as HTMLImageElement
-                                      ).style.display = "none";
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="flex justify-center items-center w-12 h-8 text-[10px] text-slate-500 bg-slate-100 rounded">
-                                    No Logo
-                                  </div>
-                                )}
-                              </td>
-                              <td className="py-3 pr-4 align-middle whitespace-normal break-words">
-                                <a
-                                  href={`/company/${c.id}`}
-                                  className="font-medium text-blue-600 underline"
-                                >
-                                  {c.name}
-                                </a>
-                              </td>
-                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
-                                {c.description ? (
-                                  <>
-                                    <div
-                                      style={
-                                        expanded
-                                          ? {}
-                                          : {
-                                              display: "-webkit-box",
-                                              WebkitLineClamp: 4,
-                                              WebkitBoxOrient: "vertical",
-                                              overflow: "hidden",
-                                              textOverflow: "ellipsis",
-                                              minHeight: "5rem",
-                                            }
-                                      }
-                                    >
-                                      {c.description}
-                                    </div>
-                                    {c.description.length > 160 && (
-                                      <button
-                                        className="mt-1 text-xs text-blue-600 underline hover:text-blue-800"
-                                        onClick={() =>
-                                          setAllExpandedDescriptions(
-                                            (prev) => ({
-                                              ...prev,
-                                              [c.id]: !expanded,
-                                            })
-                                          )
-                                        }
-                                      >
-                                        {expanded ? "Read Less" : "Read More"}
-                                      </button>
-                                    )}
-                                  </>
-                                ) : (
-                                  "N/A"
-                                )}
-                              </td>
-                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {renderSectorLinks(primaryDisplay, "/sector/")}
-                              </td>
-                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {renderSectorLinks(
-                                  secondaryDisplay,
-                                  "/sub-sector/"
-                                )}
-                              </td>
-                              <td className="py-3 pr-4 text-center text-slate-700">
-                                {typeof c.linkedin_members === "number"
-                                  ? c.linkedin_members.toLocaleString()
-                                  : "0"}
-                              </td>
-                              <td className="py-3 pr-4 text-center text-slate-700">
-                                {c.country || "N/A"}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                <CompaniesDataTable
+                  companies={allCompanies as CompanyRow[]}
+                  loading={allCompaniesLoading}
+                  error={allCompaniesError}
+                  columnStorageKey={SECTOR_ALL_COMPANIES_COLUMNS_STORAGE_KEY}
+                  defaultColumnKeys={DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS}
+                  onApiColumnsChange={handleAllCompaniesApiColumnsChange}
+                  onRefetch={refetchAllCompaniesFirstPage}
+                  externalShowColumnsModal={showAllCompaniesColumnsModal}
+                  externalSetShowColumnsModal={setShowAllCompaniesColumnsModal}
+                  onColumnsCountChange={setAllCompaniesColumnsCount}
+                  hideSelection
+                  emptyMessage="No companies found for this sector."
+                />
               </div>
             </div>
             {allCompaniesPagination.pageTotal > 1 && (
