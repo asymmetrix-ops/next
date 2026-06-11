@@ -165,7 +165,7 @@ function ViewMoreArrow({ onClick }: { onClick: () => void }) {
         background: "transparent",
         border: "none",
         cursor: "pointer",
-        fontSize: 16,
+        fontSize: 12,
         color: T.azure,
         fontWeight: 500,
         lineHeight: 1,

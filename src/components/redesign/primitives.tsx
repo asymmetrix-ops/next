@@ -97,10 +97,7 @@ export const descriptionBodyStyle: React.CSSProperties = {
 export const CARD_BODY_X_PAD = 14;
 export const overviewBodyPadding = "2px 14px 8px";
 
-/** Fin metrics typography — large body for Financial Metrics rows only. */
-export const FIN_METRIC_BODY_FONT_SIZE = 17;
-
-/** Shared layout + compact typography (Subscription card + headers on both cards). */
+/** Shared fin-metrics layout + typography (both cards). */
 export const FIN_METRIC_COMPACT_BODY_FONT_SIZE = 13;
 export const FIN_METRIC_COMPACT_PERIOD_FONT_SIZE = 10;
 export const FIN_METRIC_COMPACT_LABEL_COL_WIDTH = 138;
@@ -154,7 +151,6 @@ export const finMetricRowStyle: React.CSSProperties = {
 
 export const finMetricLabelStyle: React.CSSProperties = {
   ...kvLabelStyle,
-  fontSize: FIN_METRIC_BODY_FONT_SIZE,
   whiteSpace: "nowrap",
   textAlign: "left",
   justifySelf: "start",
@@ -166,7 +162,6 @@ export const FIN_METRIC_SOURCE_COL_PAD_RIGHT = 2;
 /** Source column in data rows — right-aligned within the padded content area. */
 export const finMetricSourceColStyle: React.CSSProperties = {
   ...kvLabelStyle,
-  fontSize: FIN_METRIC_BODY_FONT_SIZE,
   textAlign: "right",
   whiteSpace: "nowrap",
   justifySelf: "end",
@@ -185,7 +180,6 @@ export const finMetricPeriodSourceColStyle: React.CSSProperties = {
 /** Numeric / currency values in Financial, Subscription, and Income Statement tabs. */
 export const finMetricValueStyle: React.CSSProperties = {
   ...descriptionBodyStyle,
-  fontSize: FIN_METRIC_BODY_FONT_SIZE,
 };
 
 /** CSS class for fin-metric value cells (page-level typography guard). */
