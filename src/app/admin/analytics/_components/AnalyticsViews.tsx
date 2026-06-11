@@ -2528,179 +2528,308 @@ function EAHeatCell({ cell }: { cell: EAHeatCell }) {
   );
 }
 
-// ── Level-2: message list for a single alert type ─────────────────────────────
-
-function EAMessageList({ messages }: { messages: EAMessage[] }) {
-  if (messages.length === 0) {
-    return (
-      <p className="text-xs text-gray-400 py-2 px-3">No messages in this period.</p>
-    );
-  }
-  return (
-    <table className="w-full text-xs border-collapse">
-      <thead>
-        <tr className="border-b border-gray-200">
-          {["Subject", "Sent", "Opened at", "Clicked at", "Status"].map((h) => (
-            <th key={h} className="text-left font-normal text-gray-400 py-1.5 pr-4 first:pl-3">
-              {h}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {messages.slice(0, 30).map((m) => (
-          <tr key={m.messageId} className="border-b border-gray-100 last:border-0 hover:bg-white">
-            <td className="py-1.5 pr-4 pl-3 max-w-xs truncate">{m.subject || "—"}</td>
-            <td className="py-1.5 pr-4 text-gray-500 whitespace-nowrap">{eaFmtDate(m.sentAt)}</td>
-            <td className={`py-1.5 pr-4 whitespace-nowrap ${m.opened ? "text-green-700" : "text-gray-400"}`}>
-              {m.opened ? eaFmtDate(m.firstOpenedAt) : "—"}
-            </td>
-            <td className={`py-1.5 pr-4 whitespace-nowrap ${m.clicked ? "text-green-700" : "text-gray-400"}`}>
-              {m.clicked ? eaFmtDate(m.firstClickedAt) : "—"}
-            </td>
-            <td className="py-1.5 pr-4">
-              {m.status === "Bounced" ? (
-                <span className="text-red-600">Bounced</span>
-              ) : m.opened ? (
-                <span className="text-green-700">Opened</span>
-              ) : (
-                <span className="text-gray-400">Sent</span>
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-// ── Level-1: one row per alert type inside an expanded user row ───────────────
-
-function EABreakdownRow({ bd }: { bd: EABreakdown }) {
-  const [expanded, setExpanded] = useState(false);
-
-  // Untagged catch-all — rendered differently
-  if (bd.isUntaggedGroup) {
-    return (
-      <>
-        <tr
-          onClick={() => setExpanded((e) => !e)}
-          className="cursor-pointer hover:bg-white border-b border-gray-100 last:border-0 bg-amber-50/40"
-        >
-          <td className="pl-8 pr-3 py-2 w-52">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
-                All sends (untagged)
-              </span>
-            </div>
-            <div className="text-xs text-amber-600 mt-0.5 ml-0">
-              Postmark tag not set — can&apos;t split by type
-            </div>
-          </td>
-          <td className="px-3 py-2 text-xs text-gray-400">—</td>
-          <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">
-            {eaFmtDate(bd.lastOpened)}
-          </td>
-          <td className="px-3 py-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-green-700">{bd.openRate}%</span>
-              <span className="text-xs text-gray-400">{bd.openedCount}/{bd.sentCount}</span>
-            </div>
-          </td>
-          <td className="px-3 py-2">
-            <div className="flex gap-0.5 flex-nowrap overflow-hidden" style={{ maxWidth: 340 }}>
-              {bd.heatmap.map((cell) => (
-                <EAHeatCell key={cell.date} cell={cell} />
-              ))}
-            </div>
-          </td>
-          <td className="px-3 py-2 text-right">
-            <span className="text-xs text-gray-500 mr-1">{bd.sentCount} sent</span>
-            <span className="text-xs text-gray-400">{expanded ? "▲" : "▼"}</span>
-          </td>
-        </tr>
-        {expanded && (
-          <tr>
-            <td colSpan={6} className="bg-white border-b border-gray-100 px-4 py-2">
-              <EAMessageList messages={bd.messageHistory} />
-            </td>
-          </tr>
-        )}
-      </>
-    );
-  }
-
-  // Named subscription row
-  const { label, cls } = eaAlertLabel(bd.alertType);
-  const noMessages = bd.sentCount === 0;
-
-  return (
-    <>
-      <tr
-        onClick={noMessages ? undefined : () => setExpanded((e) => !e)}
-        className={`border-b border-gray-100 last:border-0 ${noMessages ? "opacity-60" : "cursor-pointer hover:bg-white"}`}
-      >
-        <td className="pl-8 pr-3 py-2 w-52">
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cls}`}>
-              {label}
-            </span>
-            {!bd.isActive && (
-              <span className="text-xs text-gray-400">(inactive)</span>
-            )}
-          </div>
-          {noMessages && (
-            <div className="text-xs text-gray-400 mt-0.5">
-              No messages tagged &quot;{bd.alertType}&quot; in Postmark
-            </div>
-          )}
-        </td>
-        <td className="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">
-          {bd.frequency ?? "—"}
-        </td>
-        <td className={`px-3 py-2 text-xs whitespace-nowrap ${eaDaysSince(bd.lastOpened) > 7 && bd.sentCount > 0 ? "text-red-600" : "text-gray-700"}`}>
-          {eaFmtDate(bd.lastOpened)}
-        </td>
-        <td className="px-3 py-2">
-          {noMessages ? (
-            <span className="text-xs text-gray-400">—</span>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-green-700">{bd.openRate}%</span>
-              <span className="text-xs text-gray-400">{bd.openedCount}/{bd.sentCount}</span>
-            </div>
-          )}
-        </td>
-        <td className="px-3 py-2">
-          {!noMessages && (
-            <div className="flex gap-0.5 flex-nowrap overflow-hidden" style={{ maxWidth: 340 }}>
-              {bd.heatmap.map((cell) => (
-                <EAHeatCell key={cell.date} cell={cell} />
-              ))}
-            </div>
-          )}
-        </td>
-        <td className="px-3 py-2 text-right">
-          {!noMessages && (
-            <>
-              <span className="text-xs text-gray-400 mr-1">{bd.sentCount} sent</span>
-              <span className="text-xs text-gray-400">{expanded ? "▲" : "▼"}</span>
-            </>
-          )}
-        </td>
-      </tr>
-      {expanded && (
-        <tr>
-          <td colSpan={6} className="bg-white border-b border-gray-100 px-4 py-2">
-            <EAMessageList messages={bd.messageHistory} />
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
 // ── Level-0: user summary row ─────────────────────────────────────────────────
+
+const USER_EMAIL_ENGAGEMENT_URL = "/api/admin/user-email-engagement";
+
+type EAUserEngagementSubscription = {
+  id: number;
+  item_type: string;
+  email_frequency: string;
+  is_active: boolean;
+  last_sent_at_utc: number | null;
+  next_run_at_utc: number | null;
+};
+
+type EAUserEngagementItem = {
+  tag: string;
+  item_type: string;
+  frequency: string;
+  sent: number;
+  opened: number;
+  clicked: number;
+  open_rate: number;
+  click_rate: number;
+  last_opened: string | null;
+  never_opened: boolean;
+};
+
+type EAUserEngagement = {
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  subscriptions: EAUserEngagementSubscription[];
+  engagement: EAUserEngagementItem[];
+};
+
+async function fetchUserEmailEngagement(
+  userId: number,
+  token: string
+): Promise<EAUserEngagement> {
+  const res = await fetch(USER_EMAIL_ENGAGEMENT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ user_id: userId }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${text}`);
+  }
+
+  return res.json() as Promise<EAUserEngagement>;
+}
+
+function EAUserEngagementPanel({ userId }: { userId: number }) {
+  const [engagement, setEngagement] = useState<EAUserEngagement | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let aborted = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : "";
+        const data = await fetchUserEmailEngagement(userId, token ?? "");
+        if (!aborted) setEngagement(data);
+      } catch (e) {
+        if (!aborted) {
+          setEngagement(null);
+          setError(
+            e instanceof Error ? e.message : "Failed to load user engagement"
+          );
+        }
+      } finally {
+        if (!aborted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      aborted = true;
+    };
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50">
+        Loading engagement…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="px-4 py-3 text-sm text-red-700 bg-red-50">
+        Failed to load engagement: {error}
+      </div>
+    );
+  }
+
+  if (!engagement) {
+    return (
+      <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50">
+        No engagement data.
+      </div>
+    );
+  }
+
+  const activeSubscriptions = engagement.subscriptions.filter((s) => s.is_active);
+
+  return (
+    <div className="px-4 py-3 bg-gray-50 space-y-4 border-t border-gray-100">
+      {engagement.subscriptions.length > 0 && (
+        <div>
+          <h4 className="text-xs font-medium text-gray-600 mb-2">
+            Subscriptions ({activeSubscriptions.length} active)
+          </h4>
+          <div className="overflow-x-auto rounded border bg-white">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  {["Type", "Frequency", "Status", "Last sent", "Next run"].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="text-left font-normal text-gray-500 px-3 py-2"
+                      >
+                        {h}
+                      </th>
+                    )
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {engagement.subscriptions.map((sub) => {
+                  const { label, cls } = eaAlertLabel(sub.item_type);
+                  return (
+                    <tr
+                      key={sub.id}
+                      className="border-b border-gray-100 last:border-0"
+                    >
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${cls}`}
+                        >
+                          {label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 capitalize text-gray-600">
+                        {sub.email_frequency}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${
+                            sub.is_active
+                              ? "bg-green-50 text-green-700"
+                              : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {sub.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                        {sub.last_sent_at_utc
+                          ? formatTimestamp(sub.last_sent_at_utc)
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                        {sub.next_run_at_utc
+                          ? formatTimestamp(sub.next_run_at_utc)
+                          : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h4 className="text-xs font-medium text-gray-600 mb-2">
+          Engagement by alert type
+        </h4>
+        <div className="overflow-x-auto rounded border bg-white">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-gray-200">
+                {[
+                  "Tag",
+                  "Type",
+                  "Frequency",
+                  "Sent",
+                  "Opened",
+                  "Clicked",
+                  "Open rate",
+                  "Click rate",
+                  "Last opened",
+                  "Status",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left font-normal text-gray-500 px-3 py-2"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {engagement.engagement.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={10}
+                    className="px-3 py-4 text-center text-gray-400"
+                  >
+                    No engagement records.
+                  </td>
+                </tr>
+              ) : (
+                engagement.engagement.map((row) => {
+                  const { label, cls } = eaAlertLabel(row.item_type);
+                  return (
+                    <tr
+                      key={row.tag}
+                      className={`border-b border-gray-100 last:border-0 ${
+                        row.never_opened && row.sent > 0 ? "bg-amber-50/50" : ""
+                      }`}
+                    >
+                      <td className="px-3 py-2 font-mono text-gray-600">
+                        {row.tag}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${cls}`}
+                        >
+                          {label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 capitalize text-gray-600">
+                        {row.frequency}
+                      </td>
+                      <td className="px-3 py-2">{row.sent}</td>
+                      <td className="px-3 py-2 text-green-700">{row.opened}</td>
+                      <td className="px-3 py-2 text-blue-700">{row.clicked}</td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={
+                            row.open_rate > 0
+                              ? "text-green-700 font-medium"
+                              : "text-gray-400"
+                          }
+                        >
+                          {row.open_rate}%
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={
+                            row.click_rate > 0
+                              ? "text-blue-700 font-medium"
+                              : "text-gray-400"
+                          }
+                        >
+                          {row.click_rate}%
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-600">
+                        {row.last_opened ? eaFmtDate(row.last_opened) : "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.sent === 0 ? (
+                          <span className="text-gray-400">No sends</span>
+                        ) : row.never_opened ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded font-medium bg-amber-50 text-amber-700">
+                            Never opened
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded font-medium bg-green-50 text-green-700">
+                            Opened
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EAUserRow({ user }: { user: EAUser }) {
   const [expanded, setExpanded] = useState(false);
@@ -2761,9 +2890,13 @@ function EAUserRow({ user }: { user: EAUser }) {
           </span>
         </td>
       </tr>
-      {expanded && user.byAlertType.map((bd) => (
-        <EABreakdownRow key={bd.alertType} bd={bd} />
-      ))}
+      {expanded && (
+        <tr className="border-b border-gray-200">
+          <td colSpan={6} className="p-0">
+            <EAUserEngagementPanel userId={user.userId} />
+          </td>
+        </tr>
+      )}
     </>
   );
 }
