@@ -18,6 +18,7 @@ import {
   parseLinkedInGrowthPctValue,
 } from "@/components/subsidiaries/SubsidiariesProfilePanel";
 import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
+import { extractJobTitleStrings } from "@/utils/individualHelpers";
 import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
 import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
@@ -1381,10 +1382,10 @@ const CompanyDetail = () => {
       (company?.Managmant_Roles_current || []).map((person) => ({
         id: person.id,
         name: person.Individual_text,
-        role: (person.job_titles_id || [])
-          .map((job) => job?.job_title)
-          .filter(Boolean)
-          .join(", "),
+        role: extractJobTitleStrings(
+          person.job_titles_id,
+          (person as { job_titles?: unknown }).job_titles
+        ).join(", "),
         individualId: person.individuals_id,
         linkedinUrl: managementProfileUrlFromRole(
           person,
@@ -1400,10 +1401,10 @@ const CompanyDetail = () => {
       (company?.Managmant_Roles_past || []).map((person) => ({
         id: person.id,
         name: person.Individual_text,
-        role: (person.job_titles_id || [])
-          .map((job) => job?.job_title)
-          .filter(Boolean)
-          .join(", "),
+        role: extractJobTitleStrings(
+          person.job_titles_id,
+          (person as { job_titles?: unknown }).job_titles
+        ).join(", "),
         individualId: person.individuals_id,
         linkedinUrl: managementProfileUrlFromRole(
           person,

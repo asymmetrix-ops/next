@@ -99,16 +99,52 @@ export const formatDate = (dateString: string): string => {
   });
 };
 
-export const formatJobTitles = (jobTitles: JobTitle[]): string => {
-  if (!jobTitles || jobTitles.length === 0) return "Not available";
-  return jobTitles.map((title) => title.job_title).join(", ");
+export const extractJobTitleStrings = (
+  jobTitlesId: unknown,
+  fallbackJobTitles?: unknown
+): string[] => {
+  if (Array.isArray(jobTitlesId)) {
+    return jobTitlesId
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (item && typeof item === "object") {
+          return String(
+            (item as { job_title?: string | null }).job_title ?? ""
+          ).trim();
+        }
+        return "";
+      })
+      .filter(Boolean);
+  }
+  if (jobTitlesId && typeof jobTitlesId === "object") {
+    const title = String(
+      (jobTitlesId as { job_title?: string | null }).job_title ?? ""
+    ).trim();
+    return title ? [title] : [];
+  }
+  if (typeof jobTitlesId === "string" && jobTitlesId.trim()) {
+    return [jobTitlesId.trim()];
+  }
+  if (Array.isArray(fallbackJobTitles)) {
+    return fallbackJobTitles
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+export const formatJobTitles = (jobTitles: JobTitle[] | unknown): string => {
+  const titles = extractJobTitleStrings(jobTitles);
+  if (titles.length === 0) return "Not available";
+  return titles.join(", ");
 };
 
 export const formatRelatedJobTitles = (
-  jobTitles: Array<{ job_title: string }>
+  jobTitles: Array<{ job_title: string }> | unknown
 ): string => {
-  if (!jobTitles || jobTitles.length === 0) return "Not available";
-  return jobTitles.map((title) => title.job_title).join(", ");
+  const titles = extractJobTitleStrings(jobTitles);
+  if (titles.length === 0) return "Not available";
+  return titles.join(", ");
 };
 
 export const getCounterpartyRole = (event: CorporateEvent): string => {

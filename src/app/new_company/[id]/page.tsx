@@ -21,6 +21,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
+import { extractJobTitleStrings } from "@/utils/individualHelpers";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
 const FINANCIAL_METRICS_EXPORT_SOURCE = "contribution_email";
@@ -3161,9 +3162,10 @@ const CompanyDetail = () => {
                           (person) => ({
                             id: person.id,
                             name: person.Individual_text,
-                            jobTitles: (person.job_titles_id || [])
-                              .map((job) => job?.job_title)
-                              .filter(Boolean),
+                            jobTitles: extractJobTitleStrings(
+                              person.job_titles_id,
+                              (person as { job_titles?: unknown }).job_titles
+                            ),
                             individualId: person.individuals_id,
                           })
                         )}
@@ -3180,9 +3182,10 @@ const CompanyDetail = () => {
                           (person) => ({
                             id: person.id,
                             name: person.Individual_text,
-                            jobTitles: (person.job_titles_id || [])
-                              .map((job) => job?.job_title)
-                              .filter(Boolean),
+                            jobTitles: extractJobTitleStrings(
+                              person.job_titles_id,
+                              (person as { job_titles?: unknown }).job_titles
+                            ),
                             individualId: person.individuals_id,
                           })
                         )}
