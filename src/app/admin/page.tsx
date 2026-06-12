@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import { CompetitorsTab } from "./analytics/_components/AnalyticsViews";
@@ -10,6 +10,7 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import { SearchableUserEmailSelect } from "@/components/SearchableUserEmailSelect";
 import { BasicUsersMultiSelect } from "@/components/ui/BasicUsersMultiSelect";
 import TiptapSimpleEditor from "@/components/ui/TiptapSimpleEditor";
+import { ContentEditableEmailEditor } from "@/components/ui/ContentEditableEmailEditor";
 import {
   ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN,
   getUserEmails,
@@ -550,6 +551,114 @@ function sanitizeHtml(input: string): string {
   return out;
 }
 
+/** Sanitize full email HTML while keeping layout styles intact. */
+function sanitizeEmailDocumentHtml(input: string): string {
+  let out = input;
+  // Only strip actual script execution — preserve on* handlers (onerror/onload used
+  // for image fallbacks in admin-authored templates)
+  out = out.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
+  out = out.replace(
+    /(href|src)\s*=\s*("javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi,
+    '$1="#"'
+  );
+  return out;
+}
+
+/** Full email documents — not editable in Tiptap without losing layout. */
+function isStandaloneEmailDocument(html: string): boolean {
+  const trimmed = html.trim();
+  if (/^<!doctype\s+html/i.test(trimmed) || /^<html[\s>]/i.test(trimmed)) {
+    return true;
+  }
+  if (/<head[\s>]/i.test(trimmed) && /<style[\s>]/i.test(trimmed)) {
+    return true;
+  }
+  if (
+    /(?:id|class)=["'][^"']*\bu_body\b/i.test(trimmed) ||
+    /class=["'][^"']*\bu_row\b/i.test(trimmed)
+  ) {
+    return true;
+  }
+  if (/<style[\s>]/i.test(trimmed) && /<table[\s>]/i.test(trimmed)) {
+    return true;
+  }
+  if (
+    /role=["']presentation["']/i.test(trimmed) &&
+    !/class=["'][^"']*\bcontainer\b/i.test(trimmed)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function isHiddenEmailPreheader(el: Element): boolean {
+  const style = (el.getAttribute("style") || "").toLowerCase().replace(/\s/g, "");
+  return (
+    style.includes("display:none") ||
+    style.includes("max-height:0") ||
+    style.includes("opacity:0") ||
+    style.includes("overflow:hidden")
+  );
+}
+
+/** Pull editable inner HTML from a stored template Body (visual editor mode). */
+function extractInnerContentForEditor(fullHtml: string): string {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(fullHtml, "text/html");
+
+    const container = doc.querySelector(
+      'table.container, .container table, table[class*="container"]'
+    );
+    if (container) {
+      const td = container.querySelector("td");
+      if (td) return td.innerHTML.trim();
+    }
+
+    const mainTable = doc.querySelector(
+      'table[role="presentation"][style*="max-width:600"], table[role="presentation"][style*="max-width: 600"]'
+    );
+    if (mainTable) return mainTable.outerHTML.trim();
+
+    const visibleDivs = Array.from(doc.body?.querySelectorAll("div") ?? []).filter(
+      (div) => !isHiddenEmailPreheader(div)
+    );
+    if (visibleDivs.length === 1) {
+      return visibleDivs[0]!.innerHTML.trim();
+    }
+
+    return doc.body?.innerHTML.trim() || fullHtml;
+  } catch {
+    const containerMatch = fullHtml.match(
+      /<table[^>]*class="container"[^>]*>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<\/table>/i
+    );
+    if (containerMatch?.[1]) return containerMatch[1].trim();
+    return fullHtml;
+  }
+}
+
+function resolveEmailBodyHtml(params: {
+  bodyHtml: string;
+  subject: string;
+}): string {
+  const subjectTrimmed = params.subject.trim();
+  if (isStandaloneEmailDocument(params.bodyHtml)) {
+    let out = sanitizeEmailDocumentHtml(params.bodyHtml);
+    if (subjectTrimmed && /<title[\s>]/i.test(out)) {
+      const safeTitle = subjectTrimmed
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      out = out.replace(/<title[\s\S]*?<\/title>/i, `<title>${safeTitle}</title>`);
+    }
+    return out;
+  }
+  return buildBrandedEmailHtml({
+    bodyHtml: `<div>${sanitizeHtml(params.bodyHtml)}</div>`,
+    subject: subjectTrimmed,
+  });
+}
+
 function escapeHtmlText(input: string): string {
   return input
     .replace(/&/g, "&amp;")
@@ -685,9 +794,10 @@ function EmailsTab() {
   }
 
   const [bodyHtml, setBodyHtml] = useState<string>("<p></p>");
+  const [bodyEditMode, setBodyEditMode] = useState<"visual" | "html">("visual");
   const [html, setHtml] = useState("");
   const [subject, setSubject] = useState("");
-  const [entityType, setEntityType] = useState<EmailEntityType>("");
+  const [entityType, setEntityType] = useState<EmailEntityType>("client");
   const [singleRecipient, setSingleRecipient] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [fromDirectoryUser, setFromDirectoryUser] =
@@ -709,6 +819,8 @@ function EmailsTab() {
   const [sending, setSending] = useState(false);
   const EMAIL_PREVIEW_STORAGE_KEY = "asymmetrix_email_preview_v1";
 
+  const EMAIL_CONTENT_URL =
+    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content";
   const XANO_IMAGE_UPLOAD_URL =
     "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images";
 
@@ -759,68 +871,74 @@ function EmailsTab() {
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
 
-  function extractInnerContent(fullHtml: string): string {
-    try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(fullHtml, "text/html");
-
-      const container = doc.querySelector(
-        'table.container, .container table, table[class*="container"]'
-      );
-      if (container) {
-        const td = container.querySelector("td");
-        if (td) return td.innerHTML.trim();
-      }
-
-      const bodyDiv = doc.body?.querySelector("div");
-      if (bodyDiv) return bodyDiv.innerHTML.trim();
-
-      return doc.body?.innerHTML.trim() || fullHtml;
-    } catch {
-      const containerMatch = fullHtml.match(
-        /<table[^>]*class="container"[^>]*>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<\/table>/i
-      );
-      if (containerMatch?.[1]) return containerMatch[1].trim();
-      const divMatch = fullHtml.match(
-        /<body[^>]*>[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>[\s\S]*?<\/body>/i
-      );
-      if (divMatch?.[1]) return divMatch[1].trim();
-      return fullHtml;
+  function loadTemplateBody(rawBody: string) {
+    const body = String(rawBody ?? "").trim();
+    if (!body) {
+      setBodyEditMode("visual");
+      setBodyHtml("<p></p>");
+      return;
     }
+    if (isStandaloneEmailDocument(body)) {
+      setBodyEditMode("visual");
+      setBodyHtml(body);
+      return;
+    }
+    setBodyEditMode("visual");
+    setBodyHtml(extractInnerContentForEditor(body) || "<p></p>");
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadTemplates() {
+  const buildCurrentEmailHtml = (subjectOverride?: string) =>
+    resolveEmailBodyHtml({
+      bodyHtml,
+      subject: (subjectOverride ?? subject).trim(),
+    });
+
+  const emailPreviewHtml = useMemo(
+    () =>
+      resolveEmailBodyHtml({
+        bodyHtml,
+        subject: subject.trim(),
+      }),
+    [bodyHtml, subject]
+  );
+
+  const bodyRequiresHtmlMode = useMemo(
+    () => isStandaloneEmailDocument(bodyHtml),
+    [bodyHtml]
+  );
+
+  const loadTemplates = useCallback(
+    async (filterEntityType: EmailEntityType) => {
+      const entityFilter = filterEntityType || "client";
       try {
         setTemplatesLoading(true);
-        const res = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
-          { method: "GET", headers: { "Content-Type": "application/json" } }
-        );
+        const url = `${EMAIL_CONTENT_URL}?entity_type=${encodeURIComponent(entityFilter)}`;
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(apiAuthToken
+              ? { Authorization: `Bearer ${apiAuthToken}` }
+              : {}),
+          },
+        });
+        if (!res.ok) return;
         const data = await res.json();
-        if (!cancelled && Array.isArray(data)) {
+        if (Array.isArray(data)) {
           setTemplates(data as EmailTemplate[]);
         }
       } catch {
         // ignore
       } finally {
-        if (!cancelled) setTemplatesLoading(false);
+        setTemplatesLoading(false);
       }
-    }
-    loadTemplates();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    },
+    [apiAuthToken]
+  );
 
-  const buildCurrentEmailHtml = (subjectOverride?: string) => {
-    const sanitized = sanitizeHtml(bodyHtml);
-    return buildBrandedEmailHtml({
-      bodyHtml: `<div>${sanitized}</div>`,
-      subject: (subjectOverride ?? subject).trim(),
-    });
-  };
+  useEffect(() => {
+    void loadTemplates(entityType);
+  }, [entityType, loadTemplates]);
 
   const handleExport = () => {
     setHtml(buildCurrentEmailHtml(subject));
@@ -948,7 +1066,29 @@ function EmailsTab() {
       )}
 
       <div className="mb-3">
-        <label className="block mb-1 text-sm font-medium">Template</label>
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <label className="text-sm font-medium">Template</label>
+          <div className="flex items-center gap-2">
+            {selectedTemplateId !== "" && (
+              <Link
+                href={`/admin/email-editor/${selectedTemplateId}`}
+                className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open in Editor ↗
+              </Link>
+            )}
+            <Link
+              href="/admin/email-editor/new"
+              className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              + New template
+            </Link>
+          </div>
+        </div>
         <select
           className="p-2 w-full border"
           value={selectedTemplateId}
@@ -987,8 +1127,7 @@ function EmailsTab() {
                 }
               }
               if (t.Body) {
-                const inner = extractInnerContent(String(t.Body));
-                setBodyHtml(inner || "<p></p>");
+                loadTemplateBody(String(t.Body));
               }
             }
           }}
@@ -1070,7 +1209,10 @@ function EmailsTab() {
         <select
           className="p-2 w-full border"
           value={entityType}
-          onChange={(e) => setEntityType(coerceEmailEntityType(e.target.value))}
+          onChange={(e) => {
+            setEntityType(coerceEmailEntityType(e.target.value));
+            setSelectedTemplateId("");
+          }}
         >
           <option value="">Choose entity type</option>
           <option value="contributon_email">contributon_email</option>
@@ -1079,19 +1221,98 @@ function EmailsTab() {
       </div>
 
       <div className="mt-4">
-        <label className="block mb-1 text-sm font-medium">Body</label>
-        <TiptapSimpleEditor
-          valueHtml={bodyHtml}
-          onChangeHtml={setBodyHtml}
-          onUploadImage={uploadImageToXano}
-          companyMentionSearch={searchCompaniesForMention}
-          placeholder="Write the email body..."
-          minHeightPx={500}
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          Type <span className="font-medium text-gray-700">@</span> plus a company name to
-          link to its profile. Images are uploaded to Xano and inserted automatically.
-        </p>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <label className="text-sm font-medium">Body</label>
+          <div className="inline-flex rounded border border-gray-300 bg-gray-50 p-0.5 text-sm">
+            <button
+              type="button"
+              className={[
+                "rounded px-3 py-1",
+                bodyEditMode === "visual"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900",
+              ].join(" ")}
+              onClick={() => setBodyEditMode("visual")}
+            >
+              Visual
+            </button>
+            <button
+              type="button"
+              className={[
+                "rounded px-3 py-1",
+                bodyEditMode === "html"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900",
+              ].join(" ")}
+              onClick={() => setBodyEditMode("html")}
+            >
+              HTML source
+            </button>
+          </div>
+        </div>
+        {bodyEditMode === "html" ? (
+          <>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div>
+                <div className="mb-1 text-xs font-medium text-gray-500">
+                  HTML source
+                </div>
+                <textarea
+                  className="w-full rounded border border-gray-300 p-3 font-mono text-xs leading-relaxed"
+                  style={{ minHeight: 560 }}
+                  value={bodyHtml}
+                  onChange={(e) => setBodyHtml(e.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+              <div className="min-h-[560px] overflow-hidden rounded border border-gray-300 bg-[#F8FAFC]">
+                <div className="border-b bg-white px-3 py-2 text-xs font-medium text-gray-600">
+                  Live preview
+                </div>
+                <iframe
+                  title="Email HTML preview"
+                  className="w-full bg-white"
+                  style={{ height: 520 }}
+                  srcDoc={emailPreviewHtml}
+                  sandbox=""
+                />
+              </div>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Edit the HTML on the left; preview updates on the right. Layout
+              styles are preserved when saving.
+            </p>
+          </>
+        ) : bodyRequiresHtmlMode ? (
+          <>
+            <ContentEditableEmailEditor
+              html={bodyHtml}
+              onChangeHtml={setBodyHtml}
+              onUploadImage={uploadImageToXano}
+              minHeightPx={560}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Click text in the preview to edit copy and numbers. Switch to
+              HTML source for structural changes.
+            </p>
+          </>
+        ) : (
+          <>
+            <TiptapSimpleEditor
+              valueHtml={bodyHtml}
+              onChangeHtml={setBodyHtml}
+              onUploadImage={uploadImageToXano}
+              companyMentionSearch={searchCompaniesForMention}
+              placeholder="Write the email body..."
+              minHeightPx={500}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Type <span className="font-medium text-gray-700">@</span> plus a
+              company name to link to its profile. Images are uploaded to Xano
+              and inserted automatically.
+            </p>
+          </>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2 mt-4">
@@ -1133,24 +1354,22 @@ function EmailsTab() {
 
                 setSending(true);
                 try {
-                  const res = await fetch(
-                    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        Publication_Date: null,
-                        Headline: subjectTrimmed,
-                        Body: brandedHtml,
-                        entity_type: entityType,
-                        from_email: senderField.email.trim(),
-                      }),
-                    }
-                  );
+                  const res = await fetch(EMAIL_CONTENT_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      Publication_Date: null,
+                      Headline: subjectTrimmed,
+                      Body: brandedHtml,
+                      entity_type: entityType,
+                      from_email: senderField.email.trim(),
+                    }),
+                  });
                   if (!res.ok) {
                     alert("Failed to submit email content");
                   } else {
                     alert("Email content submitted");
+                    await loadTemplates(entityType);
                   }
                 } catch {
                   alert("Network error while submitting content");
@@ -1175,25 +1394,23 @@ function EmailsTab() {
 
                 setSending(true);
                 try {
-                  const res = await fetch(
-                    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        Publication_Date: null,
-                        Headline: subjectTrimmed,
-                        Body: brandedHtml,
-                        entity_type: entityType,
-                        from_email: senderField.email.trim(),
-                      }),
-                    }
-                  );
+                  const res = await fetch(EMAIL_CONTENT_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      Publication_Date: null,
+                      Headline: subjectTrimmed,
+                      Body: brandedHtml,
+                      entity_type: entityType,
+                      from_email: senderField.email.trim(),
+                    }),
+                  });
                   if (!res.ok) {
                     alert("Failed to submit email content");
                     return;
                   }
                   const json = await res.json().catch(() => null);
+                  await loadTemplates(entityType);
                   const contentId = extractEmailContentIdFromResponse(json);
                   if (!contentId) {
                     alert(
@@ -1240,25 +1457,23 @@ function EmailsTab() {
 
                 setSending(true);
                 try {
-                  const res = await fetch(
-                    `https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content/${idNum}`,
-                    {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        email_content_id: idNum,
-                        Publication_Date: null,
-                        Headline: subjectTrimmed,
-                        Body: brandedHtml,
-                        entity_type: entityType,
-                        from_email: senderField.email.trim(),
-                      }),
-                    }
-                  );
+                  const res = await fetch(`${EMAIL_CONTENT_URL}/${idNum}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      email_content_id: idNum,
+                      Publication_Date: null,
+                      Headline: subjectTrimmed,
+                      Body: brandedHtml,
+                      entity_type: entityType,
+                      from_email: senderField.email.trim(),
+                    }),
+                  });
                   if (!res.ok) {
                     alert("Failed to save template");
                   } else {
                     alert("Template saved");
+                    await loadTemplates(entityType);
                   }
                 } catch {
                   alert("Network error while saving");
@@ -1285,25 +1500,23 @@ function EmailsTab() {
 
                 setSending(true);
                 try {
-                  const res = await fetch(
-                    `https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content/${idNum}`,
-                    {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        email_content_id: idNum,
-                        Publication_Date: null,
-                        Headline: subjectTrimmed,
-                        Body: brandedHtml,
-                        entity_type: entityType,
-                        from_email: senderField.email.trim(),
-                      }),
-                    }
-                  );
+                  const res = await fetch(`${EMAIL_CONTENT_URL}/${idNum}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      email_content_id: idNum,
+                      Publication_Date: null,
+                      Headline: subjectTrimmed,
+                      Body: brandedHtml,
+                      entity_type: entityType,
+                      from_email: senderField.email.trim(),
+                    }),
+                  });
                   if (!res.ok) {
                     alert("Failed to save template");
                     return;
                   }
+                  await loadTemplates(entityType);
                   try {
                     await postSendEmail(idNum);
                     alert("Saved and send requested.");
