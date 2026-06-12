@@ -4,10 +4,14 @@ import { formatLocation } from "@/utils/investorHelpers";
 
 interface InvestorOverviewProps {
   investorData: InvestorData;
+  timeSinceLastInvestment?: string;
+  timeSinceLastInvestmentLoading?: boolean;
 }
 
 const InvestorOverview: React.FC<InvestorOverviewProps> = ({
   investorData,
+  timeSinceLastInvestment,
+  timeSinceLastInvestmentLoading = false,
 }) => {
   const { Investor, Focus, Invested_DA_sectors } = investorData;
   const hq = formatLocation(Investor._locations);
@@ -65,6 +69,12 @@ const InvestorOverview: React.FC<InvestorOverviewProps> = ({
             ) : (
               "-"
             )}
+          </div>
+          <div>
+            <strong>Time since last investment:</strong>{" "}
+            {timeSinceLastInvestmentLoading
+              ? "Loading..."
+              : timeSinceLastInvestment ?? "—"}
           </div>
         </div>
       </div>
