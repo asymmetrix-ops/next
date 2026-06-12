@@ -248,6 +248,7 @@ export function AIRiskCard({
   const { label: computedTier, hint: headlineHint } =
     getAiExposureHeadline(defAvg);
   const headlineTier = tierProp?.trim() || computedTier;
+  const activeAxis = axes.find((a) => a.key === active) ?? axes[0];
 
   return (
     <div
@@ -348,13 +349,13 @@ export function AIRiskCard({
 
       <div
         style={{
-          padding: "4px 12px 14px",
+          padding: "4px 12px 8px",
           display: "flex",
           justifyContent: "center",
-          flex: fillGridCell ? "1 1 auto" : undefined,
+          flex: fillGridCell ? "0 0 auto" : undefined,
         }}
       >
-        <div style={{ width: "100%", maxWidth: 360 }}>
+        <div style={{ width: "100%", maxWidth: 360, overflow: "visible" }}>
           <RadarChart
             axes={axes}
             active={active}
@@ -363,6 +364,62 @@ export function AIRiskCard({
           />
         </div>
       </div>
+
+      {activeAxis?.blurb ? (
+        <div
+          style={{
+            margin: "0 14px 14px",
+            padding: "12px 14px",
+            borderRadius: T.rLg,
+            background: DEFENSIBILITY_TONE.bg,
+            border: `1px solid ${DEFENSIBILITY_TONE.ring}`,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+              gap: 8,
+              marginBottom: 6,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: T.sans,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: T.ink,
+                lineHeight: 1.35,
+              }}
+            >
+              {activeAxis.label}
+            </div>
+            <span
+              style={{
+                fontFamily: T.mono,
+                fontSize: 11,
+                fontWeight: 600,
+                color: DEFENSIBILITY_TONE.fg,
+                flexShrink: 0,
+              }}
+            >
+              {activeAxis.tier} · {activeAxis.score.toFixed(1)} /{" "}
+              {AI_SCORE_MAX.toFixed(1)}
+            </span>
+          </div>
+          <div
+            style={{
+              fontFamily: T.sans,
+              fontSize: 12.5,
+              lineHeight: 1.55,
+              color: T.body,
+            }}
+          >
+            {activeAxis.blurb}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
