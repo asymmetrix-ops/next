@@ -1,147 +1,32 @@
 "use client";
 /**
- * AIRiskCard — hand-built SVG radar chart (AI Exposure Index: risk vs. defensibility).
+ * AIRiskCard — hand-built SVG radar chart (AI Exposure Index: defensibility only).
  * No charting library; click axes to highlight on the radar.
  */
 import React, { useState } from "react";
 import { T } from "./tokens.jsx";
 import {
   AI_SCORE_MAX,
+  getAiExposureHeadline,
   sortAiRiskAxesForRadar,
 } from "@/lib/companyAiRisks";
 
 export const AI_EXPOSURE_INDEX_TITLE = "AI Exposure Index";
 
-/** Headline tiers from mean axis scores (each axis is 1–3). */
-export function getAiExposureHeadline(
-  defAvg: number,
-  riskAvg: number
-): { label: string; hint: string } {
-  if (defAvg >= 2.5 && riskAvg <= 2) {
-    return {
-      label: "Strong overall moat vs. AI",
-      hint: "Shown when average defensibility is ≥ 2.5/3 and average risk is ≤ 2.0/3.",
-    };
-  }
-  if (defAvg >= 2 && riskAvg <= 2.3) {
-    return {
-      label: "Resilient — selective AI exposure",
-      hint: "Shown when average defensibility is ≥ 2.0/3 and average risk is ≤ 2.3/3.",
-    };
-  }
-  if (defAvg >= 1.5 || riskAvg <= 2.5) {
-    return {
-      label: "Moderate — partial exposure",
-      hint: "Shown when defensibility is ≥ 1.5/3 or risk is ≤ 2.5/3 (and stronger tiers do not apply).",
-    };
-  }
-  return {
-    label: "Limited — AI substitution risk",
-    hint: "Shown when defensibility is below 1.5/3 and risk is above 2.5/3.",
-  };
-}
-
-export type AIRiskAxisGroup = "risk" | "def";
-
 export type AIRiskAxis = {
   key: string;
   label: string;
   score: number;
-  group: AIRiskAxisGroup;
   tier: string;
   blurb: string;
 };
 
-export const AI_RISK_AXES: AIRiskAxis[] = [
-  {
-    key: "replic",
-    label: "Replicability",
-    score: 3,
-    group: "risk",
-    tier: "High",
-    blurb:
-      "AI can classify merchants and infer spending patterns from partial data, but cannot reconstruct transactions never captured through permissioned card relationships.",
-  },
-  {
-    key: "accuracy",
-    label: "Accuracy Matters",
-    score: 3,
-    group: "risk",
-    tier: "High",
-    blurb:
-      "Outputs inform campaign ROI, audience targeting and merchant-funded offers — users will not swap observed purchase data for AI-generated estimates where budgets are at stake.",
-  },
-  {
-    key: "stakes",
-    label: "Value at Stake",
-    score: 3,
-    group: "risk",
-    tier: "High",
-    blurb:
-      "Dataset supports decisions across media spend, retail-media investment and bank engagement — real purchase evidence outweighs modelled intent.",
-  },
-  {
-    key: "workflow",
-    label: "Workflow Moat",
-    score: 2,
-    group: "def",
-    tier: "Moderate",
-    blurb:
-      "Embedded in marketing workflows via Snowflake Marketplace, AWS Clean Rooms, MS Curate for Commerce — moat deepens with recurring campaign use.",
-  },
-  {
-    key: "authority",
-    label: "Authority",
-    score: 2,
-    group: "def",
-    tier: "Moderate",
-    blurb:
-      "Observed spending behaviour beats survey- or impression-based proxies, but it is not the only source of truth for purchase measurement.",
-  },
-  {
-    key: "history",
-    label: "Historical Data",
-    score: 3,
-    group: "def",
-    tier: "High",
-    blurb:
-      "AI can analyse historical data once it exists, but cannot reconstruct a comparable permissioned transaction history after the fact.",
-  },
-];
-
-const GROUP_TONE = {
-  risk: {
-    fg: "oklch(50% 0.18 25)",
-    fill: "oklch(62% 0.20 25)",
-    bg: "oklch(96% 0.035 25)",
-    ring: "oklch(72% 0.14 25)",
-    label: "Risk",
-  },
-  def: {
-    fg: "oklch(40% 0.12 158)",
-    fill: "oklch(56% 0.13 158)",
-    bg: "oklch(95% 0.05 158)",
-    ring: "oklch(60% 0.14 158)",
-    label: "Defensibility",
-  },
+const DEFENSIBILITY_TONE = {
+  fg: "oklch(40% 0.12 158)",
+  fill: "oklch(56% 0.13 158)",
+  bg: "oklch(95% 0.05 158)",
+  ring: "oklch(60% 0.14 158)",
 } as const;
-
-type Tone = {
-  fg: string;
-  fill?: string;
-  bg: string;
-  ring: string;
-};
-
-function tierTone(score: number, group?: AIRiskAxisGroup): Tone {
-  if (group && GROUP_TONE[group]) return GROUP_TONE[group];
-  const s = Math.round(Math.min(AI_SCORE_MAX, Math.max(1, score)));
-  if (s >= 3)
-    return { fg: T.up, bg: "oklch(95% 0.06 150)", ring: "oklch(65% 0.16 150)" };
-  if (s >= 2)
-    return { fg: T.signal, bg: T.signalSoft, ring: "oklch(72% 0.13 48)" };
-  return { fg: T.down, bg: "oklch(95% 0.05 25)", ring: "oklch(70% 0.14 25)" };
-}
 
 type RadarChartProps = {
   axes: AIRiskAxis[];
@@ -151,13 +36,10 @@ type RadarChartProps = {
   maxScore?: number;
 };
 
-// Extra viewBox space (in SVG user units) reserved for axis labels on each side.
-const RADAR_PAD_H = 158;
-const RADAR_PAD_V = 44;
-
-const AXIS_LABEL_FONT_SIZE = 15;
-const AXIS_LABEL_LINE_HEIGHT = 18;
-const AXIS_LABEL_RADIUS_OFFSET = 36;
+const RADAR_PAD_H = 96;
+const RADAR_PAD_V = 38;
+const AXIS_LABEL_LINE_HEIGHT = 13;
+const AXIS_LABEL_RADIUS_OFFSET = 26;
 
 /** Split long axis labels onto multiple lines (prefer " / " breaks). */
 function splitAxisLabel(label: string): string[] {
@@ -169,25 +51,10 @@ function splitAxisLabel(label: string): string[] {
       .map((s) => s.trim())
       .filter(Boolean);
   }
-  if (trimmed.length <= 14) return [trimmed];
-  const words = trimmed.split(/\s+/);
-  const lines: string[] = [];
-  let cur = "";
-  for (const word of words) {
-    const next = cur ? `${cur} ${word}` : word;
-    if (next.length > 14 && cur) {
-      lines.push(cur);
-      cur = word;
-    } else {
-      cur = next;
-    }
-  }
-  if (cur) lines.push(cur);
-  return lines.length > 0 ? lines : [trimmed];
-}
-
-function formatAiScorePair(avg: number): string {
-  return `${avg.toFixed(1)} / ${AI_SCORE_MAX.toFixed(1)}`;
+  if (trimmed.length <= 16) return [trimmed];
+  const mid = trimmed.lastIndexOf(" ", 16);
+  if (mid === -1) return [trimmed];
+  return [trimmed.slice(0, mid), trimmed.slice(mid + 1)];
 }
 
 function RadarChart({
@@ -226,7 +93,6 @@ function RadarChart({
 
   const spokes = axes.map((ax, i) => {
     const [x, y] = point(i, R);
-    const isActive = active === ax.key;
     return (
       <line
         key={ax.key}
@@ -234,85 +100,27 @@ function RadarChart({
         y1={cy}
         x2={x}
         y2={y}
-        stroke={isActive ? T.azure : T.divider}
-        strokeWidth={isActive ? 1.5 : 1}
+        stroke={T.divider}
+        strokeWidth={1}
       />
     );
   });
 
-  const groupRuns: Array<{
-    group: AIRiskAxisGroup;
-    start: number;
-    end: number;
-    wraps?: boolean;
-  }> = [];
-  {
-    let cur: (typeof groupRuns)[number] | null = null;
-    axes.forEach((ax, i) => {
-      if (!cur || cur.group !== ax.group) {
-        cur = { group: ax.group, start: i, end: i };
-        groupRuns.push(cur);
-      } else {
-        cur.end = i;
-      }
-    });
-    if (
-      groupRuns.length > 1 &&
-      groupRuns[0].group === groupRuns[groupRuns.length - 1].group
-    ) {
-      const last = groupRuns.pop()!;
-      groupRuns[0].start = last.start;
-      groupRuns[0].wraps = true;
-    }
-  }
-
-  const wedges = groupRuns.map((run) => {
-    const tone = GROUP_TONE[run.group] || GROUP_TONE.def;
-    const runIdx: number[] = [];
-    if (run.wraps) {
-      for (let i = run.start; i < N; i++) runIdx.push(i);
-      for (let i = 0; i <= run.end; i++) runIdx.push(i);
-    } else {
-      for (let i = run.start; i <= run.end; i++) runIdx.push(i);
-    }
-    const firstIdx = runIdx[0];
-    const lastIdx = runIdx[runIdx.length - 1];
-    const prevIdx = (firstIdx - 1 + N) % N;
-    const nextIdx = (lastIdx + 1) % N;
-    const halfStep = Math.PI / N;
-    const startAngle = angleFor(firstIdx) - halfStep;
-    const endAngle = angleFor(lastIdx) + halfStep;
-    const startScore = (axes[prevIdx].score + axes[firstIdx].score) / 2;
-    const endScore = (axes[lastIdx].score + axes[nextIdx].score) / 2;
-
-    const pts: [number, number][] = [[cx, cy]];
-    pts.push([
-      cx + Math.cos(startAngle) * (startScore / maxScore) * R,
-      cy + Math.sin(startAngle) * (startScore / maxScore) * R,
-    ]);
-    runIdx.forEach((i) => pts.push(point(i, (axes[i].score / maxScore) * R)));
-    pts.push([
-      cx + Math.cos(endAngle) * (endScore / maxScore) * R,
-      cy + Math.sin(endAngle) * (endScore / maxScore) * R,
-    ]);
-
-    return (
-      <polygon
-        key={`${run.group}-${run.start}`}
-        points={pts.map((p) => p.join(",")).join(" ")}
-        fill={tone.fill}
-        fillOpacity="0.22"
-        stroke={tone.fill}
-        strokeOpacity="0.85"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-    );
-  });
+  const dataPoints = axes.map((ax, i) => point(i, (ax.score / maxScore) * R));
+  const dataPolygon = (
+    <polygon
+      points={dataPoints.map((p) => p.join(",")).join(" ")}
+      fill={DEFENSIBILITY_TONE.fill}
+      fillOpacity="0.22"
+      stroke={DEFENSIBILITY_TONE.fill}
+      strokeOpacity="0.85"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+  );
 
   const dots = axes.map((ax, i) => {
-    const [x, y] = point(i, (ax.score / maxScore) * R);
-    const tone = tierTone(ax.score, ax.group);
+    const [x, y] = dataPoints[i];
     const isActive = active === ax.key;
     return (
       <g
@@ -327,14 +135,14 @@ function RadarChart({
           cx={x}
           cy={y}
           r={isActive ? 9 : 6}
-          fill={tone.fill || tone.fg}
+          fill={DEFENSIBILITY_TONE.fill}
           fillOpacity={isActive ? 0.22 : 0}
         />
         <circle
           cx={x}
           cy={y}
           r={isActive ? 4.5 : 3.6}
-          fill={tone.fill || tone.fg}
+          fill={DEFENSIBILITY_TONE.fill}
           stroke="#fff"
           strokeWidth="1.6"
         />
@@ -355,8 +163,9 @@ function RadarChart({
           : "end";
     const isActive = active === ax.key;
     const lines = splitAxisLabel(ax.label);
-    const lineHeight = AXIS_LABEL_LINE_HEIGHT;
-    const firstDy = lines.length > 1 ? -((lines.length - 1) * lineHeight) / 2 : 0;
+    const totalH = lines.length * AXIS_LABEL_LINE_HEIGHT;
+    const startDy = -(totalH / 2) + AXIS_LABEL_LINE_HEIGHT / 2;
+
     return (
       <g
         key={`lbl-${ax.key}`}
@@ -370,9 +179,8 @@ function RadarChart({
           x={lx}
           y={ly}
           textAnchor={anchor}
-          dominantBaseline="middle"
           fontFamily={T.sans}
-          fontSize={AXIS_LABEL_FONT_SIZE}
+          fontSize="10.5"
           fontWeight={isActive ? 700 : 600}
           fill={isActive ? T.ink : T.body}
           style={{ letterSpacing: 0.1 }}
@@ -381,7 +189,7 @@ function RadarChart({
             <tspan
               key={li}
               x={lx}
-              dy={li === 0 ? firstDy : lineHeight}
+              dy={li === 0 ? startDy : AXIS_LABEL_LINE_HEIGHT}
             >
               {line}
             </tspan>
@@ -391,20 +199,17 @@ function RadarChart({
     );
   });
 
-  const vbW = size + 2 * RADAR_PAD_H;
-  const vbH = size + 2 * RADAR_PAD_V;
-
   return (
     <svg
-      viewBox={`${-RADAR_PAD_H} ${-RADAR_PAD_V} ${vbW} ${vbH}`}
+      viewBox={`${-RADAR_PAD_H} ${-RADAR_PAD_V} ${size + 2 * RADAR_PAD_H} ${size + 2 * RADAR_PAD_V}`}
       width="100%"
-      height="auto"
+      height={size}
       preserveAspectRatio="xMidYMid meet"
-      style={{ display: "block", aspectRatio: `${vbW} / ${vbH}` }}
+      style={{ display: "block" }}
     >
       {rings}
       {spokes}
-      {wedges}
+      {dataPolygon}
       {dots}
       {labels}
     </svg>
@@ -413,6 +218,8 @@ function RadarChart({
 
 type AIRiskCardProps = {
   axes?: AIRiskAxis[];
+  avgDefensibility?: number;
+  tier?: string;
   defaultActiveKey?: string;
   /** Stretch to fill a tall grid cell (product row, col 3). */
   fillGridCell?: boolean;
@@ -420,7 +227,9 @@ type AIRiskCardProps = {
 
 export function AIRiskCard({
   axes: axesProp,
-  defaultActiveKey = "replic",
+  avgDefensibility: avgProp,
+  tier: tierProp,
+  defaultActiveKey = "data_moat",
   fillGridCell = false,
 }: AIRiskCardProps) {
   const axes = React.useMemo(
@@ -440,24 +249,13 @@ export function AIRiskCard({
 
   if (!hasApiAxes) return null;
 
-  const riskAxes = axes.filter((a) => a.group === "risk");
-  const defAxes = axes.filter((a) => a.group === "def");
-  const riskAvg =
-    riskAxes.length > 0
-      ? riskAxes.reduce((s, a) => s + a.score, 0) / riskAxes.length
-      : 0;
-  const defAvg =
-    defAxes.length > 0
-      ? defAxes.reduce((s, a) => s + a.score, 0) / defAxes.length
-      : 0;
-  const { label: headlineTier, hint: headlineHint } = getAiExposureHeadline(
-    defAvg,
-    riskAvg
-  );
+  const computedAvg =
+    axes.reduce((sum, axis) => sum + axis.score, 0) / axes.length;
+  const defAvg = avgProp ?? computedAvg;
+  const { label: computedTier, hint: headlineHint } =
+    getAiExposureHeadline(defAvg);
+  const headlineTier = tierProp?.trim() || computedTier;
   const activeAxis = axes.find((a) => a.key === active) ?? axes[0];
-  const activeTone = activeAxis
-    ? tierTone(activeAxis.score, activeAxis.group)
-    : null;
 
   return (
     <div
@@ -502,76 +300,46 @@ export function AIRiskCard({
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 10,
-            fontFamily: T.mono,
-            fontVariantNumeric: "tabular-nums",
-          fontSize: 12,
-          color: T.muted,
-          flexWrap: "wrap",
-          justifyContent: "flex-end",
+            gap: 6,
+            fontFamily: T.sans,
+            fontSize: 11.5,
+            fontWeight: 600,
+            color: T.body,
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+            maxWidth: "62%",
+            textAlign: "right",
+            lineHeight: 1.35,
           }}
+          title={headlineHint}
         >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: 2,
-                background: GROUP_TONE.risk.fill,
-              }}
-            />
-            <span>Risk {formatAiScorePair(riskAvg)}</span>
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: 2,
-                background: GROUP_TONE.def.fill,
-              }}
-            />
-            <span>Defensibility {formatAiScorePair(defAvg)}</span>
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: 2,
+              background: DEFENSIBILITY_TONE.fill,
+              flexShrink: 0,
+            }}
+          />
+          <span>{headlineTier}</span>
+          <span
+            style={{
+              fontFamily: T.mono,
+              fontWeight: 500,
+              fontVariantNumeric: "tabular-nums",
+              color: T.muted,
+              flexShrink: 0,
+            }}
+          >
+            {defAvg.toFixed(1)} / {AI_SCORE_MAX.toFixed(1)}
           </span>
         </span>
       </div>
 
       <div
         style={{
-          padding: "10px 16px 4px",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
-        <span
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: T.azure,
-            flexShrink: 0,
-            boxShadow: `0 0 0 4px ${T.azureSoft}`,
-          }}
-        />
-        <div
-          title={headlineHint}
-          style={{
-            fontFamily: T.sans,
-            fontSize: 13,
-            fontWeight: 600,
-            color: T.ink,
-            letterSpacing: -0.1,
-            cursor: "help",
-          }}
-        >
-          {headlineTier}
-        </div>
-      </div>
-
-      <div
-        style={{
-          padding: "4px 12px 8px",
+          padding: "8px 12px 8px",
           display: "flex",
           justifyContent: "center",
           flex: fillGridCell ? "0 0 auto" : undefined,
@@ -593,8 +361,8 @@ export function AIRiskCard({
             margin: "0 14px 14px",
             padding: "12px 14px",
             borderRadius: T.rLg,
-            background: activeTone?.bg ?? T.inset,
-            border: `1px solid ${activeTone?.ring ?? T.hair}`,
+            background: DEFENSIBILITY_TONE.bg,
+            border: `1px solid ${DEFENSIBILITY_TONE.ring}`,
           }}
         >
           <div
@@ -622,7 +390,7 @@ export function AIRiskCard({
                 fontFamily: T.mono,
                 fontSize: 11,
                 fontWeight: 600,
-                color: activeTone?.fg ?? T.muted,
+                color: DEFENSIBILITY_TONE.fg,
                 flexShrink: 0,
               }}
             >

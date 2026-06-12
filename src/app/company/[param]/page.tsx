@@ -63,9 +63,9 @@ import {
 } from "@/lib/linkedinUrl";
 import { individualService } from "@/lib/individualService";
 import { AIRiskCard } from "@/components/redesign/AIRiskCard";
-import type { AIRiskAxis } from "@/components/redesign/AIRiskCard";
 import {
   fetchCompanyAiRisksV2,
+  type CompanyAiRiskData,
 } from "@/lib/companyAiRisks";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
@@ -1284,7 +1284,7 @@ const CompanyDetail = () => {
   // Financial metrics from Xano `company_financial_metrics`
   const [financialMetrics, setFinancialMetrics] =
     useState<CompanyFinancialMetrics | null>(null);
-  const [aiRiskAxes, setAiRiskAxes] = useState<AIRiskAxis[] | null>(null);
+  const [aiRiskData, setAiRiskData] = useState<CompanyAiRiskData | null>(null);
   const [productServicesData, setProductServicesData] = useState<ProductUsersSection[] | null>(null);
   const [usersUseCasesData, setUsersUseCasesData] = useState<ProductUsersSection[] | null>(null);
   // New investors from company_investors API endpoint
@@ -1751,13 +1751,13 @@ const CompanyDetail = () => {
   }, []);
 
   const fetchCompanyAiRisksData = useCallback(async (id: string | number) => {
-    setAiRiskAxes(null);
+    setAiRiskData(null);
     try {
-      const axes = await fetchCompanyAiRisksV2(id);
-      setAiRiskAxes(axes);
+      const data = await fetchCompanyAiRisksV2(id);
+      setAiRiskData(data);
     } catch (err) {
       console.error("Error fetching company AI risks:", err);
-      setAiRiskAxes(null);
+      setAiRiskData(null);
     }
   }, []);
 
@@ -3404,7 +3404,7 @@ const CompanyDetail = () => {
   const showCoreProducts =
     coreProductsSections.length > 0 || usersUseCaseSections.length > 0;
   const showDataCollection = dataCollectionMethodRows.length > 0;
-  const showAiRisk = aiRiskAxes != null && aiRiskAxes.length > 0;
+  const showAiRisk = aiRiskData != null && aiRiskData.axes.length > 0;
   const showCorporateEvents =
     corporateEventsLoading || ceTotal > 0 || corporateEvents.length > 0;
 
@@ -4473,12 +4473,14 @@ const CompanyDetail = () => {
               </div>
             )}
 
-            {aiRiskAxes != null && aiRiskAxes.length > 0 && (
+            {aiRiskData != null && aiRiskData.axes.length > 0 && (
               <div className="company-grid-ai-risk">
                 <AIRiskCard
                   fillGridCell
-                  axes={aiRiskAxes}
-                  defaultActiveKey="replic"
+                  axes={aiRiskData.axes}
+                  avgDefensibility={aiRiskData.avgDefensibility}
+                  tier={aiRiskData.tier}
+                  defaultActiveKey="data_moat"
                 />
               </div>
             )}
