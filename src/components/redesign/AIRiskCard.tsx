@@ -325,7 +325,7 @@ export function AIRiskCard({
               flexShrink: 0,
             }}
           >
-            {defAvg.toFixed(2)}/{AI_SCORE_MAX}
+            {defAvg.toFixed(1)} / {AI_SCORE_MAX.toFixed(1)}
           </span>
         </span>
       </div>
