@@ -1,49 +1,38 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
+import { useCallback, useEffect, useState } from "react";
 import {
+  TIME_SINCE_LAST_INVESTMENT_EMPTY,
   fetchTimeSinceLastInvestment,
-  readTimeSinceLastInvestmentDisplay,
+  formatTimeSinceLastInvestmentDisplay,
 } from "@/lib/timeSinceLastInvestment";
 
-export function useTimeSinceLastInvestment(
-  newCompanyId: string | number | null | undefined
-) {
-  const [display, setDisplay] = useState(EMPTY_DISPLAY);
-  const [loading, setLoading] = useState(true);
+export function useTimeSinceLastInvestment(newCompanyId: string | undefined) {
+  const [display, setDisplay] = useState(TIME_SINCE_LAST_INVESTMENT_EMPTY);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (newCompanyId == null || newCompanyId === "") {
-      setDisplay(EMPTY_DISPLAY);
-      setLoading(false);
+  const refetch = useCallback(async () => {
+    if (!newCompanyId) {
+      setDisplay(TIME_SINCE_LAST_INVESTMENT_EMPTY);
       return;
     }
 
-    let cancelled = false;
     setLoading(true);
-
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("asymmetrix_auth_token")
-        : null;
-
-    void fetchTimeSinceLastInvestment(newCompanyId, token)
-      .then((value) => {
-        if (cancelled) return;
-        setDisplay(readTimeSinceLastInvestmentDisplay(value));
-      })
-      .catch(() => {
-        if (!cancelled) setDisplay(EMPTY_DISPLAY);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const value = await fetchTimeSinceLastInvestment(newCompanyId);
+      setDisplay(
+        value
+          ? formatTimeSinceLastInvestmentDisplay(value)
+          : TIME_SINCE_LAST_INVESTMENT_EMPTY
+      );
+    } catch {
+      setDisplay(TIME_SINCE_LAST_INVESTMENT_EMPTY);
+    } finally {
+      setLoading(false);
+    }
   }, [newCompanyId]);
 
-  return { display, loading };
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
+  return { display, loading, refetch };
 }

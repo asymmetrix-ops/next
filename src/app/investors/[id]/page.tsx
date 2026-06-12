@@ -20,6 +20,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 
 // Types for API integration
 interface InvestorLocation {
@@ -392,6 +393,10 @@ const InvestorDetailPage = () => {
   >(new Map());
 
   const [error, setError] = useState<string | null>(null);
+  const {
+    display: timeSinceLastInvestment,
+    loading: timeSinceLastInvestmentLoading,
+  } = useTimeSinceLastInvestment(investorId);
 
   // Fetch investor data
   const fetchInvestorData = useCallback(async () => {
@@ -1810,6 +1815,14 @@ const InvestorDetailPage = () => {
                     ) : (
                       "-"
                     )}
+                  </span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Time since last investment:</span>
+                  <span className="info-value">
+                    {timeSinceLastInvestmentLoading
+                      ? "Loading..."
+                      : timeSinceLastInvestment}
                   </span>
                 </div>
                 <div className="info-item">

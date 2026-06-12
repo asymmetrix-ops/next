@@ -10,6 +10,7 @@ import InvestorOverview from "@/components/investor/InvestorOverview";
 import InvestmentTeam from "@/components/investor/InvestmentTeam";
 import Pagination from "@/components/investor/Pagination";
 import { useInvestorData } from "@/hooks/useInvestorData";
+import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 import { usePortfolioData } from "@/hooks/usePortfolioData";
 import { useCorporateEventsData } from "@/hooks/useCorporateEventsData";
 import { formatNumber, formatDate } from "@/utils/investorHelpers";
@@ -28,6 +29,10 @@ const InvestorDetailPage = () => {
 
   // Data hooks
   const { investorData, loading, error, refetch } = useInvestorData(investorId);
+  const {
+    display: timeSinceLastInvestment,
+    loading: timeSinceLastInvestmentLoading,
+  } = useTimeSinceLastInvestment(investorId);
   const {
     portfolioCompanies,
     portfolioPagination,
@@ -352,7 +357,11 @@ const InvestorDetailPage = () => {
 
         <div style={{ display: "flex", gap: "32px", flexWrap: "wrap" }}>
           {/* Left Column - Overview */}
-          <InvestorOverview investorData={investorData} />
+          <InvestorOverview
+            investorData={investorData}
+            timeSinceLastInvestment={timeSinceLastInvestment}
+            timeSinceLastInvestmentLoading={timeSinceLastInvestmentLoading}
+          />
 
           {/* Investment Team */}
           <InvestmentTeam
