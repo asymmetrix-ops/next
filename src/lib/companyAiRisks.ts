@@ -1,4 +1,5 @@
 import type { AIRiskAxis } from "@/components/redesign/AIRiskCard";
+import { decodeHtmlEntities } from "@/lib/decodeHtmlEntities";
 
 /** Low = 1, Moderate = 2, High = 3 */
 export const AI_SCORE_MAX = 3;
@@ -186,7 +187,7 @@ function mapFactorToAxis(item: CompanyAiRiskV2Factor): AIRiskAxis {
     label,
     score,
     tier: scoreToTierName(score),
-    blurb: item.body.replace(/&nbsp;/g, " ").trim(),
+    blurb: decodeHtmlEntities(item.body ?? ""),
   };
 }
 

@@ -293,12 +293,18 @@ export function AIRiskCard({
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 4,
-            fontFamily: T.mono,
-            fontVariantNumeric: "tabular-nums",
-            fontSize: 12,
-            color: T.muted,
+            gap: 6,
+            fontFamily: T.sans,
+            fontSize: 11.5,
+            fontWeight: 600,
+            color: T.body,
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+            maxWidth: "62%",
+            textAlign: "right",
+            lineHeight: 1.35,
           }}
+          title={headlineHint}
         >
           <span
             style={{
@@ -306,50 +312,27 @@ export function AIRiskCard({
               height: 7,
               borderRadius: 2,
               background: DEFENSIBILITY_TONE.fill,
+              flexShrink: 0,
             }}
           />
-          <span>
-            Defensibility {defAvg.toFixed(2)}/{AI_SCORE_MAX}
+          <span>{headlineTier}</span>
+          <span
+            style={{
+              fontFamily: T.mono,
+              fontWeight: 500,
+              fontVariantNumeric: "tabular-nums",
+              color: T.muted,
+              flexShrink: 0,
+            }}
+          >
+            {defAvg.toFixed(2)}/{AI_SCORE_MAX}
           </span>
         </span>
       </div>
 
       <div
         style={{
-          padding: "10px 16px 4px",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
-        <span
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: T.azure,
-            flexShrink: 0,
-            boxShadow: `0 0 0 4px ${T.azureSoft}`,
-          }}
-        />
-        <div
-          title={headlineHint}
-          style={{
-            fontFamily: T.sans,
-            fontSize: 13,
-            fontWeight: 600,
-            color: T.ink,
-            letterSpacing: -0.1,
-            cursor: "help",
-          }}
-        >
-          {headlineTier}
-        </div>
-      </div>
-
-      <div
-        style={{
-          padding: "4px 12px 8px",
+          padding: "8px 12px 8px",
           display: "flex",
           justifyContent: "center",
           flex: fillGridCell ? "0 0 auto" : undefined,

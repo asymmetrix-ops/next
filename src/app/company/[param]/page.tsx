@@ -10,6 +10,7 @@ import { useRightClick } from "@/hooks/useRightClick";
 import { FollowButton } from "@/components/FollowButton";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
+import { getJobTitleStringsFromId } from "@/utils/individualHelpers";
 import {
   LineChart,
   Line,
@@ -3181,9 +3182,10 @@ const CompanyDetail = () => {
                           (person) => ({
                             id: person.id,
                             name: person.Individual_text,
-                            jobTitles: (person.job_titles_id || [])
-                              .map((job) => job?.job_title)
-                              .filter(Boolean),
+                            jobTitles: getJobTitleStringsFromId(
+                              person.job_titles_id,
+                              (person as { job_titles?: unknown }).job_titles
+                            ),
                             individualId: person.individuals_id,
                           })
                         )}
@@ -3200,9 +3202,10 @@ const CompanyDetail = () => {
                           (person) => ({
                             id: person.id,
                             name: person.Individual_text,
-                            jobTitles: (person.job_titles_id || [])
-                              .map((job) => job?.job_title)
-                              .filter(Boolean),
+                            jobTitles: getJobTitleStringsFromId(
+                              person.job_titles_id,
+                              (person as { job_titles?: unknown }).job_titles
+                            ),
                             individualId: person.individuals_id,
                           })
                         )}
