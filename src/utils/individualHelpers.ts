@@ -6,6 +6,23 @@ import {
   EventIndividual,
   RelatedAdvisor,
 } from "../types/individual";
+import {
+  normalizeExternalProfileUrl,
+  normalizeLinkedInProfileUrl,
+} from "@/lib/linkedinUrl";
+
+export type ManagementRoleLike = {
+  Individual_text?: string;
+  advisor_individuals?: string;
+  job_titles_id?: unknown;
+  job_titles?: unknown;
+  linkedin_url?: string;
+  linkedin_URL?: string;
+  LinkedIn_URL?: string;
+  current_employer_url?: string;
+  _individuals?: { linkedin_URL?: string; LinkedIn_URL?: string };
+  Individual?: { linkedin_URL?: string; LinkedIn_URL?: string };
+};
 
 export const formatLocation = (location: Location): string => {
   if (!location) return "Not available";
@@ -99,6 +116,21 @@ export const formatDate = (dateString: string): string => {
   });
 };
 
+export const getManagementRoleDisplayName = (role: ManagementRoleLike): string =>
+  String(role.advisor_individuals || role.Individual_text || "").trim();
+
+export const getManagementRoleLinkedInUrl = (
+  role: ManagementRoleLike
+): string | undefined =>
+  normalizeLinkedInProfileUrl(role.linkedin_url) ||
+  normalizeLinkedInProfileUrl(role.linkedin_URL) ||
+  normalizeLinkedInProfileUrl(role.LinkedIn_URL) ||
+  normalizeLinkedInProfileUrl(role._individuals?.linkedin_URL) ||
+  normalizeLinkedInProfileUrl(role._individuals?.LinkedIn_URL) ||
+  normalizeLinkedInProfileUrl(role.Individual?.linkedin_URL) ||
+  normalizeLinkedInProfileUrl(role.Individual?.LinkedIn_URL) ||
+  normalizeExternalProfileUrl(role.current_employer_url);
+
 export const extractJobTitleStrings = (
   jobTitlesId: unknown,
   fallbackJobTitles?: unknown
@@ -123,7 +155,15 @@ export const extractJobTitleStrings = (
     return title ? [title] : [];
   }
   if (typeof jobTitlesId === "string" && jobTitlesId.trim()) {
-    return [jobTitlesId.trim()];
+    const trimmed = jobTitlesId.trim();
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try {
+        return extractJobTitleStrings(JSON.parse(trimmed));
+      } catch {
+        // fall through to plain string
+      }
+    }
+    return [trimmed];
   }
   if (Array.isArray(fallbackJobTitles)) {
     return fallbackJobTitles
@@ -132,6 +172,18 @@ export const extractJobTitleStrings = (
   }
   return [];
 };
+
+export const mapManagementRoleToCard = (role: ManagementRoleLike & {
+  id?: number;
+  individuals_id?: number;
+  individual_id?: number;
+}) => ({
+  id: role.id,
+  name: getManagementRoleDisplayName(role),
+  jobTitles: extractJobTitleStrings(role.job_titles_id, role.job_titles),
+  individualId: role.individuals_id ?? role.individual_id,
+  linkedinUrl: getManagementRoleLinkedInUrl(role),
+});
 
 export const formatJobTitles = (jobTitles: JobTitle[] | unknown): string => {
   const titles = extractJobTitleStrings(jobTitles);

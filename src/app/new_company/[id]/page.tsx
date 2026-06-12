@@ -21,7 +21,18 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
-import { extractJobTitleStrings } from "@/utils/individualHelpers";
+import {
+  mapManagementRoleToCard,
+  type ManagementRoleLike,
+} from "@/utils/individualHelpers";
+
+type ManagementRole = ManagementRoleLike & {
+  id: number;
+  individuals_id: number;
+  individual_id?: number;
+  employee_new_company_id?: number;
+  Status: string;
+};
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
 const FINANCIAL_METRICS_EXPORT_SOURCE = "contribution_email";
@@ -407,26 +418,8 @@ interface Company {
       };
     }>;
   };
-  Managmant_Roles_current?: Array<{
-    id: number;
-    Individual_text: string;
-    individuals_id: number;
-    Status: string;
-    job_titles_id: Array<{
-      id: number;
-      job_title: string;
-    }>;
-  }>;
-  Managmant_Roles_past?: Array<{
-    id: number;
-    Individual_text: string;
-    individuals_id: number;
-    Status: string;
-    job_titles_id: Array<{
-      id: number;
-      job_title: string;
-    }>;
-  }>;
+  Managmant_Roles_current?: ManagementRole[];
+  Managmant_Roles_past?: ManagementRole[];
   // Optional market fields if/when API provides them
   ticker?: string;
   exchange?: string;
@@ -458,26 +451,8 @@ interface CompanyResponse {
   new_sectors_data?: Array<{
     sectors_payload?: string | unknown;
   }>;
-  Managmant_Roles_current?: Array<{
-    id: number;
-    Individual_text: string;
-    individuals_id: number;
-    Status: string;
-    job_titles_id: Array<{
-      id: number;
-      job_title: string;
-    }>;
-  }>;
-  Managmant_Roles_past?: Array<{
-    id: number;
-    Individual_text: string;
-    individuals_id: number;
-    Status: string;
-    job_titles_id: Array<{
-      id: number;
-      job_title: string;
-    }>;
-  }>;
+  Managmant_Roles_current?: ManagementRole[];
+  Managmant_Roles_past?: ManagementRole[];
   have_subsidiaries_companies?: {
     have_subsidiaries_companies: boolean;
     Subsidiaries_companies: Array<{
@@ -3159,15 +3134,7 @@ const CompanyDetail = () => {
                       <IndividualCards
                         title="Current:"
                         individuals={(company.Managmant_Roles_current || []).map(
-                          (person) => ({
-                            id: person.id,
-                            name: person.Individual_text,
-                            jobTitles: extractJobTitleStrings(
-                              person.job_titles_id,
-                              (person as { job_titles?: unknown }).job_titles
-                            ),
-                            individualId: person.individuals_id,
-                          })
+                          mapManagementRoleToCard
                         )}
                         emptyMessage="Not available"
                       />
@@ -3179,15 +3146,7 @@ const CompanyDetail = () => {
                       <IndividualCards
                         title="Past:"
                         individuals={(company.Managmant_Roles_past || []).map(
-                          (person) => ({
-                            id: person.id,
-                            name: person.Individual_text,
-                            jobTitles: extractJobTitleStrings(
-                              person.job_titles_id,
-                              (person as { job_titles?: unknown }).job_titles
-                            ),
-                            individualId: person.individuals_id,
-                          })
+                          mapManagementRoleToCard
                         )}
                         emptyMessage="Not available"
                       />

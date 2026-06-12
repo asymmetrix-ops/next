@@ -18,7 +18,10 @@ import {
   parseLinkedInGrowthPctValue,
 } from "@/components/subsidiaries/SubsidiariesProfilePanel";
 import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
-import { extractJobTitleStrings } from "@/utils/individualHelpers";
+import {
+  extractJobTitleStrings,
+  getManagementRoleDisplayName,
+} from "@/utils/individualHelpers";
 import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
 import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
@@ -303,15 +306,15 @@ interface CompanyManagement {
 
 type ManagementRoleRecord = {
   id: number;
-  Individual_text: string;
+  Individual_text?: string;
+  advisor_individuals?: string;
   individuals_id: number;
+  individual_id?: number;
   employee_new_company_id?: number;
   current_employer_url?: string;
   Status: string;
-  job_titles_id: Array<{
-    id: number;
-    job_title: string;
-  }>;
+  job_titles_id?: unknown;
+  job_titles?: unknown;
   linkedin_url?: string;
   linkedin_URL?: string;
   LinkedIn_URL?: string;
@@ -1381,11 +1384,10 @@ const CompanyDetail = () => {
     () =>
       (company?.Managmant_Roles_current || []).map((person) => ({
         id: person.id,
-        name: person.Individual_text,
-        role: extractJobTitleStrings(
-          person.job_titles_id,
-          (person as { job_titles?: unknown }).job_titles
-        ).join(", "),
+        name: getManagementRoleDisplayName(person),
+        role: extractJobTitleStrings(person.job_titles_id, person.job_titles).join(
+          ", "
+        ),
         individualId: person.individuals_id,
         linkedinUrl: managementProfileUrlFromRole(
           person,
@@ -1400,11 +1402,10 @@ const CompanyDetail = () => {
     () =>
       (company?.Managmant_Roles_past || []).map((person) => ({
         id: person.id,
-        name: person.Individual_text,
-        role: extractJobTitleStrings(
-          person.job_titles_id,
-          (person as { job_titles?: unknown }).job_titles
-        ).join(", "),
+        name: getManagementRoleDisplayName(person),
+        role: extractJobTitleStrings(person.job_titles_id, person.job_titles).join(
+          ", "
+        ),
         individualId: person.individuals_id,
         linkedinUrl: managementProfileUrlFromRole(
           person,

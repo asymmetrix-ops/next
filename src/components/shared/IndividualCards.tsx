@@ -2,12 +2,14 @@
 
 import React from "react";
 import Link from "next/link";
+import { LinkedInProfileButton } from "@/components/redesign/LinkedInProfileButton";
 
 export interface IndividualCardItem {
   id?: number;
   name: string;
   jobTitles: string[];
   individualId?: number;
+  linkedinUrl?: string;
   onClick?: () => void;
 }
 
@@ -89,26 +91,39 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
             >
               <div
                 style={{
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  color: "#0075df",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "8px",
                   marginBottom: "4px",
                 }}
               >
-                {person.individualId ? (
-                  <Link
-                    href={`/individual/${person.individualId}`}
-                    style={{
-                      color: "#0075df",
-                      textDecoration: "underline",
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {person.name}
-                  </Link>
-                ) : (
-                  person.name
-                )}
+                <div
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    color: "#0075df",
+                    minWidth: 0,
+                  }}
+                >
+                  {person.individualId ? (
+                    <Link
+                      href={`/individual/${person.individualId}`}
+                      style={{
+                        color: "#0075df",
+                        textDecoration: "underline",
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {person.name}
+                    </Link>
+                  ) : (
+                    person.name
+                  )}
+                </div>
+                {person.linkedinUrl ? (
+                  <LinkedInProfileButton href={person.linkedinUrl} size={18} />
+                ) : null}
               </div>
               <div
                 style={{
