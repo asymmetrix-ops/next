@@ -53,6 +53,7 @@ import {
   normalizeLinkedInProfileUrl,
 } from "@/lib/linkedinUrl";
 import { individualService } from "@/lib/individualService";
+import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import { AIRiskCard } from "@/components/redesign/AIRiskCard";
 import {
   fetchCompanyAiRisksV2,
@@ -302,10 +303,8 @@ type ManagementRoleRecord = {
   employee_new_company_id?: number;
   current_employer_url?: string;
   Status: string;
-  job_titles_id: Array<{
-    id: number;
-    job_title: string;
-  }>;
+  job_titles_id?: unknown;
+  job_titles?: unknown;
   linkedin_url?: string;
   linkedin_URL?: string;
   LinkedIn_URL?: string;
@@ -1342,10 +1341,7 @@ const CompanyDetail = () => {
       (company?.Managmant_Roles_current || []).map((person) => ({
         id: person.id,
         name: person.Individual_text,
-        role: (person.job_titles_id || [])
-          .map((job) => job?.job_title)
-          .filter(Boolean)
-          .join(", "),
+        role: formatJobTitlesFromId(person.job_titles_id, person.job_titles),
         individualId: person.individuals_id,
         linkedinUrl: managementProfileUrlFromRole(
           person,
@@ -1361,10 +1357,7 @@ const CompanyDetail = () => {
       (company?.Managmant_Roles_past || []).map((person) => ({
         id: person.id,
         name: person.Individual_text,
-        role: (person.job_titles_id || [])
-          .map((job) => job?.job_title)
-          .filter(Boolean)
-          .join(", "),
+        role: formatJobTitlesFromId(person.job_titles_id, person.job_titles),
         individualId: person.individuals_id,
         linkedinUrl: managementProfileUrlFromRole(
           person,
