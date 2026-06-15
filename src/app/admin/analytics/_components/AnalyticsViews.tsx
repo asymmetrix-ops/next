@@ -2417,6 +2417,11 @@ type EAUser = {
   userId: number;
   name: string;
   email: string;
+  status?: string;
+  seniorityLevel?: string;
+  firmType?: string;
+  companyId?: number | null;
+  companyName?: string;
   activeAlerts: number;
   alertTypes: string[];
   frequency: string | null;
@@ -2449,7 +2454,18 @@ type EADebug = {
 };
 
 type EAData = {
-  meta: { fromDate: string; toDate: string; days: number; hours: number | null };
+  meta: {
+    fromDate: string;
+    toDate: string;
+    days: number;
+    hours: number | null;
+    filters?: {
+      firm_type: string;
+      seniority_level: string;
+      user_type: string;
+      company_id: number | null;
+    };
+  };
   stats: {
     totalSent: number;
     totalOpened: number;
@@ -2904,6 +2920,30 @@ function EAUserRow({ user }: { user: EAUser }) {
 // period: "24h" | "7" | "30" | "90"
 type EAPeriod = "24h" | "7" | "30" | "90";
 
+type EAUserFilters = {
+  companyId: string;
+  firmType: string;
+  seniorityLevel: string;
+  userType: string;
+};
+
+const EA_FIRM_TYPES = [
+  "Private equity",
+  "Venture capital",
+  "Corporate Finance / Investment bank",
+  "Consulting",
+  "Corporate",
+  "Equity Research",
+] as const;
+
+const EA_SENIORITY_LEVELS = ["Junior", "Middle", "Senior"] as const;
+
+const EA_USER_TYPES = ["Client"] as const;
+
+type EAClientCompany = { id: number; name: string };
+
+const CLIENT_COMPANIES_URL = "/api/admin/client-companies";
+
 function eaPeriodLabel(p: EAPeriod) {
   return p === "24h" ? "Last 24 hours" : `Last ${p} days`;
 }
@@ -2914,6 +2954,27 @@ function eaPeriodToParams(p: EAPeriod) {
 
 function eaPeriodToDays(p: EAPeriod) {
   return p === "24h" ? 1 : parseInt(p);
+}
+
+function eaAnalyticsQueryParams(period: EAPeriod, filters: EAUserFilters): string {
+  const params = new URLSearchParams(eaPeriodToParams(period));
+  if (filters.companyId) params.set("company_id", filters.companyId);
+  if (filters.firmType) params.set("firm_type", filters.firmType);
+  if (filters.seniorityLevel) params.set("seniority_level", filters.seniorityLevel);
+  if (filters.userType) params.set("user_type", filters.userType);
+  return params.toString();
+}
+
+async function fetchClientCompanies(token: string): Promise<EAClientCompany[]> {
+  const res = await fetch(CLIENT_COMPANIES_URL, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${text}`);
+  }
+  const json = (await res.json()) as EAClientCompany[];
+  return Array.isArray(json) ? json : [];
 }
 
 // ─── Daily send log (Xano) ────────────────────────────────────────────────────
@@ -2928,10 +2989,10 @@ type EmailDailyScheduledByType = {
   scheduled_count: number;
 };
 
-type EmailDailyUnsent = {
+type EmailDailyDeferredOrFailed = {
   item_type: string;
   email_frequency: string;
-  scheduled_count: number;
+  scheduled_count: number | string;
   unsent_ids: number[];
 };
 
@@ -2951,7 +3012,8 @@ type EmailDailyLog = {
   total_sent: number;
   send_rate_pct: number;
   scheduled_by_type: EmailDailyScheduledByType[];
-  unsent: EmailDailyUnsent[];
+  unsent: EmailDailyDeferredOrFailed[];
+  failed?: EmailDailyDeferredOrFailed[];
 };
 
 type UnsentEmailUser = {
@@ -2986,20 +3048,20 @@ function formatEmailItemType(type: string): string {
   return labels[type] ?? type.replace(/_/g, " ");
 }
 
-function emailDailyUnsentCount(
+function emailDailyGroupCount(
   row: EmailDailyScheduledByType,
-  unsent: EmailDailyUnsent[]
+  items: EmailDailyDeferredOrFailed[]
 ): number {
-  const match = unsent.find(
+  const match = items.find(
     (u) =>
       u.item_type === row.item_type &&
       u.email_frequency === row.email_frequency
   );
-  return match?.scheduled_count ?? 0;
+  return match ? Number(match.scheduled_count) || 0 : 0;
 }
 
-function emailDailyUnsentTotal(unsent: EmailDailyUnsent[]): number {
-  return unsent.reduce((sum, item) => sum + item.scheduled_count, 0);
+function emailDailyGroupTotal(items: EmailDailyDeferredOrFailed[]): number {
+  return items.reduce((sum, item) => sum + (Number(item.scheduled_count) || 0), 0);
 }
 
 function formatUnsentScheduledTime(
@@ -3077,6 +3139,155 @@ async function fetchUnsentEmailDetails(
   return Array.isArray(json) ? json : [];
 }
 
+function EmailAlertDetailsBlock({
+  title,
+  variant,
+  groups,
+  details,
+  logDate,
+  loading,
+  error,
+}: {
+  title: string;
+  variant: "deferred" | "failed";
+  groups: EmailDailyDeferredOrFailed[];
+  details: UnsentEmailDetail[];
+  logDate: string;
+  loading: boolean;
+  error: string | null;
+}) {
+  if (groups.length === 0) return null;
+
+  const deferred = variant === "deferred";
+  const wrapClass = deferred
+    ? "rounded border border-amber-200 bg-amber-50 px-4 py-3 space-y-3"
+    : "rounded border border-red-200 bg-red-50 px-4 py-3 space-y-3";
+  const headingClass = deferred
+    ? "text-sm font-medium text-amber-800"
+    : "text-sm font-medium text-red-800";
+  const errorClass = deferred
+    ? "text-sm text-amber-800 bg-amber-100 border border-amber-200 rounded px-3 py-2"
+    : "text-sm text-red-700 bg-red-100 border border-red-200 rounded px-3 py-2";
+  const loadingClass = deferred ? "text-sm text-amber-700" : "text-sm text-red-600";
+  const tableWrapClass = deferred
+    ? "overflow-x-auto rounded border border-amber-200 bg-white"
+    : "overflow-x-auto rounded border border-red-200 bg-white";
+  const theadClass = deferred
+    ? "border-b border-amber-100 bg-amber-50"
+    : "border-b border-red-100 bg-red-50";
+  const thClass = deferred
+    ? "text-left font-normal text-xs text-amber-800 px-3 py-2"
+    : "text-left font-normal text-xs text-red-700 px-3 py-2";
+  const rowClass = deferred
+    ? "border-b border-amber-50 last:border-0"
+    : "border-b border-red-50 last:border-0";
+  const nameClass = deferred
+    ? "px-3 py-2.5 font-medium text-amber-900"
+    : "px-3 py-2.5 font-medium text-red-900";
+  const cellClass = deferred
+    ? "px-3 py-2.5 text-amber-800"
+    : "px-3 py-2.5 text-red-800";
+  const freqClass = deferred ? "text-amber-700" : "text-red-600";
+  const badgeClass = deferred
+    ? "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 capitalize"
+    : "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 capitalize";
+  const lastSentClass = deferred
+    ? "px-3 py-2.5 text-amber-700 whitespace-nowrap"
+    : "px-3 py-2.5 text-red-700 whitespace-nowrap";
+  const listClass = deferred ? "text-sm text-amber-800" : "text-sm text-red-700";
+  const listFreqClass = deferred ? "text-amber-700" : "text-red-600";
+  const listMetaClass = deferred ? "text-amber-700" : "text-red-600";
+  const fallbackLabel = deferred ? "scheduled for later" : "failed";
+
+  return (
+    <div className={wrapClass}>
+      <h3 className={headingClass}>{title}</h3>
+
+      {error && (
+        <div className={errorClass}>Failed to load details: {error}</div>
+      )}
+
+      {loading ? (
+        <div className={loadingClass}>Loading details…</div>
+      ) : details.length > 0 ? (
+        <div className={tableWrapClass}>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className={theadClass}>
+                {[
+                  "User",
+                  "Email",
+                  "Alert type",
+                  "Scheduled send",
+                  "Status",
+                  "Last sent",
+                ].map((h) => (
+                  <th key={h} className={thClass}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {details.map((alert) => (
+                <tr key={alert.id} className={rowClass}>
+                  <td className={nameClass}>{alert._user?.name || "—"}</td>
+                  <td className={cellClass}>{alert._user?.email || "—"}</td>
+                  <td className={cellClass}>
+                    {formatEmailItemType(alert.item_type)}
+                    <span className={`${freqClass} capitalize`}>
+                      {" "}
+                      ({alert.email_frequency})
+                    </span>
+                  </td>
+                  <td className={`${cellClass} whitespace-nowrap`}>
+                    {formatUnsentScheduledTime(alert, logDate)}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className={badgeClass}>
+                      {alert.status || (deferred ? "unsent" : "failed")}
+                    </span>
+                  </td>
+                  <td className={lastSentClass}>
+                    {alert.last_sent_at_utc
+                      ? formatTimestamp(alert.last_sent_at_utc)
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {groups.map((u) => (
+            <li
+              key={`${u.item_type}-${u.email_frequency}`}
+              className={listClass}
+            >
+              <span className="font-medium">
+                {formatEmailItemType(u.item_type)}
+              </span>
+              <span className={`${listFreqClass} capitalize`}>
+                {" "}
+                ({u.email_frequency})
+              </span>
+              {" — "}
+              {Number(u.scheduled_count) || 0} {fallbackLabel}
+              {u.unsent_ids.length > 0 && (
+                <span className={listMetaClass}>
+                  {" "}
+                  · IDs: {u.unsent_ids.join(", ")}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function EmailDailySendLogSection() {
   const [selectedDate, setSelectedDate] = useState(
     () => new Date().toISOString().split("T")[0]
@@ -3123,15 +3334,28 @@ function EmailDailySendLogSection() {
     fetchDailyLog();
   }, [fetchDailyLog]);
 
-  const allUnsentIds = useMemo(() => {
+  const allAlertIds = useMemo(() => {
     if (!log) return [];
     return Array.from(
-      new Set(log.unsent.flatMap((u) => u.unsent_ids))
+      new Set([
+        ...log.unsent.flatMap((u) => u.unsent_ids),
+        ...(log.failed ?? []).flatMap((u) => u.unsent_ids),
+      ])
     );
   }, [log]);
 
+  const deferredIds = useMemo(
+    () => new Set(log?.unsent.flatMap((u) => u.unsent_ids) ?? []),
+    [log]
+  );
+
+  const failedIds = useMemo(
+    () => new Set((log?.failed ?? []).flatMap((u) => u.unsent_ids)),
+    [log]
+  );
+
   useEffect(() => {
-    if (allUnsentIds.length === 0) {
+    if (allAlertIds.length === 0) {
       setUnsentDetails([]);
       setUnsentError(null);
       return;
@@ -3146,13 +3370,13 @@ function EmailDailySendLogSection() {
           typeof window !== "undefined"
             ? localStorage.getItem("asymmetrix_auth_token")
             : "";
-        const details = await fetchUnsentEmailDetails(allUnsentIds, token ?? "");
+        const details = await fetchUnsentEmailDetails(allAlertIds, token ?? "");
         if (!aborted) setUnsentDetails(details);
       } catch (e) {
         if (!aborted) {
           setUnsentDetails([]);
           setUnsentError(
-            e instanceof Error ? e.message : "Failed to load unsent email details"
+            e instanceof Error ? e.message : "Failed to load alert details"
           );
         }
       } finally {
@@ -3164,9 +3388,12 @@ function EmailDailySendLogSection() {
     return () => {
       aborted = true;
     };
-  }, [allUnsentIds]);
+  }, [allAlertIds]);
 
-  const unsentTotal = log ? emailDailyUnsentTotal(log.unsent) : 0;
+  const deferredTotal = log ? emailDailyGroupTotal(log.unsent) : 0;
+  const failedTotal = log ? emailDailyGroupTotal(log.failed ?? []) : 0;
+  const deferredDetails = unsentDetails.filter((d) => deferredIds.has(d.id));
+  const failedDetails = unsentDetails.filter((d) => failedIds.has(d.id));
 
   return (
     <div className="bg-white rounded border">
@@ -3218,7 +3445,7 @@ function EmailDailySendLogSection() {
             <span>{log.date}</span>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="rounded border px-4 py-3">
               <div className="text-xs text-gray-500 mb-1">Scheduled</div>
               <div className="text-2xl font-medium text-gray-900">
@@ -3234,7 +3461,7 @@ function EmailDailySendLogSection() {
                 {log.total_sent.toLocaleString()}
               </div>
               <div className="text-xs text-gray-400 mt-1">
-                {unsentTotal} not sent
+                {deferredTotal} later · {failedTotal} failed
               </div>
             </div>
             <div className="rounded border px-4 py-3">
@@ -3256,29 +3483,56 @@ function EmailDailySendLogSection() {
             </div>
             <div
               className={`rounded border px-4 py-3 ${
-                unsentTotal > 0 ? "border-red-200 bg-red-50" : ""
+                deferredTotal > 0 ? "border-amber-200 bg-amber-50" : ""
               }`}
             >
               <div
                 className={`text-xs mb-1 ${
-                  unsentTotal > 0 ? "text-red-600" : "text-gray-500"
+                  deferredTotal > 0 ? "text-amber-700" : "text-gray-500"
                 }`}
               >
-                Not sent
+                Scheduled for later
               </div>
               <div
                 className={`text-2xl font-medium ${
-                  unsentTotal > 0 ? "text-red-700" : "text-gray-900"
+                  deferredTotal > 0 ? "text-amber-800" : "text-gray-900"
                 }`}
               >
-                {unsentTotal.toLocaleString()}
+                {deferredTotal.toLocaleString()}
               </div>
               <div
                 className={`text-xs mt-1 ${
-                  unsentTotal > 0 ? "text-red-500" : "text-gray-400"
+                  deferredTotal > 0 ? "text-amber-600" : "text-gray-400"
                 }`}
               >
-                from unsent log
+                deferred to next run
+              </div>
+            </div>
+            <div
+              className={`rounded border px-4 py-3 ${
+                failedTotal > 0 ? "border-red-200 bg-red-50" : ""
+              }`}
+            >
+              <div
+                className={`text-xs mb-1 ${
+                  failedTotal > 0 ? "text-red-600" : "text-gray-500"
+                }`}
+              >
+                Failed
+              </div>
+              <div
+                className={`text-2xl font-medium ${
+                  failedTotal > 0 ? "text-red-700" : "text-gray-900"
+                }`}
+              >
+                {failedTotal.toLocaleString()}
+              </div>
+              <div
+                className={`text-xs mt-1 ${
+                  failedTotal > 0 ? "text-red-500" : "text-gray-400"
+                }`}
+              >
+                from failed log
               </div>
             </div>
           </div>
@@ -3287,7 +3541,14 @@ function EmailDailySendLogSection() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200">
-                  {["Type", "Frequency", "Scheduled", "Sent", "Not sent"].map(
+                  {[
+                    "Type",
+                    "Frequency",
+                    "Scheduled",
+                    "Sent",
+                    "Scheduled for later",
+                    "Failed",
+                  ].map(
                     (h) => (
                       <th
                         key={h}
@@ -3301,26 +3562,36 @@ function EmailDailySendLogSection() {
               </thead>
               <tbody>
                 {log.scheduled_by_type.map((row) => {
-                  const notSent = emailDailyUnsentCount(row, log.unsent);
-                  const sent = row.scheduled_count - notSent;
-                  const hasUnsent = notSent > 0;
+                  const deferred = emailDailyGroupCount(row, log.unsent);
+                  const failed = emailDailyGroupCount(row, log.failed ?? []);
+                  const sent = row.scheduled_count - deferred - failed;
+                  const hasDeferred = deferred > 0;
+                  const hasFailed = failed > 0;
                   return (
                     <tr
                       key={`${row.item_type}-${row.email_frequency}`}
                       className={`border-b border-gray-100 last:border-0 ${
-                        hasUnsent ? "bg-red-50" : ""
+                        hasFailed ? "bg-red-50" : hasDeferred ? "bg-amber-50" : ""
                       }`}
                     >
                       <td
                         className={`px-3 py-2 ${
-                          hasUnsent ? "text-red-800 font-medium" : ""
+                          hasFailed
+                            ? "text-red-800 font-medium"
+                            : hasDeferred
+                            ? "text-amber-900 font-medium"
+                            : ""
                         }`}
                       >
                         {formatEmailItemType(row.item_type)}
                       </td>
                       <td
                         className={`px-3 py-2 capitalize ${
-                          hasUnsent ? "text-red-700" : "text-gray-600"
+                          hasFailed
+                            ? "text-red-700"
+                            : hasDeferred
+                            ? "text-amber-800"
+                            : "text-gray-600"
                         }`}
                       >
                         {row.email_frequency}
@@ -3328,17 +3599,24 @@ function EmailDailySendLogSection() {
                       <td className="px-3 py-2">{row.scheduled_count}</td>
                       <td
                         className={`px-3 py-2 ${
-                          hasUnsent ? "text-gray-700" : "text-green-700"
+                          hasFailed || hasDeferred ? "text-gray-700" : "text-green-700"
                         }`}
                       >
                         {sent}
                       </td>
                       <td
                         className={`px-3 py-2 font-medium ${
-                          hasUnsent ? "text-red-700" : "text-gray-400"
+                          hasDeferred ? "text-amber-700" : "text-gray-400"
                         }`}
                       >
-                        {notSent}
+                        {deferred || "—"}
+                      </td>
+                      <td
+                        className={`px-3 py-2 font-medium ${
+                          hasFailed ? "text-red-700" : "text-gray-400"
+                        }`}
+                      >
+                        {failed || "—"}
                       </td>
                     </tr>
                   );
@@ -3348,105 +3626,27 @@ function EmailDailySendLogSection() {
           </div>
 
           {log.unsent.length > 0 && (
-            <div className="rounded border border-red-200 bg-red-50 px-4 py-3 space-y-3">
-              <h3 className="text-sm font-medium text-red-800">
-                Unsent emails
-              </h3>
+            <EmailAlertDetailsBlock
+              title="Scheduled for later"
+              variant="deferred"
+              groups={log.unsent}
+              details={deferredDetails}
+              logDate={log.date}
+              loading={loadingUnsent}
+              error={unsentError}
+            />
+          )}
 
-              {unsentError && (
-                <div className="text-sm text-red-700 bg-red-100 border border-red-200 rounded px-3 py-2">
-                  Failed to load details: {unsentError}
-                </div>
-              )}
-
-              {loadingUnsent ? (
-                <div className="text-sm text-red-600">Loading unsent details…</div>
-              ) : unsentDetails.length > 0 ? (
-                <div className="overflow-x-auto rounded border border-red-200 bg-white">
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr className="border-b border-red-100 bg-red-50">
-                        {[
-                          "User",
-                          "Email",
-                          "Alert type",
-                          "Scheduled send",
-                          "Status",
-                          "Last sent",
-                        ].map((h) => (
-                          <th
-                            key={h}
-                            className="text-left font-normal text-xs text-red-700 px-3 py-2"
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {unsentDetails.map((alert) => (
-                        <tr
-                          key={alert.id}
-                          className="border-b border-red-50 last:border-0"
-                        >
-                          <td className="px-3 py-2.5 font-medium text-red-900">
-                            {alert._user?.name || "—"}
-                          </td>
-                          <td className="px-3 py-2.5 text-red-800">
-                            {alert._user?.email || "—"}
-                          </td>
-                          <td className="px-3 py-2.5 text-red-800">
-                            {formatEmailItemType(alert.item_type)}
-                            <span className="text-red-600 capitalize">
-                              {" "}
-                              ({alert.email_frequency})
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-red-800 whitespace-nowrap">
-                            {formatUnsentScheduledTime(alert, log.date)}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 capitalize">
-                              {alert.status || "unsent"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-red-700 whitespace-nowrap">
-                            {alert.last_sent_at_utc
-                              ? formatTimestamp(alert.last_sent_at_utc)
-                              : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <ul className="space-y-2">
-                  {log.unsent.map((u) => (
-                    <li
-                      key={`${u.item_type}-${u.email_frequency}`}
-                      className="text-sm text-red-700"
-                    >
-                      <span className="font-medium">
-                        {formatEmailItemType(u.item_type)}
-                      </span>
-                      <span className="text-red-600 capitalize">
-                        {" "}
-                        ({u.email_frequency})
-                      </span>
-                      {" — "}
-                      {u.scheduled_count} not sent
-                      {u.unsent_ids.length > 0 && (
-                        <span className="text-red-600">
-                          {" "}
-                          · IDs: {u.unsent_ids.join(", ")}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+          {(log.failed?.length ?? 0) > 0 && (
+            <EmailAlertDetailsBlock
+              title="Failed emails"
+              variant="failed"
+              groups={log.failed ?? []}
+              details={failedDetails}
+              logDate={log.date}
+              loading={loadingUnsent}
+              error={unsentError}
+            />
           )}
         </div>
       )}
@@ -3459,11 +3659,47 @@ export function EmailAnalyticsTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<EAPeriod>("30");
+  const [filters, setFilters] = useState<EAUserFilters>({
+    companyId: "",
+    firmType: "",
+    seniorityLevel: "",
+    userType: "",
+  });
+  const [companies, setCompanies] = useState<EAClientCompany[]>([]);
+  const [companiesError, setCompaniesError] = useState<string | null>(null);
   const [tab, setTab] = useState<EATab>("all");
   const [showDebug, setShowDebug] = useState(false);
   const [auditDate, setAuditDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+
+  useEffect(() => {
+    let aborted = false;
+    async function loadCompanies() {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : "";
+        const rows = await fetchClientCompanies(token ?? "");
+        if (!aborted) {
+          setCompanies(rows);
+          setCompaniesError(null);
+        }
+      } catch (e) {
+        if (!aborted) {
+          setCompanies([]);
+          setCompaniesError(
+            e instanceof Error ? e.message : "Failed to load companies"
+          );
+        }
+      }
+    }
+    loadCompanies();
+    return () => {
+      aborted = true;
+    };
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -3474,7 +3710,7 @@ export function EmailAnalyticsTab() {
           ? localStorage.getItem("asymmetrix_auth_token")
           : "";
       const res = await fetch(
-        `/api/admin/email-analytics?${eaPeriodToParams(period)}`,
+        `/api/admin/email-analytics?${eaAnalyticsQueryParams(period, filters)}`,
         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
       );
       if (!res.ok) {
@@ -3487,7 +3723,11 @@ export function EmailAnalyticsTab() {
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [period, filters]);
+
+  const updateFilter = (key: keyof EAUserFilters, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
 
   const days = eaPeriodToDays(period);
 
@@ -3556,37 +3796,115 @@ export function EmailAnalyticsTab() {
       <EmailDailySendLogSection />
 
       {/* Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as EAPeriod)}
+              className="text-sm border rounded px-2 py-1.5"
+            >
+              <option value="24h">Last 24 hours</option>
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+            <button
+              onClick={fetchData}
+              disabled={loading}
+              className="text-sm border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {loading ? "Loading…" : "↻ Refresh"}
+            </button>
+            <button
+              onClick={() => setShowDebug((s) => !s)}
+              className="text-xs border rounded px-2 py-1.5 text-gray-500 hover:bg-gray-50"
+              title="Toggle debug info"
+            >
+              {showDebug ? "Hide debug" : "Debug"}
+            </button>
+          </div>
+          {data && (
+            <span className="text-xs text-gray-500">
+              {data.meta.fromDate} → {data.meta.toDate}
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as EAPeriod)}
+            value={filters.companyId}
+            onChange={(e) => updateFilter("companyId", e.target.value)}
+            className="text-sm border rounded px-2 py-1.5 min-w-[180px]"
+          >
+            <option value="">All companies</option>
+            {companies.map((c) => (
+              <option key={c.id} value={String(c.id)}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filters.firmType}
+            onChange={(e) => updateFilter("firmType", e.target.value)}
+            className="text-sm border rounded px-2 py-1.5 min-w-[160px]"
+          >
+            <option value="">All firm types</option>
+            {EA_FIRM_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filters.seniorityLevel}
+            onChange={(e) => updateFilter("seniorityLevel", e.target.value)}
             className="text-sm border rounded px-2 py-1.5"
           >
-            <option value="24h">Last 24 hours</option>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
+            <option value="">All seniority</option>
+            {EA_SENIORITY_LEVELS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
           </select>
-          <button
-            onClick={fetchData}
-            disabled={loading}
-            className="text-sm border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+          <select
+            value={filters.userType}
+            onChange={(e) => updateFilter("userType", e.target.value)}
+            className="text-sm border rounded px-2 py-1.5"
           >
-            {loading ? "Loading…" : "↻ Refresh"}
-          </button>
-          <button
-            onClick={() => setShowDebug((s) => !s)}
-            className="text-xs border rounded px-2 py-1.5 text-gray-500 hover:bg-gray-50"
-            title="Toggle debug info"
-          >
-            {showDebug ? "Hide debug" : "Debug"}
-          </button>
+            <option value="">All user types</option>
+            {EA_USER_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          {(filters.companyId ||
+            filters.firmType ||
+            filters.seniorityLevel ||
+            filters.userType) && (
+            <button
+              type="button"
+              onClick={() =>
+                setFilters({
+                  companyId: "",
+                  firmType: "",
+                  seniorityLevel: "",
+                  userType: "",
+                })
+              }
+              className="text-xs text-gray-500 hover:text-gray-800 underline"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
-        {data && (
-          <span className="text-xs text-gray-500">
-            {data.meta.fromDate} → {data.meta.toDate}
-          </span>
+
+        {companiesError && (
+          <div className="text-xs text-amber-700">
+            Could not load company list: {companiesError}
+          </div>
         )}
       </div>
 

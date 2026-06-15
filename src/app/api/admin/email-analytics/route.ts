@@ -4,8 +4,8 @@ const POSTMARK_API = "https://api.postmarkapp.com";
 const POSTMARK_TOKEN = process.env.POSTMARK_SERVER_TOKEN!;
 const XANO_EMAIL_ALERTS_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_alerts_all";
-const XANO_ALL_USERS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI/all_users";
+const XANO_USERS_EMAIL_FILTERING_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI/users_email_filtering";
 
 const pmHeaders = {
   "X-Postmark-Server-Token": POSTMARK_TOKEN,
@@ -51,8 +51,30 @@ interface XanoUser {
   id: number;
   name: string;
   email: string;
-  Company: number;
+  status: string;
+  seniority_level: string;
+  firm_type: string;
+  company_id: number | null;
+  company_name: string;
 }
+
+type UserFilterParams = {
+  firm_type: string;
+  seniority_level: string;
+  user_type: string;
+  company_id: number | null;
+};
+
+type UserProfile = {
+  id: number;
+  name: string;
+  email: string;
+  status: string;
+  seniorityLevel: string;
+  firmType: string;
+  companyId: number | null;
+  companyName: string;
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -119,6 +141,50 @@ async function fetchXanoData<T>(url: string, authHeader: string): Promise<T[]> {
   return Array.isArray(data) ? data : [];
 }
 
+function parseUserFilters(searchParams: URLSearchParams): UserFilterParams {
+  const companyIdRaw = searchParams.get("company_id");
+  const parsedCompanyId = companyIdRaw ? parseInt(companyIdRaw, 10) : NaN;
+
+  return {
+    firm_type: searchParams.get("firm_type") ?? "",
+    seniority_level: searchParams.get("seniority_level") ?? "",
+    user_type: searchParams.get("user_type") ?? "",
+    company_id: Number.isFinite(parsedCompanyId) ? parsedCompanyId : null,
+  };
+}
+
+async function fetchFilteredUsers(
+  authHeader: string,
+  filters: UserFilterParams
+): Promise<XanoUser[]> {
+  const params = new URLSearchParams({
+    firm_type: filters.firm_type,
+    seniority_level: filters.seniority_level,
+    user_type: filters.user_type,
+  });
+  if (filters.company_id != null) {
+    params.set("company_id", String(filters.company_id));
+  }
+
+  return fetchXanoData<XanoUser>(
+    `${XANO_USERS_EMAIL_FILTERING_URL}?${params.toString()}`,
+    authHeader
+  );
+}
+
+function toUserProfile(user: XanoUser): UserProfile {
+  return {
+    id: user.id,
+    name: user.name ?? "",
+    email: user.email,
+    status: user.status ?? "",
+    seniorityLevel: user.seniority_level ?? "",
+    firmType: user.firm_type ?? "",
+    companyId: user.company_id ?? null,
+    companyName: user.company_name ?? "",
+  };
+}
+
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -127,6 +193,7 @@ export async function GET(req: NextRequest) {
   const hoursParam = searchParams.get("hours");
   const hours = hoursParam ? Math.min(Math.max(parseInt(hoursParam), 1), 72) : null;
   const authHeader = req.headers.get("authorization") ?? "";
+  const userFilters = parseUserFilters(searchParams);
 
   const now = new Date();
   const cutoff = hours
@@ -147,7 +214,7 @@ export async function GET(req: NextRequest) {
     pmFetchAll<PostmarkOpenRecord>("/messages/outbound/opens", "Opens", dateParams),
     pmFetchAll<PostmarkClickRecord>("/messages/outbound/clicks", "Clicks", dateParams),
     fetchXanoData<XanoAlert>(XANO_EMAIL_ALERTS_URL, authHeader),
-    fetchXanoData<XanoUser>(XANO_ALL_USERS_URL, authHeader),
+    fetchFilteredUsers(authHeader, userFilters),
   ]);
 
   const allMessages = msgResult.records;
@@ -174,11 +241,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Build Xano lookups
-  const userByEmail: Record<string, { id: number; name: string; email: string }> = {};
+  // Build Xano lookups (users pre-filtered by Xano users_email_filtering)
+  const userByEmail: Record<string, UserProfile> = {};
   for (const u of users) {
     if (u.email) {
-      userByEmail[u.email.toLowerCase()] = { id: u.id, name: u.name ?? "", email: u.email };
+      userByEmail[u.email.toLowerCase()] = toUserProfile(u);
     }
   }
 
@@ -318,6 +385,11 @@ export async function GET(req: NextRequest) {
       userId: user.id,
       name: user.name,
       email: user.email,
+      status: user.status,
+      seniorityLevel: user.seniorityLevel,
+      firmType: user.firmType,
+      companyId: user.companyId,
+      companyName: user.companyName,
       activeAlerts: activeAlerts.length,
       alertTypes: Array.from(new Set(activeAlerts.map((a) => a.item_type))),
       frequency: lastAlert?.email_frequency ?? null,
@@ -345,7 +417,13 @@ export async function GET(req: NextRequest) {
   const bounced = userSummaries.filter((u) => u.bouncedCount > 0).length;
 
   return NextResponse.json({
-    meta: { fromDate: fmt(fromDate), toDate: fmt(toDate), days, hours },
+    meta: {
+      fromDate: fmt(fromDate),
+      toDate: fmt(toDate),
+      days,
+      hours,
+      filters: userFilters,
+    },
     stats: {
       totalSent,
       totalOpened,
