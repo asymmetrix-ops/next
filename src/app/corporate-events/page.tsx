@@ -15,6 +15,11 @@ import {
   BuyerInvestorType,
 } from "@/types/corporateEvents";
 import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
+import {
+  CounterpartyLike,
+  getCounterpartyHref,
+  getTargetHref,
+} from "@/lib/corporateEventEntityHref";
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
@@ -260,18 +265,21 @@ const CorporateEventsTable = ({
                   ? event.targets
                   : event.targets.slice(0, 1);
                 return displayTargets.map((tgt, i, arr) => {
-                  const href =
-                    tgt.route === "investor" || tgt.route === "investors"
-                      ? `/investors/${tgt.id}`
-                      : `/company/${tgt.id}`;
+                  const href = getTargetHref(tgt);
                   return (
                     <span key={`tgt-${tgt.id}`}>
-                      <a
-                        href={href}
-                        className="corporate-event-card-info-value-link"
-                      >
-                        {tgt.name}
-                      </a>
+                      {href ? (
+                        <a
+                          href={href}
+                          className="corporate-event-card-info-value-link"
+                        >
+                          {tgt.name}
+                        </a>
+                      ) : (
+                        <span className="corporate-event-card-info-value">
+                          {tgt.name}
+                        </span>
+                      )}
                       {i < arr.length - 1 && ", "}
                     </span>
                   );
@@ -675,16 +683,16 @@ const CorporateEventsTable = ({
                           ? event.targets
                           : event.targets.slice(0, 1);
                         return displayTargets.map((tgt, i, arr) => {
-                          const href =
-                            tgt.route === "investor" ||
-                            tgt.route === "investors"
-                              ? `/investors/${tgt.id}`
-                              : `/company/${tgt.id}`;
+                          const href = getTargetHref(tgt);
                           return (
                             <span key={`tgt-${tgt.id}`}>
-                              <a href={href} className="link-blue">
-                                {tgt.name}
-                              </a>
+                              {href ? (
+                                <a href={href} className="link-blue">
+                                  {tgt.name}
+                                </a>
+                              ) : (
+                                <span>{tgt.name}</span>
+                              )}
                               {i < arr.length - 1 && ", "}
                             </span>
                           );
@@ -738,60 +746,24 @@ const CorporateEventsTable = ({
                         {relevant.map((counterparty, subIndex) => {
                           const nc = counterparty._new_company as
                             | {
-                                id?: number;
                                 name: string;
-                                _is_that_investor?: boolean;
-                                _is_that_data_analytic_company?: boolean;
-                                _url?: string;
-                                _investor_profile_id?: number;
                               }
                             | undefined;
                           if (!nc) {
                             return null;
                           }
-                          const name = nc.name;
-                          let url = "";
-                          const cpId =
-                            (
-                              counterparty as {
-                                new_company_counterparty?: number;
-                              }
-                            ).new_company_counterparty || nc.id;
-                          if (nc._is_that_investor) {
-                            // Use the New Company id for investor pages
-                            if (typeof cpId === "number") {
-                              url = `/investors/${cpId}`;
-                            } else if (
-                              typeof nc._url === "string" &&
-                              nc._url
-                            ) {
-                              // Fallback: convert backend investor url to our route
-                              url = nc._url.replace(
-                                /\/(?:investor)\//,
-                                "/investors/"
-                              );
-                            } else {
-                              url = "";
-                            }
-                          } else if (nc._is_that_data_analytic_company) {
-                            url =
-                              typeof cpId === "number"
-                                ? `/company/${cpId}`
-                                : "";
-                          } else if (typeof nc._url === "string" && nc._url) {
-                            url = nc._url.replace(
-                              /\/(?:investor)\//,
-                              "/investors/"
-                            );
-                          }
+                          const href = getCounterpartyHref(
+                            counterparty as CounterpartyLike,
+                            { isInvestorHint: label === "Investor(s)" }
+                          );
                           return (
                             <span key={subIndex}>
-                              {url ? (
-                                <a href={url} className="link-blue">
-                                  {name}
+                              {href ? (
+                                <a href={href} className="link-blue">
+                                  {nc.name}
                                 </a>
                               ) : (
-                                <span style={{ color: "#000" }}>{name}</span>
+                                <span style={{ color: "#000" }}>{nc.name}</span>
                               )}
                               {subIndex < relevant.length - 1 && ", "}
                             </span>
@@ -823,12 +795,7 @@ const CorporateEventsTable = ({
                           {sellers.map((counterparty, subIndex) => {
                             const nc = counterparty._new_company as
                               | {
-                                  id?: number;
                                   name: string;
-                                  _is_that_investor?: boolean;
-                                  _is_that_data_analytic_company?: boolean;
-                                  _url?: string;
-                                  _investor_profile_id?: number;
                                 }
                               | undefined;
                             if (!nc) {
@@ -839,45 +806,17 @@ const CorporateEventsTable = ({
                                 </span>
                               );
                             }
-                            const name = nc.name;
-                            let url = "";
-                            const investorProfileId = nc._investor_profile_id;
-                            const cpId =
-                              (
-                                counterparty as {
-                                  new_company_counterparty?: number;
-                                }
-                              ).new_company_counterparty || nc.id;
-                            if (nc._is_that_investor) {
-                              url =
-                                typeof investorProfileId === "number" &&
-                                investorProfileId > 0
-                                  ? `/investors/${investorProfileId}`
-                                  : typeof cpId === "number"
-                                  ? `/investors/${cpId}`
-                                  : "";
-                            } else if (nc._is_that_data_analytic_company) {
-                              url =
-                                typeof cpId === "number"
-                                  ? `/company/${cpId}`
-                                  : "";
-                            } else if (
-                              typeof nc._url === "string" &&
-                              nc._url
-                            ) {
-                              url = nc._url.replace(
-                                /\/(?:investor)\//,
-                                "/investors/"
-                              );
-                            }
+                            const href = getCounterpartyHref(
+                              counterparty as CounterpartyLike
+                            );
                             return (
                               <span key={subIndex}>
-                                {url ? (
-                                  <a href={url} className="link-blue">
-                                    {name}
+                                {href ? (
+                                  <a href={href} className="link-blue">
+                                    {nc.name}
                                   </a>
                                 ) : (
-                                  <span style={{ color: "#000" }}>{name}</span>
+                                  <span style={{ color: "#000" }}>{nc.name}</span>
                                 )}
                                 {subIndex < sellers.length - 1 && ", "}
                               </span>
