@@ -4441,7 +4441,7 @@ const CompanyDetail = () => {
               </div>
             )}
 
-            {/* Rows 3–4: Product type + Revenue | Users + Data collection | AI Exposure Index (tall) */}
+            {/* Rows 3–4: Product type + Revenue | Users + Data collection | AI Defensibility Index (tall) */}
             {productTypeRows.length > 0 && (
               <div className="company-grid-product-mix">
                 <ProductDataToggleCard
@@ -4498,7 +4498,7 @@ const CompanyDetail = () => {
               </div>
             )}
 
-            {/* Rows 5–6: Col 1 = events + subs (Revenue-model width); Col 3 = headcount + management under AI Exposure Index */}
+            {/* Rows 5–6: Col 1 = events + subs (Revenue-model width); Col 3 = headcount + management under AI Defensibility Index */}
             {corporateEvents.length > 0 && (
               <div className="company-grid-corporate-events">
                 <LinkPanel

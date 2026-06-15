@@ -1,6 +1,6 @@
 "use client";
 /**
- * AIRiskCard — hand-built SVG radar chart (AI Exposure Index: defensibility only).
+ * AIRiskCard — hand-built SVG radar chart (AI Defensibility Index).
  * No charting library; click axes to highlight on the radar.
  */
 import React, { useState } from "react";
@@ -11,7 +11,7 @@ import {
   sortAiRiskAxesForRadar,
 } from "@/lib/companyAiRisks";
 
-export const AI_EXPOSURE_INDEX_TITLE = "AI Exposure Index";
+export const AI_DEFENSIBILITY_INDEX_TITLE = "AI Defensibility Index";
 
 export type AIRiskAxis = {
   key: string;
@@ -292,7 +292,7 @@ export function AIRiskCard({
             color: T.ink,
           }}
         >
-          {AI_EXPOSURE_INDEX_TITLE}
+          {AI_DEFENSIBILITY_INDEX_TITLE}
         </div>
         <span
           style={{
