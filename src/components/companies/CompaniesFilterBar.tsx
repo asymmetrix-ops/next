@@ -219,6 +219,8 @@ interface PopProps {
   children: React.ReactNode;
   offset?: number;
   align?: "start" | "end";
+  /** Bumps when popover content changes size (e.g. picker → editor). */
+  layoutKey?: string | number;
   /** Clicks inside this node won't dismiss the popover. */
   boundaryRef?: React.RefObject<HTMLElement | null>;
 }
@@ -229,31 +231,36 @@ function Pop({
   children,
   offset = 8,
   align = "start",
+  layoutKey = 0,
   boundaryRef,
 }: PopProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
+  const place = useCallback(() => {
+    if (!anchorRef.current || !ref.current) return;
+    const a = anchorRef.current.getBoundingClientRect();
+    const p = ref.current.getBoundingClientRect();
+    let left = align === "end" ? a.right - p.width : a.left;
+    const vw = window.innerWidth;
+    if (left + p.width > vw - 8) left = vw - p.width - 8;
+    if (left < 8) left = 8;
+    const next = { top: a.bottom + offset, left };
+    setPos((prev) =>
+      prev && prev.top === next.top && prev.left === next.left ? prev : next
+    );
+  }, [anchorRef, align, offset]);
+
   useLayoutEffect(() => {
-    function place() {
-      if (!anchorRef.current || !ref.current) return;
-      const a = anchorRef.current.getBoundingClientRect();
-      const p = ref.current.getBoundingClientRect();
-      let left = align === "end" ? a.right - p.width : a.left;
-      const vw = window.innerWidth;
-      if (left + p.width > vw - 8) left = vw - p.width - 8;
-      if (left < 8) left = 8;
-      const next = { top: a.bottom + offset, left };
-      setPos((prev) =>
-        prev && prev.top === next.top && prev.left === next.left ? prev : next
-      );
-    }
+    place();
+  }, [layoutKey, place]);
+
+  useLayoutEffect(() => {
     function onScroll(e: Event) {
       // Inner list scrolling shouldn't reposition — only anchor/page movement.
       if (ref.current?.contains(e.target as Node)) return;
       place();
     }
-    place();
     const popEl = ref.current;
     const ro =
       typeof ResizeObserver !== "undefined" && popEl
@@ -267,7 +274,7 @@ function Pop({
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", onScroll, true);
     };
-  }, [anchorRef, align, offset]);
+  }, [place]);
 
   useEffect(() => {
     function onDown(e: MouseEvent) {
@@ -595,6 +602,7 @@ interface AddFilterPickerProps {
   filters: FilterItem[];
   onApply: (def: FilterDef, value: unknown) => void;
   onClose: () => void;
+  onContentLayout?: () => void;
 }
 
 function FilterPanelCloseButton({
@@ -650,6 +658,7 @@ function AddFilterPicker({
   filters,
   onApply,
   onClose,
+  onContentLayout,
 }: AddFilterPickerProps) {
   const [activeDef, setActiveDef] = useState<FilterDef | null>(null);
   const [q, setQ] = useState("");
@@ -658,6 +667,10 @@ function AddFilterPicker({
   useEffect(() => {
     if (!activeDef) inputRef.current?.focus();
   }, [activeDef]);
+
+  useLayoutEffect(() => {
+    onContentLayout?.();
+  }, [activeDef, onContentLayout]);
 
   const activeReservedValues = useMemo(() => {
     if (!activeDef) return new Set<string>();
@@ -953,7 +966,11 @@ function AddFilterButton({
   boundaryRef,
 }: AddFilterButtonProps) {
   const [open, setOpen] = useState(false);
+  const [layoutKey, setLayoutKey] = useState(0);
   const anchor = useRef<HTMLButtonElement>(null);
+  const notifyContentLayout = useCallback(() => {
+    setLayoutKey((k) => k + 1);
+  }, []);
 
   return (
     <>
@@ -993,6 +1010,7 @@ function AddFilterButton({
         <Pop
           anchorRef={anchor}
           boundaryRef={boundaryRef}
+          layoutKey={layoutKey}
           onDismiss={() => setOpen(false)}
         >
           <AddFilterPicker
@@ -1001,6 +1019,7 @@ function AddFilterButton({
             filters={filters}
             onApply={onApply}
             onClose={() => setOpen(false)}
+            onContentLayout={notifyContentLayout}
           />
         </Pop>
       )}
