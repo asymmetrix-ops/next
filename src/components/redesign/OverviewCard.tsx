@@ -254,7 +254,7 @@ export function OverviewCard({
       ),
     },
     {
-      k: "Yrs since last inv.",
+      k: "Time since last investment",
       show: !hasParent,
       v: lastInvestment && !isEmptyDisplayValue(lastInvestment)
         ? lastInvestment

@@ -208,6 +208,16 @@ function mapColumnTypeToFilter(
     return { type: "Aa", editor: "boolean" };
   }
 
+  if (column.columnKey === "years_since_last_investment") {
+    return {
+      type: "#",
+      editor: "range",
+      unit: "yrs",
+      min: 0,
+      max: 20,
+    };
+  }
+
   if (column.type === "number" || column.type === "currency") {
     const unit =
       column.type === "currency"
@@ -216,15 +226,13 @@ function mapColumnTypeToFilter(
           ? "%"
           : column.columnKey === "revenue_multiple"
             ? "x"
-            : column.columnKey === "years_since_last_investment"
-              ? "yrs"
-              : undefined;
+            : undefined;
     return {
       type: typeIcon(column.type),
       editor: "range",
       unit,
       min: 0,
-      max: unit === "%" ? 200 : unit === "x" ? 30 : unit === "yrs" ? 20 : 10000,
+      max: unit === "%" ? 200 : unit === "x" ? 30 : 10000,
     };
   }
 

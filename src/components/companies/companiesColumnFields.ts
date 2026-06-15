@@ -35,12 +35,7 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
     "growth_percent",
   ],
   investors: ["investors", "investor_names", "investors_new_company", "_companies_investors"],
-  years_since_last_investment: [
-    "years_since_last_investment",
-    "last_investment.display",
-    "last_investment.days_since",
-    "last_investment",
-  ],
+  years_since_last_investment: ["years_since_last_investment"],
   lifecycle_stage: ["lifecycle_stage", "Lifecycle_stage.Lifecycle_stage"],
   product_type: ["product_type", "Product_Type"],
   data_collection_method: ["data_collection_method", "Data_Collection_Method"],

@@ -171,7 +171,7 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         id: "years_since",
         columnKey: "years_since_last_investment",
         label: "Years Since Last Investment",
-        type: "number",
+        type: "text",
         defaultVisible: false,
       },
       {
