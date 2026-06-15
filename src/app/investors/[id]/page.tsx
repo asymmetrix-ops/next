@@ -14,6 +14,11 @@ import IndividualCards from "@/components/shared/IndividualCards";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 import { trackEvent } from "@/lib/tracking";
 import {
+  fetchCompanyLinkedIn,
+  mapLinkedInHistoryToTimeSeries,
+} from "@/lib/companyLinkedIn";
+import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
+import {
   LineChart,
   Line,
   XAxis,
@@ -401,6 +406,7 @@ const InvestorDetailPage = () => {
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
   const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
   const [linkedinUrl, setLinkedinUrl] = useState<string | undefined>(undefined);
+  const [linkedInLogo, setLinkedInLogo] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [pastPortfolioLoading, setPastPortfolioLoading] = useState(false);
@@ -1056,59 +1062,25 @@ const InvestorDetailPage = () => {
     }
   }, [investorId]);
 
-  // Fetch LinkedIn history data using the same API pattern as company page
   const fetchLinkedInHistory = useCallback(async () => {
     setLinkedInHistoryLoading(true);
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
+      const data = await fetchCompanyLinkedIn(investorId, token);
 
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${investorId}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          credentials: "include",
-        }
+      setLinkedInHistory(
+        mapLinkedInHistoryToTimeSeries(data.employee_history).map((item) => ({
+          date: item.date,
+          employees_count: item.employees_count,
+        }))
       );
 
-      if (!response.ok) {
-        throw new Error(
-          `LinkedIn History API request failed: ${response.statusText}`
-        );
-      }
+      const profileUrl = normalizeLinkedInProfileUrl(data.profile?.linkedin_url);
+      if (profileUrl) setLinkedinUrl(profileUrl);
 
-      const data = await response.json();
-      console.log("LinkedIn history API response", data);
-
-      const companyPayload = data.Company as unknown as {
-        employees_deduped?: LinkedInHistory[];
-        _companies_employees_count_monthly?: LinkedInHistory[];
-      } | undefined;
-      const employeeData =
-        (data as unknown as { employees_deduped?: LinkedInHistory[] })
-          .employees_deduped ??
-        companyPayload?.employees_deduped ??
-        companyPayload?._companies_employees_count_monthly ??
-        [];
-      const historyData = employeeData.map(
-        (item: { date?: string; employees_count?: number }) => ({
-          date: item.date || "",
-          employees_count: item.employees_count || 0,
-        })
-      );
-      setLinkedInHistory(historyData);
-
-      // Prefer URL from Company.linkedin_data if present
-      const historyLinkedinUrl: string | undefined =
-        data.Company?.linkedin_data?.LinkedIn_URL ||
-        data.Company?._linkedin_data_of_new_company?.LinkedIn_URL;
-      if (historyLinkedinUrl) setLinkedinUrl(historyLinkedinUrl);
+      if (data.profile?.logo) setLinkedInLogo(data.profile.logo);
     } catch (err) {
       console.error("Error fetching LinkedIn history:", err);
-      // Don't set main error state for LinkedIn history loading failure
     } finally {
       setLinkedInHistoryLoading(false);
     }
@@ -1860,7 +1832,11 @@ const InvestorDetailPage = () => {
         <div className="investor-header">
           <div className="investor-title-section">
             <CompanyLogo
-              logo={Investor._linkedin_data_of_new_company?.linkedin_logo || ""}
+              logo={
+                linkedInLogo ||
+                Investor._linkedin_data_of_new_company?.linkedin_logo ||
+                ""
+              }
               name={Investor.name}
             />
             <div>

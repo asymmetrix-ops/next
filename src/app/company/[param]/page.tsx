@@ -23,6 +23,11 @@ import {
   getManagementRoleDisplayName,
 } from "@/utils/individualHelpers";
 import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
+import {
+  fetchCompanyLinkedIn,
+  mapLinkedInHistoryToTimeSeries,
+  type CompanyLinkedInResponse,
+} from "@/lib/companyLinkedIn";
 import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
@@ -1309,6 +1314,8 @@ const CompanyDetail = () => {
   const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
   const [managementIndividualLinkedIn, setManagementIndividualLinkedIn] =
     useState<Record<number, string>>({});
+  const [companyLinkedIn, setCompanyLinkedIn] =
+    useState<CompanyLinkedInResponse | null>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const transactionStatusDisplayLabel = useMemo(() => {
@@ -2107,6 +2114,17 @@ const CompanyDetail = () => {
       fetchCompanyAiRisksData(companyId);
       fetchProductServices(companyId);
       fetchUsersUseCases(companyId);
+
+      setCompanyLinkedIn(null);
+      void (async () => {
+        try {
+          const token = localStorage.getItem("asymmetrix_auth_token");
+          const data = await fetchCompanyLinkedIn(companyId, token);
+          setCompanyLinkedIn(data);
+        } catch (err) {
+          console.warn("Failed to fetch company LinkedIn data:", err);
+        }
+      })();
     }
   }, [
     companyId,
@@ -2446,7 +2464,7 @@ const CompanyDetail = () => {
   // Removed render-phase debug logging to avoid noise/perf issues
 
   const linkedinUrl = normalizeLinkedInProfileUrl(
-    company.linkedin_data?.LinkedIn_URL
+    companyLinkedIn?.profile?.linkedin_url ?? company.linkedin_data?.LinkedIn_URL
   );
 
   // Process sectors (prefer new_sectors_data.sectors_payload when present)
@@ -2748,8 +2766,17 @@ const CompanyDetail = () => {
         typeof row.ebitda === "number"
     );
 
-  const employeeData = resolveEmployeeTimeSeries(company);
-  const currentEmployeeCount = resolveChartEmployeeCount(employeeData);
+  const employeeData =
+    companyLinkedIn?.employee_history && companyLinkedIn.employee_history.length > 0
+      ? mapLinkedInHistoryToTimeSeries(companyLinkedIn.employee_history)
+      : resolveEmployeeTimeSeries(company);
+  const currentEmployeeCount = (() => {
+    const fromSeries = resolveChartEmployeeCount(employeeData);
+    if (fromSeries > 0) return fromSeries;
+    const fromProfile = companyLinkedIn?.profile?.employee_count;
+    if (typeof fromProfile === "number" && fromProfile > 0) return fromProfile;
+    return 0;
+  })();
 
   const finMetricsData = buildFinancialMetricsSections({
     financialMetrics,
@@ -2816,7 +2843,9 @@ const CompanyDetail = () => {
       const rounded = Math.round(direct * 10) / 10;
       return `${rounded >= 0 ? "+" : ""}${rounded}% YoY`;
     }
-    const liGrowth = parseLinkedInGrowthPctValue(company.linkedin_growth_1y_pct);
+    const liGrowth = parseLinkedInGrowthPctValue(
+      companyLinkedIn?.growth_1y_pct ?? company.linkedin_growth_1y_pct
+    );
     if (liGrowth !== null) {
       const rounded = Math.round(liGrowth * 10) / 10;
       return `${rounded >= 0 ? "+" : ""}${rounded}% YoY`;
@@ -3826,7 +3855,10 @@ const CompanyDetail = () => {
           {/* Left: logo + name */}
           <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0, flex: 1 }}>
                   <CompanyLogo
-                    logo={company._linkedin_data_of_new_company?.linkedin_logo}
+                    logo={
+                      companyLinkedIn?.profile?.logo ??
+                      company._linkedin_data_of_new_company?.linkedin_logo
+                    }
                     name={company.name}
                   />
                   <span style={{
