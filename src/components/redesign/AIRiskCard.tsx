@@ -38,7 +38,7 @@ type RadarChartProps = {
 
 const RADAR_PAD_H = 96;
 const RADAR_PAD_V = 38;
-const AXIS_LABEL_LINE_HEIGHT = 13;
+const AXIS_LABEL_LINE_HEIGHT = 14;
 const AXIS_LABEL_RADIUS_OFFSET = 26;
 
 /** Split long axis labels onto multiple lines (prefer " / " breaks). */
@@ -180,7 +180,7 @@ function RadarChart({
           y={ly}
           textAnchor={anchor}
           fontFamily={T.sans}
-          fontSize="10.5"
+          fontSize="11.5"
           fontWeight={isActive ? 700 : 600}
           fill={isActive ? T.ink : T.body}
           style={{ letterSpacing: 0.1 }}
@@ -228,7 +228,6 @@ type AIRiskCardProps = {
 export function AIRiskCard({
   axes: axesProp,
   avgDefensibility: avgProp,
-  tier: tierProp,
   defaultActiveKey = "data_moat",
   fillGridCell = false,
 }: AIRiskCardProps) {
@@ -252,9 +251,8 @@ export function AIRiskCard({
   const computedAvg =
     axes.reduce((sum, axis) => sum + axis.score, 0) / axes.length;
   const defAvg = avgProp ?? computedAvg;
-  const { label: computedTier, hint: headlineHint } =
+  const { label: headlineTier, hint: headlineHint } =
     getAiExposureHeadline(defAvg);
-  const headlineTier = tierProp?.trim() || computedTier;
   const activeAxis = axes.find((a) => a.key === active) ?? axes[0];
 
   return (
@@ -302,7 +300,7 @@ export function AIRiskCard({
             alignItems: "center",
             gap: 6,
             fontFamily: T.sans,
-            fontSize: 11.5,
+            fontSize: 12.5,
             fontWeight: 600,
             color: T.body,
             flexWrap: "wrap",
@@ -377,7 +375,7 @@ export function AIRiskCard({
             <div
               style={{
                 fontFamily: T.sans,
-                fontSize: 12.5,
+                fontSize: 13,
                 fontWeight: 600,
                 color: T.ink,
                 lineHeight: 1.35,
@@ -388,7 +386,7 @@ export function AIRiskCard({
             <span
               style={{
                 fontFamily: T.mono,
-                fontSize: 11,
+                fontSize: 11.5,
                 fontWeight: 600,
                 color: DEFENSIBILITY_TONE.fg,
                 flexShrink: 0,
@@ -401,7 +399,7 @@ export function AIRiskCard({
           <div
             style={{
               fontFamily: T.sans,
-              fontSize: 12.5,
+              fontSize: 13,
               lineHeight: 1.55,
               color: T.body,
             }}

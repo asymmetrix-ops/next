@@ -132,14 +132,14 @@ const INSIGHTS_LIST_MIN_HEIGHT = 220;
 const INSIGHTS_ROW_SLOT_MIN_HEIGHT = 100;
 const INSIGHTS_META_COL_WIDTH = 140;
 
-const insightsRowGridStyle: React.CSSProperties = {
+const insightsRowGridStyle = (isLast = false): React.CSSProperties => ({
   display: "grid",
   gridTemplateColumns: `${INSIGHTS_META_COL_WIDTH}px 1fr`,
   gap: 16,
   padding: "14px 16px",
-  borderBottom: `1px solid ${T.hair}`,
+  borderBottom: isLast ? "none" : `1px solid ${T.hair}`,
   minWidth: 0,
-};
+});
 
 const insightsMetaColStyle: React.CSSProperties = {
   minWidth: 0,
@@ -155,11 +155,17 @@ const insightTagPillStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-function SkeletonRow({ flexSlot = false }: { flexSlot?: boolean }) {
+function SkeletonRow({
+  flexSlot = false,
+  isLast = false,
+}: {
+  flexSlot?: boolean;
+  isLast?: boolean;
+}) {
   return (
     <div
       style={{
-        ...insightsRowGridStyle,
+        ...insightsRowGridStyle(isLast),
         ...(flexSlot ? { flex: 1, minHeight: INSIGHTS_ROW_SLOT_MIN_HEIGHT } : {}),
       }}
     >
@@ -169,14 +175,14 @@ function SkeletonRow({ flexSlot = false }: { flexSlot?: boolean }) {
   );
 }
 
-function InsightRowPlaceholder() {
+function InsightRowPlaceholder({ isLast = false }: { isLast?: boolean }) {
   return (
     <div
       aria-hidden
       style={{
         flex: 1,
         minHeight: INSIGHTS_ROW_SLOT_MIN_HEIGHT,
-        borderBottom: `1px solid ${T.hair}`,
+        borderBottom: isLast ? "none" : `1px solid ${T.hair}`,
       }}
     />
   );
@@ -331,9 +337,11 @@ function SummaryModal({
 function ArticleRow({
   article,
   onViewSummary,
+  isLast = false,
 }: {
   article: ContentArticle;
   onViewSummary: (a: ContentArticle) => void;
+  isLast?: boolean;
 }) {
   const tone = badgeTone(article.Content_Type || "");
   const tag = article.Content_Type?.trim()
@@ -345,7 +353,7 @@ function ArticleRow({
   const showSummaryBtn = hasSummary(article);
 
   return (
-    <div style={insightsRowGridStyle}>
+    <div style={insightsRowGridStyle(isLast)}>
       <div style={insightsMetaColStyle}>
         <Pill tone={tone} style={insightTagPillStyle}>
           {tag}
@@ -543,7 +551,7 @@ export function InsightsCard({
         {loading ? (
           <>
             <SkeletonRow flexSlot />
-            <SkeletonRow flexSlot />
+            <SkeletonRow flexSlot isLast />
           </>
         ) : isEmpty ? (
           <div
@@ -564,18 +572,31 @@ export function InsightsCard({
           </div>
         ) : (
           <>
-            {articles.map((a) => (
-              <ArticleRow key={a.id} article={a} onViewSummary={handleViewSummary} />
-            ))}
-            {articles.length < 2 &&
-              Array.from({ length: 2 - articles.length }).map((_, i) => (
-                <InsightRowPlaceholder key={`insights-row-pad-${i}`} />
-              ))}
+            {Array.from({ length: 2 }).map((_, slotIndex) => {
+              const article = articles[slotIndex];
+              const isLastSlot = slotIndex === 1;
+              if (article) {
+                return (
+                  <ArticleRow
+                    key={article.id}
+                    article={article}
+                    onViewSummary={handleViewSummary}
+                    isLast={isLastSlot}
+                  />
+                );
+              }
+              return (
+                <InsightRowPlaceholder
+                  key={`insights-row-pad-${slotIndex}`}
+                  isLast={isLastSlot}
+                />
+              );
+            })}
           </>
         )}
       </div>
 
-      {/* footer pager */}
+      {/* footer pager — top border is the sole separator above the footer */}
       <div
         style={{
           display: "flex",

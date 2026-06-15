@@ -126,7 +126,7 @@ export function getAiExposureHeadline(defAvg: number): {
 } {
   if (defAvg >= 2.5) {
     return {
-      label: "Strong overall moat vs. AI",
+      label: "Strong overall defensibility vs. AI",
       hint: "Shown when average defensibility is ≥ 2.5/3.",
     };
   }
@@ -213,10 +213,7 @@ export function mapAiRisksV2ToData(
       ? response.avg_defense_score
       : computedAvg;
 
-  const tier =
-    !Array.isArray(response) && typeof response?.tier === "string" && response.tier.trim()
-      ? response.tier.trim()
-      : getAiExposureHeadline(avgDefensibility).label;
+  const tier = getAiExposureHeadline(avgDefensibility).label;
 
   return { axes, avgDefensibility, tier };
 }
