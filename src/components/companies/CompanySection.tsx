@@ -8,17 +8,17 @@ import React, {
   useRef,
 } from "react";
 import { useRouter } from "next/navigation";
-import { McpGuestSalesConversionModal } from "@/components/mcp-guest/McpGuestSalesConversionPanel";
-import { MCP_GUEST_ALLOWED_PATH } from "@/lib/mcpGuest";
+import Image from "next/image";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
 import {
-  exportCompaniesList,
-} from "@/lib/listExport/companiesListExport";
-import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
+  CompaniesCSVExporter,
+  CompanyCSVRow as BaseCompanyCSVRow,
+} from "@/utils/companiesCSVExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import type { CompaniesFilters } from "@/app/companies/actions";
+import { companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import {
   CANONICAL_COMPANY_COLUMN_KEYS,
@@ -35,17 +35,12 @@ import {
 import { FILTER_PINNED_TOOLTIP } from "@/components/companies/companiesColumnFilterMap";
 import {
   compareSortValues,
-  getApiSortColumn,
   getColumnSortKind,
-  getServerSortDefaultDirection,
   getSortValueForColumn,
-  getUiColumnForApiSortColumn,
 } from "@/components/companies/companiesTableSort";
 import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
-import { readLogoFromRecord } from "@/lib/companyLogo";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
-import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   getApiColumnsForSelectedKeys,
   getApiColumnsSignature,
@@ -55,17 +50,21 @@ import {
   LIST_JSON_COLUMN_KEYS,
 } from "@/components/companies/companiesColumnFields";
 import type { CompaniesOwnershipCounts } from "@/components/companies/companiesFilterConfig";
-import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
-import { SEARCH_IDENTITY_COLUMN_KEYS } from "@/components/search/searchTableUtils";
-import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
-import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
-import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
-import type { SearchMultiValueItem } from "@/components/search/searchMultiValueUtils";
-import { buildSectorItemsFromUnknown } from "@/components/search/searchEntityLinkUtils";
-import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
-import { useSectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
-import type { SectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
-import CompactPagination from "@/components/ui/CompactPagination";
+
+interface CompanyCSVRow extends BaseCompanyCSVRow {
+  Revenue?: string;
+  EBITDA?: string;
+  "Enterprise Value"?: string;
+  "Revenue Multiple"?: string;
+  "Revenue Growth"?: string;
+  "EBITDA Margin"?: string;
+  "Rule of 40"?: string;
+  ARR?: string;
+  Churn?: string;
+  GRR?: string;
+  NRR?: string;
+  "New Clients Revenue Growth"?: string;
+}
 
 export type SectorRef =
   | string
@@ -104,40 +103,122 @@ export const createDefaultFilters = (): Filters => ({
   has_year_filter: false,
   query: null,
   columns: [],
-  sort_column: null,
-  sort_direction: null,
 });
+
+interface ExportCompanyJson {
+  id?: number | string;
+  name?: string;
+  description?: string;
+  primary_sectors?: string | string[];
+  secondary_sectors?: string | string[];
+  ownership?: string;
+  linkedin_members?: number | string;
+  country?: string;
+  asymmetrix_url?: string;
+  company_link?: string;
+  Revenue_m?: number | string;
+  EBITDA_m?: number | string;
+  EV?: number | string;
+  Revenue_multiple?: number | string;
+  Rev_Growth_PC?: number | string;
+  EBITDA_margin?: number | string;
+  Rule_of_40?: number | string;
+  ARR_pc?: number | string;
+  ARR_m?: number | string;
+  Churn_pc?: number | string;
+  GRR_pc?: number | string;
+  NRR?: number | string;
+  New_client_growth_pc?: number | string;
+  Financial_Year?: number | string;
+}
 
 const formatNumber = (num: number | undefined): string => {
   if (num === undefined || num === null) return "0";
   return num.toLocaleString();
 };
 
-const buildSectorItems = (
-  sectors: unknown[] | undefined,
-  kind: "primary" | "secondary",
-  sectorMaps?: SectorNameIdMaps
-): SearchMultiValueItem[] =>
-  buildSectorItemsFromUnknown(sectors, kind, sectorMaps);
+const isExportCompanyJson = (value: unknown): value is ExportCompanyJson => {
+  if (!value || typeof value !== "object") return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.name === "string" ||
+    typeof obj.description === "string" ||
+    typeof obj.country === "string"
+  );
+};
+
+// Company Logo Component
+const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => (
+  <div className="company-logo-cell">
+    {logo ? (
+      <Image
+        src={`data:image/jpeg;base64,${logo}`}
+        alt={`${name} logo`}
+        width={60}
+        height={40}
+        className="company-logo"
+        style={{ objectFit: "contain" }}
+      />
+    ) : (
+      <div className="company-logo-placeholder">No Logo</div>
+    )}
+  </div>
+);
+
+// Helper to get sector info from API response
+
+
+const getSectorInfo = (sector: unknown): { name: string; id?: number } => {
+  if (typeof sector === "string") return { name: sector };
+  if (!sector || typeof sector !== "object") return { name: "" };
+  const rec = sector as Record<string, unknown>;
+  const nameRaw =
+    (typeof rec.sector_name === "string" && rec.sector_name) ||
+    (typeof rec.name === "string" && rec.name) ||
+    "";
+  const idRaw = rec.id;
+  const id = typeof idRaw === "number" ? idRaw : undefined;
+  return { name: String(nameRaw), id };
+};
 
 const renderSectorLinks = (
   sectors: unknown[] | undefined,
-  kind: "primary" | "secondary",
-  sectorMaps?: SectorNameIdMaps,
-  guestMode = false,
-  onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void
-): React.ReactNode => (
-  <SearchEntityMultiValueCell
-    items={
-      guestMode
-        ? buildSectorItems(sectors, kind, sectorMaps).map((item) =>
-            item.href ? { ...item, href: "#" } : item
-          )
-        : buildSectorItems(sectors, kind, sectorMaps)
-    }
-    onLinkClick={guestMode ? onLinkClick : undefined}
-  />
-);
+  kind: "primary" | "secondary"
+): React.ReactNode => {
+  if (!Array.isArray(sectors) || sectors.length === 0) return "-";
+
+  const nodes: React.ReactNode[] = [];
+  sectors.forEach((s, index) => {
+    const { name, id } = getSectorInfo(s);
+    const label = String(name ?? "").trim();
+    if (!label) return;
+
+    const href =
+      id != null
+        ? kind === "primary"
+          ? `/sector/${id}`
+          : `/sub-sector/${id}`
+        : undefined;
+
+    nodes.push(
+      href ? (
+        <a
+          key={`${kind}-${id}-${label}-${index}`}
+          href={href}
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {label}
+        </a>
+      ) : (
+        <span key={`${kind}-${label}-${index}`}>{label}</span>
+      )
+    );
+
+    if (index < sectors.length - 1) nodes.push(<span key={`sep-${kind}-${index}`}>, </span>);
+  });
+
+  return nodes.length > 0 ? nodes : "-";
+};
 
 const getInvestorInfo = (investor: unknown): { name: string; id?: number } => {
   if (typeof investor === "string" || typeof investor === "number") {
@@ -186,44 +267,41 @@ const readInvestorsFromCompany = (company: Company): unknown[] => {
   return parseListField(rec.investor_names);
 };
 
-const buildInvestorItems = (
-  investors: unknown[],
-  guestMode = false
-): SearchMultiValueItem[] =>
-  investors.flatMap((investor, index) => {
+const renderInvestorLinks = (investors: unknown[]): React.ReactNode => {
+  if (!Array.isArray(investors) || investors.length === 0) return "-";
+
+  const nodes: React.ReactNode[] = [];
+  investors.forEach((investor, index) => {
     const { name, id } = getInvestorInfo(investor);
-    if (!name) return [];
-    return [
-      {
-        name,
-        href: guestMode
-          ? "#"
-          : id != null
-            ? `/investors/${id}`
-            : undefined,
-        key: `investor-${id ?? name}-${index}`,
-      },
-    ];
+    if (!name) return;
+
+    const href = id != null ? `/investors/${id}` : undefined;
+    nodes.push(
+      href ? (
+        <a
+          key={`investor-${id}-${name}-${index}`}
+          href={href}
+          className="text-blue-600 underline hover:text-blue-800"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {name}
+        </a>
+      ) : (
+        <span key={`investor-${name}-${index}`}>{name}</span>
+      )
+    );
+
+    if (index < investors.length - 1) {
+      nodes.push(<span key={`investor-sep-${index}`}>, </span>);
+    }
   });
 
-const renderInvestorLinks = (
-  investors: unknown[],
-  guestMode = false,
-  onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void
-): React.ReactNode => (
-  <SearchEntityMultiValueCell
-    items={buildInvestorItems(investors, guestMode)}
-    onLinkClick={guestMode ? onLinkClick : undefined}
-  />
-);
+  return nodes.length > 0 ? nodes : "-";
+};
 
 type CompanyColumnRenderContext = {
   index: number;
   onCompanyClick: (companyId: number) => void;
-  onGuestConversionClick?: () => void;
-  readOnlyGuestMode?: boolean;
-  sectorMaps?: SectorNameIdMaps;
-  currencyCode?: string;
 };
 
 interface CompanyColumnDefinition {
@@ -357,39 +435,20 @@ const makeTextColumn = (
   label,
   group,
   ...options,
-  render: (company, context) => {
+  render: (company) => {
     if (key === "years_since_last_investment") {
       return toPlainText(company.years_since_last_investment);
     }
     const raw = readCompanyValue(company, [...getFieldAliasesForColumn(key)]);
     if (LIST_JSON_COLUMN_KEYS.has(key)) {
-      const parsed = parseListField(raw);
-      if (parsed.length === 0) return toPlainText(raw);
-
-      const multiItems = parsed.flatMap((item, index) => {
-        const name = toPlainText(item);
-        if (!name || name === "-") return [];
-        return [{ name, key: `${key}-${index}-${name}` }];
-      });
-
-      if (multiItems.length > 0) {
-        return <SearchEntityMultiValueCell items={multiItems} />;
-      }
-      return toPlainText(raw);
+      const items = parseListField(raw);
+      return toPlainText(items.length > 0 ? items : raw);
     }
     const columnType = COLUMN_TYPE_BY_KEY.get(key) ?? "text";
-    if (columnType === "paragraph") {
-      return <SearchEntityLongText text={toPlainText(raw)} />;
-    }
-    if (columnType === "text" || columnType === "url") {
+    if (columnType === "text" || columnType === "paragraph" || columnType === "url") {
       return toPlainText(raw);
     }
-    return formatCompanyColumnDisplay(
-      key,
-      columnType,
-      raw,
-      context.currencyCode
-    );
+    return formatCompanyColumnDisplay(key, columnType, raw);
   },
 });
 
@@ -398,44 +457,42 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
     group: "Identity",
     cols: [
       {
+        key: "logo",
+        label: "Logo",
+        group: "Identity",
+        minWidth: 88,
+        render: (company) => (
+          <CompanyLogo logo={String(company.linkedin_logo || "")} name={company.name} />
+        ),
+      },
+      {
         key: "name",
         label: "Name",
         group: "Identity",
-        wrap: true,
-        minWidth: 280,
-        render: (company, { onCompanyClick, readOnlyGuestMode }) => {
-          const hqRaw = readCompanyValue(company, [
-            ...getFieldAliasesForColumn("hq"),
-          ]);
-          const subtitle =
-            hqRaw != null && String(hqRaw).trim() && String(hqRaw).trim() !== "-"
-              ? String(hqRaw).trim()
-              : undefined;
-
-          return (
-            <SearchEntityIdentityCell
-              name={company.name || "-"}
-              logo={readLogoFromRecord(company, getFieldAliasesForColumn("logo"))}
-              subtitle={subtitle}
-              href={readOnlyGuestMode ? "#" : `/company/${company.id}`}
-              readOnly={false}
-              onClick={(e) => {
-                if (
-                  e.defaultPrevented ||
-                  e.button !== 0 ||
-                  e.metaKey ||
-                  e.ctrlKey ||
-                  e.shiftKey ||
-                  e.altKey
-                ) {
-                  return;
-                }
-                e.preventDefault();
-                onCompanyClick(company.id);
-              }}
-            />
-          );
-        },
+        minWidth: 160,
+        render: (company, { onCompanyClick }) => (
+          <a
+            href={`/company/${company.id}`}
+            className="company-name"
+            style={{ textDecoration: "none", color: "#3b82f6" }}
+            onClick={(e) => {
+              if (
+                e.defaultPrevented ||
+                e.button !== 0 ||
+                e.metaKey ||
+                e.ctrlKey ||
+                e.shiftKey ||
+                e.altKey
+              ) {
+                return;
+              }
+              e.preventDefault();
+              onCompanyClick(company.id);
+            }}
+          >
+            {company.name || "-"}
+          </a>
+        ),
       },
       {
         key: "website",
@@ -489,6 +546,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
                 followKey="followed_companies"
                 entityId={id}
                 label={String(company.name || "")}
+                icon="star"
               />
             </div>
           );
@@ -505,8 +563,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Default",
         wrap: true,
         minWidth: 280,
-        render: (company) => (
-          <SearchEntityLongText text={company.description || "-"} />
+        render: (company, { index }) => (
+          <CompanyDescription description={company.description || "-"} index={index} />
         ),
       },
       {
@@ -515,14 +573,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Default",
         wrap: true,
         minWidth: 190,
-        render: (company, { sectorMaps, readOnlyGuestMode, onGuestConversionClick }) =>
-          renderSectorLinks(
-            parseListField(company.primary_sectors),
-            "primary",
-            sectorMaps,
-            readOnlyGuestMode,
-            onGuestConversionClick ? () => onGuestConversionClick() : undefined
-          ),
+        render: (company) =>
+          renderSectorLinks(parseListField(company.primary_sectors), "primary"),
       },
       {
         key: "secondary_sectors",
@@ -530,14 +582,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Default",
         wrap: true,
         minWidth: 190,
-        render: (company, { sectorMaps, readOnlyGuestMode, onGuestConversionClick }) =>
-          renderSectorLinks(
-            parseListField(company.secondary_sectors),
-            "secondary",
-            sectorMaps,
-            readOnlyGuestMode,
-            onGuestConversionClick ? () => onGuestConversionClick() : undefined
-          ),
+        render: (company) =>
+          renderSectorLinks(parseListField(company.secondary_sectors), "secondary"),
       },
       makeTextColumn("ownership", "Ownership", "Default"),
       makeTextColumn("linkedin_members", "LinkedIn Members", "Default", {
@@ -586,12 +632,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Overview",
         wrap: true,
         minWidth: 220,
-        render: (company, { readOnlyGuestMode, onGuestConversionClick }) =>
-          renderInvestorLinks(
-            readInvestorsFromCompany(company),
-            readOnlyGuestMode,
-            onGuestConversionClick ? () => onGuestConversionClick() : undefined
-          ),
+        render: (company) => renderInvestorLinks(readInvestorsFromCompany(company)),
       },
       makeTextColumn("years_since_last_investment", "Years Since Last Investment", "Overview", {
         minWidth: 190,
@@ -613,21 +654,6 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         wrap: true,
         minWidth: 200,
       }),
-      {
-        key: "has_mcp",
-        label: "MCP",
-        group: "Overview",
-        minWidth: 72,
-        render: (company) => {
-          const raw = readCompanyValue(company, [...getFieldAliasesForColumn("has_mcp")]);
-          if (raw === true) return "Yes";
-          if (raw === false) return "No";
-          return "-";
-        },
-      },
-      makeTextColumn("created_at", "Date Added", "Overview", {
-        minWidth: 120,
-      }),
     ],
   },
   {
@@ -645,6 +671,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
   {
     group: "Subscription Metrics",
     cols: [
+      makeTextColumn("arr_pc", "Recurring Revenue", "Subscription Metrics"),
+      makeTextColumn("arr_m", "ARR (m)", "Subscription Metrics"),
       makeTextColumn("churn_pc", "Churn", "Subscription Metrics"),
       makeTextColumn("grr_pc", "GRR", "Subscription Metrics"),
       makeTextColumn("nrr", "NRR", "Subscription Metrics"),
@@ -691,68 +719,22 @@ const getValidColumnKeys = (
   );
 };
 
-function readStoredCompanyColumnKeys(): string[] {
-  if (typeof window === "undefined") return DEFAULT_COMPANY_COLUMN_KEYS;
-  try {
-    const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        return getValidColumnKeys(
-          parsed.filter((key): key is string => typeof key === "string")
-        );
-      }
-    }
-  } catch (error) {
-    console.warn("Unable to load company column preferences:", error);
-  }
-  return DEFAULT_COMPANY_COLUMN_KEYS;
-}
-
-const INITIAL_SKELETON_ROW_COUNT = 10;
-const INITIAL_SKELETON_CARD_COUNT = 6;
-
-function createSkeletonCards(): React.ReactElement[] {
-  return Array.from({ length: INITIAL_SKELETON_CARD_COUNT }, (_, index) =>
-    React.createElement(
-      "div",
-      { className: "company-card", key: `skeleton-card-${index}` },
-      React.createElement(
-        "div",
-        { className: "company-card-header" },
-        React.createElement("div", {
-          className: "loading-skeleton",
-          style: { width: "50px", height: "35px" },
-        }),
-        React.createElement("div", {
-          className: "loading-skeleton",
-          style: { width: "65%", height: "18px" },
-        })
-      ),
-      React.createElement("div", {
-        className: "loading-skeleton",
-        style: { width: "100%", height: "72px" },
-      })
-    )
-  );
-}
-
 // Company Card Component for Mobile - Optimized with React state
 const CompanyCardBase = ({
   company,
-  readOnlyGuestMode = false,
-  sectorMaps,
-  onGuestConversionClick,
 }: {
   company: Company;
   index: number;
-  readOnlyGuestMode?: boolean;
-  sectorMaps?: SectorNameIdMaps;
-  onGuestConversionClick?: () => void;
 }) => {
   const router = useRouter();
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleCompanyClick = () => {
+    router.push(`/company/${company.id}`);
+  };
 
   const description = company.description || "-";
+  const isLong = description.length > 250;
 
   // Just use the primary sectors from the API - no derivation needed
   const computedPrimarySectors = React.useMemo(
@@ -766,60 +748,26 @@ const CompanyCardBase = ({
     React.createElement(
       "div",
       { className: "company-card-header" },
-      (() => {
-        const logoSrc = readLogoFromRecord(company, getFieldAliasesForColumn("logo"));
-        return logoSrc
-          ? React.createElement("img", {
-              src: logoSrc,
-              alt: `${company.name} logo`,
-              className: "company-card-logo",
-              loading: "lazy",
-              onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              },
-            })
-          : React.createElement(
-              "div",
-              { className: "company-card-logo-placeholder" },
-              "No Logo"
-            );
-      })(),
+      company.linkedin_logo
+        ? React.createElement("img", {
+            src: `data:image/jpeg;base64,${company.linkedin_logo}`,
+            alt: `${company.name} logo`,
+            className: "company-card-logo",
+            loading: "lazy",
+            onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
+              (e.target as HTMLImageElement).style.display = "none";
+            },
+          })
+        : React.createElement(
+            "div",
+            { className: "company-card-logo-placeholder" },
+            "No Logo"
+          ),
       React.createElement(
-        readOnlyGuestMode ? "button" : "a",
+        "span",
         {
           className: "company-card-name",
-          type: readOnlyGuestMode ? "button" : undefined,
-          ...(readOnlyGuestMode
-            ? {
-                style: {
-                  textDecoration: "none",
-                  color: "#0075df",
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                  textAlign: "left" as const,
-                },
-                onClick: () => onGuestConversionClick?.(),
-              }
-            : {
-                href: `/company/${company.id}`,
-                style: { textDecoration: "none", color: "#0075df" },
-                onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
-                  if (
-                    e.defaultPrevented ||
-                    e.button !== 0 ||
-                    e.metaKey ||
-                    e.ctrlKey ||
-                    e.shiftKey ||
-                    e.altKey
-                  ) {
-                    return;
-                  }
-                  e.preventDefault();
-                  router.push(`/company/${company.id}`);
-                },
-              }),
+          onClick: handleCompanyClick,
         },
         company.name || "-"
       )
@@ -839,13 +787,7 @@ const CompanyCardBase = ({
           "span",
           { className: "company-card-value" },
           computedPrimarySectors.length > 0
-            ? renderSectorLinks(
-                computedPrimarySectors as unknown[],
-                "primary",
-                sectorMaps,
-                readOnlyGuestMode,
-                onGuestConversionClick ? () => onGuestConversionClick() : undefined
-              )
+            ? renderSectorLinks(computedPrimarySectors as unknown[], "primary")
             : "-"
         )
       ),
@@ -861,13 +803,7 @@ const CompanyCardBase = ({
           "span",
           { className: "company-card-value" },
           parseListField(company.secondary_sectors).length > 0
-            ? renderSectorLinks(
-                parseListField(company.secondary_sectors),
-                "secondary",
-                sectorMaps,
-                readOnlyGuestMode,
-                onGuestConversionClick ? () => onGuestConversionClick() : undefined
-              )
+            ? renderSectorLinks(parseListField(company.secondary_sectors), "secondary")
             : "-"
         )
       ),
@@ -918,13 +854,59 @@ const CompanyCardBase = ({
       React.createElement(
         "div",
         { className: "company-card-description" },
-        React.createElement(SearchEntityLongText, { text: description })
+        React.createElement(
+          "div",
+          {
+            className: isExpanded ? "" : "company-card-description-truncated",
+          },
+          isExpanded || !isLong ? description : `${description.substring(0, 250)}...`
+        ),
+        isLong &&
+          React.createElement(
+            "span",
+            {
+              className: "company-card-expand",
+              onClick: () => setIsExpanded(!isExpanded),
+            },
+            isExpanded ? "Show less" : "Show more"
+          )
       )
     )
   );
 };
 const CompanyCard = React.memo(CompanyCardBase);
 CompanyCard.displayName = "CompanyCard";
+
+// Company Description Component - Optimized with React state
+const CompanyDescriptionBase = ({
+  description,
+}: {
+  description: string;
+  index: number;
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isLong = description.length > 250;
+
+  return (
+    <div className="company-description">
+      <div
+        className={isExpanded ? "company-description-full" : "company-description-truncated"}
+      >
+        {isExpanded || !isLong ? description : `${description.substring(0, 250)}...`}
+      </div>
+      {isLong && (
+        <span
+          className="expand-description"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? "Collapse" : "Expand"}
+        </span>
+      )}
+    </div>
+  );
+};
+const CompanyDescription = React.memo(CompanyDescriptionBase);
+CompanyDescription.displayName = "CompanyDescription";
 
 export const CompanySection = ({
   companies,
@@ -941,14 +923,11 @@ export const CompanySection = ({
   externalSetShowColumnsModal,
   onColumnsCountChange,
   onRegisterExportCSV,
-  onExportingChange,
   selectedCompanyIds,
   onToggleCompanySelection,
   onTogglePageSelection,
   onClearSelection,
   isPortfolioOnlyFilter = false,
-  embedded = false,
-  readOnlyGuestMode = false,
 }: {
   companies: Company[];
   loading: boolean;
@@ -961,15 +940,9 @@ export const CompanySection = ({
     offset: number;
     perPage: number;
     pageTotal: number;
-    totalCount?: number;
   };
   ownershipCounts: CompaniesOwnershipCounts;
-  fetchCompanies: (
-    page?: number,
-    filters?: Filters,
-    countsFilters?: Filters,
-    refreshCounts?: boolean
-  ) => Promise<void>;
+  fetchCompanies: (page?: number, filters?: Filters, countsFilters?: Filters) => Promise<void>;
   setRequestColumns: (columns: string[]) => void;
   currentFilters: Filters | undefined;
   filterPinnedColumnKeys?: string[];
@@ -977,45 +950,17 @@ export const CompanySection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (v: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
-  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
-  onExportingChange?: (exporting: boolean) => void;
+  onRegisterExportCSV?: (fn: () => void) => void;
   selectedCompanyIds: Set<number>;
   onToggleCompanySelection: (id: number) => void;
   onTogglePageSelection: (ids: number[]) => void;
   onClearSelection: () => void;
   isPortfolioOnlyFilter?: boolean;
-  embedded?: boolean;
-  readOnlyGuestMode?: boolean;
 }) => {
   const router = useRouter();
-  const { currency: platformCurrency } = usePlatformCurrency();
   const sectionRef = useRef<HTMLDivElement | null>(null);
-  const sectionClassName = embedded
-    ? "company-section company-section-embedded"
-    : "company-section";
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
-  const [exporting, setExporting] = useState(false);
-  const exportInFlightRef = useRef(false);
-  const [showSalesConversion, setShowSalesConversion] = useState(false);
-
-  const openSalesConversion = useCallback(() => {
-    setShowSalesConversion(true);
-  }, []);
-
-  useEffect(() => {
-    if (!readOnlyGuestMode || typeof window === "undefined") return;
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("book") !== "1") return;
-
-    setShowSalesConversion(true);
-    params.delete("book");
-    const nextQuery = params.toString();
-    router.replace(
-      nextQuery ? `${MCP_GUEST_ALLOWED_PATH}?${nextQuery}` : MCP_GUEST_ALLOWED_PATH
-    );
-  }, [readOnlyGuestMode, router]);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal = externalShowColumnsModal !== undefined ? externalShowColumnsModal : internalShowColumnsModal;
   const setShowColumnsModal = externalSetShowColumnsModal ?? setInternalShowColumnsModal;
@@ -1023,11 +968,9 @@ export const CompanySection = ({
     key: string;
     dir: "asc" | "desc";
   } | null>(null);
-  const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(
-    () => typeof window !== "undefined"
-  );
+  const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
-    readStoredCompanyColumnKeys
+    DEFAULT_COMPANY_COLUMN_KEYS
   );
 
   useEffect(() => {
@@ -1049,7 +992,6 @@ export const CompanySection = ({
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
   const headerDidDragRef = useRef(false);
-  const sectorMaps = useSectorNameIdMaps();
 
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const phantomScrollRef = useRef<HTMLDivElement | null>(null);
@@ -1109,14 +1051,25 @@ export const CompanySection = ({
   }, [showPhantomScroll]);
 
   useEffect(() => {
-    if (readOnlyGuestMode) {
-      setSelectedColumnKeys([...PROD_DEFAULT_COMPANY_COLUMN_KEYS]);
+    try {
+      const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setSelectedColumnKeys(
+            getValidColumnKeys(parsed.filter((key): key is string => typeof key === "string"))
+          );
+        }
+      }
+    } catch (error) {
+      console.warn("Unable to load company column preferences:", error);
+    } finally {
+      setColumnPrefsLoaded(true);
     }
-    setColumnPrefsLoaded(true);
-  }, [readOnlyGuestMode]);
+  }, []);
 
   useEffect(() => {
-    if (readOnlyGuestMode || !columnPrefsLoaded) return;
+    if (!columnPrefsLoaded) return;
     try {
       window.localStorage.setItem(
         COMPANIES_COLUMNS_STORAGE_KEY,
@@ -1125,7 +1078,7 @@ export const CompanySection = ({
     } catch (error) {
       console.warn("Unable to save company column preferences:", error);
     }
-  }, [readOnlyGuestMode, columnPrefsLoaded, selectedColumnKeys]);
+  }, [columnPrefsLoaded, selectedColumnKeys]);
 
   useEffect(() => {
     if (!columnPrefsLoaded) return;
@@ -1140,7 +1093,7 @@ export const CompanySection = ({
       const prevKeys = new Set(prevSelectedColumnKeysRef.current);
       const addedKeys = selectedColumnKeys.filter(
         (key) =>
-          !prevKeys.has(key) && key !== "name"
+          !prevKeys.has(key) && key !== "logo" && key !== "name"
       );
       if (addedKeys.length > 0) {
         setLoadingColumnKeys(new Set(addedKeys));
@@ -1155,7 +1108,7 @@ export const CompanySection = ({
       pendingScrollLeftRef.current = table.scrollLeft;
     }
 
-    void fetchCompanies(1, currentFilters, undefined, isInitialColumnFetch);
+    void fetchCompanies(1, currentFilters);
     // Re-fetch only when the set of requested API columns changes (add/remove), not reorder.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedColumnKeys, columnPrefsLoaded]);
@@ -1218,34 +1171,9 @@ export const CompanySection = ({
 
   useEffect(() => {
     if (sortState && !selectedColumnKeys.includes(sortState.key)) {
-      const droppedKey = sortState.key;
       setSortState(null);
-      if (getApiSortColumn(droppedKey)) {
-        void fetchCompanies(1, {
-          ...(currentFilters ?? createDefaultFilters()),
-          sort_column: null,
-          sort_direction: null,
-        });
-      }
     }
-  }, [selectedColumnKeys, sortState, currentFilters, fetchCompanies]);
-
-  useEffect(() => {
-    const apiColumn = currentFilters?.sort_column;
-    if (!apiColumn) {
-      setSortState((current) => {
-        if (current && getApiSortColumn(current.key)) return null;
-        return current;
-      });
-      return;
-    }
-    const uiKey = getUiColumnForApiSortColumn(apiColumn) ?? apiColumn;
-    const dir = currentFilters?.sort_direction ?? "desc";
-    setSortState((current) => {
-      if (current?.key === uiKey && current.dir === dir) return current;
-      return { key: uiKey, dir };
-    });
-  }, [currentFilters?.sort_column, currentFilters?.sort_direction]);
+  }, [selectedColumnKeys, sortState]);
 
   // Report selected columns count to parent (for header button label)
   useEffect(() => {
@@ -1253,54 +1181,16 @@ export const CompanySection = ({
   }, [selectedColumns.length, onColumnsCountChange]);
 
 
-  const handleSortColumn = useCallback(
-    (columnKey: string) => {
-      const apiColumn = getApiSortColumn(columnKey);
-      if (apiColumn) {
-        const nextDirection: "asc" | "desc" =
-          sortState?.key === columnKey
-            ? sortState.dir === "asc"
-              ? "desc"
-              : "asc"
-            : getServerSortDefaultDirection(columnKey);
-
-        setSortState({ key: columnKey, dir: nextDirection });
-        void fetchCompanies(1, {
-          ...(currentFilters ?? createDefaultFilters()),
-          sort_column: apiColumn,
-          sort_direction: nextDirection,
-        });
-        return;
-      }
-
-      if (!getColumnSortKind(columnKey)) return;
-
-      const nextDirection: "asc" | "desc" =
-        sortState?.key === columnKey
-          ? sortState.dir === "asc"
-            ? "desc"
-            : "asc"
-          : "asc";
-
-      setSortState({ key: columnKey, dir: nextDirection });
-
-      if (currentFilters?.sort_column) {
-        void fetchCompanies(1, {
-          ...(currentFilters ?? createDefaultFilters()),
-          sort_column: null,
-          sort_direction: null,
-        });
-      }
-    },
-    [sortState, currentFilters, fetchCompanies]
-  );
+  const handleSortColumn = useCallback((columnKey: string) => {
+    if (!getColumnSortKind(columnKey)) return;
+    setSortState((current) => {
+      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
+      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
+    });
+  }, []);
 
   const sortedCompanies = useMemo(() => {
-    if (
-      (sortState && getApiSortColumn(sortState.key)) ||
-      !sortState ||
-      !getColumnSortKind(sortState.key)
-    ) {
+    if (!sortState || !getColumnSortKind(sortState.key)) {
       return companies;
     }
     const { key, dir } = sortState;
@@ -1328,7 +1218,7 @@ export const CompanySection = ({
     for (const key of frozenColumnKeys) {
       offsets.set(key, left);
       const col = ALL_COMPANY_COLUMNS.find((c) => c.key === key);
-      left += col?.minWidth ?? 120;
+      left += col?.minWidth ?? (key === "logo" ? 88 : 120);
     }
     return offsets;
   }, [frozenColumnKeys]);
@@ -1347,7 +1237,7 @@ export const CompanySection = ({
         left,
         zIndex: header ? 7 : 3,
         minWidth,
-        background: header ? "#f8fafc" : selected ? "#EFF6FF" : "#fff",
+        background: header ? "#f9fafb" : selected ? "#EFF6FF" : "#fff",
         boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
       };
     },
@@ -1369,104 +1259,330 @@ export const CompanySection = ({
       ...extras,
       column.wrap ? "company-table-cell-wrap" : undefined,
       isFrozenColumnKey(column.key) ? "company-table-sticky-frozen" : undefined,
-      SEARCH_IDENTITY_COLUMN_KEYS.has(column.key) ? "company-table-col-name" : undefined,
+      column.key === "logo" ? "company-table-sticky-logo" : undefined,
       column.key === "follow" ? "company-table-col-follow" : undefined,
     ].filter(Boolean);
     return classes.length > 0 ? classes.join(" ") : undefined;
   };
 
 
-  const handleListExport = useCallback(
-    async (request: ListExportRequest) => {
-      if (readOnlyGuestMode || exportInFlightRef.current) return;
+  // Handle CSV export using backend endpoint and include active filters
+  const handleExportCSV = useCallback(async () => {
+    try {
+      // Check export limit first
+      const limitCheck = await checkExportLimit();
+      if (!limitCheck.canExport) {
+        setExportsLeft(limitCheck.exportsLeft);
+        setShowExportLimitModal(true);
+        return;
+      }
 
-      exportInFlightRef.current = true;
-      setExporting(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = currentFilters
+        ? companySearchPayloadToSearchParams(currentFilters)
+        : new URLSearchParams();
 
-      try {
-        const limitCheck = await checkExportLimit();
-        if (!limitCheck.canExport) {
+      // First, fetch page 1 to get total page count
+      const baseParams = new URLSearchParams(params.toString());
+      baseParams.append("Offset", "1");
+      baseParams.append("Per_page", "25");
+      
+      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${baseParams.toString()}`;
+      
+      const firstResp = await fetch(firstPageUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      
+      if (!firstResp.ok) {
+        // Check if it's an export limit error
+        if (firstResp.status === 403 || firstResp.status === 429) {
+          const limitCheck = await checkExportLimit();
           setExportsLeft(limitCheck.exportsLeft);
           setShowExportLimitModal(true);
           return;
         }
-
-        const { mode, scope } = request;
-        const paginationTotal = pagination.totalCount ?? 0;
-        const exportTotalCount =
-          paginationTotal > 0
-            ? paginationTotal
-            : ownershipCounts.totalCount || 0;
-        if (scope === "full_list" && exportTotalCount <= 0) {
-          console.error("Companies export aborted: match count is not available yet.");
-          return;
-        }
-
-        const selectedIdsForExport =
-          scope === "selected"
-            ? request.selectedIds?.length
-              ? request.selectedIds
-              : Array.from(selectedCompanyIds)
-            : undefined;
-
-        await exportCompaniesList(
-          {
-            mode,
-            scope,
-            selectedIds: selectedIdsForExport,
-          },
-          currentFilters ?? createDefaultFilters(),
-          selectedColumnKeys,
-          scope === "full_list" ? exportTotalCount : undefined,
-          limitCheck.isAdmin
+        const errText = await firstResp.text();
+        throw new Error(
+          `Export failed: ${firstResp.status} ${firstResp.statusText} - ${errText}`
         );
-      } catch (exportError) {
-        console.error("Companies export failed:", exportError);
-      } finally {
-        exportInFlightRef.current = false;
-        setExporting(false);
       }
-    },
-    [
-      currentFilters,
-      readOnlyGuestMode,
-      selectedColumnKeys,
-      selectedCompanyIds,
-      pagination.totalCount,
-      ownershipCounts.totalCount,
-    ]
-  );
+      
+      // Parse first page to get pagination info
+      const firstPageText = await firstResp.text();
+      let firstPageParsed: unknown;
+      let isJson = false;
+      let totalPages = 1;
+      
+      try {
+        firstPageParsed = JSON.parse(firstPageText);
+        isJson = true;
+        // Check if response has pagination info
+        if (
+          firstPageParsed &&
+          typeof firstPageParsed === "object" &&
+          "pageTotal" in (firstPageParsed as Record<string, unknown>)
+        ) {
+          totalPages = (firstPageParsed as { pageTotal?: number }).pageTotal || 1;
+        } else if (
+          firstPageParsed &&
+          typeof firstPageParsed === "object" &&
+          "result1" in (firstPageParsed as Record<string, unknown>)
+        ) {
+          const result1 = (firstPageParsed as { result1?: { pageTotal?: number } }).result1;
+          totalPages = result1?.pageTotal || 1;
+        }
+      } catch {
+        isJson = false;
+      }
+      
+      // Collect all items from all pages
+      let allItems: ExportCompanyJson[] = [];
+      
+      // Process first page
+      if (isJson) {
+        const itemsUnknown: unknown[] = Array.isArray(firstPageParsed)
+          ? (firstPageParsed as unknown[])
+          : firstPageParsed &&
+            typeof firstPageParsed === "object" &&
+            Array.isArray((firstPageParsed as { items?: unknown[] }).items)
+          ? ((firstPageParsed as { items?: unknown[] }).items as unknown[])
+          : firstPageParsed &&
+            typeof firstPageParsed === "object" &&
+            "result1" in (firstPageParsed as Record<string, unknown>) &&
+            Array.isArray((firstPageParsed as { result1?: { items?: unknown[] } }).result1?.items)
+          ? ((firstPageParsed as { result1?: { items?: unknown[] } }).result1?.items as unknown[])
+          : [];
+        allItems = itemsUnknown.filter(isExportCompanyJson);
+      }
+      
+      // Fetch remaining pages if there are more
+      if (totalPages > 1) {
+        for (let page = 2; page <= totalPages; page++) {
+          const pageParams = new URLSearchParams(params.toString());
+          pageParams.append("Offset", page.toString());
+          pageParams.append("Per_page", "25");
+          
+          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${pageParams.toString()}`;
+          
+          const pageResp = await fetch(pageUrl, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            credentials: "include",
+          });
+          
+          if (!pageResp.ok) {
+            console.warn(`Failed to fetch page ${page}, continuing with available data`);
+            continue;
+          }
+          
+          const pageText = await pageResp.text();
+          try {
+            const pageParsed = JSON.parse(pageText);
+            const pageItemsUnknown: unknown[] = Array.isArray(pageParsed)
+              ? (pageParsed as unknown[])
+              : pageParsed &&
+                typeof pageParsed === "object" &&
+                Array.isArray((pageParsed as { items?: unknown[] }).items)
+              ? ((pageParsed as { items?: unknown[] }).items as unknown[])
+              : pageParsed &&
+                typeof pageParsed === "object" &&
+                "result1" in (pageParsed as Record<string, unknown>) &&
+                Array.isArray((pageParsed as { result1?: { items?: unknown[] } }).result1?.items)
+              ? ((pageParsed as { result1?: { items?: unknown[] } }).result1?.items as unknown[])
+              : [];
+            const pageItems = pageItemsUnknown.filter(isExportCompanyJson);
+            allItems = [...allItems, ...pageItems];
+          } catch (e) {
+            console.warn(`Failed to parse page ${page}, continuing with available data`, e);
+          }
+        }
+      }
+      
+      if (allItems.length === 0) {
+        throw new Error("Export returned empty data");
+      }
+      
+      if (isJson) {
+        const items = allItems;
+        
+        // Ensure all rows have all columns by creating a base row structure
+        const rows: CompanyCSVRow[] = items.map((it: ExportCompanyJson) => {
+          const primaryVal = it.primary_sectors ?? "";
+          const secondaryVal = it.secondary_sectors ?? "";
+          const primaryStr = Array.isArray(primaryVal)
+            ? primaryVal.join(", ")
+            : String(primaryVal);
+          const secondaryStr = Array.isArray(secondaryVal)
+            ? secondaryVal.join(", ")
+            : String(secondaryVal);
+          const primary = primaryStr
+            ? primaryStr
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean)
+            : [];
+          const secondary = secondaryStr
+            ? secondaryStr
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean)
+            : [];
 
-  const handleSelectedListExport = useCallback(
-    (mode: ListExportMode) => handleListExport({ mode, scope: "selected" }),
-    [handleListExport]
-  );
+          // Some payloads use `arr_pc` while others use `ARR_pc`
+          const arrPcRaw =
+            (it as unknown as Record<string, unknown>)["arr_pc"] ?? it.ARR_pc;
+          const arrPc =
+            typeof arrPcRaw === "number" || typeof arrPcRaw === "string"
+              ? arrPcRaw
+              : undefined;
+          
+          // Construct company URL from ID, or fall back to API-provided URLs
+          let companyLink = "";
+          if (it.id != null) {
+            const companyId = typeof it.id === "number" ? it.id : Number(it.id);
+            if (!isNaN(companyId)) {
+              companyLink = `https://www.asymmetrixintelligence.com/company/${companyId}`;
+            }
+          }
+          if (!companyLink && it.company_link) {
+            companyLink = it.company_link;
+          }
+          if (!companyLink && it.asymmetrix_url) {
+            companyLink = it.asymmetrix_url;
+          }
+          
+          // Create row with ALL columns always present
+          const row: CompanyCSVRow = {
+            Name: it.name ?? "-",
+            Description: it.description ?? "-",
+            "Primary Sector(s)": CompaniesCSVExporter.formatSectors(primary),
+            "Secondary Sector(s)": CompaniesCSVExporter.formatSectors(secondary),
+            Ownership: it.ownership ?? "-",
+            "LinkedIn Members": CompaniesCSVExporter.formatLinkedinMembers(
+              typeof it.linkedin_members === "number"
+                ? it.linkedin_members
+                : Number(it.linkedin_members)
+            ),
+            HQ: toPlainText(
+              readCompanyValue(it as Company, [...getFieldAliasesForColumn("hq")])
+            ),
+            "Company Link": companyLink || "-",
+            "Company URL": it.company_link ?? "",
+            // Financial Metrics - exact field names from API
+            Revenue:
+              it.Revenue_m != null && it.Revenue_m !== ""
+                ? `${it.Revenue_m}M`
+                : "-",
+            EBITDA:
+              it.EBITDA_m != null && it.EBITDA_m !== ""
+                ? `${it.EBITDA_m}M`
+                : "-",
+            "Enterprise Value":
+              it.EV != null && it.EV !== "" ? `${it.EV}M` : "-",
+            "Revenue Multiple":
+              it.Revenue_multiple != null && it.Revenue_multiple !== ""
+                ? String(it.Revenue_multiple)
+                : "-",
+            "Revenue Growth":
+              it.Rev_Growth_PC != null && it.Rev_Growth_PC !== ""
+                ? `${it.Rev_Growth_PC}%`
+                : "-",
+            "EBITDA Margin":
+              it.EBITDA_margin != null && it.EBITDA_margin !== ""
+                ? `${it.EBITDA_margin}%`
+                : "-",
+            "Rule of 40":
+              it.Rule_of_40 != null && it.Rule_of_40 !== ""
+                ? String(it.Rule_of_40)
+                : "-",
+            // Subscription Metrics - exact field names from API
+            "Recurring Revenue": CompaniesCSVExporter.formatPercent(arrPc),
+            ARR: it.ARR_m != null && it.ARR_m !== "" ? `${it.ARR_m}M` : "-",
+            Churn:
+              it.Churn_pc != null && it.Churn_pc !== ""
+                ? `${it.Churn_pc}%`
+                : "-",
+            GRR:
+              it.GRR_pc != null && it.GRR_pc !== ""
+                ? `${it.GRR_pc}%`
+                : "-",
+            NRR: it.NRR != null && it.NRR !== "" ? `${it.NRR}%` : "-",
+            "New Clients Revenue Growth":
+              it.New_client_growth_pc != null && it.New_client_growth_pc !== ""
+                ? `${it.New_client_growth_pc}%`
+                : "-",
+          };
+          return row;
+        });
+        
+        const csv = CompaniesCSVExporter.convertToCSV(rows);
+        CompaniesCSVExporter.downloadCSV(csv, "companies_filtered");
+      } else {
+        // Fallback: If API returns CSV directly, use it as-is
+        // Note: This may not include all financial columns if the server CSV is incomplete
+        // Also note: CSV format doesn't support pagination, so only first page will be exported
+        console.warn("API returned CSV directly - financial columns may be missing and only first page will be exported");
+        const normalized = firstPageText.replace(/\r?\n/g, "\r\n");
+        const contentWithBOM = "\uFEFF" + normalized;
+        const blob = new Blob([contentWithBOM], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const link = document.createElement("a");
+        const urlObject = URL.createObjectURL(blob);
+        link.href = urlObject;
+        link.download = "companies_filtered.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(urlObject);
+      }
+    } catch (e) {
+      console.error("Error exporting CSV:", e);
+      // Fallback to client-side CSV if API export fails
+      if (companies.length > 0) {
+        // `CompaniesCSVExporter` expects sectors as string arrays; normalize in case API returns objects.
+        const toStringArray = (vals: unknown): string[] =>
+          parseListField(vals)
+            .map((v) => getSectorInfo(v).name)
+            .map((n) => String(n ?? "").trim())
+            .filter(Boolean);
+        const normalizedCompanies = companies.map((c) => ({
+          ...c,
+          primary_sectors: toStringArray(c.primary_sectors),
+          secondary_sectors: toStringArray(c.secondary_sectors),
+        }));
+        CompaniesCSVExporter.exportCompanies(
+          // Exporter has its own internal `Company` type with string[] sectors.
+          normalizedCompanies as unknown as Parameters<
+            typeof CompaniesCSVExporter.exportCompanies
+          >[0],
+          "companies_filtered"
+        );
+      }
+    }
+  }, [currentFilters, companies]);
 
-  const handleExportRequest = useCallback(
-    async (request: ListExportRequest) => {
-      await handleListExport(request);
-    },
-    [handleListExport]
-  );
-
+  // Register export function with parent so header Export CSV button works
   useEffect(() => {
-    onExportingChange?.(exporting);
-  }, [exporting, onExportingChange]);
-
-  useEffect(() => {
-    if (readOnlyGuestMode) return;
-    onRegisterExportCSV?.(handleExportRequest);
-  }, [handleExportRequest, onRegisterExportCSV, readOnlyGuestMode]);
+    onRegisterExportCSV?.(handleExportCSV);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleExportCSV]);
 
   const handleCompanyClick = useCallback(
     (companyId: number) => {
-      if (readOnlyGuestMode) {
-        openSalesConversion();
-        return;
-      }
       router.push(`/company/${companyId}`);
     },
-    [router, readOnlyGuestMode, openSalesConversion]
+    [router]
   );
 
   const handlePageChange = useCallback(
@@ -1528,7 +1644,6 @@ export const CompanySection = ({
                 background: isRowSelected ? "#EFF6FF" : "#fff",
               }}
             >
-              {!readOnlyGuestMode && (
               <input
                 type="checkbox"
                 checked={isRowSelected}
@@ -1536,7 +1651,6 @@ export const CompanySection = ({
                 onClick={(e) => e.stopPropagation()}
                 aria-label={`Select ${company.name || "company"}`}
               />
-              )}
             </td>
             {selectedColumns.map((column) => (
               <td
@@ -1562,10 +1676,6 @@ export const CompanySection = ({
                   column.render(displayCompany, {
                     index,
                     onCompanyClick: handleCompanyClick,
-                    onGuestConversionClick: openSalesConversion,
-                    readOnlyGuestMode,
-                    sectorMaps,
-                    currencyCode: platformCurrency,
                   })
                 )}
               </td>
@@ -1599,17 +1709,643 @@ export const CompanySection = ({
       loadingColumnKeys,
       getStickyColumnStyle,
       getTableColumnClassName,
-      readOnlyGuestMode,
-      sectorMaps,
-      openSalesConversion,
     ]
   );
 
-  const style = SEARCH_TABLE_STYLES;
+  const generatePaginationButtons = () => {
+    const buttons: React.ReactNode[] = [];
+    const maxVisible = 7;
+    const totalPages =
+      pagination.pageTotal ||
+      (pagination.nextPage != null ? Math.max(pagination.nextPage, pagination.curPage + 1) : 0);
+    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
+    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
+
+    if (totalPages <= 1) {
+      return buttons;
+    }
+
+    buttons.push(
+      <button
+        key="previous"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(prevPage)}
+        disabled={pagination.curPage <= 1}
+      >
+        Previous
+      </button>
+    );
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        buttons.push(
+          <button
+            key={i}
+            className={`pagination-button ${
+              i === pagination.curPage ? "active" : ""
+            }`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
+    } else {
+      // Always show first page
+      buttons.push(
+        <button
+          key={1}
+          className={`pagination-button ${
+            1 === pagination.curPage ? "active" : ""
+          }`}
+          onClick={() => handlePageChange(1)}
+        >
+          1
+        </button>
+      );
+
+      if (pagination.curPage > 3) {
+        buttons.push(
+          <span key="ellipsis1" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+
+      // Show pages around current
+      const start = Math.max(2, pagination.curPage - 1);
+      const end = Math.min(totalPages - 1, pagination.curPage + 1);
+
+      for (let i = start; i <= end; i++) {
+        if (i > 1 && i < totalPages) {
+          buttons.push(
+            <button
+              key={i}
+              className={`pagination-button ${
+                i === pagination.curPage ? "active" : ""
+              }`}
+              onClick={() => handlePageChange(i)}
+            >
+              {i}
+            </button>
+          );
+        }
+      }
+
+      if (pagination.curPage < totalPages - 2) {
+        buttons.push(
+          <span key="ellipsis2" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+
+      // Always show last page
+      if (totalPages > 1) {
+        buttons.push(
+          <button
+            key={totalPages}
+            className={`pagination-button ${
+              totalPages === pagination.curPage ? "active" : ""
+            }`}
+            onClick={() => handlePageChange(totalPages)}
+          >
+            {totalPages}
+          </button>
+        );
+      }
+    }
+
+    buttons.push(
+      <button
+        key="next"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(nextPage)}
+        disabled={pagination.curPage >= totalPages}
+      >
+        Next
+      </button>
+    );
+
+    return buttons;
+  };
+
+  const style = `
+    .loading-skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+      border-radius: 4px;
+    }
+    .company-table-col-loading {
+      background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .company-section {
+      width: 100%;
+      padding: 16px 28px;
+    }
+    .company-stats {
+      background: #fff;
+      padding: 16px;
+      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .stats-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a202c;
+      margin: 0 0 12px 0;
+    }
+    .stats-column {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+    }
+    .stats-item {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .stats-item:last-child {
+      border-bottom: none;
+    }
+    .stats-label {
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: 500;
+    }
+    .stats-value {
+      font-size: 16px;
+      color: #000;
+      font-weight: 600;
+    }
+    .company-table {
+      width: max-content;
+      min-width: 100%;
+      background: #fff;
+      padding: 16px;
+      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
+      border-radius: 8px;
+      border-collapse: collapse;
+      table-layout: auto;
+    }
+    .company-table-scroll {
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      max-height: min(72vh, calc(100vh - 240px));
+      border-radius: 8px;
+      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
+      background: #fff;
+    }
+    .company-table-scroll .company-table {
+      box-shadow: none;
+      border-radius: 0;
+      margin: 0;
+    }
+    .company-columns-button {
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      color: #1a202c;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .company-columns-button.primary {
+      border-color: #0075df;
+      color: #0075df;
+    }
+    .company-table-cell-wrap {
+      white-space: normal !important;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      max-width: 320px;
+    }
+    .company-table-select-cell {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      background: #fff;
+      box-shadow: 1px 0 0 #e2e8f0;
+    }
+    .company-table thead .company-table-select-cell {
+      z-index: 6;
+    }
+    .company-table td.company-table-sticky-frozen,
+    .company-table td.company-table-sticky-logo {
+      background: #fff;
+    }
+    .edit-company-btn {
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #0075df;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .edit-company-btn:hover {
+      background: #dbeafe;
+      color: #0369a1;
+    }
+    .company-table th,
+    .company-table td {
+      padding: 8px 12px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid #e2e8f0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      min-width: 120px;
+    }
+    .company-table th {
+      font-weight: 600;
+      color: #1a202c;
+      font-size: 14px;
+      background: #f9fafb;
+      border-bottom: 2px solid #e2e8f0;
+      position: sticky;
+      top: 0;
+      z-index: 4;
+    }
+    .company-table-th-sortable {
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .company-table-th-sortable:hover {
+      background: #f1f5f9;
+    }
+    .company-table-th-draggable {
+      cursor: grab;
+    }
+    .company-table-th-draggable:active {
+      cursor: grabbing;
+    }
+    .company-table-th-dragging {
+      opacity: 0.55;
+    }
+    .company-table-th-drag-over {
+      box-shadow: inset 0 -3px 0 #0370aa;
+      background: #eff6ff;
+    }
+    .company-table-sort-indicator {
+      margin-left: 4px;
+      font-size: 10px;
+      color: #64748b;
+    }
+    .company-table-pin-indicator {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 4px;
+      color: #94a3b8;
+      vertical-align: middle;
+    }
+    .company-table-sticky-logo {
+      min-width: 88px;
+      max-width: 88px;
+      width: 88px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .company-table td.company-table-sticky-logo .company-logo-cell {
+      width: 60px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    .company-table td.company-table-sticky-logo .company-logo-placeholder {
+      width: 60px;
+      height: 40px;
+      background-color: #f7fafc;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #718096;
+    }
+    .company-table th.company-table-col-follow,
+    .company-table td.company-table-col-follow {
+      text-align: left;
+      min-width: 120px;
+      max-width: 140px;
+    }
+    .company-table th.company-table-col-follow {
+      z-index: 4;
+      background: #f9fafb;
+    }
+    .company-table td.company-table-col-follow {
+      position: relative;
+      z-index: 0;
+    }
+    .company-follow-cell {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      text-align: left;
+      position: relative;
+      z-index: 0;
+    }
+    .company-table-row-selected {
+      background: #EFF6FF;
+    }
+    .company-table tr.company-table-row-selected > td.company-table-sticky-frozen,
+    .company-table tr.company-table-row-selected > td.company-table-sticky-logo,
+    .company-table tr.company-table-row-selected > td.company-table-select-cell {
+      background: #EFF6FF;
+    }
+    .company-table thead th.company-table-sticky-frozen,
+    .company-table thead th.company-table-sticky-logo {
+      z-index: 7;
+      background: #f9fafb;
+    }
+    .company-table td {
+      font-size: 14px;
+      color: #000;
+      line-height: 1.5;
+    }
+    .company-logo {
+      width: 60px;
+      height: 40px;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      vertical-align: middle;
+      border-radius: 8px;
+    }
+    .company-name {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .company-description {
+      line-height: 1.4;
+    }
+    .company-description-truncated {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .expand-description {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 4px;
+      display: block;
+    }
+    .sectors-list {
+      max-width: 300px;
+      line-height: 1.3;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    .error {
+      text-align: center;
+      padding: 20px;
+      color: #e53e3e;
+      background-color: #fed7d7;
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 8px;
+    }
+    .pagination-button {
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      color: #000;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 400;
+      transition: color 0.2s;
+      text-decoration: none;
+    }
+    .pagination-button:hover {
+      color: #0075df;
+    }
+    .pagination-button.active {
+      color: #0075df;
+      text-decoration: underline;
+      font-weight: 500;
+    }
+    .pagination-button:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      color: #666;
+    }
+    .pagination-nav {
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .pagination-ellipsis {
+      padding: 8px 12px;
+      color: #000;
+      font-size: 14px;
+    }
+    .export-button { 
+      background-color: #22c55e; 
+      color: white; 
+      font-weight: 600; 
+      padding: 12px 24px; 
+      border-radius: 8px; 
+      border: none; 
+      cursor: pointer; 
+      margin: 16px 0; 
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    .export-button:hover { 
+      background-color: #16a34a; 
+    }
+    .export-button:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
+    }
+    
+    /* Mobile Card Layout */
+    .company-cards {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px;
+    }
+    .company-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e2e8f0;
+    }
+    .company-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .company-card-logo {
+      width: 50px;
+      height: 35px;
+      object-fit: contain;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .company-card-logo-placeholder {
+      width: 50px;
+      height: 35px;
+      background-color: #f7fafc;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      color: #718096;
+      flex-shrink: 0;
+    }
+    .company-card-name {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 16px;
+      line-height: 1.3;
+      flex: 1;
+    }
+    .company-card-content {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .company-card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .company-card-label {
+      color: #4a5568;
+      font-weight: 500;
+      min-width: 80px;
+      flex-shrink: 0;
+    }
+    .company-card-value {
+      color: #000;
+      text-align: right;
+      flex: 1;
+      word-break: break-word;
+    }
+    .company-card-description {
+      color: #000;
+      line-height: 1.4;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+    .company-card-description-truncated {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .company-card-expand {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 4px;
+      display: block;
+    }
+    
+    @media (max-width: 768px) {
+      .company-table {
+        display: none;
+      }
+      .company-cards {
+        display: flex;
+      }
+      .pagination {
+        gap: 4px;
+      }
+      .pagination-button {
+        padding: 8px 10px;
+      }
+      .pagination-nav {
+        flex: 1 1 88px;
+        max-width: 120px;
+      }
+      .stats-column {
+        grid-template-columns: 1fr !important;
+        gap: 6px !important;
+      }
+      .filters-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+      }
+      .filters-card {
+        padding: 12px !important;
+      }
+      .filters-card {
+        padding: 12px !important;
+      }
+      .filters-heading {
+        font-size: 18px !important;
+        margin-bottom: 8px !important;
+      }
+      .filters-sub-heading {
+        font-size: 14px !important;
+        margin-bottom: 6px !important;
+      }
+      .filters-input {
+        max-width: 100% !important;
+      }
+      .filters-button {
+        max-width: 100% !important;
+      }
+    }
+    
+    @media (min-width: 769px) {
+      .company-cards {
+        display: none;
+      }
+      .company-table {
+        display: table;
+      }
+    }
+  `;
 
   const columnsModalLayer = [
-    !readOnlyGuestMode &&
-      showColumnsModal &&
+    showColumnsModal &&
       React.createElement("div", {
         key: "columns-backdrop",
         style: {
@@ -1621,8 +2357,7 @@ export const CompanySection = ({
         onClick: () => setShowColumnsModal(false),
         "aria-hidden": true,
       }),
-    !readOnlyGuestMode &&
-      showColumnsModal &&
+    showColumnsModal &&
       React.createElement(ColumnsControlRoom, {
         key: "columns-panel",
         initial: columnVisibilityInitial,
@@ -1635,54 +2370,151 @@ export const CompanySection = ({
 
   const showInitialLoadingSkeleton = loading && companies.length === 0;
 
-  const skeletonTableRows = useMemo(() => {
-    if (!showInitialLoadingSkeleton) return null;
-    return Array.from({ length: INITIAL_SKELETON_ROW_COUNT }, (_, rowIndex) => (
-      <tr key={`skeleton-row-${rowIndex}`}>
-        <td
-          className="company-table-select-cell"
-          style={{ minWidth: 44, width: 44, textAlign: "center" }}
-        >
-          {!readOnlyGuestMode ? (
-            <div
-              className="loading-skeleton"
-              style={{ width: 16, height: 16, margin: "0 auto", borderRadius: 3 }}
-              aria-hidden
-            />
-          ) : null}
-        </td>
-        {selectedColumns.map((column) => (
-          <td
-            key={column.key}
-            className={getTableColumnClassName(column)}
-            style={{ minWidth: column.minWidth }}
-          >
-            <div
-              className="loading-skeleton"
-              style={{
-                width: column.key === "name" ? "70%" : "80%",
-                height: column.key === "name" ? 14 : 18,
-                minWidth: 48,
-              }}
-              aria-hidden
-            />
-          </td>
-        ))}
-        {onEditCompany ? <td key="edit" /> : null}
-      </tr>
-    ));
-  }, [
-    showInitialLoadingSkeleton,
-    selectedColumns,
-    getTableColumnClassName,
-    onEditCompany,
-    readOnlyGuestMode,
-  ]);
+  if (showInitialLoadingSkeleton) {
+    const skeletonRow = (i: number) =>
+      React.createElement(
+        "tr",
+        { key: i },
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "48px", height: "36px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "90%", height: "18px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "100%", height: "40px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "80%", height: "18px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "80%", height: "18px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "60%", height: "18px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "50px", height: "18px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "70%", height: "18px" },
+          })
+        ),
+        ...(onEditCompany
+          ? [
+              React.createElement("td", { key: "edit" }, null),
+            ]
+          : [])
+      );
+
+    const skeletonCard = (i: number) =>
+      React.createElement(
+        "div",
+        { className: "company-card", key: i },
+        React.createElement(
+          "div",
+          { className: "company-card-header" },
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "50px", height: "35px" },
+          }),
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "65%", height: "18px" },
+          })
+        ),
+        React.createElement("div", {
+          className: "loading-skeleton",
+          style: { width: "100%", height: "72px" },
+        })
+      );
+
+    return React.createElement(
+      "div",
+      { className: "company-section", ref: sectionRef },
+      React.createElement(
+        "div",
+        { className: "company-cards" },
+        ...[...Array(6)].map((_, i) => skeletonCard(i))
+      ),
+      React.createElement(
+        "table",
+        { className: "company-table" },
+        React.createElement(
+          "thead",
+          null,
+          React.createElement(
+            "tr",
+            null,
+            React.createElement("th", null, "Logo"),
+            React.createElement("th", null, "Name"),
+            React.createElement("th", null, "Description"),
+            React.createElement("th", null, "Primary Sectors"),
+            React.createElement("th", null, "Secondary Sectors"),
+            React.createElement("th", null, "Ownership"),
+            React.createElement("th", null, "LinkedIn"),
+            React.createElement("th", null, "HQ"),
+            ...(onEditCompany
+              ? [React.createElement("th", { key: "edit" }, "")]
+              : [])
+          )
+        ),
+        React.createElement(
+          "tbody",
+          null,
+          ...[...Array(10)].map((_, i) => skeletonRow(i))
+        )
+      ),
+      ...columnsModalLayer,
+      React.createElement("style", {
+        dangerouslySetInnerHTML: { __html: style },
+      })
+    );
+  }
 
   if (error) {
     return React.createElement(
       "div",
-      { className: sectionClassName, ref: sectionRef },
+      { className: "company-section", ref: sectionRef },
       React.createElement("div", { className: "error" }, error),
       ...columnsModalLayer,
       React.createElement("style", {
@@ -1694,7 +2526,7 @@ export const CompanySection = ({
   if (companies.length === 0 && isPortfolioOnlyFilter) {
     return React.createElement(
       "div",
-      { className: sectionClassName, ref: sectionRef },
+      { className: "company-section", ref: sectionRef },
       React.createElement(FollowedOnlyEmptyState, { entity: "companies" }),
       ...columnsModalLayer,
       React.createElement("style", {
@@ -1705,7 +2537,7 @@ export const CompanySection = ({
 
   return React.createElement(
     "div",
-    { className: sectionClassName, ref: sectionRef },
+    { className: "company-section", ref: sectionRef },
     React.createElement(
       "div",
       { className: "company-stats", style: { display: "none" } },
@@ -1886,30 +2718,57 @@ export const CompanySection = ({
       )
     ),
     ...columnsModalLayer,
-    !readOnlyGuestMode &&
-      selectedCompanyIds.size > 0 &&
-      React.createElement(BulkPortfolioActionToolbar, {
-        entityType: "company",
-        entityIds: Array.from(selectedCompanyIds),
-        onClearSelection,
-        exporting,
-        onExport: handleSelectedListExport,
-      }),
+    selectedCompanyIds.size > 0 &&
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 10,
+            padding: "10px 14px",
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            borderRadius: 8,
+            fontSize: 13,
+            color: "#1e3a8a",
+          },
+        },
+        React.createElement(
+          "span",
+          { style: { fontWeight: 600 } },
+          `${selectedCompanyIds.size.toLocaleString()} selected`
+        ),
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            onClick: onClearSelection,
+            style: {
+              background: "transparent",
+              border: "none",
+              color: "#2563eb",
+              fontWeight: 600,
+              cursor: "pointer",
+              fontSize: 13,
+            },
+          },
+          "Clear selection"
+        )
+      ),
     React.createElement(
       "div",
       { className: "company-cards" },
-      showInitialLoadingSkeleton
-        ? createSkeletonCards()
-        : sortedCompanies.map((company, index) =>
-            React.createElement(CompanyCard, {
-              key: company.id || index,
-              company: company,
-              index: index,
-              readOnlyGuestMode,
-              sectorMaps,
-              onGuestConversionClick: openSalesConversion,
-            })
-          )
+      sortedCompanies.map((company, index) =>
+        React.createElement(CompanyCard, {
+          key: company.id || index,
+          company: company,
+          index: index,
+        })
+      )
     ),
     React.createElement(
       "div",
@@ -1930,8 +2789,7 @@ export const CompanySection = ({
                 className: "company-table-select-cell",
                 style: { minWidth: 44, width: 44, textAlign: "center" },
               },
-              !readOnlyGuestMode
-                ? React.createElement("input", {
+              React.createElement("input", {
                 type: "checkbox",
                 checked: pageSelectionState.allSelected,
                 ref: (el: HTMLInputElement | null) => {
@@ -1942,13 +2800,11 @@ export const CompanySection = ({
                 onChange: () => onTogglePageSelection(pageCompanyIds),
                 "aria-label": "Select all companies on this page",
               })
-                : null
             ),
             ...selectedColumns.map((column) => {
               const sortKind = getColumnSortKind(column.key);
               const isActive = sortState?.key === column.key;
-              const isDraggable =
-                !readOnlyGuestMode && !isFrozenColumnKey(column.key);
+              const isDraggable = !isFrozenColumnKey(column.key);
               const isDragging = headerDragKey === column.key;
               const isDragOver =
                 headerDragOverKey === column.key && headerDragKey !== column.key;
@@ -2086,7 +2942,7 @@ export const CompanySection = ({
               : [])
           )
         ),
-        React.createElement("tbody", null, skeletonTableRows ?? tableRows)
+        React.createElement("tbody", null, tableRows)
       )
     ),
     showPhantomScroll &&
@@ -2114,27 +2970,14 @@ export const CompanySection = ({
       ),
     React.createElement(
       "div",
-      { style: { display: "flex", justifyContent: "center", padding: "12px 8px" } },
-      React.createElement(CompactPagination, {
-        curPage: pagination.curPage,
-        pageTotal:
-          pagination.pageTotal ||
-          (pagination.nextPage != null
-            ? Math.max(pagination.nextPage, pagination.curPage + 1)
-            : 1),
-        onPageChange: handlePageChange,
-        disabled: loading,
-      })
+      { className: "pagination" },
+      generatePaginationButtons()
     ),
     React.createElement(ExportLimitModal, {
       isOpen: showExportLimitModal,
       onClose: () => setShowExportLimitModal(false),
       exportsLeft: exportsLeft,
       totalExports: EXPORT_LIMIT,
-    }),
-    React.createElement(McpGuestSalesConversionModal, {
-      open: showSalesConversion,
-      onClose: () => setShowSalesConversion(false),
     }),
     React.createElement("style", {
       dangerouslySetInnerHTML: { __html: style },

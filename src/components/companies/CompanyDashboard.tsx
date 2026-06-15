@@ -7,11 +7,8 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { locationsService, type TransactionStatusOption } from "@/lib/locationsService";
-import {
-  buildCompaniesCountsSearchPayload,
-  buildCompaniesSearchPayload,
-} from "@/lib/companiesFilterPayload";
+import { locationsService } from "@/lib/locationsService";
+import { buildCompaniesSearchPayload } from "@/lib/companiesFilterPayload";
 import { fetchUserPortfolioRecord } from "@/lib/portfolioFollow";
 import {
   CompaniesFilterBar,
@@ -27,38 +24,26 @@ import {
   OWNERSHIP_TAB_CONFIG,
   EMPTY_OWNERSHIP_COUNTS,
   type CompaniesOwnershipCounts,
+  type Country,
+  type Province,
+  type City,
   type PrimarySector,
   type SecondarySector,
   type OwnershipType,
   type OwnershipTab,
 } from "@/components/companies/companiesFilterConfig";
-import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
-import { SearchExportMenu } from "@/components/search/SearchExportMenu";
-import type { ListExportMode } from "@/lib/listExport/types";
-import {
-  SEARCH_DASHBOARD_ACTIONS,
-  SEARCH_DASHBOARD_EYEBROW,
-  SEARCH_DASHBOARD_HEADER_ROW,
-  SEARCH_DASHBOARD_MATCH_COUNT,
-  SEARCH_DASHBOARD_TITLE,
-  SearchListTabs,
-} from "@/components/search/searchDashboardLayout";
-import { useLocationFilterOptions } from "@/components/search/useLocationFilterOptions";
-import { McpGuestTrackerToolbarActions } from "@/components/mcp-guest/McpGuestTrackerToolbarActions";
-import { MCP_GUEST_TRACKER_SUBTITLE, MCP_GUEST_TRACKER_TITLE } from "@/lib/mcpGuest";
 
 export type CompanyDashboardProps = {
   onSearch?: (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => void;
   onFilterColumnsChange?: (payload: {
-    filters: Array<{ id: string; value: unknown }>;
+    filterIds: string[];
     ownershipTabActive: boolean;
   }) => void;
   initialSearch?: string;
   ownershipCounts?: CompaniesOwnershipCounts;
   onColumnsClick?: () => void;
   columnsActive?: boolean;
-  onExport?: (mode: ListExportMode) => void | Promise<void>;
-  exporting?: boolean;
+  onExportCSVClick?: () => void;
   onAddToPortfolioClick?: () => void;
   selectedCount?: number;
   columnsCount?: number;
@@ -66,12 +51,9 @@ export type CompanyDashboardProps = {
   hideOwnershipTabs?: boolean;
   excludeFilterIds?: string[];
   matchCountOverride?: number;
-  countsLoading?: boolean;
   scopedPrimarySectorIds?: number[];
   scopedSecondarySectorIds?: number[];
   fixedOwnershipTypeIds?: number[];
-  embedded?: boolean;
-  guestMode?: boolean;
 };
 
 export const CompanyDashboard = ({
@@ -80,8 +62,7 @@ export const CompanyDashboard = ({
   initialSearch,
   ownershipCounts = EMPTY_OWNERSHIP_COUNTS,
   onColumnsClick,
-  onExport,
-  exporting = false,
+  onExportCSVClick,
   onAddToPortfolioClick,
   selectedCount = 0,
   columnsCount = 0,
@@ -90,12 +71,9 @@ export const CompanyDashboard = ({
   hideOwnershipTabs = false,
   excludeFilterIds = [],
   matchCountOverride,
-  countsLoading = false,
   scopedPrimarySectorIds = [],
   scopedSecondarySectorIds = [],
   fixedOwnershipTypeIds,
-  embedded = false,
-  guestMode = false,
 }: CompanyDashboardProps) => {
   // Unified filter bar state — replaces all the individual selected-* state vars
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
@@ -109,16 +87,27 @@ export const CompanyDashboard = ({
   const [activeOwnershipTab, setActiveOwnershipTab] = useState<OwnershipTab>("all");
 
   // Option data (fetched from API)
+  const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
-  const [transactionStatuses, setTransactionStatuses] = useState<TransactionStatusOption[]>([]);
   const [portfolioCompanyIds, setPortfolioCompanyIds] = useState<number[]>([]);
   const [hybridBusinessFocusIds, setHybridBusinessFocusIds] = useState<number[]>([]);
 
-  const { countries, provinces, cities } = useLocationFilterOptions(filterBarState);
+  // ── Derived selected values for dependent fetches ───────────────────────
+  const selectedCountries = useMemo(() => {
+    const item = filterBarState.filters.find((f) => f.id === "country");
+    return Array.isArray(item?.value) ? (item.value as string[]) : [];
+  }, [filterBarState.filters]);
+
+  const selectedProvinces = useMemo(() => {
+    const item = filterBarState.filters.find((f) => f.id === "state");
+    return Array.isArray(item?.value) ? (item.value as string[]) : [];
+  }, [filterBarState.filters]);
 
   const selectedPrimaryNames = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "primary_sector");
@@ -127,11 +116,11 @@ export const CompanyDashboard = ({
 
   // ── Reference data fetching ───────────────────────────────────────────
   useEffect(() => {
+    locationsService.getCountries().then(setCountries).catch(console.error);
     locationsService.getContinentalRegions().then(setContinentalRegions).catch(console.error);
     locationsService.getSubRegions().then(setSubRegions).catch(console.error);
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
     locationsService.getOwnershipTypes().then(setOwnershipTypes).catch(console.error);
-    locationsService.getTransactionStatuses().then(setTransactionStatuses).catch(console.error);
     // Load all secondary sectors up front so the Sectors filter always has options.
     locationsService
       .getAllSecondarySectorsWithPrimary()
@@ -151,6 +140,18 @@ export const CompanyDashboard = ({
       })
       .catch(console.error);
   }, []);
+
+  // Provinces depend on selected countries
+  useEffect(() => {
+    if (selectedCountries.length === 0) { setProvinces([]); return; }
+    locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
+  }, [selectedCountries]);
+
+  // Cities depend on selected countries + provinces
+  useEffect(() => {
+    if (selectedCountries.length === 0) { setCities([]); return; }
+    locationsService.getCities(selectedCountries, selectedProvinces).then(setCities).catch(console.error);
+  }, [selectedCountries, selectedProvinces]);
 
   // When specific primary sectors are selected, narrow the secondary sector list.
   // When none are selected we keep the full list loaded on mount.
@@ -175,7 +176,6 @@ export const CompanyDashboard = ({
       primarySectors,
       secondarySectors,
       ownershipTypes,
-      transactionStatuses,
     });
     if (excludeFilterIds.length === 0) return defs;
     const excluded = new Set(excludeFilterIds);
@@ -189,7 +189,6 @@ export const CompanyDashboard = ({
     primarySectors,
     secondarySectors,
     ownershipTypes,
-    transactionStatuses,
     excludeFilterIds,
   ]);
 
@@ -198,21 +197,19 @@ export const CompanyDashboard = ({
 
   useEffect(() => {
     onFilterColumnsChangeRef.current?.({
-      filters: filterBarState.filters.map((filter) => ({
-        id: filter.id,
-        value: filter.value,
-      })),
+      filterIds: filterBarState.filters.map((filter) => filter.id),
       ownershipTabActive: activeOwnershipTab !== "all",
     });
   }, [filterBarState.filters, activeOwnershipTab]);
 
   // ── Auto-search on filter state or ownership tab changes ──────────────
   const buildGlobalSearchFilters = useCallback((): Filters => {
-    return buildCompaniesCountsSearchPayload({
+    return buildCompaniesSearchPayload({
       state: filterBarState,
       primarySectors,
       secondarySectors,
       ownershipTypes,
+      applyOwnershipTabFilter: false,
       scopedPrimarySectorIds,
       scopedSecondarySectorIds,
       portfolioCompanyIds,
@@ -375,94 +372,97 @@ export const CompanyDashboard = ({
       : ownershipTabs.find((tab) => tab.id === activeOwnershipTab)?.count ??
         ownershipCounts.totalCount);
 
-  const horizontalPad = embedded ? "0" : "28px";
-  const topPad = embedded ? "16px" : "20px";
-
   return (
-    <div
-      style={{
-        background: embedded ? "#fff" : "#f8fafc",
-        borderBottom: embedded ? "none" : "1px solid #e2e8f0",
-      }}
-    >
+    <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
       <style dangerouslySetInnerHTML={{ __html: OWNERSHIP_OTHER_TOOLTIP_STYLES }} />
-      <div
-        className="search-dashboard-inner"
-        style={{ width: "100%", padding: `${topPad} ${horizontalPad} 0` }}
-      >
+      <div style={{ width: "100%", padding: "20px 28px 0" }}>
 
         {/* ── Header row: eyebrow + title + action buttons ── */}
         <div
-          className="search-dashboard-header-row"
           style={{
-            ...SEARCH_DASHBOARD_HEADER_ROW,
-            marginBottom: embedded ? 12 : 18,
-            width: embedded ? "100%" : undefined,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 18,
           }}
         >
           {!hidePageHeader && (
           <div>
-            {!guestMode && (
-              <div style={SEARCH_DASHBOARD_EYEBROW}>Companies</div>
-            )}
-            <h1 style={SEARCH_DASHBOARD_TITLE}>
-              {guestMode ? MCP_GUEST_TRACKER_TITLE : "Company search"}
-              <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
-                {countsLoading && matchCountOverride == null
-                  ? "… matches"
-                  : `${matchCount.toLocaleString()} matches`}
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+                color: "#94a3b8",
+                marginBottom: 5,
+              }}
+            >
+              Companies
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 26,
+                fontWeight: 700,
+                color: "#0f172a",
+                display: "flex",
+                alignItems: "baseline",
+                gap: 10,
+                lineHeight: 1.2,
+              }}
+            >
+              Company search
+              <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
+                {matchCount.toLocaleString()} matches
               </span>
             </h1>
-            {guestMode ? (
-              <p
-                style={{
-                  margin: "8px 0 0",
-                  maxWidth: 640,
-                  fontSize: 15,
-                  lineHeight: 1.5,
-                  color: "#64748b",
-                }}
-              >
-                {MCP_GUEST_TRACKER_SUBTITLE}
-              </p>
-            ) : null}
           </div>
           )}
 
           {/* Action buttons */}
-          {guestMode ? (
-            <div
-              className="search-dashboard-actions"
+          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6, marginLeft: hidePageHeader ? "auto" : undefined }}>
+            <button
+              onClick={onColumnsClick}
+              aria-pressed={columnsActive}
               style={{
-                ...SEARCH_DASHBOARD_ACTIONS,
-                marginLeft: hidePageHeader ? "auto" : undefined,
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
+                display: "flex", alignItems: "center", gap: 6,
+                height: 36, padding: "0 14px",
+                background: columnsActive ? "#0f172a" : "#fff",
+                border: columnsActive ? "1px solid #0f172a" : "1px solid #e2e8f0",
+                borderRadius: 8,
+                fontSize: 13, fontWeight: 500,
+                color: columnsActive ? "#fff" : "#374151",
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                transition: "background 150ms, color 150ms, border-color 150ms",
               }}
             >
-              <McpGuestTrackerToolbarActions />
-            </div>
-          ) : (
-          <div
-            className="search-dashboard-actions"
-            style={{
-              ...SEARCH_DASHBOARD_ACTIONS,
-              marginLeft: hidePageHeader ? "auto" : undefined,
-              width: hidePageHeader && embedded ? "100%" : undefined,
-              justifyContent: hidePageHeader && embedded ? "flex-end" : undefined,
-            }}
-          >
-            <SearchColumnsButton
-              active={columnsActive}
-              count={columnsCount}
-              total={CANONICAL_COMPANY_COLUMN_KEYS.length}
-              onClick={onColumnsClick}
-            />
-            <SearchExportMenu
-              onExport={(mode) => onExport?.(mode)}
-              exporting={exporting}
-              disabled={!onExport}
-            />
+              <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
+                <path d="M0 1h14M0 5h10M0 9h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              Columns {columnsCount}/{CANONICAL_COMPANY_COLUMN_KEYS.length}
+            </button>
+            <button
+              onClick={onExportCSVClick}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                height: 36, padding: "0 14px",
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                fontSize: 13, fontWeight: 500, color: "#374151",
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+              }}
+            >
+              <svg width="12" height="14" viewBox="0 0 12 14" fill="none" aria-hidden="true">
+                <path d="M6 1v8M3 6l3 3 3-3M1 13h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Export CSV
+            </button>
             <button
               onClick={onAddToPortfolioClick}
               disabled={selectedCount === 0}
@@ -486,21 +486,55 @@ export const CompanyDashboard = ({
               {selectedCount > 0 ? ` (${selectedCount.toLocaleString()})` : ""}
             </button>
           </div>
-          )}
         </div>
 
         {/* ── Ownership quick-filter tabs ── */}
-        {!guestMode && !hideOwnershipTabs && !fixedOwnershipTypeIds && (
-        <SearchListTabs
-          tabs={ownershipTabs}
-          activeTabId={activeOwnershipTab}
-          onTabClick={(tabId) => setActiveOwnershipTab(tabId as OwnershipTab)}
-          countsLoading={countsLoading}
-          renderTabWrapper={(tab, button) => {
-            if (tab.id !== "other") return button;
+        {!hideOwnershipTabs && !fixedOwnershipTypeIds && (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {ownershipTabs.map((tab) => {
+            const active = activeOwnershipTab === tab.id;
+            const tabButton = (
+              <button
+                onClick={() => setActiveOwnershipTab(tab.id)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  height: 34, padding: "0 14px",
+                  background: active ? "#0f172a" : "transparent",
+                  color: active ? "#fff" : "#64748b",
+                  border: "1px solid",
+                  borderColor: active ? "#0f172a" : "transparent",
+                  borderBottom: "none",
+                  borderRadius: "8px 8px 0 0",
+                  fontSize: 13, fontWeight: active ? 600 : 500,
+                  cursor: "pointer",
+                  transition: "background 0.12s, color 0.12s",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span
+                  style={{
+                    width: 7, height: 7, borderRadius: "50%",
+                    background: active ? "rgba(255,255,255,0.7)" : tab.dot,
+                    flexShrink: 0,
+                  }}
+                />
+                {tab.label}
+                <span style={{ fontSize: 12, opacity: 0.75 }}>
+                  {tab.count.toLocaleString()}
+                </span>
+              </button>
+            );
+
+            if (tab.id !== "other") {
+              return React.cloneElement(tabButton, { key: tab.id });
+            }
+
             return (
-              <div className="ownership-tab-other-tooltip-wrap">
-                {button}
+              <div
+                key={tab.id}
+                className="ownership-tab-other-tooltip-wrap"
+              >
+                {tabButton}
                 <div className="ownership-tab-other-tooltip" role="tooltip">
                   <ul>
                     {OTHER_OWNERSHIP_TOOLTIP_LABELS.map((label) => (
@@ -510,34 +544,29 @@ export const CompanyDashboard = ({
                 </div>
               </div>
             );
-          }}
-        />
+          })}
+        </div>
         )}
       </div>
 
-      {!guestMode && (
-      /* ── Filter bar card ── */
+      {/* ── Filter bar card ── */}
       <div
         style={{
           background: "#fff",
-          borderTop: embedded ? "none" : "1px solid #e2e8f0",
+          borderTop: "1px solid #e2e8f0",
           borderBottom: "1px solid #e2e8f0",
         }}
       >
-        <div
-          className="search-dashboard-filter-inner"
-          style={{ width: "100%", padding: `10px ${horizontalPad} 12px` }}
-        >
+        <div style={{ width: "100%", padding: "10px 28px 12px" }}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={FILTER_CATEGORIES}
             state={filterBarState}
             onStateChange={setFilterBarState}
-            totalCount={countsLoading ? undefined : matchCount}
+            totalCount={matchCount}
           />
         </div>
       </div>
-      )}
     </div>
   );
 };

@@ -38,6 +38,10 @@ export function buildCompaniesSearchPayload(args: {
   ownershipTypeIds?: number[];
   /** When false, tab-level ownershipTypeIds are not applied (e.g. companies_counts). Default true. */
   applyOwnershipTabFilter?: boolean;
+  /** Fixed primary sector scope (sector detail pages). Applied as AND before user filters. */
+  scopedPrimarySectorIds?: number[];
+  /** Fixed secondary sector scope (sub-sector pages). Applied as AND before user filters. */
+  scopedSecondarySectorIds?: number[];
   portfolioCompanyIds?: number[];
   hybridBusinessFocusIds?: number[];
   columns?: string[];
@@ -51,6 +55,8 @@ export function buildCompaniesSearchPayload(args: {
     ownershipTypes,
     ownershipTypeIds,
     applyOwnershipTabFilter = true,
+    scopedPrimarySectorIds = [],
+    scopedSecondarySectorIds = [],
     portfolioCompanyIds = [],
     hybridBusinessFocusIds = [],
     columns = [],
@@ -60,6 +66,29 @@ export function buildCompaniesSearchPayload(args: {
 
   const clauses: FilterClause[] = [];
   let hasPriorClause = false;
+
+  const pushScopeClause = (clause: FilterClause) => {
+    clauses.push(clause);
+    hasPriorClause = true;
+  };
+
+  if (scopedPrimarySectorIds.length > 0) {
+    pushScopeClause({
+      id: "scoped-primary-sector",
+      type: "primary_sector_ids",
+      value: { value: scopedPrimarySectorIds },
+      op: "AND",
+    });
+  }
+
+  if (scopedSecondarySectorIds.length > 0) {
+    pushScopeClause({
+      id: "scoped-secondary-sector",
+      type: "secondary_sector_ids",
+      value: { value: scopedSecondarySectorIds },
+      op: "AND",
+    });
+  }
 
   for (const item of state.filters) {
     const v = item.value;

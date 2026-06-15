@@ -3,10 +3,6 @@ import {
   buildColumnLinkedFilterDefs,
   EXTRA_FILTER_DEFS,
 } from "@/components/companies/companiesColumnFilterMap";
-import {
-  transactionStatusFilterLabels,
-  type TransactionStatusOption,
-} from "@/lib/transactionStatuses";
 
 export interface Country {
   locations_Country: string;
@@ -76,7 +72,6 @@ export function buildCompaniesFilterDefs({
   primarySectors,
   secondarySectors,
   ownershipTypes,
-  transactionStatuses = [],
 }: {
   continentalRegions: string[];
   subRegions: string[];
@@ -86,7 +81,6 @@ export function buildCompaniesFilterDefs({
   primarySectors: PrimarySector[];
   secondarySectors: SecondarySector[];
   ownershipTypes: OwnershipType[];
-  transactionStatuses?: TransactionStatusOption[];
 }): FilterDef[] {
   const overrides: Record<string, Partial<FilterDef>> = {
     region: { options: continentalRegions },
@@ -98,7 +92,11 @@ export function buildCompaniesFilterDefs({
     secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
     ownership: { options: ownershipTypes.map((o) => o.ownership) },
     transaction: {
-      options: transactionStatusFilterLabels(transactionStatuses),
+      options: [
+        "Rumoured in Market",
+        "Transaction anticipated within 18 months",
+        "Reported in Market",
+      ],
     },
     year_founded: {
       min: 1800,
@@ -221,6 +219,29 @@ export function buildCompaniesFilterDefs({
         ["60%+", 60, 150],
       ],
     },
+    arr: {
+      unit: "$m",
+      min: 0,
+      max: 5000,
+      presets: [
+        ["<$10m", 0, 9],
+        ["$10–49m", 10, 49],
+        ["$50–99m", 50, 99],
+        ["$100–499m", 100, 499],
+        ["$500m+", 500, 5000],
+      ],
+    },
+    arr_growth: {
+      unit: "%",
+      min: -20,
+      max: 200,
+      presets: [
+        ["<0%", -20, -1],
+        ["0–19%", 0, 19],
+        ["20–39%", 20, 39],
+        ["40%+", 40, 200],
+      ],
+    },
     churn: {
       unit: "%",
       min: 0,
@@ -265,20 +286,14 @@ export function buildCompaniesFilterDefs({
         ["25%+", 25, 100],
       ],
     },
-    has_mcp: {
-      label: "MCP",
-      fullLabel: "MCP",
-    },
   };
 
-  const columnLinked = buildColumnLinkedFilterDefs(overrides);
-  const columnLinkedIds = new Set(columnLinked.map((def) => def.id));
   const extras: FilterDef[] = EXTRA_FILTER_DEFS.map((extra) => ({
     ...extra,
     ...overrides[extra.id],
-  })).filter((def) => !columnLinkedIds.has(def.id));
+  }));
 
-  return [...extras, ...columnLinked];
+  return [...extras, ...buildColumnLinkedFilterDefs(overrides)];
 }
 
 export const OTHER_OWNERSHIP_TYPES = [
