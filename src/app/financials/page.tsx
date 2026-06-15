@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import { FinancialScreenerDashboard } from "@/components/financial-screener/FinancialScreenerDashboard";
 import {
   FinancialScreenerSection,
@@ -25,13 +26,14 @@ import {
   hasActiveClientFilters,
   type FinancialScreenerFilters,
 } from "@/components/financial-screener/financialScreenerFilterPayload";
-import { fetchFinancialScreenerServer, type FinancialScreenerItem } from "./actions";
-import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
-import { useEntitySelection } from "@/components/search/useEntitySelection";
+import {
+  fetchFinancialScreenerServer,
+  type FinancialScreenerItem,
+} from "./actions";
 
 const PER_PAGE = 25;
 
-function useFinancialScreenerAPI(preferredCurrencyId: number) {
+function useFinancialScreenerAPI() {
   const [items, setItems] = useState<FinancialScreenerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,8 +54,6 @@ function useFinancialScreenerAPI(preferredCurrencyId: number) {
     page: 1,
     per_page: PER_PAGE,
     ownership_tab: "all",
-    sort_field: "ev_m",
-    sort_dir: "desc",
   });
   const [currentFilters, setCurrentFilters] = useState<FinancialScreenerFilters>(
     currentFiltersRef.current
@@ -70,7 +70,6 @@ function useFinancialScreenerAPI(preferredCurrencyId: number) {
         ...(filters ?? currentFiltersRef.current),
         page,
         per_page: PER_PAGE,
-        preferred_currency_id: preferredCurrencyId,
       };
       currentFiltersRef.current = filtersToUse;
       setCurrentFilters(filtersToUse);
@@ -158,12 +157,12 @@ function useFinancialScreenerAPI(preferredCurrencyId: number) {
         }
       }
     },
-    [preferredCurrencyId]
+    []
   );
 
   useEffect(() => {
     void fetchScreener(1);
-  }, [fetchScreener, preferredCurrencyId]);
+  }, [fetchScreener]);
 
   return {
     items,
@@ -179,7 +178,6 @@ function useFinancialScreenerAPI(preferredCurrencyId: number) {
 }
 
 export default function FinancialsPage() {
-  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const {
     items,
     loading,
@@ -190,7 +188,7 @@ export default function FinancialsPage() {
     totalUniverseCount,
     fetchScreener,
     currentFilters,
-  } = useFinancialScreenerAPI(preferredCurrencyId);
+  } = useFinancialScreenerAPI();
 
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
     []
@@ -200,16 +198,10 @@ export default function FinancialsPage() {
     getDefaultFinancialScreenerColumnCount()
   );
   const exportCSVRef = useRef<(() => void) | null>(null);
-  const filtersKey = useMemo(
-    () => JSON.stringify(currentFilters ?? {}),
-    [currentFilters]
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<number>>(
+    () => new Set()
   );
-  const {
-    selectedIds: selectedCompanyIds,
-    toggleSelection: toggleCompanySelection,
-    togglePageSelection,
-    clearSelection,
-  } = useEntitySelection(filtersKey);
+  const [showBulkAddModal, setShowBulkAddModal] = useState(false);
 
   const handleSearch = useCallback(
     (filters: FinancialScreenerFilters) => {
@@ -233,6 +225,43 @@ export default function FinancialsPage() {
     []
   );
 
+  const filtersKey = useMemo(
+    () => JSON.stringify(currentFilters ?? {}),
+    [currentFilters]
+  );
+
+  useEffect(() => {
+    setSelectedCompanyIds(new Set());
+  }, [filtersKey]);
+
+  const toggleCompanySelection = useCallback((id: number) => {
+    setSelectedCompanyIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const togglePageSelection = useCallback((ids: number[]) => {
+    setSelectedCompanyIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = ids.length > 0 && ids.every((id) => next.has(id));
+      if (allSelected) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedCompanyIds(new Set());
+  }, []);
+
+  const selectedCompanyIdList = useMemo(
+    () => Array.from(selectedCompanyIds),
+    [selectedCompanyIds]
+  );
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -244,6 +273,8 @@ export default function FinancialsPage() {
         totalUniverseCount={totalUniverseCount}
         onColumnsClick={() => setShowColumnsModal((v) => !v)}
         onExportCSVClick={() => exportCSVRef.current?.()}
+        onAddToPortfolioClick={() => setShowBulkAddModal(true)}
+        selectedCount={selectedCompanyIds.size}
         columnsCount={columnsCount}
         columnsActive={showColumnsModal}
       />
@@ -264,7 +295,12 @@ export default function FinancialsPage() {
         selectedCompanyIds={selectedCompanyIds}
         onToggleCompanySelection={toggleCompanySelection}
         onTogglePageSelection={togglePageSelection}
-        onClearSelection={clearSelection}
+      />
+      <BulkAddToPortfolioModal
+        isOpen={showBulkAddModal}
+        onClose={() => setShowBulkAddModal(false)}
+        companyIds={selectedCompanyIdList}
+        onComplete={clearSelection}
       />
       <Footer />
     </div>

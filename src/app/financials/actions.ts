@@ -3,8 +3,6 @@
 import { cookies } from "next/headers";
 import type { FinancialScreenerFilters } from "@/components/financial-screener/financialScreenerFilterPayload";
 import { financialScreenerFiltersToSearchParams } from "@/components/financial-screener/financialScreenerFilterPayload";
-import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
-import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 
 export interface FinancialScreenerSectorRef {
   id: number;
@@ -19,16 +17,12 @@ export interface FinancialScreenerLocation {
 export interface FinancialScreenerFinancials {
   revenue_m?: string | number | null;
   revenue_currency?: string | null;
-  revenue_native_currency_id?: number | null;
-  revenue_converted?: boolean;
   rev_growth_pct?: string | number | null;
   ebitda_m?: string | number | null;
   ebitda_margin_pct?: string | number | null;
   ebit_m?: string | number | null;
   ev_m?: string | number | null;
   ev_currency?: string | null;
-  ev_native_currency_id?: number | null;
-  ev_converted?: boolean;
   ev_revenue?: string | number | null;
   ev_ebit?: string | number | null;
   ev_ebitda?: string | number | null;
@@ -72,11 +66,10 @@ export interface FinancialScreenerResponse {
   items: FinancialScreenerItem[];
   pagination: FinancialScreenerPagination;
   counts: FinancialScreenerCounts;
-  preferred_currency_id?: number;
 }
 
 const FINANCIAL_SCREENER_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:J8SXS75g";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:J8SXS75g:develop";
 
 export async function fetchFinancialScreenerServer(
   filters: FinancialScreenerFilters = {}
@@ -90,9 +83,6 @@ export async function fetchFinancialScreenerServer(
     }
 
     const params = financialScreenerFiltersToSearchParams(filters);
-    const preferredCurrencyId =
-      filters.preferred_currency_id ?? (await readPlatformCurrencyIdServer());
-    appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
     const url = `${FINANCIAL_SCREENER_API_BASE}/get_financial_screener?${params.toString()}`;
 
     const response = await fetch(url, {
@@ -115,7 +105,6 @@ export async function fetchFinancialScreenerServer(
       items?: FinancialScreenerItem[];
       pagination?: Partial<FinancialScreenerPagination>;
       counts?: Partial<FinancialScreenerCounts>;
-      preferred_currency_id?: number;
     };
 
     const pagination = raw.pagination ?? {};
@@ -123,7 +112,6 @@ export async function fetchFinancialScreenerServer(
 
     return {
       items: raw.items ?? [],
-      preferred_currency_id: raw.preferred_currency_id ?? preferredCurrencyId,
       pagination: {
         page: pagination.page ?? filters.page ?? 1,
         per_page: pagination.per_page ?? filters.per_page ?? 25,

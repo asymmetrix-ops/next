@@ -295,6 +295,12 @@ function Pop({
 
 // ── Summarize filter value ──────────────────────────────────────────────────
 
+/** Treat sentinel / huge upper bounds as "no limit" (e.g. ≥ presets). */
+function isUnboundedMax(max: number | undefined): boolean {
+  if (max === undefined) return false;
+  return max >= 1e15 || max === Number.MAX_SAFE_INTEGER;
+}
+
 function formatRangeValue(
   v: { min?: number; max?: number } | null | undefined,
   unit?: string,
@@ -313,8 +319,12 @@ function formatRangeValue(
     if (isYear) return String(n);
     return n.toLocaleString();
   };
-  if (v.min !== undefined && v.max !== undefined)
+  if (v.min !== undefined && v.max !== undefined) {
+    if (isUnboundedMax(v.max)) {
+      return `${fmt(v.min)} – no limit`;
+    }
     return `${fmt(v.min)} – ${fmt(v.max)}`;
+  }
   if (v.min !== undefined) return `≥ ${fmt(v.min)}`;
   if (v.max !== undefined) return `≤ ${fmt(v.max)}`;
   return "";
@@ -1389,12 +1399,12 @@ function RangeEditor({
     v.min !== undefined ? String(v.min) : ""
   );
   const [hi, setHi] = useState<string>(
-    v.max !== undefined ? String(v.max) : ""
+    v.max !== undefined && !isUnboundedMax(v.max) ? String(v.max) : ""
   );
 
   const applyPreset = ([, mn, mx]: [string, number, number]) => {
     setLo(String(mn));
-    setHi(String(mx));
+    setHi(isUnboundedMax(mx) ? "" : String(mx));
   };
 
   const defMin = def.min ?? 0;
@@ -1449,7 +1459,9 @@ function RangeEditor({
           }}
         >
           {def.presets.map((p) => {
-            const active = lo === String(p[1]) && hi === String(p[2]);
+            const active =
+              lo === String(p[1]) &&
+              (isUnboundedMax(p[2]) ? hi === "" : hi === String(p[2]));
             return (
               <button
                 key={p[0]}
@@ -1522,7 +1534,7 @@ function RangeEditor({
         <NumberInput
           value={hi}
           onChange={setHi}
-          placeholder="Max"
+          placeholder={lo !== "" ? "No limit" : "Max"}
           unit={def.unit}
           compact
         />

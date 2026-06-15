@@ -143,8 +143,8 @@ export function buildFinancialScreenerFilterDefs(args: {
     },
     {
       id: "secondary_sector",
-      label: "Secondary sector",
-      fullLabel: "Secondary Sector(s)",
+      label: "Sub sector",
+      fullLabel: "Sub sector",
       category: "sectors",
       type: "Aa",
       editor: "enum",

@@ -6,6 +6,8 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import type { CompanyColumnCategory } from "@/components/companies/companiesColumnCategories";
@@ -21,15 +23,9 @@ import {
 } from "./financialScreenerColumnCategories";
 import {
   compareSortValues,
-  getApiSortField,
   getColumnSortKind,
-  getServerSortDefaultDirection,
   getSortValueForColumn,
-  getUiColumnForSortField,
 } from "./financialScreenerTableSort";
-import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
-import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
-import { SEARCH_MULTI_VALUE_STYLES } from "@/components/search/SearchEntityMultiValueCell";
 import {
   getScreenerCellValue,
   getOwnershipPillStyle,
@@ -41,20 +37,13 @@ import { CompaniesCSVExporter } from "@/utils/companiesCSVExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { fetchFinancialScreenerServer } from "@/app/financials/actions";
-import {
-  applyClientFilters,
-  hasActiveClientFilters,
-} from "./financialScreenerFilterPayload";
-import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
-import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
-import { SEARCH_BULK_TOOLBAR_STYLES } from "@/components/search/searchTableStyles";
-import CompactPagination from "@/components/ui/CompactPagination";
+import { applyClientFilters } from "./financialScreenerFilterPayload";
 
 const COLUMN_STORAGE_KEY = "financial-screener-column-keys-v2";
 const SELECT_COLUMN_WIDTH = 44;
 
 const COLUMN_MIN_WIDTHS: Partial<Record<string, number>> = {
-  company: 280,
+  company: 220,
   sector: 140,
   ownership: 110,
   fte: 80,
@@ -135,8 +124,39 @@ export interface FinancialScreenerSectionProps {
   selectedCompanyIds?: Set<number>;
   onToggleCompanySelection?: (id: number) => void;
   onTogglePageSelection?: (ids: number[]) => void;
-  onClearSelection?: () => void;
 }
+
+const CompanyLogo = ({ logo, name }: { logo?: string; name: string }) => (
+  <div className="company-logo-cell">
+    {logo ? (
+      <Image
+        src={`data:image/jpeg;base64,${logo}`}
+        alt={`${name} logo`}
+        width={40}
+        height={40}
+        className="company-logo"
+        style={{ objectFit: "contain", borderRadius: 4 }}
+      />
+    ) : (
+      <div
+        className="company-logo-placeholder"
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 4,
+          background: "#f1f5f9",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 10,
+          color: "#94a3b8",
+        }}
+      >
+        —
+      </div>
+    )}
+  </div>
+);
 
 export const FinancialScreenerSection = ({
   items,
@@ -153,11 +173,8 @@ export const FinancialScreenerSection = ({
   selectedCompanyIds = new Set(),
   onToggleCompanySelection,
   onTogglePageSelection,
-  onClearSelection,
 }: FinancialScreenerSectionProps) => {
   const router = useRouter();
-  const { currency: platformCurrency } = usePlatformCurrency();
-  const usesClientFiltering = hasActiveClientFilters(currentFilters ?? {});
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal = externalShowColumnsModal ?? internalShowColumnsModal;
   const setShowColumnsModal =
@@ -209,13 +226,6 @@ export const FinancialScreenerSection = ({
   );
 
   const sortedItems = useMemo(() => {
-    if (
-      !usesClientFiltering &&
-      sortState.key &&
-      getApiSortField(sortState.key)
-    ) {
-      return items;
-    }
     if (!sortState.key || !getColumnSortKind(sortState.key)) return items;
     const { key, dir } = sortState;
     return [...items].sort((a, b) =>
@@ -225,60 +235,21 @@ export const FinancialScreenerSection = ({
         dir
       )
     );
-  }, [items, sortState, usesClientFiltering]);
+  }, [items, sortState]);
 
   const pageIds = useMemo(() => sortedItems.map((item) => item.id), [sortedItems]);
   const allPageSelected =
     pageIds.length > 0 && pageIds.every((id) => selectedCompanyIds.has(id));
 
-  useEffect(() => {
-    const sortField = currentFilters?.sort_field;
-    if (!sortField) return;
-    const uiKey = getUiColumnForSortField(sortField) ?? sortField;
-    const dir = currentFilters?.sort_dir ?? "desc";
-    setSortState((current) => {
-      if (current.key === uiKey && current.dir === dir) return current;
-      return { key: uiKey, dir };
-    });
-  }, [currentFilters?.sort_field, currentFilters?.sort_dir]);
-
   const handleSort = (columnKey: string) => {
-    const apiSortField = getApiSortField(columnKey);
-    if (apiSortField && !usesClientFiltering) {
-      const nextDirection: "asc" | "desc" =
-        sortState.key === columnKey
-          ? sortState.dir === "asc"
-            ? "desc"
-            : "asc"
-          : getServerSortDefaultDirection(columnKey);
-
-      setSortState({ key: columnKey, dir: nextDirection });
-      fetchPage(1, {
-        ...(currentFilters ?? {}),
-        sort_field: apiSortField,
-        sort_dir: nextDirection,
-      });
-      return;
-    }
-
     if (!getColumnSortKind(columnKey)) return;
-
-    const nextDirection: "asc" | "desc" =
-      sortState.key === columnKey
-        ? sortState.dir === "asc"
-          ? "desc"
-          : "asc"
-        : getServerSortDefaultDirection(columnKey);
-
-    setSortState({ key: columnKey, dir: nextDirection });
-
-    if (!usesClientFiltering && currentFilters?.sort_field) {
-      fetchPage(1, {
-        ...(currentFilters ?? {}),
-        sort_field: null,
-        sort_dir: null,
-      });
-    }
+    setSortState((prev) => {
+      if (prev.key === columnKey) {
+        return { key: columnKey, dir: prev.dir === "asc" ? "desc" : "asc" };
+      }
+      const kind = getColumnSortKind(columnKey);
+      return { key: columnKey, dir: kind === "text" ? "asc" : "desc" };
+    });
   };
 
   const handleApplyColumns = (
@@ -299,22 +270,6 @@ export const FinancialScreenerSection = ({
     }
     setShowColumnsModal(false);
   };
-
-  const handlePageChange = useCallback(
-    (page: number) => {
-      if (
-        loading ||
-        page < 1 ||
-        page > pagination.totalPages ||
-        page === pagination.page
-      ) {
-        return;
-      }
-
-      fetchPage(page, currentFilters);
-    },
-    [currentFilters, fetchPage, loading, pagination.page, pagination.totalPages]
-  );
 
   const handleExportCSV = useCallback(async () => {
     try {
@@ -345,9 +300,7 @@ export const FinancialScreenerSection = ({
       const filtered = applyClientFilters(allItems, filters);
       const headers = activeColumns.map((col) => col.label);
       const rows = filtered.map((item) =>
-        activeColumns.map((col) =>
-          getScreenerCellValue(item, col.key, platformCurrency)
-        )
+        activeColumns.map((col) => getScreenerCellValue(item, col.key))
       );
 
       const csv = buildSimpleCSV(headers, rows);
@@ -363,62 +316,44 @@ export const FinancialScreenerSection = ({
 
   const renderCell = (item: FinancialScreenerItem, columnKey: string) => {
     if (columnKey === "company") {
-      const hqRaw = formatScreenerHq(item);
-      const subtitle = hqRaw && hqRaw !== "—" ? hqRaw : undefined;
       return (
-        <SearchEntityIdentityCell
-          name={item.name}
-          logo={item.logo}
-          subtitle={subtitle}
-          href={`/company/${item.id}`}
-          onClick={(e) => {
-            if (
-              e.defaultPrevented ||
-              e.button !== 0 ||
-              e.metaKey ||
-              e.ctrlKey ||
-              e.shiftKey ||
-              e.altKey
-            ) {
-              return;
-            }
-            e.preventDefault();
-            router.push(`/company/${item.id}`);
-          }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <CompanyLogo logo={item.logo} name={item.name} />
+          <div>
+            <Link
+              href={`/new_company/${item.id}`}
+              style={{
+                fontWeight: 600,
+                color: "#0f172a",
+                textDecoration: "none",
+                fontSize: 14,
+              }}
+            >
+              {item.name}
+            </Link>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+              {formatScreenerHq(item)}
+            </div>
+          </div>
+        </div>
       );
     }
 
     if (columnKey === "sector") {
-      const items = (item.primary_sectors ?? [])
-        .map((sector, index) => {
-          const name = sector.sector_name?.trim();
-          if (!name) return null;
-          return {
-            name,
-            href: `/sector/${sector.id}`,
-            key: `sector-${sector.id}-${index}`,
-          };
-        })
-        .filter((entry): entry is NonNullable<typeof entry> => entry != null);
-
-      return <SearchEntityMultiValueCell items={items} />;
-    }
-
-    if (columnKey === "sub_sector") {
-      const items = (item.secondary_sectors ?? [])
-        .map((sector, index) => {
-          const name = sector.sector_name?.trim();
-          if (!name) return null;
-          return {
-            name,
-            href: `/sub-sector/${sector.id}`,
-            key: `sub-sector-${sector.id}-${index}`,
-          };
-        })
-        .filter((entry): entry is NonNullable<typeof entry> => entry != null);
-
-      return <SearchEntityMultiValueCell items={items} />;
+      const primary = item.primary_sectors?.[0]?.sector_name;
+      const secondary = item.secondary_sectors?.[0]?.sector_name;
+      return (
+        <div>
+          <div style={{ fontWeight: 500, color: "#0f172a" }}>
+            {primary || "—"}
+          </div>
+          {secondary ? (
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+              {secondary}
+            </div>
+          ) : null}
+        </div>
+      );
     }
 
     if (columnKey === "ownership") {
@@ -446,14 +381,12 @@ export const FinancialScreenerSection = ({
       const isPositive = num != null && num > 0;
       return (
         <span style={{ color: isPositive ? "#15803d" : "#0f172a", fontWeight: 500 }}>
-          {num != null && num > 0
-            ? `+${num}%`
-            : getScreenerCellValue(item, columnKey, platformCurrency)}
+          {num != null && num > 0 ? `+${num}%` : getScreenerCellValue(item, columnKey)}
         </span>
       );
     }
 
-    const text = getScreenerCellValue(item, columnKey, platformCurrency);
+    const text = getScreenerCellValue(item, columnKey);
     return <span>{text}</span>;
   };
 
@@ -517,62 +450,6 @@ export const FinancialScreenerSection = ({
           width: 44px;
           min-width: 44px;
         }
-        .financial-screener-table tbody .financial-screener-table-select-cell input[type="checkbox"] {
-          opacity: 0;
-          transition: opacity 0.15s ease;
-          cursor: pointer;
-        }
-        .financial-screener-table tbody tr:hover .financial-screener-table-select-cell input[type="checkbox"],
-        .financial-screener-table tbody tr.financial-screener-table-row-selected .financial-screener-table-select-cell input[type="checkbox"],
-        .financial-screener-table tbody .financial-screener-table-select-cell input[type="checkbox"]:focus-visible {
-          opacity: 1;
-        }
-        ${SEARCH_BULK_TOOLBAR_STYLES}
-        ${SEARCH_MULTI_VALUE_STYLES}
-        .company-table-entity-name-cell {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          min-width: 0;
-        }
-        .company-table-entity-name-text {
-          min-width: 0;
-          overflow: hidden;
-        }
-        .company-table-entity-name {
-          font-weight: 600;
-          font-size: 14px;
-          color: #0f172a;
-          display: block;
-          text-decoration: none;
-        }
-        .company-table-entity-name-link {
-          cursor: pointer;
-        }
-        .company-table-entity-subtitle {
-          font-size: 12px;
-          color: #94a3b8;
-          margin-top: 2px;
-        }
-        th.company-table-col-name,
-        td.company-table-col-name {
-          max-width: 280px;
-          width: 280px;
-        }
-        .company-table-col-name .company-table-entity-name {
-          white-space: normal;
-          overflow: visible;
-          text-overflow: unset;
-          word-break: normal;
-          overflow-wrap: anywhere;
-        }
-        .financial-screener-table td:has(.search-multi-value-cell) {
-          white-space: normal !important;
-        }
-        .financial-screener-table th.company-table-col-name,
-        .financial-screener-table td.company-table-col-name {
-          white-space: normal !important;
-        }
       `}</style>
 
       {showColumnsModal && (
@@ -594,14 +471,6 @@ export const FinancialScreenerSection = ({
         {error ? (
           <div style={{ padding: "24px 0", color: "#dc2626" }}>{error}</div>
         ) : null}
-
-        {selectedCompanyIds.size > 0 && onClearSelection && (
-          <BulkPortfolioActionToolbar
-            entityType="company"
-            entityIds={Array.from(selectedCompanyIds)}
-            onClearSelection={onClearSelection}
-          />
-        )}
 
         <div className="financial-screener-table-scroll">
           <table className="financial-screener-table">
@@ -632,7 +501,6 @@ export const FinancialScreenerSection = ({
                       className={[
                         sortable ? "financial-screener-table-th-sortable" : undefined,
                         column.align === "center" ? "align-center" : undefined,
-                        column.key === "company" ? "company-table-col-name" : undefined,
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -702,12 +570,9 @@ export const FinancialScreenerSection = ({
                       {activeColumns.map((column) => (
                         <td
                           key={column.key}
-                          className={[
-                            column.align === "center" ? "align-center" : undefined,
-                            column.key === "company" ? "company-table-col-name" : undefined,
-                          ]
-                            .filter(Boolean)
-                            .join(" ") || undefined}
+                          className={
+                            column.align === "center" ? "align-center" : undefined
+                          }
                         >
                           {renderCell(item, column.key)}
                         </td>
@@ -720,14 +585,59 @@ export const FinancialScreenerSection = ({
           </table>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-          <CompactPagination
-            curPage={pagination.page}
-            pageTotal={pagination.totalPages}
-            onPageChange={handlePageChange}
-            disabled={loading}
-          />
-        </div>
+        {!loading && pagination.totalPages > 1 ? (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: 16,
+              color: "#64748b",
+              fontSize: 13,
+            }}
+          >
+            <span>
+              Page {pagination.page} of {pagination.totalPages} ·{" "}
+              {pagination.total.toLocaleString()} companies
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                disabled={!pagination.prevPage}
+                onClick={() =>
+                  pagination.prevPage &&
+                  fetchPage(pagination.prevPage, currentFilters)
+                }
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #e2e8f0",
+                  background: "#fff",
+                  cursor: pagination.prevPage ? "pointer" : "not-allowed",
+                  opacity: pagination.prevPage ? 1 : 0.5,
+                }}
+              >
+                Previous
+              </button>
+              <button
+                disabled={!pagination.nextPage}
+                onClick={() =>
+                  pagination.nextPage &&
+                  fetchPage(pagination.nextPage, currentFilters)
+                }
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #e2e8f0",
+                  background: "#fff",
+                  cursor: pagination.nextPage ? "pointer" : "not-allowed",
+                  opacity: pagination.nextPage ? 1 : 0.5,
+                }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <ExportLimitModal
