@@ -54,6 +54,7 @@ export type CompanyDashboardProps = {
   scopedPrimarySectorIds?: number[];
   scopedSecondarySectorIds?: number[];
   fixedOwnershipTypeIds?: number[];
+  embedded?: boolean;
 };
 
 export const CompanyDashboard = ({
@@ -74,6 +75,7 @@ export const CompanyDashboard = ({
   scopedPrimarySectorIds = [],
   scopedSecondarySectorIds = [],
   fixedOwnershipTypeIds,
+  embedded = false,
 }: CompanyDashboardProps) => {
   // Unified filter bar state — replaces all the individual selected-* state vars
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
@@ -372,10 +374,18 @@ export const CompanyDashboard = ({
       : ownershipTabs.find((tab) => tab.id === activeOwnershipTab)?.count ??
         ownershipCounts.totalCount);
 
+  const horizontalPad = embedded ? "0" : "28px";
+  const topPad = embedded ? "16px" : "20px";
+
   return (
-    <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+    <div
+      style={{
+        background: embedded ? "#fff" : "#f8fafc",
+        borderBottom: embedded ? "none" : "1px solid #e2e8f0",
+      }}
+    >
       <style dangerouslySetInnerHTML={{ __html: OWNERSHIP_OTHER_TOOLTIP_STYLES }} />
-      <div style={{ width: "100%", padding: "20px 28px 0" }}>
+      <div style={{ width: "100%", padding: `${topPad} ${horizontalPad} 0` }}>
 
         {/* ── Header row: eyebrow + title + action buttons ── */}
         <div
@@ -385,7 +395,8 @@ export const CompanyDashboard = ({
             alignItems: "flex-start",
             gap: 16,
             flexWrap: "wrap",
-            marginBottom: 18,
+            marginBottom: embedded ? 12 : 18,
+            width: embedded ? "100%" : undefined,
           }}
         >
           {!hidePageHeader && (
@@ -423,7 +434,17 @@ export const CompanyDashboard = ({
           )}
 
           {/* Action buttons */}
-          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6, marginLeft: hidePageHeader ? "auto" : undefined }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              paddingTop: 6,
+              marginLeft: hidePageHeader ? "auto" : undefined,
+              width: hidePageHeader && embedded ? "100%" : undefined,
+              justifyContent: hidePageHeader && embedded ? "flex-end" : undefined,
+            }}
+          >
             <button
               onClick={onColumnsClick}
               aria-pressed={columnsActive}
@@ -553,11 +574,11 @@ export const CompanyDashboard = ({
       <div
         style={{
           background: "#fff",
-          borderTop: "1px solid #e2e8f0",
+          borderTop: embedded ? "none" : "1px solid #e2e8f0",
           borderBottom: "1px solid #e2e8f0",
         }}
       >
-        <div style={{ width: "100%", padding: "10px 28px 12px" }}>
+        <div style={{ width: "100%", padding: `10px ${horizontalPad} 12px` }}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={FILTER_CATEGORIES}
