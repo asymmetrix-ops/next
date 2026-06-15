@@ -136,8 +136,16 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
       case "year_founded_max":
         return max != null ? `yr."Year"::int <= ${max}` : null;
       case "years_since_investment": {
-        const expr = `EXTRACT(YEAR FROM AGE(NOW(), (nc.investment->>'last_investment_date')::date))`;
-        return buildRangeSql(expr, min, max);
+        const minDays = min != null ? min * 365 : undefined;
+        const maxDays = max != null ? max * 365 : undefined;
+        const hasMin = minDays != null && !Number.isNaN(minDays);
+        const hasMax = maxDays != null && !Number.isNaN(maxDays);
+        if (hasMin && hasMax) {
+          return `(ysli.days_since BETWEEN ${minDays} AND ${maxDays})`;
+        }
+        if (hasMin) return `(ysli.days_since >= ${minDays})`;
+        if (hasMax) return `(ysli.days_since <= ${maxDays})`;
+        return null;
       }
       default:
         return null;

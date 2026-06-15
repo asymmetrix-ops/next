@@ -193,6 +193,7 @@ export function formatCompanyColumnDisplay(
   }
 
   if (columnKey === "nrr") return formatNrrValue(raw);
+  if (columnKey === "years_since_last_investment") return toPlainText(raw);
   if (columnKey === "revenue_multiple") return formatMultipleValue(raw);
   if (columnKey === "rule_of_40") {
     const formatted = formatPlainNumber(raw);

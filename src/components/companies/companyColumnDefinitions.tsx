@@ -311,6 +311,9 @@ const makeTextColumn = (
   group,
   ...options,
   render: (company) => {
+    if (key === "years_since_last_investment") {
+      return toPlainText(company.years_since_last_investment);
+    }
     const raw = readCompanyValue(company, [...getFieldAliasesForColumn(key)]);
     if (LIST_JSON_COLUMN_KEYS.has(key)) {
       const items = parseListField(raw);
