@@ -2360,7 +2360,7 @@ const SubSectorPage = () => {
               )}
               <div className="text-sm text-right text-slate-700 whitespace-normal">
               <span className="font-semibold text-slate-900">
-                Primary Sector(s){headerPrimarySectors.length === 1 ? "" : "s"}:
+                Primary Sector(s):
               </span>{" "}
               {headerPrimarySectors.length === 0 ? (
                 <span className="text-slate-500">N/A</span>
