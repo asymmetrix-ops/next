@@ -33,14 +33,33 @@ function isPlaceholderElement(el: Element): boolean {
   return text.includes("add screenshot") || text.includes("screenshot") && text.includes("replace");
 }
 
-function serializeEmailDocument(doc: Document): string {
+function formatDoctype(doc: Document): string {
   const dt = doc.doctype;
-  const doctype = dt
+  return dt
     ? `<!DOCTYPE ${dt.name}${dt.publicId ? ` PUBLIC "${dt.publicId}"` : ""}${
         dt.systemId ? ` "${dt.systemId}"` : ""
       }>`
     : "<!doctype html>";
-  return `${doctype}\n${doc.documentElement.outerHTML}`;
+}
+
+/** Serialize for persistence without mutating the live iframe (keeps focus/cursor). */
+function serializeEmailDocumentForSave(doc: Document): string {
+  const html = doc.documentElement.cloneNode(true) as HTMLElement;
+  const body = html.querySelector("body");
+  if (body) {
+    body.removeAttribute("contenteditable");
+    body.removeAttribute("spellcheck");
+    body.style.removeProperty("outline");
+  }
+  html.querySelectorAll(".ee-selected").forEach((el) => {
+    el.classList.remove("ee-selected");
+  });
+  html.querySelectorAll("style").forEach((styleEl) => {
+    if (styleEl.textContent === IFRAME_INJECT_CSS) {
+      styleEl.remove();
+    }
+  });
+  return `${formatDoctype(doc)}\n${html.outerHTML}`;
 }
 
 type ToolbarBtnProps = {
@@ -81,6 +100,8 @@ export function ContentEditableEmailEditor({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastEmittedRef = useRef(html);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSyncingRef = useRef(false);
+  const teardownDocRef = useRef<(() => void) | null>(null);
   const onChangeHtmlRef = useRef(onChangeHtml);
   onChangeHtmlRef.current = onChangeHtml;
   const savedRangeRef = useRef<Range | null>(null);
@@ -89,40 +110,45 @@ export function ContentEditableEmailEditor({
   const [replaceTarget, setReplaceTarget] = useState<"image" | "placeholder" | null>(null);
 
   const [srcDoc, setSrcDoc] = useState(html);
-  const externalHtmlRef = useRef(html);
 
+  // Reload iframe only for external template loads — not for keystrokes (see TiptapSimpleEditor).
   useEffect(() => {
-    if (html !== externalHtmlRef.current && html !== lastEmittedRef.current) {
-      externalHtmlRef.current = html;
-      lastEmittedRef.current = html;
-      setSrcDoc(html);
+    if (html === lastEmittedRef.current) return;
+
+    const doc = iframeRef.current?.contentDocument;
+    if (doc?.documentElement) {
+      const current = serializeEmailDocumentForSave(doc);
+      if (current === html) {
+        lastEmittedRef.current = html;
+        return;
+      }
     }
+
+    lastEmittedRef.current = html;
+    setSrcDoc(html);
   }, [html]);
 
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      teardownDocRef.current?.();
+    };
+  }, []);
+
   const syncFromIframe = useCallback(() => {
+    if (isSyncingRef.current) return;
     const doc = iframeRef.current?.contentDocument;
     if (!doc?.documentElement) return;
 
-    // Temporarily strip editor-injected body attributes so they don't get
-    // saved back to Xano (contenteditable / spellcheck / outline: none)
-    const body = doc.body;
-    const prevCE = body.getAttribute("contenteditable");
-    const prevSC = body.getAttribute("spellcheck");
-    const hadOutline = body.style.outline === "none";
-    body.removeAttribute("contenteditable");
-    body.removeAttribute("spellcheck");
-    if (hadOutline) body.style.removeProperty("outline");
-
-    const serialized = serializeEmailDocument(doc);
-
-    // Restore so editing stays active
-    if (prevCE) body.setAttribute("contenteditable", prevCE);
-    if (prevSC) body.setAttribute("spellcheck", prevSC);
-    if (hadOutline) body.style.outline = "none";
-
-    if (serialized === lastEmittedRef.current) return;
-    lastEmittedRef.current = serialized;
-    onChangeHtmlRef.current(serialized);
+    isSyncingRef.current = true;
+    try {
+      const serialized = serializeEmailDocumentForSave(doc);
+      if (serialized === lastEmittedRef.current) return;
+      lastEmittedRef.current = serialized;
+      onChangeHtmlRef.current(serialized);
+    } finally {
+      isSyncingRef.current = false;
+    }
   }, []);
 
   const saveSelection = useCallback(() => {
@@ -289,6 +315,8 @@ export function ContentEditableEmailEditor({
   );
 
   const handleLoad = useCallback(() => {
+    teardownDocRef.current?.();
+
     const doc = iframeRef.current?.contentDocument;
     if (!doc?.body) return;
 
@@ -314,8 +342,7 @@ export function ContentEditableEmailEditor({
       }
     });
 
-    // Click handler — select replaceable targets, clear on body click
-    doc.addEventListener("click", (ev) => {
+    const onDocClick = (ev: MouseEvent) => {
       const target = ev.target as Element;
 
       // Direct img click
@@ -329,7 +356,8 @@ export function ContentEditableEmailEditor({
       let node: Element | null = target;
       while (node && node !== doc.body) {
         if (node.hasAttribute("data-replaceable")) {
-          const kind = node.getAttribute("data-replaceable") === "image" ? "image" : "placeholder";
+          const kind =
+            node.getAttribute("data-replaceable") === "image" ? "image" : "placeholder";
           setReplaceTargetEl(node, kind);
           return;
         }
@@ -338,18 +366,33 @@ export function ContentEditableEmailEditor({
 
       // Nothing replaceable clicked — clear target
       clearReplaceTarget();
-    });
+    };
 
     const scheduleSync = () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
       syncTimerRef.current = setTimeout(syncFromIframe, 200);
     };
 
+    const onDocBlur = () => {
+      if (isSyncingRef.current) return;
+      syncFromIframe();
+    };
+
+    doc.addEventListener("click", onDocClick);
     doc.addEventListener("input", scheduleSync);
-    doc.addEventListener("blur", syncFromIframe, true);
+    doc.addEventListener("blur", onDocBlur, true);
     doc.addEventListener("selectionchange", saveSelection);
     doc.addEventListener("mouseup", saveSelection);
     doc.addEventListener("keyup", saveSelection);
+
+    teardownDocRef.current = () => {
+      doc.removeEventListener("click", onDocClick);
+      doc.removeEventListener("input", scheduleSync);
+      doc.removeEventListener("blur", onDocBlur, true);
+      doc.removeEventListener("selectionchange", saveSelection);
+      doc.removeEventListener("mouseup", saveSelection);
+      doc.removeEventListener("keyup", saveSelection);
+    };
   }, [syncFromIframe, saveSelection, setReplaceTargetEl, clearReplaceTarget]);
 
   const btnLabel = uploading
