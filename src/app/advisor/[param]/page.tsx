@@ -27,6 +27,7 @@ import IndividualCards, { type IndividualCardItem } from "@/components/shared/In
 import { locationsService } from "@/lib/locationsService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { trackEvent } from "@/lib/tracking";
+import { extractJobTitleStrings } from "@/utils/individualHelpers";
 
 // Types for LinkedIn History Chart
 interface LinkedInHistory {
@@ -271,16 +272,19 @@ export default function AdvisorProfilePage() {
   const coerceUnknownToArray = (raw: unknown): unknown[] => {
     if (Array.isArray(raw)) return raw;
     if (raw === null || raw === undefined) return [];
-    if (typeof raw !== "string") return [];
-    const trimmed = raw.trim();
-    if (!trimmed || trimmed === "[]") return [];
-    try {
-      const normalized = trimmed.replace(/\\u0022/g, '"');
-      const parsed = JSON.parse(normalized) as unknown;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (!trimmed || trimmed === "[]") return [];
+      try {
+        const normalized = trimmed.replace(/\\u0022/g, '"');
+        const parsed = JSON.parse(normalized) as unknown;
+        return coerceUnknownToArray(parsed);
+      } catch {
+        return [];
+      }
     }
+    if (typeof raw === "object") return [raw];
+    return [];
   };
 
   const getEventRowForCsv = (event: AdvisorCorporateEventItem): string[] => {
@@ -491,7 +495,7 @@ export default function AdvisorProfilePage() {
           individual_id: role.individuals_id,
           name:
             (role.advisor_individuals || role.Individual_text || "").trim() || "Unknown",
-          job_titles: role.job_titles_id?.map((jt) => jt.job_title) || [],
+          job_titles: extractJobTitleStrings(role.job_titles_id),
         }));
 
       const fromProfileIndividuals = (
@@ -506,7 +510,7 @@ export default function AdvisorProfilePage() {
           id: individual.id,
           individual_id: individual.individuals_id,
           name: (individual.advisor_individuals || "").trim() || "Unknown",
-          job_titles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
+          job_titles: extractJobTitleStrings(individual.job_titles_id),
         }));
 
       let current: Array<{
@@ -525,12 +529,15 @@ export default function AdvisorProfilePage() {
       if (rolesCurrent.length > 0) {
         current = fromRoles(rolesCurrent);
       } else if (
-        advisorData?.Advisors_individuals_current &&
+        Array.isArray(advisorData?.Advisors_individuals_current) &&
         advisorData.Advisors_individuals_current.length > 0
       ) {
         current = fromProfileIndividuals(advisorData.Advisors_individuals_current);
         fallbacksUsed.push("advisor_profile_current");
-      } else if (advisorData?.Advisors_individuals && advisorData.Advisors_individuals.length > 0) {
+      } else if (
+        Array.isArray(advisorData?.Advisors_individuals) &&
+        advisorData.Advisors_individuals.length > 0
+      ) {
         current = fromProfileIndividuals(advisorData.Advisors_individuals);
         fallbacksUsed.push("advisor_profile_all");
       }
@@ -538,7 +545,7 @@ export default function AdvisorProfilePage() {
       if (rolesPast.length > 0) {
         past = fromRoles(rolesPast);
       } else if (
-        advisorData?.Advisors_individuals_past &&
+        Array.isArray(advisorData?.Advisors_individuals_past) &&
         advisorData.Advisors_individuals_past.length > 0
       ) {
         past = fromProfileIndividuals(advisorData.Advisors_individuals_past);
@@ -704,12 +711,13 @@ export default function AdvisorProfilePage() {
         employees_deduped?: LinkedInHistory[];
         _companies_employees_count_monthly?: LinkedInHistory[];
       } | undefined;
-      const employeeData =
+      const employeeDataRaw =
         (data as unknown as { employees_deduped?: LinkedInHistory[] })
           .employees_deduped ??
         companyPayload?.employees_deduped ??
         companyPayload?._companies_employees_count_monthly ??
         [];
+      const employeeData = Array.isArray(employeeDataRaw) ? employeeDataRaw : [];
 
       const historyData = [...employeeData]
         .map((item: { date?: string; employees_count?: number }) => ({
@@ -759,7 +767,7 @@ export default function AdvisorProfilePage() {
       setLoadingFilterPrimary(true);
       try {
         const data = await locationsService.getPrimarySectors();
-        if (!cancelled) setFilterPrimarySectors(data);
+        if (!cancelled) setFilterPrimarySectors(Array.isArray(data) ? data : []);
       } catch {
         // silent fail
       } finally {
@@ -782,7 +790,7 @@ export default function AdvisorProfilePage() {
       setLoadingFilterSecondary(true);
       try {
         const data = await locationsService.getSecondarySectors(selectedFilterPrimary);
-        if (!cancelled) setFilterSecondarySectors(data);
+        if (!cancelled) setFilterSecondarySectors(Array.isArray(data) ? data : []);
       } catch {
         // silent fail
       } finally {
@@ -882,17 +890,20 @@ export default function AdvisorProfilePage() {
   const coerceArray = <T,>(raw: unknown): T[] => {
     if (Array.isArray(raw)) return raw as T[];
     if (raw === null || raw === undefined) return [];
-    if (typeof raw !== "string") return [];
-    const trimmed = raw.trim();
-    if (!trimmed || trimmed === "[]") return [];
-    try {
-      // Some payloads may contain escaped quotes (\u0022) from Xano
-      const normalized = trimmed.replace(/\\u0022/g, '"');
-      const parsed = JSON.parse(normalized) as unknown;
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    } catch {
-      return [];
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (!trimmed || trimmed === "[]") return [];
+      try {
+        // Some payloads may contain escaped quotes (\u0022) from Xano
+        const normalized = trimmed.replace(/\\u0022/g, '"');
+        const parsed = JSON.parse(normalized) as unknown;
+        return coerceArray<T>(parsed);
+      } catch {
+        return [];
+      }
     }
+    if (typeof raw === "object") return [raw as T];
+    return [];
   };
 
   // Client-side sector filtering
@@ -2061,34 +2072,37 @@ export default function AdvisorProfilePage() {
                           role.advisor_individuals ||
                           role.Individual_text ||
                           "Unknown",
-                        jobTitles:
-                          role.job_titles_id?.map((jt) => jt.job_title) || [],
+                        jobTitles: extractJobTitleStrings(role.job_titles_id),
                         individualId: role.individuals_id,
                       }));
                     }
                     // Fallback to advisorData.Advisors_individuals_current
                     if (
-                      advisorData.Advisors_individuals_current &&
+                      Array.isArray(advisorData.Advisors_individuals_current) &&
                       advisorData.Advisors_individuals_current.length > 0
                     ) {
                       return advisorData.Advisors_individuals_current.map(
                         (individual) => ({
                           id: individual.id,
                           name: individual.advisor_individuals,
-                          jobTitles:
-                            individual.job_titles_id?.map((jt) => jt.job_title) ||
-                            [],
+                          jobTitles: extractJobTitleStrings(
+                            individual.job_titles_id
+                          ),
                           individualId: individual.individuals_id,
                         })
                       );
                     }
                     // Final fallback to Advisors_individuals
-                    if (Advisors_individuals && Advisors_individuals.length > 0) {
+                    if (
+                      Array.isArray(Advisors_individuals) &&
+                      Advisors_individuals.length > 0
+                    ) {
                       return Advisors_individuals.map((individual) => ({
                         id: individual.id,
                         name: individual.advisor_individuals,
-                        jobTitles:
-                          individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                        jobTitles: extractJobTitleStrings(
+                          individual.job_titles_id
+                        ),
                         individualId: individual.individuals_id,
                       }));
                     }
@@ -2108,21 +2122,22 @@ export default function AdvisorProfilePage() {
                     id: role.id,
                     name:
                       role.advisor_individuals || role.Individual_text || "Unknown",
-                    jobTitles: role.job_titles_id?.map((jt) => jt.job_title) || [],
+                    jobTitles: extractJobTitleStrings(role.job_titles_id),
                     individualId: role.individuals_id,
                   }));
                 }
                 // Fallback to advisorData.Advisors_individuals_past
                 else if (
-                  advisorData.Advisors_individuals_past &&
+                  Array.isArray(advisorData.Advisors_individuals_past) &&
                   advisorData.Advisors_individuals_past.length > 0
                 ) {
                   pastAdvisors = advisorData.Advisors_individuals_past.map(
                     (individual) => ({
                       id: individual.id,
                       name: individual.advisor_individuals,
-                      jobTitles:
-                        individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                      jobTitles: extractJobTitleStrings(
+                        individual.job_titles_id
+                      ),
                       individualId: individual.individuals_id,
                     })
                   );
