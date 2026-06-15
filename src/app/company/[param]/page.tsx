@@ -28,6 +28,7 @@ import {
   mapLinkedInHistoryToTimeSeries,
   type CompanyLinkedInResponse,
 } from "@/lib/companyLinkedIn";
+import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
@@ -1168,34 +1169,6 @@ const formatFinancialMetricsPeriod = (
   return null;
 };
 
-const formatLastInvestmentDisplay = (
-  lastInvestment?: LastInvestment | null
-): string => {
-  const display = String(lastInvestment?.display ?? "").trim();
-  if (display && !isEmptyDisplayValue(display)) return display;
-
-  let daysSince = getNumeric(lastInvestment?.days_since);
-  if (daysSince === undefined && lastInvestment?.date) {
-    const investmentDate = new Date(lastInvestment.date);
-    if (!Number.isNaN(investmentDate.getTime())) {
-      daysSince = Math.max(
-        0,
-        Math.floor((Date.now() - investmentDate.getTime()) / 86_400_000)
-      );
-    }
-  }
-
-  if (daysSince === undefined) return "-";
-  if (daysSince < 365) {
-    if (daysSince < 30) return "This month";
-    const months = Math.max(1, Math.floor(daysSince / 30));
-    return `${months} ${months === 1 ? "month" : "months"}`;
-  }
-
-  const years = Math.floor(daysSince / 365);
-  return `${years} ${years === 1 ? "year" : "years"}`;
-};
-
 // Determines Year Founded using multiple fallbacks
 const getYearFoundedDisplay = (company: Company): string => {
   const candidates: Array<unknown> = [
@@ -1252,6 +1225,10 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
 const CompanyDetail = () => {
   const params = useParams();
   const companyId = params.param as string;
+  const {
+    display: timeSinceLastInvestment,
+    loading: timeSinceLastInvestmentLoading,
+  } = useTimeSinceLastInvestment(companyId);
 
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
@@ -4035,7 +4012,9 @@ const CompanyDetail = () => {
                 investorsLoading={!haveParentCompany && apiInvestorsLoading}
                 lastInvestment={
                   !haveParentCompany
-                    ? formatLastInvestmentDisplay(company.last_investment)
+                    ? timeSinceLastInvestmentLoading
+                      ? "Loading…"
+                      : timeSinceLastInvestment
                     : undefined
                 }
               />
@@ -4388,10 +4367,12 @@ const CompanyDetail = () => {
                   </div>
                   <div style={styles.infoRow} className="info-row">
                     <span style={styles.label} className="info-label">
-                      Years since last investment
+                      Time since last investment
                     </span>
                     <div style={styles.value} className="info-value">
-                      {formatLastInvestmentDisplay(company.last_investment)}
+                      {timeSinceLastInvestmentLoading
+                        ? "Loading…"
+                        : timeSinceLastInvestment}
                     </div>
                   </div>
                 </>

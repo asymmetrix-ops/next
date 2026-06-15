@@ -17,6 +17,8 @@ import {
   fetchCompanyLinkedIn,
   mapLinkedInHistoryToTimeSeries,
 } from "@/lib/companyLinkedIn";
+import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
+import { isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import {
   LineChart,
@@ -375,6 +377,10 @@ const InvestorDetailPage = () => {
   const router = useRouter();
   const { createClickableElement } = useRightClick();
   const investorId = params.id as string;
+  const {
+    display: timeSinceLastInvestment,
+    loading: timeSinceLastInvestmentLoading,
+  } = useTimeSinceLastInvestment(investorId);
 
   const [investorData, setInvestorData] = useState<InvestorData | null>(null);
   const [portfolioCompanies, setPortfolioCompanies] = useState<
@@ -1958,6 +1964,17 @@ const InvestorDetailPage = () => {
                     ) : (
                       "Not available"
                     )}
+                  </span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Time since last investment:</span>
+                  <span className="info-value">
+                    {timeSinceLastInvestmentLoading
+                      ? "Loading…"
+                      : timeSinceLastInvestment &&
+                          !isEmptyDisplayValue(timeSinceLastInvestment)
+                        ? timeSinceLastInvestment
+                        : "Not available"}
                   </span>
                 </div>
               </div>
