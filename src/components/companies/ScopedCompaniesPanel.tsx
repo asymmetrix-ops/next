@@ -1,14 +1,11 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  fetchCompaniesCountsServer,
+  fetchCompaniesServer,
+  type CompaniesFilters,
+} from "@/app/companies/actions";
 import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import { CompanyDashboard } from "@/components/companies/CompanyDashboard";
 import {
@@ -23,14 +20,19 @@ import {
   EMPTY_OWNERSHIP_COUNTS,
   type CompaniesOwnershipCounts,
 } from "@/components/companies/companiesFilterConfig";
-import {
-  fetchCompaniesServer,
-  fetchCompaniesCountsServer,
-  CompaniesFilters as ServerFilters,
-} from "./actions";
-import { CompaniesEditContext } from "./CompaniesEditContext";
+import { buildCompaniesSearchPayload } from "@/lib/companiesFilterPayload";
+import type { FilterBarState } from "@/components/companies/CompaniesFilterBar";
 
-const useCompaniesAPI = () => {
+export type ScopedCompaniesPanelProps = {
+  primarySectorId?: number;
+  secondarySectorId?: number;
+  fixedOwnershipTypeIds?: number[];
+  hideOwnershipTabs?: boolean;
+  excludeFilterIds?: string[];
+  embedded?: boolean;
+};
+
+function useScopedCompaniesSearch() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +60,7 @@ const useCompaniesAPI = () => {
     requestColumnsRef.current = columns;
   }, []);
 
-  const scheduleCountsFetch = useCallback((countsFilters: ServerFilters) => {
+  const scheduleCountsFetch = useCallback((countsFilters: CompaniesFilters) => {
     if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
     countsTimeoutRef.current = setTimeout(() => {
       const countsRequestId = ++lastCountsRequestIdRef.current;
@@ -108,11 +110,11 @@ const useCompaniesAPI = () => {
         filtersToUse;
 
       try {
-        const serverFilters: ServerFilters = {
+        const serverFilters: CompaniesFilters = {
           ...filtersToUse,
           columns: requestColumnsRef.current,
         };
-        const countsServerFilters: ServerFilters = {
+        const countsServerFilters: CompaniesFilters = {
           ...countsFiltersToUse,
           columns: requestColumnsRef.current,
         };
@@ -155,11 +157,6 @@ const useCompaniesAPI = () => {
     [scheduleCountsFetch]
   );
 
-  useEffect(() => {
-    fetchCompanies(1, createDefaultFilters());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return {
     companies,
     loading,
@@ -170,9 +167,16 @@ const useCompaniesAPI = () => {
     setRequestColumns,
     currentFilters,
   };
-};
+}
 
-function CompaniesPageInner() {
+export function ScopedCompaniesPanel({
+  primarySectorId,
+  secondarySectorId,
+  fixedOwnershipTypeIds,
+  hideOwnershipTabs = false,
+  excludeFilterIds = [],
+  embedded = false,
+}: ScopedCompaniesPanelProps) {
   const {
     companies,
     loading,
@@ -182,7 +186,27 @@ function CompaniesPageInner() {
     fetchCompanies,
     setRequestColumns,
     currentFilters,
-  } = useCompaniesAPI();
+  } = useScopedCompaniesSearch();
+
+  const scopedPrimarySectorIds = useMemo(
+    () => (primarySectorId != null ? [primarySectorId] : []),
+    [primarySectorId]
+  );
+  const scopedSecondarySectorIds = useMemo(
+    () => (secondarySectorId != null ? [secondarySectorId] : []),
+    [secondarySectorId]
+  );
+
+  const mergedExcludeFilterIds = useMemo(() => {
+    const ids = [...excludeFilterIds];
+    if (primarySectorId != null && !ids.includes("primary_sector")) {
+      ids.push("primary_sector");
+    }
+    if (secondarySectorId != null && !ids.includes("secondary_sector")) {
+      ids.push("secondary_sector");
+    }
+    return ids;
+  }, [excludeFilterIds, primarySectorId, secondarySectorId]);
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
 
@@ -212,18 +236,6 @@ function CompaniesPageInner() {
     },
     []
   );
-
-  const [initialSearch, setInitialSearch] = useState<string | undefined>(
-    undefined
-  );
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const s = params?.get?.("search") || undefined;
-      setInitialSearch(s);
-    }
-  }, []);
 
   const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [columnsCount, setColumnsCount] = useState(
@@ -275,13 +287,57 @@ function CompaniesPageInner() {
     [selectedCompanyIds]
   );
 
+  const matchCountOverride =
+    fixedOwnershipTypeIds != null ? pagination.itemsReceived : undefined;
+
+  const emptyFilterState = useMemo<FilterBarState>(
+    () => ({
+      filters: [],
+      viewId: null,
+      searchText: "",
+      filterLogic: "and",
+    }),
+    []
+  );
+
+  const buildScopedFilters = useCallback((): Filters => {
+    return buildCompaniesSearchPayload({
+      state: emptyFilterState,
+      primarySectors: [],
+      secondarySectors: [],
+      ownershipTypes: [],
+      ownershipTypeIds: fixedOwnershipTypeIds,
+      scopedPrimarySectorIds,
+      scopedSecondarySectorIds,
+    });
+  }, [
+    emptyFilterState,
+    fixedOwnershipTypeIds,
+    scopedPrimarySectorIds,
+    scopedSecondarySectorIds,
+  ]);
+
+  const scopeKey = useMemo(
+    () =>
+      JSON.stringify({
+        primarySectorId,
+        secondarySectorId,
+        fixedOwnershipTypeIds,
+      }),
+    [primarySectorId, secondarySectorId, fixedOwnershipTypeIds]
+  );
+
+  useEffect(() => {
+    if (primarySectorId == null && secondarySectorId == null) return;
+    const filters = buildScopedFilters();
+    fetchCompanies(1, filters, filters);
+  }, [scopeKey, buildScopedFilters, fetchCompanies, primarySectorId, secondarySectorId]);
+
   return (
-    <div className="min-h-screen">
-      <Header />
+    <div className={embedded ? undefined : "min-h-screen"}>
       <CompanyDashboard
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
-        initialSearch={initialSearch}
         ownershipCounts={ownershipCounts}
         onColumnsClick={() => setShowColumnsModal((v) => !v)}
         onExportCSVClick={() => exportCSVRef.current?.()}
@@ -289,6 +345,13 @@ function CompaniesPageInner() {
         selectedCount={selectedCompanyIds.size}
         columnsCount={columnsCount}
         columnsActive={showColumnsModal}
+        hidePageHeader={embedded}
+        hideOwnershipTabs={hideOwnershipTabs || fixedOwnershipTypeIds != null}
+        excludeFilterIds={mergedExcludeFilterIds}
+        matchCountOverride={matchCountOverride}
+        scopedPrimarySectorIds={scopedPrimarySectorIds}
+        scopedSecondarySectorIds={scopedSecondarySectorIds}
+        fixedOwnershipTypeIds={fixedOwnershipTypeIds}
       />
       <CompanySection
         companies={companies}
@@ -300,7 +363,6 @@ function CompaniesPageInner() {
         setRequestColumns={setRequestColumns}
         currentFilters={currentFilters}
         filterPinnedColumnKeys={filterPinnedColumnKeys}
-        onEditCompany={React.useContext(CompaniesEditContext)}
         externalShowColumnsModal={showColumnsModal}
         externalSetShowColumnsModal={setShowColumnsModal}
         onColumnsCountChange={setColumnsCount}
@@ -319,11 +381,6 @@ function CompaniesPageInner() {
         companyIds={selectedCompanyIdList}
         onComplete={clearSelection}
       />
-      <Footer />
     </div>
   );
-}
-
-export default function CompaniesPage() {
-  return <CompaniesPageInner />;
 }
