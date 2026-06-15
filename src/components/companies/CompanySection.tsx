@@ -928,6 +928,7 @@ export const CompanySection = ({
   onTogglePageSelection,
   onClearSelection,
   isPortfolioOnlyFilter = false,
+  embedded = false,
 }: {
   companies: Company[];
   loading: boolean;
@@ -956,9 +957,13 @@ export const CompanySection = ({
   onTogglePageSelection: (ids: number[]) => void;
   onClearSelection: () => void;
   isPortfolioOnlyFilter?: boolean;
+  embedded?: boolean;
 }) => {
   const router = useRouter();
   const sectionRef = useRef<HTMLDivElement | null>(null);
+  const sectionClassName = embedded
+    ? "company-section company-section-embedded"
+    : "company-section";
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
@@ -1850,6 +1855,18 @@ export const CompanySection = ({
       width: 100%;
       padding: 16px 28px;
     }
+    .company-section-embedded {
+      padding: 16px 0;
+    }
+    .company-section-embedded .company-table-scroll {
+      box-shadow: none;
+      border-radius: 0;
+    }
+    .company-section-embedded .company-table {
+      padding: 0;
+      box-shadow: none;
+      border-radius: 0;
+    }
     .company-stats {
       background: #fff;
       padding: 16px;
@@ -2470,7 +2487,7 @@ export const CompanySection = ({
 
     return React.createElement(
       "div",
-      { className: "company-section", ref: sectionRef },
+      { className: sectionClassName, ref: sectionRef },
       React.createElement(
         "div",
         { className: "company-cards" },
@@ -2514,7 +2531,7 @@ export const CompanySection = ({
   if (error) {
     return React.createElement(
       "div",
-      { className: "company-section", ref: sectionRef },
+      { className: sectionClassName, ref: sectionRef },
       React.createElement("div", { className: "error" }, error),
       ...columnsModalLayer,
       React.createElement("style", {
@@ -2526,7 +2543,7 @@ export const CompanySection = ({
   if (companies.length === 0 && isPortfolioOnlyFilter) {
     return React.createElement(
       "div",
-      { className: "company-section", ref: sectionRef },
+      { className: sectionClassName, ref: sectionRef },
       React.createElement(FollowedOnlyEmptyState, { entity: "companies" }),
       ...columnsModalLayer,
       React.createElement("style", {
@@ -2537,7 +2554,7 @@ export const CompanySection = ({
 
   return React.createElement(
     "div",
-    { className: "company-section", ref: sectionRef },
+    { className: sectionClassName, ref: sectionRef },
     React.createElement(
       "div",
       { className: "company-stats", style: { display: "none" } },

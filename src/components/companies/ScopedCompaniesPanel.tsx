@@ -334,7 +334,13 @@ export function ScopedCompaniesPanel({
   }, [scopeKey, buildScopedFilters, fetchCompanies, primarySectorId, secondarySectorId]);
 
   return (
-    <div className={embedded ? undefined : "min-h-screen"}>
+    <div
+      className={
+        embedded
+          ? "overflow-hidden bg-white rounded-xl border shadow-lg border-slate-200/60 px-5"
+          : "min-h-screen"
+      }
+    >
       <CompanyDashboard
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
@@ -352,6 +358,7 @@ export function ScopedCompaniesPanel({
         scopedPrimarySectorIds={scopedPrimarySectorIds}
         scopedSecondarySectorIds={scopedSecondarySectorIds}
         fixedOwnershipTypeIds={fixedOwnershipTypeIds}
+        embedded={embedded}
       />
       <CompanySection
         companies={companies}
@@ -374,6 +381,7 @@ export function ScopedCompaniesPanel({
         onTogglePageSelection={togglePageSelection}
         onClearSelection={clearSelection}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
+        embedded={embedded}
       />
       <BulkAddToPortfolioModal
         isOpen={showBulkAddModal}
