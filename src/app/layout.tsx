@@ -11,6 +11,7 @@ import { Toaster } from "react-hot-toast";
 import DownloadMessageListener from "@/components/DownloadMessageListener";
 import TitleUpdater from "@/components/TitleUpdater";
 import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
+import ContributorRouteGuard from "@/components/ContributorRouteGuard";
 import TrialRouteGuard from "@/components/TrialRouteGuard";
 import AuthRouteGuard from "@/components/AuthRouteGuard";
 import AuthLoginModal from "@/components/AuthLoginModal";
@@ -141,6 +142,7 @@ export default function RootLayout({
             <ChunkErrorRecovery />
             <TitleUpdater />
             <AuthRouteGuard />
+            <ContributorRouteGuard />
             <TrialRouteGuard />
             <Suspense fallback={null}>
               <RouteTracker />

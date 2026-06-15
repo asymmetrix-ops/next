@@ -6,6 +6,7 @@ import Image from "next/image";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
+import { CONTRIBUTOR_ACCESS_MESSAGE } from "@/lib/userStatus";
 import { trackError, trackLogin } from "@/lib/tracking";
 
 export default function AuthLoginModal() {
@@ -27,7 +28,12 @@ export default function AuthLoginModal() {
       // Modal closes automatically via AuthProvider; page remounts via loginVersion key
     } catch (err) {
       trackError(`Login failed: ${(err as Error)?.message || "unknown"}`);
-      toast.error("Invalid credentials. Please try again.");
+      const message = (err as Error)?.message;
+      toast.error(
+        message === CONTRIBUTOR_ACCESS_MESSAGE
+          ? message
+          : "Invalid credentials. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }

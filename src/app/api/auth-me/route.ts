@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isContributorUser } from "@/lib/userStatus";
 
 export async function GET() {
   try {
@@ -53,7 +54,18 @@ export async function GET() {
       );
     }
 
-    const data = await resp.json();
+    const data = (await resp.json()) as Record<string, unknown>;
+
+    if (isContributorUser(data)) {
+      return NextResponse.json(
+        {
+          error: "Access denied",
+          message: "Contributor accounts cannot access this application",
+        },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json(data, { status: 200 });
   } catch (e) {
     return NextResponse.json(

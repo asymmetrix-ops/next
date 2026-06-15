@@ -1,3 +1,8 @@
+import {
+  CONTRIBUTOR_ACCESS_MESSAGE,
+  isContributorUser,
+} from "@/lib/userStatus";
+
 interface AuthUser {
   id: string;
   email: string;
@@ -110,6 +115,9 @@ class AuthService {
 
       if (userResponse.ok) {
         const userData = await userResponse.json();
+        if (isContributorUser(userData)) {
+          throw new Error(CONTRIBUTOR_ACCESS_MESSAGE);
+        }
         user = userData;
       } else {
         // Fallback user data if /auth/me fails
@@ -124,21 +132,21 @@ class AuthService {
     return { token, user };
   }
 
-  // Fetch current user via /auth/me using stored token
+  // Fetch current user via internal /api/auth-me (enforces contributor block)
   async fetchMe(): Promise<AuthUser | null> {
     const token = this.getToken();
     if (!token) return null;
-    const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
     try {
-      const userResponse = await fetch(`${apiUrl}/auth/me`, {
+      const userResponse = await fetch("/api/auth-me", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          "x-asym-token": token,
         },
+        credentials: "include",
+        cache: "no-store",
       });
+      if (userResponse.status === 403) return null;
       if (!userResponse.ok) return null;
       const userData = (await userResponse.json()) as AuthUser;
       this.setUser(userData);

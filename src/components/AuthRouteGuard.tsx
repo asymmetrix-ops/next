@@ -16,7 +16,7 @@ const PUBLIC_PATHS = [
 ];
 
 export default function AuthRouteGuard() {
-  const { isAuthenticated, loading, setShowLoginModal } = useAuth();
+  const { isAuthenticated, isContributor, loading, setShowLoginModal } = useAuth();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -29,8 +29,8 @@ export default function AuthRouteGuard() {
     // Show the login modal overlay instead of redirecting, so the user stays
     // on the page they came from (e.g. via an email alert link) and can sign
     // in without losing their context.
-    setShowLoginModal(!isPublicPath && !isAuthenticated);
-  }, [pathname, isAuthenticated, loading, setShowLoginModal]);
+    setShowLoginModal(!isPublicPath && !isAuthenticated && !isContributor);
+  }, [pathname, isAuthenticated, isContributor, loading, setShowLoginModal]);
 
   return null;
 }

@@ -15,6 +15,7 @@ import {
   AUTH_PATH_EXCLUSIONS,
   dispatchUnauthorized,
 } from "@/lib/authEvents";
+import { isContributorSession } from "@/lib/userStatus";
 
 interface AuthUser {
   id: string;
@@ -42,6 +43,7 @@ interface AuthContextType {
   showLoginModal: boolean;
   setShowLoginModal: (v: boolean) => void;
   loginVersion: number;
+  isContributor: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginVersion, setLoginVersion] = useState(0);
+  const [isContributor, setIsContributor] = useState(false);
 
   useEffect(() => {
     // Check authentication status on mount
@@ -67,8 +70,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Only check for token, since user data might not be available
         if (token) {
+          const contributor = isContributorSession(token, userData);
+          setIsContributor(contributor);
           setIsAuthenticated(true);
           setUser(userData || { id: "user", email: "user@example.com" });
+
+          if (contributor) {
+            return;
+          }
+
           const t = getTrialInfo(token, userData);
           setTrial(t);
 
@@ -83,11 +93,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser(refreshed);
               const t2 = getTrialInfo(token, refreshed);
               setTrial(t2);
+            } else if (isContributorSession(token, null)) {
+              setIsContributor(true);
             }
           }
         } else {
           setIsAuthenticated(false);
           setUser(null);
+          setIsContributor(false);
           setTrial({
             isTrial: false,
             isTrialActive: false,
@@ -98,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("AuthProvider - Error checking auth:", error);
         setIsAuthenticated(false);
         setUser(null);
+        setIsContributor(false);
         setTrial({
           isTrial: false,
           isTrialActive: false,
@@ -118,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authService.logout();
       setIsAuthenticated(false);
       setUser(null);
+      setIsContributor(false);
       setTrial({ isTrial: false, isTrialActive: false, isTrialExpired: false });
       setShowLoginModal(true);
     };
@@ -176,6 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const response = await authService.login(email, password);
+      setIsContributor(false);
       setIsAuthenticated(true);
       setUser(response.user);
       const token = authService.getToken();
@@ -195,6 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authService.logout();
     setIsAuthenticated(false);
     setUser(null);
+    setIsContributor(false);
     setTrial({ isTrial: false, isTrialActive: false, isTrialExpired: false });
   };
 
@@ -212,6 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     showLoginModal,
     setShowLoginModal,
     loginVersion,
+    isContributor,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

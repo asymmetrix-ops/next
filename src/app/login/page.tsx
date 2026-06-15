@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
+import { CONTRIBUTOR_ACCESS_MESSAGE } from "@/lib/userStatus";
 import { trackError, trackLogin } from "@/lib/tracking";
 import Image from "next/image";
 
@@ -31,7 +32,12 @@ export default function LoginPage() {
       router.push("/home-user");
     } catch (err) {
       trackError(`Login failed: ${(err as Error)?.message || "unknown"}`);
-      toast.error("Login failed. Please check your credentials.");
+      const message = (err as Error)?.message;
+      toast.error(
+        message === CONTRIBUTOR_ACCESS_MESSAGE
+          ? message
+          : "Login failed. Please check your credentials."
+      );
     } finally {
       setIsLoading(false);
     }
