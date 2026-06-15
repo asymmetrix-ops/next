@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CompactPagination from "@/components/ui/CompactPagination";
@@ -1010,8 +1011,18 @@ const CorporateEventsTable = ({
 };
 
 // Main Corporate Events Page Component
-const CorporateEventsPage = () => {
+const parseTargetCompanyId = (value: string | null): number | undefined => {
+  if (!value) return undefined;
+  const id = parseInt(value, 10);
+  return Number.isFinite(id) && id > 0 ? id : undefined;
+};
+
+const CorporateEventsPageContent = () => {
   const { isTrialActive } = useAuth();
+  const searchParams = useSearchParams();
+  const targetCompanyIdFromUrl = parseTargetCompanyId(
+    searchParams.get("target_company_id")
+  );
   // State for filter visibility
   const [showFilters, setShowFilters] = useState(false);
 
@@ -1030,6 +1041,7 @@ const CorporateEventsPage = () => {
     search_query: "",
     Page: 1,
     Per_page: 25,
+    target_company_id: targetCompanyIdFromUrl ?? null,
   });
 
   // State for each filter (arrays for multi-select)
@@ -1107,6 +1119,7 @@ const CorporateEventsPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
+  const hasInitialLoaded = useRef(false);
 
   // Convert API data to dropdown options format
   const countryOptions = countries.map((country) => ({
@@ -1428,6 +1441,13 @@ const CorporateEventsPage = () => {
         params.append("Date_end", filters.Date_end);
       }
 
+      if (filters.target_company_id && filters.target_company_id > 0) {
+        params.append(
+          "target_company_id",
+          filters.target_company_id.toString()
+        );
+      }
+
       // Call our server-side API route instead of the external API directly
       const url = `/api/corporate-events?${params.toString()}`;
 
@@ -1474,14 +1494,34 @@ const CorporateEventsPage = () => {
 
   // Initial data fetch
   useEffect(() => {
+    if (hasInitialLoaded.current) return;
+    hasInitialLoaded.current = true;
+
+    const initialFilters: CorporateEventsFilters = {
+      Countries: [],
+      Provinces: [],
+      Cities: [],
+      primary_sectors_ids: [],
+      Secondary_sectors_ids: [],
+      deal_types: [],
+      Deal_Status: [],
+      Funding_stage: [],
+      Date_start: null,
+      Date_end: null,
+      search_query: "",
+      Page: 1,
+      Per_page: 25,
+      target_company_id: targetCompanyIdFromUrl ?? null,
+    };
+    setFilters(initialFilters);
+
     fetchCountries();
     fetchContinentalRegions();
     fetchSubRegions();
     fetchPrimarySectors();
     fetchFundingStages();
-    // Initial fetch of all corporate events
-    fetchCorporateEvents(filters);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchCorporateEvents(initialFilters);
+  }, [targetCompanyIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch provinces when countries change
   useEffect(() => {
@@ -1561,6 +1601,7 @@ const CorporateEventsPage = () => {
       search_query: "",
       Page: 1,
       Per_page: 25,
+      target_company_id: filters.target_company_id ?? null,
     };
     setFilters(resetFilters);
     fetchCorporateEvents(resetFilters);
@@ -1643,6 +1684,13 @@ const CorporateEventsPage = () => {
 
     if (dateEnd) {
       params.append("Date_end", dateEnd);
+    }
+
+    if (filters.target_company_id && filters.target_company_id > 0) {
+      params.append(
+        "target_company_id",
+        filters.target_company_id.toString()
+      );
     }
 
     return params;
@@ -3017,5 +3065,21 @@ const CorporateEventsPage = () => {
     </div>
   );
 };
+
+const CorporateEventsPage = () => (
+  <Suspense
+    fallback={
+      <div className="min-h-screen">
+        <Header />
+        <div style={{ padding: "40px", textAlign: "center", color: "#666" }}>
+          Loading corporate events...
+        </div>
+        <Footer />
+      </div>
+    }
+  >
+    <CorporateEventsPageContent />
+  </Suspense>
+);
 
 export default CorporateEventsPage;

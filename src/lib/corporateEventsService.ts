@@ -90,6 +90,13 @@ class CorporateEventsService {
       queryParams.append("Date_end", filters.Date_end);
     }
 
+    if (filters.target_company_id && filters.target_company_id > 0) {
+      queryParams.append(
+        "target_company_id",
+        filters.target_company_id.toString()
+      );
+    }
+
     const url = `${BASE_URL}/get_all_corporate_events?${queryParams.toString()}`;
 
     const response = await fetch(url, {

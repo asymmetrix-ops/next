@@ -4559,8 +4559,8 @@ const CompanyDetail = () => {
                       }
                     }}
                     browseAllHref={
-                      company?.name
-                        ? `/corporate-events?search=${encodeURIComponent(company.name)}`
+                      company?.id
+                        ? `/corporate-events?target_company_id=${company.id}`
                         : "/corporate-events"
                     }
                     fillGridCell

@@ -24,6 +24,8 @@ export interface CorporateEventsFilters {
   Page: number;
   Per_page: number;
   Deal_Status: string[];
+  /** Filter events where this company is the target (new_company id). */
+  target_company_id?: number | null;
 }
 
 export interface CorporateEventsStats {
