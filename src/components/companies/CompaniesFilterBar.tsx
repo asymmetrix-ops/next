@@ -243,14 +243,29 @@ function Pop({
       const vw = window.innerWidth;
       if (left + p.width > vw - 8) left = vw - p.width - 8;
       if (left < 8) left = 8;
-      setPos({ top: a.bottom + offset, left });
+      const next = { top: a.bottom + offset, left };
+      setPos((prev) =>
+        prev && prev.top === next.top && prev.left === next.left ? prev : next
+      );
+    }
+    function onScroll(e: Event) {
+      // Inner list scrolling shouldn't reposition — only anchor/page movement.
+      if (ref.current?.contains(e.target as Node)) return;
+      place();
     }
     place();
+    const popEl = ref.current;
+    const ro =
+      typeof ResizeObserver !== "undefined" && popEl
+        ? new ResizeObserver(place)
+        : null;
+    if (ro && popEl) ro.observe(popEl);
     window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
+      ro?.disconnect();
       window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [anchorRef, align, offset]);
 
@@ -838,7 +853,14 @@ function AddFilterPicker({
       </div>
 
       {/* List */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "6px 6px 8px" }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "6px 6px 8px",
+          overscrollBehavior: "contain",
+        }}
+      >
         {categories.map((cat) => {
           const defs = byCat[cat.id];
           if (!defs || defs.length === 0) return null;
@@ -1269,7 +1291,14 @@ function EnumEditor({
           }}
         />
       </div>
-      <div style={{ maxHeight: 240, overflowY: "auto", margin: "0 -4px" }}>
+      <div
+        style={{
+          maxHeight: 240,
+          overflowY: "auto",
+          margin: "0 -4px",
+          overscrollBehavior: "contain",
+        }}
+      >
         {opts.length === 0 && (
           <div
             style={{
