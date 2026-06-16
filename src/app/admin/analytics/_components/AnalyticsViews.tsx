@@ -2578,34 +2578,27 @@ type EAUserEngagement = {
   engagement: EAUserEngagementItem[];
 };
 
-async function fetchUserEmailEngagement(
-  userId: number,
-  token: string
-): Promise<EAUserEngagement> {
-  const res = await fetch(USER_EMAIL_ENGAGEMENT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ user_id: userId }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`${res.status} ${text}`);
-  }
-
-  return res.json() as Promise<EAUserEngagement>;
-}
-
-function EAUserEngagementPanel({ userId }: { userId: number }) {
+function EAUserEngagementPanel({
+  userId,
+  periodLabel,
+  onLoaded,
+  allTimeOpenRate,
+}: {
+  userId: number;
+  periodLabel: string;
+  onLoaded?: (data: EAUserEngagement) => void;
+  allTimeOpenRate?: number;
+}): React.ReactElement | null {
   const [engagement, setEngagement] = useState<EAUserEngagement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const onLoadedRef = useRef(onLoaded);
+  useEffect(() => { onLoadedRef.current = onLoaded; });
 
   useEffect(() => {
     let aborted = false;
+    const controller = new AbortController();
+    setEngagement(null);
 
     async function load() {
       setLoading(true);
@@ -2615,9 +2608,33 @@ function EAUserEngagementPanel({ userId }: { userId: number }) {
           typeof window !== "undefined"
             ? localStorage.getItem("asymmetrix_auth_token")
             : "";
-        const data = await fetchUserEmailEngagement(userId, token ?? "");
-        if (!aborted) setEngagement(data);
+        const data = await fetch(USER_EMAIL_ENGAGEMENT_URL, {
+          method: "POST",
+          cache: "no-store",
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ user_id: userId }),
+        }).then(async (res) => {
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(`${res.status} ${text}`);
+          }
+          return res.json() as Promise<EAUserEngagement>;
+        });
+        if (!aborted) {
+          if (data.user_id !== userId) {
+            throw new Error(
+              `Unexpected user in response (expected ${userId}, got ${data.user_id})`
+            );
+          }
+          setEngagement(data);
+          onLoadedRef.current?.(data);
+        }
       } catch (e) {
+        if ((e as Error)?.name === "AbortError") return;
         if (!aborted) {
           setEngagement(null);
           setError(
@@ -2632,6 +2649,7 @@ function EAUserEngagementPanel({ userId }: { userId: number }) {
     load();
     return () => {
       aborted = true;
+      controller.abort();
     };
   }, [userId]);
 
@@ -2660,14 +2678,32 @@ function EAUserEngagementPanel({ userId }: { userId: number }) {
   }
 
   const activeSubscriptions = engagement.subscriptions.filter((s) => s.is_active);
+  const deliveredRows = engagement.engagement.filter((row) => row.sent > 0);
+  const totalDelivered = deliveredRows.reduce((sum, row) => sum + row.sent, 0);
+  const totalOpened = deliveredRows.reduce((sum, row) => sum + row.opened, 0);
+  const overallOpenRate =
+    totalDelivered > 0 ? Math.round((totalOpened / totalDelivered) * 100) : 0;
 
   return (
     <div className="px-4 py-3 bg-gray-50 space-y-4 border-t border-gray-100">
+<p className="text-xs text-gray-500 leading-relaxed">
+  <span className="font-medium text-gray-700">Open rate in the row</span> is
+  calculated from all tracked messages (all time).{" "}
+  <span className="font-medium text-gray-700">Emails delivered below</span> shows
+  only tagged messages Postmark tracked in{" "}
+  <span className="font-medium text-gray-700">{periodLabel.toLowerCase()}</span>
+  — untagged sends or sends outside this window won&apos;t appear here.
+</p>
+
       {engagement.subscriptions.length > 0 && (
         <div>
-          <h4 className="text-xs font-medium text-gray-600 mb-2">
-            Subscriptions ({activeSubscriptions.length} active)
+          <h4 className="text-xs font-medium text-gray-700 mb-1">
+            Alert settings
           </h4>
+          <p className="text-xs text-gray-400 mb-2">
+            {activeSubscriptions.length} active · {engagement.subscriptions.length}{" "}
+            total configured
+          </p>
           <div className="overflow-x-auto rounded border bg-white">
             <table className="w-full text-xs border-collapse">
               <thead>
@@ -2693,9 +2729,7 @@ function EAUserEngagementPanel({ userId }: { userId: number }) {
                       className="border-b border-gray-100 last:border-0"
                     >
                       <td className="px-3 py-2">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${cls}`}
-                        >
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${cls}`}>
                           {label}
                         </span>
                       </td>
@@ -2714,14 +2748,10 @@ function EAUserEngagementPanel({ userId }: { userId: number }) {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
-                        {sub.last_sent_at_utc
-                          ? formatTimestamp(sub.last_sent_at_utc)
-                          : "—"}
+                        {sub.last_sent_at_utc ? formatTimestamp(sub.last_sent_at_utc) : "—"}
                       </td>
                       <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
-                        {sub.next_run_at_utc
-                          ? formatTimestamp(sub.next_run_at_utc)
-                          : "—"}
+                        {sub.next_run_at_utc ? formatTimestamp(sub.next_run_at_utc) : "—"}
                       </td>
                     </tr>
                   );
@@ -2733,46 +2763,58 @@ function EAUserEngagementPanel({ userId }: { userId: number }) {
       )}
 
       <div>
-        <h4 className="text-xs font-medium text-gray-600 mb-2">
-          Engagement by alert type
+        <h4 className="text-xs font-medium text-gray-700 mb-1">
+          Emails delivered · {periodLabel.toLowerCase()}
         </h4>
-        <div className="overflow-x-auto rounded border bg-white">
-          <table className="w-full text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-gray-200">
-                {[
-                  "Tag",
-                  "Type",
-                  "Frequency",
-                  "Sent",
-                  "Opened",
-                  "Clicked",
-                  "Open rate",
-                  "Click rate",
-                  "Last opened",
-                  "Status",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="text-left font-normal text-gray-500 px-3 py-2"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {engagement.engagement.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={10}
-                    className="px-3 py-4 text-center text-gray-400"
-                  >
-                    No engagement records.
-                  </td>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+  <div className="rounded border bg-white px-3 py-2">
+    <div className="text-xs text-gray-500">Delivered</div>
+    <div className="text-lg font-medium text-gray-900">{totalDelivered}</div>
+    <div className="text-xs text-gray-400 mt-0.5">{periodLabel.toLowerCase()}</div>
+  </div>
+  <div className="rounded border bg-white px-3 py-2">
+    <div className="text-xs text-gray-500">Opened</div>
+    <div className="text-lg font-medium text-green-700">{totalOpened}</div>
+    <div className="text-xs text-gray-400 mt-0.5">{periodLabel.toLowerCase()}</div>
+  </div>
+  <div className="rounded border bg-white px-3 py-2">
+    <div className="text-xs text-gray-500">Open rate</div>
+    <div className={`text-lg font-medium ${overallOpenRate > 0 ? "text-green-700" : "text-gray-400"}`}>
+      {overallOpenRate}%
+    </div>
+    <div className="text-xs text-gray-400 mt-0.5">
+  {allTimeOpenRate != null ? `${allTimeOpenRate}% all time` : ""}
+</div>
+  </div>
+</div>
+
+        {deliveredRows.length === 0 ? (
+          <p className="text-xs text-gray-400 rounded border bg-white px-3 py-4 text-center">
+            No emails delivered in this period.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded border bg-white">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  {[
+                    "Email type",
+                    "Frequency",
+                    "Emails delivered",
+                    "Opened",
+                    "Clicked",
+                    "Open rate",
+                    "Last opened",
+                    "Status",
+                  ].map((h) => (
+                    <th key={h} className="text-left font-normal text-gray-500 px-3 py-2">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                engagement.engagement.map((row) => {
+              </thead>
+              <tbody>
+                {deliveredRows.map((row) => {
                   const { label, cls } = eaAlertLabel(row.item_type);
                   return (
                     <tr
@@ -2781,51 +2823,27 @@ function EAUserEngagementPanel({ userId }: { userId: number }) {
                         row.never_opened && row.sent > 0 ? "bg-amber-50/50" : ""
                       }`}
                     >
-                      <td className="px-3 py-2 font-mono text-gray-600">
-                        {row.tag}
-                      </td>
                       <td className="px-3 py-2">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${cls}`}
-                        >
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${cls}`}>
                           {label}
                         </span>
                       </td>
                       <td className="px-3 py-2 capitalize text-gray-600">
                         {row.frequency}
                       </td>
-                      <td className="px-3 py-2">{row.sent}</td>
+                      <td className="px-3 py-2 font-medium text-gray-900">{row.sent}</td>
                       <td className="px-3 py-2 text-green-700">{row.opened}</td>
                       <td className="px-3 py-2 text-blue-700">{row.clicked}</td>
                       <td className="px-3 py-2">
-                        <span
-                          className={
-                            row.open_rate > 0
-                              ? "text-green-700 font-medium"
-                              : "text-gray-400"
-                          }
-                        >
+                        <span className={row.open_rate > 0 ? "text-green-700 font-medium" : "text-gray-400"}>
                           {row.open_rate}%
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span
-                          className={
-                            row.click_rate > 0
-                              ? "text-blue-700 font-medium"
-                              : "text-gray-400"
-                          }
-                        >
-                          {row.click_rate}%
                         </span>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-gray-600">
                         {row.last_opened ? eaFmtDate(row.last_opened) : "—"}
                       </td>
                       <td className="px-3 py-2">
-                        {row.sent === 0 ? (
-                          <span className="text-gray-400">No sends</span>
-                        ) : row.never_opened ? (
+                        {row.never_opened ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded font-medium bg-amber-50 text-amber-700">
                             Never opened
                           </span>
@@ -2837,17 +2855,17 @@ function EAUserEngagementPanel({ userId }: { userId: number }) {
                       </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function EAUserRow({ user }: { user: EAUser }) {
+function EAUserRow({ user, periodLabel }: { user: EAUser; periodLabel: string }) {
   const [expanded, setExpanded] = useState(false);
   const stale = eaDaysSince(user.lastOpened) > 7;
 
@@ -2878,21 +2896,17 @@ function EAUserRow({ user }: { user: EAUser }) {
           </div>
         </td>
         <td className="px-3 py-2.5 text-xs text-gray-500">
-          {user.byAlertType.length} alert{user.byAlertType.length !== 1 ? "s" : ""}
-        </td>
+  {user.alertTypes.length > 0 ? user.alertTypes.map((t) => eaAlertLabel(t).label).join(", ") : "—"}
+</td>
         <td className={`px-3 py-2.5 text-xs whitespace-nowrap ${stale ? "text-red-600" : "text-gray-700"}`}>
           {eaFmtDate(user.lastOpened)}
         </td>
         <td className="px-3 py-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{user.openRate}%</span>
-            {user.sentCount > 0 && (
-              <span className="text-xs text-gray-400">
-                {user.openedCount}/{user.sentCount}
-              </span>
-            )}
-          </div>
-        </td>
+  <div className="flex items-center gap-2">
+    <span className="text-sm font-medium">{user.openRate}%</span>
+    <span className="text-xs text-gray-400">all time</span>
+  </div>
+</td>
         <td className="px-3 py-2.5">
           <div className="flex gap-0.5 flex-nowrap overflow-hidden" style={{ maxWidth: 340 }}>
             {user.heatmap.map((cell) => (
@@ -2909,7 +2923,7 @@ function EAUserRow({ user }: { user: EAUser }) {
       {expanded && (
         <tr className="border-b border-gray-200">
           <td colSpan={6} className="p-0">
-            <EAUserEngagementPanel userId={user.userId} />
+          <EAUserEngagementPanel userId={user.userId} periodLabel={periodLabel} />
           </td>
         </tr>
       )}
@@ -3672,6 +3686,18 @@ export function EmailAnalyticsTab() {
   const [auditDate, setAuditDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+  type EAUserSortCol = "openRate" | "sentCount" | "lastOpened" | "name" | "activeAlerts";
+  const [userSortCol, setUserSortCol] = useState<EAUserSortCol>("openRate");
+  const [userSortDir, setUserSortDir] = useState<SortDirection>("desc");
+
+  function onUserSort(col: EAUserSortCol) {
+    if (userSortCol === col) {
+      setUserSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setUserSortCol(col);
+      setUserSortDir(col === "name" ? "asc" : "desc");
+    }
+  }
 
   useEffect(() => {
     let aborted = false;
@@ -3737,19 +3763,32 @@ export function EmailAnalyticsTab() {
 
   const filteredUsers = useMemo(() => {
     if (!data) return [];
+    let base: EAUser[];
     switch (tab) {
       case "stale":
-        return data.users.filter(
-          (u) => eaDaysSince(u.lastOpened) > 7 && u.sentCount > 0
-        );
+        base = data.users.filter((u) => eaDaysSince(u.lastOpened) > 7 && u.sentCount > 0);
+        break;
       case "bounced":
-        return data.users.filter((u) => u.bouncedCount > 0);
+        base = data.users.filter((u) => u.bouncedCount > 0);
+        break;
       case "inactive":
-        return data.users.filter((u) => u.activeAlerts === 0);
+        base = data.users.filter((u) => u.activeAlerts === 0);
+        break;
       default:
-        return data.users;
+        base = data.users;
     }
-  }, [data, tab]);
+    return base.slice().sort((a, b) => {
+      const mul = userSortDir === "asc" ? 1 : -1;
+      switch (userSortCol) {
+        case "openRate":    return (a.openRate - b.openRate) * mul;
+        case "sentCount":   return (a.sentCount - b.sentCount) * mul;
+        case "lastOpened":  return compareValues(a.lastOpened, b.lastOpened, userSortDir);
+        case "activeAlerts":return (a.activeAlerts - b.activeAlerts) * mul;
+        case "name":        return a.name.localeCompare(b.name) * mul;
+        default:            return 0;
+      }
+    });
+  }, [data, tab, userSortCol, userSortDir]);
 
   const tabCounts = useMemo(() => {
     if (!data) return { all: 0, stale: 0, bounced: 0, inactive: 0 };
@@ -4045,6 +4084,31 @@ export function EmailAnalyticsTab() {
           </div>
         </div>
 
+        {/* Badge legend */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs text-gray-600">
+          <span className="font-medium text-gray-500 mr-1">Status:</span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+            <b>Active</b> — received email, opened within 7 days
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-amber-400" />
+            <b>Stale</b> — received email, last opened 7+ days ago
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-amber-400" />
+            <b>No opens</b> — received email but never opened any
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
+            <b>Bounced</b> — at least one hard bounce, needs action
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-gray-400" />
+            <b>Inactive</b> — no active email subscriptions
+          </span>
+        </div>
+
         {/* Sub-tabs */}
         <div className="flex border-b border-gray-200 px-4">
           {tabs.map(([t, label]) => (
@@ -4076,19 +4140,33 @@ export function EmailAnalyticsTab() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200">
-                  {[
-                    "User",
-                    "Alerts",
-                    "Last opened",
-                    "Open rate",
-                    `Last ${days} days`,
-                    "Status",
-                  ].map((h) => (
+                  {(
+                    [
+                      ["name",         "User",              true],
+                      ["activeAlerts", "Subscriptions",     true],
+                      ["lastOpened",   "Last opened",       true],
+                      ["openRate",     "Open rate",         true],
+                      [null,           `Last ${days} days`, false],
+                      [null,           "Status",            false],
+                    ] as [EAUserSortCol | null, string, boolean][]
+                  ).map(([col, label, sortable]) => (
                     <th
-                      key={h}
+                      key={label}
                       className="text-left font-normal text-xs text-gray-500 px-3 py-2"
                     >
-                      {h}
+                      {sortable && col ? (
+                        <button
+                          onClick={() => onUserSort(col)}
+                          className="inline-flex items-center gap-1 hover:text-gray-900"
+                        >
+                          {label}
+                          {userSortCol === col && (
+                            <span>{userSortDir === "asc" ? "▲" : "▼"}</span>
+                          )}
+                        </button>
+                      ) : (
+                        label
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -4105,7 +4183,7 @@ export function EmailAnalyticsTab() {
                   </tr>
                 ) : (
                   filteredUsers.map((u) => (
-                    <EAUserRow key={u.userId} user={u} />
+                    <EAUserRow key={u.userId} user={u} periodLabel={eaPeriodLabel(period)} />
                   ))
                 )}
               </tbody>

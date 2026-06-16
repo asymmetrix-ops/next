@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 const USER_EMAIL_ENGAGEMENT_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/get_user_email_engagement";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization") ?? "";
 
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   const res = await fetch(
     `${USER_EMAIL_ENGAGEMENT_URL}?user_id=${encodeURIComponent(String(userId))}`,
-    { method: "GET", headers }
+    { method: "GET", headers, cache: "no-store" }
   );
 
   if (!res.ok) {
