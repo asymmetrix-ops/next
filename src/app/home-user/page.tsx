@@ -159,6 +159,12 @@ function dealRadarStageStyle(
       dot: "#eab308",
     };
   }
+  if (s.includes("hold")) {
+    return {
+      pill: { backgroundColor: "#f3f4f6", color: "#4b5563" },
+      dot: "#9ca3af",
+    };
+  }
   return {
     pill: { backgroundColor: "#dbeafe", color: "#1e40af" },
     dot: "#3b82f6",
