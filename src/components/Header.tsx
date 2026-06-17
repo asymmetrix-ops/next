@@ -34,6 +34,8 @@ const getNavHref = (item: string) => {
       return "/financials";
     case "Financial Metrics":
       return "/financial-metrics";
+    case "Deal Radar":
+      return "/deal-radar";
     case "Settings":
       return "/settings";
     default:
@@ -91,6 +93,8 @@ const isNavItemActive = (pathname: string, item: string, href: string) => {
       return pathname.startsWith("/financials");
     case "Financial Metrics":
       return pathname.startsWith("/financial-metrics");
+    case "Deal Radar":
+      return pathname.startsWith("/deal-radar");
     case "Settings":
       return pathname.startsWith("/settings");
     default:
@@ -124,6 +128,7 @@ const Header = () => {
     "Insights & Analysis",
     "Financials",
     "Financial Metrics",
+    "Deal Radar",
     "My Portfolio",
     "Settings",
   ];
