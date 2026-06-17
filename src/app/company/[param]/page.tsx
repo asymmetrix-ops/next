@@ -964,6 +964,11 @@ const CompanyDetail = () => {
   const [competitorsLoading, setCompetitorsLoading] = useState(false);
   const [showCompetitorsModal, setShowCompetitorsModal] = useState(false);
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
+  const [txProcessStage, setTxProcessStage] = useState<string | null>(null);
+  const [txIntermediaryType, setTxIntermediaryType] = useState<string | null>(null);
+  const [txIntermediaries, setTxIntermediaries] = useState<{ id: number; name: string }[]>([]);
+  const [txBuyerType, setTxBuyerType] = useState<string[]>([]);
+  const [txBidders, setTxBidders] = useState<{ id: number; name: string }[]>([]);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingPdfType, setExportingPdfType] =
     useState<CompanyPdfExportType | null>(null);
@@ -1301,6 +1306,13 @@ const CompanyDetail = () => {
       const label = String(badge.label || "").trim();
       if (!label) return;
       setTransactionStatusLabel(label);
+
+      // New extended fields (present when Xano returns them)
+      if (data?.process_stage != null) setTxProcessStage(String(data.process_stage));
+      if (data?.intermediary_type != null) setTxIntermediaryType(String(data.intermediary_type));
+      if (Array.isArray(data?.intermediaries)) setTxIntermediaries(data.intermediaries);
+      if (Array.isArray(data?.buyer_type)) setTxBuyerType(data.buyer_type.map(String));
+      if (Array.isArray(data?.bidders)) setTxBidders(data.bidders);
     } catch {
       // non-fatal
     }
@@ -2864,6 +2876,132 @@ const CompanyDetail = () => {
                     >
                       {transactionStatusDisplayLabel}
                     </span>
+                  </div>
+                </div>
+              )}
+              {/* Process Stage */}
+              {txProcessStage && (
+                <div style={styles.infoRow} className="info-row">
+                  <span style={styles.label} className="info-label">
+                    Process Stage:
+                  </span>
+                  <div style={styles.value} className="info-value">
+                    <span
+                      style={{
+                        display: "inline-block",
+                        backgroundColor: "#f3e8ff",
+                        color: "#7c3aed",
+                        border: "1px solid #c4b5fd",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        fontWeight: 500,
+                        padding: "3px 8px",
+                      }}
+                    >
+                      {txProcessStage}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {/* Intermediary */}
+              {txIntermediaryType && (
+                <div style={styles.infoRow} className="info-row">
+                  <span style={styles.label} className="info-label">
+                    Intermediary:
+                  </span>
+                  <div style={{ ...styles.value }}>
+                    {txIntermediaryType === "No Intermediary" ? (
+                      <span style={{ color: "#9ca3af", fontSize: "13px", fontStyle: "italic" }}>
+                        No Intermediary
+                      </span>
+                    ) : (
+                      <div>
+                        <span style={{ fontSize: "12px", color: "#6b7280" }}>
+                          {txIntermediaryType}
+                        </span>
+                        {txIntermediaries.length > 0 && (
+                          <div style={{ ...styles.tagContainer, marginTop: "4px" }}>
+                            {txIntermediaries.map((adv) => (
+                              <span
+                                key={adv.id}
+                                style={{
+                                  backgroundColor: "#f1f5f9",
+                                  color: "#334155",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: "4px",
+                                  fontSize: "12px",
+                                  fontWeight: 500,
+                                  padding: "2px 7px",
+                                }}
+                              >
+                                {adv.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* Buyer Type */}
+              {txBuyerType.length > 0 && (
+                <div style={styles.infoRow} className="info-row">
+                  <span style={styles.label} className="info-label">
+                    Buyer Type:
+                  </span>
+                  <div style={{ ...styles.value, ...styles.tagContainer }}>
+                    {txBuyerType.map((bt) => (
+                      <span
+                        key={bt}
+                        style={{
+                          backgroundColor: "#eef2ff",
+                          color: "#4338ca",
+                          border: "1px solid #c7d2fe",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          padding: "2px 7px",
+                        }}
+                      >
+                        {bt}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Bidders */}
+              {txBidders.length > 0 && (
+                <div style={styles.infoRow} className="info-row">
+                  <span style={styles.label} className="info-label">
+                    Bidders:
+                  </span>
+                  <div style={{ ...styles.value, ...styles.tagContainer }}>
+                    {txBidders.map((bidder) => (
+                      <a
+                        key={bidder.id}
+                        href={`/company/${bidder.id}`}
+                        style={{
+                          backgroundColor: "#fff7ed",
+                          color: "#c2410c",
+                          border: "1px solid #fed7aa",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          padding: "2px 7px",
+                          textDecoration: "none",
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#ffedd5";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#fff7ed";
+                        }}
+                      >
+                        {bidder.name}
+                      </a>
+                    ))}
                   </div>
                 </div>
               )}
