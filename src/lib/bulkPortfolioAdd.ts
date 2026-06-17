@@ -17,7 +17,10 @@ export type BulkProgress = {
   failed: number;
 };
 
-const CONCURRENCY = 5;
+// Must be 1: Xano's list-entity endpoint does read-modify-write on the
+// followed_companies array. Concurrent requests race and only the last
+// write survives, so we serialize all additions to the same list.
+const CONCURRENCY = 1;
 
 async function runWithConcurrency<T>(
   items: T[],
