@@ -21,6 +21,8 @@ export type ChangeRequestItem = {
   companies_not_in_db?: unknown;
   /** Whether this change request has been reviewed (admin). */
   reviewed?: boolean;
+  /** Deal detection signals from AI pipeline. */
+  deal_signals?: unknown;
 };
 
 export type ChangeRequestResponse = {
@@ -107,6 +109,158 @@ export function getChangeRequestAiReasoning(item: ChangeRequestItem): unknown {
 export type ChangeRequestCompanyRef = {
   id: number;
   name: string;
+  primary_business_focus_id?: number[];
+};
+
+export type ChangeRequestDealSignal = {
+  detected: boolean;
+  deal_type: string | null;
+  confidence: string | null;
+  summary: string | null;
+};
+
+export type ChangeRequestTriState = "yes" | "maybe" | "no";
+
+export type ChangeRequestReviewStatus = "High" | "Review" | "Skip";
+
+export type ChangeRequestDealTagVariant = "yes" | "maybe" | "no";
+
+export type ChangeRequestDealTag = {
+  label: string;
+  variant: ChangeRequestDealTagVariant;
+};
+
+const DA_PRIMARY_BUSINESS_FOCUS_ID = 75;
+
+function coerceNumberArray(value: unknown): number[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const nums = value
+    .map((x) => {
+      if (typeof x === "number" && Number.isFinite(x)) return x;
+      if (typeof x === "string") {
+        const n = parseInt(x, 10);
+        return Number.isFinite(n) ? n : NaN;
+      }
+      return NaN;
+    })
+    .filter((n) => Number.isFinite(n));
+  return nums.length ? nums : undefined;
+}
+
+function coerceDealSignalsArray(value: unknown): unknown[] | null {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    const t = value.trim();
+    if (!t) return null;
+    try {
+      const parsed = JSON.parse(t) as unknown;
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function coerceDealSignalEntry(value: unknown): ChangeRequestDealSignal | null {
+  if (!value || typeof value !== "object") return null;
+  const o = value as Record<string, unknown>;
+  const detected = o.detected === true;
+  const deal_type =
+    typeof o.deal_type === "string" ? o.deal_type.trim() || null : null;
+  const confidence =
+    typeof o.confidence === "string" ? o.confidence.trim() || null : null;
+  const summary =
+    typeof o.summary === "string" ? o.summary.trim() || null : null;
+  return { detected, deal_type, confidence, summary };
+}
+
+export function getChangeRequestDealSignals(
+  item: ChangeRequestItem
+): ChangeRequestDealSignal[] {
+  const candidates: unknown[] = [];
+  if (item.deal_signals != null) candidates.push(item.deal_signals);
+  const d = item.data;
+  if (d && typeof d === "object" && "deal_signals" in d) {
+    candidates.push((d as Record<string, unknown>).deal_signals);
+  }
+
+  for (const raw of candidates) {
+    const arr = coerceDealSignalsArray(raw);
+    if (!arr?.length) continue;
+    const mapped = arr
+      .map(coerceDealSignalEntry)
+      .filter((x): x is ChangeRequestDealSignal => Boolean(x));
+    if (mapped.length) return mapped;
+  }
+
+  return [];
+}
+
+export function getChangeRequestDealLevel(
+  item: ChangeRequestItem
+): ChangeRequestTriState {
+  const signals = getChangeRequestDealSignals(item);
+  const first = signals[0];
+  if (!first || first.detected !== true) return "no";
+  const conf = (first.confidence ?? "").toLowerCase();
+  if (conf === "low") return "maybe";
+  return "yes";
+}
+
+export function getChangeRequestDaLevel(
+  item: ChangeRequestItem,
+  companies?: ChangeRequestCompanyRef[]
+): ChangeRequestTriState {
+  const matched = companies ?? getChangeRequestCompanies(item);
+  if (
+    matched.some((c) =>
+      c.primary_business_focus_id?.includes(DA_PRIMARY_BUSINESS_FOCUS_ID)
+    )
+  ) {
+    return "yes";
+  }
+  const notInDb = getChangeRequestCompaniesNotInDb(item);
+  if (notInDb.some((c) => c.verdict === "da")) return "yes";
+  if (notInDb.some((c) => c.verdict === "maybe_da")) return "maybe";
+  return "no";
+}
+
+/** da=yes + deal=yes → High; da=no + deal=no → Skip; otherwise Review. */
+export function applyChangeRequestStatusMatrix(
+  da: ChangeRequestTriState,
+  deal: ChangeRequestTriState
+): ChangeRequestReviewStatus {
+  if (da === "yes" && deal === "yes") return "High";
+  if (da === "no" && deal === "no") return "Skip";
+  return "Review";
+}
+
+export function getChangeRequestReviewStatus(
+  item: ChangeRequestItem
+): ChangeRequestReviewStatus {
+  return applyChangeRequestStatusMatrix(
+    getChangeRequestDaLevel(item),
+    getChangeRequestDealLevel(item)
+  );
+}
+
+export function getChangeRequestDealTag(
+  item: ChangeRequestItem
+): ChangeRequestDealTag {
+  const level = getChangeRequestDealLevel(item);
+  if (level === "yes") return { label: "Deal: Yes", variant: "yes" };
+  if (level === "maybe") return { label: "Deal: Maybe", variant: "maybe" };
+  return { label: "Deal: No", variant: "no" };
+}
+
+export const CHANGE_REQUEST_REVIEW_STATUS_ORDER: Record<
+  ChangeRequestReviewStatus,
+  number
+> = {
+  High: 0,
+  Review: 1,
+  Skip: 2,
 };
 
 function coerceCompaniesArray(value: unknown): unknown[] | null {
@@ -153,7 +307,16 @@ export function getChangeRequestCompanies(
               : NaN;
         const name = typeof nameRaw === "string" ? nameRaw.trim() : "";
         if (!Number.isFinite(idNum) || idNum <= 0 || !name) return null;
-        return { id: idNum, name } satisfies ChangeRequestCompanyRef;
+        const focusRaw =
+          o.primary_business_focus_id ?? o.Primary_Business_Focus_Id;
+        const primary_business_focus_id = coerceNumberArray(focusRaw);
+        return {
+          id: idNum,
+          name,
+          ...(primary_business_focus_id
+            ? { primary_business_focus_id }
+            : {}),
+        } satisfies ChangeRequestCompanyRef;
       })
       .filter((x): x is ChangeRequestCompanyRef => Boolean(x));
     if (mapped.length) return mapped;

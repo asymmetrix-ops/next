@@ -13,15 +13,20 @@ import React, {
 import {
   type ChangeRequestCompanyNotInDb,
   type ChangeRequestCompanyRef,
+  type ChangeRequestDealTag,
   type ChangeRequestItem,
   type ChangeRequestResponse,
+  type ChangeRequestReviewStatus,
+  CHANGE_REQUEST_REVIEW_STATUS_ORDER,
   formatAiReasoningCard,
   formatCompanyNotInDbVerdict,
   getChangeRequestCompanies,
   getChangeRequestCompaniesNotInDb,
   getChangeRequestAiReasoning,
   getChangeRequestBucket,
+  getChangeRequestDealTag,
   getChangeRequestDiffText,
+  getChangeRequestReviewStatus,
   getCompanyNotInDbDisplayName,
   parseChangeMessageMeta,
   splitCreatedForDisplay,
@@ -46,6 +51,44 @@ function getTagColor(tag: string) {
       : tag.toLowerCase().includes("skip")
         ? "bg-orange-50 text-orange-800 border-orange-200"
         : "bg-gray-100 text-gray-600 border-gray-200")
+  );
+}
+
+const REVIEW_STATUS_TAG_STYLES: Record<
+  ChangeRequestReviewStatus,
+  string
+> = {
+  High: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  Review: "border-amber-200 bg-amber-50 text-amber-800",
+  Skip: "border-slate-200 bg-slate-100 text-slate-600",
+};
+
+const DEAL_TAG_STYLES: Record<
+  ChangeRequestDealTag["variant"],
+  string
+> = {
+  yes: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  maybe: "border-amber-200 bg-amber-50 text-amber-800",
+  no: "border-slate-200 bg-slate-100 text-slate-500",
+};
+
+function ReviewStatusTag({ status }: { status: ChangeRequestReviewStatus }) {
+  return (
+    <span
+      className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${REVIEW_STATUS_TAG_STYLES[status]}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function DealTag({ tag }: { tag: ChangeRequestDealTag }) {
+  return (
+    <span
+      className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DEAL_TAG_STYLES[tag.variant]}`}
+    >
+      {tag.label}
+    </span>
   );
 }
 
@@ -174,9 +217,11 @@ function ExpandCountButton({
 function ChangeRequestCompaniesCell({
   companies,
   companiesNotInDb,
+  dealTag,
 }: {
   companies: ChangeRequestCompanyRef[];
   companiesNotInDb: ChangeRequestCompanyNotInDb[];
+  dealTag: ChangeRequestDealTag;
 }) {
   const [showAllInDb, setShowAllInDb] = useState(false);
   const [showAllNotInDb, setShowAllNotInDb] = useState(false);
@@ -201,11 +246,17 @@ function ChangeRequestCompaniesCell({
     : 0;
 
   if (companies.length === 0 && companiesNotInDb.length === 0) {
-    return <span className="text-xs text-gray-300">—</span>;
+    return (
+      <div className="flex h-full min-h-full flex-col gap-2">
+        <DealTag tag={dealTag} />
+        <span className="text-xs text-gray-300">—</span>
+      </div>
+    );
   }
 
   return (
     <div className="flex h-full min-h-full flex-col gap-2">
+      <DealTag tag={dealTag} />
       {companies.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {visibleInDb.map((c) => (
@@ -310,6 +361,25 @@ const CHANGE_STATE_TAB_LABELS: Record<ChangeStateTabId, string> = {
   all: "All",
 };
 
+const STATUS_FILTERS = ["all", "High", "Review", "Skip"] as const;
+type StatusFilterId = (typeof STATUS_FILTERS)[number];
+
+const STATUS_FILTER_LABELS: Record<StatusFilterId, string> = {
+  all: "All",
+  High: "High",
+  Review: "Review",
+  Skip: "Skip",
+};
+
+const STATUS_FILTER_ACTIVE_STYLES: Record<
+  Exclude<StatusFilterId, "all">,
+  string
+> = {
+  High: "border-emerald-300 bg-emerald-600 text-white shadow-sm",
+  Review: "border-amber-300 bg-amber-500 text-white shadow-sm",
+  Skip: "border-slate-300 bg-slate-500 text-white shadow-sm",
+};
+
 const CHANGE_REQUEST_PER_PAGE = 50;
 
 export function ChangeStateTab() {
@@ -324,13 +394,34 @@ export function ChangeStateTab() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<ChangeStateTabId>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilterId>("all");
+  const [statusSortDir, setStatusSortDir] = useState<"asc" | "desc">("asc");
   /** Gmail-style row selection (current page only; cleared on tab/page change). */
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSelectedRowIds([]);
-  }, [page, activeTab]);
+  }, [page, activeTab, statusFilter]);
+
+  const displayItems = useMemo(() => {
+    let list = [...items];
+    if (statusFilter !== "all") {
+      list = list.filter(
+        (item) => getChangeRequestReviewStatus(item) === statusFilter
+      );
+    }
+    list.sort((a, b) => {
+      const cmp =
+        CHANGE_REQUEST_REVIEW_STATUS_ORDER[getChangeRequestReviewStatus(a)] -
+        CHANGE_REQUEST_REVIEW_STATUS_ORDER[getChangeRequestReviewStatus(b)];
+      if (cmp !== 0) {
+        return statusSortDir === "asc" ? cmp : -cmp;
+      }
+      return b.id - a.id;
+    });
+    return list;
+  }, [items, statusFilter, statusSortDir]);
 
   const loadItems = useCallback(async (pageNum: number, tab: ChangeStateTabId) => {
     setLoading(true);
@@ -486,6 +577,16 @@ export function ChangeStateTab() {
     setPage(1);
   }
 
+  function selectStatusFilter(next: StatusFilterId) {
+    if (next === statusFilter) return;
+    setStatusFilter(next);
+    setPage(1);
+  }
+
+  function toggleStatusSort() {
+    setStatusSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+  }
+
   function isRowSelected(id: number): boolean {
     return selectedRowIds.includes(id);
   }
@@ -497,12 +598,12 @@ export function ChangeStateTab() {
   }
 
   const selectedOnPageCount = useMemo(
-    () => items.filter((i) => selectedRowIds.includes(i.id)).length,
-    [items, selectedRowIds]
+    () => displayItems.filter((i) => selectedRowIds.includes(i.id)).length,
+    [displayItems, selectedRowIds]
   );
 
   const allOnPageSelected =
-    items.length > 0 && selectedOnPageCount === items.length;
+    displayItems.length > 0 && selectedOnPageCount === displayItems.length;
   const someOnPageSelected =
     selectedOnPageCount > 0 && !allOnPageSelected;
 
@@ -512,11 +613,11 @@ export function ChangeStateTab() {
   }, [someOnPageSelected, allOnPageSelected]);
 
   function toggleSelectAllOnPage() {
-    if (items.length === 0) return;
+    if (displayItems.length === 0) return;
     if (allOnPageSelected) {
       setSelectedRowIds([]);
     } else {
-      setSelectedRowIds(items.map((i) => i.id));
+      setSelectedRowIds(displayItems.map((i) => i.id));
     }
   }
 
@@ -687,27 +788,58 @@ export function ChangeStateTab() {
       </div>
 
       <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/50 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div
-          className="flex gap-0.5 rounded-lg border border-gray-200 bg-white p-1"
-          role="tablist"
-          aria-label="Change state tabs"
-        >
-          {CHANGE_STATE_TABS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === t}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                activeTab === t
-                  ? "bg-gray-900 text-white shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-              onClick={() => selectTab(t)}
-            >
-              {CHANGE_STATE_TAB_LABELS[t]}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="flex gap-0.5 rounded-lg border border-gray-200 bg-white p-1"
+            role="tablist"
+            aria-label="Change state tabs"
+          >
+            {CHANGE_STATE_TABS.map((t) => (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === t}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                  activeTab === t
+                    ? "bg-gray-900 text-white shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+                onClick={() => selectTab(t)}
+              >
+                {CHANGE_STATE_TAB_LABELS[t]}
+              </button>
+            ))}
+          </div>
+          <span className="hidden h-6 w-px bg-gray-200 sm:inline-block" aria-hidden />
+          <div
+            className="flex gap-0.5 rounded-lg border border-gray-200 bg-white p-1"
+            role="group"
+            aria-label="Status filter"
+          >
+            {STATUS_FILTERS.map((status) => {
+              const isActive = statusFilter === status;
+              const activeStyle =
+                status !== "all"
+                  ? STATUS_FILTER_ACTIVE_STYLES[status]
+                  : "bg-gray-900 text-white shadow-sm";
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  aria-pressed={isActive}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                    isActive
+                      ? activeStyle
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                  onClick={() => selectStatusFilter(status)}
+                >
+                  {STATUS_FILTER_LABELS[status]}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
           <button
@@ -794,23 +926,35 @@ export function ChangeStateTab() {
         </div>
       )}
 
-      {meta && items.length > 0 ? renderPagination("top") : null}
+      {!loading && items.length > 0 && displayItems.length === 0 && !error && (
+        <div className="py-14 text-center">
+          <p className="text-sm font-medium text-gray-600">
+            No rows match this status filter
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            Try another status or bucket tab.
+          </p>
+        </div>
+      )}
 
-      {items.length > 0 && (
+      {meta && displayItems.length > 0 ? renderPagination("top") : null}
+
+      {displayItems.length > 0 && (
         <div
           className={`w-full overflow-x-auto ${loading ? "opacity-60" : ""}`}
         >
-          <table className="w-full min-w-[960px] table-fixed border-collapse text-left">
+          <table className="w-full min-w-[1020px] table-fixed border-collapse text-left">
             <colgroup>
+              <col style={{ width: "2.6%" }} />
               <col style={{ width: "2.8%" }} />
-              <col style={{ width: "3%" }} />
-              <col style={{ width: "3.2%" }} />
-              <col style={{ width: "6%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "17%" }} />
-              <col style={{ width: "32.5%" }} />
-              <col style={{ width: "16%" }} />
-              <col style={{ width: "8.5%" }} />
+              <col style={{ width: "2.8%" }} />
+              <col style={{ width: "5.5%" }} />
+              <col style={{ width: "5.5%" }} />
+              <col style={{ width: "10.5%" }} />
+              <col style={{ width: "16.5%" }} />
+              <col style={{ width: "31%" }} />
+              <col style={{ width: "15.5%" }} />
+              <col style={{ width: "7.8%" }} />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
@@ -821,20 +965,23 @@ export function ChangeStateTab() {
                     className="h-4 w-4 cursor-pointer rounded border-gray-300 text-slate-800 focus:ring-slate-500"
                     checked={allOnPageSelected}
                     onChange={toggleSelectAllOnPage}
-                    disabled={items.length === 0 || loading}
+                    disabled={displayItems.length === 0 || loading}
                     aria-label="Select all rows on this page"
                   />
                 </th>
-                {[
-                  "ID",
-                  "Read",
-                  "Created",
-                  "AI Reasoning",
-                  "Companies",
-                  "Added",
-                  "Watch URL",
-                  "Bucket",
-                ].map((col) => (
+                {(
+                  [
+                    { key: "ID", sortable: false },
+                    { key: "Read", sortable: false },
+                    { key: "Status", sortable: true },
+                    { key: "Created", sortable: false },
+                    { key: "AI Reasoning", sortable: false },
+                    { key: "Companies", sortable: false },
+                    { key: "Added", sortable: false },
+                    { key: "Watch URL", sortable: false },
+                    { key: "Bucket", sortable: false },
+                  ] as const
+                ).map(({ key: col, sortable }) => (
                   <th
                     key={col}
                     className={`py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 ${
@@ -847,13 +994,27 @@ export function ChangeStateTab() {
                           : "px-3 sm:px-4"
                     }`}
                   >
-                    {col}
+                    {sortable ? (
+                      <button
+                        type="button"
+                        onClick={toggleStatusSort}
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 transition hover:text-gray-700"
+                        aria-label={`Sort by status ${statusSortDir === "asc" ? "descending" : "ascending"}`}
+                      >
+                        {col}
+                        <span className="text-[9px] text-gray-500" aria-hidden>
+                          {statusSortDir === "asc" ? "↑" : "↓"}
+                        </span>
+                      </button>
+                    ) : (
+                      col
+                    )}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {items.map((item, i) => {
+              {displayItems.map((item, i) => {
                 const m = parseChangeMessageMeta(item);
                 const created = splitCreatedForDisplay(item, m);
                 const reasoning = formatAiReasoningCard(
@@ -865,6 +1026,8 @@ export function ChangeStateTab() {
                 const companiesNotInDb =
                   getChangeRequestCompaniesNotInDb(item);
                 const bucketLabel = getChangeRequestBucket(item);
+                const reviewStatus = getChangeRequestReviewStatus(item);
+                const dealTag = getChangeRequestDealTag(item);
 
                 return (
                   <tr
@@ -905,6 +1068,11 @@ export function ChangeStateTab() {
                             aria-hidden
                           />
                         )}
+                      </div>
+                    </td>
+                    <td className="h-full align-top px-3 py-4 sm:px-4">
+                      <div className="flex h-full min-h-full flex-col items-start justify-start">
+                        <ReviewStatusTag status={reviewStatus} />
                       </div>
                     </td>
                     <td className="h-full align-top px-3 py-4 sm:px-4">
@@ -953,6 +1121,7 @@ export function ChangeStateTab() {
                       <ChangeRequestCompaniesCell
                         companies={companies}
                         companiesNotInDb={companiesNotInDb}
+                        dealTag={dealTag}
                       />
                     </td>
                     <td className="h-full min-w-0 align-top px-3 py-4 sm:px-4">
