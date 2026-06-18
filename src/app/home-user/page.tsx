@@ -8,6 +8,7 @@ import {
   useRef,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
@@ -195,6 +196,188 @@ function transactionStatusPillStyle(status: string): CSSProperties {
     border: `1.5px solid ${dot}`,
     ...pill,
   };
+}
+
+const DEAL_STAGE_DEFINITIONS = [
+  {
+    label: "Reported in Market",
+    description:
+      "Substantiated by credible media outlets or company press releases that a sale process is actively underway.",
+    styleKey: "reported",
+  },
+  {
+    label: "Rumored in Market",
+    description:
+      "Based on proprietary intelligence obtained by Asymmetrix suggesting the asset is in market and a sale process has begun or will commence imminently.",
+    styleKey: "rumored",
+  },
+  {
+    label: "Anticipated within 18 months",
+    description:
+      "Asymmetrix assessment that a transaction is expected in the near- to medium-term based on factors such as sponsor fund lifecycle, ownership hold period, increase in transaction activity in company's sector or market chatter.",
+    styleKey: "anticipated",
+  },
+  {
+    label: "Process on Hold",
+    description:
+      "A sale process was launched but has been paused or failed. The transaction may resume later but is not actively progressing at present.",
+    styleKey: "hold",
+  },
+] as const;
+
+function DealStageInfoTooltip() {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({});
+
+  const updatePosition = useCallback(() => {
+    const anchor = anchorRef.current;
+    const popover = popoverRef.current;
+    if (!anchor) return;
+
+    const rect = anchor.getBoundingClientRect();
+    const padding = 16;
+    const gap = 10;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const popoverW = popover?.offsetWidth ?? 360;
+    const popoverH = popover?.offsetHeight ?? 420;
+    const spaceRight = viewportW - rect.right - padding;
+    const spaceLeft = rect.left - padding;
+    const showLeft = spaceRight < popoverW + gap && spaceLeft > spaceRight;
+
+    let left = showLeft ? rect.left - gap - popoverW : rect.right + gap;
+    left = Math.max(padding, Math.min(left, viewportW - popoverW - padding));
+
+    // Anchor below the icon so it clears the table header.
+    let top = rect.bottom + gap + 6;
+    if (top + popoverH > viewportH - padding) {
+      top = Math.max(padding, viewportH - popoverH - padding);
+    }
+
+    setPopoverStyle({ left, top });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    const frame = requestAnimationFrame(() => {
+      updatePosition();
+      requestAnimationFrame(updatePosition);
+    });
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const anchor = anchorRef.current;
+      const popover = popoverRef.current;
+      if (!(e.target instanceof Node)) return;
+      if (anchor?.contains(e.target)) return;
+      if (popover?.contains(e.target)) return;
+      setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const show = () => {
+    updatePosition();
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        aria-label="Deal stage definitions"
+        aria-expanded={open}
+        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+        onMouseEnter={show}
+        onMouseLeave={() => setOpen(false)}
+        onClick={() => {
+          updatePosition();
+          setOpen((prev) => !prev);
+        }}
+      >
+        <svg
+          className="w-3.5 h-3.5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 16v-4" />
+          <path d="M12 8h.01" />
+        </svg>
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            role="tooltip"
+            className="fixed z-[9999] w-[min(22.5rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white shadow-xl"
+            style={popoverStyle}
+            onMouseEnter={show}
+            onMouseLeave={() => setOpen(false)}
+          >
+            <div className="border-b border-gray-100 px-4 py-3">
+              <div className="text-sm font-semibold text-gray-900">Deal stage</div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="space-y-4">
+                {DEAL_STAGE_DEFINITIONS.map((item, index) => {
+                  const stageStyle = dealRadarStageStyle(item.styleKey);
+                  return (
+                    <div
+                      key={item.label}
+                      className={
+                        index < DEAL_STAGE_DEFINITIONS.length - 1
+                          ? "border-b border-gray-100 pb-4"
+                          : undefined
+                      }
+                    >
+                      <span
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-2xl px-2.5 py-1 text-[11px] font-semibold leading-snug"
+                        style={stageStyle.pill}
+                      >
+                        <span
+                          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: stageStyle.dot }}
+                        />
+                        <span>{item.label}</span>
+                      </span>
+                      <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
+                        {item.description}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
+  );
 }
 
 import {
@@ -1896,7 +2079,10 @@ export default function HomeUserPage() {
                             Sector
                           </th>
                           <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
-                            Stage
+                            <span className="inline-flex items-center justify-center gap-1.5">
+                              Stage
+                              <DealStageInfoTooltip />
+                            </span>
                           </th>
                         </tr>
                       </thead>
