@@ -8,54 +8,14 @@ export type DealRadarLatestContent = {
   headline: string;
   contentType: string;
   publicationDate: string;
-  ctaLabel: string;
 };
 
 export type DealRadarItem = {
   companyId: number;
   companyName: string;
-  hqCountryIso2: string | null;
   transactionStatus: string;
   primarySectors: DealRadarSector[];
   latestContent: DealRadarLatestContent | null;
-};
-
-export const COUNTRY_FLAG_CDN_BASE =
-  "https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/flags/4x3";
-
-export const COUNTRY_FLAG_INLINE_SIZE_PX = 12;
-
-export const INLINE_COUNTRY_FLAG_CLASS =
-  "ml-1 inline-block shrink-0 rounded-full object-cover ring-1 ring-black/10 cursor-default align-middle";
-
-export const getCountryFlagUrl = (
-  iso2: string | null | undefined
-): string | null => {
-  const normalized = String(iso2 || "")
-    .trim()
-    .toLowerCase();
-  if (!/^[a-z]{2}$/.test(normalized)) return null;
-  return `${COUNTRY_FLAG_CDN_BASE}/${normalized}.svg`;
-};
-
-const regionDisplayNames =
-  typeof Intl !== "undefined"
-    ? new Intl.DisplayNames(["en"], { type: "region" })
-    : null;
-
-export const getCountryDisplayName = (
-  iso2: string | null | undefined
-): string | null => {
-  const normalized = String(iso2 || "")
-    .trim()
-    .toLowerCase();
-  if (!/^[a-z]{2}$/.test(normalized)) return null;
-  try {
-    const name = regionDisplayNames?.of(normalized.toUpperCase());
-    return name && name !== normalized.toUpperCase() ? name : null;
-  } catch {
-    return null;
-  }
 };
 
 const normalizeSectorName = (raw: string): string =>
@@ -179,16 +139,6 @@ const mapDealRadarLatestContent = (
       record.publicationDate ||
       ""
   ).trim();
-  const explicitCtaLabel = String(
-    record.cta_label || record.ctaLabel || ""
-  ).trim();
-  const isNews =
-    record.is_news === true ||
-    record.isNews === true ||
-    contentType.toLowerCase() === "news";
-  const ctaLabel =
-    explicitCtaLabel ||
-    (isNews ? "Read our News" : "Read our research");
 
   if (!Number.isFinite(id) || id <= 0 || !headline) {
     return null;
@@ -199,7 +149,6 @@ const mapDealRadarLatestContent = (
     headline,
     contentType,
     publicationDate,
-    ctaLabel,
   };
 };
 
@@ -220,310 +169,6 @@ export const appendDealRadarItems = (
   return uniqueIncoming.length > 0 ? [...existing, ...uniqueIncoming] : existing;
 };
 
-const normalizeIso2 = (value: unknown): string | null => {
-  const text = String(value ?? "").trim();
-  if (!text) return null;
-  const normalized = text.toLowerCase();
-  return /^[a-z]{2}$/.test(normalized) ? normalized : null;
-};
-
-const US_STATE_AND_TERRITORY_CODES = new Set([
-  "AL",
-  "AK",
-  "AZ",
-  "AR",
-  "CA",
-  "CO",
-  "CT",
-  "DE",
-  "FL",
-  "GA",
-  "HI",
-  "ID",
-  "IL",
-  "IN",
-  "IA",
-  "KS",
-  "KY",
-  "LA",
-  "ME",
-  "MD",
-  "MA",
-  "MI",
-  "MN",
-  "MS",
-  "MO",
-  "MT",
-  "NE",
-  "NV",
-  "NH",
-  "NJ",
-  "NM",
-  "NY",
-  "NC",
-  "ND",
-  "OH",
-  "OK",
-  "OR",
-  "PA",
-  "RI",
-  "SC",
-  "SD",
-  "TN",
-  "TX",
-  "UT",
-  "VT",
-  "VA",
-  "WA",
-  "WV",
-  "WI",
-  "WY",
-  "DC",
-  "PR",
-  "VI",
-  "GU",
-  "AS",
-  "MP",
-]);
-
-const COUNTRY_NAME_TO_ISO2: Record<string, string> = {
-  "united states": "us",
-  "united states of america": "us",
-  usa: "us",
-  "u.s.": "us",
-  "u.s.a.": "us",
-  "united kingdom": "gb",
-  uk: "gb",
-  "great britain": "gb",
-};
-
-const readCountryTextAsIso2 = (value: unknown): string | null => {
-  const direct = normalizeIso2(value);
-  if (direct) return direct;
-
-  const text = String(value ?? "")
-    .trim()
-    .toLowerCase();
-  if (!text) return null;
-  return COUNTRY_NAME_TO_ISO2[text] ?? null;
-};
-
-export const readHqCountryIso2 = (raw: Record<string, unknown>): string | null => {
-  const directKeys = [
-    "hq_iso2",
-    "hqIso2",
-    "HQ_iso2",
-    "hq_country_iso2",
-    "hqCountryIso2",
-    "HQ_country_iso2",
-    "hq_country_iso_2",
-    "country_iso2",
-    "countryIso2",
-  ];
-
-  for (const key of directKeys) {
-    const iso2 = normalizeIso2(raw[key]);
-    if (iso2) return iso2;
-  }
-
-  const fallbackKeys = ["hq_country", "hqCountry", "HQ_country", "country"];
-  for (const key of fallbackKeys) {
-    const iso2 = readCountryTextAsIso2(raw[key]);
-    if (iso2) return iso2;
-  }
-
-  const locations =
-    raw._locations ?? raw.locations ?? raw._location ?? raw.location;
-  if (locations && typeof locations === "object") {
-    const locationRecord = locations as Record<string, unknown>;
-    const iso2FromLocation = normalizeIso2(
-      locationRecord.iso2 ?? locationRecord.ISO2 ?? locationRecord.iso_2
-    );
-    if (iso2FromLocation) return iso2FromLocation;
-    const iso2 = readCountryTextAsIso2(
-      locationRecord.Country ?? locationRecord.country
-    );
-    if (iso2) return iso2;
-  }
-
-  const stateKeys = ["hq_state", "hqState", "HQ_state", "state", "province"];
-  for (const key of stateKeys) {
-    const state = String(raw[key] ?? "")
-      .trim()
-      .toUpperCase();
-    if (US_STATE_AND_TERRITORY_CODES.has(state)) return "us";
-  }
-
-  return null;
-};
-
-export const parseCorporateEventEntityArray = (
-  value: unknown
-): Record<string, unknown>[] => {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value.filter(
-      (entry) => entry && typeof entry === "object"
-    ) as Record<string, unknown>[];
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return [];
-    try {
-      const parsed: unknown = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        return parsed.filter(
-          (entry) => entry && typeof entry === "object"
-        ) as Record<string, unknown>[];
-      }
-    } catch {
-      return [];
-    }
-  }
-  return [];
-};
-
-export const collectMissingHqCountryIso2CompanyIds = (
-  entities: Record<string, unknown>[]
-): number[] => {
-  const ids: number[] = [];
-  const seen = new Set<number>();
-
-  for (const entity of entities) {
-    if (readHqCountryIso2(entity)) continue;
-    const id = Number(entity.id);
-    if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
-    seen.add(id);
-    ids.push(id);
-  }
-
-  return ids;
-};
-
-export const applyHqCountryIso2ToEntities = <T extends Record<string, unknown>>(
-  entities: T[],
-  isoByCompanyId: Map<number, string | null>
-): T[] => {
-  if (isoByCompanyId.size === 0) return entities;
-
-  return entities.map((entity) => {
-    if (readHqCountryIso2(entity)) return entity;
-    const id = Number(entity.id);
-    if (!Number.isFinite(id) || id <= 0) return entity;
-    const iso2 = isoByCompanyId.get(id);
-    return iso2 ? { ...entity, hq_country_iso2: iso2 } : entity;
-  });
-};
-
-const CORPORATE_EVENT_ENTITY_ARRAY_FIELDS = [
-  "targets",
-  "buyers",
-  "investors",
-  "sales",
-  "buyers_investors",
-] as const;
-
-const readCorporateEventTargetObject = (
-  value: unknown
-): Record<string, unknown> | null => {
-  if (!value) return null;
-  if (typeof value === "object") {
-    return value as Record<string, unknown>;
-  }
-  if (typeof value === "string") {
-    try {
-      const parsed: unknown = JSON.parse(value);
-      if (parsed && typeof parsed === "object") {
-        return parsed as Record<string, unknown>;
-      }
-    } catch {
-      return null;
-    }
-  }
-  return null;
-};
-
-export const collectMissingHqCountryIso2CompanyIdsFromCorporateEvents = (
-  events: Record<string, unknown>[]
-): number[] => {
-  const seen = new Set<number>();
-  const ids: number[] = [];
-
-  const addIds = (entityList: Record<string, unknown>[]) => {
-    for (const id of collectMissingHqCountryIso2CompanyIds(entityList)) {
-      if (!seen.has(id)) {
-        seen.add(id);
-        ids.push(id);
-      }
-    }
-  };
-
-  for (const event of events) {
-    for (const field of CORPORATE_EVENT_ENTITY_ARRAY_FIELDS) {
-      addIds(parseCorporateEventEntityArray(event[field]));
-    }
-
-    const targetObj = readCorporateEventTargetObject(event.target);
-    if (targetObj) addIds([targetObj]);
-  }
-
-  return ids;
-};
-
-export const applyHqCountryIso2ToCorporateEvents = (
-  events: Record<string, unknown>[],
-  isoByCompanyId: Map<number, string | null>
-): Record<string, unknown>[] => {
-  if (isoByCompanyId.size === 0) return events;
-
-  return events.map((event) => {
-    const enriched: Record<string, unknown> = { ...event };
-
-    for (const field of CORPORATE_EVENT_ENTITY_ARRAY_FIELDS) {
-      const original = enriched[field];
-      const parsed = parseCorporateEventEntityArray(original);
-      if (parsed.length === 0) continue;
-
-      const enrichedEntities = applyHqCountryIso2ToEntities(
-        parsed,
-        isoByCompanyId
-      );
-      enriched[field] =
-        typeof original === "string"
-          ? JSON.stringify(enrichedEntities)
-          : enrichedEntities;
-    }
-
-    const targetValue = enriched.target;
-    const targetObj = readCorporateEventTargetObject(targetValue);
-    if (targetObj) {
-      const [enrichedTarget] = applyHqCountryIso2ToEntities(
-        [targetObj],
-        isoByCompanyId
-      );
-      enriched.target =
-        typeof targetValue === "string"
-          ? JSON.stringify(enrichedTarget)
-          : enrichedTarget;
-    }
-
-    return enriched;
-  });
-};
-
-export const applyHqCountryIso2ToDealRadarItems = (
-  items: DealRadarItem[],
-  isoByCompanyId: Map<number, string | null>
-): DealRadarItem[] => {
-  if (isoByCompanyId.size === 0) return items;
-
-  return items.map((item) => {
-    if (item.hqCountryIso2) return item;
-    const iso2 = isoByCompanyId.get(item.companyId);
-    return iso2 ? { ...item, hqCountryIso2: iso2 } : item;
-  });
-};
-
 export const mapDealRadarItem = (raw: Record<string, unknown>): DealRadarItem => {
   const companyId = Number(raw.company_id);
   const primarySectorsRaw =
@@ -532,7 +177,6 @@ export const mapDealRadarItem = (raw: Record<string, unknown>): DealRadarItem =>
   return {
     companyId: Number.isFinite(companyId) ? companyId : 0,
     companyName: String(raw.name || "").trim(),
-    hqCountryIso2: readHqCountryIso2(raw),
     transactionStatus: String(raw.transaction_status || "").trim(),
     primarySectors: mapDealRadarPrimarySectors(primarySectorsRaw),
     latestContent: mapDealRadarLatestContent(

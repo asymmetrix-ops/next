@@ -64,6 +64,109 @@ export type FinancialMetricsRow = {
   median_new_client_growth_pc?: string | number | null;
 };
 
+export type DealRadarApiItem = {
+  company_id: number;
+  name: string;
+  transaction_status_id?: number;
+  transaction_status: string;
+  last_updated_at: string;
+  primary_sectors: unknown;
+  latest_content: {
+    id: number;
+    headline: string;
+    content_type: string;
+    publication_date: string;
+  } | null;
+};
+
+export type DealRadarListResponse = {
+  items: DealRadarApiItem[];
+  limit: number;
+  offset: number;
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  /** Next request `offset` from the API (`pagination.next_offset`). */
+  next_offset: number | null;
+  next_page: number | null;
+  has_next_page: boolean;
+};
+
+const readDealRadarNumber = (value: unknown): number | null => {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+/** API returns pagination under `pagination`; normalize for callers. */
+export const normalizeDealRadarResponse = (
+  raw: unknown
+): DealRadarListResponse => {
+  const obj =
+    raw && typeof raw === "object"
+      ? (raw as Record<string, unknown>)
+      : {};
+  const pag =
+    obj.pagination && typeof obj.pagination === "object"
+      ? (obj.pagination as Record<string, unknown>)
+      : null;
+
+  const items = Array.isArray(obj.items)
+    ? (obj.items as DealRadarApiItem[])
+    : [];
+
+  const limit =
+    readDealRadarNumber(pag?.page_size) ??
+    readDealRadarNumber(obj.limit) ??
+    readDealRadarNumber(pag?.limit) ??
+    25;
+  const offset =
+    readDealRadarNumber(pag?.offset) ??
+    readDealRadarNumber(obj.offset) ??
+    0;
+  const current_page =
+    readDealRadarNumber(pag?.current_page) ??
+    readDealRadarNumber(obj.current_page) ??
+    1;
+  const total_pages =
+    readDealRadarNumber(pag?.total_pages) ??
+    readDealRadarNumber(obj.total_pages) ??
+    0;
+  const total_items =
+    readDealRadarNumber(pag?.total_items) ??
+    readDealRadarNumber(obj.total) ??
+    readDealRadarNumber(obj.total_items) ??
+    items.length;
+
+  const next_page =
+    readDealRadarNumber(pag?.next_page) ??
+    readDealRadarNumber(obj.next_page);
+  let next_offset =
+    readDealRadarNumber(pag?.next_offset) ??
+    readDealRadarNumber(obj.next_offset);
+  const has_next_page =
+    pag?.has_next_page === true ||
+    obj.has_next_page === true ||
+    next_offset != null ||
+    next_page != null;
+
+  // API uses 0-based row cursors (page 2 → offset 25 when page_size is 25).
+  if (next_offset == null && next_page != null && next_page > current_page) {
+    next_offset = (next_page - 1) * limit;
+  }
+
+  return {
+    items,
+    limit,
+    offset,
+    current_page,
+    total_pages,
+    total_items,
+    next_offset,
+    next_page,
+    has_next_page,
+  };
+};
+
 class DashboardApiService {
   private baseUrl: string;
   private sectorsCache: {
@@ -105,18 +208,29 @@ class DashboardApiService {
   }
 
   // Dashboard specific endpoints
-  async getAllContentArticlesHome(filters?: {
-    search?: string;
-    portfolioOnly?: boolean;
-  }): Promise<ApiResponse<Record<string, unknown>[]>> {
-    const params = new URLSearchParams({
-      search: filters?.search ?? "",
-      portfolio_only: String(filters?.portfolioOnly ?? false),
+  async getAllContentArticlesHome(): Promise<unknown> {
+    const url = `${this.baseUrl}/All_Content_Articles_home`;
+
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Data-Source": "live",
+      ...authService.getAuthHeaders(),
+    };
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      cache: "no-store",
     });
 
-    return this.request<Record<string, unknown>[]>(
-      `/All_Content_Articles_home?${params.toString()}`
-    );
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Authentication required");
+      }
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+
+    return response.json();
   }
 
   async getCorporateEvents(filters?: {
@@ -456,30 +570,8 @@ class DashboardApiService {
   async getDealRadar(params: {
     limit: number;
     offset: number;
-  }): Promise<{
-    items: Array<{
-      company_id: number;
-      name: string;
-      transaction_status: string;
-      last_updated_at: string;
-      primary_sectors: Array<{
-        id: number;
-        name: string;
-      }>;
-      latest_content: {
-        id: number;
-        headline: string;
-        content_type: string;
-        publication_date: string;
-      } | null;
-    }>;
-    total: number;
-    limit: number;
-    offset: number;
-    current_page: number;
-    total_pages: number;
-    next_page: number | null;
-  }> {
+    signal?: AbortSignal;
+  }): Promise<DealRadarListResponse> {
     const dealRadarBaseUrl =
       "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
     const url = new URL(`${dealRadarBaseUrl}/get_deal_radar`);
@@ -488,17 +580,24 @@ class DashboardApiService {
 
     const headers = {
       "Content-Type": "application/json",
+      "X-Data-Source": "live",
       ...authService.getAuthHeaders(),
     };
 
-    const response = await fetch(url.toString(), { method: "GET", headers });
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers,
+      cache: "no-store",
+      signal: params.signal,
+    });
 
     if (!response.ok) {
       if (response.status === 401) throw new Error("Authentication required");
       throw new Error(`Deal Radar API failed: ${response.statusText}`);
     }
 
-    return response.json();
+    const raw: unknown = await response.json();
+    return normalizeDealRadarResponse(raw);
   }
 
   // Clear cache method for manual cache invalidation

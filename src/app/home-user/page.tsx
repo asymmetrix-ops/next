@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useRef,
+  type CSSProperties,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
@@ -8,6 +15,12 @@ import { trackEvent } from "@/lib/tracking";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
+import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
+import {
+  appendDealRadarItems,
+  mapDealRadarItem,
+  type DealRadarItem,
+} from "@/lib/dealRadar";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -110,10 +123,78 @@ interface InsightArticle {
     };
     _is_that_investor: boolean;
   }>;
+  Transaction_status?: string;
+  transaction_status?: string;
   Company_of_Focus?: Array<{
     id?: number;
     Transaction_status?: string;
   }>;
+}
+
+function getInsightTransactionStatus(article: InsightArticle): string {
+  const top = (article.Transaction_status || article.transaction_status || "")
+    .trim();
+  const raw =
+    top ||
+    article.Company_of_Focus?.find((c) => c?.Transaction_status)
+      ?.Transaction_status?.trim() ||
+    "";
+  if (!raw) return "";
+  return raw.replace(/^transaction\s+/i, "").trim() || raw;
+}
+
+function dealRadarStageStyle(
+  status: string
+): { pill: CSSProperties; dot: string } {
+  const s = status.toLowerCase();
+  if (s.includes("reported")) {
+    return {
+      pill: { backgroundColor: "#dcfce7", color: "#166534" },
+      dot: "#22c55e",
+    };
+  }
+  if (s.includes("rumoured") || s.includes("rumored")) {
+    return {
+      pill: { backgroundColor: "#fef9c3", color: "#854d0e" },
+      dot: "#eab308",
+    };
+  }
+  if (s.includes("hold")) {
+    return {
+      pill: { backgroundColor: "#f3f4f6", color: "#4b5563" },
+      dot: "#9ca3af",
+    };
+  }
+  return {
+    pill: { backgroundColor: "#dbeafe", color: "#1e40af" },
+    dot: "#3b82f6",
+  };
+}
+
+function dealRadarStageLabel(status: string): string {
+  const s = status.toLowerCase();
+  if (s.includes("reported")) return "Reported in Market";
+  if (s.includes("rumoured") || s.includes("rumored")) return "Rumored in Market";
+  if (s.includes("anticipated")) return "Anticipated within\n18 months";
+  return status;
+}
+
+function transactionStatusPillStyle(status: string): CSSProperties {
+  const { pill, dot } = dealRadarStageStyle(status);
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    fontSize: 11,
+    lineHeight: 1,
+    padding: "5px 10px",
+    borderRadius: 9999,
+    fontWeight: 700,
+    letterSpacing: "0.03em",
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+    border: `1.5px solid ${dot}`,
+    ...pill,
+  };
 }
 
 import {
@@ -129,6 +210,64 @@ import {
   SEARCH_PAGE_TYPE_LABELS,
 } from "@/lib/globalSearch";
 
+function contentTypeBadgeStyle(contentType?: string) {
+  const t = (contentType || "").toLowerCase().trim();
+  if (t === "company analysis") {
+    return {
+      backgroundColor: "#ecfdf5",
+      color: "#065f46",
+      borderColor: "#a7f3d0",
+    };
+  }
+  if (t === "deal analysis") {
+    return {
+      backgroundColor: "#eff6ff",
+      color: "#1e40af",
+      borderColor: "#bfdbfe",
+    };
+  }
+  if (t === "deal perspective") {
+    return {
+      backgroundColor: "#ecfeff",
+      color: "#155e75",
+      borderColor: "#a5f3fc",
+    };
+  }
+  if (t === "market commentary") {
+    return {
+      backgroundColor: "#fefce8",
+      color: "#854d0e",
+      borderColor: "#fde68a",
+    };
+  }
+  if (t === "sector analysis") {
+    return {
+      backgroundColor: "#f5f3ff",
+      color: "#5b21b6",
+      borderColor: "#ddd6fe",
+    };
+  }
+  if (t === "hot take") {
+    return {
+      backgroundColor: "#fff7ed",
+      color: "#9a3412",
+      borderColor: "#fed7aa",
+    };
+  }
+  if (t === "executive interview") {
+    return {
+      backgroundColor: "#f0fdf4",
+      color: "#166534",
+      borderColor: "#bbf7d0",
+    };
+  }
+  return {
+    backgroundColor: "#f3f4f6",
+    color: "#374151",
+    borderColor: "#e5e7eb",
+  };
+}
+
 // Removed NewCompany interface along with the related UI section
 
 export default function HomeUserPage() {
@@ -142,22 +281,9 @@ export default function HomeUserPage() {
   } = useAuth();
   // Right-click handled via native anchors now
 
-  const [showSearchNewFeatureTip, setShowSearchNewFeatureTip] = useState(true);
-
-  useEffect(() => {
-    try {
-      const dismissed = localStorage.getItem(
-        "asym_global_search_new_feature_tip_dismissed"
-      );
-      if (dismissed === "1") setShowSearchNewFeatureTip(false);
-    } catch {
-      // ignore
-    }
-  }, []);
-
   // Helper function to format dates consistently
   const formatDate = (dateString?: string) => {
-    if (!dateString) return "-";
+    if (!dateString) return "Not Available";
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
         year: "numeric",
@@ -310,7 +436,7 @@ export default function HomeUserPage() {
       | undefined
   ) => {
     if (!secondarySectorsOrObjects || secondarySectorsOrObjects.length === 0)
-      return "-";
+      return "Not available";
 
     // If new endpoint structure (contains Sector_importance), derive primaries from mapping
     if (
@@ -346,7 +472,7 @@ export default function HomeUserPage() {
       const combined = Array.from(
         new Set([...(explicitPrimaries as string[]), ...relatedFromSecondaries])
       );
-      return combined.length > 0 ? combined.join(", ") : "-";
+      return combined.length > 0 ? combined.join(", ") : "Not available";
     }
 
     // Otherwise old shape (array of secondary names) – use fallback mapping
@@ -427,7 +553,7 @@ export default function HomeUserPage() {
       .filter((s) => s && s.Sector_importance !== "Primary")
       .map((s) => ({ sector_name: s.sector_name }));
     const mapped = getRelatedPrimarySectors(fallbackSecondaries);
-    return mapped || "-";
+    return mapped || "Not Available";
   };
 
   // Corporate Event navigation handler with graceful fallback to search
@@ -449,130 +575,26 @@ export default function HomeUserPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
 
-  const DEAL_RADAR_LIMIT = 25;
-
-  type DealRadarSector = {
-    id: number;
-    name: string;
-  };
-
-  type DealRadarLatestContent = {
-    id: number;
-    headline: string;
-    contentType: string;
-    publicationDate: string;
-  };
-
-  type DealRadarItem = {
-    companyId: number;
-    companyName: string;
-    transactionStatus: string;
-    primarySectors: DealRadarSector[];
-    latestContent: DealRadarLatestContent | null;
-  };
-
-  const dealRadarStageLabel = (status: string): string => {
-    const s = status.toLowerCase();
-    if (s.includes("reported")) return "Reported";
-    if (s.includes("rumoured") || s.includes("rumored")) return "Rumoured";
-    if (s.includes("anticipated")) return "Anticipated";
-    return status;
-  };
-
-  const dealRadarStageStyle = (
-    status: string
-  ): { pill: React.CSSProperties; dot: string } => {
-    const s = status.toLowerCase();
-    if (s.includes("reported")) {
-      return {
-        pill: { backgroundColor: "#dcfce7", color: "#166534" },
-        dot: "#22c55e",
-      };
-    }
-    if (s.includes("rumoured") || s.includes("rumored")) {
-      return {
-        pill: { backgroundColor: "#fef9c3", color: "#854d0e" },
-        dot: "#eab308",
-      };
-    }
-    return {
-      pill: { backgroundColor: "#dbeafe", color: "#1e40af" },
-      dot: "#3b82f6",
-    };
-  };
-
-  const normalizeDealRadarSectorName = (raw: string): string =>
-    raw
-      .trim()
-      .replace(/\\u0022/g, '"')
-      .replace(/^["']+|["']+$/g, "")
-      .trim();
-
-  const mapDealRadarPrimarySectors = (
-    sectors: Array<string | { id?: number; name?: string }> | undefined
-  ): DealRadarSector[] => {
-    if (!Array.isArray(sectors)) return [];
-
-    return sectors
-      .map((sector) => {
-        if (typeof sector === "string") {
-          const name = normalizeDealRadarSectorName(sector);
-          return name ? { id: 0, name } : null;
-        }
-
-        if (sector && typeof sector === "object") {
-          const name = normalizeDealRadarSectorName(String(sector.name || ""));
-          if (!name) return null;
-
-          const id = Number(sector.id);
-          return Number.isFinite(id) && id > 0 ? { id, name } : { id: 0, name };
-        }
-
-        return null;
-      })
-      .filter((sector): sector is DealRadarSector => sector !== null);
-  };
-
-  const mapDealRadarItem = (i: {
-    company_id: number;
-    name: string;
-    transaction_status: string;
-    primary_sectors: Array<string | { id?: number; name?: string }>;
-    latest_content: {
-      id: number;
-      headline: string;
-      content_type: string;
-      publication_date: string;
-    } | null;
-  }): DealRadarItem => ({
-    companyId: i.company_id,
-    companyName: i.name,
-    transactionStatus: i.transaction_status,
-    primarySectors: mapDealRadarPrimarySectors(i.primary_sectors),
-    latestContent: i.latest_content
-      ? {
-          id: i.latest_content.id,
-          headline: i.latest_content.headline,
-          contentType: i.latest_content.content_type,
-          publicationDate: i.latest_content.publication_date,
-        }
-      : null,
-  });
+  const DEAL_RADAR_PAGE_LIMIT = 25;
+  const DEAL_RADAR_SCROLL_THRESHOLD_PX = 48;
 
   const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>([]);
-  const [dealRadarTotal, setDealRadarTotal] = useState(0);
-  const [dealRadarNextPage, setDealRadarNextPage] = useState<number | null>(null);
+  const [dealRadarNextOffset, setDealRadarNextOffset] = useState<number | null>(
+    null
+  );
   const [dealRadarLoading, setDealRadarLoading] = useState(true);
   const [dealRadarLoadingMore, setDealRadarLoadingMore] = useState(false);
+  const dealRadarFetchAbortRef = useRef<AbortController | null>(null);
+  const dealRadarFetchGenerationRef = useRef(0);
+  const dealRadarScrollRef = useRef<HTMLDivElement | null>(null);
+  const dealRadarNextOffsetRef = useRef<number | null>(null);
+  const dealRadarLoadingMoreRef = useRef(false);
+  const dealRadarLoadedOffsetsRef = useRef<Set<number>>(new Set());
+  const insightsCardRef = useRef<HTMLDivElement | null>(null);
+  const [sideColumnHeight, setSideColumnHeight] = useState<number | null>(null);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
-  const [corporateEventsView, setCorporateEventsView] = useState<
-    "followed" | "all"
-  >("all");
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
-  const [insightsArticlesView, setInsightsArticlesView] = useState<
-    "followed" | "all"
-  >("all");
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
@@ -1026,63 +1048,126 @@ export default function HomeUserPage() {
   }, []);
 
   const fetchDealRadar = useCallback(async () => {
+    dealRadarFetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    dealRadarFetchAbortRef.current = controller;
+    const generation = ++dealRadarFetchGenerationRef.current;
+
     try {
       setDealRadarLoading(true);
+      setDealRadarNextOffset(null);
+      dealRadarNextOffsetRef.current = null;
+      dealRadarLoadedOffsetsRef.current = new Set();
+
+      const initialOffset = 0;
       const res = await dashboardApiService.getDealRadar({
-        limit: DEAL_RADAR_LIMIT,
-        offset: 1,
+        limit: DEAL_RADAR_PAGE_LIMIT,
+        offset: initialOffset,
+        signal: controller.signal,
       });
-      setDealRadarItems(res.items.map(mapDealRadarItem));
-      setDealRadarTotal(res.total);
-      setDealRadarNextPage(res.next_page);
+      if (generation !== dealRadarFetchGenerationRef.current) return;
+
+      setDealRadarItems(
+        res.items.map((item) =>
+          mapDealRadarItem(item as unknown as Record<string, unknown>)
+        )
+      );
+      dealRadarLoadedOffsetsRef.current.add(initialOffset);
+      const nextOffset = res.has_next_page ? res.next_offset : null;
+      setDealRadarNextOffset(nextOffset);
+      dealRadarNextOffsetRef.current = nextOffset;
     } catch (error) {
+      if (controller.signal.aborted) return;
       console.error("Error fetching Deal Radar:", error);
     } finally {
-      setDealRadarLoading(false);
+      if (generation === dealRadarFetchGenerationRef.current) {
+        setDealRadarLoading(false);
+      }
     }
   }, []);
 
+  const isDealRadarNearBottom = useCallback((): boolean => {
+    const scrollRoot = dealRadarScrollRef.current;
+    if (!scrollRoot) return false;
+    const distanceFromBottom =
+      scrollRoot.scrollHeight -
+      scrollRoot.scrollTop -
+      scrollRoot.clientHeight;
+    return distanceFromBottom <= DEAL_RADAR_SCROLL_THRESHOLD_PX;
+  }, []);
+
   const loadMoreDealRadar = useCallback(async () => {
-    if (dealRadarLoadingMore || dealRadarNextPage == null) return;
+    const requestOffset = dealRadarNextOffsetRef.current;
+    if (requestOffset == null || dealRadarLoadingMoreRef.current) {
+      return;
+    }
+
+    if (dealRadarLoadedOffsetsRef.current.has(requestOffset)) {
+      return;
+    }
+
+    dealRadarLoadingMoreRef.current = true;
+    dealRadarLoadedOffsetsRef.current.add(requestOffset);
+    setDealRadarLoadingMore(true);
+
     try {
-      setDealRadarLoadingMore(true);
       const res = await dashboardApiService.getDealRadar({
-        limit: DEAL_RADAR_LIMIT,
-        offset: dealRadarNextPage,
+        limit: DEAL_RADAR_PAGE_LIMIT,
+        offset: requestOffset,
       });
-      setDealRadarItems((prev) => [
-        ...prev,
-        ...res.items.map(mapDealRadarItem),
-      ]);
-      setDealRadarNextPage(res.next_page);
+
+      const incoming = res.items.map((item) =>
+        mapDealRadarItem(item as unknown as Record<string, unknown>)
+      );
+
+      setDealRadarItems((prev) => appendDealRadarItems(prev, incoming));
+      const nextOffset = res.has_next_page ? res.next_offset : null;
+      setDealRadarNextOffset(nextOffset);
+      dealRadarNextOffsetRef.current = nextOffset;
     } catch (error) {
       console.error("Error loading more Deal Radar items:", error);
+      dealRadarLoadedOffsetsRef.current.delete(requestOffset);
     } finally {
+      dealRadarLoadingMoreRef.current = false;
       setDealRadarLoadingMore(false);
     }
-  }, [dealRadarNextPage, dealRadarLoadingMore]);
+  }, []);
+
+  const tryLoadMoreDealRadarIfNearBottom = useCallback(() => {
+    if (
+      dealRadarLoading ||
+      sideColumnHeight == null ||
+      dealRadarNextOffsetRef.current == null ||
+      dealRadarLoadingMoreRef.current
+    ) {
+      return;
+    }
+    if (isDealRadarNearBottom()) {
+      void loadMoreDealRadar();
+    }
+  }, [
+    dealRadarLoading,
+    isDealRadarNearBottom,
+    loadMoreDealRadar,
+    sideColumnHeight,
+  ]);
+
+  const scheduleDealRadarScrollCheck = useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        tryLoadMoreDealRadarIfNearBottom();
+      });
+    });
+  }, [tryLoadMoreDealRadarIfNearBottom]);
 
   const fetchCorporateEvents = useCallback(async () => {
     try {
       setCorporateEventsLoading(true);
 
-      const parsedUserId =
-        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
-      const shouldShowFollowed = corporateEventsView === "followed";
-      const followedUserId =
-        shouldShowFollowed &&
-        Number.isFinite(parsedUserId) &&
-        parsedUserId > 0
-          ? parsedUserId
-          : null;
-
-      if (shouldShowFollowed && followedUserId === null) {
-        throw new Error("Unable to load followed content for the current user.");
-      }
-
       const eventsResponse = await dashboardApiService.getCorporateEvents({
-        showFollowed: shouldShowFollowed,
-        userId: followedUserId,
+        showFollowed: false,
+        userId: null,
       });
 
       let eventsData: CorporateEvent[] = [];
@@ -1109,26 +1194,25 @@ export default function HomeUserPage() {
     } finally {
       setCorporateEventsLoading(false);
     }
-  }, [corporateEventsView, user?.id]);
+  }, []);
 
   const fetchInsightsArticles = useCallback(async () => {
     try {
       setInsightsArticlesLoading(true);
 
-      const insightsResponse = await dashboardApiService.getAllContentArticlesHome(
-        {
-          search: "",
-          portfolioOnly: insightsArticlesView === "followed",
-        }
-      );
+      const insightsResponse =
+        await dashboardApiService.getAllContentArticlesHome();
 
       let insightsData: InsightArticle[] = [];
-      const responseValue = insightsResponse as unknown as Record<string, unknown>;
-
-      if (responseValue.data) {
-        insightsData = responseValue.data as InsightArticle[];
-      } else if (Array.isArray(responseValue)) {
-        insightsData = responseValue as InsightArticle[];
+      if (Array.isArray(insightsResponse)) {
+        insightsData = insightsResponse as InsightArticle[];
+      } else if (insightsResponse && typeof insightsResponse === "object") {
+        const wrapped = insightsResponse as Record<string, unknown>;
+        if (Array.isArray(wrapped.data)) {
+          insightsData = wrapped.data as InsightArticle[];
+        } else if (Array.isArray(wrapped.items)) {
+          insightsData = wrapped.items as InsightArticle[];
+        }
       }
 
       setInsightsArticles(insightsData || []);
@@ -1144,7 +1228,7 @@ export default function HomeUserPage() {
     } finally {
       setInsightsArticlesLoading(false);
     }
-  }, [insightsArticlesView]);
+  }, []);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -1173,6 +1257,89 @@ export default function HomeUserPage() {
     if (authLoading || !isAuthenticated) return;
     fetchDealRadar();
   }, [authLoading, isAuthenticated, fetchDealRadar]);
+
+  // I&A sets the row height; Deal Radar + CE match it and scroll inside.
+  const syncInsightsColumnHeight = useCallback(() => {
+    const el = insightsCardRef.current;
+    if (!el) return;
+    const h = Math.round(el.offsetHeight);
+    if (h > 0) {
+      setSideColumnHeight((prev) => (prev === h ? prev : h));
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    if (insightsArticlesLoading) return;
+    syncInsightsColumnHeight();
+    const raf = requestAnimationFrame(syncInsightsColumnHeight);
+    const el = insightsCardRef.current;
+    if (!el) return () => cancelAnimationFrame(raf);
+
+    const ro = new ResizeObserver(syncInsightsColumnHeight);
+    ro.observe(el);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [
+    insightsArticlesLoading,
+    insightsArticles.length,
+    dealRadarLoading,
+    corporateEventsLoading,
+    syncInsightsColumnHeight,
+  ]);
+
+  // Re-sync after side columns paint so height stays locked to I&A.
+  useLayoutEffect(() => {
+    if (
+      insightsArticlesLoading ||
+      dealRadarLoading ||
+      corporateEventsLoading
+    ) {
+      return;
+    }
+    syncInsightsColumnHeight();
+  }, [
+    dealRadarLoading,
+    dealRadarItems.length,
+    corporateEventsLoading,
+    corporateEvents.length,
+    insightsArticlesLoading,
+    syncInsightsColumnHeight,
+  ]);
+
+  const sideColumnHeightStyle: React.CSSProperties | undefined =
+    sideColumnHeight != null
+      ? {
+          height: sideColumnHeight,
+          maxHeight: sideColumnHeight,
+          minHeight: sideColumnHeight,
+        }
+      : undefined;
+
+  useEffect(() => {
+    const scrollRoot = dealRadarScrollRef.current;
+    // Only paginate inside the fixed-height scroll area (never while unconstrained).
+    if (!scrollRoot || dealRadarLoading || sideColumnHeight == null) {
+      return;
+    }
+
+    const onScroll = () => {
+      tryLoadMoreDealRadarIfNearBottom();
+    };
+
+    scrollRoot.addEventListener("scroll", onScroll, { passive: true });
+    scheduleDealRadarScrollCheck();
+
+    return () => scrollRoot.removeEventListener("scroll", onScroll);
+  }, [
+    dealRadarLoading,
+    dealRadarLoadingMore,
+    dealRadarNextOffset,
+    scheduleDealRadarScrollCheck,
+    sideColumnHeight,
+    tryLoadMoreDealRadarIfNearBottom,
+  ]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
@@ -1259,48 +1426,12 @@ export default function HomeUserPage() {
         <div className="flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
           <div
             ref={searchWrapRef}
-            className={`global-search-tooltip relative w-full min-w-0 rounded-lg border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
+            className={`relative w-full min-w-0 rounded-lg border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
               isTrialActive
                 ? "border-gray-200"
                 : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
             }`}
           >
-            {showSearchNewFeatureTip && (
-              <div className="global-search-feature-tip">
-                <span>New Feature</span>
-                <button
-                  type="button"
-                  className="global-search-feature-tip-close"
-                  aria-label="Dismiss"
-                  onClick={() => {
-                    setShowSearchNewFeatureTip(false);
-                    try {
-                      localStorage.setItem(
-                        "asym_global_search_new_feature_tip_dismissed",
-                        "1"
-                      );
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            )}
             <input
               type="search"
               value={searchQuery}
@@ -1411,11 +1542,19 @@ export default function HomeUserPage() {
             )}
           </div>
           <div className="shrink-0 ml-auto">
-            <RequestDataResearchButton
-              label="Request Data and Research"
-              context="dashboard"
-              sourcePage="Dashboard"
-            />
+            <NewFeatureCallout
+              featureKey="dashboard-request-data-research"
+              launchedAt="2026-05-26T00:00:00.000Z"
+              durationDays={30}
+              persistDismissal
+              side="left"
+            >
+              <RequestDataResearchButton
+                label="Request Data and Research"
+                context="dashboard"
+                sourcePage="Dashboard"
+              />
+            </NewFeatureCallout>
           </div>
         </div>
 
@@ -1682,10 +1821,13 @@ export default function HomeUserPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 lg:items-start">
           {/* Deal Radar - last on mobile, first on lg+ */}
-          <div className="bg-white rounded-lg shadow order-3 lg:order-1 flex flex-col">
-            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+          <div
+            className="grid grid-rows-[auto_1fr] overflow-hidden bg-white rounded-lg shadow order-3 lg:order-1"
+            style={sideColumnHeightStyle}
+          >
+            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700 shrink-0">
                   <svg
@@ -1703,15 +1845,26 @@ export default function HomeUserPage() {
                     <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
                   </svg>
                 </div>
-                <h2
-                  className="text-base font-semibold text-gray-900 sm:text-lg"
-                  style={{ fontWeight: "600" }}
+                <NewFeatureCallout
+                  featureKey="dashboard-deal-radar"
+                  launchedAt="2026-05-26T00:00:00.000Z"
+                  durationDays={30}
+                  persistDismissal
+                  side="right"
                 >
-                  Deal Radar
-                </h2>
+                  <h2
+                    className="text-base font-semibold text-gray-900 sm:text-lg"
+                    style={{ fontWeight: "600" }}
+                  >
+                    Deal Radar
+                  </h2>
+                </NewFeatureCallout>
               </div>
             </div>
-            <div>
+            <div
+              ref={dealRadarScrollRef}
+              className="min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
+            >
               {dealRadarLoading ? (
                 <div className="p-4 space-y-3">
                   {Array.from({ length: 6 }).map((_, i) => (
@@ -1727,17 +1880,22 @@ export default function HomeUserPage() {
                   ))}
                 </div>
               ) : dealRadarItems.length > 0 ? (
-                <div className="min-w-full">
-                    <table className="w-full">
-                      <thead className="bg-gray-50">
+                <div className="min-w-0 w-full">
+                    <table className="w-full table-fixed">
+                      <colgroup>
+                        <col style={{ width: "26%" }} />
+                        <col style={{ width: "30%" }} />
+                        <col style={{ width: "44%" }} />
+                      </colgroup>
+                      <thead className="sticky top-0 z-10 bg-gray-50">
                         <tr>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="pl-3 pr-1 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Company
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="px-2 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
                             Sector
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
                             Stage
                           </th>
                         </tr>
@@ -1749,12 +1907,15 @@ export default function HomeUserPage() {
                           );
 
                           return (
-                            <tr key={item.companyId} className="align-top hover:bg-gray-50">
-                              <td className="px-4 py-4">
-                                <div className="space-y-1">
+                            <tr
+                              key={item.companyId}
+                              className="align-top hover:bg-gray-50"
+                            >
+                              <td className="pl-3 pr-1 py-3 min-w-0 align-top">
+                                <div className="space-y-1 min-w-0">
                                   <a
                                     href={`/company/${item.companyId}`}
-                                    className="text-sm font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+                                    className="text-sm font-semibold text-blue-700 break-words hover:text-blue-900 hover:underline"
                                     onClick={(
                                       e: React.MouseEvent<HTMLAnchorElement>
                                     ) => {
@@ -1802,53 +1963,59 @@ export default function HomeUserPage() {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-4 text-sm text-gray-700">
+                              <td className="px-2 py-3 min-w-0 text-sm text-gray-700 align-top text-center">
                                 {item.primarySectors.length > 0 ? (
-                                  item.primarySectors.map((sector, idx) => (
-                                    <span key={`${sector.id}-${sector.name}-${idx}`}>
-                                      {sector.id > 0 ? (
-                                        <a
-                                          href={`/sector/${sector.id}`}
-                                          className="text-blue-700 hover:text-blue-900 hover:underline"
-                                          onClick={(
-                                            e: React.MouseEvent<HTMLAnchorElement>
-                                          ) => {
-                                            if (
-                                              e.defaultPrevented ||
-                                              e.button !== 0 ||
-                                              e.metaKey ||
-                                              e.ctrlKey ||
-                                              e.shiftKey ||
-                                              e.altKey
-                                            ) {
-                                              return;
-                                            }
-                                            e.preventDefault();
-                                            router.push(`/sector/${sector.id}`);
-                                          }}
-                                        >
-                                          {sector.name}
-                                        </a>
-                                      ) : (
-                                        sector.name
-                                      )}
-                                      {idx < item.primarySectors.length - 1 && ", "}
-                                    </span>
-                                  ))
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    {item.primarySectors.map((sector, idx) => (
+                                      <div
+                                        key={`${sector.id}-${sector.name}-${idx}`}
+                                        className="leading-snug break-normal"
+                                      >
+                                        {sector.id > 0 ? (
+                                          <a
+                                            href={`/sector/${sector.id}`}
+                                            className="text-blue-700 hover:text-blue-900 hover:underline"
+                                            onClick={(
+                                              e: React.MouseEvent<HTMLAnchorElement>
+                                            ) => {
+                                              if (
+                                                e.defaultPrevented ||
+                                                e.button !== 0 ||
+                                                e.metaKey ||
+                                                e.ctrlKey ||
+                                                e.shiftKey ||
+                                                e.altKey
+                                              ) {
+                                                return;
+                                              }
+                                              e.preventDefault();
+                                              router.push(`/sector/${sector.id}`);
+                                            }}
+                                          >
+                                            {sector.name}
+                                          </a>
+                                        ) : (
+                                          sector.name
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
                                 ) : (
-                                  "-"
+                                  "—"
                                 )}
                               </td>
-                              <td className="px-4 py-4">
+                              <td className="px-3 py-3 text-center align-top">
                                 <span
-                                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap"
+                                  className="inline-flex items-start gap-1.5 rounded-2xl px-2.5 py-1.5 text-xs font-medium leading-snug text-center max-w-full"
                                   style={stageStyle.pill}
                                 >
                                   <span
-                                    className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                                    className="inline-block w-1.5 h-1.5 rounded-full shrink-0 mt-1"
                                     style={{ backgroundColor: stageStyle.dot }}
                                   />
-                                  {dealRadarStageLabel(item.transactionStatus)}
+                                  <span className="whitespace-pre-line">
+                                    {dealRadarStageLabel(item.transactionStatus)}
+                                  </span>
                                 </span>
                               </td>
                             </tr>
@@ -1856,29 +2023,33 @@ export default function HomeUserPage() {
                         })}
                       </tbody>
                     </table>
-                  {dealRadarNextPage != null &&
-                    dealRadarItems.length < dealRadarTotal && (
-                    <div className="px-4 py-3 border-t border-gray-200">
-                      <button
-                        type="button"
-                        disabled={dealRadarLoadingMore}
-                        onClick={loadMoreDealRadar}
-                        className="w-full py-1.5 text-xs font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {dealRadarLoadingMore ? (
-                          <span className="flex items-center justify-center gap-1.5">
-                            <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                            </svg>
-                            Loading…
-                          </span>
-                        ) : (
-                          `Load more (${dealRadarTotal - dealRadarItems.length} remaining)`
-                        )}
-                      </button>
-                    </div>
-                  )}
+                    {dealRadarLoadingMore && (
+                      <div className="flex justify-center px-4 py-3 border-t border-gray-100">
+                        <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <svg
+                            className="w-3 h-3 animate-spin"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8v8H4z"
+                            />
+                          </svg>
+                          Loading more…
+                        </span>
+                      </div>
+                    )}
                 </div>
               ) : (
                 <div className="p-4 py-6 text-center sm:py-8">
@@ -1889,8 +2060,11 @@ export default function HomeUserPage() {
           </div>
 
           {/* Insights & Analysis - first on mobile */}
-          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2">
-            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+          <div
+            ref={insightsCardRef}
+            className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2"
+          >
+            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
                   <svg
@@ -1918,36 +2092,8 @@ export default function HomeUserPage() {
                   Insights &amp; Analysis
                 </a>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setInsightsArticlesView("followed")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      insightsArticlesView === "followed"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={insightsArticlesView === "followed"}
-                  >
-                    Followed
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInsightsArticlesView("all")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      insightsArticlesView === "all"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={insightsArticlesView === "all"}
-                  >
-                    All
-                  </button>
-                </div>
-              </div>
             </div>
-            <div className="flex-1 p-3 overflow-y-auto sm:p-4">
+            <div className="p-3 sm:p-4">
               {insightsArticlesLoading ? (
                 <div className="py-6 text-center sm:py-8">
                   <p className="text-sm text-gray-500">
@@ -1956,10 +2102,7 @@ export default function HomeUserPage() {
                 </div>
               ) : insightsArticles.length > 0 ? (
                 <div className="space-y-4">
-                  {[...insightsArticles]
-                    .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
-                    .slice(0, 10)
-                    .map((article) => {
+                  {insightsArticles.slice(0, 10).map((article) => {
                     const ct = (
                       article.Content_Type ||
                       article.content_type ||
@@ -1975,62 +2118,46 @@ export default function HomeUserPage() {
                         className="p-4 rounded-xl border border-blue-100 bg-white shadow-sm hover:shadow transition-shadow"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg border border-blue-100">
-                            {ct || "Insight"}
-                          </span>
-                          <span className="text-xs text-gray-500">
+                          <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            <span
+                              className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-lg border"
+                              style={contentTypeBadgeStyle(ct)}
+                            >
+                              {ct || "Insight"}
+                            </span>
+                            {(() => {
+                              const ts = getInsightTransactionStatus(article);
+                              return ts ? (
+                                <span style={transactionStatusPillStyle(ts)}>
+                                  {ts}
+                                </span>
+                              ) : null;
+                            })()}
+                          </div>
+                          <span className="text-xs text-gray-500 shrink-0">
                             {formatDate(article.Publication_Date)}
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-start gap-x-3 gap-y-2 mt-3">
-                          <a
-                            href={href}
-                            className="min-w-0 flex-1 text-sm font-semibold text-gray-900 hover:text-blue-700"
-                            onClick={(e) => {
-                              if (
-                                e.defaultPrevented ||
-                                e.button !== 0 ||
-                                e.metaKey ||
-                                e.ctrlKey ||
-                                e.shiftKey ||
-                                e.altKey
-                              )
-                                return;
-                              e.preventDefault();
-                              router.push(href);
-                            }}
-                          >
-                            {article.Headline}
-                          </a>
-
-                          {(() => {
-                            const ts = article.Company_of_Focus?.find(
-                              (c) => c?.Transaction_status
-                            )?.Transaction_status;
-                            return ts ? (
-                              <span
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  fontSize: 11,
-                                  lineHeight: 1,
-                                  padding: "5px 10px",
-                                  borderRadius: 9999,
-                                  fontWeight: 700,
-                                  letterSpacing: "0.03em",
-                                  textTransform: "uppercase",
-                                  backgroundColor: "#dcfce7",
-                                  color: "#166534",
-                                  border: "1.5px solid #4ade80",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {ts}
-                              </span>
-                            ) : null;
-                          })()}
-                        </div>
+                        <a
+                          href={href}
+                          className="block mt-3 text-sm font-semibold text-gray-900 hover:text-blue-700"
+                          onClick={(e) => {
+                            if (
+                              e.defaultPrevented ||
+                              e.button !== 0 ||
+                              e.metaKey ||
+                              e.ctrlKey ||
+                              e.shiftKey ||
+                              e.altKey
+                            )
+                              return;
+                            e.preventDefault();
+                            router.push(href);
+                          }}
+                        >
+                          {article.Headline}
+                        </a>
 
                         {article.Strapline ? (
                           <p className="mt-2 text-xs leading-5 text-gray-600 line-clamp-3">
@@ -2063,19 +2190,18 @@ export default function HomeUserPage() {
                 </div>
               ) : (
                 <div className="py-6 text-center sm:py-8">
-                  <p className="text-sm text-gray-500">
-                    {insightsArticlesView === "followed"
-                      ? "No followed insights available"
-                      : "No insights available"}
-                  </p>
+                  <p className="text-sm text-gray-500">No insights available</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Corporate Events - second on mobile */}
-          <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3">
-            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+          <div
+            className="grid grid-rows-[auto_1fr] overflow-hidden bg-white rounded-lg shadow order-2 lg:order-3"
+            style={sideColumnHeightStyle}
+          >
+            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
                   <svg
@@ -2103,36 +2229,8 @@ export default function HomeUserPage() {
                   Corporate Events
                 </a>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setCorporateEventsView("followed")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      corporateEventsView === "followed"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={corporateEventsView === "followed"}
-                  >
-                    Followed
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCorporateEventsView("all")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      corporateEventsView === "all"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={corporateEventsView === "all"}
-                  >
-                    All
-                  </button>
-                </div>
-              </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="min-h-0 min-w-0 overflow-y-auto overflow-x-auto">
               {corporateEventsLoading ? (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">
@@ -2272,7 +2370,7 @@ export default function HomeUserPage() {
                                     <span>{targetName}</span>
                                   );
                                 }
-                                return <span>-</span>;
+                                return <span>Not Available</span>;
                               })()}
                             </div>
                             <div>
@@ -2285,7 +2383,7 @@ export default function HomeUserPage() {
                                 );
 
                                 if (sellersNew.length === 0) {
-                                  return <span>-</span>;
+                                  return <span>Not Available</span>;
                                 }
 
                                 return (
@@ -2337,7 +2435,7 @@ export default function HomeUserPage() {
 
                                 const dealType =
                                   details?.Type || ev.deal_type || ev.type;
-                                return dealType || "-";
+                                return dealType || "Not Available";
                               })()}
                             </div>
                             <div>
@@ -2366,7 +2464,7 @@ export default function HomeUserPage() {
                                     "") as string
                                 ).trim();
 
-                                if (!fundingStage) return "-";
+                                if (!fundingStage) return "Not Available";
                                 return (
                                   <span className="inline-block px-2 py-0.5 ml-1 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">
                                     {fundingStage}
@@ -2467,7 +2565,7 @@ export default function HomeUserPage() {
                                     ? `${event.investment_data.currrency.Currency}${event.investment_data.investment_amount_m}`
                                     : "");
 
-                                return amount || "-";
+                                return amount || "Not Available";
                               })()}
                             </div>
                             <div>
@@ -2515,7 +2613,7 @@ export default function HomeUserPage() {
                                 const valuation =
                                   valuationFromDetails || valuationFallback;
 
-                                return valuation || "-";
+                                return valuation || "Not Available";
                               })()}
                             </div>
                             <div>
@@ -2543,8 +2641,8 @@ export default function HomeUserPage() {
                                     : "") ||
                                   getEventPrimarySectors(event);
 
-                                if (!primary || primary === "-") {
-                                  return "-";
+                                if (!primary || primary === "Not Available") {
+                                  return "Not Available";
                                 }
 
                                 return primaryRefs.length > 0 ? (
@@ -2615,7 +2713,7 @@ export default function HomeUserPage() {
                                     : secondaryLegacy;
 
                                 if (secondary.length === 0) {
-                                  return "-";
+                                  return "Not Available";
                                 }
 
                                 return secondaryRefs.length > 0 ? (
@@ -2651,8 +2749,8 @@ export default function HomeUserPage() {
                     </div>
                   </div>
 
-                  {/* Desktop view - table */}
-                  <div className="hidden lg:block overflow-x-auto max-h-[800px]">
+                  {/* Desktop view - table (scroll handled by parent column body) */}
+                  <div className="hidden lg:block min-w-full">
                     <table className="w-full min-w-max table-fixed">
                       <colgroup>
                         <col />
@@ -2660,18 +2758,18 @@ export default function HomeUserPage() {
                         <col />
                         <col />
                       </colgroup>
-                      <thead className="sticky top-0 bg-gray-50">
+                      <thead className="sticky top-0 z-10 bg-gray-50">
                         <tr>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Event Details
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Parties
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Deal Details
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Sectors
                           </th>
                         </tr>
@@ -3188,7 +3286,7 @@ export default function HomeUserPage() {
                                       : secondaryLegacy;
                                   return (
                                     <div className="space-y-1">
-                                      {primary && primary !== "-" && (
+                                      {primary && primary !== "Not Available" && (
                                         <div className="text-xs text-gray-500">
                                           <strong>Primary:</strong>{" "}
                                           {primaryRefs.length > 0
@@ -3251,9 +3349,7 @@ export default function HomeUserPage() {
               ) : (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">
-                    {corporateEventsView === "followed"
-                      ? "No followed corporate events available"
-                      : "No corporate events available"}
+                    No corporate events available
                   </p>
                 </div>
               )}
@@ -3262,68 +3358,6 @@ export default function HomeUserPage() {
         </div>
       </main>
       <Footer />
-
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-          /* Always-visible "New Feature" bubble above search input */
-          .global-search-tooltip{
-            position: relative;
-          }
-          .global-search-feature-tip{
-            position: absolute;
-            left: 0;
-            bottom: calc(100% + 10px);
-            background: rgba(17, 24, 39, 0.95);
-            color: #fff;
-            font-size: 12px;
-            line-height: 1.2;
-            padding: 8px 10px;
-            border-radius: 6px;
-            white-space: nowrap;
-            z-index: 60;
-            pointer-events: auto;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-          }
-          .global-search-feature-tip-close{
-            appearance: none;
-            border: 0;
-            background: transparent;
-            color: inherit;
-            padding: 0;
-            margin: 0;
-            cursor: pointer;
-            opacity: 0.9;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-          }
-          .global-search-feature-tip-close:hover{
-            opacity: 1;
-            background: rgba(255,255,255,0.10);
-          }
-          .global-search-feature-tip::before{
-            content: '';
-            position: absolute;
-            left: 14px;
-            top: 100%;
-            border: 6px solid transparent;
-            border-top-color: rgba(17, 24, 39, 0.95);
-            z-index: 61;
-            pointer-events: none;
-          }
-          @media (max-width: 640px){
-            .global-search-feature-tip{ max-width: 92vw; }
-          }
-        `,
-        }}
-      />
     </div>
   );
 }
