@@ -1,0 +1,304 @@
+"use client";
+
+import * as React from "react";
+import { createPortal } from "react-dom";
+
+import { cn } from "@/utils/cn";
+
+type NewFeatureCalloutProps = {
+  /** Unique id for this feature (kept for future / analytics). */
+  featureKey: string;
+  /** Feature go-live date/time. Accepts Date or ISO string. */
+  launchedAt: Date | string;
+  /** How long to show (default: 14 days). */
+  durationDays?: number;
+  /** Tooltip title (default: "New Feature"). */
+  titleText?: string;
+  /**
+   * If true, dismissing persists via localStorage (default: false).
+   * When false, the tooltip shows again on every page entry.
+   */
+  persistDismissal?: boolean;
+  /** Optional wrapper classes. */
+  className?: string;
+  /** If true, only open the popover once the target enters the viewport. */
+  openWhenInView?: boolean;
+  /**
+   * Popover position relative to the anchor.
+   * `auto` centers above/below; `right` / `left` sit beside the anchor (vertically centered).
+   */
+  side?: "auto" | "left" | "right" | "bottom";
+  /** Horizontal alignment when tooltip is above/below the anchor. */
+  align?: "start" | "center" | "end";
+  children: React.ReactNode;
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function toMs(input: Date | string): number | null {
+  const ms =
+    typeof input === "string" ? Date.parse(input) : (input as Date).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function safeGet(key: string): string | null {
+  try {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSet(key: string, value: string) {
+  try {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore storage failures (private mode, disabled storage, etc)
+  }
+}
+
+export function NewFeatureCallout({
+  featureKey,
+  launchedAt,
+  durationDays = 14,
+  titleText = "New Feature",
+  persistDismissal = false,
+  className,
+  openWhenInView = false,
+  side = "auto",
+  align = "center",
+  children,
+}: NewFeatureCalloutProps) {
+  const launchedAtMs = React.useMemo(() => toMs(launchedAt), [launchedAt]);
+
+  const [ready, setReady] = React.useState(false);
+  const [dismissed, setDismissed] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
+  const rootRef = React.useRef<HTMLSpanElement | null>(null);
+  const popoverRef = React.useRef<HTMLDivElement | null>(null);
+  const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
+  const [placement, setPlacement] = React.useState<"top" | "bottom">("top");
+  const [isMobile, setIsMobile] = React.useState(false);
+  const [isInView, setIsInView] = React.useState(false);
+
+  const withinWindow = React.useMemo(() => {
+    if (launchedAtMs === null) return false;
+    const endsAt = launchedAtMs + Math.max(0, durationDays) * DAY_MS;
+    return Date.now() >= launchedAtMs && Date.now() <= endsAt;
+  }, [durationDays, launchedAtMs]);
+
+  React.useEffect(() => {
+    // Show on every page entry by default.
+    if (persistDismissal) {
+      const storageKey = `asymmetrix:new-feature-dismissed:${featureKey}`;
+      const stored = safeGet(storageKey);
+      const isDismissed = Boolean(stored);
+      setDismissed(isDismissed);
+      setOpen(!isDismissed && !openWhenInView);
+    } else {
+      setDismissed(false);
+      setOpen(!openWhenInView);
+    }
+    setReady(true);
+  }, [featureKey, openWhenInView, persistDismissal]);
+
+  React.useEffect(() => {
+    if (!ready || !openWhenInView) return;
+    const el = rootRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const nextInView = Boolean(entry?.isIntersecting);
+        setIsInView(nextInView);
+      },
+      {
+        root: null,
+        threshold: 0.25,
+      }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [openWhenInView, ready]);
+
+  React.useEffect(() => {
+    if (!ready || !openWhenInView || dismissed) return;
+    setOpen(isInView);
+  }, [dismissed, isInView, openWhenInView, ready]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const update = () => {
+      const el = rootRef.current;
+      if (!el) return;
+      setIsMobile(typeof window !== "undefined" && window.innerWidth <= 768);
+      const rect = el.getBoundingClientRect();
+      setAnchorRect(rect);
+      if (side === "bottom") {
+        setPlacement("bottom");
+      } else if (side === "auto") {
+        // If there's not enough space above, flip to bottom.
+        setPlacement(rect.top < 120 ? "bottom" : "top");
+      }
+    };
+    update();
+    // Keep it anchored during scroll/resize/layout shifts.
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+
+    const onPointerDown = (e: PointerEvent) => {
+      const root = rootRef.current;
+      const popover = popoverRef.current;
+      if (!root) return;
+      if (e.target instanceof Node) {
+        if (root.contains(e.target)) return;
+        if (popover && popover.contains(e.target)) return;
+      }
+      setDismissed(true);
+      setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setDismissed(true);
+      setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, side, align]);
+
+  const visible = ready && withinWindow && !dismissed;
+  if (!visible) return <>{children}</>;
+
+  const dismiss = () => {
+    if (persistDismissal) {
+      safeSet(`asymmetrix:new-feature-dismissed:${featureKey}`, String(Date.now()));
+    }
+    setDismissed(true);
+    setOpen(false);
+  };
+
+  return (
+    <span
+      ref={rootRef}
+      className={cn("relative inline-block", className)}
+    >
+      {children}
+
+      {open &&
+        anchorRect &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            role="dialog"
+            aria-label={titleText}
+            className={cn(
+              "fixed z-[9999] w-fit min-w-40 max-w-[240px] rounded-2xl",
+              "bg-slate-900/95 text-white backdrop-blur-md",
+              "ring-1 ring-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.35)]",
+              "px-4 py-3"
+            )}
+            style={(() => {
+              const gap = 10;
+              const padding = 16;
+              const halfPopoverMax = 120;
+              const viewportW =
+                typeof window !== "undefined" ? window.innerWidth : 800;
+              const centerY = anchorRect.top + anchorRect.height / 2;
+              const useHorizontal =
+                !isMobile && (side === "left" || side === "right");
+
+              if (useHorizontal && side === "right") {
+                return {
+                  left: anchorRect.right + gap,
+                  top: centerY,
+                  transform: "translate(0, -50%)",
+                };
+              }
+
+              if (useHorizontal && side === "left") {
+                return {
+                  left: anchorRect.left - gap,
+                  top: centerY,
+                  transform: "translate(-100%, -50%)",
+                };
+              }
+
+              const center = anchorRect.left + anchorRect.width / 2;
+              const clampedCenter = Math.max(
+                padding + halfPopoverMax,
+                Math.min(viewportW - padding - halfPopoverMax, center)
+              );
+              const showBelow =
+                side === "bottom" ||
+                isMobile ||
+                placement === "bottom" ||
+                anchorRect.top < 140;
+
+              let left = clampedCenter;
+              let transform = showBelow
+                ? "translate(-50%, 0)"
+                : "translate(-50%, -100%)";
+
+              if (align === "start") {
+                left = Math.max(padding, anchorRect.left);
+                transform = showBelow ? "translate(0, 0)" : "translate(0, -100%)";
+              } else if (align === "end") {
+                left = Math.min(viewportW - padding, anchorRect.right);
+                transform = showBelow
+                  ? "translate(-100%, 0)"
+                  : "translate(-100%, -100%)";
+              }
+
+              return {
+                left,
+                top: showBelow ? anchorRect.bottom + gap : anchorRect.top - gap,
+                transform,
+              };
+            })()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold tracking-tight">
+                {titleText}
+              </div>
+              <button
+                type="button"
+                aria-label="Dismiss"
+                onClick={dismiss}
+                className={cn(
+                  "inline-flex h-7 w-7 items-center justify-center rounded-full",
+                  "text-white/70 hover:bg-white/10 hover:text-white",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                )}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+    </span>
+  );
+}
+
