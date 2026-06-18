@@ -572,9 +572,9 @@ class DashboardApiService {
     offset: number;
     signal?: AbortSignal;
   }): Promise<DealRadarListResponse> {
-    const dealRadarBaseUrl =
-      "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
-    const url = new URL(`${dealRadarBaseUrl}/get_deal_radar`);
+    const url = new URL(
+      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/get_deal_radar"
+    );
     url.searchParams.set("limit", String(params.limit));
     url.searchParams.set("offset", String(params.offset));
 
