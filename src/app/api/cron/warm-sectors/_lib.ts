@@ -68,6 +68,17 @@ export function getXanoHeaders(token: string) {
 
 export const DEFAULT_FETCH_TIMEOUT_MS = 60000;
 
+// Primary_sectors_with_companies_counts routinely takes ~60–70s on Xano; 60s was too tight.
+const SECTOR_LIST_FETCH_TIMEOUT_MS = Math.min(
+  Math.max(Number(process.env.CRON_SECTOR_LIST_TIMEOUT_MS ?? 90000), 10000),
+  180000
+);
+
+export type FetchSectorIdsResult = {
+  ids: string[];
+  error?: string;
+};
+
 export async function fetchJsonWithTimeout(
   url: string,
   token: string,
@@ -116,17 +127,18 @@ export async function fetchJsonWithTimeout(
   return doAttempt(0);
 }
 
-export async function fetchSectorIds(token: string): Promise<string[]> {
+export async function fetchSectorIds(token: string): Promise<FetchSectorIdsResult> {
   try {
     const out = await fetchJsonWithTimeout(
       `${XANO_BASE}/Primary_sectors_with_companies_counts`,
       token,
-      DEFAULT_FETCH_TIMEOUT_MS,
-      2
+      SECTOR_LIST_FETCH_TIMEOUT_MS,
+      1
     );
     if (!out.ok) {
-      console.error('[CRON] Failed to fetch sector list:', out.status, out.error);
-      return [];
+      const error = `Failed to fetch sector list (${out.status || 'network'}): ${out.error ?? 'unknown error'}`;
+      console.error('[CRON]', error);
+      return { ids: [], error };
     }
 
     const data = out.data;
@@ -157,10 +169,17 @@ export async function fetchSectorIds(token: string): Promise<string[]> {
       .filter((id) => id && id !== 'undefined');
 
     console.log(`[CRON] Found ${ids.length} sectors to warm`);
-    return ids;
+    if (ids.length === 0) {
+      return {
+        ids: [],
+        error: 'Sector list returned OK but contained no extractable sector IDs',
+      };
+    }
+    return { ids };
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error';
     console.error('[CRON] Error fetching sector IDs:', error);
-    return [];
+    return { ids: [], error: `Failed to fetch sector list: ${message}` };
   }
 }
 

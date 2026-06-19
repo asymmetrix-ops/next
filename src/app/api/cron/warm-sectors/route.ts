@@ -90,11 +90,11 @@ export async function GET(request: NextRequest) {
 
   // Step 2: Fetch all sector IDs
   console.log('[CRON] 📋 Fetching sector list from Xano...');
-  const sectorIds = await fetchSectorIds(authToken);
+  const { ids: sectorIds, error: sectorListError } = await fetchSectorIds(authToken);
 
   if (sectorIds.length === 0) {
     return NextResponse.json(
-      { success: false, error: 'No sectors found to warm' },
+      { success: false, error: sectorListError ?? 'No sectors found to warm' },
       { status: 500 }
     );
   }
