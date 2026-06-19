@@ -2384,9 +2384,13 @@ const SectorDetailPage = ({
       if (!resp.ok) {
         if (resp.status === 401) {
           setError("Authentication required");
+        } else if (resp.status === 503) {
+          setError("Sector data is not available yet. Please try again later.");
         } else {
           console.error("❌ Overview fetch failed:", resp.status);
+          setError("Failed to load sector data.");
         }
+        setOverviewDataLoaded(true);
         return;
       }
 

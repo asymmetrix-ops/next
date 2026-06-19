@@ -1,47 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { setCachedSectorData } from '@/lib/sector-cache';
+import {
+  clearCachedWarmSectorIds,
+  getCachedWarmSectorIds,
+  setCachedWarmSectorIds,
+} from '@/lib/sector-cache';
 import {
   fetchSectorIds,
-  fetchSectorData,
   resolveAuthToken,
+  triggerWarmContinuation,
+  warmSectorsUntilDeadline,
+  WARM_TIME_BUDGET_MS,
 } from './_lib';
 
 // This route does real work (network + caching) and must never be pre-rendered at build time.
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Allow up to 5 minutes for warming all sectors (Vercel Pro)
+// Allow up to 5 minutes per batch (Vercel Pro). Large sector counts chain via ?continuation=1.
 export const maxDuration = 300;
 
 const CRON_MANUAL_SECRET = process.env.CRON_MANUAL_SECRET;
-
-async function mapWithConcurrency<T, R>(
-  items: readonly T[],
-  limit: number,
-  fn: (item: T, index: number) => Promise<R>
-): Promise<R[]> {
-  const out = new Array<R>(items.length);
-  let nextIndex = 0;
-
-  const worker = async () => {
-    while (true) {
-      const i = nextIndex++;
-      if (i >= items.length) return;
-      out[i] = await fn(items[i] as T, i);
-    }
-  };
-
-  await Promise.all(Array.from({ length: Math.max(1, limit) }, worker));
-  return out;
-}
 
 export async function GET(request: NextRequest) {
   const force =
     request.nextUrl.searchParams.get('force') === '1' ||
     request.nextUrl.searchParams.get('force') === 'true';
+  const isContinuation = request.nextUrl.searchParams.get('continuation') === '1';
+  const startIndex = Math.max(
+    0,
+    Number.parseInt(request.nextUrl.searchParams.get('startIndex') ?? '0', 10) || 0
+  );
+
   if (force) {
     const provided = request.headers.get('x-cron-manual-secret') ?? '';
     if (!CRON_MANUAL_SECRET || provided !== CRON_MANUAL_SECRET) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+  } else if (isContinuation && CRON_MANUAL_SECRET) {
+    const provided = request.headers.get('x-cron-manual-secret') ?? '';
+    if (provided !== CRON_MANUAL_SECRET) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
   }
@@ -57,7 +54,7 @@ export async function GET(request: NextRequest) {
     }).format(new Date());
     const londonHour = Number.parseInt(londonHourStr, 10);
 
-    if (!force && londonHour !== 6) {
+    if (!force && !isContinuation && londonHour !== 6) {
       console.log(`[CRON] ⏭️ Skipping warm-sectors (London hour=${londonHourStr})`);
       return NextResponse.json({
         success: true,
@@ -72,7 +69,7 @@ export async function GET(request: NextRequest) {
   }
 
   const startTime = performance.now();
-  const results: { sectorId: string; status: string; ms: number }[] = [];
+  const deadlineAt = Date.now() + WARM_TIME_BUDGET_MS;
 
   // Step 1: Resolve a Xano auth token
   const authToken = await resolveAuthToken(request);
@@ -88,99 +85,97 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Step 2: Fetch all sector IDs
-  console.log('[CRON] 📋 Fetching sector list from Xano...');
-  const { ids: sectorIds, error: sectorListError } = await fetchSectorIds(authToken);
+  // Step 2: Resolve sector IDs (reuse cached list on continuation batches)
+  let sectorIds: string[] | null = null;
+  let sectorListError: string | undefined;
 
-  if (sectorIds.length === 0) {
+  if (isContinuation || startIndex > 0) {
+    sectorIds = await getCachedWarmSectorIds();
+    if (sectorIds?.length) {
+      console.log(
+        `[CRON] 📋 Using cached sector list (${sectorIds.length} sectors, startIndex=${startIndex})`
+      );
+    }
+  }
+
+  if (!sectorIds?.length) {
+    console.log('[CRON] 📋 Fetching sector list from Xano...');
+    const fetched = await fetchSectorIds(authToken);
+    sectorIds = fetched.ids;
+    sectorListError = fetched.error;
+    if (sectorIds.length > 0) {
+      await setCachedWarmSectorIds(sectorIds);
+    }
+  }
+
+  if (!sectorIds.length) {
     return NextResponse.json(
       { success: false, error: sectorListError ?? 'No sectors found to warm' },
       { status: 500 }
     );
   }
 
-  console.log(`[CRON] 🔄 Starting standalone cache warm for ${sectorIds.length} sectors...`);
+  if (startIndex >= sectorIds.length) {
+    await clearCachedWarmSectorIds();
+    return NextResponse.json({
+      success: true,
+      partial: false,
+      message: 'All sectors already warmed',
+      sectorsTotal: sectorIds.length,
+      startIndex,
+      sectorsWarmed: 0,
+      sectorsFailed: 0,
+      results: [],
+    });
+  }
 
-  // Step 3: Fetch and cache data for each sector
+  console.log(
+    `[CRON] 🔄 Warming sectors ${startIndex + 1}-${sectorIds.length} of ${sectorIds.length} ` +
+      `(budget ${WARM_TIME_BUDGET_MS}ms)...`
+  );
+
+  // Step 3: Warm as many sectors as fit within the time budget
   const concurrency = Math.min(
     Math.max(Number(process.env.CRON_WARM_CONCURRENCY ?? 4), 1),
     8
   );
 
-  const perSector = await mapWithConcurrency(sectorIds, concurrency, async (sectorId) => {
-    const sectorStart = performance.now();
-    try {
-      const data = await fetchSectorData(sectorId, authToken);
+  const { results, nextIndex } = await warmSectorsUntilDeadline(
+    sectorIds,
+    startIndex,
+    deadlineAt,
+    authToken,
+    concurrency
+  );
 
-      if (data) {
-        const mm = data.splitDatasets.marketMap as Record<string, unknown>;
-        const counts = (mm.counts ?? {}) as Record<string, number | undefined>;
-        const publicCompanies  = Array.isArray(mm.public)  ? mm.public  : [];
-        const peCompanies      = Array.isArray(mm.pe)      ? mm.pe      : [];
-        const vcCompanies      = Array.isArray(mm.vc)      ? mm.vc      : [];
-        const privateCompanies = Array.isArray(mm.private) ? mm.private : [];
-        console.log(
-          `[CRON] 📊 Sector ${sectorId} marketMap: ` +
-            `public=${publicCompanies.length}/${counts.public ?? 0}, ` +
-            `pe=${peCompanies.length}/${counts.pe ?? 0}, ` +
-            `vc=${vcCompanies.length}/${counts.vc ?? 0}, ` +
-            `private=${privateCompanies.length}/${counts.private ?? 0}`
-        );
-        console.log(
-          `[CRON] 📊 Sector ${sectorId} strategic=` +
-            `${Array.isArray(data.splitDatasets.strategic) ? data.splitDatasets.strategic.length : (data.splitDatasets.strategic ? 'obj' : 'null')}, ` +
-            `pe_investors=${Array.isArray(data.splitDatasets.pe) ? data.splitDatasets.pe.length : (data.splitDatasets.pe ? 'obj' : 'null')}, ` +
-            `recentTx=${Array.isArray(data.splitDatasets.recentTransactions) ? data.splitDatasets.recentTransactions.length : (data.splitDatasets.recentTransactions ? 'obj' : 'null')}`
-        );
-
-        const payload = {
-          ...data,
-          timings: { cachedByCron: true },
-          serverFetchTime: Math.round(performance.now() - sectorStart),
-        };
-        console.log(`[CRON] 📦 Sector ${sectorId} cache payload keys: ${Object.keys(payload).join(', ')}`);
-        console.log(`[CRON] 📦 Sector ${sectorId} splitDatasets keys: ${Object.keys(payload.splitDatasets).join(', ')}`);
-
-        await setCachedSectorData(sectorId, payload);
-
-        const ms = Math.round(performance.now() - sectorStart);
-        console.log(`[CRON] ✅ Sector ${sectorId} cached in ${ms}ms`);
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        return { sectorId, status: 'success', ms };
-      }
-
-      const ms = Math.round(performance.now() - sectorStart);
-      console.warn(`[CRON] ⚠️ Sector ${sectorId} returned no data`);
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      return { sectorId, status: 'failed (no data)', ms };
-    } catch (error) {
-      const ms = Math.round(performance.now() - sectorStart);
-      console.error(`[CRON] ❌ Sector ${sectorId} failed:`, error);
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      return {
-        sectorId,
-        status: `error: ${error instanceof Error ? error.message : 'unknown'}`,
-        ms,
-      };
-    }
-  });
-
-  results.push(...perSector);
+  const hasMore = nextIndex < sectorIds.length;
+  if (hasMore) {
+    triggerWarmContinuation(request.nextUrl.origin, nextIndex, CRON_MANUAL_SECRET);
+  } else {
+    await clearCachedWarmSectorIds();
+  }
 
   const totalMs = Math.round(performance.now() - startTime);
   const successCount = results.filter((r) => r.status === 'success').length;
 
   console.log(
-    `[CRON] 🏁 Cache warm completed: ${successCount}/${sectorIds.length} sectors in ${totalMs}ms`
+    `[CRON] 🏁 Batch completed: ${successCount}/${results.length} sectors in ${totalMs}ms` +
+      (hasMore ? ` — continuation at index ${nextIndex}` : ' — all done')
   );
 
   return NextResponse.json({
     success: true,
+    partial: hasMore,
     totalMs,
     sectorsTotal: sectorIds.length,
-    sectorsWarmed: successCount,
-    sectorsFailed: sectorIds.length - successCount,
+    startIndex,
+    nextIndex,
+    sectorsWarmedThisBatch: successCount,
+    sectorsFailedThisBatch: results.length - successCount,
     results,
+    ...(hasMore
+      ? { message: `Warming continues in background from sector index ${nextIndex}` }
+      : {}),
   });
 }
 

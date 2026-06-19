@@ -328,14 +328,20 @@ const SectorsSection = () => {
     }
   });
 
-  // Fetch sector list (cached) once, then filter client-side.
+  // Fetch sector list from cache only (warmed by cron).
   const fetchSectors = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Preferred: hit our cached endpoint (backed by Redis + warmed by cron).
       const response = await fetch("/api/sectors/list", { method: "GET" });
+
+      if (response.status === 503) {
+        setError("Sector list is not available yet. Please try again later.");
+        setAllSectors([]);
+        setSectors([]);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(`API request failed: ${response.statusText}`);
@@ -346,26 +352,8 @@ const SectorsSection = () => {
       setAllSectors(list);
       setSectors(list);
     } catch (err) {
-      // Fallback to direct Xano fetch (keeps page working even if cache is empty).
-      try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const baseUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts`;
-        const response = await fetch(baseUrl, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        });
-        if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
-        const data: SectorsResponse = await response.json();
-        const list = data.sectors || [];
-        setAllSectors(list);
-        setSectors(list);
-      } catch (e) {
-        setError(err instanceof Error ? err.message : "Failed to fetch sectors");
-        console.error("Error fetching sectors:", err, e);
-      }
+      setError(err instanceof Error ? err.message : "Failed to fetch sectors");
+      console.error("Error fetching sectors:", err);
     } finally {
       setLoading(false);
     }
@@ -375,64 +363,17 @@ const SectorsSection = () => {
     setSearchQuery(searchInput.trim());
   };
 
-  // Apply search term:
-  // - empty -> show cached results
-  // - non-empty -> fetch directly from Xano using GET + bearer auth, then render results
+  // Apply search term by filtering the cached list client-side.
   useEffect(() => {
-    const q = searchQuery.trim();
+    const q = searchQuery.trim().toLowerCase();
     if (!q) {
-      // Only reset to cached list when query is cleared via Search button.
       setSectors(allSectors);
       return;
     }
 
-    const controller = new AbortController();
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        if (!token) {
-          throw new Error("Authentication required");
-        }
-
-        const baseUrl =
-          "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts";
-        const params = new URLSearchParams();
-        params.set("sort", "");
-        params.set("search", q);
-
-        const resp = await fetch(`${baseUrl}?${params.toString()}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          signal: controller.signal,
-        });
-
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => "");
-          throw new Error(
-            `API request failed (${resp.status}): ${resp.statusText || ""} ${text}`.trim()
-          );
-        }
-
-        const data: SectorsResponse = await resp.json();
-        const list = data.sectors || [];
-        setSectors(list);
-      } catch (e) {
-        if ((e as { name?: string })?.name === "AbortError") return;
-        setError(e instanceof Error ? e.message : "Failed to search sectors");
-        // Keep showing previous results rather than blanking the page
-      } finally {
-        setLoading(false);
-      }
-    })();
-
-    return () => {
-      controller.abort();
-    };
+    setSectors(
+      allSectors.filter((s) => s.sector_name.toLowerCase().includes(q))
+    );
   }, [searchQuery, allSectors]);
 
   useEffect(() => {

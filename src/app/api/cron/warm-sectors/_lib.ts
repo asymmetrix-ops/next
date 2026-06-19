@@ -1,7 +1,10 @@
 // Shared helpers for sector cache-warming routes.
 // Used by both the bulk warm-sectors route and the individual [sectorId] route.
 
-import { setCachedSectorData, setCachedSectorsList } from '@/lib/sector-cache';
+import {
+  setCachedSectorData,
+  setCachedSectorsList,
+} from '@/lib/sector-cache';
 
 export const XANO_BASE = 'https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV';
 export const XANO_AUTH_URL = 'https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/login';
@@ -341,6 +344,98 @@ export async function warmSector(
     console.error(`[CRON] ❌ Sector ${sectorId} failed:`, error);
     return { status: 'error', ms, detail };
   }
+}
+
+export type SectorWarmResult = { sectorId: string; status: string; ms: number };
+
+// Stop warming before the Vercel function hard limit (default maxDuration=300s on Pro).
+export const WARM_TIME_BUDGET_MS = Math.min(
+  Math.max(Number(process.env.CRON_WARM_TIME_BUDGET_MS ?? 240_000), 60_000),
+  290_000
+);
+
+function toWarmResult(
+  sectorId: string,
+  result: Awaited<ReturnType<typeof warmSector>>
+): SectorWarmResult {
+  if (result.status === 'success') {
+    return { sectorId, status: 'success', ms: result.ms };
+  }
+  if (result.status === 'failed') {
+    return { sectorId, status: 'failed (no data)', ms: result.ms };
+  }
+  return {
+    sectorId,
+    status: `error: ${result.detail ?? 'unknown'}`,
+    ms: result.ms,
+  };
+}
+
+/** Warm sectors from startIndex until deadline; does not start new sectors after deadline. */
+export async function warmSectorsUntilDeadline(
+  sectorIds: readonly string[],
+  startIndex: number,
+  deadlineAt: number,
+  authToken: string,
+  concurrency: number
+): Promise<{ results: SectorWarmResult[]; nextIndex: number }> {
+  const results: SectorWarmResult[] = [];
+  let queueIndex = 0;
+  const slice = sectorIds.slice(startIndex);
+
+  if (slice.length === 0) {
+    return { results, nextIndex: startIndex };
+  }
+
+  const worker = async () => {
+    while (true) {
+      if (Date.now() >= deadlineAt) return;
+      const i = queueIndex++;
+      if (i >= slice.length) return;
+      const sectorId = slice[i] as string;
+      const result = toWarmResult(sectorId, await warmSector(sectorId, authToken));
+      results.push(result);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker));
+  return { results, nextIndex: startIndex + results.length };
+}
+
+export function triggerWarmContinuation(
+  origin: string,
+  startIndex: number,
+  manualSecret?: string | null
+): void {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+    origin;
+
+  if (!baseUrl) {
+    console.error('[CRON] ❌ Cannot chain warm-sectors continuation: no base URL');
+    return;
+  }
+
+  const url = new URL(`${baseUrl}/api/cron/warm-sectors`);
+  url.searchParams.set('continuation', '1');
+  url.searchParams.set('startIndex', String(startIndex));
+
+  const headers: Record<string, string> = {};
+  if (manualSecret) {
+    headers['x-cron-manual-secret'] = manualSecret;
+  }
+
+  fetch(url.toString(), { method: 'GET', headers })
+    .then((resp) => {
+      console.log(
+        `[CRON] 🔗 Continuation dispatched (startIndex=${startIndex}, status=${resp.status})`
+      );
+    })
+    .catch((err) => {
+      console.error('[CRON] ❌ Continuation dispatch failed:', err);
+    });
 }
 
 export async function resolveAuthToken(request: Request): Promise<string | null> {

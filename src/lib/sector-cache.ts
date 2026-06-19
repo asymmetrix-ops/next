@@ -29,6 +29,8 @@ const CACHE_TTL_MS = CACHE_TTL_SECONDS * 1000;
 
 const WARMED_AT_KEY = 'sector:cache:warmed_at';
 const SECTOR_LIST_KEY = 'sectors:list:v1';
+const WARM_SECTOR_IDS_KEY = 'sector:warm:ids';
+const WARM_SECTOR_IDS_TTL_SECONDS = 2 * 60 * 60; // 2h – covers chained cron batches
 const DEFAULT_SECTOR_LIST_TTL_SECONDS = DEFAULT_CACHE_TTL_SECONDS;
 const SECTOR_LIST_TTL_SECONDS = Math.min(
   Math.max(Number(process.env.SECTOR_LIST_TTL_SECONDS ?? DEFAULT_SECTOR_LIST_TTL_SECONDS), 60),
@@ -146,6 +148,54 @@ export async function getCachedSectorsList(): Promise<unknown | null> {
     return null;
   }
   return entry.data;
+}
+
+export async function getCachedWarmSectorIds(): Promise<string[] | null> {
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const raw = await redis.get<string[]>(WARM_SECTOR_IDS_KEY);
+      if (Array.isArray(raw) && raw.length > 0) return raw.map(String);
+    } catch (e) {
+      console.error('[CACHE] ❌ Redis read failed for warm sector IDs:', e);
+    }
+  }
+
+  const entry = cache.get(WARM_SECTOR_IDS_KEY);
+  if (!entry || Date.now() > entry.expiresAt) return null;
+  const ids = entry.data;
+  return Array.isArray(ids) ? ids.map(String) : null;
+}
+
+export async function setCachedWarmSectorIds(ids: string[]): Promise<void> {
+  const now = Date.now();
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      await redis.set(WARM_SECTOR_IDS_KEY, ids, { ex: WARM_SECTOR_IDS_TTL_SECONDS });
+      return;
+    } catch (e) {
+      console.error('[CACHE] ❌ Redis write failed for warm sector IDs:', e);
+    }
+  }
+
+  cache.set(WARM_SECTOR_IDS_KEY, {
+    data: ids,
+    timestamp: now,
+    expiresAt: now + WARM_SECTOR_IDS_TTL_SECONDS * 1000,
+  });
+}
+
+export async function clearCachedWarmSectorIds(): Promise<void> {
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      await redis.del(WARM_SECTOR_IDS_KEY);
+    } catch (e) {
+      console.error('[CACHE] ❌ Redis delete failed for warm sector IDs:', e);
+    }
+  }
+  cache.delete(WARM_SECTOR_IDS_KEY);
 }
 
 export async function setCachedSectorsList(data: unknown): Promise<void> {
