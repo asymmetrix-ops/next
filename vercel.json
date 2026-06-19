@@ -11,10 +11,6 @@
   },
   "crons": [
     {
-      "path": "/api/cron/warm-sectors",
-      "schedule": "0 5,6 * * 1-5"
-    },
-    {
       "path": "/api/cron/warm-companies",
       "schedule": "0 5,6 * * 1-5"
     },
@@ -31,11 +27,6 @@
       "schedule": "0 5,6 * * 1-5"
     }
   ],
-  "functions": {
-    "src/app/api/cron/warm-sectors/route.ts": {
-      "maxDuration": 300
-    }
-  },
   "rewrites": [
     {
       "source": "/contributor-crm/:path*",

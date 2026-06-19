@@ -328,7 +328,7 @@ const SectorsSection = () => {
     }
   });
 
-  // Fetch sector list from cache only (warmed by cron).
+  // Fetch sector list from cache only (populated by external cache engine).
   const fetchSectors = async () => {
     setLoading(true);
     setError(null);
