@@ -40,17 +40,15 @@ export type SubsidiaryProfileRecord = {
   linkedin_growth_spark?: number[] | null;
 };
 
-/** Parse a raw YoY growth value (number, percent string, or decimal fraction). */
+/** Parse a raw YoY growth value already in percent points (e.g. 0.7 = 0.7%). */
 export function parseLinkedInGrowthPctValue(raw: unknown): number | null {
   if (typeof raw === "number" && Number.isFinite(raw)) {
-    const pct = Math.abs(raw) <= 1 && raw !== 0 ? raw * 100 : raw;
-    return Math.round(pct * 10) / 10;
+    return Math.round(raw * 10) / 10;
   }
   if (typeof raw === "string" && raw.trim()) {
     const num = Number(raw.replace(/[^0-9.-]/g, ""));
     if (!Number.isFinite(num)) return null;
-    const pct = Math.abs(num) <= 1 && num !== 0 ? num * 100 : num;
-    return Math.round(pct * 10) / 10;
+    return Math.round(num * 10) / 10;
   }
   return null;
 }

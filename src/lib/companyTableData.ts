@@ -92,6 +92,19 @@ export const formatPercentValue = (value: unknown): string => {
   return `${pct.toFixed(decimals)}%`;
 };
 
+/** LinkedIn YoY growth is stored as percent points (0.7 = 0.7%), not a decimal fraction. */
+export const formatLinkedInGrowthPercentValue = (value: unknown): string => {
+  if (value == null || value === "") return EMPTY_DISPLAY;
+  const num =
+    typeof value === "number"
+      ? value
+      : Number(String(value).replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(num)) return toPlainText(value);
+  const rounded = Math.round(num * 10) / 10;
+  const decimals = Math.abs(rounded) % 1 === 0 ? 0 : 1;
+  return `${rounded.toFixed(decimals)}%`;
+};
+
 export const formatMultipleValue = (value: unknown): string => {
   if (value == null || value === "") return EMPTY_DISPLAY;
   const num =
@@ -163,7 +176,6 @@ export function formatYearValue(value: unknown): string {
 }
 
 const PERCENT_COLUMN_KEYS = new Set([
-  "linkedin_growth",
   "revenue_growth",
   "ebitda_margin",
   "arr_pc",
@@ -193,6 +205,9 @@ export function formatCompanyColumnDisplay(
   }
 
   if (columnKey === "nrr") return formatNrrValue(raw);
+  if (columnKey === "linkedin_growth") {
+    return formatLinkedInGrowthPercentValue(raw);
+  }
   if (columnKey === "years_since_last_investment") return toPlainText(raw);
   if (columnKey === "revenue_multiple") return formatMultipleValue(raw);
   if (columnKey === "rule_of_40") {
@@ -316,8 +331,8 @@ export function mapCompanyTableApiRow(
     ownership_type: toPlainText(row.ownership_type ?? row.ownership_status),
     linkedin_members: formatPlainNumber(row.linkedin_employee),
     li_emp: formatPlainNumber(row.linkedin_employee),
-    li_growth_pc: formatPercentValue(row.linkedin_growth_1y_pct),
-    linkedin_growth: formatPercentValue(row.linkedin_growth_1y_pct),
+    li_growth_pc: formatLinkedInGrowthPercentValue(row.linkedin_growth_1y_pct),
+    linkedin_growth: formatLinkedInGrowthPercentValue(row.linkedin_growth_1y_pct),
     revenue_m: formatPlainNumber(row.Revenue_m),
     arr_m: formatPlainNumber(row.ARR_m),
     ebitda_m: formatPlainNumber(row.EBITDA_m),
