@@ -4,6 +4,7 @@
  * No charting library; click axes to highlight on the radar.
  */
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { T } from "./tokens.jsx";
 import {
   AI_SCORE_MAX,
@@ -22,6 +23,66 @@ export type AIRiskAxis = {
   blurb: string;
 };
 
+function resolveFactorDescription(axis: AIRiskAxis): string | undefined {
+  return (
+    getAiExposureFactorDescription(axis.key) ??
+    getAiExposureFactorDescription(
+      axis.label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
+    )
+  );
+}
+
+type FactorTooltipProps = {
+  axis: AIRiskAxis;
+  description: string;
+  x: number;
+  y: number;
+};
+
+function FactorTooltip({ axis, description, x, y }: FactorTooltipProps) {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      role="tooltip"
+      style={{
+        position: "fixed",
+        left: x,
+        top: y,
+        transform: "translate(-50%, calc(-100% - 12px))",
+        width: 300,
+        maxHeight: 280,
+        overflowY: "auto",
+        padding: "10px 12px",
+        background: T.ink,
+        color: "#fff",
+        borderRadius: 8,
+        fontFamily: T.sans,
+        fontSize: 12,
+        lineHeight: 1.55,
+        zIndex: 10000,
+        pointerEvents: "none",
+        boxShadow: "0 4px 18px rgba(0,0,0,0.18)",
+      }}
+    >
+      <div
+        style={{
+          fontWeight: 600,
+          marginBottom: 6,
+          fontSize: 12.5,
+        }}
+      >
+        {axis.label}
+      </div>
+      {description}
+    </div>,
+    document.body
+  );
+}
+
 const DEFENSIBILITY_TONE = {
   fg: "oklch(40% 0.12 158)",
   fill: "oklch(56% 0.13 158)",
@@ -32,19 +93,19 @@ const DEFENSIBILITY_TONE = {
 type RadarChartProps = {
   axes: AIRiskAxis[];
   active: string;
-  hovered: string | null;
+  tooltipKey: string | null;
   onPick?: (key: string) => void;
-  onHover?: (key: string | null) => void;
+  onLabelHover?: (key: string | null, event?: React.MouseEvent) => void;
   size?: number;
   maxScore?: number;
 };
 
-const LABEL_FONT_SIZE = 12;
-const LABEL_LINE_HEIGHT = 15;
+const LABEL_FONT_SIZE = 14;
+const LABEL_LINE_HEIGHT = 17;
 
 // Extra viewBox space (in SVG user units) reserved for axis labels on each side.
-const RADAR_PAD_H = 128;
-const RADAR_PAD_V = 52;
+const RADAR_PAD_H = 140;
+const RADAR_PAD_V = 58;
 
 function wrapLabel(label: string): string[] {
   if (label.includes(" / ")) {
@@ -73,9 +134,9 @@ function wrapLabel(label: string): string[] {
 function RadarChart({
   axes,
   active,
-  hovered,
+  tooltipKey,
   onPick,
-  onHover,
+  onLabelHover,
   size = 280,
   maxScore = AI_SCORE_MAX,
 }: RadarChartProps) {
@@ -137,12 +198,10 @@ function RadarChart({
   const dots = axes.map((ax, i) => {
     const [x, y] = dataPoints[i];
     const isActive = active === ax.key;
-    const isHovered = hovered === ax.key;
     return (
       <g
         key={ax.key}
         style={{ cursor: "pointer" }}
-        onMouseEnter={() => onHover?.(ax.key)}
         onClick={(e) => {
           e.stopPropagation();
           onPick?.(ax.key);
@@ -151,14 +210,14 @@ function RadarChart({
         <circle
           cx={x}
           cy={y}
-          r={isActive || isHovered ? 9 : 6}
+          r={isActive ? 9 : 6}
           fill={DEFENSIBILITY_TONE.fill}
-          fillOpacity={isActive || isHovered ? 0.22 : 0}
+          fillOpacity={isActive ? 0.22 : 0}
         />
         <circle
           cx={x}
           cy={y}
-          r={isActive || isHovered ? 4.5 : 3.6}
+          r={isActive ? 4.5 : 3.6}
           fill={DEFENSIBILITY_TONE.fill}
           stroke="#fff"
           strokeWidth="1.6"
@@ -169,7 +228,7 @@ function RadarChart({
 
   const labels = axes.map((ax, i) => {
     const a = angleFor(i);
-    const lr = R + 34;
+    const lr = R + 38;
     const lx = cx + Math.cos(a) * lr;
     const ly = cy + Math.sin(a) * lr;
     const anchor =
@@ -179,30 +238,47 @@ function RadarChart({
           ? "start"
           : "end";
     const isActive = active === ax.key;
-    const isHovered = hovered === ax.key;
+    const isTooltip = tooltipKey === ax.key;
     const lines = wrapLabel(ax.label);
     const totalH = lines.length * LABEL_LINE_HEIGHT;
     const startDy = -(totalH / 2) + LABEL_LINE_HEIGHT / 2;
+    const hitW = Math.max(...lines.map((line) => line.length)) * (LABEL_FONT_SIZE * 0.58);
+    const hitH = totalH + 8;
 
     return (
       <g
         key={`lbl-${ax.key}`}
-        style={{ cursor: "pointer" }}
-        onMouseEnter={() => onHover?.(ax.key)}
+        style={{ cursor: "help" }}
+        onMouseEnter={(e) => onLabelHover?.(ax.key, e)}
+        onMouseMove={(e) => onLabelHover?.(ax.key, e)}
+        onMouseLeave={() => onLabelHover?.(null)}
         onClick={(e) => {
           e.stopPropagation();
           onPick?.(ax.key);
         }}
       >
+        <rect
+          x={
+            anchor === "middle"
+              ? lx - hitW / 2
+              : anchor === "end"
+                ? lx - hitW
+                : lx
+          }
+          y={ly - hitH / 2}
+          width={hitW}
+          height={hitH}
+          fill="transparent"
+        />
         <text
           x={lx}
           y={ly}
           textAnchor={anchor}
           fontFamily={T.sans}
           fontSize={LABEL_FONT_SIZE}
-          fontWeight={isActive || isHovered ? 700 : 600}
-          fill={isActive || isHovered ? T.ink : T.body}
-          style={{ letterSpacing: 0.1 }}
+          fontWeight={isActive || isTooltip ? 700 : 600}
+          fill={isActive || isTooltip ? T.ink : T.body}
+          style={{ letterSpacing: 0.1, pointerEvents: "none" }}
         >
           {lines.map((line, li) => (
             <tspan
@@ -258,8 +334,28 @@ export function AIRiskCard({
   );
   const hasApiAxes = axes.length > 0;
   const [active, setActive] = useState(defaultActiveKey);
-  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const [tooltipKey, setTooltipKey] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const chartWrapRef = React.useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState(false);
+
+  const handleLabelHover = React.useCallback(
+    (key: string | null, event?: React.MouseEvent) => {
+      if (!key || !event) {
+        setTooltipKey(null);
+        setTooltipPos(null);
+        return;
+      }
+      setTooltipKey(key);
+      setTooltipPos({
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    []
+  );
 
   React.useEffect(() => {
     if (!axes.some((a) => a.key === active)) {
@@ -276,15 +372,12 @@ export function AIRiskCard({
     getAiExposureHeadline(defAvg);
   const headlineTier = tierProp?.trim() || computedTier;
   const activeAxis = axes.find((a) => a.key === active) ?? axes[0];
-  const hoveredAxis = hoveredKey
-    ? axes.find((a) => a.key === hoveredKey)
+  const tooltipAxis = tooltipKey
+    ? axes.find((a) => a.key === tooltipKey)
     : undefined;
-  const hoveredDescription = hoveredKey
-    ? getAiExposureFactorDescription(hoveredKey)
+  const tooltipDescription = tooltipAxis
+    ? resolveFactorDescription(tooltipAxis)
     : undefined;
-  const detailAxis = hoveredAxis ?? activeAxis;
-  const detailDescription = hoveredDescription ?? activeAxis?.blurb;
-  const showingFactorGuide = Boolean(hoveredAxis && hoveredDescription);
 
   return (
     <div
@@ -367,47 +460,61 @@ export function AIRiskCard({
       </div>
 
       <div
-        onMouseLeave={() => setHoveredKey(null)}
         style={{
+          padding: "8px 12px 8px",
           display: "flex",
-          flexDirection: "column",
-          flex: fillGridCell ? "1 1 auto" : undefined,
-          minHeight: fillGridCell ? 0 : undefined,
+          justifyContent: "center",
+          flex: fillGridCell ? "0 0 auto" : undefined,
         }}
       >
         <div
+          ref={chartWrapRef}
+          onMouseLeave={() => {
+            setTooltipKey(null);
+            setTooltipPos(null);
+          }}
           style={{
-            padding: "8px 12px 8px",
-            display: "flex",
-            justifyContent: "center",
-            flex: fillGridCell ? "0 0 auto" : undefined,
+            position: "relative",
+            width: "100%",
+            maxWidth: 420,
+            overflow: "visible",
           }}
         >
-          <div style={{ width: "100%", maxWidth: 400, overflow: "visible" }}>
-            <RadarChart
-              axes={axes}
-              active={active}
-              hovered={hoveredKey}
-              onPick={setActive}
-              onHover={setHoveredKey}
-              size={300}
+          <RadarChart
+            axes={axes}
+            active={active}
+            tooltipKey={tooltipKey}
+            onPick={setActive}
+            onLabelHover={handleLabelHover}
+            size={300}
+          />
+          {tooltipKey &&
+          tooltipDescription &&
+          tooltipPos &&
+          tooltipAxis ? (
+            <FactorTooltip
+              axis={tooltipAxis}
+              description={tooltipDescription}
+              x={tooltipPos.x}
+              y={tooltipPos.y}
             />
-          </div>
+          ) : null}
         </div>
+      </div>
 
-        {detailDescription ? (
-          <div
-            style={{
-              margin: "0 14px 14px",
-              padding: "12px 14px",
-              borderRadius: T.rLg,
-              background: DEFENSIBILITY_TONE.bg,
-              border: `1px solid ${DEFENSIBILITY_TONE.ring}`,
-              flex: fillGridCell ? "1 1 auto" : undefined,
-              minHeight: fillGridCell ? 0 : undefined,
-              overflowY: fillGridCell ? "auto" : undefined,
-            }}
-          >
+      {activeAxis?.blurb ? (
+        <div
+          style={{
+            margin: "0 14px 14px",
+            padding: "12px 14px",
+            borderRadius: T.rLg,
+            background: DEFENSIBILITY_TONE.bg,
+            border: `1px solid ${DEFENSIBILITY_TONE.ring}`,
+            flex: fillGridCell ? "1 1 auto" : undefined,
+            minHeight: fillGridCell ? 0 : undefined,
+            overflowY: fillGridCell ? "auto" : undefined,
+          }}
+        >
           <div
             style={{
               display: "flex",
@@ -426,36 +533,20 @@ export function AIRiskCard({
                 lineHeight: 1.35,
               }}
             >
-              {detailAxis?.label}
+              {activeAxis.label}
             </div>
-            {showingFactorGuide ? (
-              <span
-                style={{
-                  fontFamily: T.sans,
-                  fontSize: 10.5,
-                  fontWeight: 600,
-                  color: T.muted,
-                  flexShrink: 0,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.4,
-                }}
-              >
-                Factor guide
-              </span>
-            ) : (
-              <span
-                style={{
-                  fontFamily: T.mono,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: DEFENSIBILITY_TONE.fg,
-                  flexShrink: 0,
-                }}
-              >
-                {detailAxis?.tier} · {detailAxis?.score.toFixed(1)} /{" "}
-                {AI_SCORE_MAX.toFixed(1)}
-              </span>
-            )}
+            <span
+              style={{
+                fontFamily: T.mono,
+                fontSize: 11,
+                fontWeight: 600,
+                color: DEFENSIBILITY_TONE.fg,
+                flexShrink: 0,
+              }}
+            >
+              {activeAxis.tier} · {activeAxis.score.toFixed(1)} /{" "}
+              {AI_SCORE_MAX.toFixed(1)}
+            </span>
           </div>
           <div
             style={{
@@ -465,11 +556,10 @@ export function AIRiskCard({
               color: T.body,
             }}
           >
-            {detailDescription}
+            {activeAxis.blurb}
           </div>
         </div>
       ) : null}
-      </div>
     </div>
   );
 }
