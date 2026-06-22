@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import { T } from "./tokens.jsx";
 import {
   AI_SCORE_MAX,
+  getAiExposureFactorDescription,
   getAiExposureHeadline,
   sortAiRiskAxesForRadar,
 } from "@/lib/companyAiRisks";
@@ -31,28 +32,50 @@ const DEFENSIBILITY_TONE = {
 type RadarChartProps = {
   axes: AIRiskAxis[];
   active: string;
+  hovered: string | null;
   onPick?: (key: string) => void;
+  onHover?: (key: string | null) => void;
   size?: number;
   maxScore?: number;
 };
 
-// Extra viewBox space (in SVG user units) reserved for axis labels on each side.
-const RADAR_PAD_H = 96;
-const RADAR_PAD_V = 38;
+const LABEL_FONT_SIZE = 12;
+const LABEL_LINE_HEIGHT = 15;
 
-const LABEL_MAX = 16; // chars before wrapping
+// Extra viewBox space (in SVG user units) reserved for axis labels on each side.
+const RADAR_PAD_H = 128;
+const RADAR_PAD_V = 52;
 
 function wrapLabel(label: string): string[] {
-  if (label.length <= LABEL_MAX) return [label];
-  const mid = label.lastIndexOf(" ", LABEL_MAX);
-  if (mid === -1) return [label];
-  return [label.slice(0, mid), label.slice(mid + 1)];
+  if (label.includes(" / ")) {
+    return label.split(" / ").map((part) => part.trim());
+  }
+
+  const maxChars = 24;
+  const words = label.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines.length > 0 ? lines : [label];
 }
 
 function RadarChart({
   axes,
   active,
+  hovered,
   onPick,
+  onHover,
   size = 280,
   maxScore = AI_SCORE_MAX,
 }: RadarChartProps) {
@@ -114,10 +137,12 @@ function RadarChart({
   const dots = axes.map((ax, i) => {
     const [x, y] = dataPoints[i];
     const isActive = active === ax.key;
+    const isHovered = hovered === ax.key;
     return (
       <g
         key={ax.key}
         style={{ cursor: "pointer" }}
+        onMouseEnter={() => onHover?.(ax.key)}
         onClick={(e) => {
           e.stopPropagation();
           onPick?.(ax.key);
@@ -126,14 +151,14 @@ function RadarChart({
         <circle
           cx={x}
           cy={y}
-          r={isActive ? 9 : 6}
+          r={isActive || isHovered ? 9 : 6}
           fill={DEFENSIBILITY_TONE.fill}
-          fillOpacity={isActive ? 0.22 : 0}
+          fillOpacity={isActive || isHovered ? 0.22 : 0}
         />
         <circle
           cx={x}
           cy={y}
-          r={isActive ? 4.5 : 3.6}
+          r={isActive || isHovered ? 4.5 : 3.6}
           fill={DEFENSIBILITY_TONE.fill}
           stroke="#fff"
           strokeWidth="1.6"
@@ -144,7 +169,7 @@ function RadarChart({
 
   const labels = axes.map((ax, i) => {
     const a = angleFor(i);
-    const lr = R + 26;
+    const lr = R + 34;
     const lx = cx + Math.cos(a) * lr;
     const ly = cy + Math.sin(a) * lr;
     const anchor =
@@ -154,15 +179,16 @@ function RadarChart({
           ? "start"
           : "end";
     const isActive = active === ax.key;
+    const isHovered = hovered === ax.key;
     const lines = wrapLabel(ax.label);
-    const lineH = 13;
-    const totalH = lines.length * lineH;
-    const startDy = -(totalH / 2) + lineH / 2;
+    const totalH = lines.length * LABEL_LINE_HEIGHT;
+    const startDy = -(totalH / 2) + LABEL_LINE_HEIGHT / 2;
 
     return (
       <g
         key={`lbl-${ax.key}`}
         style={{ cursor: "pointer" }}
+        onMouseEnter={() => onHover?.(ax.key)}
         onClick={(e) => {
           e.stopPropagation();
           onPick?.(ax.key);
@@ -173,16 +199,16 @@ function RadarChart({
           y={ly}
           textAnchor={anchor}
           fontFamily={T.sans}
-          fontSize="10.5"
-          fontWeight={isActive ? 700 : 600}
-          fill={isActive ? T.ink : T.body}
+          fontSize={LABEL_FONT_SIZE}
+          fontWeight={isActive || isHovered ? 700 : 600}
+          fill={isActive || isHovered ? T.ink : T.body}
           style={{ letterSpacing: 0.1 }}
         >
           {lines.map((line, li) => (
             <tspan
               key={li}
               x={lx}
-              dy={li === 0 ? startDy : lineH}
+              dy={li === 0 ? startDy : LABEL_LINE_HEIGHT}
             >
               {line}
             </tspan>
@@ -232,6 +258,7 @@ export function AIRiskCard({
   );
   const hasApiAxes = axes.length > 0;
   const [active, setActive] = useState(defaultActiveKey);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [hover, setHover] = useState(false);
 
   React.useEffect(() => {
@@ -249,6 +276,15 @@ export function AIRiskCard({
     getAiExposureHeadline(defAvg);
   const headlineTier = tierProp?.trim() || computedTier;
   const activeAxis = axes.find((a) => a.key === active) ?? axes[0];
+  const hoveredAxis = hoveredKey
+    ? axes.find((a) => a.key === hoveredKey)
+    : undefined;
+  const hoveredDescription = hoveredKey
+    ? getAiExposureFactorDescription(hoveredKey)
+    : undefined;
+  const detailAxis = hoveredAxis ?? activeAxis;
+  const detailDescription = hoveredDescription ?? activeAxis?.blurb;
+  const showingFactorGuide = Boolean(hoveredAxis && hoveredDescription);
 
   return (
     <div
@@ -331,33 +367,47 @@ export function AIRiskCard({
       </div>
 
       <div
+        onMouseLeave={() => setHoveredKey(null)}
         style={{
-          padding: "8px 12px 8px",
           display: "flex",
-          justifyContent: "center",
-          flex: fillGridCell ? "0 0 auto" : undefined,
+          flexDirection: "column",
+          flex: fillGridCell ? "1 1 auto" : undefined,
+          minHeight: fillGridCell ? 0 : undefined,
         }}
       >
-        <div style={{ width: "100%", maxWidth: 360, overflow: "visible" }}>
-          <RadarChart
-            axes={axes}
-            active={active}
-            onPick={setActive}
-            size={300}
-          />
-        </div>
-      </div>
-
-      {activeAxis?.blurb ? (
         <div
           style={{
-            margin: "0 14px 14px",
-            padding: "12px 14px",
-            borderRadius: T.rLg,
-            background: DEFENSIBILITY_TONE.bg,
-            border: `1px solid ${DEFENSIBILITY_TONE.ring}`,
+            padding: "8px 12px 8px",
+            display: "flex",
+            justifyContent: "center",
+            flex: fillGridCell ? "0 0 auto" : undefined,
           }}
         >
+          <div style={{ width: "100%", maxWidth: 400, overflow: "visible" }}>
+            <RadarChart
+              axes={axes}
+              active={active}
+              hovered={hoveredKey}
+              onPick={setActive}
+              onHover={setHoveredKey}
+              size={300}
+            />
+          </div>
+        </div>
+
+        {detailDescription ? (
+          <div
+            style={{
+              margin: "0 14px 14px",
+              padding: "12px 14px",
+              borderRadius: T.rLg,
+              background: DEFENSIBILITY_TONE.bg,
+              border: `1px solid ${DEFENSIBILITY_TONE.ring}`,
+              flex: fillGridCell ? "1 1 auto" : undefined,
+              minHeight: fillGridCell ? 0 : undefined,
+              overflowY: fillGridCell ? "auto" : undefined,
+            }}
+          >
           <div
             style={{
               display: "flex",
@@ -376,20 +426,36 @@ export function AIRiskCard({
                 lineHeight: 1.35,
               }}
             >
-              {activeAxis.label}
+              {detailAxis?.label}
             </div>
-            <span
-              style={{
-                fontFamily: T.mono,
-                fontSize: 11,
-                fontWeight: 600,
-                color: DEFENSIBILITY_TONE.fg,
-                flexShrink: 0,
-              }}
-            >
-              {activeAxis.tier} · {activeAxis.score.toFixed(1)} /{" "}
-              {AI_SCORE_MAX.toFixed(1)}
-            </span>
+            {showingFactorGuide ? (
+              <span
+                style={{
+                  fontFamily: T.sans,
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  color: T.muted,
+                  flexShrink: 0,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.4,
+                }}
+              >
+                Factor guide
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontFamily: T.mono,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: DEFENSIBILITY_TONE.fg,
+                  flexShrink: 0,
+                }}
+              >
+                {detailAxis?.tier} · {detailAxis?.score.toFixed(1)} /{" "}
+                {AI_SCORE_MAX.toFixed(1)}
+              </span>
+            )}
           </div>
           <div
             style={{
@@ -399,10 +465,11 @@ export function AIRiskCard({
               color: T.body,
             }}
           >
-            {activeAxis.blurb}
+            {detailDescription}
           </div>
         </div>
       ) : null}
+      </div>
     </div>
   );
 }
