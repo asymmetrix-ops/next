@@ -48,6 +48,7 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   headcount_growth: "linkedin_growth",
   years_since_inv: "years_since_last_investment",
   followed: "follow",
+  is_new: "is_new",
   revenue: "revenue_m",
   ebitda: "ebitda_m",
   enterprise_value: "enterprise_value",
@@ -205,6 +206,10 @@ function mapColumnTypeToFilter(
   };
 
   if (column.columnKey === "follow") {
+    return { type: "Aa", editor: "boolean" };
+  }
+
+  if (column.columnKey === "is_new") {
     return { type: "Aa", editor: "boolean" };
   }
 

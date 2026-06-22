@@ -159,6 +159,15 @@ export function buildCompaniesSearchPayload(args: {
       });
       continue;
     }
+    if (item.id === "is_new" && v === true) {
+      pushClause({
+        id: item.key,
+        type: "is_new",
+        value: { value: 1 },
+        op,
+      });
+      continue;
+    }
     if (item.id === "business_focus" && typeof v === "string") {
       if (v === "Pure-play D&A" && hybridBusinessFocusIds.length > 0) {
         pushClause({

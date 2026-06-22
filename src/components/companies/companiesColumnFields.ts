@@ -22,6 +22,7 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
   secondary_sectors: ["secondary_sectors", "secondary_sector_names"],
   ownership: ["ownership", "ownership_type", "_ownership_type.ownership"],
   linkedin_members: ["linkedin_members", "li_emp", "linkedin_employee"],
+  is_new: ["is_new", "isNew"],
   year_founded: ["year_founded", "year_founded_label", "_years.Year"],
   hq: ["hq", "loc", "location", "country", "hq_country", "_locations", "_locations.Country"],
   city: ["city", "hq_city", "_locations.City"],

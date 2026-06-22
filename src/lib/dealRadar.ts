@@ -13,6 +13,7 @@ export type DealRadarLatestContent = {
 export type DealRadarItem = {
   companyId: number;
   companyName: string;
+  isNew: boolean;
   transactionStatus: string;
   primarySectors: DealRadarSector[];
   latestContent: DealRadarLatestContent | null;
@@ -169,6 +170,11 @@ export const appendDealRadarItems = (
   return uniqueIncoming.length > 0 ? [...existing, ...uniqueIncoming] : existing;
 };
 
+const readIsNewFlag = (value: unknown): boolean =>
+  value === true || value === 1 || value === "true" || value === "1";
+
+export { readIsNewFlag };
+
 export const mapDealRadarItem = (raw: Record<string, unknown>): DealRadarItem => {
   const companyId = Number(raw.company_id);
   const primarySectorsRaw =
@@ -177,6 +183,7 @@ export const mapDealRadarItem = (raw: Record<string, unknown>): DealRadarItem =>
   return {
     companyId: Number.isFinite(companyId) ? companyId : 0,
     companyName: String(raw.name || "").trim(),
+    isNew: readIsNewFlag(raw.is_new ?? raw.isNew),
     transactionStatus: String(raw.transaction_status || "").trim(),
     primarySectors: mapDealRadarPrimarySectors(primarySectorsRaw),
     latestContent: mapDealRadarLatestContent(

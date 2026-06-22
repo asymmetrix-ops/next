@@ -346,7 +346,9 @@ function summarize(def: FilterDef, value: unknown): string {
   if (def.editor === "segmented") return String(value);
   if (def.editor === "boolean") {
     if (value !== true) return "";
-    return def.id === "followed" ? "My Portfolio only" : "On";
+    if (def.id === "followed") return "My Portfolio only";
+    if (def.id === "is_new") return "Added in last 14 days";
+    return "On";
   }
   return "";
 }
@@ -1733,6 +1735,7 @@ function BooleanEditor({
 }: BooleanEditorProps) {
   const [on, setOn] = useState<boolean>(value === true);
   const isPortfolioFilter = def.id === "followed";
+  const isNewFilter = def.id === "is_new";
 
   const handleApply = () => {
     if (on) {
@@ -1786,7 +1789,9 @@ function BooleanEditor({
         <span style={{ fontSize: "var(--fs-13)", color: "var(--fg-1)", lineHeight: 1.45 }}>
           {isPortfolioFilter
             ? "Show only My Portfolio companies (followed or on a list)"
-            : def.fullLabel}
+            : isNewFilter
+              ? "Show only companies added in the last 14 days"
+              : def.fullLabel}
         </span>
       </label>
       {isPortfolioFilter && (
