@@ -41,6 +41,7 @@ import {
 import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
+import { readIsNewFlag } from "@/lib/dealRadar";
 import {
   getApiColumnsForSelectedKeys,
   getApiColumnsSignature,
@@ -87,6 +88,7 @@ export interface Company {
   linkedin_members_latest?: number;
   linkedin_members_old?: number;
   linkedin_members?: number;
+  is_new?: boolean;
   [key: string]: unknown;
   last_investment?: {
     display?: string | null;
@@ -595,6 +597,23 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
   {
     group: "Overview",
     cols: [
+      {
+        key: "is_new",
+        label: "New",
+        group: "Overview",
+        minWidth: 72,
+        render: (company) => {
+          const raw = readCompanyValue(company, [
+            ...getFieldAliasesForColumn("is_new"),
+          ]);
+          if (!readIsNewFlag(raw)) return "-";
+          return (
+            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-amber-500 shadow-sm ring-1 ring-amber-600/30 shrink-0">
+              New
+            </span>
+          );
+        },
+      },
       makeTextColumn("year_founded", "Year Founded", "Overview"),
       makeTextColumn("city", "City", "Overview"),
       makeTextColumn("state", "State/Province", "Overview"),

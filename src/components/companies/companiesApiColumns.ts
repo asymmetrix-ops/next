@@ -17,6 +17,7 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   linkedin_members: "linkedin_members",
   website: "website",
   follow: "follow",
+  is_new: "is_new",
   year_founded: "year_founded",
   hq: "hq",
   city: "city",

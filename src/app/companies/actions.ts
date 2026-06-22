@@ -16,6 +16,7 @@ export interface CompanyItem {
   ownership_type_id?: number;
   ownership?: string;
   linkedin_members?: number;
+  is_new?: boolean;
   country?: string;
   /** May be a JSON string or array from Get_new_companies. */
   primary_sectors?: string | { id?: number; sector_name?: string; name?: string }[];

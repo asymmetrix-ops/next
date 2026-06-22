@@ -2099,28 +2099,35 @@ export default function HomeUserPage() {
                             >
                               <td className="pl-3 pr-1 py-3 min-w-0 align-top">
                                 <div className="space-y-1 min-w-0">
-                                  <a
-                                    href={`/company/${item.companyId}`}
-                                    className="text-sm font-semibold text-blue-700 break-words hover:text-blue-900 hover:underline"
-                                    onClick={(
-                                      e: React.MouseEvent<HTMLAnchorElement>
-                                    ) => {
-                                      if (
-                                        e.defaultPrevented ||
-                                        e.button !== 0 ||
-                                        e.metaKey ||
-                                        e.ctrlKey ||
-                                        e.shiftKey ||
-                                        e.altKey
-                                      ) {
-                                        return;
-                                      }
-                                      e.preventDefault();
-                                      router.push(`/company/${item.companyId}`);
-                                    }}
-                                  >
-                                    {item.companyName}
-                                  </a>
+                                  <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                                    <a
+                                      href={`/company/${item.companyId}`}
+                                      className="text-sm font-semibold text-blue-700 break-words hover:text-blue-900 hover:underline"
+                                      onClick={(
+                                        e: React.MouseEvent<HTMLAnchorElement>
+                                      ) => {
+                                        if (
+                                          e.defaultPrevented ||
+                                          e.button !== 0 ||
+                                          e.metaKey ||
+                                          e.ctrlKey ||
+                                          e.shiftKey ||
+                                          e.altKey
+                                        ) {
+                                          return;
+                                        }
+                                        e.preventDefault();
+                                        router.push(`/company/${item.companyId}`);
+                                      }}
+                                    >
+                                      {item.companyName}
+                                    </a>
+                                    {item.isNew && (
+                                      <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-amber-500 shadow-sm ring-1 ring-amber-600/30 shrink-0">
+                                        New
+                                      </span>
+                                    )}
+                                  </div>
                                   {item.latestContent && (
                                     <a
                                       href={`/article/${item.latestContent.id}?from=home`}
