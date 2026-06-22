@@ -103,19 +103,7 @@ function FactorTooltip({ axis, description, x, y }: FactorTooltipProps) {
         </div>
       </div>
       <div className="px-4 py-3">
-        <span
-          className="inline-flex max-w-full items-center gap-1.5 rounded-2xl px-2.5 py-1 text-[11px] font-semibold leading-snug"
-          style={{
-            backgroundColor: DEFENSIBILITY_TONE.bg,
-            color: DEFENSIBILITY_TONE.fg,
-          }}
-        >
-          <span
-            className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ backgroundColor: DEFENSIBILITY_TONE.fill }}
-          />
-          <span>{axis.label}</span>
-        </span>
+        <div className="text-sm font-semibold text-gray-900">{axis.label}</div>
         <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
           {description}
         </p>
