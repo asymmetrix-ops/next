@@ -32,6 +32,13 @@ function resolveFactorDescription(axis: AIRiskAxis): string | undefined {
   );
 }
 
+const DEFENSIBILITY_TONE = {
+  fg: "oklch(40% 0.12 158)",
+  fill: "oklch(56% 0.13 158)",
+  bg: "oklch(95% 0.05 158)",
+  ring: "oklch(60% 0.14 158)",
+} as const;
+
 type FactorTooltipProps = {
   axis: AIRiskAxis;
   description: string;
@@ -55,7 +62,7 @@ function FactorTooltip({ axis, description, x, y }: FactorTooltipProps) {
     if (!el) return;
 
     const rect = el.getBoundingClientRect();
-    const pad = 12;
+    const pad = 16;
     const gap = 12;
     const halfW = rect.width / 2;
     const clampedX = Math.min(
@@ -81,48 +88,42 @@ function FactorTooltip({ axis, description, x, y }: FactorTooltipProps) {
     <div
       ref={ref}
       role="tooltip"
+      className="fixed z-[10000] w-[min(22.5rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white shadow-xl pointer-events-none"
       style={{
-        position: "fixed",
         left: layout.x,
         top: layout.y,
         transform: layout.above
           ? "translate(-50%, -100%)"
           : "translate(-50%, 0)",
-        width: 340,
-        maxWidth: "calc(100vw - 24px)",
-        padding: "10px 12px",
-        background: T.ink,
-        color: "#fff",
-        borderRadius: 8,
-        fontFamily: T.sans,
-        fontSize: 12,
-        lineHeight: 1.55,
-        zIndex: 10000,
-        pointerEvents: "none",
-        boxShadow: "0 4px 18px rgba(0,0,0,0.18)",
       }}
     >
-      <div
-        style={{
-          fontWeight: 600,
-          marginBottom: 6,
-          fontSize: 12.5,
-        }}
-      >
-        {axis.label}
+      <div className="border-b border-gray-100 px-4 py-3">
+        <div className="text-sm font-semibold text-gray-900">
+          {AI_EXPOSURE_INDEX_TITLE}
+        </div>
       </div>
-      {description}
+      <div className="px-4 py-3">
+        <span
+          className="inline-flex max-w-full items-center gap-1.5 rounded-2xl px-2.5 py-1 text-[11px] font-semibold leading-snug"
+          style={{
+            backgroundColor: DEFENSIBILITY_TONE.bg,
+            color: DEFENSIBILITY_TONE.fg,
+          }}
+        >
+          <span
+            className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: DEFENSIBILITY_TONE.fill }}
+          />
+          <span>{axis.label}</span>
+        </span>
+        <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
+          {description}
+        </p>
+      </div>
     </div>,
     document.body
   );
 }
-
-const DEFENSIBILITY_TONE = {
-  fg: "oklch(40% 0.12 158)",
-  fill: "oklch(56% 0.13 158)",
-  bg: "oklch(95% 0.05 158)",
-  ring: "oklch(60% 0.14 158)",
-} as const;
 
 type RadarChartProps = {
   axes: AIRiskAxis[];
@@ -282,7 +283,7 @@ function RadarChart({
     return (
       <g
         key={`lbl-${ax.key}`}
-        style={{ cursor: "help" }}
+        style={{ cursor: "default" }}
         onMouseEnter={(e) => onLabelHover?.(ax.key, e)}
         onMouseMove={(e) => onLabelHover?.(ax.key, e)}
         onMouseLeave={() => onLabelHover?.(null)}
