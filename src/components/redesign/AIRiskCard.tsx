@@ -41,21 +41,55 @@ type FactorTooltipProps = {
 
 function FactorTooltip({ axis, description, x, y }: FactorTooltipProps) {
   const [mounted, setMounted] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = React.useState<{
+    x: number;
+    y: number;
+    above: boolean;
+  }>({ x, y, above: true });
+
   React.useEffect(() => setMounted(true), []);
+
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    const pad = 12;
+    const gap = 12;
+    const halfW = rect.width / 2;
+    const clampedX = Math.min(
+      window.innerWidth - halfW - pad,
+      Math.max(halfW + pad, x)
+    );
+
+    const spaceAbove = y - gap;
+    const spaceBelow = window.innerHeight - y - gap;
+    const above =
+      spaceAbove >= rect.height || spaceAbove >= spaceBelow;
+
+    setLayout({
+      x: clampedX,
+      y: above ? y - gap : y + gap,
+      above,
+    });
+  }, [x, y, description]);
 
   if (!mounted) return null;
 
   return createPortal(
     <div
+      ref={ref}
       role="tooltip"
       style={{
         position: "fixed",
-        left: x,
-        top: y,
-        transform: "translate(-50%, calc(-100% - 12px))",
-        width: 300,
-        maxHeight: 280,
-        overflowY: "auto",
+        left: layout.x,
+        top: layout.y,
+        transform: layout.above
+          ? "translate(-50%, -100%)"
+          : "translate(-50%, 0)",
+        width: 340,
+        maxWidth: "calc(100vw - 24px)",
         padding: "10px 12px",
         background: T.ink,
         color: "#fff",
