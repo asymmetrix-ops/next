@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 const POSTMARK_API = "https://api.postmarkapp.com";
-const POSTMARK_TOKEN = process.env.POSTMARK_SERVER_TOKEN!;
+const POSTMARK_TOKEN = process.env.POSTMARK_SERVER_TOKEN;
 const XANO_EMAIL_ALERTS_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_alerts_all";
 const XANO_USERS_EMAIL_FILTERING_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI/users_email_filtering";
 
-const pmHeaders = {
-  "X-Postmark-Server-Token": POSTMARK_TOKEN,
+const pmHeaders = (token: string) => ({
+  "X-Postmark-Server-Token": token,
   Accept: "application/json",
-};
+});
 
 // ── Internal types ────────────────────────────────────────────────────────────
 
@@ -98,6 +100,7 @@ async function pmFetchAll<T>(
   path: string,
   listKey: string,
   dateParams: { fromdate: string; todate: string },
+  token: string,
   maxRecords = 5000
 ): Promise<{ records: T[]; error: string | null; rawFirst: unknown }> {
   const records: T[] = [];
@@ -112,7 +115,7 @@ async function pmFetchAll<T>(
       ...dateParams,
     });
     const res = await fetch(`${POSTMARK_API}${path}?${params}`, {
-      headers: pmHeaders,
+      headers: pmHeaders(token),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
@@ -148,7 +151,8 @@ function parseUserFilters(searchParams: URLSearchParams): UserFilterParams {
   return {
     firm_type: searchParams.get("firm_type") ?? "",
     seniority_level: searchParams.get("seniority_level") ?? "",
-    user_type: searchParams.get("user_type") ?? "",
+    user_type:
+      searchParams.get("user_type") ?? searchParams.get("user_status") ?? "",
     company_id: Number.isFinite(parsedCompanyId) ? parsedCompanyId : null,
   };
 }
@@ -176,7 +180,7 @@ function toUserProfile(user: XanoUser): UserProfile {
   return {
     id: user.id,
     name: user.name ?? "",
-    email: user.email,
+    email: user.email ?? "",
     status: user.status ?? "",
     seniorityLevel: user.seniority_level ?? "",
     firmType: user.firm_type ?? "",
@@ -188,6 +192,13 @@ function toUserProfile(user: XanoUser): UserProfile {
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  if (!POSTMARK_TOKEN) {
+    return NextResponse.json(
+      { error: "POSTMARK_SERVER_TOKEN is not configured" },
+      { status: 503 }
+    );
+  }
+
   const { searchParams } = new URL(req.url);
   const days = Math.min(Math.max(parseInt(searchParams.get("days") ?? "30"), 1), 90);
   const hoursParam = searchParams.get("hours");
@@ -210,9 +221,9 @@ export async function GET(req: NextRequest) {
 
   // Parallel fetch: messages + bulk opens + bulk clicks + Xano data
   const [msgResult, opensResult, clicksResult, alerts, users] = await Promise.all([
-    pmFetchAll<PostmarkMessage>("/messages/outbound", "Messages", dateParams),
-    pmFetchAll<PostmarkOpenRecord>("/messages/outbound/opens", "Opens", dateParams),
-    pmFetchAll<PostmarkClickRecord>("/messages/outbound/clicks", "Clicks", dateParams),
+    pmFetchAll<PostmarkMessage>("/messages/outbound", "Messages", dateParams, POSTMARK_TOKEN),
+    pmFetchAll<PostmarkOpenRecord>("/messages/outbound/opens", "Opens", dateParams, POSTMARK_TOKEN),
+    pmFetchAll<PostmarkClickRecord>("/messages/outbound/clicks", "Clicks", dateParams, POSTMARK_TOKEN),
     fetchXanoData<XanoAlert>(XANO_EMAIL_ALERTS_URL, authHeader),
     fetchFilteredUsers(authHeader, userFilters),
   ]);
@@ -244,8 +255,9 @@ export async function GET(req: NextRequest) {
   // Build Xano lookups (users pre-filtered by Xano users_email_filtering)
   const userByEmail: Record<string, UserProfile> = {};
   for (const u of users) {
-    if (u.email) {
-      userByEmail[u.email.toLowerCase()] = toUserProfile(u);
+    const email = u.email?.toLowerCase().trim();
+    if (email) {
+      userByEmail[email] = toUserProfile(u);
     }
   }
 

@@ -2426,8 +2426,9 @@ function eaDailyOpenRateLabel(opened: number, delivered: number): string {
   return `${Math.round((opened / delivered) * 100)}%`;
 }
 
-function eaDailyFinalStatusBadge(finalStatus: string) {
-  switch (finalStatus.toLowerCase()) {
+function eaDailyFinalStatusBadge(finalStatus: string | null | undefined) {
+  const normalized = (finalStatus ?? "").toLowerCase();
+  switch (normalized) {
     case "sent":
       return { label: "Recovered", cls: "bg-green-50 text-green-700" };
     case "opened":
@@ -2436,7 +2437,7 @@ function eaDailyFinalStatusBadge(finalStatus: string) {
       return { label: "Still Failed", cls: "bg-red-50 text-red-700" };
     default:
       return {
-        label: finalStatus.replace(/_/g, " "),
+        label: normalized ? (finalStatus ?? "").replace(/_/g, " ") : "Unknown",
         cls: "bg-gray-100 text-gray-600",
       };
   }
@@ -2462,7 +2463,8 @@ const EA_ALERT_LABELS: Record<string, { label: string; cls: string }> = {
   digest:             { label: "Digest",              cls: "bg-teal-50 text-teal-700" },
 };
 
-function eaAlertLabel(type: string) {
+function eaAlertLabel(type: string | null | undefined) {
+  if (!type) return { label: "Unknown", cls: "bg-gray-100 text-gray-600" };
   return EA_ALERT_LABELS[type] ?? { label: type, cls: "bg-gray-100 text-gray-600" };
 }
 
@@ -2472,8 +2474,7 @@ type EAOverviewFilters = {
   userStatus: string;
 };
 
-const EMAIL_ANALYTICS_OVERVIEW_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_analytics/overview";
+const POSTMARK_EMAIL_ANALYTICS_URL = "/api/admin/email-analytics";
 
 const EA_LIST_PER_PAGE = 25;
 
@@ -2498,13 +2499,40 @@ type EAEmailListItem = {
   engagement_status: string;
 };
 
-type EAEmailListResponse = {
-  items: EAEmailListItem[];
-  total_count: number;
-  cur_page: number;
-  per_page: number;
-  total_pages: number;
-  next_page: number | null;
+type PostmarkAnalyticsByAlertType = {
+  alertType: string;
+  frequency: string | null;
+  isActive: boolean;
+  lastSentAtUtc: number | null;
+  nextRunAtUtc: number | null;
+  isUntaggedGroup?: boolean;
+  sentCount: number;
+  openedCount: number;
+  clickedCount: number;
+  bouncedCount: number;
+  openRate: number;
+  clickRate: number;
+  lastOpened: string | null;
+};
+
+type PostmarkAnalyticsUser = {
+  userId: number;
+  name: string;
+  email: string;
+  status: string;
+  seniorityLevel: string;
+  firmType: string;
+  companyName: string;
+  activeAlerts: number;
+  alertTypes: string[];
+  sentCount: number;
+  openedCount: number;
+  clickedCount: number;
+  bouncedCount: number;
+  openRate: number;
+  clickRate: number;
+  lastOpened: string | null;
+  byAlertType: PostmarkAnalyticsByAlertType[];
 };
 
 type EAEmailAlertSetting = {
@@ -2546,11 +2574,119 @@ type EAEmailUserDetail = {
   by_email_type: EAEmailByType[];
 };
 
-const EMAIL_ANALYTICS_USER_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_analytics/user";
-
 const EMAIL_ANALYTICS_DAILY_STATS_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_analytics/daily_stats";
+
+function postmarkAnalyticsQueryParams(filters: EAOverviewFilters): string {
+  const params = new URLSearchParams({ days: "30" });
+  if (filters.firmType) params.set("firm_type", filters.firmType);
+  if (filters.seniorityLevel) params.set("seniority_level", filters.seniorityLevel);
+  if (filters.userStatus) params.set("user_type", filters.userStatus);
+  return params.toString();
+}
+
+function eaComputeEngagementStatus(user: {
+  activeAlerts: number;
+  sentCount: number;
+  openedCount: number;
+  bouncedCount: number;
+  lastOpened: string | null;
+}): string {
+  if (user.bouncedCount > 0) return "bounced";
+  if (user.activeAlerts === 0) return "inactive";
+  if (user.sentCount === 0) return "inactive";
+  if (user.openedCount === 0) return "never_opened";
+  if (user.lastOpened && eaDaysSince(user.lastOpened) > 7) return "stale";
+  return "active";
+}
+
+function mapPostmarkUserToListItem(user: PostmarkAnalyticsUser): EAEmailListItem {
+  const lastOpenedTs = user.lastOpened ? new Date(user.lastOpened).getTime() : 0;
+  return {
+    user_id: user.userId,
+    user_name: user.name,
+    email: user.email,
+    firm_type: user.firmType,
+    seniority_level: user.seniorityLevel,
+    user_status: user.status,
+    company_name: user.companyName,
+    subscriptions: user.alertTypes.join(","),
+    active_subscriptions: user.activeAlerts,
+    total_sent: user.sentCount,
+    total_opened: user.openedCount,
+    total_bounced: user.bouncedCount,
+    open_rate_pct: String(user.openRate),
+    sent_30d: user.sentCount,
+    opened_30d: user.openedCount,
+    clicks_30d: String(user.clickedCount),
+    last_opened_at: lastOpenedTs,
+    engagement_status: eaComputeEngagementStatus(user),
+  };
+}
+
+function postmarkUserToDetail(user: PostmarkAnalyticsUser): EAEmailUserDetail {
+  const lastOpenedTs = user.lastOpened ? new Date(user.lastOpened).getTime() : 0;
+
+  const alert_settings: EAEmailAlertSetting[] = user.byAlertType
+    .filter((row) => !row.isUntaggedGroup)
+    .map((row, idx) => ({
+      alert_id: user.userId * 1000 + idx,
+      frequency: row.frequency ?? "",
+      is_active: row.isActive,
+      item_type: row.alertType,
+      next_run_at: row.nextRunAtUtc,
+      alert_status: row.isActive ? "active" : "inactive",
+      last_sent_at: row.lastSentAtUtc,
+    }));
+
+  const by_email_type: EAEmailByType[] = user.byAlertType
+    .filter((row) => row.sentCount > 0)
+    .map((row) => ({
+      opened: row.openedCount,
+      clicked: row.clickedCount,
+      frequency: row.frequency ?? "",
+      item_type: row.alertType === "__untagged__" ? "Untagged" : row.alertType,
+      open_rate_pct: row.openRate,
+      last_opened_at: row.lastOpened ? new Date(row.lastOpened).getTime() : 0,
+      emails_delivered: row.sentCount,
+      status: row.openedCount > 0 ? "active" : "never_opened",
+    }));
+
+  return {
+    user_id: user.userId,
+    user_name: user.name,
+    email: user.email,
+    total_sent: user.sentCount,
+    total_opened: user.openedCount,
+    total_bounced: user.bouncedCount,
+    total_clicks: user.clickedCount,
+    open_rate_pct: String(user.openRate),
+    sent_30d: user.sentCount,
+    opened_30d: user.openedCount,
+    clicks_30d: user.clickedCount,
+    open_rate_30d_pct: String(user.openRate),
+    last_opened_at: lastOpenedTs,
+    alert_settings,
+    by_email_type,
+  };
+}
+
+function eaMatchesEngagementTab(item: EAEmailListItem, tab: EATab): boolean {
+  switch (tab) {
+    case "stale":
+      return (
+        item.total_sent > 0 &&
+        (item.last_opened_at === 0 ||
+          eaDaysSince(new Date(item.last_opened_at).toISOString()) > 7)
+      );
+    case "bounced":
+      return item.total_bounced > 0 || item.engagement_status === "bounced";
+    case "inactive":
+      return item.active_subscriptions === 0 || item.engagement_status === "inactive";
+    default:
+      return true;
+  }
+}
 
 function eaParseJsonArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
@@ -2563,11 +2699,12 @@ function eaParseJsonArray<T>(value: unknown): T[] {
   }
 }
 
-function eaEngagementBadge(status: string, bounced: number) {
+function eaEngagementBadge(status: string | null | undefined, bounced: number) {
   if (bounced > 0) {
     return { label: "Bounced", cls: "bg-red-50 text-red-700" };
   }
-  switch (status.toLowerCase()) {
+  const normalized = (status ?? "").toLowerCase();
+  switch (normalized) {
     case "active":
       return { label: "Active", cls: "bg-green-50 text-green-700" };
     case "stale":
@@ -2581,13 +2718,19 @@ function eaEngagementBadge(status: string, bounced: number) {
       return { label: "Bounced", cls: "bg-red-50 text-red-700" };
     default:
       return {
-        label: status.replace(/_/g, " "),
+        label: normalized ? (status ?? "").replace(/_/g, " ") : "Unknown",
         cls: "bg-gray-100 text-gray-600",
       };
   }
 }
 
-function EAEmailListRow({ item }: { item: EAEmailListItem }) {
+function EAEmailListRow({
+  item,
+  cachedDetail,
+}: {
+  item: EAEmailListItem;
+  cachedDetail?: EAEmailUserDetail | null;
+}) {
   const [expanded, setExpanded] = useState(false);
   const openRate = Math.round(parseFloat(item.open_rate_pct) || 0);
   const lastOpened = item.last_opened_at > 0 ? item.last_opened_at : null;
@@ -2658,6 +2801,7 @@ function EAEmailListRow({ item }: { item: EAEmailListItem }) {
             <EAEmailUserDetailPanel
               userId={item.user_id}
               listOpenRate={openRate}
+              cachedDetail={cachedDetail}
             />
           </td>
         </tr>
@@ -2697,114 +2841,46 @@ function eaOverviewNum(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function normalizeEmailUserDetail(raw: unknown): EAEmailUserDetail | null {
-  const row = Array.isArray(raw)
-    ? raw[0]
-    : raw && typeof raw === "object"
-    ? raw
-    : null;
-  if (!row || typeof row !== "object") return null;
-
-  const r = row as Record<string, unknown>;
-  const userId = eaOverviewNum(r.user_id);
-  if (!userId) return null;
+function normalizePostmarkOverview(raw: unknown): EAOverviewStats {
+  const root =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const stats =
+    root.stats && typeof root.stats === "object"
+      ? (root.stats as Record<string, unknown>)
+      : {};
+  const meta =
+    root.meta && typeof root.meta === "object"
+      ? (root.meta as Record<string, unknown>)
+      : {};
+  const users = Array.isArray(root.users) ? root.users : [];
+  const usersWithSends = users.filter(
+    (u) => eaOverviewNum((u as PostmarkAnalyticsUser).sentCount) > 0
+  );
 
   return {
-    user_id: userId,
-    user_name: String(r.user_name ?? ""),
-    email: String(r.email ?? ""),
-    total_sent: eaOverviewNum(r.total_sent),
-    total_opened: eaOverviewNum(r.total_opened),
-    total_bounced: eaOverviewNum(r.total_bounced),
-    total_clicks: eaOverviewNum(r.total_clicks ?? r.clicks_30d),
-    open_rate_pct: String(r.open_rate_pct ?? "0"),
-    sent_30d: eaOverviewNum(r.sent_30d),
-    opened_30d: eaOverviewNum(r.opened_30d),
-    clicks_30d: eaOverviewNum(r.clicks_30d),
-    open_rate_30d_pct: String(r.open_rate_30d_pct ?? "0"),
-    last_opened_at: eaOverviewNum(r.last_opened_at),
-    alert_settings: eaParseJsonArray<EAEmailAlertSetting>(r.alert_settings),
-    by_email_type: eaParseJsonArray<EAEmailByType>(r.by_email_type),
+    totalSent: eaOverviewNum(stats.totalSent),
+    totalOpened: eaOverviewNum(stats.totalOpened),
+    totalClicked: eaOverviewNum(stats.totalClicked),
+    avgOpenRate: eaOverviewNum(stats.avgOpenRate),
+    overallOpenRate: eaOverviewNum(stats.overallOpenRate),
+    overallClickRate: eaOverviewNum(stats.overallClickRate),
+    neverOpened: eaOverviewNum(stats.neverOpened),
+    bounced: eaOverviewNum(stats.bounced),
+    recipients: usersWithSends.length || users.length,
+    periodLabel:
+      typeof meta.days === "number" ? `Last ${meta.days} days` : "Last 30 days",
   };
 }
 
 function EAEmailUserDetailPanel({
-  userId,
   listOpenRate,
+  cachedDetail,
 }: {
   userId: number;
   listOpenRate: number;
+  cachedDetail?: EAEmailUserDetail | null;
 }) {
-  const [detail, setDetail] = useState<EAEmailUserDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let aborted = false;
-    const controller = new AbortController();
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-      setDetail(null);
-      try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : "";
-        const res = await fetch(`${EMAIL_ANALYTICS_USER_URL}/${userId}`, {
-          method: "GET",
-          signal: controller.signal,
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(`${res.status} ${text}`);
-        }
-        const json = await res.json();
-        const normalized = normalizeEmailUserDetail(json);
-        if (!normalized) throw new Error("Invalid user detail response");
-        if (!aborted) setDetail(normalized);
-      } catch (e) {
-        if ((e as Error)?.name === "AbortError") return;
-        if (!aborted) {
-          setDetail(null);
-          setError(
-            e instanceof Error ? e.message : "Failed to load user detail"
-          );
-        }
-      } finally {
-        if (!aborted) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      aborted = true;
-      controller.abort();
-    };
-  }, [userId]);
-
-  if (loading) {
-    return (
-      <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50">
-        Loading user detail…
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="px-4 py-3 text-sm text-red-700 bg-red-50">
-        Failed to load user detail: {error}
-      </div>
-    );
-  }
-
-  if (!detail) {
+  if (!cachedDetail) {
     return (
       <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50">
         No user detail available.
@@ -2812,6 +2888,7 @@ function EAEmailUserDetailPanel({
     );
   }
 
+  const detail = cachedDetail;
   const allTimeOpenRate = Math.round(parseFloat(detail.open_rate_pct) || 0);
   const openRate30d = Math.round(parseFloat(detail.open_rate_30d_pct) || 0);
   const activeAlerts = detail.alert_settings.filter((s) => s.is_active);
@@ -3064,94 +3141,13 @@ function normalizeEmailDailyStats(raw: unknown): EAEmailDailyStats | null {
   };
 }
 
-function normalizeOverviewStats(raw: unknown): EAOverviewStats {
-  const root =
-    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const statsSource =
-    root.stats && typeof root.stats === "object"
-      ? (root.stats as Record<string, unknown>)
-      : root.overview && typeof root.overview === "object"
-      ? (root.overview as Record<string, unknown>)
-      : root;
-
-  const totalSent = eaOverviewNum(
-    statsSource.total_sent ??
-      statsSource.totalSent ??
-      statsSource.emails_sent
-  );
-  const recipients = eaOverviewNum(
-    statsSource.recipients ??
-      statsSource.recipient_count ??
-      root.recipients ??
-      root.recipient_count
-  );
-
-  return {
-    totalSent,
-    totalOpened: eaOverviewNum(
-      statsSource.total_opened ?? statsSource.totalOpened
-    ),
-    totalClicked: eaOverviewNum(
-      statsSource.total_clicked ?? statsSource.totalClicked
-    ),
-    avgOpenRate: eaOverviewNum(
-      statsSource.avg_open_rate ?? statsSource.avgOpenRate
-    ),
-    overallOpenRate: eaOverviewNum(
-      statsSource.overall_open_rate ?? statsSource.overallOpenRate
-    ),
-    overallClickRate: eaOverviewNum(
-      statsSource.overall_click_rate ?? statsSource.overallClickRate
-    ),
-    neverOpened: eaOverviewNum(
-      statsSource.never_opened ?? statsSource.neverOpened
-    ),
-    bounced: eaOverviewNum(statsSource.bounced),
-    recipients:
-      recipients || eaOverviewNum(statsSource.users_with_sends ?? root.total_count),
-    periodLabel:
-      typeof statsSource.period_label === "string"
-        ? statsSource.period_label
-        : typeof root.period_label === "string"
-        ? root.period_label
-        : "Last 30 days",
-  };
-}
-
-function eaOverviewQueryParams(filters: EAOverviewFilters): string {
-  const params = new URLSearchParams();
-  params.set("firm_type", filters.firmType);
-  params.set("seniority_level", filters.seniorityLevel);
-  params.set("user_status", filters.userStatus);
-  return params.toString();
-}
-
-function eaListQueryParams(
-  filters: EAOverviewFilters,
-  page: number,
-  tab: EATab
-): string {
-  const params = new URLSearchParams();
-  params.set("firm_type", filters.firmType);
-  params.set("seniority_level", filters.seniorityLevel);
-  params.set("user_status", filters.userStatus);
-  params.set("page", String(page));
-  params.set("per_page", String(EA_LIST_PER_PAGE));
-  if (tab !== "all") {
-    params.set("engagement_status", tab);
-  }
-  return params.toString();
-}
-
 export function EmailAnalyticsTab() {
   const [overview, setOverview] = useState<EAOverviewStats | null>(null);
   const [overviewRaw, setOverviewRaw] = useState<object | null>(null);
-  const [listItems, setListItems] = useState<EAEmailListItem[]>([]);
-  const [listMeta, setListMeta] = useState<{
-    total_count: number;
-    cur_page: number;
-    total_pages: number;
-  } | null>(null);
+  const [allListItems, setAllListItems] = useState<EAEmailListItem[]>([]);
+  const [userDetailById, setUserDetailById] = useState<
+    Map<number, EAEmailUserDetail>
+  >(new Map());
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [listLoading, setListLoading] = useState(true);
   const [overviewError, setOverviewError] = useState<string | null>(null);
@@ -3183,16 +3179,18 @@ export function EmailAnalyticsTab() {
     }
   }
 
-  const fetchOverview = useCallback(async () => {
+  const fetchAnalytics = useCallback(async () => {
     setOverviewLoading(true);
+    setListLoading(true);
     setOverviewError(null);
+    setListError(null);
     try {
       const token =
         typeof window !== "undefined"
           ? localStorage.getItem("asymmetrix_auth_token")
           : "";
       const res = await fetch(
-        `${EMAIL_ANALYTICS_OVERVIEW_URL}?${eaOverviewQueryParams(filters)}`,
+        `${POSTMARK_EMAIL_ANALYTICS_URL}?${postmarkAnalyticsQueryParams(filters)}`,
         {
           method: "GET",
           headers: {
@@ -3207,53 +3205,29 @@ export function EmailAnalyticsTab() {
       }
       const json = await res.json();
       setOverviewRaw(json && typeof json === "object" ? (json as object) : null);
-      setOverview(normalizeOverviewStats(json));
+      setOverview(normalizePostmarkOverview(json));
+
+      const pmUsers = Array.isArray((json as { users?: unknown }).users)
+        ? ((json as { users: PostmarkAnalyticsUser[] }).users ?? [])
+        : [];
+      setAllListItems(pmUsers.map(mapPostmarkUserToListItem));
+      setUserDetailById(
+        new Map(pmUsers.map((user) => [user.userId, postmarkUserToDetail(user)]))
+      );
     } catch (e) {
       setOverview(null);
       setOverviewRaw(null);
-      setOverviewError(e instanceof Error ? e.message : "Failed to load overview");
+      setAllListItems([]);
+      setUserDetailById(new Map());
+      const message =
+        e instanceof Error ? e.message : "Failed to load email analytics";
+      setOverviewError(message);
+      setListError(message);
     } finally {
       setOverviewLoading(false);
-    }
-  }, [filters]);
-
-  const fetchList = useCallback(async () => {
-    setListLoading(true);
-    setListError(null);
-    try {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("asymmetrix_auth_token")
-          : "";
-      const res = await fetch(
-        `${EMAIL_ANALYTICS_OVERVIEW_URL}?${eaListQueryParams(filters, page, tab)}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        }
-      );
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`${res.status} ${text}`);
-      }
-      const json = (await res.json()) as EAEmailListResponse;
-      setListItems(Array.isArray(json.items) ? json.items : []);
-      setListMeta({
-        total_count: json.total_count ?? 0,
-        cur_page: json.cur_page ?? page,
-        total_pages: json.total_pages ?? 1,
-      });
-    } catch (e) {
-      setListItems([]);
-      setListMeta(null);
-      setListError(e instanceof Error ? e.message : "Failed to load user list");
-    } finally {
       setListLoading(false);
     }
-  }, [filters, page, tab]);
+  }, [filters]);
 
   const fetchDailyStats = useCallback(async () => {
     setDailyLoading(true);
@@ -3291,10 +3265,9 @@ export function EmailAnalyticsTab() {
   }, [auditDate]);
 
   const refreshAll = useCallback(() => {
-    fetchOverview();
-    fetchList();
+    fetchAnalytics();
     fetchDailyStats();
-  }, [fetchOverview, fetchList, fetchDailyStats]);
+  }, [fetchAnalytics, fetchDailyStats]);
 
   const updateFilter = (key: keyof EAOverviewFilters, value: string) => {
     setPage(1);
@@ -3302,20 +3275,33 @@ export function EmailAnalyticsTab() {
   };
 
   useEffect(() => {
-    fetchOverview();
-  }, [fetchOverview]);
-
-  useEffect(() => {
-    fetchList();
-  }, [fetchList]);
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
   useEffect(() => {
     fetchDailyStats();
   }, [fetchDailyStats]);
 
+  const filteredListItems = useMemo(
+    () => allListItems.filter((item) => eaMatchesEngagementTab(item, tab)),
+    [allListItems, tab]
+  );
+
+  const listMeta = useMemo(() => {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(filteredListItems.length / EA_LIST_PER_PAGE)
+    );
+    return {
+      total_count: filteredListItems.length,
+      cur_page: Math.min(page, totalPages),
+      total_pages: totalPages,
+    };
+  }, [filteredListItems, page]);
+
   const sortedListItems = useMemo(() => {
     const mul = userSortDir === "asc" ? 1 : -1;
-    return listItems.slice().sort((a, b) => {
+    return filteredListItems.slice().sort((a, b) => {
       switch (userSortCol) {
         case "openRate":
           return (parseFloat(a.open_rate_pct) - parseFloat(b.open_rate_pct)) * mul;
@@ -3326,12 +3312,17 @@ export function EmailAnalyticsTab() {
         case "activeAlerts":
           return (a.active_subscriptions - b.active_subscriptions) * mul;
         case "name":
-          return a.user_name.localeCompare(b.user_name) * mul;
+          return (a.user_name || "").localeCompare(b.user_name || "") * mul;
         default:
           return 0;
       }
     });
-  }, [listItems, userSortCol, userSortDir]);
+  }, [filteredListItems, userSortCol, userSortDir]);
+
+  const paginatedListItems = useMemo(() => {
+    const start = (listMeta.cur_page - 1) * EA_LIST_PER_PAGE;
+    return sortedListItems.slice(start, start + EA_LIST_PER_PAGE);
+  }, [sortedListItems, listMeta.cur_page]);
 
   const tabs: Array<[EATab, string]> = [
     ["all", "All users"],
@@ -3551,7 +3542,7 @@ export function EmailAnalyticsTab() {
                           row.final_status || row.status || "failed"
                         );
                         const stillFailed =
-                          (row.final_status || row.status).toLowerCase() ===
+                          (row.final_status || row.status || "failed").toLowerCase() ===
                           "failed";
                         return (
                           <tr
@@ -3753,7 +3744,7 @@ export function EmailAnalyticsTab() {
       {showDebug && overviewRaw ? (
         <div className="bg-gray-900 text-gray-100 rounded border border-gray-700 px-4 py-3 text-xs font-mono space-y-1">
           <div className="text-gray-400 font-sans font-medium text-xs mb-2">
-            Xano overview response
+            Postmark analytics response
           </div>
           <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
             {JSON.stringify(overviewRaw, null, 2)}
@@ -3866,7 +3857,7 @@ export function EmailAnalyticsTab() {
                 </tr>
               </thead>
               <tbody>
-                {sortedListItems.length === 0 ? (
+                {paginatedListItems.length === 0 ? (
                   <tr>
                     <td
                       colSpan={6}
@@ -3876,8 +3867,12 @@ export function EmailAnalyticsTab() {
                     </td>
                   </tr>
                 ) : (
-                  sortedListItems.map((item) => (
-                    <EAEmailListRow key={item.user_id} item={item} />
+                  paginatedListItems.map((item) => (
+                    <EAEmailListRow
+                      key={item.user_id}
+                      item={item}
+                      cachedDetail={userDetailById.get(item.user_id)}
+                    />
                   ))
                 )}
               </tbody>
