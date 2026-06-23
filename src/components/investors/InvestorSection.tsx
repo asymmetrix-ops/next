@@ -4,7 +4,6 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -12,7 +11,6 @@ import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import type { InvestorListItem, InvestorsSearchFilters } from "@/app/investors/actions";
-import { createDefaultInvestorFilters } from "@/lib/investorsFilterPayload";
 import {
   CANONICAL_INVESTOR_COLUMN_KEYS,
   DEFAULT_VISIBLE_INVESTOR_COLUMN_KEYS,
@@ -22,35 +20,17 @@ import {
   getEffectiveFrozenInvestorColumnKeys,
   investorColumnKeysToVisibility,
   investorVisibilityToColumnKeys,
-  reorderInvestorColumnKeys,
 } from "@/components/investors/investorsColumnCategories";
 import { FILTER_PINNED_TOOLTIP } from "@/components/investors/investorsColumnFilterMap";
 import { getInvestorFieldAliasesForColumn } from "@/components/investors/investorsColumnFields";
-import { readLogoFromRecord } from "@/lib/companyLogo";
 import {
+  compareInvestorSortValues,
   getInvestorColumnSortKind,
-  getInvestorServerSortColumn,
+  getInvestorSortValueForColumn,
 } from "@/components/investors/investorsTableSort";
-import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
-import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
-import { buildNamedSectorItems } from "@/components/search/searchEntityLinkUtils";
-import { namesToMultiValueItems } from "@/components/search/searchMultiValueUtils";
-import { useSectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
-import type { SectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
-import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
-import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
-import { exportInvestorsList } from "@/lib/listExport/investorsListExport";
-import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
-import { checkExportLimit } from "@/utils/exportLimitCheck";
+import { SearchEntityDescription } from "@/components/search/SearchEntityDescription";
+import { SearchEntityLogo } from "@/components/search/SearchEntityLogo";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
-import {
-  isSearchTableSelectionEnabled,
-  SEARCH_TABLE_SELECT_COLUMN_WIDTH,
-  SearchTableSelectCell,
-  SearchTableSelectHeader,
-  type SearchTableSelectionProps,
-} from "@/components/search/searchTableSelection";
-import { usePageSelectionState } from "@/components/search/useEntitySelection";
 import {
   buildStickyColumnOffsets,
   getSearchTableColumnClassName,
@@ -59,10 +39,26 @@ import {
 } from "@/components/search/searchTableUtils";
 import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
-import CompactPagination from "@/components/ui/CompactPagination";
 
 export type Investor = InvestorListItem;
 export type Filters = InvestorsSearchFilters;
+
+export const createDefaultInvestorFilters = (): Filters => ({
+  Search_Query: "",
+  page: 1,
+  per_page: 50,
+  Countries: [],
+  Provinces: [],
+  Cities: [],
+  Continental_Region: [],
+  geographical_sub_region: [],
+  Primary_Sectors: [],
+  Secondary_Sectors: [],
+  Investor_Types: [],
+  Portfolio_Companies_Min: 0,
+  Portfolio_Companies_Max: 0,
+  portfolio_only: false,
+});
 
 const INVESTORS_COLUMNS_STORAGE_KEY = "investors-search-column-keys-v1";
 
@@ -114,7 +110,8 @@ const formatTimeSinceLastInvestment = (investor: Investor): string => {
 };
 
 const ALL_INVESTOR_COLUMNS: InvestorColumnDefinition[] = [
-  { key: "name", label: "Name", minWidth: 220 },
+  { key: "logo", label: "Logo", minWidth: 88 },
+  { key: "name", label: "Name", minWidth: 160 },
   { key: "type", label: "Type", minWidth: 140 },
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "portfolio_companies", label: "Current D&A Portfolio Companies", minWidth: 160 },
@@ -145,19 +142,25 @@ function renderInvestorCell(
   columnKey: string,
   investor: Investor,
   index: number,
-  onInvestorClick: (id: number) => void,
-  sectorMaps?: SectorNameIdMaps
+  onInvestorClick: (id: number) => void
 ): React.ReactNode {
   switch (columnKey) {
+    case "logo":
+      return (
+        <SearchEntityLogo
+          logo={String(investor.linkedin_logo || "")}
+          name={String(investor.company_name || "")}
+        />
+      );
     case "name": {
       const id = investor.original_new_company_id;
       const name = investor.company_name || "-";
+      if (!id) return name;
       return (
-        <SearchEntityIdentityCell
-          name={name}
-          logo={readLogoFromRecord(investor, getInvestorFieldAliasesForColumn("logo"))}
-          subtitle={investor.country?.trim() || undefined}
-          href={id ? `/investors/${id}` : undefined}
+        <a
+          href={`/investors/${id}`}
+          className="company-name"
+          style={{ textDecoration: "none", color: "#3b82f6" }}
           onClick={(e) => {
             if (
               e.defaultPrevented ||
@@ -170,30 +173,24 @@ function renderInvestorCell(
               return;
             }
             e.preventDefault();
-            onInvestorClick(id!);
+            onInvestorClick(id);
           }}
-        />
+        >
+          {name}
+        </a>
       );
     }
     case "type":
-      return (
-        <SearchEntityMultiValueCell
-          items={namesToMultiValueItems(investor.investor_type ?? [], "type")}
-        />
-      );
+      return investor.investor_type?.length ? investor.investor_type.join(", ") : "-";
     case "description":
-      return <SearchEntityLongText text={investor.description || "-"} />;
+      return <SearchEntityDescription description={investor.description || "-"} />;
     case "portfolio_companies":
       return formatNumber(investor.number_of_active_investments);
     case "primary_sectors":
-      return (
-        <SearchEntityMultiValueCell
-          items={buildNamedSectorItems(
-            investor.da_primary_sector_names ?? [],
-            "primary-sector",
-            sectorMaps
-          )}
-        />
+      return investor.da_primary_sector_names?.length ? (
+        <div className="sectors-list">{investor.da_primary_sector_names.join(", ")}</div>
+      ) : (
+        "-"
       );
     case "linkedin_members":
       return formatNumber(investor.linkedin_members);
@@ -212,6 +209,7 @@ function renderInvestorCell(
             followKey="followed_investors"
             entityId={id}
             label={investor.company_name || ""}
+            icon="star"
           />
         </div>
       );
@@ -279,11 +277,6 @@ function renderInvestorCell(
   }
 }
 
-function getInvestorEntityId(investor: Investor): number | null {
-  const id = investor.original_new_company_id ?? investor.id;
-  return typeof id === "number" && Number.isFinite(id) && id > 0 ? id : null;
-}
-
 export const InvestorSection = ({
   investors,
   loading,
@@ -295,17 +288,7 @@ export const InvestorSection = ({
   externalShowColumnsModal,
   externalSetShowColumnsModal,
   onColumnsCountChange,
-  onRegisterExportCSV,
-  onExportingChange,
   isPortfolioOnlyFilter = false,
-  sortColumnKey = null,
-  sortDirection = "desc",
-  onSortColumn,
-  onSortClear,
-  selectedEntityIds,
-  onToggleEntitySelection,
-  onTogglePageSelection,
-  onClearSelection,
 }: {
   investors: Investor[];
   loading: boolean;
@@ -327,18 +310,9 @@ export const InvestorSection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
-  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
-  onExportingChange?: (exporting: boolean) => void;
   isPortfolioOnlyFilter?: boolean;
-  sortColumnKey?: string | null;
-  sortDirection?: "asc" | "desc";
-  onSortColumn?: (columnKey: string) => void;
-  onSortClear?: () => void;
-} & SearchTableSelectionProps & {
-  onClearSelection?: () => void;
 }) => {
   const router = useRouter();
-  const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal =
     externalShowColumnsModal !== undefined
@@ -350,34 +324,10 @@ export const InvestorSection = ({
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
     DEFAULT_VISIBLE_INVESTOR_COLUMN_KEYS
   );
-  const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
-  const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
-  const exportInFlightRef = useRef(false);
-  const sectorMaps = useSectorNameIdMaps();
-  const selectionEnabled = isSearchTableSelectionEnabled({
-    selectedEntityIds,
-    onToggleEntitySelection,
-    onTogglePageSelection,
-  });
-
-  const pageEntityIds = useMemo(
-    () =>
-      investors
-        .map((investor) => getInvestorEntityId(investor))
-        .filter((id): id is number => id != null),
-    [investors]
-  );
-
-  const pageSelectionState = usePageSelectionState(
-    pageEntityIds,
-    selectedEntityIds ?? new Set()
-  );
-
-  const selectedIdList = useMemo(
-    () => (selectedEntityIds ? Array.from(selectedEntityIds) : []),
-    [selectedEntityIds]
-  );
+  const [sortState, setSortState] = useState<{
+    key: string;
+    dir: "asc" | "desc";
+  } | null>(null);
 
   const frozenColumnKeys = useMemo(
     () => getEffectiveFrozenInvestorColumnKeys(filterPinnedColumnKeys),
@@ -385,13 +335,8 @@ export const InvestorSection = ({
   );
 
   const stickyColumnOffsets = useMemo(
-    () =>
-      buildStickyColumnOffsets(
-        frozenColumnKeys,
-        ALL_INVESTOR_COLUMNS,
-        selectionEnabled ? SEARCH_TABLE_SELECT_COLUMN_WIDTH : 0
-      ),
-    [frozenColumnKeys, selectionEnabled]
+    () => buildStickyColumnOffsets(frozenColumnKeys, ALL_INVESTOR_COLUMNS),
+    [frozenColumnKeys]
   );
 
   useEffect(() => {
@@ -449,10 +394,24 @@ export const InvestorSection = ({
   }, [selectedColumns.length, onColumnsCountChange]);
 
   useEffect(() => {
-    if (sortColumnKey && !selectedColumnKeys.includes(sortColumnKey)) {
-      onSortClear?.();
+    if (sortState && !selectedColumnKeys.includes(sortState.key)) {
+      setSortState(null);
     }
-  }, [selectedColumnKeys, sortColumnKey, onSortClear]);
+  }, [selectedColumnKeys, sortState]);
+
+  const sortedInvestors = useMemo(() => {
+    if (!sortState || !getInvestorColumnSortKind(sortState.key)) {
+      return investors;
+    }
+    const { key, dir } = sortState;
+    return [...investors].sort((a, b) =>
+      compareInvestorSortValues(
+        getInvestorSortValueForColumn(a as Record<string, unknown>, key),
+        getInvestorSortValueForColumn(b as Record<string, unknown>, key),
+        dir
+      )
+    );
+  }, [investors, sortState]);
 
   const handleInvestorClick = useCallback(
     (id: number) => {
@@ -461,48 +420,21 @@ export const InvestorSection = ({
     [router]
   );
 
-  const pageTotal =
-    pagination.pageTotal ||
-    (pagination.nextPage != null
-      ? Math.max(pagination.nextPage, pagination.curPage + 1)
-      : 1);
-
   const handlePageChange = useCallback(
     (page: number) => {
-      if (loading || page < 1 || page > pageTotal || page === pagination.curPage) {
-        return;
-      }
-
       const filters = currentFilters ?? createDefaultInvestorFilters();
       void fetchInvestors(page, { ...filters, page });
     },
-    [currentFilters, fetchInvestors, loading, pageTotal, pagination.curPage]
+    [currentFilters, fetchInvestors]
   );
 
-  const handleSortColumn = useCallback(
-    (columnKey: string) => {
-      if (!getInvestorServerSortColumn(columnKey) || !onSortColumn) return;
-      onSortColumn(columnKey);
-    },
-    [onSortColumn]
-  );
-
-  const handleReorderTableColumns = useCallback(
-    (dragKey: string, dropKey: string) => {
-      setSelectedColumnKeys((current) =>
-        enforceInvestorColumnKeyOrder(
-          reorderInvestorColumnKeys(current, dragKey, dropKey, filterPinnedColumnKeys),
-          filterPinnedColumnKeys
-        )
-      );
-    },
-    [filterPinnedColumnKeys]
-  );
-
-  const isFrozenColumnKey = useCallback(
-    (columnKey: string) => frozenColumnKeys.includes(columnKey),
-    [frozenColumnKeys]
-  );
+  const handleSortColumn = useCallback((columnKey: string) => {
+    if (!getInvestorColumnSortKind(columnKey)) return;
+    setSortState((current) => {
+      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
+      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
+    });
+  }, []);
 
   const columnsModalInitial = useMemo(
     () => investorColumnKeysToVisibility(selectedColumnKeys),
@@ -514,77 +446,113 @@ export const InvestorSection = ({
     [filterPinnedColumnKeys]
   );
 
-  const handleListExport = useCallback(
-    async (request: ListExportRequest) => {
-      if (exportInFlightRef.current) return;
+  const generatePaginationButtons = () => {
+    const buttons: React.ReactNode[] = [];
+    const maxVisible = 7;
+    const totalPages =
+      pagination.pageTotal ||
+      (pagination.nextPage != null
+        ? Math.max(pagination.nextPage, pagination.curPage + 1)
+        : 0);
+    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
+    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
 
-      exportInFlightRef.current = true;
-      setExporting(true);
+    if (totalPages <= 1) return buttons;
 
-      try {
-        const limitCheck = await checkExportLimit();
-        if (!limitCheck.canExport) return;
+    buttons.push(
+      <button
+        key="previous"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(prevPage)}
+        disabled={pagination.curPage <= 1}
+      >
+        Previous
+      </button>
+    );
 
-        const { mode, scope } = request;
-        const exportTotalCount = pagination.itemsTotal || 0;
-        if (scope === "full_list" && exportTotalCount <= 0) {
-          console.error("Investors export aborted: match count is not available yet.");
-          return;
-        }
-
-        const selectedIdsForExport =
-          scope === "selected"
-            ? request.selectedIds?.length
-              ? request.selectedIds
-              : selectedIdList
-            : undefined;
-
-        await exportInvestorsList(
-          {
-            mode,
-            scope,
-            selectedIds: selectedIdsForExport,
-          },
-          currentFilters ?? createDefaultInvestorFilters(),
-          selectedColumnKeys,
-          scope === "full_list" ? exportTotalCount : undefined,
-          limitCheck.isAdmin
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
         );
-      } catch (exportError) {
-        console.error("Investor export failed:", exportError);
-      } finally {
-        exportInFlightRef.current = false;
-        setExporting(false);
       }
-    },
-    [
-      currentFilters,
-      pagination.itemsTotal,
-      selectedColumnKeys,
-      selectedIdList,
-    ]
-  );
+    } else {
+      buttons.push(
+        <button
+          key={1}
+          type="button"
+          className={`pagination-button ${pagination.curPage === 1 ? "active" : ""}`}
+          onClick={() => handlePageChange(1)}
+        >
+          1
+        </button>
+      );
 
-  const handleSelectedListExport = useCallback(
-    (mode: ListExportMode) =>
-      handleListExport({ mode, scope: "selected" }),
-    [handleListExport]
-  );
+      if (pagination.curPage > 3) {
+        buttons.push(
+          <span key="ellipsis1" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
 
-  const handleExportRequest = useCallback(
-    async (request: ListExportRequest) => {
-      await handleListExport(request);
-    },
-    [handleListExport]
-  );
+      const start = Math.max(2, pagination.curPage - 1);
+      const end = Math.min(totalPages - 1, pagination.curPage + 1);
+      for (let i = start; i <= end; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
 
-  useEffect(() => {
-    onExportingChange?.(exporting);
-  }, [exporting, onExportingChange]);
+      if (pagination.curPage < totalPages - 2) {
+        buttons.push(
+          <span key="ellipsis2" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
 
-  useEffect(() => {
-    onRegisterExportCSV?.(handleExportRequest);
-  }, [handleExportRequest, onRegisterExportCSV]);
+      buttons.push(
+        <button
+          key={totalPages}
+          type="button"
+          className={`pagination-button ${totalPages === pagination.curPage ? "active" : ""}`}
+          onClick={() => handlePageChange(totalPages)}
+        >
+          {totalPages}
+        </button>
+      );
+    }
+
+    buttons.push(
+      <button
+        key="next"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(nextPage)}
+        disabled={pagination.curPage >= totalPages}
+      >
+        Next
+      </button>
+    );
+
+    return buttons;
+  };
 
   const columnsModalLayer =
     showColumnsModal &&
@@ -654,76 +622,18 @@ export const InvestorSection = ({
 
   return (
     <div className="company-section">
-      {selectionEnabled && selectedEntityIds!.size > 0 && onClearSelection && (
-        <BulkPortfolioActionToolbar
-          entityType="investor"
-          entityIds={selectedIdList}
-          onClearSelection={onClearSelection}
-          exporting={exporting}
-          onExport={handleSelectedListExport}
-        />
-      )}
-      <div className="company-cards">
-        {investors.length === 0 ? (
-          <div className="loading">No investors found.</div>
-        ) : (
-          investors.map((investor, index) => {
-            return (
-              <div className="company-card" key={`card-${investor.original_new_company_id ?? investor.id ?? index}`}>
-                <div className="company-card-header">
-                  {renderInvestorCell("name", investor, index, handleInvestorClick, sectorMaps)}
-                </div>
-                <div className="company-card-content">
-                  {selectedColumns
-                    .filter((column) => column.key !== "name")
-                    .map((column) => (
-                      <div className="company-card-row" key={column.key}>
-                        <span className="company-card-label">{column.label}</span>
-                        <span className="company-card-value">
-                          {renderInvestorCell(
-                            column.key,
-                            investor,
-                            index,
-                            handleInvestorClick,
-                            sectorMaps
-                          )}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>
             <tr>
-              {selectionEnabled && onTogglePageSelection && (
-                <SearchTableSelectHeader
-                  pageIds={pageEntityIds}
-                  pageSelectionState={pageSelectionState}
-                  onTogglePageSelection={onTogglePageSelection}
-                  ariaLabel="Select all investors on this page"
-                />
-              )}
               {selectedColumns.map((column) => {
                 const sortKind = getInvestorColumnSortKind(column.key);
-                const isActive = sortColumnKey === column.key;
-                const isDraggable = !isFrozenColumnKey(column.key);
-                const isDragging = headerDragKey === column.key;
-                const isDragOver =
-                  headerDragOverKey === column.key && headerDragKey !== column.key;
+                const isActive = sortState?.key === column.key;
                 return (
                   <th
                     key={column.key}
                     className={getSearchTableColumnClassName(column, frozenColumnKeys, [
                       sortKind ? "company-table-th-sortable" : undefined,
-                      isDraggable ? "company-table-th-draggable" : undefined,
-                      isDragging ? "company-table-th-dragging" : undefined,
-                      isDragOver ? "company-table-th-drag-over" : undefined,
                     ])}
                     style={{
                       minWidth: column.minWidth,
@@ -734,53 +644,11 @@ export const InvestorSection = ({
                         true
                       ),
                     }}
-                    draggable={isDraggable}
-                    onDragStart={
-                      isDraggable
-                        ? (event) => {
-                            headerDidDragRef.current = false;
-                            event.dataTransfer.effectAllowed = "move";
-                            event.dataTransfer.setData("text/plain", column.key);
-                            setHeaderDragKey(column.key);
-                            setHeaderDragOverKey(null);
-                          }
-                        : undefined
-                    }
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "move";
-                      setHeaderDragOverKey(column.key);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      const dragKey =
-                        event.dataTransfer.getData("text/plain") || headerDragKey;
-                      if (dragKey) {
-                        headerDidDragRef.current = true;
-                        handleReorderTableColumns(dragKey, column.key);
-                      }
-                      setHeaderDragKey(null);
-                      setHeaderDragOverKey(null);
-                    }}
-                    onDragEnd={() => {
-                      setHeaderDragKey(null);
-                      setHeaderDragOverKey(null);
-                    }}
-                    onClick={
-                      sortKind
-                        ? () => {
-                            if (headerDidDragRef.current) {
-                              headerDidDragRef.current = false;
-                              return;
-                            }
-                            handleSortColumn(column.key);
-                          }
-                        : undefined
-                    }
+                    onClick={sortKind ? () => handleSortColumn(column.key) : undefined}
                     aria-sort={
                       sortKind
                         ? isActive
-                          ? sortDirection === "asc"
+                          ? sortState?.dir === "asc"
                             ? "ascending"
                             : "descending"
                           : "none"
@@ -802,7 +670,7 @@ export const InvestorSection = ({
                     )}
                     {sortKind && isActive && (
                       <span className="company-table-sort-indicator">
-                        {sortDirection === "asc" ? "▲" : "▼"}
+                        {sortState?.dir === "asc" ? "▲" : "▼"}
                       </span>
                     )}
                   </th>
@@ -811,45 +679,13 @@ export const InvestorSection = ({
             </tr>
           </thead>
           <tbody>
-            {investors.length === 0 ? (
+            {sortedInvestors.length === 0 ? (
               <tr>
-                <td
-                  colSpan={
-                    selectedColumns.length + (selectionEnabled ? 1 : 0)
-                  }
-                >
-                  No investors found.
-                </td>
+                <td colSpan={selectedColumns.length}>No investors found.</td>
               </tr>
             ) : (
-              investors.map((investor, index) => {
-                const entityId = getInvestorEntityId(investor);
-                const isRowSelected =
-                  entityId != null && selectedEntityIds?.has(entityId);
-                return (
-                <tr
-                  key={`${investor.original_new_company_id ?? investor.id ?? index}`}
-                  className={isRowSelected ? "company-table-row-selected" : undefined}
-                >
-                  {selectionEnabled &&
-                    onToggleEntitySelection &&
-                    entityId != null && (
-                      <SearchTableSelectCell
-                        entityId={entityId}
-                        selected={Boolean(isRowSelected)}
-                        onToggle={onToggleEntitySelection}
-                        ariaLabel={`Select ${investor.company_name || "investor"}`}
-                      />
-                    )}
-                  {selectionEnabled && entityId == null && (
-                    <td
-                      className="company-table-select-cell"
-                      style={{
-                        minWidth: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
-                        width: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
-                      }}
-                    />
-                  )}
+              sortedInvestors.map((investor, index) => (
+                <tr key={`${investor.original_new_company_id ?? investor.id ?? index}`}>
                   {selectedColumns.map((column) => (
                     <td
                       key={`${column.key}-${index}`}
@@ -859,9 +695,7 @@ export const InvestorSection = ({
                         ...getStickyColumnStyle(
                           column.key,
                           stickyColumnOffsets,
-                          column.minWidth,
-                          false,
-                          Boolean(isRowSelected)
+                          column.minWidth
                         ),
                       }}
                     >
@@ -869,27 +703,18 @@ export const InvestorSection = ({
                         column.key,
                         investor,
                         index,
-                        handleInvestorClick,
-                        sectorMaps
+                        handleInvestorClick
                       )}
                     </td>
                   ))}
                 </tr>
-              );
-              })
+              ))
             )}
           </tbody>
         </table>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-        <CompactPagination
-          curPage={pagination.curPage}
-          pageTotal={pageTotal}
-          onPageChange={handlePageChange}
-          disabled={loading}
-        />
-      </div>
+      <div className="pagination">{generatePaginationButtons()}</div>
       {columnsModalLayer}
       <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
     </div>

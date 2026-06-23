@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
+import Image from "next/image";
 
 export function SearchEntityLogo({
   logo,
@@ -10,25 +9,16 @@ export function SearchEntityLogo({
   logo: string;
   name: string;
 }) {
-  const [failed, setFailed] = useState(false);
-  const src = resolveCompanyLogoSrc(logo);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [src]);
-
   return (
     <div className="company-logo-cell">
-      {src && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={src}
+      {logo ? (
+        <Image
+          src={`data:image/jpeg;base64,${logo}`}
           alt={`${name} logo`}
           width={60}
           height={40}
           className="company-logo"
           style={{ objectFit: "contain" }}
-          onError={() => setFailed(true)}
         />
       ) : (
         <div className="company-logo-placeholder">No Logo</div>

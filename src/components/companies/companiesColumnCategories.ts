@@ -126,14 +126,6 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
     name: "Overview",
     columns: [
       {
-        id: "is_new",
-        columnKey: "is_new",
-        label: "New",
-        type: "text",
-        defaultVisible: false,
-        badge: "New",
-      },
-      {
         id: "year_founded",
         columnKey: "year_founded",
         label: "Year Founded",

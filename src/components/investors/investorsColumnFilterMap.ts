@@ -8,13 +8,13 @@ export const FILTER_PINNED_TOOLTIP =
   "Pinned automatically — a filter is active on this column.";
 
 export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
+  "logo",
   "name",
   "description",
   "follow",
   "website",
   "linkedin_url",
   "hq",
-  "country",
   "sub_region",
   "state",
   "city",
@@ -30,8 +30,6 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   secondary_sector: "primary_sectors",
   investor_type: "type",
   portfolio_companies: "portfolio_companies",
-  total_investments: "total_investments",
-  linkedin_members: "linkedin_members",
   years_since_inv: "years_since_last_investment",
   followed: "follow",
 };
@@ -76,8 +74,6 @@ function mapColumnCategoryToFilterCategory(column: InvestorColumnMeta): string {
   if (
     column.columnKey === "primary_sectors" ||
     column.columnKey === "portfolio_companies" ||
-    column.columnKey === "total_investments" ||
-    column.columnKey === "linkedin_members" ||
     column.columnKey === "years_since_last_investment"
   ) {
     return column.columnKey === "primary_sectors" ? "sectors" : "portfolio";

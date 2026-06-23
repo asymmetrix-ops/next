@@ -16,7 +16,6 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   description: NOT_SORTABLE,
   website: NOT_SORTABLE,
   follow: NOT_SORTABLE,
-  is_new: NOT_SORTABLE,
   primary_sectors: "text",
   secondary_sectors: "text",
   ownership: "text",

@@ -31,22 +31,6 @@ import {
 } from "@/components/investors/investorsFilterConfig";
 import { CANONICAL_INVESTOR_COLUMN_KEYS } from "@/components/investors/investorsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
-import { SearchExportMenu } from "@/components/search/SearchExportMenu";
-import type { ListExportMode } from "@/lib/listExport/types";
-import RequestDataResearchButton from "@/components/RequestDataResearchButton";
-import { SEARCH_HEADER_ACTION_BUTTON_STYLE } from "@/components/search/searchHeaderActions";
-import {
-  SEARCH_DASHBOARD_ACTIONS,
-  SEARCH_DASHBOARD_EYEBROW,
-  SEARCH_DASHBOARD_FILTER_INNER,
-  SEARCH_DASHBOARD_FILTER_SHELL,
-  SEARCH_DASHBOARD_HEADER_ROW,
-  SEARCH_DASHBOARD_INNER,
-  SEARCH_DASHBOARD_MATCH_COUNT,
-  SEARCH_DASHBOARD_SHELL,
-  SEARCH_DASHBOARD_TITLE,
-  SearchListTabs,
-} from "@/components/search/searchDashboardLayout";
 
 export type InvestorDashboardProps = {
   onSearch?: (
@@ -65,8 +49,6 @@ export type InvestorDashboardProps = {
   onColumnsClick?: () => void;
   columnsActive?: boolean;
   columnsCount?: number;
-  onExport?: (mode: ListExportMode) => void | Promise<void>;
-  exporting?: boolean;
 };
 
 export const InvestorDashboard = ({
@@ -79,8 +61,6 @@ export const InvestorDashboard = ({
   onColumnsClick,
   columnsActive = false,
   columnsCount = 0,
-  onExport,
-  exporting = false,
 }: InvestorDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
     filters: [],
@@ -326,50 +306,113 @@ export const InvestorDashboard = ({
         typeCounts.totalCount;
 
   return (
-    <div style={SEARCH_DASHBOARD_SHELL}>
-      <div className="search-dashboard-inner" style={SEARCH_DASHBOARD_INNER}>
-        <div className="search-dashboard-header-row" style={SEARCH_DASHBOARD_HEADER_ROW}>
+    <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+      <div style={{ width: "100%", padding: "20px 28px 0" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 18,
+          }}
+        >
           <div>
-            <div style={SEARCH_DASHBOARD_EYEBROW}>Investors</div>
-            <h1 style={SEARCH_DASHBOARD_TITLE}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+                color: "#94a3b8",
+                marginBottom: 5,
+              }}
+            >
+              Investors
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 26,
+                fontWeight: 700,
+                color: "#0f172a",
+                display: "flex",
+                alignItems: "baseline",
+                gap: 10,
+                lineHeight: 1.2,
+              }}
+            >
               Investor search
-              <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
+              <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
                 {matchCount.toLocaleString()} matches
               </span>
             </h1>
           </div>
 
-          <div className="search-dashboard-actions" style={SEARCH_DASHBOARD_ACTIONS}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6 }}>
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
               total={CANONICAL_INVESTOR_COLUMN_KEYS.length}
               onClick={onColumnsClick}
             />
-            <SearchExportMenu
-              onExport={(mode) => onExport?.(mode)}
-              exporting={exporting}
-              disabled={!onExport}
-            />
-            <RequestDataResearchButton
-              label="Request Investor Profile"
-              context="investor"
-              sourcePage="Investors Search"
-              className="inline-flex items-center justify-center"
-              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
-            />
           </div>
         </div>
 
-        <SearchListTabs
-          tabs={investorTypeTabs}
-          activeTabId={activeInvestorTypeTab}
-          onTabClick={(tabId) => setActiveInvestorTypeTab(tabId as InvestorTypeTab)}
-        />
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {investorTypeTabs.map((tab) => {
+            const active = activeInvestorTypeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveInvestorTypeTab(tab.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  height: 34,
+                  padding: "0 14px",
+                  background: active ? "#0f172a" : "transparent",
+                  color: active ? "#fff" : "#64748b",
+                  border: "1px solid",
+                  borderColor: active ? "#0f172a" : "transparent",
+                  borderBottom: "none",
+                  borderRadius: "8px 8px 0 0",
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 500,
+                  cursor: "pointer",
+                  transition: "background 0.12s, color 0.12s",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: active ? "rgba(255,255,255,0.7)" : tab.dot,
+                    flexShrink: 0,
+                  }}
+                />
+                {tab.label}
+                <span style={{ fontSize: 12, opacity: 0.75 }}>
+                  {tab.count.toLocaleString()}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
-        <div className="search-dashboard-filter-inner" style={SEARCH_DASHBOARD_FILTER_INNER}>
+      <div
+        style={{
+          background: "#fff",
+          borderTop: "1px solid #e2e8f0",
+          borderBottom: "1px solid #e2e8f0",
+        }}
+      >
+        <div style={{ width: "100%", padding: "10px 28px 12px" }}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={FILTER_CATEGORIES}

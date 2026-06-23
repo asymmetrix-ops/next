@@ -4,6 +4,7 @@ export type InvestorColumnType =
   | "url"
   | "number"
   | "date"
+  | "logo"
   | "follow";
 
 export interface InvestorColumnMeta {
@@ -28,6 +29,14 @@ export const INVESTORS_COLUMN_CATEGORIES: InvestorColumnCategory[] = [
     id: "identity",
     name: "Identity",
     columns: [
+      {
+        id: "logo",
+        columnKey: "logo",
+        label: "Logo",
+        type: "logo",
+        locked: true,
+        defaultVisible: true,
+      },
       {
         id: "name",
         columnKey: "name",
@@ -180,6 +189,7 @@ export const CANONICAL_INVESTOR_COLUMN_KEYS = ALL_INVESTORS_COLUMN_META.map(
 );
 
 export const PROD_DEFAULT_INVESTOR_COLUMN_KEYS = [
+  "logo",
   "name",
   "type",
   "description",
@@ -189,7 +199,7 @@ export const PROD_DEFAULT_INVESTOR_COLUMN_KEYS = [
   "country",
 ] as const;
 
-export const FROZEN_INVESTOR_COLUMN_KEYS = ["name"] as const;
+export const FROZEN_INVESTOR_COLUMN_KEYS = ["logo", "name"] as const;
 
 export const DEFAULT_VISIBLE_INVESTOR_COLUMN_KEYS: string[] = [
   ...PROD_DEFAULT_INVESTOR_COLUMN_KEYS,
@@ -213,7 +223,6 @@ export function enforceInvestorColumnKeyOrder(
   keys: string[],
   filterPinnedKeys: string[] = []
 ): string[] {
-  const normalizedKeys = keys.filter((key) => key !== "logo");
   const frozenKeys = getEffectiveFrozenInvestorColumnKeys(filterPinnedKeys);
   const frozenSet = new Set(frozenKeys);
   const seen = new Set<string>();
@@ -226,7 +235,7 @@ export function enforceInvestorColumnKeyOrder(
     }
   }
 
-  for (const key of normalizedKeys) {
+  for (const key of keys) {
     if (
       CANONICAL_INVESTOR_COLUMN_KEYS.includes(key) &&
       !seen.has(key) &&

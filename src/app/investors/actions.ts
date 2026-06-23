@@ -2,14 +2,11 @@
 
 import { cookies } from "next/headers";
 import {
+  investorsFiltersToSearchParams,
   createDefaultInvestorFilters,
-  investorSearchPayloadToSearchParams,
   type InvestorsSearchFilters,
 } from "@/lib/investorsFilterPayload";
 import { mapSummaryToInvestorTypeCounts } from "@/components/investors/investorsFilterConfig";
-import { getInvestorFieldAliasesForColumn } from "@/components/investors/investorsColumnFields";
-import { readLogoFromRecord } from "@/lib/companyLogo";
-import { fetchInvestorsListRaw } from "@/lib/investorsListServer";
 
 export type { InvestorsSearchFilters };
 
@@ -28,7 +25,6 @@ export interface InvestorListItem {
   linkedin_url?: string;
   year_founded?: number | string | null;
   total_investments?: number | null;
-  days_since_last_investment?: number | null;
   years_since_last_investment?: string | number | null;
   last_investment?: {
     display?: string | null;
@@ -52,10 +48,8 @@ export interface InvestorsListResponse {
   typeCounts: ReturnType<typeof mapSummaryToInvestorTypeCounts>;
 }
 
-function normalizeInvestorListItem(item: InvestorListItem): InvestorListItem {
-  const logo = readLogoFromRecord(item, getInvestorFieldAliasesForColumn("logo"));
-  return logo ? { ...item, linkedin_logo: logo } : item;
-}
+const INVESTORS_API_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop";
 
 export async function fetchInvestorsServer(
   filters: InvestorsSearchFilters = createDefaultInvestorFilters()
@@ -65,20 +59,25 @@ export async function fetchInvestorsServer(
     const token = cookieStore.get("asymmetrix_auth_token")?.value;
     if (!token) return null;
 
-    const payload = {
-      ...filters,
-      page: Math.max(1, filters.page || 1),
-      per_page: filters.per_page > 0 ? filters.per_page : 50,
-    };
-    const params = investorSearchPayloadToSearchParams(payload);
-    const raw = (await fetchInvestorsListRaw({
-      token,
-      searchParams: params,
-    })) as Record<string, unknown>;
-    const investors = (raw?.investors as Record<string, unknown> | undefined) ?? raw;
-    const items = (Array.isArray(investors?.items) ? investors.items : []).map(
-      normalizeInvestorListItem
-    );
+    const params = investorsFiltersToSearchParams(filters);
+    const url = `${INVESTORS_API_BASE}/investors_with_d_a_list?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Investors API failed: ${response.statusText}`);
+    }
+
+    const raw = await response.json();
+    const investors = raw?.investors ?? raw;
+    const items = Array.isArray(investors?.items) ? investors.items : [];
     const summary = investors?.summary_by_company_focus as
       | Record<string, unknown>
       | undefined;
@@ -86,35 +85,21 @@ export async function fetchInvestorsServer(
       typeof investors?.itemsTotal === "number"
         ? investors.itemsTotal
         : items.length;
-    const itemsReceived =
-      typeof investors?.itemsReceived === "number"
-        ? investors.itemsReceived
-        : items.length;
-    const curPage =
-      typeof investors?.curPage === "number" ? investors.curPage : payload.page;
-    const nextPage =
-      typeof investors?.nextPage === "number" ? investors.nextPage : null;
-    const prevPage =
-      typeof investors?.prevPage === "number" ? investors.prevPage : null;
-    const offset =
-      typeof investors?.offset === "number" ? investors.offset : 0;
-    const pageTotal =
-      typeof investors?.pageTotal === "number" ? investors.pageTotal : 0;
 
     return {
       items,
-      itemsReceived,
-      curPage,
-      nextPage,
-      prevPage,
-      offset,
+      itemsReceived: investors?.itemsReceived ?? items.length,
+      curPage: investors?.curPage ?? filters.page ?? 1,
+      nextPage: investors?.nextPage ?? null,
+      prevPage: investors?.prevPage ?? null,
+      offset: investors?.offset ?? 0,
       itemsTotal: totalCount,
-      pageTotal,
+      pageTotal: investors?.pageTotal ?? 0,
       typeCounts: mapSummaryToInvestorTypeCounts(summary, totalCount),
     };
   } catch (error) {
     console.error("fetchInvestorsServer error:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -132,7 +117,7 @@ export async function fetchInvestorTypesServer(): Promise<
     if (!token) return [];
 
     const response = await fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/Get_investor_types_for_filter",
+      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/Get_investor_types_for_filter",
       {
         method: "GET",
         headers: {
@@ -151,5 +136,3 @@ export async function fetchInvestorTypesServer(): Promise<
     return [];
   }
 }
-
-export { createDefaultInvestorFilters };
