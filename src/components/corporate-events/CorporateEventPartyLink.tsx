@@ -1,160 +1,88 @@
 "use client";
 
 import React from "react";
-import {
-  COUNTRY_FLAG_INLINE_SIZE_PX,
-  getCountryDisplayName,
-  getCountryFlagUrl,
-  INLINE_COUNTRY_FLAG_CLASS,
-  readHqCountryIso2,
-} from "@/lib/dealRadar";
-import { cn } from "@/utils/cn";
+import { readIsNewFlag } from "@/lib/dealRadar";
 
-type CountryFlagImgProps = {
-  iso2: string | null | undefined;
-  className?: string;
-  size?: number;
+export type CorporateEventPartyEntity = {
+  is_new?: unknown;
+  isNew?: unknown;
+  entity_type?: string;
+  route?: string;
 };
 
-export const CountryFlagImg: React.FC<CountryFlagImgProps> = ({
-  iso2,
-  className,
-  size = COUNTRY_FLAG_INLINE_SIZE_PX,
-}) => {
-  const countryFlagUrl = getCountryFlagUrl(iso2);
-  const countryDisplayName = getCountryDisplayName(iso2);
-  if (!countryFlagUrl) return null;
+export function corporateEventEntityIsNew(entity: unknown): boolean {
+  if (!entity || typeof entity !== "object") return false;
+  const record = entity as Record<string, unknown>;
+  return readIsNewFlag(record.is_new ?? record.isNew);
+}
+
+const INLINE_NEW_BADGE_STYLE: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "4px",
+  padding: "1px 6px",
+  fontSize: "10px",
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  color: "#fff",
+  backgroundColor: "#f59e0b",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+  marginLeft: "4px",
+  verticalAlign: "middle",
+  flexShrink: 0,
+};
+
+export const CorporateEventNewBadge: React.FC<{
+  variant?: "tailwind" | "inline";
+}> = ({ variant = "tailwind" }) => {
+  if (variant === "inline") {
+    return <span style={INLINE_NEW_BADGE_STYLE}>New</span>;
+  }
 
   return (
-    <img
-      src={countryFlagUrl}
-      alt=""
-      title={countryDisplayName ?? iso2?.toUpperCase() ?? undefined}
-      aria-hidden="true"
-      width={size}
-      height={size}
-      className={cn(INLINE_COUNTRY_FLAG_CLASS, className)}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        objectFit: "cover",
-        verticalAlign: "middle",
-      }}
-    />
+    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-amber-500 shadow-sm ring-1 ring-amber-600/30 shrink-0">
+      New
+    </span>
   );
 };
 
 type CorporateEventPartyLinkProps = {
   name: string;
   href?: string | null;
+  isNew?: unknown;
   linkClassName?: string;
   linkStyle?: React.CSSProperties;
-  entity?: Record<string, unknown> | null;
-  hqIso2?: string | null;
-  flagSize?: number;
+  variant?: "tailwind" | "inline";
 };
 
 export const CorporateEventPartyLink: React.FC<CorporateEventPartyLinkProps> = ({
   name,
   href,
+  isNew,
   linkClassName,
   linkStyle,
-  entity,
-  hqIso2: hqIso2Prop,
-  flagSize = COUNTRY_FLAG_INLINE_SIZE_PX,
+  variant = "tailwind",
 }) => {
-  const resolvedIso2 =
-    hqIso2Prop ?? (entity ? readHqCountryIso2(entity) : null);
-  const flagEl = resolvedIso2 ? (
-    <CountryFlagImg iso2={resolvedIso2} size={flagSize} />
-  ) : null;
-
-  const content = (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        minWidth: 0,
-        verticalAlign: "middle",
-      }}
-    >
-      <span
-        style={{
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-      >
-        {name}
-      </span>
-      {flagEl}
-    </span>
-  );
-
-  if (href) {
-    return (
-      <a href={href} className={linkClassName} style={linkStyle}>
-        {content}
-      </a>
-    );
-  }
-
-  return (
+  const showNew = readIsNewFlag(isNew);
+  const linkEl = href ? (
+    <a href={href} className={linkClassName} style={linkStyle}>
+      {name}
+    </a>
+  ) : (
     <span className={linkClassName} style={linkStyle}>
-      {content}
+      {name}
     </span>
   );
-};
 
-type CorporateEventTargetLinkProps = {
-  name: string;
-  href?: string | null;
-  entity?: Record<string, unknown> | null;
-  linkClassName?: string;
-  linkStyle?: React.CSSProperties;
-  flagClassName?: string;
-};
-
-export const CorporateEventTargetLink: React.FC<CorporateEventTargetLinkProps> = ({
-  name,
-  href,
-  entity,
-  linkClassName,
-  linkStyle,
-  flagClassName,
-}) => {
-  const hqCountryIso2 = entity ? readHqCountryIso2(entity) : null;
-  const flagEl = hqCountryIso2 ? (
-    <CountryFlagImg iso2={hqCountryIso2} className={flagClassName} />
-  ) : null;
-
-  const stackClassName = cn(
-    linkClassName,
-    flagEl
-      ? "inline-flex flex-col items-start gap-0.5 max-w-full align-middle"
-      : "inline-block max-w-full align-middle"
-  );
-
-  const content = (
-    <>
-      <span className="leading-snug break-words">{name}</span>
-      {flagEl}
-    </>
-  );
-
-  if (href) {
-    return (
-      <a href={href} className={stackClassName} style={linkStyle}>
-        {content}
-      </a>
-    );
+  if (!showNew) {
+    return linkEl;
   }
 
   return (
-    <span className={stackClassName} style={linkStyle}>
-      {content}
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {linkEl}
+      <CorporateEventNewBadge variant={variant} />
     </span>
   );
 };
