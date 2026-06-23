@@ -2600,6 +2600,29 @@ function eaFormatFrequency(value: string | null | undefined): string {
   return value.replace(/_/g, " ");
 }
 
+function eaFormatRatePct(value: string | number | null | undefined): string {
+  const n = parseFloat(String(value ?? "0"));
+  if (!Number.isFinite(n)) return "0%";
+  return `${n % 1 === 0 ? Math.round(n) : n.toFixed(1)}%`;
+}
+
+type EAEmailPerAlertEngagement = {
+  alert_id: number;
+  frequency: string;
+  is_active: boolean;
+  item_type: string;
+  last_sent_at: number | null;
+  open_rate_pct: number;
+  click_rate_pct: number;
+  clicks_tracked: number;
+  last_opened_at: number;
+  opened_tracked: number;
+  delivered_tracked: number;
+  emails_sent_total: number;
+  engagement_status: string;
+  emails_sent_tracked: number;
+};
+
 type EAEmailUserDetail = {
   user_id: number;
   user_name: string;
@@ -2622,9 +2645,13 @@ type EAEmailUserDetail = {
   last_opened_at: number;
   alert_settings: EAEmailAlertSetting[];
   by_email_type: EAEmailByType[];
+  per_alert_engagement: EAEmailPerAlertEngagement[];
   top_clicked_urls: EAEmailTopClickedUrl[];
   recent_clicks: EAEmailRecentClick[];
 };
+
+const EMAIL_ANALYTICS_OVERVIEW_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_analytics/overview";
 
 const EMAIL_ANALYTICS_DAILY_STATS_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_analytics/daily_stats";
@@ -2640,43 +2667,111 @@ function postmarkAnalyticsQueryParams(filters: EAOverviewFilters): string {
   return params.toString();
 }
 
-function eaComputeEngagementStatus(user: {
-  activeAlerts: number;
-  sentCount: number;
-  openedCount: number;
-  bouncedCount: number;
-  lastOpened: string | null;
-}): string {
-  if (user.bouncedCount > 0) return "bounced";
-  if (user.activeAlerts === 0) return "inactive";
-  if (user.sentCount === 0) return "inactive";
-  if (user.openedCount === 0) return "never_opened";
-  if (user.lastOpened && eaDaysSince(user.lastOpened) > 7) return "stale";
-  return "active";
+function emailAnalyticsOverviewQueryParams(
+  filters: EAOverviewFilters,
+  q: string,
+  page: number,
+  perPage: number
+): string {
+  const params = new URLSearchParams({
+    q: q.trim(),
+    firm_type: filters.firmType,
+    seniority_level: filters.seniorityLevel,
+    user_status: filters.userStatus,
+    page: String(page),
+    per_page: String(perPage),
+  });
+  return params.toString();
 }
 
-function mapPostmarkUserToListItem(user: PostmarkAnalyticsUser): EAEmailListItem {
-  const lastOpenedTs = user.lastOpened ? new Date(user.lastOpened).getTime() : 0;
+function mapOverviewUserToListItem(row: Record<string, unknown>): EAEmailListItem {
+  const subscriptionsRaw = row.subscriptions ?? row.alert_types ?? row.item_types;
+  let subscriptions = "";
+  if (typeof subscriptionsRaw === "string") {
+    subscriptions = subscriptionsRaw;
+  } else if (Array.isArray(subscriptionsRaw)) {
+    subscriptions = subscriptionsRaw.map((v) => String(v)).join(",");
+  }
+
+  const lastOpenedRaw = row.last_opened_at ?? row.lastOpenedAt ?? row.lastOpened;
+  let lastOpenedAt = 0;
+  if (typeof lastOpenedRaw === "number" && lastOpenedRaw > 0) {
+    lastOpenedAt = lastOpenedRaw;
+  } else if (typeof lastOpenedRaw === "string" && lastOpenedRaw) {
+    const parsed = new Date(lastOpenedRaw).getTime();
+    lastOpenedAt = Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  const engagementStatus = String(
+    row.engagement_status ?? row.engagementStatus ?? "active"
+  ).toLowerCase();
+
   return {
-    user_id: user.userId,
-    user_name: user.name,
-    email: user.email,
-    firm_type: user.firmType,
-    seniority_level: user.seniorityLevel,
-    user_status: user.status,
-    company_name: user.companyName,
-    subscriptions: user.alertTypes.join(","),
-    active_subscriptions: user.activeAlerts,
-    total_sent: user.sentCount,
-    total_opened: user.openedCount,
-    total_bounced: user.bouncedCount,
-    open_rate_pct: String(user.openRate),
-    sent_30d: user.sentCount,
-    opened_30d: user.openedCount,
-    clicks_30d: String(user.clickedCount),
-    last_opened_at: lastOpenedTs,
-    engagement_status: eaComputeEngagementStatus(user),
+    user_id: eaOverviewNum(row.user_id ?? row.userId ?? row.id),
+    user_name: String(row.user_name ?? row.userName ?? row.name ?? ""),
+    email: String(row.email ?? ""),
+    firm_type: String(row.firm_type ?? row.firmType ?? ""),
+    seniority_level: String(row.seniority_level ?? row.seniorityLevel ?? ""),
+    user_status: String(row.user_status ?? row.userStatus ?? row.status ?? ""),
+    company_name: String(row.company_name ?? row.companyName ?? ""),
+    subscriptions,
+    active_subscriptions: eaOverviewNum(
+      row.active_subscriptions ?? row.active_alerts ?? row.activeAlerts
+    ),
+    total_sent: eaOverviewNum(row.total_sent ?? row.sentCount),
+    total_opened: eaOverviewNum(row.total_opened ?? row.openedCount),
+    total_bounced: eaOverviewNum(row.total_bounced ?? row.bouncedCount),
+    open_rate_pct: String(
+      row.open_rate_pct ?? row.openRate ?? row.open_rate_30d_pct ?? "0"
+    ),
+    sent_30d: eaOverviewNum(row.sent_30d ?? row.sentCount),
+    opened_30d: eaOverviewNum(row.opened_30d ?? row.openedCount),
+    clicks_30d: String(row.clicks_30d ?? row.clickedCount ?? row.total_clicks ?? "0"),
+    last_opened_at: lastOpenedAt,
+    engagement_status: engagementStatus,
   };
+}
+
+function normalizeEmailOverviewList(raw: unknown): {
+  users: EAEmailListItem[];
+  itemsReceived: number;
+  curPage: number;
+  pageTotal: number;
+} {
+  const empty = { users: [], itemsReceived: 0, curPage: 1, pageTotal: 1 };
+  const root = Array.isArray(raw)
+    ? raw.length === 1 && raw[0] && typeof raw[0] === "object" && !Array.isArray(raw[0])
+      ? (raw[0] as Record<string, unknown>)
+      : { users: raw }
+    : raw && typeof raw === "object"
+    ? (raw as Record<string, unknown>)
+    : null;
+  if (!root) return empty;
+
+  const usersRaw = root.users ?? root.items ?? root.result ?? root.data ?? [];
+  const users = (Array.isArray(usersRaw) ? usersRaw : [])
+    .filter((u): u is Record<string, unknown> => !!u && typeof u === "object")
+    .map(mapOverviewUserToListItem)
+    .filter((u) => u.user_id > 0);
+
+  const itemsReceived = eaOverviewNum(
+    root.itemsReceived ?? root.items_received ?? root.total_count ?? users.length
+  );
+  const curPage = Math.max(
+    1,
+    eaOverviewNum(root.curPage ?? root.cur_page ?? root.page ?? 1)
+  );
+  const pageTotal = Math.max(
+    1,
+    eaOverviewNum(
+      root.pageTotal ??
+        root.page_total ??
+        root.total_pages ??
+        (itemsReceived > 0 ? Math.ceil(itemsReceived / EA_LIST_PER_PAGE) : 1)
+    )
+  );
+
+  return { users, itemsReceived, curPage, pageTotal };
 }
 
 function normalizeEmailUserDetail(raw: unknown): EAEmailUserDetail | null {
@@ -2710,6 +2805,9 @@ function normalizeEmailUserDetail(raw: unknown): EAEmailUserDetail | null {
     last_opened_at: eaOverviewNum(r.last_opened_at),
     alert_settings: eaParseJsonArray<EAEmailAlertSetting>(r.alert_settings),
     by_email_type: eaParseJsonArray<EAEmailByType>(r.by_email_type),
+    per_alert_engagement: eaParseJsonArray<EAEmailPerAlertEngagement>(
+      r.per_alert_engagement
+    ),
     top_clicked_urls: eaParseJsonArray<EAEmailTopClickedUrl>(r.top_clicked_urls),
     recent_clicks: eaParseJsonArray<EAEmailRecentClick>(r.recent_clicks),
   };
@@ -2770,15 +2868,78 @@ function eaEngagementBadge(status: string | null | undefined, bounced: number) {
 
 function EAEmailListRow({ item }: { item: EAEmailListItem }) {
   const [expanded, setExpanded] = useState(false);
-  const openRate = Math.round(parseFloat(item.open_rate_pct) || 0);
-  const lastOpened = item.last_opened_at > 0 ? item.last_opened_at : null;
+  const [userDetail, setUserDetail] = useState<EAEmailUserDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const fetchedUserIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!expanded || fetchedUserIdRef.current === item.user_id) return;
+
+    let cancelled = false;
+    fetchedUserIdRef.current = item.user_id;
+
+    async function load() {
+      setDetailLoading(true);
+      setDetailError(null);
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : "";
+        const res = await fetch(`${EMAIL_ANALYTICS_USER_URL}/${item.user_id}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`${res.status} ${text}`);
+        }
+        const json = await res.json();
+        if (!cancelled) {
+          setUserDetail(normalizeEmailUserDetail(json));
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setUserDetail(null);
+          setDetailError(
+            e instanceof Error ? e.message : "Failed to load user detail"
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setDetailLoading(false);
+        }
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [expanded, item.user_id]);
+
+  const openRateAllTime = userDetail
+    ? eaFormatRatePct(userDetail.open_rate_pct)
+    : `${Math.round(parseFloat(item.open_rate_pct) || 0)}%`;
+  const openRate30d = userDetail
+    ? eaFormatRatePct(userDetail.open_rate_30d_pct)
+    : null;
+  const lastOpened = (userDetail?.last_opened_at ?? item.last_opened_at) > 0
+    ? (userDetail?.last_opened_at ?? item.last_opened_at)
+    : null;
   const stale =
     eaDaysSince(lastOpened ? new Date(lastOpened).toISOString() : null) > 7;
   const badge = eaEngagementBadge(item.engagement_status, item.total_bounced);
   const subscriptionTypes = item.subscriptions
     ? item.subscriptions.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
-  const clicks30d = Number(item.clicks_30d) || 0;
+  const sent30d = userDetail?.sent_30d ?? item.sent_30d;
+  const opened30d = userDetail?.opened_30d ?? item.opened_30d;
+  const clicks30d = userDetail?.clicks_30d ?? (Number(item.clicks_30d) || 0);
 
   return (
     <>
@@ -2817,13 +2978,17 @@ function EAEmailListRow({ item }: { item: EAEmailListItem }) {
           {lastOpened ? eaFmtDate(lastOpened) : "—"}
         </td>
         <td className="px-3 py-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{openRate}%</span>
-            <span className="text-xs text-gray-400">all time</span>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">{openRateAllTime}</span>
+            <span className="text-xs text-gray-400">
+              {userDetail
+                ? `all time · ${openRate30d} (30d)`
+                : "list estimate"}
+            </span>
           </div>
         </td>
         <td className="px-3 py-2.5 text-xs text-gray-600 whitespace-nowrap">
-          {item.sent_30d} sent · {item.opened_30d} opened · {clicks30d} clicks
+          {sent30d} sent · {opened30d} opened · {clicks30d} clicks
         </td>
         <td className="px-3 py-2.5">
           <span
@@ -2836,7 +3001,11 @@ function EAEmailListRow({ item }: { item: EAEmailListItem }) {
       {expanded ? (
         <tr className="border-b border-gray-200">
           <td colSpan={6} className="p-0">
-            <EAEmailUserDetailPanel userId={item.user_id} />
+            <EAEmailUserDetailPanel
+              detail={userDetail}
+              loading={detailLoading}
+              error={detailError}
+            />
           </td>
         </tr>
       ) : null}
@@ -2906,57 +3075,15 @@ function normalizePostmarkOverview(raw: unknown): EAOverviewStats {
   };
 }
 
-function EAEmailUserDetailPanel({ userId }: { userId: number }) {
-  const [detail, setDetail] = useState<EAEmailUserDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : "";
-        const res = await fetch(`${EMAIL_ANALYTICS_USER_URL}/${userId}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(`${res.status} ${text}`);
-        }
-        const json = await res.json();
-        if (!cancelled) {
-          setDetail(normalizeEmailUserDetail(json));
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setDetail(null);
-          setError(
-            e instanceof Error ? e.message : "Failed to load user detail"
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-
+function EAEmailUserDetailPanel({
+  detail,
+  loading,
+  error,
+}: {
+  detail: EAEmailUserDetail | null;
+  loading: boolean;
+  error: string | null;
+}) {
   if (loading) {
     return (
       <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50">
@@ -2985,6 +3112,145 @@ function EAEmailUserDetailPanel({ userId }: { userId: number }) {
 
   return (
     <div className="px-4 py-3 bg-gray-50 space-y-4 border-t border-gray-100">
+      <div>
+        <h4 className="text-xs font-medium text-gray-700 mb-1">
+          Open rate for this user
+        </h4>
+        <p className="text-xs text-gray-400 mb-2">
+          Tracked email engagement from email analytics — not the Postmark list
+          estimate.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="rounded border bg-white px-3 py-2">
+            <div className="text-xs text-gray-500">Open rate (all time)</div>
+            <div className="text-lg font-medium text-green-700">
+              {eaFormatRatePct(detail.open_rate_pct)}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">
+              {detail.total_opened}/{detail.total_sent} opened
+            </div>
+          </div>
+          <div className="rounded border bg-white px-3 py-2">
+            <div className="text-xs text-gray-500">Open rate (30d)</div>
+            <div className="text-lg font-medium text-green-700">
+              {eaFormatRatePct(detail.open_rate_30d_pct)}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">
+              {detail.opened_30d}/{detail.sent_30d} opened
+            </div>
+          </div>
+          <div className="rounded border bg-white px-3 py-2">
+            <div className="text-xs text-gray-500">Sent (30d)</div>
+            <div className="text-lg font-medium text-gray-900">{detail.sent_30d}</div>
+          </div>
+          <div className="rounded border bg-white px-3 py-2">
+            <div className="text-xs text-gray-500">Opened (30d)</div>
+            <div className="text-lg font-medium text-green-700">
+              {detail.opened_30d}
+            </div>
+          </div>
+          <div className="rounded border bg-white px-3 py-2">
+            <div className="text-xs text-gray-500">Clicks (30d)</div>
+            <div className="text-lg font-medium text-blue-700">
+              {detail.clicks_30d}
+            </div>
+          </div>
+          <div className="rounded border bg-white px-3 py-2">
+            <div className="text-xs text-gray-500">Total clicks</div>
+            <div className="text-lg font-medium text-blue-700">
+              {detail.total_clicks}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {detail.per_alert_engagement.length > 0 ? (
+        <div>
+          <h4 className="text-xs font-medium text-gray-700 mb-1">
+            Open rate by alert
+          </h4>
+          <p className="text-xs text-gray-400 mb-2">
+            Breakdown per subscription — open and click rates from tracked sends.
+          </p>
+          <div className="overflow-x-auto rounded border bg-white">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  {[
+                    "Type",
+                    "Frequency",
+                    "Sent",
+                    "Opened",
+                    "Open rate",
+                    "Click rate",
+                    "Clicks",
+                    "Last opened",
+                    "Status",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left font-normal text-gray-500 px-3 py-2"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {detail.per_alert_engagement.map((row) => {
+                  const { label, cls } = eaAlertLabel(row.item_type);
+                  const badge = eaEngagementBadge(row.engagement_status, 0);
+                  return (
+                    <tr
+                      key={row.alert_id}
+                      className="border-b border-gray-100 last:border-0"
+                    >
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${cls}`}
+                        >
+                          {label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 capitalize text-gray-600">
+                        {eaFormatFrequency(row.frequency)}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-gray-900">
+                        {row.emails_sent_total}
+                      </td>
+                      <td className="px-3 py-2 text-green-700">
+                        {row.opened_tracked}
+                      </td>
+                      <td className="px-3 py-2 text-green-700 font-medium">
+                        {eaFormatRatePct(row.open_rate_pct)}
+                      </td>
+                      <td className="px-3 py-2 text-blue-700">
+                        {eaFormatRatePct(row.click_rate_pct)}
+                      </td>
+                      <td className="px-3 py-2 text-blue-700">
+                        {row.clicks_tracked}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-600">
+                        {row.last_opened_at > 0
+                          ? eaFmtDate(row.last_opened_at)
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${badge.cls}`}
+                        >
+                          {badge.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
       {detail.alert_settings.length > 0 ? (
         <div>
           <h4 className="text-xs font-medium text-gray-700 mb-1">Alert settings</h4>
@@ -3265,7 +3531,14 @@ export function EmailAnalyticsTab() {
     seniorityLevel: "",
     userStatus: "",
   });
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [listMeta, setListMeta] = useState({
+    total_count: 0,
+    cur_page: 1,
+    total_pages: 1,
+  });
   const [tab, setTab] = useState<EATab>("all");
   const [showDebug, setShowDebug] = useState(false);
   const [auditDate, setAuditDate] = useState(
@@ -3287,11 +3560,9 @@ export function EmailAnalyticsTab() {
     }
   }
 
-  const fetchAnalytics = useCallback(async () => {
+  const fetchOverviewStats = useCallback(async () => {
     setOverviewLoading(true);
-    setListLoading(true);
     setOverviewError(null);
-    setListError(null);
     try {
       const token =
         typeof window !== "undefined"
@@ -3314,24 +3585,67 @@ export function EmailAnalyticsTab() {
       const json = await res.json();
       setOverviewRaw(json && typeof json === "object" ? (json as object) : null);
       setOverview(normalizePostmarkOverview(json));
-
-      const pmUsers = Array.isArray((json as { users?: unknown }).users)
-        ? ((json as { users: PostmarkAnalyticsUser[] }).users ?? [])
-        : [];
-      setAllListItems(pmUsers.map(mapPostmarkUserToListItem));
     } catch (e) {
       setOverview(null);
       setOverviewRaw(null);
-      setAllListItems([]);
-      const message =
-        e instanceof Error ? e.message : "Failed to load email analytics";
-      setOverviewError(message);
-      setListError(message);
+      setOverviewError(
+        e instanceof Error ? e.message : "Failed to load email analytics overview"
+      );
     } finally {
       setOverviewLoading(false);
-      setListLoading(false);
     }
   }, [filters]);
+
+  const fetchUserList = useCallback(async () => {
+    setListLoading(true);
+    setListError(null);
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("asymmetrix_auth_token")
+          : "";
+      const res = await fetch(
+        `${EMAIL_ANALYTICS_OVERVIEW_URL}?${emailAnalyticsOverviewQueryParams(
+          filters,
+          searchQuery,
+          page,
+          EA_LIST_PER_PAGE
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`${res.status} ${text}`);
+      }
+      const json = await res.json();
+      const { users, itemsReceived, curPage, pageTotal } =
+        normalizeEmailOverviewList(json);
+      setAllListItems(users);
+      setListMeta({
+        total_count: itemsReceived,
+        cur_page: curPage,
+        total_pages: pageTotal,
+      });
+    } catch (e) {
+      setAllListItems([]);
+      setListMeta({ total_count: 0, cur_page: 1, total_pages: 1 });
+      setListError(
+        e instanceof Error ? e.message : "Failed to load user list"
+      );
+    } finally {
+      setListLoading(false);
+    }
+  }, [filters, searchQuery, page]);
+
+  const fetchAnalytics = useCallback(async () => {
+    await Promise.all([fetchOverviewStats(), fetchUserList()]);
+  }, [fetchOverviewStats, fetchUserList]);
 
   const fetchDailyStats = useCallback(async () => {
     setDailyLoading(true);
@@ -3379,8 +3693,20 @@ export function EmailAnalyticsTab() {
   };
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
+    const timer = window.setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    fetchOverviewStats();
+  }, [fetchOverviewStats]);
+
+  useEffect(() => {
+    fetchUserList();
+  }, [fetchUserList]);
 
   useEffect(() => {
     fetchDailyStats();
@@ -3390,18 +3716,6 @@ export function EmailAnalyticsTab() {
     () => allListItems.filter((item) => eaMatchesEngagementTab(item, tab)),
     [allListItems, tab]
   );
-
-  const listMeta = useMemo(() => {
-    const totalPages = Math.max(
-      1,
-      Math.ceil(filteredListItems.length / EA_LIST_PER_PAGE)
-    );
-    return {
-      total_count: filteredListItems.length,
-      cur_page: Math.min(page, totalPages),
-      total_pages: totalPages,
-    };
-  }, [filteredListItems, page]);
 
   const sortedListItems = useMemo(() => {
     const mul = userSortDir === "asc" ? 1 : -1;
@@ -3422,11 +3736,6 @@ export function EmailAnalyticsTab() {
       }
     });
   }, [filteredListItems, userSortCol, userSortDir]);
-
-  const paginatedListItems = useMemo(() => {
-    const start = (listMeta.cur_page - 1) * EA_LIST_PER_PAGE;
-    return sortedListItems.slice(start, start + EA_LIST_PER_PAGE);
-  }, [sortedListItems, listMeta.cur_page]);
 
   const tabs: Array<[EATab, string]> = [
     ["all", "All users"],
@@ -3731,6 +4040,13 @@ export function EmailAnalyticsTab() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by name or email…"
+            className="text-sm border rounded px-2 py-1.5 min-w-[220px]"
+          />
           <select
             value={filters.firmType}
             onChange={(e) => updateFilter("firmType", e.target.value)}
@@ -3769,11 +4085,14 @@ export function EmailAnalyticsTab() {
           </select>
           {(filters.firmType ||
             filters.seniorityLevel ||
-            filters.userStatus) && (
+            filters.userStatus ||
+            searchInput) && (
             <button
               type="button"
               onClick={() => {
                 setPage(1);
+                setSearchInput("");
+                setSearchQuery("");
                 setFilters({
                   firmType: "",
                   seniorityLevel: "",
@@ -3971,7 +4290,7 @@ export function EmailAnalyticsTab() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedListItems.length === 0 ? (
+                {sortedListItems.length === 0 ? (
                   <tr>
                     <td
                       colSpan={6}
@@ -3981,7 +4300,7 @@ export function EmailAnalyticsTab() {
                     </td>
                   </tr>
                 ) : (
-                  paginatedListItems.map((item) => (
+                  sortedListItems.map((item) => (
                     <EAEmailListRow key={item.user_id} item={item} />
                   ))
                 )}
@@ -4000,7 +4319,7 @@ export function EmailAnalyticsTab() {
               <button
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={listLoading || page <= 1}
+                disabled={listLoading || listMeta.cur_page <= 1}
                 className="border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
               >
                 Prev
@@ -4008,11 +4327,11 @@ export function EmailAnalyticsTab() {
               <button
                 type="button"
                 onClick={() =>
-                  setPage((p) =>
-                    listMeta ? Math.min(listMeta.total_pages, p + 1) : p + 1
-                  )
+                  setPage((p) => Math.min(listMeta.total_pages, p + 1))
                 }
-                disabled={listLoading || page >= listMeta.total_pages}
+                disabled={
+                  listLoading || listMeta.cur_page >= listMeta.total_pages
+                }
                 className="border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
               >
                 Next
