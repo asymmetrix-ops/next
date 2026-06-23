@@ -209,6 +209,13 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         type: "text",
         defaultVisible: false,
       },
+      {
+        id: "created_at",
+        columnKey: "created_at",
+        label: "Date Added",
+        type: "date",
+        defaultVisible: false,
+      },
     ],
   },
   {

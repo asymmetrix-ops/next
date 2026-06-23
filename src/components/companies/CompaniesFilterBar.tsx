@@ -16,7 +16,7 @@ export interface FilterCategory {
   name: string;
 }
 
-export type FilterEditorType = "enum" | "range" | "segmented" | "boolean";
+export type FilterEditorType = "enum" | "range" | "date_range" | "segmented" | "boolean";
 export type FilterTypeIcon = "Aa" | "#" | "$" | "%" | "date";
 
 export interface FilterDef {
@@ -68,6 +68,10 @@ function isEmptyFilterValue(def: FilterDef, value: unknown): boolean {
   if (def.editor === "range") {
     const v = value as { min?: number; max?: number };
     return v.min === undefined && v.max === undefined;
+  }
+  if (def.editor === "date_range") {
+    const v = value as { from?: string; to?: string };
+    return !v.from?.trim() && !v.to?.trim();
   }
   if (def.editor === "segmented") {
     return typeof value !== "string" || !value.trim();
@@ -350,6 +354,24 @@ function summarize(
       def.unit,
       def.type
     );
+  if (def.editor === "date_range") {
+    const v = value as { from?: string; to?: string };
+    const fmt = (raw: string) => {
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return raw;
+      return date.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    };
+    if (v.from?.trim() && v.to?.trim()) {
+      return `${fmt(v.from.trim())} – ${fmt(v.to.trim())}`;
+    }
+    if (v.from?.trim()) return `From ${fmt(v.from.trim())}`;
+    if (v.to?.trim()) return `Until ${fmt(v.to.trim())}`;
+    return "";
+  }
   if (def.editor === "segmented") return String(value);
   if (def.editor === "boolean") {
     if (value !== true) return "";
@@ -497,11 +519,13 @@ function PickerRow({ def, onPick }: PickerRowProps) {
       ? `${def.options?.length ?? 0} options`
       : def.editor === "range"
         ? `range${def.unit ? ` (${def.unit})` : ""}`
-        : def.editor === "segmented"
-          ? "choice"
-          : def.editor === "boolean"
-            ? "toggle"
-            : "";
+        : def.editor === "date_range"
+          ? "date range"
+          : def.editor === "segmented"
+            ? "choice"
+            : def.editor === "boolean"
+              ? "toggle"
+              : "";
   return (
     <li>
       <button
@@ -585,6 +609,7 @@ function PickerRow({ def, onPick }: PickerRowProps) {
 
 function getInitialFilterValue(def: FilterDef): unknown {
   if (def.editor === "enum") return null;
+  if (def.editor === "date_range") return null;
   if (def.editor === "range" && def.presets?.length) {
     const p = def.presets[0];
     return { min: p[1], max: p[2] };
@@ -1553,6 +1578,140 @@ function RangeEditor({
   );
 }
 
+interface DateRangeValue {
+  from?: string;
+  to?: string;
+}
+
+interface DateRangeEditorProps {
+  def: FilterDef;
+  value: unknown;
+  onChange: (v: DateRangeValue | null) => void;
+  onRemove?: () => void;
+  onBack?: () => void;
+  onDismiss?: () => void;
+  onClose: () => void;
+}
+
+function DateRangeEditor({
+  def,
+  value,
+  onChange,
+  onRemove,
+  onBack,
+  onDismiss,
+  onClose,
+}: DateRangeEditorProps) {
+  const v = (value as DateRangeValue) || {};
+  const [from, setFrom] = useState(v.from ?? "");
+  const [to, setTo] = useState(v.to ?? "");
+
+  return (
+    <EditorShell
+      title={def.fullLabel}
+      hint="Leave blank for open start/end"
+      compact
+      onDismiss={onDismiss}
+      footer={
+        <EditorFooter
+          onClear={
+            from !== "" || to !== ""
+              ? () => {
+                  setFrom("");
+                  setTo("");
+                }
+              : null
+          }
+          onRemove={onRemove}
+          onBack={onBack}
+          onApply={() => {
+            const next: DateRangeValue = {};
+            if (from.trim()) next.from = from.trim();
+            if (to.trim()) next.to = to.trim();
+            onChange(Object.keys(next).length ? next : null);
+            onClose();
+          }}
+          applyDisabled={from.trim() === "" && to.trim() === ""}
+        />
+      }
+      width={288}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+        }}
+      >
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            flex: 1,
+            padding: "4px 6px",
+            background: "white",
+            border: "1px solid var(--border-1)",
+            borderRadius: "var(--r-md)",
+          }}
+        >
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            aria-label="From date"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              border: "none",
+              outline: "none",
+              fontFamily: "var(--font-sans)",
+              fontSize: "var(--fs-12)",
+              color: "var(--fg-1)",
+            }}
+          />
+        </label>
+        <span
+          style={{
+            color: "var(--fg-4)",
+            fontSize: "var(--fs-12)",
+            flexShrink: 0,
+          }}
+        >
+          to
+        </span>
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            flex: 1,
+            padding: "4px 6px",
+            background: "white",
+            border: "1px solid var(--border-1)",
+            borderRadius: "var(--r-md)",
+          }}
+        >
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            aria-label="To date"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              border: "none",
+              outline: "none",
+              fontFamily: "var(--font-sans)",
+              fontSize: "var(--fs-12)",
+              color: "var(--fg-1)",
+            }}
+          />
+        </label>
+      </div>
+    </EditorShell>
+  );
+}
+
 function NumberInput({
   value,
   onChange,
@@ -1862,6 +2021,18 @@ function FilterEditor({
         def={def}
         value={value}
         onChange={onChange as (v: RangeValue | null) => void}
+        onRemove={onRemove}
+        onBack={onBack}
+        onDismiss={onDismiss}
+        onClose={onClose}
+      />
+    );
+  if (def.editor === "date_range")
+    return (
+      <DateRangeEditor
+        def={def}
+        value={value}
+        onChange={onChange as (v: DateRangeValue | null) => void}
         onRemove={onRemove}
         onBack={onBack}
         onDismiss={onDismiss}

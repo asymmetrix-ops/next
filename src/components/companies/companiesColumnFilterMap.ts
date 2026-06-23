@@ -44,6 +44,7 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   secondary_sector: "secondary_sectors",
   ownership: "ownership",
   transaction: "transaction_status",
+  date_added: "created_at",
   headcount: "linkedin_members",
   headcount_growth: "linkedin_growth",
   years_since_inv: "years_since_last_investment",
@@ -216,6 +217,10 @@ function mapColumnTypeToFilter(
       min: 0,
       max: 20,
     };
+  }
+
+  if (column.columnKey === "created_at") {
+    return { type: "date", editor: "date_range" };
   }
 
   if (column.type === "number" || column.type === "currency") {
