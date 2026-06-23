@@ -26,7 +26,6 @@ import {
   type DealRadarItem,
 } from "@/lib/dealRadar";
 import {
-  CorporateEventPartyLink,
   CorporateEventTargetLink,
   CountryFlagImg,
 } from "@/components/corporate-events/CorporateEventPartyLink";
@@ -620,19 +619,6 @@ export default function HomeUserPage() {
 
   const partyLinkClassName =
     "text-blue-600 underline hover:text-blue-800";
-
-  const renderPartyEntityInline = (entity: EntityRef): React.ReactNode => {
-    const href = normalizeEntityHref(entity);
-    const name = entity?.name || "Unknown";
-    return (
-      <CorporateEventPartyLink
-        name={name}
-        href={href || undefined}
-        linkClassName={partyLinkClassName}
-        linkStyle={{ fontWeight: "500" }}
-      />
-    );
-  };
 
   const renderTargetEntityInline = (entity: EntityRef): React.ReactNode => {
     const href = normalizeEntityHref(entity);
