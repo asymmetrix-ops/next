@@ -11,6 +11,7 @@ import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import type { InvestorListItem, InvestorsSearchFilters } from "@/app/investors/actions";
+import { createDefaultInvestorFilters } from "@/lib/investorsFilterPayload";
 import {
   CANONICAL_INVESTOR_COLUMN_KEYS,
   DEFAULT_VISIBLE_INVESTOR_COLUMN_KEYS,
@@ -42,23 +43,6 @@ import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 
 export type Investor = InvestorListItem;
 export type Filters = InvestorsSearchFilters;
-
-export const createDefaultInvestorFilters = (): Filters => ({
-  Search_Query: "",
-  page: 1,
-  per_page: 50,
-  Countries: [],
-  Provinces: [],
-  Cities: [],
-  Continental_Region: [],
-  geographical_sub_region: [],
-  Primary_Sectors: [],
-  Secondary_Sectors: [],
-  Investor_Types: [],
-  Portfolio_Companies_Min: 0,
-  Portfolio_Companies_Max: 0,
-  portfolio_only: false,
-});
 
 const INVESTORS_COLUMNS_STORAGE_KEY = "investors-search-column-keys-v1";
 

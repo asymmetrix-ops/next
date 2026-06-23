@@ -2,8 +2,8 @@
 
 import { cookies } from "next/headers";
 import {
-  investorsFiltersToSearchParams,
   createDefaultInvestorFilters,
+  investorSearchPayloadToSearchParams,
   type InvestorsSearchFilters,
 } from "@/lib/investorsFilterPayload";
 import { mapSummaryToInvestorTypeCounts } from "@/components/investors/investorsFilterConfig";
@@ -59,20 +59,30 @@ export async function fetchInvestorsServer(
     const token = cookieStore.get("asymmetrix_auth_token")?.value;
     if (!token) return null;
 
-    const params = investorsFiltersToSearchParams(filters);
+    const payload = {
+      ...filters,
+      page: Math.max(1, filters.page || 1),
+      per_page: filters.per_page > 0 ? filters.per_page : 50,
+    };
+    const params = investorSearchPayloadToSearchParams(payload);
     const url = `${INVESTORS_API_BASE}/investors_with_d_a_list?${params.toString()}`;
 
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
       cache: "no-store",
     });
 
     if (!response.ok) {
-      throw new Error(`Investors API failed: ${response.statusText}`);
+      const errorText = await response.text().catch(() => "");
+      console.error(
+        `Investors API failed (${response.status}):`,
+        errorText || response.statusText,
+        `(GET ${INVESTORS_API_BASE}/investors_with_d_a_list)`
+      );
+      return null;
     }
 
     const raw = await response.json();
@@ -89,7 +99,7 @@ export async function fetchInvestorsServer(
     return {
       items,
       itemsReceived: investors?.itemsReceived ?? items.length,
-      curPage: investors?.curPage ?? filters.page ?? 1,
+      curPage: investors?.curPage ?? payload.page,
       nextPage: investors?.nextPage ?? null,
       prevPage: investors?.prevPage ?? null,
       offset: investors?.offset ?? 0,
@@ -99,7 +109,7 @@ export async function fetchInvestorsServer(
     };
   } catch (error) {
     console.error("fetchInvestorsServer error:", error);
-    throw error;
+    return null;
   }
 }
 
@@ -136,3 +146,5 @@ export async function fetchInvestorTypesServer(): Promise<
     return [];
   }
 }
+
+export { createDefaultInvestorFilters };

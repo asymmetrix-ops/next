@@ -11,10 +11,10 @@ import Footer from "@/components/Footer";
 import { InvestorDashboard } from "@/components/investors/InvestorDashboard";
 import {
   InvestorSection,
-  createDefaultInvestorFilters,
   type Investor,
   type Filters,
 } from "@/components/investors/InvestorSection";
+import { createDefaultInvestorFilters } from "@/lib/investorsFilterPayload";
 import { DEFAULT_VISIBLE_INVESTOR_COLUMN_KEYS } from "@/components/investors/investorsColumnCategories";
 import { getColumnKeysForActiveFilters } from "@/components/investors/investorsColumnFilterMap";
 import {
