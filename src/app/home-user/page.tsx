@@ -21,13 +21,11 @@ import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
 import {
   appendDealRadarItems,
   applyHqCountryIso2ToDealRadarItems,
-  getCountryDisplayName,
-  getCountryFlagUrl,
   mapDealRadarItem,
   readHqCountryIso2,
   type DealRadarItem,
 } from "@/lib/dealRadar";
-import { CorporateEventPartyLink, CorporateEventTargetLink } from "@/components/corporate-events/CorporateEventPartyLink";
+import { CorporateEventPartyLink, CorporateEventTargetLink, CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -2180,12 +2178,6 @@ export default function HomeUserPage() {
                           const stageStyle = dealRadarStageStyle(
                             item.transactionStatus
                           );
-                          const countryFlagUrl = getCountryFlagUrl(
-                            item.hqCountryIso2
-                          );
-                          const countryDisplayName = getCountryDisplayName(
-                            item.hqCountryIso2
-                          );
 
                           return (
                             <tr
@@ -2194,11 +2186,10 @@ export default function HomeUserPage() {
                             >
                               <td className="pl-3 pr-1 py-3 min-w-0 align-top">
                                 <div className="space-y-1 min-w-0">
-                                  <div className="flex flex-wrap items-center gap-x-1 gap-y-1 min-w-0">
-                                    <span className="inline-flex items-start gap-1 min-w-0 max-w-full">
-                                      <a
-                                        href={`/company/${item.companyId}`}
-                                        className="text-xs font-semibold text-blue-700 break-words hover:text-blue-900 hover:underline min-w-0"
+                                  <div className="min-w-0">
+                                    <a
+                                      href={`/company/${item.companyId}`}
+                                      className="text-xs font-semibold text-blue-700 break-words hover:text-blue-900 hover:underline"
                                       onClick={(
                                         e: React.MouseEvent<HTMLAnchorElement>
                                       ) => {
@@ -2217,25 +2208,8 @@ export default function HomeUserPage() {
                                       }}
                                     >
                                       {item.companyName}
+                                      <CountryFlagImg iso2={item.hqCountryIso2} />
                                     </a>
-                                    {countryFlagUrl && (
-                                      <img
-                                        src={countryFlagUrl}
-                                        alt=""
-                                        title={
-                                          countryDisplayName ??
-                                          item.hqCountryIso2?.toUpperCase() ??
-                                          undefined
-                                        }
-                                        aria-label={
-                                          countryDisplayName
-                                            ? `${countryDisplayName} headquarters`
-                                            : undefined
-                                        }
-                                        className="mt-0.5 h-3 w-4 shrink-0 rounded-sm object-cover ring-1 ring-black/10 cursor-default"
-                                      />
-                                    )}
-                                    </span>
                                   </div>
                                   {item.latestContent && (
                                     <a
@@ -2414,8 +2388,6 @@ export default function HomeUserPage() {
                     ).trim();
                     const href = `/article/${article.id}?from=home`;
                     const hqCountryIso2 = getInsightHqCountryIso2(article);
-                    const countryFlagUrl = getCountryFlagUrl(hqCountryIso2);
-                    const countryDisplayName = getCountryDisplayName(hqCountryIso2);
 
                     return (
                       <div
@@ -2445,44 +2417,26 @@ export default function HomeUserPage() {
                         </div>
 
                         <div className="mt-3 min-w-0">
-                          <span className="inline-flex items-start gap-1 min-w-0 max-w-full">
-                            <a
-                              href={href}
-                              className="text-sm font-semibold text-gray-900 hover:text-blue-700 break-words min-w-0"
-                              onClick={(e) => {
-                                if (
-                                  e.defaultPrevented ||
-                                  e.button !== 0 ||
-                                  e.metaKey ||
-                                  e.ctrlKey ||
-                                  e.shiftKey ||
-                                  e.altKey
-                                )
-                                  return;
-                                e.preventDefault();
-                                router.push(href);
-                              }}
-                            >
-                              {article.Headline}
-                            </a>
-                            {countryFlagUrl && (
-                              <img
-                                src={countryFlagUrl}
-                                alt=""
-                                title={
-                                  countryDisplayName ??
-                                  hqCountryIso2?.toUpperCase() ??
-                                  undefined
-                                }
-                                aria-label={
-                                  countryDisplayName
-                                    ? `${countryDisplayName} headquarters`
-                                    : undefined
-                                }
-                                className="mt-1 h-3 w-4 shrink-0 rounded-sm object-cover ring-1 ring-black/10 cursor-default"
-                              />
-                            )}
-                          </span>
+                          <a
+                            href={href}
+                            className="text-sm font-semibold text-gray-900 hover:text-blue-700 break-words hover:underline"
+                            onClick={(e) => {
+                              if (
+                                e.defaultPrevented ||
+                                e.button !== 0 ||
+                                e.metaKey ||
+                                e.ctrlKey ||
+                                e.shiftKey ||
+                                e.altKey
+                              )
+                                return;
+                              e.preventDefault();
+                              router.push(href);
+                            }}
+                          >
+                            {article.Headline}
+                            <CountryFlagImg iso2={hqCountryIso2} />
+                          </a>
                         </div>
 
                         {article.Strapline ? (

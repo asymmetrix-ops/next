@@ -22,6 +22,9 @@ export type DealRadarItem = {
 export const COUNTRY_FLAG_CDN_BASE =
   "https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/flags/4x3";
 
+export const INLINE_COUNTRY_FLAG_CLASS =
+  "ml-1 inline-block h-3 w-4 shrink-0 rounded-sm object-cover ring-1 ring-black/10 cursor-default align-text-bottom";
+
 export const getCountryFlagUrl = (
   iso2: string | null | undefined
 ): string | null => {
