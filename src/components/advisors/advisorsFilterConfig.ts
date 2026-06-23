@@ -44,63 +44,6 @@ export const EMPTY_ADVISORS_ROLE_COUNTS: AdvisorsRoleCounts = {
   nomad: 0,
 };
 
-export type AdvisorRoleTab =
-  | "all"
-  | "financial_advisor"
-  | "commercial_due_diligence"
-  | "vendor_due_diligence"
-  | "management_team_advisory"
-  | "nomad";
-
-export const ADVISOR_ROLE_TAB_ORDER: Exclude<AdvisorRoleTab, "all">[] = [
-  "financial_advisor",
-  "commercial_due_diligence",
-  "vendor_due_diligence",
-  "management_team_advisory",
-  "nomad",
-];
-
-export const ADVISOR_ROLE_TAB_CONFIG: Record<
-  Exclude<AdvisorRoleTab, "all">,
-  {
-    label: string;
-    dot: string;
-    countKey: keyof Omit<AdvisorsRoleCounts, "totalCount">;
-    roleId: number;
-  }
-> = {
-  financial_advisor: {
-    label: "Financial Advisors",
-    dot: "#3b82f6",
-    countKey: "financialAdvisors",
-    roleId: 21,
-  },
-  commercial_due_diligence: {
-    label: "Commercial Due Diligence",
-    dot: "#8b5cf6",
-    countKey: "commercialDueDiligence",
-    roleId: 25,
-  },
-  vendor_due_diligence: {
-    label: "Vendor Due Diligence",
-    dot: "#06b6d4",
-    countKey: "vendorDueDiligence",
-    roleId: 27,
-  },
-  management_team_advisory: {
-    label: "Management Team Advisory",
-    dot: "#f59e0b",
-    countKey: "managementTeamAdvisory",
-    roleId: 28,
-  },
-  nomad: {
-    label: "NOMAD",
-    dot: "#10b981",
-    countKey: "nomad",
-    roleId: 31,
-  },
-};
-
 export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "location", name: "Location" },
   { id: "sectors", name: "Sector" },
@@ -142,16 +85,6 @@ export function buildAdvisorsFilterDefs({
         ["200+", 200, 10000],
       ],
     },
-    linkedin_members: {
-      min: 0,
-      max: 100000,
-      presets: [
-        ["<100", 0, 99],
-        ["100–999", 100, 999],
-        ["1k–9.9k", 1000, 9999],
-        ["10k+", 10000, 100000],
-      ],
-    },
   };
 
   const columnLinked = buildColumnLinkedFilterDefs(overrides);
@@ -185,17 +118,8 @@ export function mapCountsToAdvisorsRoleCounts(
       : 0;
   };
 
-  const resolvedTotal =
-    typeof data?.totalCount === "number" && Number.isFinite(data.totalCount) && data.totalCount > 0
-      ? data.totalCount
-      : typeof data?.itemsTotal === "number" && Number.isFinite(data.itemsTotal) && data.itemsTotal > 0
-        ? data.itemsTotal
-        : typeof data?.total_count === "number" && Number.isFinite(data.total_count) && data.total_count > 0
-          ? data.total_count
-          : totalCount;
-
   return {
-    totalCount: resolvedTotal,
+    totalCount,
     financialAdvisors: read("financialAdvisors"),
     commercialDueDiligence: read("commercialDueDiligence"),
     vendorDueDiligence: read("vendorDueDiligence"),

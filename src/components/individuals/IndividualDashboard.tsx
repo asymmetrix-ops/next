@@ -18,9 +18,6 @@ import {
   FILTER_CATEGORIES,
   buildIndividualsFilterDefs,
   EMPTY_INDIVIDUALS_SUMMARY_COUNTS,
-  INDIVIDUAL_ROLE_TAB_CONFIG,
-  INDIVIDUAL_ROLE_TAB_ORDER,
-  type IndividualRoleTab,
   type IndividualsSummaryCounts,
   type Country,
   type Province,
@@ -31,22 +28,6 @@ import {
 } from "@/components/individuals/individualsFilterConfig";
 import { CANONICAL_INDIVIDUAL_COLUMN_KEYS } from "@/components/individuals/individualsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
-import { SearchExportMenu } from "@/components/search/SearchExportMenu";
-import type { ListExportMode } from "@/lib/listExport/types";
-import RequestDataResearchButton from "@/components/RequestDataResearchButton";
-import { SEARCH_HEADER_ACTION_BUTTON_STYLE } from "@/components/search/searchHeaderActions";
-import {
-  SEARCH_DASHBOARD_ACTIONS,
-  SEARCH_DASHBOARD_EYEBROW,
-  SEARCH_DASHBOARD_FILTER_INNER,
-  SEARCH_DASHBOARD_FILTER_SHELL,
-  SEARCH_DASHBOARD_HEADER_ROW,
-  SEARCH_DASHBOARD_INNER,
-  SEARCH_DASHBOARD_MATCH_COUNT,
-  SEARCH_DASHBOARD_SHELL,
-  SEARCH_DASHBOARD_TITLE,
-  SearchListTabs,
-} from "@/components/search/searchDashboardLayout";
 
 export type IndividualDashboardProps = {
   onSearch?: (
@@ -54,20 +35,13 @@ export type IndividualDashboardProps = {
     countsFilters: IndividualsSearchFilters,
     portfolioOnly?: boolean
   ) => void;
-  onFilterColumnsChange?: (payload: {
-    filterIds: string[];
-    roleTabActive: boolean;
-  }) => void;
+  onFilterColumnsChange?: (payload: { filterIds: string[] }) => void;
   initialSearch?: string;
   summaryCounts?: IndividualsSummaryCounts;
   jobTitles: JobTitleOption[];
   onColumnsClick?: () => void;
   columnsActive?: boolean;
   columnsCount?: number;
-  onExport?: (mode: ListExportMode) => void | Promise<void>;
-  exporting?: boolean;
-  /** Total rows for the current list query (`totalItems` from get_all_individuals). */
-  listTotalCount?: number;
 };
 
 export const IndividualDashboard = ({
@@ -79,9 +53,6 @@ export const IndividualDashboard = ({
   onColumnsClick,
   columnsActive = false,
   columnsCount = 0,
-  onExport,
-  exporting = false,
-  listTotalCount,
 }: IndividualDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
     filters: [],
@@ -89,8 +60,6 @@ export const IndividualDashboard = ({
     searchText: initialSearch || "",
     filterLogic: "and",
   });
-
-  const [activeRoleTab, setActiveRoleTab] = useState<IndividualRoleTab>("all");
 
   const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
@@ -198,33 +167,19 @@ export const IndividualDashboard = ({
   useEffect(() => {
     onFilterColumnsChangeRef.current?.({
       filterIds: filterBarState.filters.map((filter) => filter.id),
-      roleTabActive: activeRoleTab !== "all",
     });
-  }, [filterBarState.filters, activeRoleTab]);
+  }, [filterBarState.filters]);
 
-  const buildCountsFilters = useCallback((): IndividualsSearchFilters => {
-    return buildIndividualsSearchPayload({
-      state: filterBarState,
-      primarySectors,
-      secondarySectors,
-      jobTitles,
-    });
-  }, [filterBarState, primarySectors, secondarySectors, jobTitles]);
-
-  const buildSearchFilters = useCallback((): IndividualsSearchFilters => {
-    const tabConfig =
-      activeRoleTab !== "all" ? INDIVIDUAL_ROLE_TAB_CONFIG[activeRoleTab] : null;
-    return buildIndividualsSearchPayload({
-      state: filterBarState,
-      primarySectors,
-      secondarySectors,
-      jobTitles,
-      roleTabJobTitleIds: tabConfig?.jobTitleIds
-        ? [...tabConfig.jobTitleIds]
-        : undefined,
-      roleTabStatuses: tabConfig?.statuses ? [...tabConfig.statuses] : undefined,
-    });
-  }, [filterBarState, primarySectors, secondarySectors, jobTitles, activeRoleTab]);
+  const buildSearchFilters = useCallback(
+    (): IndividualsSearchFilters =>
+      buildIndividualsSearchPayload({
+        state: filterBarState,
+        primarySectors,
+        secondarySectors,
+        jobTitles,
+      }),
+    [filterBarState, primarySectors, secondarySectors, jobTitles]
+  );
 
   const isPortfolioFilterActive = filterBarState.filters.some(
     (f) => f.id === "followed" && f.value === true
@@ -236,8 +191,6 @@ export const IndividualDashboard = ({
   const skipInitialSearchRef = useRef(true);
   const buildSearchFiltersRef = useRef(buildSearchFilters);
   buildSearchFiltersRef.current = buildSearchFilters;
-  const buildCountsFiltersRef = useRef(buildCountsFilters);
-  buildCountsFiltersRef.current = buildCountsFilters;
   const onSearchRef = useRef(onSearch);
   onSearchRef.current = onSearch;
 
@@ -257,9 +210,10 @@ export const IndividualDashboard = ({
     }
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
+      const filters = buildSearchFiltersRef.current();
       onSearchRef.current?.(
-        buildSearchFiltersRef.current(),
-        buildCountsFiltersRef.current(),
+        filters,
+        filters,
         isPortfolioFilterActiveRef.current
       );
     }, 350);
@@ -268,91 +222,106 @@ export const IndividualDashboard = ({
     };
   }, [filterSearchKey]);
 
-  const skipInitialTabRef = useRef(true);
-  useEffect(() => {
-    if (skipInitialTabRef.current) {
-      skipInitialTabRef.current = false;
-      return;
-    }
-    onSearchRef.current?.(
-      buildSearchFiltersRef.current(),
-      buildCountsFiltersRef.current(),
-      isPortfolioFilterActiveRef.current
-    );
-  }, [activeRoleTab]);
+  const matchCount = summaryCounts.totalCount;
 
-  const roleTabs: {
-    id: IndividualRoleTab;
-    label: string;
-    count: number;
-    dot: string;
-  }[] = [
-    { id: "all", label: "All", count: summaryCounts.totalCount, dot: "#64748b" },
-    ...INDIVIDUAL_ROLE_TAB_ORDER.map((id) => ({
-      id,
-      label: INDIVIDUAL_ROLE_TAB_CONFIG[id].label,
-      count: summaryCounts[INDIVIDUAL_ROLE_TAB_CONFIG[id].countKey],
-      dot: INDIVIDUAL_ROLE_TAB_CONFIG[id].dot,
-    })),
+  const summaryStats = [
+    { label: "CEOs", value: summaryCounts.ceos },
+    { label: "Current roles", value: summaryCounts.currentRoles },
+    { label: "Chair", value: summaryCounts.chairs },
+    { label: "Past roles", value: summaryCounts.pastRoles },
+    { label: "Founder", value: summaryCounts.founders },
   ];
 
-  const matchCount =
-    activeRoleTab === "all"
-      ? summaryCounts.totalCount
-      : roleTabs.find((tab) => tab.id === activeRoleTab)?.count ??
-        summaryCounts.totalCount;
-
   return (
-    <div style={SEARCH_DASHBOARD_SHELL}>
-      <div className="search-dashboard-inner" style={SEARCH_DASHBOARD_INNER}>
-        <div className="search-dashboard-header-row" style={SEARCH_DASHBOARD_HEADER_ROW}>
+    <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+      <div style={{ width: "100%", padding: "20px 28px 0" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 14,
+          }}
+        >
           <div>
-            <div style={SEARCH_DASHBOARD_EYEBROW}>Individuals</div>
-            <h1 style={SEARCH_DASHBOARD_TITLE}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+                color: "#94a3b8",
+                marginBottom: 5,
+              }}
+            >
+              Individuals
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 26,
+                fontWeight: 700,
+                color: "#0f172a",
+                display: "flex",
+                alignItems: "baseline",
+                gap: 10,
+                lineHeight: 1.2,
+              }}
+            >
               Individual search
-              <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
+              <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
                 {matchCount.toLocaleString()} matches
               </span>
             </h1>
           </div>
 
-          <div className="search-dashboard-actions" style={SEARCH_DASHBOARD_ACTIONS}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6 }}>
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
               total={CANONICAL_INDIVIDUAL_COLUMN_KEYS.length}
               onClick={onColumnsClick}
             />
-            <SearchExportMenu
-              onExport={(mode) => onExport?.(mode)}
-              exporting={exporting}
-              disabled={!onExport}
-            />
-            <RequestDataResearchButton
-              label="Request Individual Profile"
-              context="individual"
-              sourcePage="Individuals Search"
-              className="inline-flex items-center justify-center"
-              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
-            />
           </div>
         </div>
 
-        <SearchListTabs
-          tabs={roleTabs}
-          activeTabId={activeRoleTab}
-          onTabClick={(tabId) => setActiveRoleTab(tabId as IndividualRoleTab)}
-        />
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "10px 18px",
+            paddingBottom: 14,
+            fontSize: 12,
+            color: "#64748b",
+          }}
+        >
+          {summaryStats.map((stat) => (
+            <span key={stat.label}>
+              <span style={{ color: "#94a3b8" }}>{stat.label}: </span>
+              <span style={{ fontWeight: 600, color: "#334155" }}>
+                {stat.value.toLocaleString()}
+              </span>
+            </span>
+          ))}
+        </div>
       </div>
 
-      <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
-        <div className="search-dashboard-filter-inner" style={SEARCH_DASHBOARD_FILTER_INNER}>
+      <div
+        style={{
+          background: "#fff",
+          borderTop: "1px solid #e2e8f0",
+          borderBottom: "1px solid #e2e8f0",
+        }}
+      >
+        <div style={{ width: "100%", padding: "10px 28px 12px" }}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={FILTER_CATEGORIES}
             state={filterBarState}
             onStateChange={setFilterBarState}
-            totalCount={listTotalCount}
+            totalCount={matchCount}
             entityLabel="individuals"
             portfolioOnlyChipLabel="My Portfolio only"
             portfolioBooleanDescription="Show only individuals in My Portfolio (followed)"

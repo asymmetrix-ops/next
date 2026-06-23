@@ -2,35 +2,20 @@ import { getAdvisorFieldAliasesForColumn } from "./advisorsColumnFields";
 
 export type ColumnSortKind = "text" | "number";
 
-/** UI column keys that support server-side sorting (same as API sort_column values). */
-export const ADVISOR_SERVER_SORT_COLUMNS = new Set<string>([
-  "events_advised",
-  "linkedin_members",
-]);
-
-export function getAdvisorServerSortColumn(columnKey: string): string | null {
-  return ADVISOR_SERVER_SORT_COLUMNS.has(columnKey) ? columnKey : null;
-}
-
-export function getAdvisorServerSortDefaultDirection(): "asc" | "desc" {
-  return "desc";
-}
-
 const NOT_SORTABLE = null;
 
 export const ADVISOR_COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   logo: NOT_SORTABLE,
-  name: NOT_SORTABLE,
+  name: "text",
   description: NOT_SORTABLE,
   events_advised: "number",
-  sectors: NOT_SORTABLE,
+  sectors: "text",
   linkedin_members: "number",
-  country: NOT_SORTABLE,
+  country: "text",
   follow: NOT_SORTABLE,
 };
 
 export function getAdvisorColumnSortKind(columnKey: string): ColumnSortKind | null {
-  if (!ADVISOR_SERVER_SORT_COLUMNS.has(columnKey)) return null;
   return ADVISOR_COLUMN_SORT_KIND[columnKey] ?? null;
 }
 

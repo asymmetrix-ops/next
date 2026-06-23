@@ -4,16 +4,17 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import type { AdvisorListItem, AdvisorsSearchFilters } from "@/app/advisors/actions";
 import {
   createDefaultAdvisorFilters,
+  advisorsFiltersToSearchParams,
 } from "@/lib/advisorsFilterPayload";
 import {
   ADVISORS_COLUMN_CATEGORIES,
@@ -24,33 +25,16 @@ import {
   advisorVisibilityToColumnKeys,
   enforceAdvisorColumnKeyOrder,
   getEffectiveFrozenAdvisorColumnKeys,
-  reorderAdvisorColumnKeys,
 } from "@/components/advisors/advisorsColumnCategories";
 import { FILTER_PINNED_TOOLTIP } from "@/components/advisors/advisorsColumnFilterMap";
 import {
+  compareAdvisorSortValues,
   getAdvisorColumnSortKind,
-  getAdvisorServerSortColumn,
+  getAdvisorSortValueForColumn,
 } from "@/components/advisors/advisorsTableSort";
-import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
-import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
-import { buildAdvisorSectorItems } from "@/components/search/searchEntityLinkUtils";
-import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
-import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
-import { readLogoFromRecord } from "@/lib/companyLogo";
-import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
-import { exportAdvisorsList } from "@/lib/listExport/advisorsListExport";
-import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
-import { checkExportLimit } from "@/utils/exportLimitCheck";
+import { SearchEntityDescription } from "@/components/search/SearchEntityDescription";
+import { SearchEntityLogo } from "@/components/search/SearchEntityLogo";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
-import CompactPagination from "@/components/ui/CompactPagination";
-import {
-  isSearchTableSelectionEnabled,
-  SEARCH_TABLE_SELECT_COLUMN_WIDTH,
-  SearchTableSelectCell,
-  SearchTableSelectHeader,
-  type SearchTableSelectionProps,
-} from "@/components/search/searchTableSelection";
-import { usePageSelectionState } from "@/components/search/useEntitySelection";
 import {
   buildStickyColumnOffsets,
   getSearchTableColumnClassName,
@@ -71,7 +55,8 @@ interface AdvisorColumnDefinition {
 }
 
 const ALL_ADVISOR_COLUMNS: AdvisorColumnDefinition[] = [
-  { key: "name", label: "Advisor", minWidth: 220 },
+  { key: "logo", label: "Logo", minWidth: 88 },
+  { key: "name", label: "Advisor", minWidth: 160 },
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "events_advised", label: "# Corporate Events Advised", minWidth: 150 },
   { key: "sectors", label: "Advised D&A Sectors", wrap: true, minWidth: 180 },
@@ -94,6 +79,14 @@ function getValidColumnKeys(keys: string[]): string[] {
   );
 }
 
+function escapeCsvField(value: string): string {
+  const s = String(value ?? "").trim();
+  if (s.includes('"') || s.includes("\n") || s.includes(",")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
 export const AdvisorSection = ({
   advisors,
   loading,
@@ -105,17 +98,7 @@ export const AdvisorSection = ({
   externalShowColumnsModal,
   externalSetShowColumnsModal,
   onColumnsCountChange,
-  onRegisterExportCSV,
-  onExportingChange,
   isPortfolioOnlyFilter = false,
-  sortColumnKey = null,
-  sortDirection = "desc",
-  onSortColumn,
-  onSortClear,
-  selectedEntityIds,
-  onToggleEntitySelection,
-  onTogglePageSelection,
-  onClearSelection,
 }: {
   advisors: Advisor[];
   loading: boolean;
@@ -137,19 +120,12 @@ export const AdvisorSection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
-  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
-  onExportingChange?: (exporting: boolean) => void;
   isPortfolioOnlyFilter?: boolean;
-  sortColumnKey?: string | null;
-  sortDirection?: "asc" | "desc";
-  onSortColumn?: (columnKey: string) => void;
-  onSortClear?: () => void;
-} & SearchTableSelectionProps & {
-  onClearSelection?: () => void;
 }) => {
   const router = useRouter();
-  const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [expandedSectors, setExpandedSectors] = useState<Record<number, boolean>>({});
   const showColumnsModal =
     externalShowColumnsModal !== undefined
       ? externalShowColumnsModal
@@ -160,31 +136,10 @@ export const AdvisorSection = ({
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
     DEFAULT_VISIBLE_ADVISOR_COLUMN_KEYS
   );
-  const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
-  const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
-  const selectionEnabled = isSearchTableSelectionEnabled({
-    selectedEntityIds,
-    onToggleEntitySelection,
-    onTogglePageSelection,
-  });
-
-  const pageEntityIds = useMemo(
-    () =>
-      advisors
-        .map((advisor) => advisor.id)
-        .filter((id): id is number => typeof id === "number" && id > 0),
-    [advisors]
-  );
-
-  const pageSelectionState = usePageSelectionState(
-    pageEntityIds,
-    selectedEntityIds ?? new Set()
-  );
-
-  const selectedIdList = useMemo(
-    () => (selectedEntityIds ? Array.from(selectedEntityIds) : []),
-    [selectedEntityIds]
-  );
+  const [sortState, setSortState] = useState<{
+    key: string;
+    dir: "asc" | "desc";
+  } | null>(null);
 
   const frozenColumnKeys = useMemo(
     () => getEffectiveFrozenAdvisorColumnKeys(filterPinnedColumnKeys),
@@ -192,13 +147,8 @@ export const AdvisorSection = ({
   );
 
   const stickyColumnOffsets = useMemo(
-    () =>
-      buildStickyColumnOffsets(
-        frozenColumnKeys,
-        ALL_ADVISOR_COLUMNS,
-        selectionEnabled ? SEARCH_TABLE_SELECT_COLUMN_WIDTH : 0
-      ),
-    [frozenColumnKeys, selectionEnabled]
+    () => buildStickyColumnOffsets(frozenColumnKeys, ALL_ADVISOR_COLUMNS),
+    [frozenColumnKeys]
   );
 
   useEffect(() => {
@@ -256,10 +206,24 @@ export const AdvisorSection = ({
   }, [selectedColumns.length, onColumnsCountChange]);
 
   useEffect(() => {
-    if (sortColumnKey && !selectedColumnKeys.includes(sortColumnKey)) {
-      onSortClear?.();
+    if (sortState && !selectedColumnKeys.includes(sortState.key)) {
+      setSortState(null);
     }
-  }, [selectedColumnKeys, sortColumnKey, onSortClear]);
+  }, [selectedColumnKeys, sortState]);
+
+  const sortedAdvisors = useMemo(() => {
+    if (!sortState || !getAdvisorColumnSortKind(sortState.key)) {
+      return advisors;
+    }
+    const { key, dir } = sortState;
+    return [...advisors].sort((a, b) =>
+      compareAdvisorSortValues(
+        getAdvisorSortValueForColumn(a as unknown as Record<string, unknown>, key),
+        getAdvisorSortValueForColumn(b as unknown as Record<string, unknown>, key),
+        dir
+      )
+    );
+  }, [advisors, sortState]);
 
   const handleAdvisorClick = useCallback(
     (id: number) => {
@@ -268,123 +232,85 @@ export const AdvisorSection = ({
     [router]
   );
 
-  const pageTotal =
-    pagination.pageTotal ||
-    (pagination.nextPage != null
-      ? Math.max(pagination.nextPage, pagination.curPage + 1)
-      : 1);
-
   const handlePageChange = useCallback(
     (page: number) => {
-      if (loading || page < 1 || page > pageTotal || page === pagination.curPage) {
-        return;
-      }
-
       const filters = currentFilters ?? createDefaultAdvisorFilters();
       void fetchAdvisors(page, { ...filters, page });
     },
-    [currentFilters, fetchAdvisors, loading, pageTotal, pagination.curPage]
+    [currentFilters, fetchAdvisors]
   );
 
-  const handleSortColumn = useCallback(
-    (columnKey: string) => {
-      if (!getAdvisorServerSortColumn(columnKey) || !onSortColumn) return;
-      onSortColumn(columnKey);
-    },
-    [onSortColumn]
-  );
+  const handleSortColumn = useCallback((columnKey: string) => {
+    if (!getAdvisorColumnSortKind(columnKey)) return;
+    setSortState((current) => {
+      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
+      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
+    });
+  }, []);
 
-  const handleReorderTableColumns = useCallback(
-    (dragKey: string, dropKey: string) => {
-      setSelectedColumnKeys((current) =>
-        enforceAdvisorColumnKeyOrder(
-          reorderAdvisorColumnKeys(current, dragKey, dropKey, filterPinnedColumnKeys),
-          filterPinnedColumnKeys
-        )
+  const exportToCsv = useCallback(async () => {
+    const filters = currentFilters ?? createDefaultAdvisorFilters();
+    const itemsTotal = pagination.itemsTotal;
+    if (itemsTotal <= 0) return;
+
+    setExportingCsv(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = advisorsFiltersToSearchParams({
+        ...filters,
+        page: 1,
+        per_page: itemsTotal,
+      });
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+      if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
+
+      const raw = (await response.json()) as {
+        items?: Advisor[];
+        result1?: { items?: Advisor[] };
+        Advisors_companies?: { items?: Advisor[] };
+      };
+      const allAdvisors =
+        raw.items ?? raw.result1?.items ?? raw.Advisors_companies?.items ?? [];
+      const baseUrl = window.location.origin;
+      const headers = [
+        "Advisor Name",
+        "Asymmetrix link",
+        "Description",
+        "Number of corporate events advised",
+        "Advised sectors",
+        "Country",
+      ];
+      const rows = allAdvisors.map((advisor) =>
+        [
+          escapeCsvField(advisor.name ?? ""),
+          escapeCsvField(`${baseUrl}/advisor/${advisor.id}`),
+          escapeCsvField(advisor.description ?? ""),
+          String(advisor.events_advised ?? 0),
+          escapeCsvField(advisor.sectors ?? ""),
+          escapeCsvField(advisor.country ?? ""),
+        ].join(",")
       );
-    },
-    [filterPinnedColumnKeys]
-  );
-
-  const isFrozenColumnKey = useCallback(
-    (columnKey: string) => frozenColumnKeys.includes(columnKey),
-    [frozenColumnKeys]
-  );
-
-  const [exporting, setExporting] = useState(false);
-  const exportInFlightRef = useRef(false);
-
-  const handleListExport = useCallback(
-    async (request: ListExportRequest) => {
-      if (exportInFlightRef.current) return;
-
-      exportInFlightRef.current = true;
-      setExporting(true);
-
-      try {
-        const limitCheck = await checkExportLimit();
-        if (!limitCheck.canExport) return;
-
-        const { mode, scope } = request;
-        const exportTotalCount = pagination.itemsTotal || 0;
-        if (scope === "full_list" && exportTotalCount <= 0) {
-          console.error("Advisors export aborted: match count is not available yet.");
-          return;
-        }
-
-        const selectedIdsForExport =
-          scope === "selected"
-            ? request.selectedIds?.length
-              ? request.selectedIds
-              : selectedIdList
-            : undefined;
-
-        await exportAdvisorsList(
-          {
-            mode,
-            scope,
-            selectedIds: selectedIdsForExport,
-          },
-          currentFilters ?? createDefaultAdvisorFilters(),
-          selectedColumnKeys,
-          scope === "full_list" ? exportTotalCount : undefined,
-          limitCheck.isAdmin
-        );
-      } catch (exportError) {
-        console.error("Advisor export failed:", exportError);
-      } finally {
-        exportInFlightRef.current = false;
-        setExporting(false);
-      }
-    },
-    [
-      currentFilters,
-      pagination.itemsTotal,
-      selectedColumnKeys,
-      selectedIdList,
-    ]
-  );
-
-  const handleSelectedListExport = useCallback(
-    (mode: ListExportMode) =>
-      handleListExport({ mode, scope: "selected" }),
-    [handleListExport]
-  );
-
-  const handleExportRequest = useCallback(
-    async (request: ListExportRequest) => {
-      await handleListExport(request);
-    },
-    [handleListExport]
-  );
-
-  useEffect(() => {
-    onExportingChange?.(exporting);
-  }, [exporting, onExportingChange]);
-
-  useEffect(() => {
-    onRegisterExportCSV?.(handleExportRequest);
-  }, [handleExportRequest, onRegisterExportCSV]);
+      const csv = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const urlObj = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = urlObj;
+      a.download = `advisors-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(urlObj);
+    } catch (exportError) {
+      console.error("Export CSV failed:", exportError);
+    } finally {
+      setExportingCsv(false);
+    }
+  }, [currentFilters, pagination.itemsTotal]);
 
   const columnsModalInitial = useMemo(
     () => advisorColumnKeysToVisibility(selectedColumnKeys),
@@ -398,18 +324,26 @@ export const AdvisorSection = ({
 
   const renderAdvisorCell = (
     columnKey: string,
-    advisor: Advisor
+    advisor: Advisor,
+    index: number
   ): React.ReactNode => {
     switch (columnKey) {
+      case "logo":
+        return (
+          <SearchEntityLogo
+            logo={String(advisor.linkedin_logo || "")}
+            name={String(advisor.name || "")}
+          />
+        );
       case "name": {
         const id = advisor.id;
         const name = advisor.name || "-";
+        if (!id) return name;
         return (
-          <SearchEntityIdentityCell
-            name={name}
-            logo={readLogoFromRecord(advisor, getAdvisorFieldAliasesForColumn("logo"))}
-            subtitle={advisor.country?.trim() || undefined}
-            href={id ? `/advisor/${id}` : undefined}
+          <a
+            href={`/advisor/${id}`}
+            className="company-name"
+            style={{ textDecoration: "none", color: "#3b82f6" }}
             onClick={(e) => {
               if (
                 e.defaultPrevented ||
@@ -422,25 +356,52 @@ export const AdvisorSection = ({
                 return;
               }
               e.preventDefault();
-              handleAdvisorClick(id!);
+              handleAdvisorClick(id);
             }}
-          />
+          >
+            {name}
+          </a>
         );
       }
       case "description":
-        return <SearchEntityLongText text={advisor.description || "-"} />;
+        return <SearchEntityDescription description={advisor.description || "-"} />;
       case "events_advised":
         return formatNumber(advisor.events_advised);
-      case "sectors":
+      case "sectors": {
+        const sectorsText = advisor.sectors || "-";
+        const sectorsIsLong = sectorsText.length > 100;
+        const isExpanded = !!expandedSectors[index];
         return (
-          <SearchEntityMultiValueCell
-            items={buildAdvisorSectorItems(
-              advisor.sectors,
-              `advisor-${advisor.id ?? "row"}`
+          <div>
+            <div className={isExpanded ? "sectors-full" : "sectors-truncated"}>
+              {sectorsText}
+            </div>
+            {sectorsIsLong && (
+              <button
+                type="button"
+                className="expand-sectors"
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "#0075df",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  fontSize: 12,
+                }}
+                onClick={() =>
+                  setExpandedSectors((prev) => ({
+                    ...prev,
+                    [index]: !prev[index],
+                  }))
+                }
+              >
+                {isExpanded ? "Show less" : "Show more"}
+              </button>
             )}
-            maxVisible={10}
-          />
+          </div>
         );
+      }
       case "linkedin_members":
         return formatNumber(advisor.linkedin_members);
       case "country":
@@ -463,6 +424,110 @@ export const AdvisorSection = ({
       default:
         return "-";
     }
+  };
+
+  const generatePaginationButtons = () => {
+    const buttons: React.ReactNode[] = [];
+    const maxVisible = 7;
+    const totalPages =
+      pagination.pageTotal ||
+      (pagination.nextPage != null
+        ? Math.max(pagination.nextPage, pagination.curPage + 1)
+        : 0);
+    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
+    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
+
+    if (totalPages <= 1) return buttons;
+
+    buttons.push(
+      <button
+        key="previous"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(prevPage)}
+        disabled={pagination.curPage <= 1}
+      >
+        Previous
+      </button>
+    );
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
+    } else {
+      buttons.push(
+        <button
+          key={1}
+          type="button"
+          className={`pagination-button ${pagination.curPage === 1 ? "active" : ""}`}
+          onClick={() => handlePageChange(1)}
+        >
+          1
+        </button>
+      );
+      if (pagination.curPage > 3) {
+        buttons.push(
+          <span key="ellipsis1" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+      const start = Math.max(2, pagination.curPage - 1);
+      const end = Math.min(totalPages - 1, pagination.curPage + 1);
+      for (let i = start; i <= end; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
+      if (pagination.curPage < totalPages - 2) {
+        buttons.push(
+          <span key="ellipsis2" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+      buttons.push(
+        <button
+          key={totalPages}
+          type="button"
+          className={`pagination-button ${totalPages === pagination.curPage ? "active" : ""}`}
+          onClick={() => handlePageChange(totalPages)}
+        >
+          {totalPages}
+        </button>
+      );
+    }
+
+    buttons.push(
+      <button
+        key="next"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(nextPage)}
+        disabled={pagination.curPage >= totalPages}
+      >
+        Next
+      </button>
+    );
+
+    return buttons;
   };
 
   const columnsModalLayer =
@@ -533,68 +598,43 @@ export const AdvisorSection = ({
 
   return (
     <div className="company-section">
-      {selectionEnabled && selectedEntityIds!.size > 0 && onClearSelection && (
-        <BulkPortfolioActionToolbar
-          entityType="advisor"
-          entityIds={selectedIdList}
-          onClearSelection={onClearSelection}
-          exporting={exporting}
-          onExport={handleSelectedListExport}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 10,
+          padding: "12px 28px 0",
+          flexWrap: "wrap",
+        }}
+      >
+        <RequestDataResearchButton
+          label="Request Advisor Profile"
+          context="advisor"
+          sourcePage="Advisors Search"
         />
-      )}
-      <div className="company-cards">
-        {advisors.length === 0 ? (
-          <div className="loading">No advisors found.</div>
-        ) : (
-          advisors.map((advisor, index) => (
-            <div className="company-card" key={`card-${advisor.id ?? index}`}>
-              <div className="company-card-header">
-                {renderAdvisorCell("name", advisor)}
-              </div>
-              <div className="company-card-content">
-                {selectedColumns
-                  .filter((column) => column.key !== "name")
-                  .map((column) => (
-                    <div className="company-card-row" key={column.key}>
-                      <span className="company-card-label">{column.label}</span>
-                      <span className="company-card-value">
-                        {renderAdvisorCell(column.key, advisor)}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ))
-        )}
+        <button
+          type="button"
+          className="pagination-button"
+          onClick={exportToCsv}
+          disabled={exportingCsv || pagination.itemsTotal <= 0}
+          title="Export all filtered advisors to CSV"
+        >
+          {exportingCsv ? "Exporting..." : "Export CSV"}
+        </button>
       </div>
 
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>
             <tr>
-              {selectionEnabled && onTogglePageSelection && (
-                <SearchTableSelectHeader
-                  pageIds={pageEntityIds}
-                  pageSelectionState={pageSelectionState}
-                  onTogglePageSelection={onTogglePageSelection}
-                  ariaLabel="Select all advisors on this page"
-                />
-              )}
               {selectedColumns.map((column) => {
                 const sortKind = getAdvisorColumnSortKind(column.key);
-                const isActive = sortColumnKey === column.key;
-                const isDraggable = !isFrozenColumnKey(column.key);
-                const isDragging = headerDragKey === column.key;
-                const isDragOver =
-                  headerDragOverKey === column.key && headerDragKey !== column.key;
+                const isActive = sortState?.key === column.key;
                 return (
                   <th
                     key={column.key}
                     className={getSearchTableColumnClassName(column, frozenColumnKeys, [
                       sortKind ? "company-table-th-sortable" : undefined,
-                      isDraggable ? "company-table-th-draggable" : undefined,
-                      isDragging ? "company-table-th-dragging" : undefined,
-                      isDragOver ? "company-table-th-drag-over" : undefined,
                     ])}
                     style={{
                       minWidth: column.minWidth,
@@ -605,53 +645,11 @@ export const AdvisorSection = ({
                         true
                       ),
                     }}
-                    draggable={isDraggable}
-                    onDragStart={
-                      isDraggable
-                        ? (event) => {
-                            headerDidDragRef.current = false;
-                            event.dataTransfer.effectAllowed = "move";
-                            event.dataTransfer.setData("text/plain", column.key);
-                            setHeaderDragKey(column.key);
-                            setHeaderDragOverKey(null);
-                          }
-                        : undefined
-                    }
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "move";
-                      setHeaderDragOverKey(column.key);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      const dragKey =
-                        event.dataTransfer.getData("text/plain") || headerDragKey;
-                      if (dragKey) {
-                        headerDidDragRef.current = true;
-                        handleReorderTableColumns(dragKey, column.key);
-                      }
-                      setHeaderDragKey(null);
-                      setHeaderDragOverKey(null);
-                    }}
-                    onDragEnd={() => {
-                      setHeaderDragKey(null);
-                      setHeaderDragOverKey(null);
-                    }}
-                    onClick={
-                      sortKind
-                        ? () => {
-                            if (headerDidDragRef.current) {
-                              headerDidDragRef.current = false;
-                              return;
-                            }
-                            handleSortColumn(column.key);
-                          }
-                        : undefined
-                    }
+                    onClick={sortKind ? () => handleSortColumn(column.key) : undefined}
                     aria-sort={
                       sortKind
                         ? isActive
-                          ? sortDirection === "asc"
+                          ? sortState?.dir === "asc"
                             ? "ascending"
                             : "descending"
                           : "none"
@@ -673,7 +671,7 @@ export const AdvisorSection = ({
                     )}
                     {sortKind && isActive && (
                       <span className="company-table-sort-indicator">
-                        {sortDirection === "asc" ? "▲" : "▼"}
+                        {sortState?.dir === "asc" ? "▲" : "▼"}
                       </span>
                     )}
                   </th>
@@ -682,43 +680,13 @@ export const AdvisorSection = ({
             </tr>
           </thead>
           <tbody>
-            {advisors.length === 0 ? (
+            {sortedAdvisors.length === 0 ? (
               <tr>
-                <td colSpan={selectedColumns.length + (selectionEnabled ? 1 : 0)}>
-                  No advisors found.
-                </td>
+                <td colSpan={selectedColumns.length}>No advisors found.</td>
               </tr>
             ) : (
-              advisors.map((advisor, index) => {
-                const entityId = advisor.id;
-                const isRowSelected =
-                  typeof entityId === "number" && selectedEntityIds?.has(entityId);
-                return (
-                <tr
-                  key={`${advisor.id ?? index}`}
-                  className={isRowSelected ? "company-table-row-selected" : undefined}
-                >
-                  {selectionEnabled &&
-                    onToggleEntitySelection &&
-                    typeof entityId === "number" &&
-                    entityId > 0 && (
-                      <SearchTableSelectCell
-                        entityId={entityId}
-                        selected={Boolean(isRowSelected)}
-                        onToggle={onToggleEntitySelection}
-                        ariaLabel={`Select ${advisor.name || "advisor"}`}
-                      />
-                    )}
-                  {selectionEnabled &&
-                    (typeof entityId !== "number" || entityId <= 0) && (
-                      <td
-                        className="company-table-select-cell"
-                        style={{
-                          minWidth: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
-                          width: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
-                        }}
-                      />
-                    )}
+              sortedAdvisors.map((advisor, index) => (
+                <tr key={`${advisor.id ?? index}`}>
                   {selectedColumns.map((column) => (
                     <td
                       key={`${column.key}-${index}`}
@@ -728,31 +696,21 @@ export const AdvisorSection = ({
                         ...getStickyColumnStyle(
                           column.key,
                           stickyColumnOffsets,
-                          column.minWidth,
-                          false,
-                          Boolean(isRowSelected)
+                          column.minWidth
                         ),
                       }}
                     >
-                      {renderAdvisorCell(column.key, advisor)}
+                      {renderAdvisorCell(column.key, advisor, index)}
                     </td>
                   ))}
                 </tr>
-              );
-              })
+              ))
             )}
           </tbody>
         </table>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-        <CompactPagination
-          curPage={pagination.curPage}
-          pageTotal={pageTotal}
-          onPageChange={handlePageChange}
-          disabled={loading}
-        />
-      </div>
+      <div className="pagination">{generatePaginationButtons()}</div>
       {columnsModalLayer}
       <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
     </div>

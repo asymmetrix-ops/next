@@ -1,13 +1,5 @@
 import type { FilterBarState, FilterItem } from "@/components/companies/CompaniesFilterBar";
 
-export type IndividualSortBy =
-  | "name"
-  | "current_company"
-  | "advisor_deal_count"
-  | "country";
-
-export type IndividualSortOrder = "asc" | "desc";
-
 export interface IndividualsSearchFilters {
   Search_Query: string;
   page: number;
@@ -22,8 +14,6 @@ export interface IndividualsSearchFilters {
   Job_Titles: number[];
   Statuses: string[];
   portfolio_only: boolean;
-  sort_by?: IndividualSortBy;
-  sort_order?: IndividualSortOrder;
 }
 
 type SectorRef = { id: number; sector_name: string };
@@ -116,8 +106,6 @@ export const createDefaultIndividualFilters = (): IndividualsSearchFilters => ({
   Job_Titles: [],
   Statuses: [],
   portfolio_only: false,
-  sort_by: "name",
-  sort_order: "asc",
 });
 
 export function buildIndividualsSearchPayload(args: {
@@ -127,8 +115,6 @@ export function buildIndividualsSearchPayload(args: {
   jobTitles: JobTitleRef[];
   page?: number;
   perPage?: number;
-  roleTabJobTitleIds?: number[];
-  roleTabStatuses?: string[];
 }): IndividualsSearchFilters {
   const {
     state,
@@ -137,8 +123,6 @@ export function buildIndividualsSearchPayload(args: {
     jobTitles,
     page = 1,
     perPage = 50,
-    roleTabJobTitleIds,
-    roleTabStatuses,
   } = args;
 
   let filters = createDefaultIndividualFilters();
@@ -156,34 +140,19 @@ export function buildIndividualsSearchPayload(args: {
     );
   }
 
-  if (roleTabJobTitleIds && roleTabJobTitleIds.length > 0) {
-    filters.Job_Titles = [...roleTabJobTitleIds];
-  }
-  if (roleTabStatuses && roleTabStatuses.length > 0) {
-    filters.Statuses = [...roleTabStatuses];
-  }
-
   return filters;
 }
 
-/** Counts payload — filter bar only, no role-tab constraints. */
-export function buildIndividualsCountsSearchPayload(args: {
-  state: FilterBarState;
-  primarySectors: SectorRef[];
-  secondarySectors: SectorRef[];
-  jobTitles: JobTitleRef[];
-}): IndividualsSearchFilters {
-  return buildIndividualsSearchPayload({
-    ...args,
-    page: 0,
-    perPage: 0,
-  });
-}
-
-function appendIndividualsFilterParams(
-  params: URLSearchParams,
+export function individualsFiltersToSearchParams(
   filters: IndividualsSearchFilters
-): void {
+): URLSearchParams {
+  const params = new URLSearchParams();
+  const page = Math.max(1, filters.page || 1);
+  const perPage = filters.per_page > 0 ? filters.per_page : 50;
+
+  params.append("Offset", String(page));
+  params.append("Per_page", String(perPage));
+
   if (filters.Search_Query) {
     params.append("search_query", filters.Search_Query);
   }
@@ -220,83 +189,5 @@ function appendIndividualsFilterParams(
   }
 
   params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
-}
-
-export function individualsFiltersToSearchParams(
-  filters: IndividualsSearchFilters
-): URLSearchParams {
-  const params = new URLSearchParams();
-  const page = Math.max(1, filters.page || 1);
-  const perPage = filters.per_page > 0 ? filters.per_page : 50;
-  const itemOffset = (page - 1) * perPage;
-
-  params.append("Offset", String(itemOffset));
-  params.append("Per_page", String(perPage));
-  appendIndividualsFilterParams(params, filters);
   return params;
-}
-
-export function individualsCountsFiltersToSearchParams(
-  filters: IndividualsSearchFilters
-): URLSearchParams {
-  const params = new URLSearchParams();
-  params.append("Offset", "0");
-  params.append("Per_page", "0");
-  appendIndividualsFilterParams(params, filters);
-  return params;
-}
-
-/** Xano `get_individuals_counts` expects POST with filter fields (no pagination). */
-export function individualsCountsFiltersToRequestBody(
-  filters: IndividualsSearchFilters
-): Record<string, unknown> {
-  return {
-    search_query: filters.Search_Query || "",
-    Countries: toIndividualsApiArray(filters.Countries),
-    Provinces: toIndividualsApiArray(filters.Provinces),
-    Cities: toIndividualsApiArray(filters.Cities),
-    Continental_Region: toIndividualsApiArray(filters.Continental_Region),
-    geographical_sub_region: toIndividualsApiArray(
-      filters.geographical_sub_region
-    ),
-    primary_sectors_ids: toIndividualsApiArray(filters.Primary_Sectors),
-    Secondary_sectors_ids: toIndividualsApiArray(filters.Secondary_Sectors),
-    job_titles_ids: toIndividualsApiArray(filters.Job_Titles),
-    statuses: toIndividualsApiArray(filters.Statuses),
-    portfolio_only: filters.portfolio_only ? true : false,
-  };
-}
-
-function toIndividualsApiArray<T>(values: T[]): T[] | null {
-  return values.length > 0 ? values : null;
-}
-
-/** Xano `get_all_individuals` expects POST with string pagination and null filters. */
-export function individualsFiltersToRequestBody(
-  filters: IndividualsSearchFilters
-): Record<string, unknown> {
-  const page = Math.max(1, filters.page || 1);
-  const perPage = filters.per_page > 0 ? filters.per_page : 50;
-
-  const itemOffset = (page - 1) * perPage;
-
-  return {
-    search_query: filters.Search_Query || "",
-    Offset: String(itemOffset),
-    Per_page: String(perPage),
-    Countries: toIndividualsApiArray(filters.Countries),
-    Provinces: toIndividualsApiArray(filters.Provinces),
-    Cities: toIndividualsApiArray(filters.Cities),
-    Continental_Region: toIndividualsApiArray(filters.Continental_Region),
-    geographical_sub_region: toIndividualsApiArray(
-      filters.geographical_sub_region
-    ),
-    primary_sectors_ids: toIndividualsApiArray(filters.Primary_Sectors),
-    Secondary_sectors_ids: toIndividualsApiArray(filters.Secondary_Sectors),
-    job_titles_ids: toIndividualsApiArray(filters.Job_Titles),
-    statuses: toIndividualsApiArray(filters.Statuses),
-    portfolio_only: filters.portfolio_only ? true : null,
-    sort_by: filters.sort_by ?? "name",
-    sort_order: filters.sort_order ?? "asc",
-  };
 }

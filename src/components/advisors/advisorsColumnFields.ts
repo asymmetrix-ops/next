@@ -1,9 +1,6 @@
-import { LOGO_FIELD_ALIASES } from "@/lib/companyLogo";
-
 export const ADVISOR_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
-  logo: LOGO_FIELD_ALIASES,
+  logo: ["linkedin_logo"],
   name: ["name"],
-  website: ["url", "website", "website_url"],
   description: ["description"],
   events_advised: ["events_advised"],
   sectors: ["sectors"],

@@ -8,6 +8,7 @@ export const FILTER_PINNED_TOOLTIP =
   "Pinned automatically — a filter is active on this column.";
 
 export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
+  "logo",
   "name",
   "description",
   "follow",
@@ -15,11 +16,14 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
 ]);
 
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
+  region: "country",
+  sub_region: "country",
   country: "country",
+  state: "country",
+  city: "country",
   primary_sector: "sectors",
   secondary_sector: "sectors",
   corporate_events: "events_advised",
-  linkedin_members: "linkedin_members",
   followed: "follow",
 };
 
@@ -38,10 +42,7 @@ export function getFilterIdForColumnKey(columnKey: string): string | undefined {
   return COLUMN_KEY_TO_FILTER_ID[columnKey];
 }
 
-export function getColumnKeysForActiveFilters(
-  filterIds: string[],
-  roleTabActive = false
-): string[] {
+export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
   const keys = new Set<string>();
   const locationFilterIds = new Set([
     "region",
@@ -62,10 +63,6 @@ export function getColumnKeysForActiveFilters(
     }
   }
 
-  if (roleTabActive) {
-    keys.add("area_of_focus");
-  }
-
   return Array.from(keys).filter((key) =>
     ALL_ADVISORS_COLUMN_META.some((column) => column.columnKey === key)
   );
@@ -84,12 +81,12 @@ function mapColumnTypeToFilter(
   if (column.columnKey === "follow") {
     return { type: "Aa", editor: "boolean" };
   }
-  if (column.type === "number") {
+  if (column.columnKey === "events_advised") {
     return {
       type: "#",
       editor: "range",
       min: 0,
-      max: column.columnKey === "linkedin_members" ? 100000 : 10000,
+      max: 10000,
     };
   }
   return { type: "Aa", editor: "enum" };

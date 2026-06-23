@@ -4,12 +4,12 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import type { Individual } from "@/types/individuals";
 import type { IndividualsSearchFilters } from "@/app/individuals/actions";
@@ -23,37 +23,19 @@ import {
   getEffectiveFrozenIndividualColumnKeys,
   individualColumnKeysToVisibility,
   individualVisibilityToColumnKeys,
-  reorderIndividualColumnKeys,
 } from "@/components/individuals/individualsColumnCategories";
 import { FILTER_PINNED_TOOLTIP } from "@/components/individuals/individualsColumnFilterMap";
 import {
   formatIndividualLocation,
+  formatIndividualRoles,
   resolveIndividualCompanyHref,
 } from "@/components/individuals/individualsColumnFields";
 import {
+  compareIndividualSortValues,
   getIndividualColumnSortKind,
-  getIndividualServerSortColumn,
-  getIndividualUiColumnForServerSort,
-  type IndividualSortOrder,
+  getIndividualSortValueForColumn,
 } from "@/components/individuals/individualsTableSort";
-import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
-import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
-import { namesToMultiValueItems } from "@/components/search/searchMultiValueUtils";
-import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
-import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
-import { exportIndividualsList } from "@/lib/listExport/individualsListExport";
-import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
-import { checkExportLimit } from "@/utils/exportLimitCheck";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
-import CompactPagination from "@/components/ui/CompactPagination";
-import {
-  isSearchTableSelectionEnabled,
-  SEARCH_TABLE_SELECT_COLUMN_WIDTH,
-  SearchTableSelectCell,
-  SearchTableSelectHeader,
-  type SearchTableSelectionProps,
-} from "@/components/search/searchTableSelection";
-import { usePageSelectionState } from "@/components/search/useEntitySelection";
 import {
   buildStickyColumnOffsets,
   getSearchTableColumnClassName,
@@ -72,18 +54,11 @@ interface IndividualColumnDefinition {
   minWidth?: number;
 }
 
-const formatNumber = (value: unknown): string => {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "-";
-  return num.toLocaleString();
-};
-
 const ALL_INDIVIDUAL_COLUMNS: IndividualColumnDefinition[] = [
-  { key: "name", label: "Name", minWidth: 220 },
+  { key: "name", label: "Name", minWidth: 180 },
   { key: "current_company", label: "Current Companies", minWidth: 180 },
   { key: "current_roles", label: "Current Roles", wrap: true, minWidth: 180 },
   { key: "location", label: "Location", wrap: true, minWidth: 200 },
-  { key: "advisor_deal_count", label: "Advisor Deal Count", minWidth: 150 },
   { key: "follow", label: "My Portfolio", minWidth: 120 },
 ];
 
@@ -108,13 +83,7 @@ export const IndividualSection = ({
   externalShowColumnsModal,
   externalSetShowColumnsModal,
   onColumnsCountChange,
-  onRegisterExportCSV,
-  onExportingChange,
   isPortfolioOnlyFilter = false,
-  selectedEntityIds,
-  onToggleEntitySelection,
-  onTogglePageSelection,
-  onClearSelection,
 }: {
   individuals: Individual[];
   loading: boolean;
@@ -132,14 +101,9 @@ export const IndividualSection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
-  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
-  onExportingChange?: (exporting: boolean) => void;
   isPortfolioOnlyFilter?: boolean;
-} & SearchTableSelectionProps & {
-  onClearSelection?: () => void;
 }) => {
   const router = useRouter();
-  const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal =
     externalShowColumnsModal !== undefined
@@ -151,33 +115,10 @@ export const IndividualSection = ({
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
     DEFAULT_VISIBLE_INDIVIDUAL_COLUMN_KEYS
   );
-  const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
-  const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
-  const exportInFlightRef = useRef(false);
-  const selectionEnabled = isSearchTableSelectionEnabled({
-    selectedEntityIds,
-    onToggleEntitySelection,
-    onTogglePageSelection,
-  });
-
-  const pageEntityIds = useMemo(
-    () =>
-      individuals
-        .map((individual) => individual.id)
-        .filter((id): id is number => typeof id === "number" && id > 0),
-    [individuals]
-  );
-
-  const pageSelectionState = usePageSelectionState(
-    pageEntityIds,
-    selectedEntityIds ?? new Set()
-  );
-
-  const selectedIdList = useMemo(
-    () => (selectedEntityIds ? Array.from(selectedEntityIds) : []),
-    [selectedEntityIds]
-  );
+  const [sortState, setSortState] = useState<{
+    key: string;
+    dir: "asc" | "desc";
+  } | null>(null);
 
   const frozenColumnKeys = useMemo(
     () => getEffectiveFrozenIndividualColumnKeys(filterPinnedColumnKeys),
@@ -185,13 +126,8 @@ export const IndividualSection = ({
   );
 
   const stickyColumnOffsets = useMemo(
-    () =>
-      buildStickyColumnOffsets(
-        frozenColumnKeys,
-        ALL_INDIVIDUAL_COLUMNS,
-        selectionEnabled ? SEARCH_TABLE_SELECT_COLUMN_WIDTH : 0
-      ),
-    [frozenColumnKeys, selectionEnabled]
+    () => buildStickyColumnOffsets(frozenColumnKeys, ALL_INDIVIDUAL_COLUMNS),
+    [frozenColumnKeys]
   );
 
   useEffect(() => {
@@ -248,27 +184,25 @@ export const IndividualSection = ({
     onColumnsCountChange?.(selectedColumns.length);
   }, [selectedColumns.length, onColumnsCountChange]);
 
-  const sortState = useMemo(() => {
-    const uiKey = getIndividualUiColumnForServerSort(currentFilters?.sort_by);
-    if (!uiKey) return null;
-    return {
-      key: uiKey,
-      dir: (currentFilters?.sort_order ?? "asc") as IndividualSortOrder,
-    };
-  }, [currentFilters?.sort_by, currentFilters?.sort_order]);
-
   useEffect(() => {
-    if (!sortState) return;
-    if (selectedColumnKeys.includes(sortState.key)) return;
+    if (sortState && !selectedColumnKeys.includes(sortState.key)) {
+      setSortState(null);
+    }
+  }, [selectedColumnKeys, sortState]);
 
-    const filters = currentFilters ?? createDefaultIndividualFilters();
-    void fetchIndividuals(1, {
-      ...filters,
-      page: 1,
-      sort_by: "name",
-      sort_order: "asc",
-    });
-  }, [selectedColumnKeys, sortState, currentFilters, fetchIndividuals]);
+  const sortedIndividuals = useMemo(() => {
+    if (!sortState || !getIndividualColumnSortKind(sortState.key)) {
+      return individuals;
+    }
+    const { key, dir } = sortState;
+    return [...individuals].sort((a, b) =>
+      compareIndividualSortValues(
+        getIndividualSortValueForColumn(a, key),
+        getIndividualSortValueForColumn(b, key),
+        dir
+      )
+    );
+  }, [individuals, sortState]);
 
   const handleIndividualClick = useCallback(
     (id: number) => {
@@ -277,65 +211,21 @@ export const IndividualSection = ({
     [router]
   );
 
-  const pageTotal =
-    pagination.pageTotal ||
-    (pagination.nextPage != null
-      ? Math.max(pagination.nextPage, pagination.curPage + 1)
-      : 1);
-
   const handlePageChange = useCallback(
     (page: number) => {
-      if (loading || page < 1 || page > pageTotal || page === pagination.curPage) {
-        return;
-      }
-
       const filters = currentFilters ?? createDefaultIndividualFilters();
       void fetchIndividuals(page, { ...filters, page });
-    },
-    [currentFilters, fetchIndividuals, loading, pageTotal, pagination.curPage]
-  );
-
-  const handleSortColumn = useCallback(
-    (columnKey: string) => {
-      const apiSortBy = getIndividualServerSortColumn(columnKey);
-      if (!apiSortBy) return;
-
-      const filters = currentFilters ?? createDefaultIndividualFilters();
-      const currentSortBy = filters.sort_by ?? "name";
-      const currentSortOrder = filters.sort_order ?? "asc";
-      const nextSortOrder: IndividualSortOrder =
-        currentSortBy === apiSortBy
-          ? currentSortOrder === "asc"
-            ? "desc"
-            : "asc"
-          : "asc";
-
-      void fetchIndividuals(1, {
-        ...filters,
-        page: 1,
-        sort_by: apiSortBy,
-        sort_order: nextSortOrder,
-      });
     },
     [currentFilters, fetchIndividuals]
   );
 
-  const handleReorderTableColumns = useCallback(
-    (dragKey: string, dropKey: string) => {
-      setSelectedColumnKeys((current) =>
-        enforceIndividualColumnKeyOrder(
-          reorderIndividualColumnKeys(current, dragKey, dropKey, filterPinnedColumnKeys),
-          filterPinnedColumnKeys
-        )
-      );
-    },
-    [filterPinnedColumnKeys]
-  );
-
-  const isFrozenColumnKey = useCallback(
-    (columnKey: string) => frozenColumnKeys.includes(columnKey),
-    [frozenColumnKeys]
-  );
+  const handleSortColumn = useCallback((columnKey: string) => {
+    if (!getIndividualColumnSortKind(columnKey)) return;
+    setSortState((current) => {
+      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
+      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
+    });
+  }, []);
 
   const columnsModalInitial = useMemo(
     () => individualColumnKeysToVisibility(selectedColumnKeys),
@@ -355,13 +245,12 @@ export const IndividualSection = ({
       case "name": {
         const id = individual.id;
         const name = individual.advisor_individuals || "-";
-        const location = formatIndividualLocation(individual._locations_individual);
-        const subtitle = location !== "-" ? location : undefined;
+        if (!id) return name;
         return (
-          <SearchEntityIdentityCell
-            name={name}
-            subtitle={subtitle}
-            href={id ? `/individual/${id}` : undefined}
+          <a
+            href={`/individual/${id}`}
+            className="company-name"
+            style={{ textDecoration: "none", color: "#3b82f6", fontWeight: 500 }}
             onClick={(e) => {
               if (
                 e.defaultPrevented ||
@@ -374,9 +263,11 @@ export const IndividualSection = ({
                 return;
               }
               e.preventDefault();
-              handleIndividualClick(id!);
+              handleIndividualClick(id);
             }}
-          />
+          >
+            {name}
+          </a>
         );
       }
       case "current_company": {
@@ -409,22 +300,9 @@ export const IndividualSection = ({
         );
       }
       case "current_roles":
-        return (
-          <SearchEntityMultiValueCell
-            items={namesToMultiValueItems(
-              individual.current_roles?.map((role) => role.job_title) ?? [],
-              "role"
-            )}
-          />
-        );
+        return formatIndividualRoles(individual);
       case "location":
-        return (
-          <SearchEntityLongText
-            text={formatIndividualLocation(individual._locations_individual)}
-          />
-        );
-      case "advisor_deal_count":
-        return formatNumber(individual.advisor_deal_count);
+        return formatIndividualLocation(individual._locations_individual);
       case "follow":
         if (!individual.id) return null;
         return (
@@ -445,77 +323,105 @@ export const IndividualSection = ({
     }
   };
 
-  const handleListExport = useCallback(
-    async (request: ListExportRequest) => {
-      if (exportInFlightRef.current) return;
+  const generatePaginationButtons = () => {
+    const buttons: React.ReactNode[] = [];
+    const maxVisible = 7;
+    const totalPages = pagination.pageTotal || 0;
+    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
+    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
 
-      exportInFlightRef.current = true;
-      setExporting(true);
+    if (totalPages <= 1) return buttons;
 
-      try {
-        const limitCheck = await checkExportLimit();
-        if (!limitCheck.canExport) return;
+    buttons.push(
+      <button
+        key="previous"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(prevPage)}
+        disabled={pagination.curPage <= 1}
+      >
+        Previous
+      </button>
+    );
 
-        const { mode, scope } = request;
-        const exportTotalCount = pagination.itemsTotal || 0;
-        if (scope === "full_list" && exportTotalCount <= 0) {
-          console.error("Individuals export aborted: match count is not available yet.");
-          return;
-        }
-
-        const selectedIdsForExport =
-          scope === "selected"
-            ? request.selectedIds?.length
-              ? request.selectedIds
-              : selectedIdList
-            : undefined;
-
-        await exportIndividualsList(
-          {
-            mode,
-            scope,
-            selectedIds: selectedIdsForExport,
-          },
-          currentFilters ?? createDefaultIndividualFilters(),
-          selectedColumnKeys,
-          scope === "full_list" ? exportTotalCount : undefined,
-          limitCheck.isAdmin
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
         );
-      } catch (exportError) {
-        console.error("Individual export failed:", exportError);
-      } finally {
-        exportInFlightRef.current = false;
-        setExporting(false);
       }
-    },
-    [
-      currentFilters,
-      pagination.itemsTotal,
-      selectedColumnKeys,
-      selectedIdList,
-    ]
-  );
+    } else {
+      buttons.push(
+        <button
+          key={1}
+          type="button"
+          className={`pagination-button ${pagination.curPage === 1 ? "active" : ""}`}
+          onClick={() => handlePageChange(1)}
+        >
+          1
+        </button>
+      );
+      if (pagination.curPage > 3) {
+        buttons.push(
+          <span key="ellipsis1" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+      const start = Math.max(2, pagination.curPage - 1);
+      const end = Math.min(totalPages - 1, pagination.curPage + 1);
+      for (let i = start; i <= end; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
+      if (pagination.curPage < totalPages - 2) {
+        buttons.push(
+          <span key="ellipsis2" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+      buttons.push(
+        <button
+          key={totalPages}
+          type="button"
+          className={`pagination-button ${totalPages === pagination.curPage ? "active" : ""}`}
+          onClick={() => handlePageChange(totalPages)}
+        >
+          {totalPages}
+        </button>
+      );
+    }
 
-  const handleSelectedListExport = useCallback(
-    (mode: ListExportMode) =>
-      handleListExport({ mode, scope: "selected" }),
-    [handleListExport]
-  );
+    buttons.push(
+      <button
+        key="next"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(nextPage)}
+        disabled={pagination.curPage >= totalPages}
+      >
+        Next
+      </button>
+    );
 
-  const handleExportRequest = useCallback(
-    async (request: ListExportRequest) => {
-      await handleListExport(request);
-    },
-    [handleListExport]
-  );
-
-  useEffect(() => {
-    onExportingChange?.(exporting);
-  }, [exporting, onExportingChange]);
-
-  useEffect(() => {
-    onRegisterExportCSV?.(handleExportRequest);
-  }, [handleExportRequest, onRegisterExportCSV]);
+    return buttons;
+  };
 
   const columnsModalLayer =
     showColumnsModal &&
@@ -585,68 +491,32 @@ export const IndividualSection = ({
 
   return (
     <div className="company-section">
-      {selectionEnabled && selectedEntityIds!.size > 0 && onClearSelection && (
-        <BulkPortfolioActionToolbar
-          entityType="individual"
-          entityIds={selectedIdList}
-          onClearSelection={onClearSelection}
-          exporting={exporting}
-          onExport={handleSelectedListExport}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          padding: "12px 28px 0",
+        }}
+      >
+        <RequestDataResearchButton
+          label="Request Individual Profile"
+          context="individual"
+          sourcePage="Individuals Search"
         />
-      )}
-      <div className="company-cards">
-        {individuals.length === 0 ? (
-          <div className="loading">No individuals found.</div>
-        ) : (
-          individuals.map((individual, index) => (
-            <div className="company-card" key={`card-${individual.id ?? index}`}>
-              <div className="company-card-header">
-                {renderIndividualCell("name", individual)}
-              </div>
-              <div className="company-card-content">
-                {selectedColumns
-                  .filter((column) => column.key !== "name")
-                  .map((column) => (
-                    <div className="company-card-row" key={column.key}>
-                      <span className="company-card-label">{column.label}</span>
-                      <span className="company-card-value">
-                        {renderIndividualCell(column.key, individual)}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ))
-        )}
       </div>
 
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>
             <tr>
-              {selectionEnabled && onTogglePageSelection && (
-                <SearchTableSelectHeader
-                  pageIds={pageEntityIds}
-                  pageSelectionState={pageSelectionState}
-                  onTogglePageSelection={onTogglePageSelection}
-                  ariaLabel="Select all individuals on this page"
-                />
-              )}
               {selectedColumns.map((column) => {
                 const sortKind = getIndividualColumnSortKind(column.key);
                 const isActive = sortState?.key === column.key;
-                const isDraggable = !isFrozenColumnKey(column.key);
-                const isDragging = headerDragKey === column.key;
-                const isDragOver =
-                  headerDragOverKey === column.key && headerDragKey !== column.key;
                 return (
                   <th
                     key={column.key}
                     className={getSearchTableColumnClassName(column, frozenColumnKeys, [
                       sortKind ? "company-table-th-sortable" : undefined,
-                      isDraggable ? "company-table-th-draggable" : undefined,
-                      isDragging ? "company-table-th-dragging" : undefined,
-                      isDragOver ? "company-table-th-drag-over" : undefined,
                     ])}
                     style={{
                       minWidth: column.minWidth,
@@ -657,49 +527,7 @@ export const IndividualSection = ({
                         true
                       ),
                     }}
-                    draggable={isDraggable}
-                    onDragStart={
-                      isDraggable
-                        ? (event) => {
-                            headerDidDragRef.current = false;
-                            event.dataTransfer.effectAllowed = "move";
-                            event.dataTransfer.setData("text/plain", column.key);
-                            setHeaderDragKey(column.key);
-                            setHeaderDragOverKey(null);
-                          }
-                        : undefined
-                    }
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "move";
-                      setHeaderDragOverKey(column.key);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      const dragKey =
-                        event.dataTransfer.getData("text/plain") || headerDragKey;
-                      if (dragKey) {
-                        headerDidDragRef.current = true;
-                        handleReorderTableColumns(dragKey, column.key);
-                      }
-                      setHeaderDragKey(null);
-                      setHeaderDragOverKey(null);
-                    }}
-                    onDragEnd={() => {
-                      setHeaderDragKey(null);
-                      setHeaderDragOverKey(null);
-                    }}
-                    onClick={
-                      sortKind
-                        ? () => {
-                            if (headerDidDragRef.current) {
-                              headerDidDragRef.current = false;
-                              return;
-                            }
-                            handleSortColumn(column.key);
-                          }
-                        : undefined
-                    }
+                    onClick={sortKind ? () => handleSortColumn(column.key) : undefined}
                     aria-sort={
                       sortKind
                         ? isActive
@@ -734,43 +562,13 @@ export const IndividualSection = ({
             </tr>
           </thead>
           <tbody>
-            {individuals.length === 0 ? (
+            {sortedIndividuals.length === 0 ? (
               <tr>
-                <td colSpan={selectedColumns.length + (selectionEnabled ? 1 : 0)}>
-                  No individuals found.
-                </td>
+                <td colSpan={selectedColumns.length}>No individuals found.</td>
               </tr>
             ) : (
-              individuals.map((individual, index) => {
-                const entityId = individual.id;
-                const isRowSelected =
-                  typeof entityId === "number" && selectedEntityIds?.has(entityId);
-                return (
-                <tr
-                  key={`${individual.id ?? index}`}
-                  className={isRowSelected ? "company-table-row-selected" : undefined}
-                >
-                  {selectionEnabled &&
-                    onToggleEntitySelection &&
-                    typeof entityId === "number" &&
-                    entityId > 0 && (
-                      <SearchTableSelectCell
-                        entityId={entityId}
-                        selected={Boolean(isRowSelected)}
-                        onToggle={onToggleEntitySelection}
-                        ariaLabel={`Select ${individual.advisor_individuals || "individual"}`}
-                      />
-                    )}
-                  {selectionEnabled &&
-                    (typeof entityId !== "number" || entityId <= 0) && (
-                      <td
-                        className="company-table-select-cell"
-                        style={{
-                          minWidth: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
-                          width: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
-                        }}
-                      />
-                    )}
+              sortedIndividuals.map((individual, index) => (
+                <tr key={`${individual.id ?? index}`}>
                   {selectedColumns.map((column) => (
                     <td
                       key={`${column.key}-${index}`}
@@ -780,9 +578,7 @@ export const IndividualSection = ({
                         ...getStickyColumnStyle(
                           column.key,
                           stickyColumnOffsets,
-                          column.minWidth,
-                          false,
-                          Boolean(isRowSelected)
+                          column.minWidth
                         ),
                       }}
                     >
@@ -790,26 +586,15 @@ export const IndividualSection = ({
                     </td>
                   ))}
                 </tr>
-              );
-              })
+              ))
             )}
           </tbody>
         </table>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-        <CompactPagination
-          curPage={pagination.curPage}
-          pageTotal={pageTotal}
-          onPageChange={handlePageChange}
-          disabled={loading}
-        />
-      </div>
+      <div className="pagination">{generatePaginationButtons()}</div>
       {columnsModalLayer}
       <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
     </div>
   );
 };
-
-
-//

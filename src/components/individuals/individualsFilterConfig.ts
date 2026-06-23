@@ -50,64 +50,6 @@ export const EMPTY_INDIVIDUALS_SUMMARY_COUNTS: IndividualsSummaryCounts = {
   founders: 0,
 };
 
-export type IndividualRoleTab =
-  | "all"
-  | "ceos"
-  | "current_roles"
-  | "chair"
-  | "past_roles"
-  | "founder";
-
-export const INDIVIDUAL_ROLE_TAB_ORDER: Exclude<IndividualRoleTab, "all">[] = [
-  "ceos",
-  "current_roles",
-  "chair",
-  "past_roles",
-  "founder",
-];
-
-export const INDIVIDUAL_ROLE_TAB_CONFIG: Record<
-  Exclude<IndividualRoleTab, "all">,
-  {
-    label: string;
-    dot: string;
-    countKey: keyof IndividualsSummaryCounts;
-    jobTitleIds?: readonly number[];
-    statuses?: readonly string[];
-  }
-> = {
-  ceos: {
-    label: "CEOs",
-    dot: "#3b82f6",
-    countKey: "ceos",
-    jobTitleIds: [4, 56],
-  },
-  current_roles: {
-    label: "Current roles",
-    dot: "#10b981",
-    countKey: "currentRoles",
-    statuses: ["Current"],
-  },
-  chair: {
-    label: "Chair",
-    dot: "#8b5cf6",
-    countKey: "chairs",
-    jobTitleIds: [5, 6, 18, 63],
-  },
-  past_roles: {
-    label: "Past roles",
-    dot: "#64748b",
-    countKey: "pastRoles",
-    statuses: ["Past"],
-  },
-  founder: {
-    label: "Founder",
-    dot: "#f59e0b",
-    countKey: "founders",
-    jobTitleIds: [9, 21],
-  },
-};
-
 export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "location", name: "Location" },
   { id: "sectors", name: "Sector" },
@@ -175,38 +117,5 @@ export function mapResponseToIndividualsSummaryCounts(
     ceos: data.ceos || 0,
     chairs: data.chairs || 0,
     founders: data.founders || 0,
-  };
-}
-
-function readCount(raw: Record<string, unknown>, ...keys: string[]): number {
-  for (const key of keys) {
-    const value = raw[key];
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string" && value.trim()) {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) return parsed;
-    }
-  }
-  return 0;
-}
-
-/** Map get_individuals_counts API response to tab summary counts. */
-export function mapIndividualsCountsResponse(
-  raw: Record<string, unknown> | null | undefined
-): IndividualsSummaryCounts {
-  if (!raw) return EMPTY_INDIVIDUALS_SUMMARY_COUNTS;
-  return {
-    totalCount: readCount(
-      raw,
-      "totalIndividuals",
-      "total_individuals",
-      "totalCount",
-      "total_count"
-    ),
-    currentRoles: readCount(raw, "currentRoles", "current_roles"),
-    pastRoles: readCount(raw, "pastRoles", "past_roles"),
-    ceos: readCount(raw, "ceos"),
-    chairs: readCount(raw, "chairs"),
-    founders: readCount(raw, "founders"),
   };
 }

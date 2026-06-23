@@ -2,6 +2,7 @@ export type AdvisorColumnType =
   | "text"
   | "paragraph"
   | "number"
+  | "logo"
   | "follow";
 
 export interface AdvisorColumnMeta {
@@ -25,19 +26,20 @@ export const ADVISORS_COLUMN_CATEGORIES: AdvisorColumnCategory[] = [
     name: "Identity",
     columns: [
       {
-        id: "name",
-        columnKey: "name",
-        label: "Name",
-        type: "text",
+        id: "logo",
+        columnKey: "logo",
+        label: "Logo",
+        type: "logo",
         locked: true,
         defaultVisible: true,
       },
       {
-        id: "website",
-        columnKey: "website",
-        label: "Website",
+        id: "name",
+        columnKey: "name",
+        label: "Advisor",
         type: "text",
-        defaultVisible: false,
+        locked: true,
+        defaultVisible: true,
       },
     ],
   },
@@ -55,8 +57,8 @@ export const ADVISORS_COLUMN_CATEGORIES: AdvisorColumnCategory[] = [
     ],
   },
   {
-    id: "overview",
-    name: "Overview",
+    id: "default",
+    name: "Default",
     columns: [
       {
         id: "description",
@@ -106,6 +108,7 @@ export const CANONICAL_ADVISOR_COLUMN_KEYS = ALL_ADVISORS_COLUMN_META.map(
 );
 
 export const PROD_DEFAULT_ADVISOR_COLUMN_KEYS = [
+  "logo",
   "name",
   "description",
   "events_advised",
@@ -114,7 +117,7 @@ export const PROD_DEFAULT_ADVISOR_COLUMN_KEYS = [
   "country",
 ] as const;
 
-export const FROZEN_ADVISOR_COLUMN_KEYS = ["name"] as const;
+export const FROZEN_ADVISOR_COLUMN_KEYS = ["logo", "name"] as const;
 
 export const DEFAULT_VISIBLE_ADVISOR_COLUMN_KEYS: string[] = [
   ...PROD_DEFAULT_ADVISOR_COLUMN_KEYS,
@@ -138,7 +141,6 @@ export function enforceAdvisorColumnKeyOrder(
   keys: string[],
   filterPinnedKeys: string[] = []
 ): string[] {
-  const normalizedKeys = keys.filter((key) => key !== "logo");
   const frozenKeys = getEffectiveFrozenAdvisorColumnKeys(filterPinnedKeys);
   const frozenSet = new Set(frozenKeys);
   const seen = new Set<string>();
@@ -151,7 +153,7 @@ export function enforceAdvisorColumnKeyOrder(
     }
   }
 
-  for (const key of normalizedKeys) {
+  for (const key of keys) {
     if (
       CANONICAL_ADVISOR_COLUMN_KEYS.includes(key) &&
       !seen.has(key) &&
@@ -203,37 +205,3 @@ export const advisorVisibilityToColumnKeys = (
     ordered.length > 0 ? ordered : [...PROD_DEFAULT_ADVISOR_COLUMN_KEYS];
   return enforceAdvisorColumnKeyOrder(base);
 };
-
-export function reorderAdvisorColumnKeys(
-  keys: string[],
-  dragKey: string,
-  dropKey: string,
-  filterPinnedKeys: string[] = []
-): string[] {
-  const frozenKeys = getEffectiveFrozenAdvisorColumnKeys(filterPinnedKeys);
-  const frozenSet = new Set(frozenKeys);
-  const ordered = enforceAdvisorColumnKeyOrder(keys, filterPinnedKeys);
-  if (dragKey === dropKey) return ordered;
-  if (frozenSet.has(dragKey)) return ordered;
-
-  const fromIndex = ordered.indexOf(dragKey);
-  if (fromIndex < 0) return ordered;
-
-  let toIndex = ordered.indexOf(dropKey);
-  if (toIndex < 0) return ordered;
-
-  if (frozenSet.has(dropKey)) {
-    toIndex = frozenKeys.reduce((max, frozenKey) => {
-      const idx = ordered.indexOf(frozenKey);
-      return idx >= 0 ? Math.max(max, idx) : max;
-    }, -1);
-    if (toIndex < 0) toIndex = 0;
-    else toIndex += 1;
-  }
-
-  const next = [...ordered];
-  const [item] = next.splice(fromIndex, 1);
-  const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
-  next.splice(insertAt, 0, item);
-  return enforceAdvisorColumnKeyOrder(next, filterPinnedKeys);
-}

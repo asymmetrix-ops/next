@@ -8,10 +8,7 @@ import React, {
   useRef,
 } from "react";
 import { locationsService } from "@/lib/locationsService";
-import {
-  buildAdvisorsCountsSearchPayload,
-  buildAdvisorsSearchPayload,
-} from "@/lib/advisorsFilterPayload";
+import { buildAdvisorsSearchPayload } from "@/lib/advisorsFilterPayload";
 import type { AdvisorsSearchFilters } from "@/app/advisors/actions";
 import {
   CompaniesFilterBar,
@@ -21,9 +18,6 @@ import {
   FILTER_CATEGORIES,
   buildAdvisorsFilterDefs,
   EMPTY_ADVISORS_ROLE_COUNTS,
-  ADVISOR_ROLE_TAB_CONFIG,
-  ADVISOR_ROLE_TAB_ORDER,
-  type AdvisorRoleTab,
   type AdvisorsRoleCounts,
   type Country,
   type Province,
@@ -33,39 +27,17 @@ import {
 } from "@/components/advisors/advisorsFilterConfig";
 import { CANONICAL_ADVISOR_COLUMN_KEYS } from "@/components/advisors/advisorsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
-import { SearchExportMenu } from "@/components/search/SearchExportMenu";
-import type { ListExportMode } from "@/lib/listExport/types";
-import RequestDataResearchButton from "@/components/RequestDataResearchButton";
-import { SEARCH_HEADER_ACTION_BUTTON_STYLE } from "@/components/search/searchHeaderActions";
-import {
-  SEARCH_DASHBOARD_ACTIONS,
-  SEARCH_DASHBOARD_EYEBROW,
-  SEARCH_DASHBOARD_FILTER_INNER,
-  SEARCH_DASHBOARD_FILTER_SHELL,
-  SEARCH_DASHBOARD_HEADER_ROW,
-  SEARCH_DASHBOARD_INNER,
-  SEARCH_DASHBOARD_MATCH_COUNT,
-  SEARCH_DASHBOARD_SHELL,
-  SEARCH_DASHBOARD_TITLE,
-  SearchListTabs,
-} from "@/components/search/searchDashboardLayout";
 
 export type AdvisorDashboardProps = {
   onSearch?: (
     listFilters: AdvisorsSearchFilters,
     countsFilters: AdvisorsSearchFilters,
-    portfolioOnly?: boolean,
-    refreshCounts?: boolean
+    portfolioOnly?: boolean
   ) => void;
-  onFilterColumnsChange?: (payload: {
-    filterIds: string[];
-    roleTabActive: boolean;
-  }) => void;
+  onFilterColumnsChange?: (payload: { filterIds: string[] }) => void;
   initialSearch?: string;
   roleCounts?: AdvisorsRoleCounts;
   onColumnsClick?: () => void;
-  onExport?: (mode: ListExportMode) => void | Promise<void>;
-  exporting?: boolean;
   columnsActive?: boolean;
   columnsCount?: number;
 };
@@ -76,8 +48,6 @@ export const AdvisorDashboard = ({
   initialSearch,
   roleCounts = EMPTY_ADVISORS_ROLE_COUNTS,
   onColumnsClick,
-  onExport,
-  exporting = false,
   columnsActive = false,
   columnsCount = 0,
 }: AdvisorDashboardProps) => {
@@ -97,8 +67,6 @@ export const AdvisorDashboard = ({
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
-  const [activeAdvisorRoleTab, setActiveAdvisorRoleTab] =
-    useState<AdvisorRoleTab>("all");
 
   const selectedCountries = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "country");
@@ -194,26 +162,12 @@ export const AdvisorDashboard = ({
   useEffect(() => {
     onFilterColumnsChangeRef.current?.({
       filterIds: filterBarState.filters.map((filter) => filter.id),
-      roleTabActive: activeAdvisorRoleTab !== "all",
     });
-  }, [filterBarState.filters, activeAdvisorRoleTab]);
+  }, [filterBarState.filters]);
 
-  const buildSearchFilters = useCallback((): AdvisorsSearchFilters => {
-    const tabConfig =
-      activeAdvisorRoleTab !== "all"
-        ? ADVISOR_ROLE_TAB_CONFIG[activeAdvisorRoleTab]
-        : null;
-    return buildAdvisorsSearchPayload({
-      state: filterBarState,
-      primarySectors,
-      secondarySectors,
-      advisorRoleId: tabConfig?.roleId,
-    });
-  }, [filterBarState, primarySectors, secondarySectors, activeAdvisorRoleTab]);
-
-  const buildCountsSearchFilters = useCallback(
+  const buildSearchFilters = useCallback(
     (): AdvisorsSearchFilters =>
-      buildAdvisorsCountsSearchPayload({
+      buildAdvisorsSearchPayload({
         state: filterBarState,
         primarySectors,
         secondarySectors,
@@ -231,8 +185,6 @@ export const AdvisorDashboard = ({
   const skipInitialSearchRef = useRef(true);
   const buildSearchFiltersRef = useRef(buildSearchFilters);
   buildSearchFiltersRef.current = buildSearchFilters;
-  const buildCountsSearchFiltersRef = useRef(buildCountsSearchFilters);
-  buildCountsSearchFiltersRef.current = buildCountsSearchFilters;
   const onSearchRef = useRef(onSearch);
   onSearchRef.current = onSearch;
 
@@ -252,11 +204,10 @@ export const AdvisorDashboard = ({
     }
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      const listFilters = buildSearchFiltersRef.current();
-      const countsFilters = buildCountsSearchFiltersRef.current();
+      const filters = buildSearchFiltersRef.current();
       onSearchRef.current?.(
-        listFilters,
-        countsFilters,
+        filters,
+        filters,
         isPortfolioFilterActiveRef.current
       );
     }, 350);
@@ -265,86 +216,100 @@ export const AdvisorDashboard = ({
     };
   }, [filterSearchKey]);
 
-  const skipInitialRoleTabRef = useRef(true);
-  useEffect(() => {
-    if (skipInitialRoleTabRef.current) {
-      skipInitialRoleTabRef.current = false;
-      return;
-    }
-    onSearchRef.current?.(
-      buildSearchFiltersRef.current(),
-      buildCountsSearchFiltersRef.current(),
-      isPortfolioFilterActiveRef.current,
-      false
-    );
-  }, [activeAdvisorRoleTab]);
+  const matchCount = roleCounts.totalCount;
 
-  const roleTabs: {
-    id: AdvisorRoleTab;
-    label: string;
-    count: number;
-    dot: string;
-  }[] = [
-    { id: "all", label: "All", count: roleCounts.totalCount, dot: "#64748b" },
-    ...ADVISOR_ROLE_TAB_ORDER.map((id) => ({
-      id,
-      label: ADVISOR_ROLE_TAB_CONFIG[id].label,
-      count: roleCounts[ADVISOR_ROLE_TAB_CONFIG[id].countKey],
-      dot: ADVISOR_ROLE_TAB_CONFIG[id].dot,
-    })),
+  const roleStats = [
+    { label: "Financial Advisors", value: roleCounts.financialAdvisors },
+    { label: "Commercial Due Diligence", value: roleCounts.commercialDueDiligence },
+    { label: "Vendor Due Diligence", value: roleCounts.vendorDueDiligence },
+    { label: "Management Team Advisory", value: roleCounts.managementTeamAdvisory },
+    { label: "NOMAD", value: roleCounts.nomad },
   ];
 
-  const matchCount =
-    activeAdvisorRoleTab === "all"
-      ? roleCounts.totalCount
-      : roleTabs.find((tab) => tab.id === activeAdvisorRoleTab)?.count ??
-        roleCounts.totalCount;
-
   return (
-    <div style={SEARCH_DASHBOARD_SHELL}>
-      <div className="search-dashboard-inner" style={SEARCH_DASHBOARD_INNER}>
-        <div className="search-dashboard-header-row" style={SEARCH_DASHBOARD_HEADER_ROW}>
+    <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+      <div style={{ width: "100%", padding: "20px 28px 0" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 14,
+          }}
+        >
           <div>
-            <div style={SEARCH_DASHBOARD_EYEBROW}>Advisors</div>
-            <h1 style={SEARCH_DASHBOARD_TITLE}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+                color: "#94a3b8",
+                marginBottom: 5,
+              }}
+            >
+              Advisors
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 26,
+                fontWeight: 700,
+                color: "#0f172a",
+                display: "flex",
+                alignItems: "baseline",
+                gap: 10,
+                lineHeight: 1.2,
+              }}
+            >
               Advisor search
-              <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
+              <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
                 {matchCount.toLocaleString()} matches
               </span>
             </h1>
           </div>
 
-          <div className="search-dashboard-actions" style={SEARCH_DASHBOARD_ACTIONS}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6 }}>
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
               total={CANONICAL_ADVISOR_COLUMN_KEYS.length}
               onClick={onColumnsClick}
             />
-            <RequestDataResearchButton
-              label="Request Advisor Profile"
-              context="advisor"
-              sourcePage="Advisors Search"
-              className="inline-flex items-center justify-center"
-              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
-            />
-            <SearchExportMenu
-              onExport={(mode) => onExport?.(mode)}
-              exporting={exporting}
-              disabled={!onExport}
-            />
           </div>
         </div>
 
-        <SearchListTabs
-          tabs={roleTabs}
-          activeTabId={activeAdvisorRoleTab}
-          onTabClick={(tabId) => setActiveAdvisorRoleTab(tabId as AdvisorRoleTab)}
-        />
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "10px 18px",
+            paddingBottom: 14,
+            fontSize: 12,
+            color: "#64748b",
+          }}
+        >
+          {roleStats.map((stat) => (
+            <span key={stat.label}>
+              <span style={{ color: "#94a3b8" }}>{stat.label}: </span>
+              <span style={{ fontWeight: 600, color: "#334155" }}>
+                {stat.value.toLocaleString()}
+              </span>
+            </span>
+          ))}
+        </div>
       </div>
 
-      <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
-        <div className="search-dashboard-filter-inner" style={SEARCH_DASHBOARD_FILTER_INNER}>
+      <div
+        style={{
+          background: "#fff",
+          borderTop: "1px solid #e2e8f0",
+          borderBottom: "1px solid #e2e8f0",
+        }}
+      >
+        <div style={{ width: "100%", padding: "10px 28px 12px" }}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={FILTER_CATEGORIES}

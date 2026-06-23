@@ -8,25 +8,15 @@ import {
   type AdvisorsSearchFilters,
 } from "@/lib/advisorsFilterPayload";
 import { mapCountsToAdvisorsRoleCounts } from "@/components/advisors/advisorsFilterConfig";
-import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
-import { readLogoFromRecord } from "@/lib/companyLogo";
 
 export type { AdvisorsSearchFilters };
-
-export interface AdvisorSectorItem {
-  id: number;
-  name: string;
-}
 
 export interface AdvisorListItem {
   id: number;
   name: string;
-  url?: string;
-  website?: string;
   description?: string;
   events_advised?: number;
-  sectors?: AdvisorSectorItem[];
-  sectors_count?: number;
+  sectors?: string;
   linkedin_members?: number;
   country?: string;
   linkedin_logo?: string;
@@ -45,12 +35,7 @@ export interface AdvisorsListResponse {
 }
 
 const ADVISORS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
-
-function normalizeAdvisorListItem(item: AdvisorListItem): AdvisorListItem {
-  const logo = readLogoFromRecord(item, getAdvisorFieldAliasesForColumn("logo"));
-  return logo ? { ...item, linkedin_logo: logo } : item;
-}
+  "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop";
 
 function normalizeAdvisorsListResponse(
   raw: Record<string, unknown>,
@@ -89,7 +74,7 @@ function normalizeAdvisorsListResponse(
 
   const listRoot =
     r.items ?? r.result1?.items ?? r.Advisors_companies?.items ?? [];
-  const items = (Array.isArray(listRoot) ? listRoot : []).map(normalizeAdvisorListItem);
+  const items = Array.isArray(listRoot) ? listRoot : [];
   const itemsTotal =
     r.itemsTotal ??
     r.result1?.itemsTotal ??
