@@ -30,6 +30,7 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   data_collection_method: "data_collection_method",
   revenue_model: "revenue_model",
   transaction_status: "transaction_status",
+  created_at: "created_at",
   revenue_m: "revenue_m",
   ebitda_m: "ebitda_m",
   enterprise_value: "ev",

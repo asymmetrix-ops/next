@@ -8,7 +8,10 @@ import React, {
   useRef,
 } from "react";
 import { locationsService } from "@/lib/locationsService";
-import { buildCompaniesSearchPayload } from "@/lib/companiesFilterPayload";
+import {
+  buildCompaniesCountsSearchPayload,
+  buildCompaniesSearchPayload,
+} from "@/lib/companiesFilterPayload";
 import { fetchUserPortfolioRecord } from "@/lib/portfolioFollow";
 import {
   CompaniesFilterBar,
@@ -207,12 +210,11 @@ export const CompanyDashboard = ({
 
   // ── Auto-search on filter state or ownership tab changes ──────────────
   const buildGlobalSearchFilters = useCallback((): Filters => {
-    return buildCompaniesSearchPayload({
+    return buildCompaniesCountsSearchPayload({
       state: filterBarState,
       primarySectors,
       secondarySectors,
       ownershipTypes,
-      applyOwnershipTabFilter: false,
       scopedPrimarySectorIds,
       scopedSecondarySectorIds,
       portfolioCompanyIds,
