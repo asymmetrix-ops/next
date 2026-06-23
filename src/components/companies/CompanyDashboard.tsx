@@ -32,6 +32,7 @@ import {
   type OwnershipType,
   type OwnershipTab,
 } from "@/components/companies/companiesFilterConfig";
+import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
 
 export type CompanyDashboardProps = {
   onSearch?: (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => void;
@@ -445,27 +446,12 @@ export const CompanyDashboard = ({
               justifyContent: hidePageHeader && embedded ? "flex-end" : undefined,
             }}
           >
-            <button
+            <SearchColumnsButton
+              active={columnsActive}
+              count={columnsCount}
+              total={CANONICAL_COMPANY_COLUMN_KEYS.length}
               onClick={onColumnsClick}
-              aria-pressed={columnsActive}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                height: 36, padding: "0 14px",
-                background: columnsActive ? "#0f172a" : "#fff",
-                border: columnsActive ? "1px solid #0f172a" : "1px solid #e2e8f0",
-                borderRadius: 8,
-                fontSize: 13, fontWeight: 500,
-                color: columnsActive ? "#fff" : "#374151",
-                cursor: "pointer",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-                transition: "background 150ms, color 150ms, border-color 150ms",
-              }}
-            >
-              <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
-                <path d="M0 1h14M0 5h10M0 9h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              Columns {columnsCount}/{CANONICAL_COMPANY_COLUMN_KEYS.length}
-            </button>
+            />
             <button
               onClick={onExportCSVClick}
               style={{

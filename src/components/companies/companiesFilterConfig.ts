@@ -98,10 +98,6 @@ export function buildCompaniesFilterDefs({
         "Reported in Market",
       ],
     },
-    is_new: {
-      label: "New",
-      fullLabel: "Newly added",
-    },
     year_founded: {
       min: 1800,
       max: 2030,

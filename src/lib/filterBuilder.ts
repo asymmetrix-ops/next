@@ -19,7 +19,6 @@ export type FilterType =
   | "linkedin_growth_min"
   | "linkedin_growth_max"
   | "portfolio_companies"
-  | "is_new"
   | "primary_sector_ids"
   | "secondary_sector_ids"
   | "business_focus_exclude"
@@ -197,9 +196,6 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
         if (ids.length === 0) return `1 = 0`;
         return `nc.id = ANY(ARRAY[${ids.join(",")}]::bigint[])`;
       }
-
-      case "is_new":
-        return `(nc.created_at / 1000) > EXTRACT(EPOCH FROM NOW() - INTERVAL '14 days')::bigint`;
 
       case "primary_sector_ids": {
         const ids = Array.isArray(val) ? (val as number[]) : [];

@@ -163,6 +163,9 @@ export interface CompaniesFilterBarProps {
     updater: FilterBarState | ((prev: FilterBarState) => FilterBarState)
   ) => void;
   totalCount?: number;
+  entityLabel?: string;
+  portfolioOnlyChipLabel?: string;
+  portfolioBooleanDescription?: string;
 }
 
 // ── CSS variables scoped to the component ─────────────────────────────────
@@ -330,7 +333,11 @@ function formatRangeValue(
   return "";
 }
 
-function summarize(def: FilterDef, value: unknown): string {
+function summarize(
+  def: FilterDef,
+  value: unknown,
+  portfolioOnlyChipLabel = "My Portfolio only"
+): string {
   if (value == null) return "";
   if (def.editor === "enum") {
     if (!Array.isArray(value) || value.length === 0) return "";
@@ -346,8 +353,7 @@ function summarize(def: FilterDef, value: unknown): string {
   if (def.editor === "segmented") return String(value);
   if (def.editor === "boolean") {
     if (value !== true) return "";
-    if (def.id === "followed") return "My Portfolio only";
-    if (def.id === "is_new") return "Added in last 14 days";
+    if (def.id === "followed") return portfolioOnlyChipLabel;
     return "On";
   }
   return "";
@@ -361,6 +367,7 @@ interface ChipProps {
   chipStyle?: "cyan" | "neutral" | "outlined";
   onEdit: () => void;
   onRemove: () => void;
+  portfolioOnlyChipLabel?: string;
 }
 
 function Chip({
@@ -369,9 +376,10 @@ function Chip({
   chipStyle = "neutral",
   onEdit,
   onRemove,
+  portfolioOnlyChipLabel,
 }: ChipProps) {
   const [hover, setHover] = useState(false);
-  const summary = summarize(def, value);
+  const summary = summarize(def, value, portfolioOnlyChipLabel);
 
   let bg: string,
     fg: string,
@@ -1722,6 +1730,7 @@ interface BooleanEditorProps {
   onBack?: () => void;
   onDismiss?: () => void;
   onClose: () => void;
+  portfolioBooleanDescription?: string;
 }
 
 function BooleanEditor({
@@ -1732,10 +1741,10 @@ function BooleanEditor({
   onBack,
   onDismiss,
   onClose,
+  portfolioBooleanDescription,
 }: BooleanEditorProps) {
   const [on, setOn] = useState<boolean>(value === true);
   const isPortfolioFilter = def.id === "followed";
-  const isNewFilter = def.id === "is_new";
 
   const handleApply = () => {
     if (on) {
@@ -1788,10 +1797,9 @@ function BooleanEditor({
         />
         <span style={{ fontSize: "var(--fs-13)", color: "var(--fg-1)", lineHeight: 1.45 }}>
           {isPortfolioFilter
-            ? "Show only My Portfolio companies (followed or on a list)"
-            : isNewFilter
-              ? "Show only companies added in the last 14 days"
-              : def.fullLabel}
+            ? portfolioBooleanDescription ||
+              "Show only My Portfolio companies (followed or on a list)"
+            : def.fullLabel}
         </span>
       </label>
       {isPortfolioFilter && (
@@ -1821,6 +1829,7 @@ interface FilterEditorProps {
   onRemove?: () => void;
   onBack?: () => void;
   onDismiss?: () => void;
+  portfolioBooleanDescription?: string;
 }
 
 function FilterEditor({
@@ -1832,6 +1841,7 @@ function FilterEditor({
   onBack,
   onDismiss,
   onClose,
+  portfolioBooleanDescription,
 }: FilterEditorProps) {
   if (def.editor === "enum")
     return (
@@ -1881,6 +1891,7 @@ function FilterEditor({
         onBack={onBack}
         onDismiss={onDismiss}
         onClose={onClose}
+        portfolioBooleanDescription={portfolioBooleanDescription}
       />
     );
   return null;
@@ -2046,6 +2057,9 @@ export function CompaniesFilterBar({
   state,
   onStateChange,
   totalCount,
+  entityLabel = "companies",
+  portfolioOnlyChipLabel = "My Portfolio only",
+  portfolioBooleanDescription,
 }: CompaniesFilterBarProps) {
   const { filters, searchText, filterLogic } = state;
 
@@ -2289,6 +2303,7 @@ export function CompaniesFilterBar({
                     chipStyle="cyan"
                     onEdit={() => setEditing(f.key)}
                     onRemove={() => removeFilter(f.key)}
+                    portfolioOnlyChipLabel={portfolioOnlyChipLabel}
                   />
                 </span>
               </React.Fragment>
@@ -2387,7 +2402,7 @@ export function CompaniesFilterBar({
                 >
                   {totalCount.toLocaleString()}
                 </strong>
-                <span> companies</span>
+                <span> {entityLabel}</span>
               </span>
             )}
           </span>
@@ -2413,6 +2428,7 @@ export function CompaniesFilterBar({
                 onChange={(v) => updateFilter(editing, v)}
                 onRemove={() => removeFilter(editing)}
                 onClose={() => setEditing(null)}
+                portfolioBooleanDescription={portfolioBooleanDescription}
               />
             </Pop>
           )}

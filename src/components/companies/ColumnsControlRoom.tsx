@@ -5,7 +5,6 @@ import {
   COMPANIES_COLUMN_CATEGORIES,
   ALL_COMPANIES_COLUMN_META,
   PROD_DEFAULT_COMPANY_COLUMN_KEYS,
-  columnKeysToVisibility,
   type CompanyColumnCategory,
   type CompanyColumnMeta,
 } from "./companiesColumnCategories";
@@ -306,6 +305,7 @@ export interface ColumnsControlRoomProps {
   categories?: CompanyColumnCategory[];
   title?: string;
   subtitle?: string;
+  defaultVisibleColumnKeys?: readonly string[];
 }
 
 export function ColumnsControlRoom({
@@ -316,6 +316,7 @@ export function ColumnsControlRoom({
   onApply,
   categories = COMPANIES_COLUMN_CATEGORIES,
   title = "Columns",
+  defaultVisibleColumnKeys = PROD_DEFAULT_COMPANY_COLUMN_KEYS,
 }: ColumnsControlRoomProps) {
   const buildState = (mode?: "default") => {
     const out: Record<string, boolean> = {};
@@ -395,7 +396,14 @@ export function ColumnsControlRoom({
   const visCount = allIds.filter((id) => visible[id]).length;
 
   const reset = () => {
-    const defaultVisible = columnKeysToVisibility([...PROD_DEFAULT_COMPANY_COLUMN_KEYS]);
+    const defaultVisible: Record<string, boolean> = {};
+    for (const cat of categories) {
+      for (const column of cat.columns) {
+        defaultVisible[column.id] = column.locked
+          ? true
+          : defaultVisibleColumnKeys.includes(column.columnKey);
+      }
+    }
     setVisible(defaultVisible);
     const defaultVisibleKeys = allMeta
       .filter((c) => !c.locked && defaultVisible[c.id])
