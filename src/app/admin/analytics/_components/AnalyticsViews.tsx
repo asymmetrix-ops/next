@@ -2384,9 +2384,10 @@ type EATab = "all" | "stale" | "bounced" | "inactive";
 
 type EAEmailDailyByItemType = {
   clicks: number;
+  clicked?: number;
   failed: number;
   opened: number;
-  bounced: number;
+  bounced?: number;
   skipped: number;
   item_type: string;
   actually_sent: number;
@@ -2406,16 +2407,18 @@ type EAEmailDailyFailedItem = {
 
 type EAEmailDailyStats = {
   date: string;
-  expected_sent: number;
+  scheduled: number;
+  sent_today: number;
+  remaining: number;
   actually_sent: number;
   skipped: number;
   failed: number;
-  still_failed: number;
   retried_and_delivered: number;
   bounced: number;
   opened: number;
+  clicked: number;
   total_clicks: number;
-  delivery_rate_pct: string;
+  send_rate_pct: string;
   open_rate_pct: string;
   by_item_type: EAEmailDailyByItemType[];
   failed_list: EAEmailDailyFailedItem[];
@@ -3125,16 +3128,18 @@ function normalizeEmailDailyStats(raw: unknown): EAEmailDailyStats | null {
   const r = row as Record<string, unknown>;
   return {
     date: String(r.date ?? ""),
-    expected_sent: eaOverviewNum(r.expected_sent),
+    scheduled: eaOverviewNum(r.scheduled ?? r.expected_sent),
+    sent_today: eaOverviewNum(r.sent_today),
+    remaining: eaOverviewNum(r.remaining),
     actually_sent: eaOverviewNum(r.actually_sent),
     skipped: eaOverviewNum(r.skipped),
-    failed: eaOverviewNum(r.failed),
-    still_failed: eaOverviewNum(r.still_failed),
+    failed: eaOverviewNum(r.failed ?? r.still_failed),
     retried_and_delivered: eaOverviewNum(r.retried_and_delivered),
     bounced: eaOverviewNum(r.bounced),
     opened: eaOverviewNum(r.opened),
+    clicked: eaOverviewNum(r.clicked),
     total_clicks: eaOverviewNum(r.total_clicks),
-    delivery_rate_pct: String(r.delivery_rate_pct ?? "0"),
+    send_rate_pct: String(r.send_rate_pct ?? r.delivery_rate_pct ?? "0"),
     open_rate_pct: String(r.open_rate_pct ?? "0"),
     by_item_type: eaParseJsonArray<EAEmailDailyByItemType>(r.by_item_type),
     failed_list: eaParseJsonArray<EAEmailDailyFailedItem>(r.failed_list),
@@ -3364,20 +3369,28 @@ export function EmailAnalyticsTab() {
           </div>
         ) : (
           <div className="p-4 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               <div className="rounded border px-4 py-3">
                 <div className="text-xs text-gray-500 mb-1">Scheduled</div>
                 <div className="text-2xl font-medium text-gray-900">
-                  {dailyStats.expected_sent.toLocaleString()}
+                  {dailyStats.scheduled.toLocaleString()}
                 </div>
               </div>
               <div className="rounded border px-4 py-3">
-                <div className="text-xs text-gray-500 mb-1">Delivered</div>
+                <div className="text-xs text-gray-500 mb-1">Sent today</div>
                 <div className="text-2xl font-medium text-green-700">
-                  {dailyStats.actually_sent.toLocaleString()}
+                  {dailyStats.sent_today.toLocaleString()}
                 </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {dailyStats.delivery_rate_pct}% delivery rate
+                {dailyStats.send_rate_pct !== "0" ? (
+                  <div className="text-xs text-gray-400 mt-1">
+                    {dailyStats.send_rate_pct}% send rate
+                  </div>
+                ) : null}
+              </div>
+              <div className="rounded border px-4 py-3">
+                <div className="text-xs text-gray-500 mb-1">Remaining</div>
+                <div className="text-2xl font-medium text-gray-900">
+                  {dailyStats.remaining.toLocaleString()}
                 </div>
               </div>
               <div className="rounded border px-4 py-3">
@@ -3386,15 +3399,11 @@ export function EmailAnalyticsTab() {
                   {dailyStats.opened.toLocaleString()}
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
-                  {eaDailyOpenRateLabel(
-                    dailyStats.opened,
-                    dailyStats.actually_sent
-                  )}{" "}
-                  open rate
+                  {dailyStats.open_rate_pct}% open rate
                 </div>
               </div>
               <div className="rounded border px-4 py-3">
-                <div className="text-xs text-gray-500 mb-1">Clicks</div>
+                <div className="text-xs text-gray-500 mb-1">Total clicks</div>
                 <div className="text-2xl font-medium text-blue-700">
                   {dailyStats.total_clicks.toLocaleString()}
                 </div>
@@ -3402,19 +3411,7 @@ export function EmailAnalyticsTab() {
               <div className="rounded border px-4 py-3">
                 <div className="text-xs text-gray-500 mb-1">Failed</div>
                 <div className="text-2xl font-medium text-red-700">
-                  {dailyStats.still_failed.toLocaleString()}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  still undelivered after retries
-                </div>
-              </div>
-              <div className="rounded border px-4 py-3">
-                <div className="text-xs text-gray-500 mb-1">Recovered</div>
-                <div className="text-2xl font-medium text-teal-700">
-                  {dailyStats.retried_and_delivered.toLocaleString()}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  failed initially, then delivered
+                  {dailyStats.failed.toLocaleString()}
                 </div>
               </div>
               <div className="rounded border px-4 py-3">
@@ -3423,6 +3420,17 @@ export function EmailAnalyticsTab() {
                   {dailyStats.skipped.toLocaleString()}
                 </div>
               </div>
+              {dailyStats.retried_and_delivered > 0 ? (
+                <div className="rounded border px-4 py-3">
+                  <div className="text-xs text-gray-500 mb-1">Recovered</div>
+                  <div className="text-2xl font-medium text-teal-700">
+                    {dailyStats.retried_and_delivered.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    failed initially, then sent
+                  </div>
+                </div>
+              ) : null}
               {dailyStats.bounced > 0 ? (
                 <div className="rounded border px-4 py-3">
                   <div className="text-xs text-gray-500 mb-1">Bounced</div>
@@ -3442,10 +3450,10 @@ export function EmailAnalyticsTab() {
                       <tr className="border-b border-gray-200 bg-gray-50">
                         {[
                           "Type",
-                          "Delivered",
+                          "Sent",
                           "Opened",
                           "Clicks",
-                          "Failed attempts",
+                          "Failed",
                           "Open rate",
                         ].map((h) => (
                           <th
@@ -3485,7 +3493,12 @@ export function EmailAnalyticsTab() {
                               {row.failed || "—"}
                             </td>
                             <td className="px-3 py-2">
-                              {eaDailyOpenRateLabel(row.opened, row.actually_sent)}
+                              {row.open_rate_pct != null
+                                ? `${row.open_rate_pct}%`
+                                : eaDailyOpenRateLabel(
+                                    row.opened,
+                                    row.actually_sent
+                                  )}
                             </td>
                           </tr>
                         );
@@ -3501,10 +3514,12 @@ export function EmailAnalyticsTab() {
                 <h3 className="text-sm font-medium mb-1 text-red-800">
                   Failed send attempts ({dailyStats.failed_list.length})
                 </h3>
-                <p className="text-xs text-gray-500 mb-2">
-                  {dailyStats.still_failed} still failed after retries ·{" "}
-                  {dailyStats.retried_and_delivered} recovered
-                </p>
+                {dailyStats.retried_and_delivered > 0 ? (
+                  <p className="text-xs text-gray-500 mb-2">
+                    {dailyStats.failed} failed ·{" "}
+                    {dailyStats.retried_and_delivered} recovered
+                  </p>
+                ) : null}
                 <div className="overflow-x-auto rounded border border-red-200">
                   <table className="w-full text-sm border-collapse">
                     <thead>
