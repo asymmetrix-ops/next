@@ -16,14 +16,11 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
 ]);
 
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
-  region: "country",
-  sub_region: "country",
   country: "country",
-  state: "country",
-  city: "country",
   primary_sector: "sectors",
   secondary_sector: "sectors",
   corporate_events: "events_advised",
+  linkedin_members: "linkedin_members",
   followed: "follow",
 };
 
@@ -81,12 +78,12 @@ function mapColumnTypeToFilter(
   if (column.columnKey === "follow") {
     return { type: "Aa", editor: "boolean" };
   }
-  if (column.columnKey === "events_advised") {
+  if (column.type === "number") {
     return {
       type: "#",
       editor: "range",
       min: 0,
-      max: 10000,
+      max: column.columnKey === "linkedin_members" ? 100000 : 10000,
     };
   }
   return { type: "Aa", editor: "enum" };

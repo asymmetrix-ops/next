@@ -8,7 +8,10 @@ import React, {
   useRef,
 } from "react";
 import { locationsService } from "@/lib/locationsService";
-import { buildAdvisorsSearchPayload } from "@/lib/advisorsFilterPayload";
+import {
+  buildAdvisorsCountsSearchPayload,
+  buildAdvisorsSearchPayload,
+} from "@/lib/advisorsFilterPayload";
 import type { AdvisorsSearchFilters } from "@/app/advisors/actions";
 import {
   CompaniesFilterBar,
@@ -175,6 +178,16 @@ export const AdvisorDashboard = ({
     [filterBarState, primarySectors, secondarySectors]
   );
 
+  const buildCountsSearchFilters = useCallback(
+    (): AdvisorsSearchFilters =>
+      buildAdvisorsCountsSearchPayload({
+        state: filterBarState,
+        primarySectors,
+        secondarySectors,
+      }),
+    [filterBarState, primarySectors, secondarySectors]
+  );
+
   const isPortfolioFilterActive = filterBarState.filters.some(
     (f) => f.id === "followed" && f.value === true
   );
@@ -185,6 +198,8 @@ export const AdvisorDashboard = ({
   const skipInitialSearchRef = useRef(true);
   const buildSearchFiltersRef = useRef(buildSearchFilters);
   buildSearchFiltersRef.current = buildSearchFilters;
+  const buildCountsSearchFiltersRef = useRef(buildCountsSearchFilters);
+  buildCountsSearchFiltersRef.current = buildCountsSearchFilters;
   const onSearchRef = useRef(onSearch);
   onSearchRef.current = onSearch;
 
@@ -204,10 +219,11 @@ export const AdvisorDashboard = ({
     }
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      const filters = buildSearchFiltersRef.current();
+      const listFilters = buildSearchFiltersRef.current();
+      const countsFilters = buildCountsSearchFiltersRef.current();
       onSearchRef.current?.(
-        filters,
-        filters,
+        listFilters,
+        countsFilters,
         isPortfolioFilterActiveRef.current
       );
     }, 350);

@@ -1,22 +1,26 @@
-import type { FilterBarState, FilterItem } from "@/components/companies/CompaniesFilterBar";
+import type { FilterBarState, FilterCombineLogic, FilterItem } from "@/components/companies/CompaniesFilterBar";
+import {
+  advisorCountsPayloadToSearchParams,
+  advisorSearchPayloadToRequestBody,
+  advisorSearchPayloadToSearchParams,
+  buildAdvisorSearchPayloadFromClauses,
+  type AdvisorFilterClause,
+  type AdvisorSearchPayload,
+} from "@/lib/advisorFilterBuilder";
 
-export interface AdvisorsSearchFilters {
-  searchQuery: string;
-  page: number;
-  per_page: number;
-  countries: string[];
-  provinces: string[];
-  cities: string[];
-  Continental_Region: string[];
-  geographical_sub_region: string[];
-  primarySectors: number[];
-  secondarySectors: number[];
-  corporate_events_advised_min?: number | null;
-  corporate_events_advised_max?: number | null;
-  portfolio_only: boolean;
-}
+export type AdvisorsSearchFilters = AdvisorSearchPayload;
 
 type SectorRef = { id: number; sector_name: string };
+
+function combineOp(
+  item: FilterItem,
+  hasPriorClause: boolean,
+  defaultLogic: FilterCombineLogic
+): "AND" | "OR" {
+  if (!hasPriorClause) return "AND";
+  const logic = item.combineLogic ?? defaultLogic;
+  return logic === "or" ? "OR" : "AND";
+}
 
 function hasRangeValue(value: unknown): value is { min?: number; max?: number } {
   if (!value || typeof value !== "object") return false;
@@ -31,73 +35,136 @@ function resolveSectorIds(names: string[], sectors: SectorRef[]): number[] {
   return Array.from(new Set(ids));
 }
 
-function applyFilterItem(
-  filters: AdvisorsSearchFilters,
-  item: FilterItem,
-  primarySectors: SectorRef[],
-  secondarySectors: SectorRef[]
-): AdvisorsSearchFilters {
-  const v = item.value;
-  if (v == null) return filters;
+function buildClausesFromFilterBar(args: {
+  state: FilterBarState;
+  primarySectors: SectorRef[];
+  secondarySectors: SectorRef[];
+}): {
+  clauses: AdvisorFilterClause[];
+  portfolioOnly: boolean;
+  primarySectorIds: number[];
+  secondarySectorIds: number[];
+} {
+  const { state, primarySectors, secondarySectors } = args;
+  const clauses: AdvisorFilterClause[] = [];
+  let hasPriorClause = false;
+  let portfolioOnly = false;
+  let primarySectorIds: number[] = [];
+  let secondarySectorIds: number[] = [];
 
-  const next = { ...filters };
+  const pushClause = (clause: AdvisorFilterClause) => {
+    clauses.push(clause);
+    hasPriorClause = true;
+  };
 
-  if (item.id === "region" && Array.isArray(v)) {
-    next.Continental_Region = v as string[];
-    return next;
-  }
-  if (item.id === "sub_region" && Array.isArray(v)) {
-    next.geographical_sub_region = v as string[];
-    return next;
-  }
-  if (item.id === "country" && Array.isArray(v)) {
-    next.countries = v as string[];
-    return next;
-  }
-  if (item.id === "state" && Array.isArray(v)) {
-    next.provinces = v as string[];
-    return next;
-  }
-  if (item.id === "city" && Array.isArray(v)) {
-    next.cities = v as string[];
-    return next;
-  }
-  if (item.id === "primary_sector" && Array.isArray(v)) {
-    next.primarySectors = resolveSectorIds(v as string[], primarySectors);
-    return next;
-  }
-  if (item.id === "secondary_sector" && Array.isArray(v)) {
-    next.secondarySectors = resolveSectorIds(v as string[], secondarySectors);
-    return next;
-  }
-  if (item.id === "corporate_events" && hasRangeValue(v)) {
-    next.corporate_events_advised_min = v.min ?? null;
-    next.corporate_events_advised_max = v.max ?? null;
-    return next;
-  }
-  if (item.id === "followed" && v === true) {
-    next.portfolio_only = true;
-    return next;
+  const searchText = state.searchText?.trim();
+  if (searchText) {
+    pushClause({
+      id: "search-text",
+      type: "name_search",
+      value: { value: searchText },
+      op: "AND",
+    });
   }
 
-  return next;
+  for (const item of state.filters) {
+    const v = item.value;
+    if (v == null) continue;
+
+    const op = combineOp(item, hasPriorClause, state.filterLogic);
+
+    if (item.id === "region" && Array.isArray(v) && v.length > 0) {
+      pushClause({
+        id: item.key,
+        type: "continental_region",
+        value: { value: v as string[] },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "sub_region" && Array.isArray(v) && v.length > 0) {
+      pushClause({
+        id: item.key,
+        type: "sub_region",
+        value: { value: v as string[] },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "country" && Array.isArray(v) && v.length > 0) {
+      pushClause({
+        id: item.key,
+        type: "country",
+        value: { value: v as string[] },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "state" && Array.isArray(v) && v.length > 0) {
+      pushClause({
+        id: item.key,
+        type: "province",
+        value: { value: v as string[] },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "city" && Array.isArray(v) && v.length > 0) {
+      pushClause({
+        id: item.key,
+        type: "city",
+        value: { value: v as string[] },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "primary_sector" && Array.isArray(v) && v.length > 0) {
+      primarySectorIds = resolveSectorIds(v as string[], primarySectors);
+      continue;
+    }
+    if (item.id === "secondary_sector" && Array.isArray(v) && v.length > 0) {
+      secondarySectorIds = resolveSectorIds(v as string[], secondarySectors);
+      continue;
+    }
+    if (item.id === "corporate_events" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "corporate_events_count",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "linkedin_members" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "linkedin_members_count",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "followed" && v === true) {
+      portfolioOnly = true;
+      continue;
+    }
+  }
+
+  return { clauses, portfolioOnly, primarySectorIds, secondarySectorIds };
 }
 
-export const createDefaultAdvisorFilters = (): AdvisorsSearchFilters => ({
-  searchQuery: "",
-  page: 1,
-  per_page: 25,
-  countries: [],
-  provinces: [],
-  cities: [],
-  Continental_Region: [],
-  geographical_sub_region: [],
-  primarySectors: [],
-  secondarySectors: [],
-  corporate_events_advised_min: null,
-  corporate_events_advised_max: null,
-  portfolio_only: false,
-});
+export const createDefaultAdvisorFilters = (): AdvisorsSearchFilters =>
+  advisorSearchPayloadToRequestBody({
+    filters_sql: "",
+    events_loc_filter_sql: "",
+    Primary_ids_str: "",
+    Secondary_ids_str: "",
+    need_geo_count: "0",
+    need_sector_count: "0",
+    page: 1,
+    per_page: 25,
+    portfolio_only: false,
+  });
 
 export function buildAdvisorsSearchPayload(args: {
   state: FilterBarState;
@@ -107,116 +174,75 @@ export function buildAdvisorsSearchPayload(args: {
   perPage?: number;
 }): AdvisorsSearchFilters {
   const { state, primarySectors, secondarySectors, page = 1, perPage = 25 } = args;
+  const { clauses, portfolioOnly, primarySectorIds, secondarySectorIds } =
+    buildClausesFromFilterBar({ state, primarySectors, secondarySectors });
 
-  let filters = createDefaultAdvisorFilters();
-  filters.searchQuery = state.searchText.trim();
-  filters.page = page;
-  filters.per_page = perPage;
+  return advisorSearchPayloadToRequestBody(
+    buildAdvisorSearchPayloadFromClauses(clauses, {
+      page,
+      perPage,
+      portfolioOnly,
+      primarySectorIds,
+      secondarySectorIds,
+      needGeoCount: false,
+      needSectorCount: false,
+      endpoint: "sql_advisors_list",
+    })
+  );
+}
 
-  for (const item of state.filters) {
-    filters = applyFilterItem(filters, item, primarySectors, secondarySectors);
-  }
+export function buildAdvisorsCountsSearchPayload(args: {
+  state: FilterBarState;
+  primarySectors: SectorRef[];
+  secondarySectors: SectorRef[];
+  page?: number;
+  perPage?: number;
+}): AdvisorsSearchFilters {
+  const { state, primarySectors, secondarySectors, page = 1, perPage = 25 } = args;
+  const { clauses, portfolioOnly, primarySectorIds, secondarySectorIds } =
+    buildClausesFromFilterBar({ state, primarySectors, secondarySectors });
 
-  return filters;
+  return advisorSearchPayloadToRequestBody(
+    buildAdvisorSearchPayloadFromClauses(clauses, {
+      page,
+      perPage,
+      portfolioOnly,
+      primarySectorIds,
+      secondarySectorIds,
+      needGeoCount: true,
+      needSectorCount: true,
+      endpoint: "sql_advisors_counts",
+    })
+  );
 }
 
 export function advisorsFiltersToSearchParams(
   filters: AdvisorsSearchFilters
 ): URLSearchParams {
-  const params = new URLSearchParams();
-  const page = Math.max(1, filters.page || 1);
-  const perPage = filters.per_page > 0 ? filters.per_page : 25;
-
-  params.append("page", String(page));
-  params.append("per_page", String(perPage));
-
-  if (filters.searchQuery) {
-    params.append("search_query", filters.searchQuery);
-  }
-
-  filters.countries.forEach((country) => params.append("Countries[]", country));
-  filters.provinces.forEach((province) => params.append("Provinces[]", province));
-  filters.cities.forEach((city) => params.append("Cities[]", city));
-
-  if (filters.Continental_Region.length > 0) {
-    params.append("Continental_Region", filters.Continental_Region.join(","));
-  }
-  if (filters.geographical_sub_region.length > 0) {
-    params.append(
-      "geographical_sub_region",
-      filters.geographical_sub_region.join(",")
-    );
-  }
-
-  filters.primarySectors.forEach((sector) =>
-    params.append("primary_sectors_ids[]", sector.toString())
+  return advisorSearchPayloadToSearchParams(
+    advisorSearchPayloadToRequestBody({
+      ...filters,
+      page: Math.max(1, filters.page || 1),
+      per_page: filters.per_page > 0 ? filters.per_page : 25,
+    })
   );
-  filters.secondarySectors.forEach((sector) =>
-    params.append("Secondary_sectors_ids[]", sector.toString())
-  );
-
-  if (typeof filters.corporate_events_advised_min === "number") {
-    params.append(
-      "corporate_events_advised_min",
-      String(filters.corporate_events_advised_min)
-    );
-  }
-  if (typeof filters.corporate_events_advised_max === "number") {
-    params.append(
-      "corporate_events_advised_max",
-      String(filters.corporate_events_advised_max)
-    );
-  }
-
-  params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
-  return params;
 }
 
-/** Counts endpoint uses comma-separated strings instead of array params. */
 export function advisorsCountsFiltersToSearchParams(
   filters: AdvisorsSearchFilters
 ): URLSearchParams {
-  const params = new URLSearchParams();
-
-  if (filters.countries.length > 0) {
-    params.append("Countries", filters.countries.join(","));
-  }
-  if (filters.provinces.length > 0) {
-    params.append("Provinces", filters.provinces.join(","));
-  }
-  if (filters.cities.length > 0) {
-    params.append("Cities", filters.cities.join(","));
-  }
-  if (filters.Continental_Region.length > 0) {
-    params.append("Continental_Region", filters.Continental_Region.join(","));
-  }
-  if (filters.geographical_sub_region.length > 0) {
-    params.append(
-      "geographical_sub_region",
-      filters.geographical_sub_region.join(",")
-    );
-  }
-  if (filters.searchQuery) {
-    params.append("search_query", filters.searchQuery);
-  }
-  if (filters.primarySectors.length > 0) {
-    params.append("primary_sectors_ids", filters.primarySectors.join(","));
-  }
-  if (filters.secondarySectors.length > 0) {
-    params.append("Secondary_sectors_ids", filters.secondarySectors.join(","));
-  }
-  if (typeof filters.corporate_events_advised_min === "number") {
-    params.append(
-      "corporate_events_advised_min",
-      String(filters.corporate_events_advised_min)
-    );
-  }
-  if (typeof filters.corporate_events_advised_max === "number") {
-    params.append(
-      "corporate_events_advised_max",
-      String(filters.corporate_events_advised_max)
-    );
-  }
-  params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
-  return params;
+  return advisorCountsPayloadToSearchParams(
+    advisorSearchPayloadToRequestBody({
+      ...filters,
+      page: 1,
+      need_geo_count: "1",
+      need_sector_count: "1",
+    })
+  );
 }
+
+export {
+  advisorCountsPayloadToSearchParams,
+  advisorSearchPayloadToRequestBody,
+  advisorSearchPayloadToSearchParams,
+};

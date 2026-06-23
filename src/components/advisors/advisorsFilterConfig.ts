@@ -85,6 +85,16 @@ export function buildAdvisorsFilterDefs({
         ["200+", 200, 10000],
       ],
     },
+    linkedin_members: {
+      min: 0,
+      max: 100000,
+      presets: [
+        ["<100", 0, 99],
+        ["100–999", 100, 999],
+        ["1k–9.9k", 1000, 9999],
+        ["10k+", 10000, 100000],
+      ],
+    },
   };
 
   const columnLinked = buildColumnLinkedFilterDefs(overrides);
@@ -118,8 +128,17 @@ export function mapCountsToAdvisorsRoleCounts(
       : 0;
   };
 
+  const resolvedTotal =
+    typeof data?.totalCount === "number" && Number.isFinite(data.totalCount)
+      ? data.totalCount
+      : typeof data?.itemsTotal === "number" && Number.isFinite(data.itemsTotal)
+        ? data.itemsTotal
+        : typeof data?.total_count === "number" && Number.isFinite(data.total_count)
+          ? data.total_count
+          : totalCount;
+
   return {
-    totalCount,
+    totalCount: resolvedTotal,
     financialAdvisors: read("financialAdvisors"),
     commercialDueDiligence: read("commercialDueDiligence"),
     vendorDueDiligence: read("vendorDueDiligence"),
