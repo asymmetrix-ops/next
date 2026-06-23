@@ -22,6 +22,7 @@ import {
   mapDealRadarItem,
   type DealRadarItem,
 } from "@/lib/dealRadar";
+import { CorporateEventPartyLink } from "@/components/corporate-events/CorporateEventPartyLink";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -588,6 +589,24 @@ export default function HomeUserPage() {
     path?: string;
     route?: string;
     entity_type?: string;
+    is_new?: boolean;
+  };
+
+  const partyLinkClassName =
+    "text-blue-600 underline hover:text-blue-800";
+
+  const renderPartyEntityInline = (entity: EntityRef): React.ReactNode => {
+    const href = normalizeEntityHref(entity);
+    const name = entity?.name || "Unknown";
+    return (
+      <CorporateEventPartyLink
+        name={name}
+        href={href || undefined}
+        isNew={entity.is_new}
+        linkClassName={partyLinkClassName}
+        linkStyle={{ fontWeight: "500" }}
+      />
+    );
   };
 
   // Parse list of entities from new API fields which may be JSON strings or arrays
@@ -2521,29 +2540,14 @@ export default function HomeUserPage() {
 
                                 const targetName =
                                   targetObj?.name || targetLegacyName;
-                                const targetHref = targetObj
-                                  ? normalizeEntityHref(targetObj)
-                                  : "";
 
                                 if (displayTargets.length > 0) {
                                   return (
                                     <>
                                       {displayTargets.map((tgt, i, arr) => {
-                                        const href = normalizeEntityHref(tgt);
-                                        const name = tgt?.name || "Unknown";
                                         return (
                                           <span key={`m-tgt-${tgt?.id ?? i}`}>
-                                            {href ? (
-                                              <a
-                                                href={href}
-                                                className="text-blue-600 underline hover:text-blue-800"
-                                                style={{ fontWeight: "500" }}
-                                              >
-                                                {name}
-                                              </a>
-                                            ) : (
-                                              <span>{name}</span>
-                                            )}
+                                            {renderPartyEntityInline(tgt)}
                                             {i < arr.length - 1 && ", "}
                                           </span>
                                         );
@@ -2551,14 +2555,8 @@ export default function HomeUserPage() {
                                     </>
                                   );
                                 } else if (targetName) {
-                                  return targetHref ? (
-                                    <a
-                                      href={targetHref}
-                                      className="text-blue-600 underline hover:text-blue-800"
-                                      style={{ fontWeight: "500" }}
-                                    >
-                                      {targetName}
-                                    </a>
+                                  return targetObj ? (
+                                    renderPartyEntityInline(targetObj)
                                   ) : (
                                     <span>{targetName}</span>
                                   );
@@ -2582,21 +2580,9 @@ export default function HomeUserPage() {
                                 return (
                                   <>
                                     {dedupeById(sellersNew).map((s, i, arr) => {
-                                      const href = normalizeEntityHref(s);
-                                      const name = s?.name || "Unknown";
                                       return (
                                         <span key={`m-seller-${s?.id ?? i}`}>
-                                          {href ? (
-                                            <a
-                                              href={href}
-                                              className="text-blue-600 underline hover:text-blue-800"
-                                              style={{ fontWeight: "500" }}
-                                            >
-                                              {name}
-                                            </a>
-                                          ) : (
-                                            <span>{name}</span>
-                                          )}
+                                          {renderPartyEntityInline(s)}
                                           {i < arr.length - 1 && ", "}
                                         </span>
                                       );
@@ -3091,9 +3077,6 @@ export default function HomeUserPage() {
 
                                   const targetName =
                                     targetObj?.name || targetLegacyName;
-                                  const targetHref = targetObj
-                                    ? normalizeEntityHref(targetObj)
-                                    : "";
 
                                   return (
                                     <div className="space-y-1">
@@ -3105,21 +3088,9 @@ export default function HomeUserPage() {
                                               : "Target:"}
                                           </strong>{" "}
                                           {displayTargets.map((tgt, i, arr) => {
-                                            const href = normalizeEntityHref(tgt);
-                                            const name = tgt?.name || "Unknown";
                                             return (
                                               <span key={`tgt-${tgt?.id ?? i}`}>
-                                                {href ? (
-                                                  <a
-                                                    href={href}
-                                                    className="text-blue-600 underline hover:text-blue-800"
-                                                    style={{ fontWeight: "500" }}
-                                                  >
-                                                    {name}
-                                                  </a>
-                                                ) : (
-                                                  <span>{name}</span>
-                                                )}
+                                                {renderPartyEntityInline(tgt)}
                                                 {i < arr.length - 1 && ", "}
                                               </span>
                                             );
@@ -3132,14 +3103,8 @@ export default function HomeUserPage() {
                                               ? "Target(s):"
                                               : "Target:"}
                                           </strong>{" "}
-                                          {targetHref ? (
-                                            <a
-                                              href={targetHref}
-                                              className="text-blue-600 underline hover:text-blue-800"
-                                              style={{ fontWeight: "500" }}
-                                            >
-                                              {targetName}
-                                            </a>
+                                          {targetObj ? (
+                                            renderPartyEntityInline(targetObj)
                                           ) : (
                                             <span>{targetName}</span>
                                           )}
@@ -3151,23 +3116,9 @@ export default function HomeUserPage() {
                                           <strong>Buyer(s):</strong>{" "}
                                           {dedupeById(buyersArr).map(
                                             (b, i, arr) => {
-                                              const href = normalizeEntityHref(b);
-                                              const name = b?.name || "Unknown";
                                               return (
                                                 <span key={`buyer-${i}`}>
-                                                  {href ? (
-                                                    <a
-                                                      href={href}
-                                                      className="text-blue-600 underline hover:text-blue-800"
-                                                      style={{
-                                                        fontWeight: "500",
-                                                      }}
-                                                    >
-                                                      {name}
-                                                    </a>
-                                                  ) : (
-                                                    <span>{name}</span>
-                                                  )}
+                                                  {renderPartyEntityInline(b)}
                                                   {i < arr.length - 1 && ", "}
                                                 </span>
                                               );
@@ -3181,24 +3132,9 @@ export default function HomeUserPage() {
                                           <strong>Investor(s):</strong>{" "}
                                           {dedupeById(investorsArr).map(
                                             (inv, i, arr) => {
-                                              const href =
-                                                normalizeEntityHref(inv);
-                                              const name = inv?.name || "Unknown";
                                               return (
                                                 <span key={`investor-${i}`}>
-                                                  {href ? (
-                                                    <a
-                                                      href={href}
-                                                      className="text-blue-600 underline hover:text-blue-800"
-                                                      style={{
-                                                        fontWeight: "500",
-                                                      }}
-                                                    >
-                                                      {name}
-                                                    </a>
-                                                  ) : (
-                                                    <span>{name}</span>
-                                                  )}
+                                                  {renderPartyEntityInline(inv)}
                                                   {i < arr.length - 1 && ", "}
                                                 </span>
                                               );
@@ -3219,25 +3155,9 @@ export default function HomeUserPage() {
                                               ? dedupeById(
                                                   buyersInvestorsCombined
                                                 ).map((b, i, arr) => {
-                                                  const href =
-                                                    normalizeEntityHref(b);
-                                                  const name =
-                                                    b?.name || "Unknown";
                                                   return (
                                                     <span key={`bi-${i}`}>
-                                                      {href ? (
-                                                        <a
-                                                          href={href}
-                                                          className="text-blue-600 underline hover:text-blue-800"
-                                                          style={{
-                                                            fontWeight: "500",
-                                                          }}
-                                                        >
-                                                          {name}
-                                                        </a>
-                                                      ) : (
-                                                        <span>{name}</span>
-                                                      )}
+                                                      {renderPartyEntityInline(b)}
                                                       {i < arr.length - 1 && ", "}
                                                     </span>
                                                   );
@@ -3251,23 +3171,9 @@ export default function HomeUserPage() {
                                           <strong>Seller(s):</strong>{" "}
                                           {dedupeById(sellersNew).map(
                                             (s, i, arr) => {
-                                              const href = normalizeEntityHref(s);
-                                              const name = s?.name || "Unknown";
                                               return (
                                                 <span key={`seller-${i}`}>
-                                                  {href ? (
-                                                    <a
-                                                      href={href}
-                                                      className="text-blue-600 underline hover:text-blue-800"
-                                                      style={{
-                                                        fontWeight: "500",
-                                                      }}
-                                                    >
-                                                      {name}
-                                                    </a>
-                                                  ) : (
-                                                    <span>{name}</span>
-                                                  )}
+                                                  {renderPartyEntityInline(s)}
                                                   {i < arr.length - 1 && ", "}
                                                 </span>
                                               );
