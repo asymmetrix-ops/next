@@ -4,8 +4,33 @@ import React from "react";
 import {
   getCountryDisplayName,
   getCountryFlagUrl,
+  INLINE_COUNTRY_FLAG_CLASS,
   readHqCountryIso2,
 } from "@/lib/dealRadar";
+
+type CountryFlagImgProps = {
+  iso2: string | null | undefined;
+  className?: string;
+};
+
+export const CountryFlagImg: React.FC<CountryFlagImgProps> = ({
+  iso2,
+  className = INLINE_COUNTRY_FLAG_CLASS,
+}) => {
+  const countryFlagUrl = getCountryFlagUrl(iso2);
+  const countryDisplayName = getCountryDisplayName(iso2);
+  if (!countryFlagUrl) return null;
+
+  return (
+    <img
+      src={countryFlagUrl}
+      alt=""
+      title={countryDisplayName ?? iso2?.toUpperCase() ?? undefined}
+      aria-hidden="true"
+      className={className}
+    />
+  );
+};
 
 type CorporateEventPartyLinkProps = {
   name: string;
@@ -50,35 +75,26 @@ export const CorporateEventTargetLink: React.FC<CorporateEventTargetLinkProps> =
   entity,
   linkClassName,
   linkStyle,
-  flagClassName = "mt-0.5 h-3 w-4 shrink-0 rounded-sm object-cover ring-1 ring-black/10 cursor-default",
+  flagClassName,
 }) => {
   const hqCountryIso2 = entity ? readHqCountryIso2(entity) : null;
-  const countryFlagUrl = getCountryFlagUrl(hqCountryIso2);
-  const countryDisplayName = getCountryDisplayName(hqCountryIso2);
+  const flagEl = (
+    <CountryFlagImg iso2={hqCountryIso2} className={flagClassName} />
+  );
+
+  if (href) {
+    return (
+      <a href={href} className={linkClassName} style={linkStyle}>
+        {name}
+        {flagEl}
+      </a>
+    );
+  }
 
   return (
-    <span className="inline-flex items-start gap-1">
-      <CorporateEventPartyLink
-        name={name}
-        href={href}
-        linkClassName={linkClassName}
-        linkStyle={linkStyle}
-      />
-      {countryFlagUrl && (
-        <img
-          src={countryFlagUrl}
-          alt=""
-          title={
-            countryDisplayName ?? hqCountryIso2?.toUpperCase() ?? undefined
-          }
-          aria-label={
-            countryDisplayName
-              ? `${countryDisplayName} headquarters`
-              : undefined
-          }
-          className={flagClassName}
-        />
-      )}
+    <span className={linkClassName} style={linkStyle}>
+      {name}
+      {flagEl}
     </span>
   );
 };
