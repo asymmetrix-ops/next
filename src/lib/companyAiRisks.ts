@@ -58,7 +58,38 @@ const RADAR_FACTOR_ORDER: Array<{
     label: "Workflow Moat",
     match: (f) => f.includes("workflow"),
   },
+  {
+    key: "talent",
+    label: "Talent",
+    match: (f) => f.includes("talent"),
+  },
 ];
+
+/** Educational copy shown when hovering radar axis labels. */
+export const AI_EXPOSURE_FACTOR_DESCRIPTIONS: Record<string, string> = {
+  data_moat:
+    "The strongest data businesses own something a competitor cannot simply acquire elsewhere; AI cannot be used to easily obtain this data, as it comes from a source outside the reach of AI tools. The first test is whether the underlying data is genuinely proprietary — first-party, exclusively licensed, or generated through the company's own operations — rather than scraped from the open web or assembled from sources anyone could equally reach. Even where the raw inputs are commodity, the work of cleansing, structuring and organising data in a proprietary manner can itself create a moat, turning a raw feed into a refined asset.",
+  replic:
+    "Closely related, but distinct. Even where data is not strictly proprietary, defensibility depends on how readily a dataset can be replicated or approximated. AI has sharply lowered the cost of collecting “good enough” data or replicating a dataset with similar data or approximate the data with a similar dataset. What matters is whether a competitor — or a client armed with off-the-shelf AI tools — could approximate the dataset closely enough to offer clients a compelling enough product.",
+  workflow:
+    "Data rarely creates value in isolation. The most defensible companies embed their data and software inside a specific client workflow, purpose-built so the product answers a particular question or supports a particular task better than any general-purpose alternative. This integration creates switching costs and habituation that raw data alone cannot, and it is far harder for a generic AI tool to dislodge a product woven into a daily process or embedded deeply into client workflows than one that simply supplies information.",
+  stakes:
+    "Not all data carries equal weight. A dataset that underpins a critical, high-stakes or expensive decision commands a premium that one supporting routine choices does not. Where the data is genuinely essential to making that decision — and where getting it wrong is costly — clients are far less willing to risk a cheaper or unproven substitute built by AI. Both dimensions matter: the magnitude of the decisions the data informs, and how central the data is to reaching them.",
+  authority:
+    "Some companies become the reference point for their industry — the dataset others cite, benchmark against and build upon. This status is hard-won and harder to dislodge, resting on trust, track record and network adoption rather than technology alone. Where a company is treated as the authoritative source of truth, an AI-native challenger faces not only a technical hurdle but a credibility one, which is the slower and more expensive of the two to overcome.",
+  accuracy:
+    "The value of accuracy depends entirely on the cost of error in the workflow the data feeds. Where inaccurate data leads to missed revenue, costly operational mistakes or regulatory violations and fines, tolerance for error approaches zero, and clients will pay a premium for reliability they can trust. AI-generated approximations or data collected solely by AI agents with minimal human-in-the-loop guidance, however plausible they appear, struggle to compete where precision is non-negotiable and a single error is expensive to absorb.",
+  history:
+    "Time-series data that can no longer be collected is, by definition, irreplaceable. Where a company's dataset captures history that competitors cannot retroactively assemble — and where that history is essential to the end-user's workflow — it holds an asset no amount of computing power can recreate. AI can model the future from the past, but it cannot manufacture a past that was never recorded.",
+  human:
+    "The hardest capability for AI to replicate is informed human judgement. Where a company's content incorporates or requires expert editorial input — analysis, curation or interpretation, such as a PRA-style review — that materially improves the value of the underlying information, it adds a layer of defensibility pure automation (like that of AI-native data companies) cannot easily match. The question is how much of the value derives from this human-in-the-loop expertise, and whether clients are paying for the judgement as much as the data.",
+  talent:
+    "Finally, defensibility is partly a function of the team. We look for “mad CTO”-type leadership and an innovative product organisation that treats AI as an opportunity rather than a threat — integrating it across both front-end and back-end processes to widen the moat rather than waiting for a competitor to erode it. The most defensible data businesses are those building with AI faster than AI can commoditise them.",
+};
+
+export function getAiExposureFactorDescription(key: string): string | undefined {
+  return AI_EXPOSURE_FACTOR_DESCRIPTIONS[key];
+}
 
 const RADAR_AXIS_KEY_ORDER = Object.fromEntries(
   RADAR_FACTOR_ORDER.map((item, index) => [item.key, index])
@@ -126,7 +157,7 @@ export function getAiExposureHeadline(defAvg: number): {
 } {
   if (defAvg >= 2.5) {
     return {
-      label: "Strong overall defensibility vs. AI",
+      label: "Strong overall moat vs. AI",
       hint: "Shown when average defensibility is ≥ 2.5/3.",
     };
   }
@@ -213,7 +244,10 @@ export function mapAiRisksV2ToData(
       ? response.avg_defense_score
       : computedAvg;
 
-  const tier = getAiExposureHeadline(avgDefensibility).label;
+  const tier =
+    !Array.isArray(response) && typeof response?.tier === "string" && response.tier.trim()
+      ? response.tier.trim()
+      : getAiExposureHeadline(avgDefensibility).label;
 
   return { axes, avgDefensibility, tier };
 }

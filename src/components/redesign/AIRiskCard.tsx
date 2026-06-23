@@ -1,17 +1,19 @@
 "use client";
 /**
- * AIRiskCard — hand-built SVG radar chart (AI Defensibility Index).
+ * AIRiskCard — hand-built SVG radar chart (AI Exposure Index: defensibility only).
  * No charting library; click axes to highlight on the radar.
  */
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { T } from "./tokens.jsx";
 import {
   AI_SCORE_MAX,
+  getAiExposureFactorDescription,
   getAiExposureHeadline,
   sortAiRiskAxesForRadar,
 } from "@/lib/companyAiRisks";
 
-export const AI_DEFENSIBILITY_INDEX_TITLE = "AI Defensibility Index";
+export const AI_EXPOSURE_INDEX_TITLE = "AI Exposure Index";
 
 export type AIRiskAxis = {
   key: string;
@@ -21,6 +23,15 @@ export type AIRiskAxis = {
   blurb: string;
 };
 
+function resolveFactorDescription(axis: AIRiskAxis): string | undefined {
+  return (
+    getAiExposureFactorDescription(axis.key) ??
+    getAiExposureFactorDescription(
+      axis.label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
+    )
+  );
+}
+
 const DEFENSIBILITY_TONE = {
   fg: "oklch(40% 0.12 158)",
   fill: "oklch(56% 0.13 158)",
@@ -28,39 +39,127 @@ const DEFENSIBILITY_TONE = {
   ring: "oklch(60% 0.14 158)",
 } as const;
 
+type FactorTooltipProps = {
+  axis: AIRiskAxis;
+  description: string;
+  x: number;
+  y: number;
+};
+
+function FactorTooltip({ axis, description, x, y }: FactorTooltipProps) {
+  const [mounted, setMounted] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = React.useState<{
+    x: number;
+    y: number;
+    above: boolean;
+  }>({ x, y, above: true });
+
+  React.useEffect(() => setMounted(true), []);
+
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    const pad = 16;
+    const gap = 12;
+    const halfW = rect.width / 2;
+    const clampedX = Math.min(
+      window.innerWidth - halfW - pad,
+      Math.max(halfW + pad, x)
+    );
+
+    const spaceAbove = y - gap;
+    const spaceBelow = window.innerHeight - y - gap;
+    const above =
+      spaceAbove >= rect.height || spaceAbove >= spaceBelow;
+
+    setLayout({
+      x: clampedX,
+      y: above ? y - gap : y + gap,
+      above,
+    });
+  }, [x, y, description]);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      ref={ref}
+      role="tooltip"
+      className="fixed z-[10000] w-[min(22.5rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white shadow-xl pointer-events-none"
+      style={{
+        left: layout.x,
+        top: layout.y,
+        transform: layout.above
+          ? "translate(-50%, -100%)"
+          : "translate(-50%, 0)",
+      }}
+    >
+      <div className="border-b border-gray-100 px-4 py-3">
+        <div className="text-sm font-semibold text-gray-900">
+          {AI_EXPOSURE_INDEX_TITLE}
+        </div>
+      </div>
+      <div className="px-4 py-3">
+        <div className="text-sm font-semibold text-gray-900">{axis.label}</div>
+        <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
+          {description}
+        </p>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 type RadarChartProps = {
   axes: AIRiskAxis[];
   active: string;
+  tooltipKey: string | null;
   onPick?: (key: string) => void;
+  onLabelHover?: (key: string | null, event?: React.MouseEvent) => void;
   size?: number;
   maxScore?: number;
 };
 
-const RADAR_PAD_H = 96;
-const RADAR_PAD_V = 38;
-const AXIS_LABEL_LINE_HEIGHT = 14;
-const AXIS_LABEL_RADIUS_OFFSET = 26;
+const LABEL_FONT_SIZE = 14;
+const LABEL_LINE_HEIGHT = 17;
 
-/** Split long axis labels onto multiple lines (prefer " / " breaks). */
-function splitAxisLabel(label: string): string[] {
-  const trimmed = label.trim();
-  if (!trimmed) return [];
-  if (trimmed.includes(" / ")) {
-    return trimmed
-      .split(" / ")
-      .map((s) => s.trim())
-      .filter(Boolean);
+// Extra viewBox space (in SVG user units) reserved for axis labels on each side.
+const RADAR_PAD_H = 140;
+const RADAR_PAD_V = 58;
+
+function wrapLabel(label: string): string[] {
+  if (label.includes(" / ")) {
+    return label.split(" / ").map((part) => part.trim());
   }
-  if (trimmed.length <= 16) return [trimmed];
-  const mid = trimmed.lastIndexOf(" ", 16);
-  if (mid === -1) return [trimmed];
-  return [trimmed.slice(0, mid), trimmed.slice(mid + 1)];
+
+  const maxChars = 24;
+  const words = label.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines.length > 0 ? lines : [label];
 }
 
 function RadarChart({
   axes,
   active,
+  tooltipKey,
   onPick,
+  onLabelHover,
   size = 280,
   maxScore = AI_SCORE_MAX,
 }: RadarChartProps) {
@@ -152,7 +251,7 @@ function RadarChart({
 
   const labels = axes.map((ax, i) => {
     const a = angleFor(i);
-    const lr = R + AXIS_LABEL_RADIUS_OFFSET;
+    const lr = R + 38;
     const lx = cx + Math.cos(a) * lr;
     const ly = cy + Math.sin(a) * lr;
     const anchor =
@@ -162,34 +261,53 @@ function RadarChart({
           ? "start"
           : "end";
     const isActive = active === ax.key;
-    const lines = splitAxisLabel(ax.label);
-    const totalH = lines.length * AXIS_LABEL_LINE_HEIGHT;
-    const startDy = -(totalH / 2) + AXIS_LABEL_LINE_HEIGHT / 2;
+    const isTooltip = tooltipKey === ax.key;
+    const lines = wrapLabel(ax.label);
+    const totalH = lines.length * LABEL_LINE_HEIGHT;
+    const startDy = -(totalH / 2) + LABEL_LINE_HEIGHT / 2;
+    const hitW = Math.max(...lines.map((line) => line.length)) * (LABEL_FONT_SIZE * 0.58);
+    const hitH = totalH + 8;
 
     return (
       <g
         key={`lbl-${ax.key}`}
-        style={{ cursor: "pointer" }}
+        style={{ cursor: "default" }}
+        onMouseEnter={(e) => onLabelHover?.(ax.key, e)}
+        onMouseMove={(e) => onLabelHover?.(ax.key, e)}
+        onMouseLeave={() => onLabelHover?.(null)}
         onClick={(e) => {
           e.stopPropagation();
           onPick?.(ax.key);
         }}
       >
+        <rect
+          x={
+            anchor === "middle"
+              ? lx - hitW / 2
+              : anchor === "end"
+                ? lx - hitW
+                : lx
+          }
+          y={ly - hitH / 2}
+          width={hitW}
+          height={hitH}
+          fill="transparent"
+        />
         <text
           x={lx}
           y={ly}
           textAnchor={anchor}
           fontFamily={T.sans}
-          fontSize="11.5"
-          fontWeight={isActive ? 700 : 600}
-          fill={isActive ? T.ink : T.body}
-          style={{ letterSpacing: 0.1 }}
+          fontSize={LABEL_FONT_SIZE}
+          fontWeight={isActive || isTooltip ? 700 : 600}
+          fill={isActive || isTooltip ? T.ink : T.body}
+          style={{ letterSpacing: 0.1, pointerEvents: "none" }}
         >
           {lines.map((line, li) => (
             <tspan
               key={li}
               x={lx}
-              dy={li === 0 ? startDy : AXIS_LABEL_LINE_HEIGHT}
+              dy={li === 0 ? startDy : LABEL_LINE_HEIGHT}
             >
               {line}
             </tspan>
@@ -228,6 +346,7 @@ type AIRiskCardProps = {
 export function AIRiskCard({
   axes: axesProp,
   avgDefensibility: avgProp,
+  tier: tierProp,
   defaultActiveKey = "data_moat",
   fillGridCell = false,
 }: AIRiskCardProps) {
@@ -238,7 +357,28 @@ export function AIRiskCard({
   );
   const hasApiAxes = axes.length > 0;
   const [active, setActive] = useState(defaultActiveKey);
+  const [tooltipKey, setTooltipKey] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const chartWrapRef = React.useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState(false);
+
+  const handleLabelHover = React.useCallback(
+    (key: string | null, event?: React.MouseEvent) => {
+      if (!key || !event) {
+        setTooltipKey(null);
+        setTooltipPos(null);
+        return;
+      }
+      setTooltipKey(key);
+      setTooltipPos({
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    []
+  );
 
   React.useEffect(() => {
     if (!axes.some((a) => a.key === active)) {
@@ -251,9 +391,16 @@ export function AIRiskCard({
   const computedAvg =
     axes.reduce((sum, axis) => sum + axis.score, 0) / axes.length;
   const defAvg = avgProp ?? computedAvg;
-  const { label: headlineTier, hint: headlineHint } =
+  const { label: computedTier, hint: headlineHint } =
     getAiExposureHeadline(defAvg);
+  const headlineTier = tierProp?.trim() || computedTier;
   const activeAxis = axes.find((a) => a.key === active) ?? axes[0];
+  const tooltipAxis = tooltipKey
+    ? axes.find((a) => a.key === tooltipKey)
+    : undefined;
+  const tooltipDescription = tooltipAxis
+    ? resolveFactorDescription(tooltipAxis)
+    : undefined;
 
   return (
     <div
@@ -292,7 +439,7 @@ export function AIRiskCard({
             color: T.ink,
           }}
         >
-          {AI_DEFENSIBILITY_INDEX_TITLE}
+          {AI_EXPOSURE_INDEX_TITLE}
         </div>
         <span
           style={{
@@ -300,7 +447,7 @@ export function AIRiskCard({
             alignItems: "center",
             gap: 6,
             fontFamily: T.sans,
-            fontSize: 12.5,
+            fontSize: 11.5,
             fontWeight: 600,
             color: T.body,
             flexWrap: "wrap",
@@ -343,13 +490,38 @@ export function AIRiskCard({
           flex: fillGridCell ? "0 0 auto" : undefined,
         }}
       >
-        <div style={{ width: "100%", maxWidth: 360, overflow: "visible" }}>
+        <div
+          ref={chartWrapRef}
+          onMouseLeave={() => {
+            setTooltipKey(null);
+            setTooltipPos(null);
+          }}
+          style={{
+            position: "relative",
+            width: "100%",
+            maxWidth: 420,
+            overflow: "visible",
+          }}
+        >
           <RadarChart
             axes={axes}
             active={active}
+            tooltipKey={tooltipKey}
             onPick={setActive}
+            onLabelHover={handleLabelHover}
             size={300}
           />
+          {tooltipKey &&
+          tooltipDescription &&
+          tooltipPos &&
+          tooltipAxis ? (
+            <FactorTooltip
+              axis={tooltipAxis}
+              description={tooltipDescription}
+              x={tooltipPos.x}
+              y={tooltipPos.y}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -361,6 +533,9 @@ export function AIRiskCard({
             borderRadius: T.rLg,
             background: DEFENSIBILITY_TONE.bg,
             border: `1px solid ${DEFENSIBILITY_TONE.ring}`,
+            flex: fillGridCell ? "1 1 auto" : undefined,
+            minHeight: fillGridCell ? 0 : undefined,
+            overflowY: fillGridCell ? "auto" : undefined,
           }}
         >
           <div
@@ -375,7 +550,7 @@ export function AIRiskCard({
             <div
               style={{
                 fontFamily: T.sans,
-                fontSize: 13,
+                fontSize: 12.5,
                 fontWeight: 600,
                 color: T.ink,
                 lineHeight: 1.35,
@@ -386,7 +561,7 @@ export function AIRiskCard({
             <span
               style={{
                 fontFamily: T.mono,
-                fontSize: 11.5,
+                fontSize: 11,
                 fontWeight: 600,
                 color: DEFENSIBILITY_TONE.fg,
                 flexShrink: 0,
@@ -399,7 +574,7 @@ export function AIRiskCard({
           <div
             style={{
               fontFamily: T.sans,
-              fontSize: 13,
+              fontSize: 12.5,
               lineHeight: 1.55,
               color: T.body,
             }}
