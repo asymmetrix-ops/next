@@ -16,18 +16,18 @@ export function corporateEventEntityIsNew(entity: unknown): boolean {
   return readIsNewFlag(record.is_new ?? record.isNew);
 }
 
+const NEW_BADGE_CLASSNAME =
+  "inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-orange-100 text-orange-800 shrink-0";
+
 const INLINE_NEW_BADGE_STYLE: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  borderRadius: "4px",
-  padding: "1px 6px",
+  borderRadius: "9999px",
+  padding: "2px 8px",
   fontSize: "10px",
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  color: "#fff",
-  backgroundColor: "#f59e0b",
-  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+  fontWeight: 600,
+  color: "#9a3412",
+  backgroundColor: "#ffedd5",
   marginLeft: "4px",
   verticalAlign: "middle",
   flexShrink: 0,
@@ -40,11 +40,7 @@ export const CorporateEventNewBadge: React.FC<{
     return <span style={INLINE_NEW_BADGE_STYLE}>New</span>;
   }
 
-  return (
-    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-amber-500 shadow-sm ring-1 ring-amber-600/30 shrink-0">
-      New
-    </span>
-  );
+  return <span className={NEW_BADGE_CLASSNAME}>New</span>;
 };
 
 type CorporateEventPartyLinkProps = {
