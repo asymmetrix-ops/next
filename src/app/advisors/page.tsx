@@ -34,6 +34,7 @@ const useAdvisorsAPI = () => {
   const lastCountsRequestIdRef = useRef(0);
   const countsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentFiltersRef = useRef<Filters | undefined>(undefined);
+  const currentCountsFiltersRef = useRef<Filters | undefined>(undefined);
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
     undefined
   );
@@ -68,7 +69,7 @@ const useAdvisorsAPI = () => {
   }, []);
 
   const fetchAdvisors = useCallback(
-    async (page: number = 1, filters?: Filters) => {
+    async (page: number = 1, filters?: Filters, countsFilters?: Filters) => {
       const requestId = ++lastRequestIdRef.current;
       setLoading(true);
       setError(null);
@@ -77,15 +78,20 @@ const useAdvisorsAPI = () => {
         currentFiltersRef.current = filters;
         setCurrentFilters(filters);
       }
+      if (countsFilters !== undefined) {
+        currentCountsFiltersRef.current = countsFilters;
+      }
 
       const filtersToUse =
         filters !== undefined
           ? filters
           : currentFiltersRef.current ?? createDefaultAdvisorFilters();
+      const countsFiltersToUse =
+        countsFilters ?? currentCountsFiltersRef.current ?? filtersToUse;
 
       try {
         if (page === 1) {
-          scheduleCountsFetch(filtersToUse);
+          scheduleCountsFetch(countsFiltersToUse);
         }
 
         const data = await fetchAdvisorsServer({ ...filtersToUse, page });
@@ -172,9 +178,9 @@ function AdvisorsPageInner() {
   }, []);
 
   const handleSearch = useCallback(
-    (listFilters: Filters, _countsFilters: Filters, portfolioOnly?: boolean) => {
+    (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      void fetchAdvisors(1, listFilters);
+      void fetchAdvisors(1, listFilters, countsFilters);
     },
     [fetchAdvisors]
   );
