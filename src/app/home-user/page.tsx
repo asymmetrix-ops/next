@@ -17,11 +17,19 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
+import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
 import {
   appendDealRadarItems,
+  applyHqCountryIso2ToDealRadarItems,
   mapDealRadarItem,
+  readHqCountryIso2,
   type DealRadarItem,
 } from "@/lib/dealRadar";
+import {
+  CorporateEventPartyLink,
+  CorporateEventTargetLink,
+  CountryFlagImg,
+} from "@/components/corporate-events/CorporateEventPartyLink";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -126,10 +134,28 @@ interface InsightArticle {
   }>;
   Transaction_status?: string;
   transaction_status?: string;
+  hq_country_iso2?: string | null;
+  hqCountryIso2?: string | null;
   Company_of_Focus?: Array<{
     id?: number;
     Transaction_status?: string;
+    hq_country_iso2?: string | null;
+    hqCountryIso2?: string | null;
   }>;
+}
+
+function getInsightHqCountryIso2(article: InsightArticle): string | null {
+  const fromArticle = readHqCountryIso2(
+    article as unknown as Record<string, unknown>
+  );
+  if (fromArticle) return fromArticle;
+
+  for (const company of article.Company_of_Focus ?? []) {
+    const iso2 = readHqCountryIso2(company as unknown as Record<string, unknown>);
+    if (iso2) return iso2;
+  }
+
+  return null;
 }
 
 function getInsightTransactionStatus(article: InsightArticle): string {
@@ -588,6 +614,39 @@ export default function HomeUserPage() {
     path?: string;
     route?: string;
     entity_type?: string;
+    hq_country_iso2?: string | null;
+    hqCountryIso2?: string | null;
+  };
+
+  const partyLinkClassName =
+    "text-blue-600 underline hover:text-blue-800";
+
+  const renderPartyEntityInline = (entity: EntityRef): React.ReactNode => {
+    const href = normalizeEntityHref(entity);
+    const name = entity?.name || "Unknown";
+    return (
+      <CorporateEventPartyLink
+        name={name}
+        href={href || undefined}
+        linkClassName={partyLinkClassName}
+        linkStyle={{ fontWeight: "500" }}
+      />
+    );
+  };
+
+  const renderTargetEntityInline = (entity: EntityRef): React.ReactNode => {
+    const href = normalizeEntityHref(entity);
+    const name = entity?.name || "Unknown";
+
+    return (
+      <CorporateEventTargetLink
+        name={name}
+        href={href || undefined}
+        entity={entity as unknown as Record<string, unknown>}
+        linkClassName={partyLinkClassName}
+        linkStyle={{ fontWeight: "500" }}
+      />
+    );
   };
 
   // Parse list of entities from new API fields which may be JSON strings or arrays
@@ -1230,6 +1289,33 @@ export default function HomeUserPage() {
     }
   }, []);
 
+  const enrichDealRadarCountryFlags = useCallback(
+    async (items: DealRadarItem[]): Promise<DealRadarItem[]> => {
+      const missingCompanyIds = items
+        .filter((item) => !item.hqCountryIso2 && item.companyId > 0)
+        .map((item) => item.companyId);
+      if (missingCompanyIds.length === 0) return items;
+
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) return items;
+
+      try {
+        const rows = await fetchCompanyTableDataByIds(missingCompanyIds, token);
+        const isoByCompanyId = new Map<number, string | null>(
+          Array.from(rows.entries()).map(([companyId, row]) => [
+            companyId,
+            readHqCountryIso2(row),
+          ])
+        );
+        return applyHqCountryIso2ToDealRadarItems(items, isoByCompanyId);
+      } catch (error) {
+        console.error("Error enriching Deal Radar country flags:", error);
+        return items;
+      }
+    },
+    []
+  );
+
   const fetchDealRadar = useCallback(async () => {
     dealRadarFetchAbortRef.current?.abort();
     const controller = new AbortController();
@@ -1250,11 +1336,13 @@ export default function HomeUserPage() {
       });
       if (generation !== dealRadarFetchGenerationRef.current) return;
 
-      setDealRadarItems(
-        res.items.map((item) =>
-          mapDealRadarItem(item as unknown as Record<string, unknown>)
-        )
+      const mappedItems = res.items.map((item) =>
+        mapDealRadarItem(item as unknown as Record<string, unknown>)
       );
+      const enrichedItems = await enrichDealRadarCountryFlags(mappedItems);
+      if (generation !== dealRadarFetchGenerationRef.current) return;
+
+      setDealRadarItems(enrichedItems);
       dealRadarLoadedOffsetsRef.current.add(initialOffset);
       const nextOffset = res.has_next_page ? res.next_offset : null;
       setDealRadarNextOffset(nextOffset);
@@ -1267,7 +1355,7 @@ export default function HomeUserPage() {
         setDealRadarLoading(false);
       }
     }
-  }, []);
+  }, [enrichDealRadarCountryFlags]);
 
   const isDealRadarNearBottom = useCallback((): boolean => {
     const scrollRoot = dealRadarScrollRef.current;
@@ -1302,8 +1390,11 @@ export default function HomeUserPage() {
       const incoming = res.items.map((item) =>
         mapDealRadarItem(item as unknown as Record<string, unknown>)
       );
+      const enrichedIncoming = await enrichDealRadarCountryFlags(incoming);
 
-      setDealRadarItems((prev) => appendDealRadarItems(prev, incoming));
+      setDealRadarItems((prev) =>
+        appendDealRadarItems(prev, enrichedIncoming)
+      );
       const nextOffset = res.has_next_page ? res.next_offset : null;
       setDealRadarNextOffset(nextOffset);
       dealRadarNextOffsetRef.current = nextOffset;
@@ -1314,7 +1405,7 @@ export default function HomeUserPage() {
       dealRadarLoadingMoreRef.current = false;
       setDealRadarLoadingMore(false);
     }
-  }, []);
+  }, [enrichDealRadarCountryFlags]);
 
   const tryLoadMoreDealRadarIfNearBottom = useCallback(() => {
     if (
@@ -2118,9 +2209,10 @@ export default function HomeUserPage() {
                                       e.preventDefault();
                                       router.push(`/company/${item.companyId}`);
                                     }}
-                                  >
-                                    {item.companyName}
-                                  </a>
+                                    >
+                                      {item.companyName}
+                                      <CountryFlagImg iso2={item.hqCountryIso2} />
+                                    </a>
                                   {item.latestContent && (
                                     <a
                                       href={`/article/${item.latestContent.id}?from=home`}
@@ -2297,6 +2389,7 @@ export default function HomeUserPage() {
                       ""
                     ).trim();
                     const href = `/article/${article.id}?from=home`;
+                    const hqCountryIso2 = getInsightHqCountryIso2(article);
 
                     return (
                       <div
@@ -2341,9 +2434,10 @@ export default function HomeUserPage() {
                             e.preventDefault();
                             router.push(href);
                           }}
-                        >
-                          {article.Headline}
-                        </a>
+                          >
+                            {article.Headline}
+                            <CountryFlagImg iso2={hqCountryIso2} />
+                          </a>
 
                         {article.Strapline ? (
                           <p className="mt-2 text-xs leading-5 text-gray-600 line-clamp-3">
@@ -2514,47 +2608,22 @@ export default function HomeUserPage() {
 
                                 const targetName =
                                   targetObj?.name || targetLegacyName;
-                                const targetHref = targetObj
-                                  ? normalizeEntityHref(targetObj)
-                                  : "";
 
                                 if (displayTargets.length > 0) {
                                   return (
                                     <>
-                                      {displayTargets.map((tgt, i, arr) => {
-                                        const href = normalizeEntityHref(tgt);
-                                        const name = tgt?.name || "Unknown";
-                                        return (
-                                          <span key={`m-tgt-${tgt?.id ?? i}`}>
-                                            {href ? (
-                                              <a
-                                                href={href}
-                                                className="text-blue-600 underline hover:text-blue-800"
-                                                style={{ fontWeight: "500" }}
-                                              >
-                                                {name}
-                                              </a>
-                                            ) : (
-                                              <span>{name}</span>
-                                            )}
-                                            {i < arr.length - 1 && ", "}
-                                          </span>
-                                        );
-                                      })}
+                                      {displayTargets.map((tgt, i, arr) => (
+                                        <span key={`m-tgt-${tgt?.id ?? i}`}>
+                                          {renderTargetEntityInline(tgt)}
+                                          {i < arr.length - 1 && ", "}
+                                        </span>
+                                      ))}
                                     </>
                                   );
+                                } else if (targetName && targetObj) {
+                                  return renderTargetEntityInline(targetObj);
                                 } else if (targetName) {
-                                  return targetHref ? (
-                                    <a
-                                      href={targetHref}
-                                      className="text-blue-600 underline hover:text-blue-800"
-                                      style={{ fontWeight: "500" }}
-                                    >
-                                      {targetName}
-                                    </a>
-                                  ) : (
-                                    <span>{targetName}</span>
-                                  );
+                                  return <span>{targetName}</span>;
                                 }
                                 return <span>Not Available</span>;
                               })()}
@@ -3084,9 +3153,6 @@ export default function HomeUserPage() {
 
                                   const targetName =
                                     targetObj?.name || targetLegacyName;
-                                  const targetHref = targetObj
-                                    ? normalizeEntityHref(targetObj)
-                                    : "";
 
                                   return (
                                     <div className="space-y-1">
@@ -3097,26 +3163,21 @@ export default function HomeUserPage() {
                                               ? "Target(s):"
                                               : "Target:"}
                                           </strong>{" "}
-                                          {displayTargets.map((tgt, i, arr) => {
-                                            const href = normalizeEntityHref(tgt);
-                                            const name = tgt?.name || "Unknown";
-                                            return (
-                                              <span key={`tgt-${tgt?.id ?? i}`}>
-                                                {href ? (
-                                                  <a
-                                                    href={href}
-                                                    className="text-blue-600 underline hover:text-blue-800"
-                                                    style={{ fontWeight: "500" }}
-                                                  >
-                                                    {name}
-                                                  </a>
-                                                ) : (
-                                                  <span>{name}</span>
-                                                )}
-                                                {i < arr.length - 1 && ", "}
-                                              </span>
-                                            );
-                                          })}
+                                          {displayTargets.map((tgt, i, arr) => (
+                                            <span key={`tgt-${tgt?.id ?? i}`}>
+                                              {renderTargetEntityInline(tgt)}
+                                              {i < arr.length - 1 && ", "}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : targetName && targetObj ? (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>
+                                            {isPartnership
+                                              ? "Target(s):"
+                                              : "Target:"}
+                                          </strong>{" "}
+                                          {renderTargetEntityInline(targetObj)}
                                         </div>
                                       ) : targetName ? (
                                         <div className="text-xs text-gray-500">
@@ -3125,17 +3186,7 @@ export default function HomeUserPage() {
                                               ? "Target(s):"
                                               : "Target:"}
                                           </strong>{" "}
-                                          {targetHref ? (
-                                            <a
-                                              href={targetHref}
-                                              className="text-blue-600 underline hover:text-blue-800"
-                                              style={{ fontWeight: "500" }}
-                                            >
-                                              {targetName}
-                                            </a>
-                                          ) : (
-                                            <span>{targetName}</span>
-                                          )}
+                                          <span>{targetName}</span>
                                         </div>
                                       ) : null}
 

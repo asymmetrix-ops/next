@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CorporateEventDealMetrics } from "./CorporateEventDealMetrics";
 import { normalizeEntityHref } from "@/lib/corporateEventEntityHref";
+import { CorporateEventTargetLink } from "./CorporateEventPartyLink";
 
 interface LegacyCorporateEvent {
   id?: number;
@@ -48,6 +49,7 @@ interface LegacyCorporateEvent {
     path?: string;
     route?: string;
     entity_type?: string;
+    hq_country_iso2?: string | null;
   }>;
   target_label?: string;
   other_counterparties?: Array<{
@@ -102,6 +104,7 @@ interface NewTargetEntity {
   entity_type?: string;
   is_investor?: boolean;
   counterparty_announcement_url?: string;
+  hq_country_iso2?: string | null;
 }
 
 interface NewCounterpartyMinimal {
@@ -579,15 +582,15 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 }) ?? "#";
                               return (
                                 <span key={`tgt-${tgt.id}-${i}`}>
-                                  <a
+                                  <CorporateEventTargetLink
+                                    name={tgt.name}
                                     href={href}
-                                    style={{
+                                    entity={tgt as unknown as Record<string, unknown>}
+                                    linkStyle={{
                                       color: "#3b82f6",
                                       textDecoration: "underline",
                                     }}
-                                  >
-                                    {tgt.name}
-                                  </a>
+                                  />
                                   {i < arr.length - 1 && ", "}
                                 </span>
                               );

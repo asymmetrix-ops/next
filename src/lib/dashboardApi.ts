@@ -67,6 +67,7 @@ export type FinancialMetricsRow = {
 export type DealRadarApiItem = {
   company_id: number;
   name: string;
+  hq_country_iso2?: string | null;
   transaction_status_id?: number;
   transaction_status: string;
   last_updated_at: string;

@@ -8,6 +8,7 @@ import {
   formatCorporateEventDate,
   normalizeEntityHref,
 } from "@/lib/corporateEventEntityHref";
+import { CorporateEventTargetLink } from "./CorporateEventPartyLink";
 
 type PartyLink = { id?: number; name: string; href: string | null };
 
@@ -136,6 +137,7 @@ function extractTargetLinks(
       page_type?: string;
       entity_type?: string;
       is_investor?: boolean;
+      hq_country_iso2?: string | null;
     }>;
     target_company?: {
       id?: number;
@@ -175,9 +177,12 @@ function extractTargetLinks(
         }) ?? "#";
       return (
         <span key={`tgt-${tgt.id}-${i}`}>
-          <a href={href} style={entityLinkStyle}>
-            {tgt.name}
-          </a>
+          <CorporateEventTargetLink
+            name={tgt.name}
+            href={href}
+            entity={tgt as unknown as Record<string, unknown>}
+            linkStyle={entityLinkStyle}
+          />
           {i < arr.length - 1 ? ", " : ""}
         </span>
       );
