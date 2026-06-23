@@ -38,6 +38,7 @@ import { ownershipFilterParamToTab } from "@/lib/companiesSearchFilterConfig";
 import {
   CompaniesDataTable,
   ALL_COMPANY_COLUMN_KEYS,
+  type CompaniesSortChangePayload,
 } from "@/components/companies/CompaniesDataTable";
 import {
   DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS,
@@ -2283,6 +2284,24 @@ const SectorDetailPage = ({
   const refetchAllCompaniesFirstPage = useCallback(() => {
     void fetchAllCompaniesForSector(1);
   }, [fetchAllCompaniesForSector]);
+
+  const handleAllCompaniesSortChange = useCallback(
+    (sortPayload: CompaniesSortChangePayload) => {
+      const base =
+        allCompaniesCurrentFilters ?? {
+          filters_sql: null,
+          query: null,
+          columns: [],
+          has_financial_filters: false,
+          has_year_filter: false,
+        };
+      void fetchAllCompaniesForSector(1, {
+        ...base,
+        ...sortPayload,
+      });
+    },
+    [fetchAllCompaniesForSector, allCompaniesCurrentFilters]
+  );
 
   const forcedPrimarySectorIds = useMemo(() => {
     const id = Number(sectorId);
@@ -5629,6 +5648,11 @@ const SectorDetailPage = ({
                   defaultColumnKeys={DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS}
                   onApiColumnsChange={handleAllCompaniesApiColumnsChange}
                   onRefetch={refetchAllCompaniesFirstPage}
+                  onSortChange={handleAllCompaniesSortChange}
+                  syncSortFromFilters={{
+                    sort_column: allCompaniesCurrentFilters?.sort_column,
+                    sort_direction: allCompaniesCurrentFilters?.sort_direction,
+                  }}
                   externalShowColumnsModal={showAllCompaniesColumnsModal}
                   externalSetShowColumnsModal={setShowAllCompaniesColumnsModal}
                   onColumnsCountChange={setAllCompaniesColumnsCount}

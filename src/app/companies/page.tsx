@@ -66,7 +66,9 @@ import {
 } from "@/components/companies/companiesColumnFilterMap";
 import {
   compareSortValues,
+  getApiSortColumn,
   getColumnSortKind,
+  getSortPayloadFromState,
   getSortValueForColumn,
 } from "@/components/companies/companiesTableSort";
 import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
@@ -1351,8 +1353,20 @@ const CompanySection = ({
   useEffect(() => {
     if (sortState && !selectedColumnKeys.includes(sortState.key)) {
       setSortState(null);
+      void fetchCompanies(1, {
+        ...(currentFilters ?? createDefaultFilters()),
+        sort_column: null,
+        sort_direction: null,
+      });
     }
-  }, [selectedColumnKeys, sortState]);
+  }, [selectedColumnKeys, sortState, fetchCompanies, currentFilters]);
+
+  useEffect(() => {
+    if (currentFilters?.sort_column) return;
+    if (sortState && getApiSortColumn(sortState.key)) {
+      setSortState(null);
+    }
+  }, [currentFilters?.sort_column, currentFilters?.sort_direction, sortState]);
 
   // Report selected columns count to parent (for header button label)
   useEffect(() => {
@@ -1360,16 +1374,37 @@ const CompanySection = ({
   }, [selectedColumns.length, onColumnsCountChange]);
 
 
-  const handleSortColumn = useCallback((columnKey: string) => {
-    if (!getColumnSortKind(columnKey)) return;
-    setSortState((current) => {
-      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
-      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
-    });
-  }, []);
+  const handleSortColumn = useCallback(
+    (columnKey: string) => {
+      if (!getColumnSortKind(columnKey)) return;
+      setSortState((current) => {
+        const next =
+          current?.key === columnKey
+            ? {
+                key: columnKey,
+                dir: current.dir === "asc" ? ("desc" as const) : ("asc" as const),
+              }
+            : { key: columnKey, dir: "asc" as const };
+        const apiColumn = getApiSortColumn(columnKey);
+        if (apiColumn) {
+          void fetchCompanies(1, {
+            ...(currentFilters ?? createDefaultFilters()),
+            sort_column: apiColumn,
+            sort_direction: next.dir,
+          });
+        }
+        return next;
+      });
+    },
+    [fetchCompanies, currentFilters]
+  );
 
   const sortedCompanies = useMemo(() => {
-    if (!sortState || !getColumnSortKind(sortState.key)) {
+    if (
+      (sortState && getApiSortColumn(sortState.key)) ||
+      !sortState ||
+      !getColumnSortKind(sortState.key)
+    ) {
       return companies;
     }
     const { key, dir } = sortState;
@@ -1466,6 +1501,7 @@ const CompanySection = ({
         columns: getApiColumnsForSelectedKeys(selectedColumnKeys),
         has_financial_filters: Boolean(baseFilters.has_financial_filters),
         has_year_filter: Boolean(baseFilters.has_year_filter),
+        ...getSortPayloadFromState(sortState),
       };
       const buildExportParams = (page: number) =>
         companySearchPayloadToSearchParams(exportPayload, {
@@ -1752,7 +1788,7 @@ const CompanySection = ({
         );
       }
     }
-  }, [currentFilters, companies, selectedColumnKeys]);
+  }, [currentFilters, companies, selectedColumnKeys, sortState]);
 
   // Register export function with parent so header Export CSV button works
   useEffect(() => {

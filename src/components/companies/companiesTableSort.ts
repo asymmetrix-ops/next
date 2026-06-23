@@ -1,5 +1,6 @@
 /** Sort behaviour per Companies Search column (functional spec). */
 
+import type { CompanySearchPayload } from "@/lib/filterBuilder";
 import { isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import {
   COMPANY_COLUMN_FIELD_ALIASES,
@@ -10,9 +11,54 @@ export type ColumnSortKind = "text" | "number";
 
 const NOT_SORTABLE = null;
 
+/** UI column key → Get_new_companies `sort_column` (server-side sort). */
+export const UI_COLUMN_TO_API_SORT_COLUMN: Record<string, string> = {
+  name: "name",
+  linkedin_members: "linkedin_members",
+  linkedin_growth: "linkedin_growth",
+  hq: "country",
+  country: "country",
+  year_founded: "year_founded",
+  revenue_m: "revenue_m",
+  ebitda_m: "ebitda_m",
+  enterprise_value: "ev",
+  revenue_multiple: "revenue_multiple",
+  revenue_growth: "revenue_growth",
+  ebitda_margin: "ebitda_margin",
+  rule_of_40: "rule_of_40",
+  arr_m: "arr_m",
+  churn_pc: "churn",
+  nrr: "nrr",
+  ebit_m: "ebit_m",
+  no_of_clients: "no_clients",
+  no_employees: "no_employees",
+  financial_year: "financial_year",
+};
+
+export function getApiSortColumn(columnKey: string): string | undefined {
+  return UI_COLUMN_TO_API_SORT_COLUMN[columnKey];
+}
+
+export function isServerSortableColumn(columnKey: string): boolean {
+  return Boolean(getApiSortColumn(columnKey));
+}
+
+export function getSortPayloadFromState(
+  sort: { key: string; dir: "asc" | "desc" } | null
+): Pick<CompanySearchPayload, "sort_column" | "sort_direction"> {
+  const apiColumn = sort ? getApiSortColumn(sort.key) : undefined;
+  if (!apiColumn || !sort) {
+    return { sort_column: null, sort_direction: null };
+  }
+  return {
+    sort_column: apiColumn,
+    sort_direction: sort.dir,
+  };
+}
+
 export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   logo: NOT_SORTABLE,
-  name: NOT_SORTABLE,
+  name: "text",
   description: NOT_SORTABLE,
   website: NOT_SORTABLE,
   follow: NOT_SORTABLE,

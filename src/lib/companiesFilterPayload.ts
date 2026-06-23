@@ -543,6 +543,14 @@ function appendSharedCompanyFilterParams(
   (payload.columns ?? []).forEach((col) => {
     params.append("columns[]", col);
   });
+
+  const sortColumn = payload.sort_column?.trim();
+  if (sortColumn) {
+    params.append("sort_column", sortColumn);
+    if (payload.sort_direction === "asc" || payload.sort_direction === "desc") {
+      params.append("sort_direction", payload.sort_direction);
+    }
+  }
 }
 
 /** Serialize payload for GET Get_new_companies (query string). */

@@ -277,6 +277,8 @@ export interface CompanySearchPayload {
   filters_sql?: string | null;
   has_financial_filters?: boolean;
   has_year_filter?: boolean;
+  sort_column?: string | null;
+  sort_direction?: "asc" | "desc" | null;
 }
 
 export function buildApiPayload(
