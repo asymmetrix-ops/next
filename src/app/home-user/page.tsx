@@ -17,12 +17,17 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
+import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
 import {
   appendDealRadarItems,
+  applyHqCountryIso2ToDealRadarItems,
+  getCountryDisplayName,
+  getCountryFlagUrl,
   mapDealRadarItem,
+  readHqCountryIso2,
   type DealRadarItem,
 } from "@/lib/dealRadar";
-import { CorporateEventPartyLink } from "@/components/corporate-events/CorporateEventPartyLink";
+import { CorporateEventPartyLink, CorporateEventTargetLink } from "@/components/corporate-events/CorporateEventPartyLink";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -127,10 +132,28 @@ interface InsightArticle {
   }>;
   Transaction_status?: string;
   transaction_status?: string;
+  hq_country_iso2?: string | null;
+  hqCountryIso2?: string | null;
   Company_of_Focus?: Array<{
     id?: number;
     Transaction_status?: string;
+    hq_country_iso2?: string | null;
+    hqCountryIso2?: string | null;
   }>;
+}
+
+function getInsightHqCountryIso2(article: InsightArticle): string | null {
+  const fromArticle = readHqCountryIso2(
+    article as unknown as Record<string, unknown>
+  );
+  if (fromArticle) return fromArticle;
+
+  for (const company of article.Company_of_Focus ?? []) {
+    const iso2 = readHqCountryIso2(company as unknown as Record<string, unknown>);
+    if (iso2) return iso2;
+  }
+
+  return null;
 }
 
 function getInsightTransactionStatus(article: InsightArticle): string {
@@ -589,7 +612,8 @@ export default function HomeUserPage() {
     path?: string;
     route?: string;
     entity_type?: string;
-    is_new?: boolean;
+    hq_country_iso2?: string | null;
+    hqCountryIso2?: string | null;
   };
 
   const partyLinkClassName =
@@ -602,7 +626,21 @@ export default function HomeUserPage() {
       <CorporateEventPartyLink
         name={name}
         href={href || undefined}
-        isNew={entity.is_new}
+        linkClassName={partyLinkClassName}
+        linkStyle={{ fontWeight: "500" }}
+      />
+    );
+  };
+
+  const renderTargetEntityInline = (entity: EntityRef): React.ReactNode => {
+    const href = normalizeEntityHref(entity);
+    const name = entity?.name || "Unknown";
+
+    return (
+      <CorporateEventTargetLink
+        name={name}
+        href={href || undefined}
+        entity={entity as unknown as Record<string, unknown>}
         linkClassName={partyLinkClassName}
         linkStyle={{ fontWeight: "500" }}
       />
@@ -1249,6 +1287,33 @@ export default function HomeUserPage() {
     }
   }, []);
 
+  const enrichDealRadarCountryFlags = useCallback(
+    async (items: DealRadarItem[]): Promise<DealRadarItem[]> => {
+      const missingCompanyIds = items
+        .filter((item) => !item.hqCountryIso2 && item.companyId > 0)
+        .map((item) => item.companyId);
+      if (missingCompanyIds.length === 0) return items;
+
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) return items;
+
+      try {
+        const rows = await fetchCompanyTableDataByIds(missingCompanyIds, token);
+        const isoByCompanyId = new Map<number, string | null>(
+          Array.from(rows.entries()).map(([companyId, row]) => [
+            companyId,
+            readHqCountryIso2(row),
+          ])
+        );
+        return applyHqCountryIso2ToDealRadarItems(items, isoByCompanyId);
+      } catch (error) {
+        console.error("Error enriching Deal Radar country flags:", error);
+        return items;
+      }
+    },
+    []
+  );
+
   const fetchDealRadar = useCallback(async () => {
     dealRadarFetchAbortRef.current?.abort();
     const controller = new AbortController();
@@ -1269,11 +1334,13 @@ export default function HomeUserPage() {
       });
       if (generation !== dealRadarFetchGenerationRef.current) return;
 
-      setDealRadarItems(
-        res.items.map((item) =>
-          mapDealRadarItem(item as unknown as Record<string, unknown>)
-        )
+      const mappedItems = res.items.map((item) =>
+        mapDealRadarItem(item as unknown as Record<string, unknown>)
       );
+      const enrichedItems = await enrichDealRadarCountryFlags(mappedItems);
+      if (generation !== dealRadarFetchGenerationRef.current) return;
+
+      setDealRadarItems(enrichedItems);
       dealRadarLoadedOffsetsRef.current.add(initialOffset);
       const nextOffset = res.has_next_page ? res.next_offset : null;
       setDealRadarNextOffset(nextOffset);
@@ -1286,7 +1353,7 @@ export default function HomeUserPage() {
         setDealRadarLoading(false);
       }
     }
-  }, []);
+  }, [enrichDealRadarCountryFlags]);
 
   const isDealRadarNearBottom = useCallback((): boolean => {
     const scrollRoot = dealRadarScrollRef.current;
@@ -1321,8 +1388,11 @@ export default function HomeUserPage() {
       const incoming = res.items.map((item) =>
         mapDealRadarItem(item as unknown as Record<string, unknown>)
       );
+      const enrichedIncoming = await enrichDealRadarCountryFlags(incoming);
 
-      setDealRadarItems((prev) => appendDealRadarItems(prev, incoming));
+      setDealRadarItems((prev) =>
+        appendDealRadarItems(prev, enrichedIncoming)
+      );
       const nextOffset = res.has_next_page ? res.next_offset : null;
       setDealRadarNextOffset(nextOffset);
       dealRadarNextOffsetRef.current = nextOffset;
@@ -1333,7 +1403,7 @@ export default function HomeUserPage() {
       dealRadarLoadingMoreRef.current = false;
       setDealRadarLoadingMore(false);
     }
-  }, []);
+  }, [enrichDealRadarCountryFlags]);
 
   const tryLoadMoreDealRadarIfNearBottom = useCallback(() => {
     if (
@@ -2085,9 +2155,9 @@ export default function HomeUserPage() {
                 <div className="min-w-0 w-full">
                     <table className="w-full table-fixed">
                       <colgroup>
-                        <col style={{ width: "26%" }} />
                         <col style={{ width: "30%" }} />
-                        <col style={{ width: "44%" }} />
+                        <col style={{ width: "34%" }} />
+                        <col style={{ width: "36%" }} />
                       </colgroup>
                       <thead className="sticky top-0 z-10 bg-gray-50">
                         <tr>
@@ -2097,8 +2167,8 @@ export default function HomeUserPage() {
                           <th className="px-2 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
                             Sector
                           </th>
-                          <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
-                            <span className="inline-flex items-center justify-center gap-1.5">
+                          <th className="pl-3 pr-2 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
+                            <span className="inline-flex items-center gap-1.5">
                               Stage
                               <DealStageInfoTooltip />
                             </span>
@@ -2110,6 +2180,12 @@ export default function HomeUserPage() {
                           const stageStyle = dealRadarStageStyle(
                             item.transactionStatus
                           );
+                          const countryFlagUrl = getCountryFlagUrl(
+                            item.hqCountryIso2
+                          );
+                          const countryDisplayName = getCountryDisplayName(
+                            item.hqCountryIso2
+                          );
 
                           return (
                             <tr
@@ -2118,10 +2194,11 @@ export default function HomeUserPage() {
                             >
                               <td className="pl-3 pr-1 py-3 min-w-0 align-top">
                                 <div className="space-y-1 min-w-0">
-                                  <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                                    <a
-                                      href={`/company/${item.companyId}`}
-                                      className="text-sm font-semibold text-blue-700 break-words hover:text-blue-900 hover:underline"
+                                  <div className="flex flex-wrap items-center gap-x-1 gap-y-1 min-w-0">
+                                    <span className="inline-flex items-start gap-1 min-w-0 max-w-full">
+                                      <a
+                                        href={`/company/${item.companyId}`}
+                                        className="text-xs font-semibold text-blue-700 break-words hover:text-blue-900 hover:underline min-w-0"
                                       onClick={(
                                         e: React.MouseEvent<HTMLAnchorElement>
                                       ) => {
@@ -2141,11 +2218,24 @@ export default function HomeUserPage() {
                                     >
                                       {item.companyName}
                                     </a>
-                                    {item.isNew && (
-                                      <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-amber-500 shadow-sm ring-1 ring-amber-600/30 shrink-0">
-                                        New
-                                      </span>
+                                    {countryFlagUrl && (
+                                      <img
+                                        src={countryFlagUrl}
+                                        alt=""
+                                        title={
+                                          countryDisplayName ??
+                                          item.hqCountryIso2?.toUpperCase() ??
+                                          undefined
+                                        }
+                                        aria-label={
+                                          countryDisplayName
+                                            ? `${countryDisplayName} headquarters`
+                                            : undefined
+                                        }
+                                        className="mt-0.5 h-3 w-4 shrink-0 rounded-sm object-cover ring-1 ring-black/10 cursor-default"
+                                      />
                                     )}
+                                    </span>
                                   </div>
                                   {item.latestContent && (
                                     <a
@@ -2175,13 +2265,13 @@ export default function HomeUserPage() {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-2 py-3 min-w-0 text-sm text-gray-700 align-top text-center">
+                              <td className="pl-3 pr-2 py-3 min-w-0 text-xs text-gray-700 align-top text-center">
                                 {item.primarySectors.length > 0 ? (
                                   <div className="flex flex-col items-center gap-0.5">
                                     {item.primarySectors.map((sector, idx) => (
                                       <div
                                         key={`${sector.id}-${sector.name}-${idx}`}
-                                        className="leading-snug break-normal"
+                                        className="leading-snug break-normal text-xs"
                                       >
                                         {sector.id > 0 ? (
                                           <a
@@ -2216,9 +2306,9 @@ export default function HomeUserPage() {
                                   "—"
                                 )}
                               </td>
-                              <td className="px-3 py-3 text-center align-top">
+                              <td className="px-2 py-3 text-center align-top">
                                 <span
-                                  className="inline-flex items-start gap-1.5 rounded-2xl px-2.5 py-1.5 text-xs font-medium leading-snug text-center max-w-full"
+                                  className="inline-flex items-start gap-1.5 rounded-2xl px-2.5 py-1.5 text-xs font-medium leading-snug text-center"
                                   style={stageStyle.pill}
                                 >
                                   <span
@@ -2323,6 +2413,9 @@ export default function HomeUserPage() {
                       ""
                     ).trim();
                     const href = `/article/${article.id}?from=home`;
+                    const hqCountryIso2 = getInsightHqCountryIso2(article);
+                    const countryFlagUrl = getCountryFlagUrl(hqCountryIso2);
+                    const countryDisplayName = getCountryDisplayName(hqCountryIso2);
 
                     return (
                       <div
@@ -2351,25 +2444,46 @@ export default function HomeUserPage() {
                           </span>
                         </div>
 
-                        <a
-                          href={href}
-                          className="block mt-3 text-sm font-semibold text-gray-900 hover:text-blue-700"
-                          onClick={(e) => {
-                            if (
-                              e.defaultPrevented ||
-                              e.button !== 0 ||
-                              e.metaKey ||
-                              e.ctrlKey ||
-                              e.shiftKey ||
-                              e.altKey
-                            )
-                              return;
-                            e.preventDefault();
-                            router.push(href);
-                          }}
-                        >
-                          {article.Headline}
-                        </a>
+                        <div className="mt-3 min-w-0">
+                          <span className="inline-flex items-start gap-1 min-w-0 max-w-full">
+                            <a
+                              href={href}
+                              className="text-sm font-semibold text-gray-900 hover:text-blue-700 break-words min-w-0"
+                              onClick={(e) => {
+                                if (
+                                  e.defaultPrevented ||
+                                  e.button !== 0 ||
+                                  e.metaKey ||
+                                  e.ctrlKey ||
+                                  e.shiftKey ||
+                                  e.altKey
+                                )
+                                  return;
+                                e.preventDefault();
+                                router.push(href);
+                              }}
+                            >
+                              {article.Headline}
+                            </a>
+                            {countryFlagUrl && (
+                              <img
+                                src={countryFlagUrl}
+                                alt=""
+                                title={
+                                  countryDisplayName ??
+                                  hqCountryIso2?.toUpperCase() ??
+                                  undefined
+                                }
+                                aria-label={
+                                  countryDisplayName
+                                    ? `${countryDisplayName} headquarters`
+                                    : undefined
+                                }
+                                className="mt-1 h-3 w-4 shrink-0 rounded-sm object-cover ring-1 ring-black/10 cursor-default"
+                              />
+                            )}
+                          </span>
+                        </div>
 
                         {article.Strapline ? (
                           <p className="mt-2 text-xs leading-5 text-gray-600 line-clamp-3">
@@ -2547,7 +2661,7 @@ export default function HomeUserPage() {
                                       {displayTargets.map((tgt, i, arr) => {
                                         return (
                                           <span key={`m-tgt-${tgt?.id ?? i}`}>
-                                            {renderPartyEntityInline(tgt)}
+                                            {renderTargetEntityInline(tgt)}
                                             {i < arr.length - 1 && ", "}
                                           </span>
                                         );
@@ -2556,7 +2670,7 @@ export default function HomeUserPage() {
                                   );
                                 } else if (targetName) {
                                   return targetObj ? (
-                                    renderPartyEntityInline(targetObj)
+                                    renderTargetEntityInline(targetObj)
                                   ) : (
                                     <span>{targetName}</span>
                                   );
@@ -3090,7 +3204,7 @@ export default function HomeUserPage() {
                                           {displayTargets.map((tgt, i, arr) => {
                                             return (
                                               <span key={`tgt-${tgt?.id ?? i}`}>
-                                                {renderPartyEntityInline(tgt)}
+                                                {renderTargetEntityInline(tgt)}
                                                 {i < arr.length - 1 && ", "}
                                               </span>
                                             );
@@ -3104,7 +3218,7 @@ export default function HomeUserPage() {
                                               : "Target:"}
                                           </strong>{" "}
                                           {targetObj ? (
-                                            renderPartyEntityInline(targetObj)
+                                            renderTargetEntityInline(targetObj)
                                           ) : (
                                             <span>{targetName}</span>
                                           )}

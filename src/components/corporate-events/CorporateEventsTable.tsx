@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { CorporateEventDealMetrics } from "./CorporateEventDealMetrics";
 import {
   CorporateEventPartyLink,
-  corporateEventEntityIsNew,
+  CorporateEventTargetLink,
 } from "./CorporateEventPartyLink";
 
 // Types compatible with both company and investor pages
@@ -52,7 +52,7 @@ interface LegacyCorporateEvent {
     path?: string;
     route?: string;
     entity_type?: string;
-    is_new?: boolean;
+    hq_country_iso2?: string | null;
   }>;
   target_label?: string;
   other_counterparties?: Array<{
@@ -104,14 +104,13 @@ interface NewTargetEntity {
   page_type?: string;
   route?: string;
   entity_type?: string;
-  is_new?: boolean;
+  hq_country_iso2?: string | null;
 }
 
 interface NewCounterpartyMinimal {
   id: number;
   name: string;
   page_type?: string;
-  is_new?: boolean;
 }
 
 interface NewOtherCounterparty {
@@ -624,11 +623,10 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               const href = `/${pageType}/${tgt.id}`;
                               return (
                                 <span key={`tgt-${tgt.id}-${i}`}>
-                                  <CorporateEventPartyLink
+                                  <CorporateEventTargetLink
                                     name={tgt.name}
                                     href={href}
-                                    isNew={tgt.is_new}
-                                    variant="inline"
+                                    entity={tgt as unknown as Record<string, unknown>}
                                     linkStyle={{
                                       color: pal.link,
                                       textDecoration: "underline",
@@ -688,7 +686,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                           id?: number;
                           name: string;
                           href: string | null;
-                          isNew?: boolean;
                         }> = [];
                         const dealTypeLower = String(newEvent.deal_type ?? legacyEvent.deal_type ?? "").toLowerCase();
                         const isInvestmentDeal = dealTypeLower.includes("investment");
@@ -709,7 +706,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                     id: cp.id,
                                     name: cp.name,
                                     href: `/${pageType}/${cp.id}`,
-                                    isNew: corporateEventEntityIsNew(cp),
                                   });
                                 } else if ("_new_company" in cp && cp._new_company?.name && !cp._new_company?._is_that_investor) {
                                   const href = cp._new_company.id
@@ -719,7 +715,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                     id: cp._new_company.id,
                                     name: cp._new_company.name,
                                     href,
-                                    isNew: corporateEventEntityIsNew(cp._new_company),
                                   });
                                 }
                               }
@@ -738,7 +733,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 id: c.id,
                                 name: c.name,
                                 href,
-                                isNew: corporateEventEntityIsNew(c),
                               });
                             }
                           });
@@ -758,7 +752,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 id: c.id,
                                 name: c.name,
                                 href: `/company/${c.id}`,
-                                isNew: corporateEventEntityIsNew(c),
                               });
                             }
                           });
@@ -775,7 +768,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               id,
                               name: it._new_company!.name,
                               href: id ? `/company/${id}` : null,
-                              isNew: corporateEventEntityIsNew(it._new_company),
                             });
                           });
                         }
@@ -790,8 +782,8 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 <CorporateEventPartyLink
                                   name={b.name}
                                   href={b.href}
-                                  isNew={b.isNew}
-                                  variant="inline"
+
+
                                   linkStyle={{
                                     color: pal.link,
                                     textDecoration: "underline",
@@ -811,7 +803,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                           id?: number;
                           name: string;
                           href: string | null;
-                          isNew?: boolean;
                         }> = [];
                         const dealTypeLower = String(newEvent.deal_type ?? legacyEvent.deal_type ?? "").toLowerCase();
                         const isInvestmentDeal = dealTypeLower.includes("investment");
@@ -831,7 +822,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                     id: cp.id,
                                     name: cp.name,
                                     href: `/investors/${cp.id}`,
-                                    isNew: corporateEventEntityIsNew(cp),
                                   });
                                 } else if ("_new_company" in cp && cp._new_company?.name && cp._new_company?._is_that_investor) {
                                   const href = cp._new_company.id
@@ -841,7 +831,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                     id: cp._new_company.id,
                                     name: cp._new_company.name,
                                     href,
-                                    isNew: corporateEventEntityIsNew(cp._new_company),
                                   });
                                 }
                               }
@@ -857,7 +846,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 id: c.id,
                                 name: c.name,
                                 href: `/investors/${c.id}`,
-                                isNew: corporateEventEntityIsNew(c),
                               });
                             }
                           });
@@ -877,7 +865,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 id: c.id,
                                 name: c.name,
                                 href: `/investors/${c.id}`,
-                                isNew: corporateEventEntityIsNew(c),
                               });
                             }
                           });
@@ -894,7 +881,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               id,
                               name: it._new_company!.name,
                               href: id ? `/investors/${id}` : null,
-                              isNew: corporateEventEntityIsNew(it._new_company),
                             });
                           });
                         }
@@ -909,8 +895,8 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 <CorporateEventPartyLink
                                   name={inv.name}
                                   href={inv.href}
-                                  isNew={inv.isNew}
-                                  variant="inline"
+
+
                                   linkStyle={{
                                     color: pal.link,
                                     textDecoration: "underline",
@@ -929,7 +915,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                           id?: number;
                           name: string;
                           href: string | null;
-                          isNew?: boolean;
                         }> = [];
 
                         const sellerSources = [
@@ -947,7 +932,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 id: seller.id,
                                 name: seller.name,
                                 href,
-                                isNew: corporateEventEntityIsNew(seller),
                               });
                             }
                               });
@@ -968,7 +952,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                     id: cp.id,
                                     name: cp.name,
                                     href: `/${pageType}/${cp.id}`,
-                                    isNew: corporateEventEntityIsNew(cp),
                                   });
                                 } else if ("_new_company" in cp && cp._new_company?.name) {
                                   const id = cp._new_company.id;
@@ -981,7 +964,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                     id,
                                     name: cp._new_company.name,
                                     href,
-                                    isNew: corporateEventEntityIsNew(cp._new_company),
                                   });
                                 }
                               }
@@ -999,8 +981,8 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 <CorporateEventPartyLink
                                   name={s.name}
                                   href={s.href}
-                                  isNew={s.isNew}
-                                  variant="inline"
+
+
                                   linkStyle={{
                                     color: pal.link,
                                     textDecoration: "underline",

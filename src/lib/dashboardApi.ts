@@ -67,7 +67,7 @@ export type FinancialMetricsRow = {
 export type DealRadarApiItem = {
   company_id: number;
   name: string;
-  is_new?: boolean;
+  hq_country_iso2?: string | null;
   transaction_status_id?: number;
   transaction_status: string;
   last_updated_at: string;
@@ -573,9 +573,7 @@ class DashboardApiService {
     offset: number;
     signal?: AbortSignal;
   }): Promise<DealRadarListResponse> {
-    const url = new URL(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/get_deal_radar"
-    );
+    const url = new URL(`${this.baseUrl}/get_deal_radar`);
     url.searchParams.set("limit", String(params.limit));
     url.searchParams.set("offset", String(params.offset));
 

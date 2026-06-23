@@ -12,7 +12,7 @@ import {
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
 import type { CorporateEvent, Sector } from "./CorporateEventsTable";
-import { CorporateEventPartyLink } from "./CorporateEventPartyLink";
+import { CorporateEventTargetLink } from "./CorporateEventPartyLink";
 import { isNonEmptyDisplayString as isNonEmptyString } from "@/lib/emptyDisplay";
 
 export type CorporateEventsProfileTokens = {
@@ -284,7 +284,6 @@ function renderTargetCell(event: CorporateEvent, linkColor: string): React.React
       name: string;
       page_type?: string;
       route?: string;
-      is_new?: boolean;
     }>;
     target_company?: { id?: number; name?: string; page_type?: string };
     target_counterparty?: {
@@ -316,11 +315,10 @@ function renderTargetCell(event: CorporateEvent, linkColor: string): React.React
       const href = `/${pageType}/${tgt.id}`;
       return (
         <span key={`${tgt.id}-${i}`}>
-          <CorporateEventPartyLink
+          <CorporateEventTargetLink
             name={tgt.name}
             href={href}
-            isNew={tgt.is_new}
-            variant="inline"
+            entity={tgt as unknown as Record<string, unknown>}
             linkStyle={{
               color: linkColor,
               textDecoration: "underline",
