@@ -104,6 +104,22 @@ function CompanyNotInDbCard({
   const isNotDa = entry.verdict === "not_da";
   const displayName = getCompanyNotInDbDisplayName(entry);
   const verdictLabel = formatCompanyNotInDbVerdict(entry.verdict);
+  const website = entry.website?.trim() || null;
+  const companiesSearchHref = entry.company_name
+    ? `/companies?search=${encodeURIComponent(entry.company_name)}`
+    : null;
+  const externalHref = website;
+  const internalHref = !externalHref ? companiesSearchHref : null;
+
+  const nameClassName = [
+    "min-w-0 flex-1 break-words text-[11px] leading-snug [overflow-wrap:anywhere]",
+    isDa
+      ? "font-bold text-emerald-950"
+      : isNotDa
+        ? "font-medium text-slate-700"
+        : "font-medium text-amber-900",
+    externalHref || internalHref ? "hover:underline" : "",
+  ].join(" ");
 
   return (
     <div
@@ -122,18 +138,22 @@ function CompanyNotInDbCard({
         </span>
       ) : null}
       <div className="flex min-w-0 flex-wrap items-start gap-1.5">
-        <p
-          className={[
-            "min-w-0 flex-1 break-words text-[11px] leading-snug [overflow-wrap:anywhere]",
-            isDa
-              ? "font-bold text-emerald-950"
-              : isNotDa
-                ? "font-medium text-slate-700"
-                : "font-medium text-amber-900",
-          ].join(" ")}
-        >
-          {displayName}
-        </p>
+        {externalHref ? (
+          <a
+            href={externalHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={nameClassName}
+          >
+            {displayName}
+          </a>
+        ) : internalHref ? (
+          <Link href={internalHref} className={nameClassName}>
+            {displayName}
+          </Link>
+        ) : (
+          <p className={nameClassName}>{displayName}</p>
+        )}
         {verdictLabel ? (
           <span
             className={[
@@ -161,9 +181,9 @@ function CompanyNotInDbCard({
           </span>
         ) : null}
       </div>
-      {entry.website ? (
+      {website ? (
         <a
-          href={entry.website}
+          href={website}
           target="_blank"
           rel="noopener noreferrer"
           className={[
@@ -171,7 +191,7 @@ function CompanyNotInDbCard({
             isDa ? "font-medium text-emerald-700" : "text-blue-600",
           ].join(" ")}
         >
-          {entry.website}
+          {website}
         </a>
       ) : null}
       {entry.reasoning ? (
@@ -276,7 +296,7 @@ function ChangeRequestCompaniesCell({
                   key={c.id}
                   href={`/company/${c.id}`}
                   className={[
-                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-snug [overflow-wrap:anywhere]",
+                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-snug transition [overflow-wrap:anywhere] hover:underline",
                     isDa
                       ? "border-emerald-400 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-300 hover:bg-emerald-100"
                       : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100",
