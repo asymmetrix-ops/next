@@ -22,6 +22,7 @@ import {
   formatCompanyNotInDbVerdict,
   getChangeRequestCompanies,
   getChangeRequestCompaniesNotInDb,
+  isChangeRequestCompanyDa,
   getChangeRequestAiReasoning,
   getChangeRequestBucket,
   getChangeRequestDealTag,
@@ -258,21 +259,44 @@ function ChangeRequestCompaniesCell({
     <div className="flex h-full min-h-full flex-col gap-2">
       <DealTag tag={dealTag} />
       {companies.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {visibleInDb.map((c) => (
-            <Link
-              key={c.id}
-              href={`/company/${c.id}`}
-              className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium leading-snug text-slate-700 hover:bg-slate-100 [overflow-wrap:anywhere]"
-            >
-              {c.name}
-            </Link>
-          ))}
-          <ExpandCountButton
-            hiddenCount={hiddenInDbCount}
-            expanded={showAllInDb}
-            onToggle={() => setShowAllInDb((prev) => !prev)}
-          />
+        <div className="space-y-1.5">
+          {companies.some(isChangeRequestCompanyDa) ? (
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+              In DB
+              <span className="ml-1.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-white">
+                D&A found
+              </span>
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-1.5">
+            {visibleInDb.map((c) => {
+              const isDa = isChangeRequestCompanyDa(c);
+              return (
+                <Link
+                  key={c.id}
+                  href={`/company/${c.id}`}
+                  className={[
+                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-snug [overflow-wrap:anywhere]",
+                    isDa
+                      ? "border-emerald-400 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-300 hover:bg-emerald-100"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100",
+                  ].join(" ")}
+                >
+                  {c.name}
+                  {isDa ? (
+                    <span className="rounded bg-emerald-600 px-1 py-0 text-[9px] font-bold uppercase text-white">
+                      D&A
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+            <ExpandCountButton
+              hiddenCount={hiddenInDbCount}
+              expanded={showAllInDb}
+              onToggle={() => setShowAllInDb((prev) => !prev)}
+            />
+          </div>
         </div>
       ) : null}
       {companiesNotInDb.length > 0 ? (

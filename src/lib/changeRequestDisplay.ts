@@ -109,6 +109,8 @@ export function getChangeRequestAiReasoning(item: ChangeRequestItem): unknown {
 export type ChangeRequestCompanyRef = {
   id: number;
   name: string;
+  /** AI pipeline D&A verdict for matched DB companies. */
+  da?: boolean;
   primary_business_focus_id?: number[];
 };
 
@@ -131,6 +133,16 @@ export type ChangeRequestDealTag = {
 };
 
 const DA_PRIMARY_BUSINESS_FOCUS_ID = 75;
+
+export function isChangeRequestCompanyDa(
+  company: ChangeRequestCompanyRef
+): boolean {
+  if (company.da === true) return true;
+  return (
+    company.primary_business_focus_id?.includes(DA_PRIMARY_BUSINESS_FOCUS_ID) ??
+    false
+  );
+}
 
 function coerceNumberArray(value: unknown): number[] | undefined {
   if (!Array.isArray(value)) return undefined;
@@ -213,11 +225,7 @@ export function getChangeRequestDaLevel(
   companies?: ChangeRequestCompanyRef[]
 ): ChangeRequestTriState {
   const matched = companies ?? getChangeRequestCompanies(item);
-  if (
-    matched.some((c) =>
-      c.primary_business_focus_id?.includes(DA_PRIMARY_BUSINESS_FOCUS_ID)
-    )
-  ) {
+  if (matched.some(isChangeRequestCompanyDa)) {
     return "yes";
   }
   const notInDb = getChangeRequestCompaniesNotInDb(item);
@@ -310,9 +318,11 @@ export function getChangeRequestCompanies(
         const focusRaw =
           o.primary_business_focus_id ?? o.Primary_Business_Focus_Id;
         const primary_business_focus_id = coerceNumberArray(focusRaw);
+        const da = o.da === true ? true : o.da === false ? false : undefined;
         return {
           id: idNum,
           name,
+          ...(da !== undefined ? { da } : {}),
           ...(primary_business_focus_id
             ? { primary_business_focus_id }
             : {}),
