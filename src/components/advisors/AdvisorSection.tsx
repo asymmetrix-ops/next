@@ -29,9 +29,8 @@ import {
 } from "@/components/advisors/advisorsColumnCategories";
 import { FILTER_PINNED_TOOLTIP } from "@/components/advisors/advisorsColumnFilterMap";
 import {
-  compareAdvisorSortValues,
   getAdvisorColumnSortKind,
-  getAdvisorSortValueForColumn,
+  getAdvisorServerSortColumn,
 } from "@/components/advisors/advisorsTableSort";
 import { SearchEntityDescription } from "@/components/search/SearchEntityDescription";
 import { SearchEntityLogo } from "@/components/search/SearchEntityLogo";
@@ -101,6 +100,10 @@ export const AdvisorSection = ({
   onColumnsCountChange,
   onRegisterExportCSV,
   isPortfolioOnlyFilter = false,
+  sortColumnKey = null,
+  sortDirection = "desc",
+  onSortColumn,
+  onSortClear,
 }: {
   advisors: Advisor[];
   loading: boolean;
@@ -124,6 +127,10 @@ export const AdvisorSection = ({
   onColumnsCountChange?: (count: number) => void;
   onRegisterExportCSV?: (fn: () => void) => void;
   isPortfolioOnlyFilter?: boolean;
+  sortColumnKey?: string | null;
+  sortDirection?: "asc" | "desc";
+  onSortColumn?: (columnKey: string) => void;
+  onSortClear?: () => void;
 }) => {
   const router = useRouter();
   const headerDidDragRef = useRef(false);
@@ -139,10 +146,6 @@ export const AdvisorSection = ({
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
     DEFAULT_VISIBLE_ADVISOR_COLUMN_KEYS
   );
-  const [sortState, setSortState] = useState<{
-    key: string;
-    dir: "asc" | "desc";
-  } | null>(null);
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
 
@@ -211,24 +214,10 @@ export const AdvisorSection = ({
   }, [selectedColumns.length, onColumnsCountChange]);
 
   useEffect(() => {
-    if (sortState && !selectedColumnKeys.includes(sortState.key)) {
-      setSortState(null);
+    if (sortColumnKey && !selectedColumnKeys.includes(sortColumnKey)) {
+      onSortClear?.();
     }
-  }, [selectedColumnKeys, sortState]);
-
-  const sortedAdvisors = useMemo(() => {
-    if (!sortState || !getAdvisorColumnSortKind(sortState.key)) {
-      return advisors;
-    }
-    const { key, dir } = sortState;
-    return [...advisors].sort((a, b) =>
-      compareAdvisorSortValues(
-        getAdvisorSortValueForColumn(a as unknown as Record<string, unknown>, key),
-        getAdvisorSortValueForColumn(b as unknown as Record<string, unknown>, key),
-        dir
-      )
-    );
-  }, [advisors, sortState]);
+  }, [selectedColumnKeys, sortColumnKey, onSortClear]);
 
   const handleAdvisorClick = useCallback(
     (id: number) => {
@@ -245,13 +234,13 @@ export const AdvisorSection = ({
     [currentFilters, fetchAdvisors]
   );
 
-  const handleSortColumn = useCallback((columnKey: string) => {
-    if (!getAdvisorColumnSortKind(columnKey)) return;
-    setSortState((current) => {
-      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
-      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
-    });
-  }, []);
+  const handleSortColumn = useCallback(
+    (columnKey: string) => {
+      if (!getAdvisorServerSortColumn(columnKey) || !onSortColumn) return;
+      onSortColumn(columnKey);
+    },
+    [onSortColumn]
+  );
 
   const handleReorderTableColumns = useCallback(
     (dragKey: string, dropKey: string) => {
@@ -627,7 +616,7 @@ export const AdvisorSection = ({
             <tr>
               {selectedColumns.map((column) => {
                 const sortKind = getAdvisorColumnSortKind(column.key);
-                const isActive = sortState?.key === column.key;
+                const isActive = sortColumnKey === column.key;
                 const isDraggable = !isFrozenColumnKey(column.key);
                 const isDragging = headerDragKey === column.key;
                 const isDragOver =
@@ -696,7 +685,7 @@ export const AdvisorSection = ({
                     aria-sort={
                       sortKind
                         ? isActive
-                          ? sortState?.dir === "asc"
+                          ? sortDirection === "asc"
                             ? "ascending"
                             : "descending"
                           : "none"
@@ -718,7 +707,7 @@ export const AdvisorSection = ({
                     )}
                     {sortKind && isActive && (
                       <span className="company-table-sort-indicator">
-                        {sortState?.dir === "asc" ? "▲" : "▼"}
+                        {sortDirection === "asc" ? "▲" : "▼"}
                       </span>
                     )}
                   </th>
@@ -727,12 +716,12 @@ export const AdvisorSection = ({
             </tr>
           </thead>
           <tbody>
-            {sortedAdvisors.length === 0 ? (
+            {advisors.length === 0 ? (
               <tr>
                 <td colSpan={selectedColumns.length}>No advisors found.</td>
               </tr>
             ) : (
-              sortedAdvisors.map((advisor, index) => (
+              advisors.map((advisor, index) => (
                 <tr key={`${advisor.id ?? index}`}>
                   {selectedColumns.map((column) => (
                     <td
