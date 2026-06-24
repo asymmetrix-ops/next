@@ -2393,6 +2393,13 @@ type EAEmailDailyFailedItem = {
   final_status: string;
 };
 
+type EAEngagementTabCounts = {
+  all: number;
+  stale: number;
+  bounced: number;
+  inactive: number;
+};
+
 type EAEmailDailyStats = {
   date: string;
   scheduled: number;
@@ -2409,7 +2416,117 @@ type EAEmailDailyStats = {
   send_rate_pct: string;
   open_rate_pct: string;
   failed_list: EAEmailDailyFailedItem[];
+  engagementTabCounts: EAEngagementTabCounts | null;
 };
+
+function eaTabEngagementStatus(tab: EATab): string {
+  return tab === "all" ? "" : tab;
+}
+
+function eaParseEngagementTabCounts(
+  row: Record<string, unknown>
+): EAEngagementTabCounts | null {
+  const jsonKeys = [
+    "engagement_tab_counts",
+    "user_engagement_counts",
+    "tab_counts",
+    "user_counts_by_status",
+    "engagement_counts",
+  ] as const;
+
+  for (const key of jsonKeys) {
+    const raw = row[key];
+    const parsed =
+      raw && typeof raw === "object" && !Array.isArray(raw)
+        ? (raw as Record<string, unknown>)
+        : typeof raw === "string" && raw.trim()
+        ? (() => {
+            try {
+              const value = JSON.parse(raw) as unknown;
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : null;
+            } catch {
+              return null;
+            }
+          })()
+        : null;
+    if (!parsed) continue;
+
+    const all = eaOverviewNum(
+      parsed.all ?? parsed.users_all ?? parsed.total ?? parsed.total_users
+    );
+    const stale = eaOverviewNum(
+      parsed.stale ??
+        parsed.users_stale ??
+        parsed.not_opened_7d ??
+        parsed.users_not_opened_7d
+    );
+    const bounced = eaOverviewNum(
+      parsed.bounced ?? parsed.users_bounced ?? parsed.bounced_users
+    );
+    const inactive = eaOverviewNum(
+      parsed.inactive ?? parsed.users_inactive ?? parsed.inactive_users
+    );
+    if (all > 0 || stale > 0 || bounced > 0 || inactive > 0) {
+      return { all, stale, bounced, inactive };
+    }
+  }
+
+  const staleList = eaParseJsonArray<unknown>(
+    row.stale_users ?? row.not_opened_users ?? row.users_not_opened_7d_list
+  );
+  const bouncedList = eaParseJsonArray<unknown>(
+    row.bounced_users ?? row.bounced_users_list
+  );
+  const inactiveList = eaParseJsonArray<unknown>(
+    row.inactive_users ?? row.inactive_users_list
+  );
+
+  const all = eaOverviewNum(
+    row.users_all ??
+      row.users_total ??
+      row.total_users ??
+      row.all_users ??
+      row.scheduled
+  );
+  const stale = eaOverviewNum(
+    row.users_stale ??
+      row.users_not_opened_7d ??
+      row.not_opened_7d ??
+      row.stale_users_count ??
+      (staleList.length > 0 ? staleList.length : undefined)
+  );
+  const bounced = eaOverviewNum(
+    row.users_bounced ??
+      row.bounced_users_count ??
+      (bouncedList.length > 0 ? bouncedList.length : undefined)
+  );
+  const inactive = eaOverviewNum(
+    row.users_inactive ??
+      row.inactive_users_count ??
+      (inactiveList.length > 0 ? inactiveList.length : undefined)
+  );
+
+  const hasExplicitCounts =
+    row.users_all != null ||
+    row.users_total != null ||
+    row.total_users != null ||
+    row.all_users != null ||
+    row.scheduled != null ||
+    row.users_stale != null ||
+    row.users_not_opened_7d != null ||
+    row.not_opened_7d != null ||
+    row.users_bounced != null ||
+    row.users_inactive != null ||
+    staleList.length > 0 ||
+    bouncedList.length > 0 ||
+    inactiveList.length > 0;
+
+  if (!hasExplicitCounts) return null;
+
+  return { all, stale, bounced, inactive };
+}
 
 function eaDailyFinalStatusBadge(finalStatus: string | null | undefined) {
   const normalized = (finalStatus ?? "").toLowerCase();
@@ -2539,6 +2656,7 @@ type EAEmailByType = {
   item_type: string;
   open_rate_pct: number;
   last_opened_at: number;
+  failed_attempts?: number;
 };
 
 type EAEmailTopClickedUrl = {
@@ -2587,6 +2705,16 @@ function eaFormatRatePct(value: string | number | null | undefined): string {
   return `${n % 1 === 0 ? Math.round(n) : n.toFixed(1)}%`;
 }
 
+function eaFailedAttemptsByType(
+  perAlert: EAEmailPerAlertEngagement[]
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const row of perAlert) {
+    out[row.item_type] = (out[row.item_type] ?? 0) + row.failed_attempts;
+  }
+  return out;
+}
+
 type EAEmailPerAlertEngagement = {
   alert_id: number;
   frequency: string;
@@ -2599,6 +2727,7 @@ type EAEmailPerAlertEngagement = {
   last_opened_at: number;
   opened_tracked: number;
   delivered_tracked: number;
+  failed_attempts: number;
   engagement_status: string;
   emails_sent_tracked: number;
 };
@@ -2650,7 +2779,9 @@ function emailAnalyticsOverviewQueryParams(
   filters: EAOverviewFilters,
   q: string,
   page: number,
-  perPage: number
+  perPage: number,
+  tab: EATab,
+  date: string
 ): string {
   const params = new URLSearchParams({
     q: q.trim(),
@@ -2659,7 +2790,12 @@ function emailAnalyticsOverviewQueryParams(
     user_status: filters.userStatus,
     page: String(page),
     per_page: String(perPage),
+    date,
   });
+  const engagementStatus = eaTabEngagementStatus(tab);
+  if (engagementStatus) {
+    params.set("engagement_status", engagementStatus);
+  }
   return params.toString();
 }
 
@@ -2795,23 +2931,6 @@ function normalizeEmailUserDetail(raw: unknown): EAEmailUserDetail | null {
     top_clicked_urls: eaParseJsonArray<EAEmailTopClickedUrl>(r.top_clicked_urls),
     recent_clicks: eaParseJsonArray<EAEmailRecentClick>(r.recent_clicks),
   };
-}
-
-function eaMatchesEngagementTab(item: EAEmailListItem, tab: EATab): boolean {
-  switch (tab) {
-    case "stale":
-      return (
-        item.total_sent > 0 &&
-        (item.last_opened_at === 0 ||
-          eaDaysSince(new Date(item.last_opened_at).toISOString()) > 7)
-      );
-    case "bounced":
-      return item.total_bounced > 0 || item.engagement_status === "bounced";
-    case "inactive":
-      return item.active_subscriptions === 0 || item.engagement_status === "inactive";
-    default:
-      return true;
-  }
 }
 
 function eaParseJsonArray<T>(value: unknown): T[] {
@@ -3097,6 +3216,7 @@ function EAEmailUserDetailPanel({
   const clicksCount = detail.clicks_tracked || detail.total_clicks;
   const openRate =
     detail.open_rate_tracked_pct || detail.open_rate_pct;
+  const failedAttemptsByType = eaFailedAttemptsByType(detail.per_alert_engagement);
 
   return (
     <div className="px-4 py-3 bg-gray-50 space-y-4 border-t border-gray-100">
@@ -3128,9 +3248,9 @@ function EAEmailUserDetailPanel({
             </div>
           </div>
           <div className="rounded border bg-white px-3 py-2">
-            <div className="text-xs text-gray-500">Failed</div>
+            <div className="text-xs text-gray-500">Failed attempts</div>
             <div className="text-lg font-medium text-amber-700">
-              {detail.total_failed || "—"}
+              {detail.total_failed}
             </div>
           </div>
           <div className="rounded border bg-white px-3 py-2">
@@ -3165,6 +3285,7 @@ function EAEmailUserDetailPanel({
                     "Sent",
                     "Opened",
                     "Clicks",
+                    "Failed attempts",
                     "Status",
                     "Open rate",
                     "Last opened",
@@ -3182,6 +3303,8 @@ function EAEmailUserDetailPanel({
                 {detail.by_email_type.map((row) => {
                   const { label, cls } = eaAlertLabel(row.item_type);
                   const badge = eaEngagementBadge(row.status, 0);
+                  const failedAttempts =
+                    row.failed_attempts ?? failedAttemptsByType[row.item_type] ?? 0;
                   return (
                     <tr
                       key={row.item_type}
@@ -3202,6 +3325,11 @@ function EAEmailUserDetailPanel({
                       </td>
                       <td className="px-3 py-2 text-green-700">{row.opened}</td>
                       <td className="px-3 py-2 text-blue-700">{row.clicked}</td>
+                      <td className="px-3 py-2 text-amber-700">
+                        {row.status === "failed" || failedAttempts > 0
+                          ? failedAttempts
+                          : "—"}
+                      </td>
                       <td className="px-3 py-2">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${badge.cls}`}
@@ -3246,6 +3374,7 @@ function EAEmailUserDetailPanel({
                     "Open rate",
                     "Click rate",
                     "Clicks",
+                    "Failed attempts",
                     "Last opened",
                     "Status",
                   ].map((h) => (
@@ -3291,6 +3420,12 @@ function EAEmailUserDetailPanel({
                       </td>
                       <td className="px-3 py-2 text-blue-700">
                         {row.clicks_tracked}
+                      </td>
+                      <td className="px-3 py-2 text-amber-700">
+                        {row.engagement_status === "failed" ||
+                        row.failed_attempts > 0
+                          ? row.failed_attempts
+                          : "—"}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-gray-600">
                         {row.last_opened_at > 0
@@ -3576,6 +3711,7 @@ function normalizeEmailDailyStats(raw: unknown): EAEmailDailyStats | null {
     send_rate_pct: String(r.send_rate_pct ?? r.delivery_rate_pct ?? "0"),
     open_rate_pct: String(r.open_rate_pct ?? "0"),
     failed_list: eaParseJsonArray<EAEmailDailyFailedItem>(r.failed_list),
+    engagementTabCounts: eaParseEngagementTabCounts(r),
   };
 }
 
@@ -3608,6 +3744,7 @@ export function EmailAnalyticsTab() {
   const [dailyStats, setDailyStats] = useState<EAEmailDailyStats | null>(null);
   const [dailyLoading, setDailyLoading] = useState(true);
   const [dailyError, setDailyError] = useState<string | null>(null);
+  const [allUsersCount, setAllUsersCount] = useState(0);
   type EAUserSortCol = "openRate" | "sentCount" | "lastOpened" | "name" | "activeAlerts";
   const [userSortCol, setUserSortCol] = useState<EAUserSortCol>("openRate");
   const [userSortDir, setUserSortDir] = useState<SortDirection>("desc");
@@ -3670,7 +3807,9 @@ export function EmailAnalyticsTab() {
           filters,
           searchQuery,
           page,
-          EA_LIST_PER_PAGE
+          EA_LIST_PER_PAGE,
+          tab,
+          auditDate
         )}`,
         {
           method: "GET",
@@ -3693,6 +3832,9 @@ export function EmailAnalyticsTab() {
         cur_page: curPage,
         total_pages: pageTotal,
       });
+      if (tab === "all") {
+        setAllUsersCount(itemsReceived);
+      }
     } catch (e) {
       setAllListItems([]);
       setListMeta({ total_count: 0, cur_page: 1, total_pages: 1 });
@@ -3702,7 +3844,7 @@ export function EmailAnalyticsTab() {
     } finally {
       setListLoading(false);
     }
-  }, [filters, searchQuery, page]);
+  }, [filters, searchQuery, page, tab, auditDate]);
 
   const fetchAnalytics = useCallback(async () => {
     await Promise.all([fetchOverviewStats(), fetchUserList()]);
@@ -3773,14 +3915,37 @@ export function EmailAnalyticsTab() {
     fetchDailyStats();
   }, [fetchDailyStats]);
 
-  const filteredListItems = useMemo(
-    () => allListItems.filter((item) => eaMatchesEngagementTab(item, tab)),
-    [allListItems, tab]
-  );
+  useEffect(() => {
+    setPage(1);
+  }, [tab, auditDate]);
+
+  const engagementTabCounts = useMemo((): EAEngagementTabCounts => {
+    const fromDaily = dailyStats?.engagementTabCounts;
+    if (fromDaily) return fromDaily;
+    return {
+      all: allUsersCount,
+      stale: 0,
+      bounced: 0,
+      inactive: 0,
+    };
+  }, [dailyStats?.engagementTabCounts, allUsersCount]);
+
+  const tabCount = (t: EATab): number => {
+    switch (t) {
+      case "stale":
+        return engagementTabCounts.stale;
+      case "bounced":
+        return engagementTabCounts.bounced;
+      case "inactive":
+        return engagementTabCounts.inactive;
+      default:
+        return engagementTabCounts.all;
+    }
+  };
 
   const sortedListItems = useMemo(() => {
     const mul = userSortDir === "asc" ? 1 : -1;
-    return filteredListItems.slice().sort((a, b) => {
+    return allListItems.slice().sort((a, b) => {
       switch (userSortCol) {
         case "openRate":
           return (parseFloat(a.open_rate_pct) - parseFloat(b.open_rate_pct)) * mul;
@@ -3796,7 +3961,7 @@ export function EmailAnalyticsTab() {
           return 0;
       }
     });
-  }, [filteredListItems, userSortCol, userSortDir]);
+  }, [allListItems, userSortCol, userSortDir]);
 
   const tabs: Array<[EATab, string]> = [
     ["all", "All users"],
@@ -4233,11 +4398,9 @@ export function EmailAnalyticsTab() {
               }`}
             >
               {label}
-              {tab === t && listMeta ? (
-                <span className="ml-1.5 text-xs text-gray-400">
-                  ({listMeta.total_count})
-                </span>
-              ) : null}
+              <span className="ml-1.5 text-xs text-gray-400">
+                ({tabCount(t).toLocaleString()})
+              </span>
             </button>
           ))}
         </div>
