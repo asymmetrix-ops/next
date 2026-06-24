@@ -6,6 +6,7 @@ import {
   COMPANIES_API_BASE,
   companyCountsPayloadToSearchParams,
   companySearchPayloadToSearchParams,
+  normalizeCompanySearchPayload,
 } from "@/lib/companiesFilterPayload";
 import { normalizeCompaniesResponse } from "./normalizeCompaniesResponse";
 
@@ -37,6 +38,7 @@ export interface CompanyItem {
   data_collection_method?: string | unknown[];
   revenue_model?: string | unknown[];
   transaction_status?: string;
+  created_at?: string | null;
   revenue_m?: number | null;
   ebitda_m?: number | null;
   ev?: number | null;
@@ -111,15 +113,7 @@ export async function fetchCompaniesCountsServer(
       return null;
     }
 
-    const payload: CompanySearchPayload = {
-      ...filters,
-      query: filters.query?.trim() || null,
-      filters_sql: filters.filters_sql || null,
-      columns: filters.columns ?? [],
-      has_financial_filters: Boolean(filters.has_financial_filters),
-      has_year_filter: Boolean(filters.has_year_filter),
-    };
-
+    const payload = normalizeCompanySearchPayload(filters);
     const params = companyCountsPayloadToSearchParams(payload);
     const url = `${COMPANIES_API_BASE}/companies_counts?${params.toString()}`;
 
@@ -161,14 +155,9 @@ export async function fetchCompaniesServer(
     const perPageRaw = filters.Per_page ?? 20;
     const perPage = perPageRaw > 0 ? perPageRaw : 20;
     const payload: CompanySearchPayload = {
-      ...filters,
+      ...normalizeCompanySearchPayload(filters),
       Offset: page,
       Per_page: perPage,
-      filters_sql: filters.filters_sql || null,
-      query: filters.query?.trim() || null,
-      columns: filters.columns ?? [],
-      has_financial_filters: Boolean(filters.has_financial_filters),
-      has_year_filter: Boolean(filters.has_year_filter),
     };
 
     const params = companySearchPayloadToSearchParams(payload, { page, perPage });

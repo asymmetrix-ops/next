@@ -561,6 +561,9 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         wrap: true,
         minWidth: 200,
       }),
+      makeTextColumn("created_at", "Date Added", "Overview", {
+        minWidth: 120,
+      }),
     ],
   },
   {

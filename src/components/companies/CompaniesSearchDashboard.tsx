@@ -13,7 +13,10 @@ import {
 } from "@/components/companies/CompaniesFilterBar";
 import { CANONICAL_COMPANY_COLUMN_KEYS } from "@/components/companies/companiesColumnCategories";
 import type { CompaniesFilters } from "@/app/companies/actions";
-import { buildCompaniesSearchPayload } from "@/lib/companiesFilterPayload";
+import {
+  buildCompaniesCountsSearchPayload,
+  buildCompaniesSearchPayload,
+} from "@/lib/companiesFilterPayload";
 import { locationsService } from "@/lib/locationsService";
 import { usePortfolioStore } from "@/store/portfolioStore";
 import {
@@ -245,12 +248,11 @@ export function CompaniesSearchDashboard({
   }, [filterBarState.filters, activeOwnershipTab]);
 
   const buildGlobalSearchFilters = useCallback((): CompaniesFilters => {
-    return buildCompaniesSearchPayload({
+    return buildCompaniesCountsSearchPayload({
       state: filterBarState,
       primarySectors,
       secondarySectors,
       ownershipTypes,
-      applyOwnershipTabFilter: false,
       portfolioCompanyIds,
       hybridBusinessFocusIds,
       forcedPrimarySectorIds: lockedSectorIds,

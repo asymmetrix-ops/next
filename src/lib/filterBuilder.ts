@@ -279,6 +279,9 @@ export interface CompanySearchPayload {
   has_year_filter?: boolean;
   sort_column?: string | null;
   sort_direction?: "asc" | "desc" | null;
+  /** Top-level date-added range — handled by Xano, not filters_sql. */
+  created_at_from?: string;
+  created_at_to?: string;
 }
 
 export function buildApiPayload(

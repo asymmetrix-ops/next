@@ -33,6 +33,70 @@ function hasRangeValue(value: unknown): value is { min?: number; max?: number } 
   return rv.min !== undefined || rv.max !== undefined;
 }
 
+function hasDateRangeValue(
+  value: unknown
+): value is { from?: string; to?: string } {
+  if (!value || typeof value !== "object") return false;
+  const rv = value as { from?: string; to?: string };
+  return Boolean(rv.from?.trim() || rv.to?.trim());
+}
+
+function pickCompanyDateAddedParams(
+  source: Pick<CompanySearchPayload, "created_at_from" | "created_at_to">
+): Pick<CompanySearchPayload, "created_at_from" | "created_at_to"> {
+  return {
+    ...(source.created_at_from?.trim()
+      ? { created_at_from: source.created_at_from.trim() }
+      : {}),
+    ...(source.created_at_to?.trim()
+      ? { created_at_to: source.created_at_to.trim() }
+      : {}),
+  };
+}
+
+function extractCreatedAtRange(state: FilterBarState): {
+  created_at_from?: string;
+  created_at_to?: string;
+} {
+  const dateAddedFilter = state.filters.find((item) => item.id === "date_added");
+  if (!dateAddedFilter?.value || !hasDateRangeValue(dateAddedFilter.value)) {
+    return {};
+  }
+
+  const { from, to } = dateAddedFilter.value;
+  return pickCompanyDateAddedParams({
+    created_at_from: from?.trim() || undefined,
+    created_at_to: to?.trim() || undefined,
+  });
+}
+
+export function buildCompaniesCountsSearchPayload(
+  args: Omit<
+    Parameters<typeof buildCompaniesSearchPayload>[0],
+    "applyOwnershipTabFilter"
+  >
+): CompanySearchPayload {
+  return buildCompaniesSearchPayload({
+    ...args,
+    applyOwnershipTabFilter: false,
+  });
+}
+
+/** Normalize shared search/counts payload fields (filters_sql + top-level date params). */
+export function normalizeCompanySearchPayload(
+  filters: CompanySearchPayload = {}
+): CompanySearchPayload {
+  return {
+    ...filters,
+    query: filters.query?.trim() || null,
+    filters_sql: filters.filters_sql || null,
+    columns: filters.columns ?? [],
+    has_financial_filters: Boolean(filters.has_financial_filters),
+    has_year_filter: Boolean(filters.has_year_filter),
+    ...pickCompanyDateAddedParams(filters),
+  };
+}
+
 export function buildCompaniesSearchPayload(args: {
   state: FilterBarState;
   primarySectors: SectorRef[];
@@ -265,6 +329,9 @@ export function buildCompaniesSearchPayload(args: {
           op: i === 0 ? op : "OR",
         });
       });
+      continue;
+    }
+    if (item.id === "date_added" && hasDateRangeValue(v)) {
       continue;
     }
 
@@ -510,6 +577,7 @@ export function buildCompaniesSearchPayload(args: {
 
   const { has_financial_filters, has_year_filter } = deriveBackendSignals(clauses);
   const filters_sql = buildFiltersSql(clauses) || null;
+  const createdAtRange = extractCreatedAtRange(state);
 
   return {
     query: null,
@@ -519,6 +587,7 @@ export function buildCompaniesSearchPayload(args: {
     filters_sql,
     has_financial_filters,
     has_year_filter,
+    ...createdAtRange,
   };
 }
 
@@ -539,6 +608,13 @@ function appendSharedCompanyFilterParams(
     String(Boolean(payload.has_financial_filters))
   );
   params.append("has_year_filter", String(Boolean(payload.has_year_filter)));
+
+  if (payload.created_at_from?.trim()) {
+    params.append("created_at_from", payload.created_at_from.trim());
+  }
+  if (payload.created_at_to?.trim()) {
+    params.append("created_at_to", payload.created_at_to.trim());
+  }
 
   (payload.columns ?? []).forEach((col) => {
     params.append("columns[]", col);
@@ -571,12 +647,12 @@ export function companySearchPayloadToSearchParams(
   return params;
 }
 
-/** Serialize payload for GET companies_counts — same filter params as search, no pagination. */
+/** Serialize payload for GET companies_counts — filters_sql + created_at_from/to, no pagination. */
 export function companyCountsPayloadToSearchParams(
   payload: CompanySearchPayload
 ): URLSearchParams {
   const params = new URLSearchParams();
-  appendSharedCompanyFilterParams(params, payload);
+  appendSharedCompanyFilterParams(params, normalizeCompanySearchPayload(payload));
   return params;
 }
 

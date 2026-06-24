@@ -209,6 +209,16 @@ export function formatCompanyColumnDisplay(
     return formatLinkedInGrowthPercentValue(raw);
   }
   if (columnKey === "years_since_last_investment") return toPlainText(raw);
+  if (columnKey === "created_at") {
+    if (isEmptyMetricValue(raw)) return EMPTY_DISPLAY;
+    const date = new Date(String(raw));
+    if (Number.isNaN(date.getTime())) return EMPTY_DISPLAY;
+    return date.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
   if (columnKey === "revenue_multiple") return formatMultipleValue(raw);
   if (columnKey === "rule_of_40") {
     const formatted = formatPlainNumber(raw);

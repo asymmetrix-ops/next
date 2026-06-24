@@ -79,6 +79,7 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   data_collection_method: "text",
   revenue_model: "text",
   transaction_status: "text",
+  created_at: "text",
   revenue_m: "number",
   ebitda_m: "number",
   enterprise_value: "number",

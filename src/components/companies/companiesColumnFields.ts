@@ -41,6 +41,7 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
   data_collection_method: ["data_collection_method", "Data_Collection_Method"],
   revenue_model: ["revenue_model", "Revenue_Model_", "Revenue_Model"],
   transaction_status: ["transaction_status", "transactionStatus"],
+  created_at: ["created_at", "date_added"],
   revenue_m: ["revenue_m", "Revenue_m", "revenues.revenues_m"],
   ebitda_m: ["ebitda_m", "EBITDA_m", "EBITDA.EBITDA_m"],
   enterprise_value: ["ev", "enterprise_value", "EV", "ev_data.ev_value"],
