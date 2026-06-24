@@ -27,9 +27,8 @@ import {
 import { FILTER_PINNED_TOOLTIP } from "@/components/investors/investorsColumnFilterMap";
 import { getInvestorFieldAliasesForColumn } from "@/components/investors/investorsColumnFields";
 import {
-  compareInvestorSortValues,
   getInvestorColumnSortKind,
-  getInvestorSortValueForColumn,
+  getInvestorServerSortColumn,
 } from "@/components/investors/investorsTableSort";
 import { SearchEntityDescription } from "@/components/search/SearchEntityDescription";
 import { SearchEntityLogo } from "@/components/search/SearchEntityLogo";
@@ -275,6 +274,10 @@ export const InvestorSection = ({
   externalSetShowColumnsModal,
   onColumnsCountChange,
   isPortfolioOnlyFilter = false,
+  sortColumnKey = null,
+  sortDirection = "desc",
+  onSortColumn,
+  onSortClear,
 }: {
   investors: Investor[];
   loading: boolean;
@@ -297,6 +300,10 @@ export const InvestorSection = ({
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
   isPortfolioOnlyFilter?: boolean;
+  sortColumnKey?: string | null;
+  sortDirection?: "asc" | "desc";
+  onSortColumn?: (columnKey: string) => void;
+  onSortClear?: () => void;
 }) => {
   const router = useRouter();
   const headerDidDragRef = useRef(false);
@@ -311,10 +318,6 @@ export const InvestorSection = ({
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
     DEFAULT_VISIBLE_INVESTOR_COLUMN_KEYS
   );
-  const [sortState, setSortState] = useState<{
-    key: string;
-    dir: "asc" | "desc";
-  } | null>(null);
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
 
@@ -383,24 +386,10 @@ export const InvestorSection = ({
   }, [selectedColumns.length, onColumnsCountChange]);
 
   useEffect(() => {
-    if (sortState && !selectedColumnKeys.includes(sortState.key)) {
-      setSortState(null);
+    if (sortColumnKey && !selectedColumnKeys.includes(sortColumnKey)) {
+      onSortClear?.();
     }
-  }, [selectedColumnKeys, sortState]);
-
-  const sortedInvestors = useMemo(() => {
-    if (!sortState || !getInvestorColumnSortKind(sortState.key)) {
-      return investors;
-    }
-    const { key, dir } = sortState;
-    return [...investors].sort((a, b) =>
-      compareInvestorSortValues(
-        getInvestorSortValueForColumn(a as Record<string, unknown>, key),
-        getInvestorSortValueForColumn(b as Record<string, unknown>, key),
-        dir
-      )
-    );
-  }, [investors, sortState]);
+  }, [selectedColumnKeys, sortColumnKey, onSortClear]);
 
   const handleInvestorClick = useCallback(
     (id: number) => {
@@ -417,13 +406,13 @@ export const InvestorSection = ({
     [currentFilters, fetchInvestors]
   );
 
-  const handleSortColumn = useCallback((columnKey: string) => {
-    if (!getInvestorColumnSortKind(columnKey)) return;
-    setSortState((current) => {
-      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
-      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
-    });
-  }, []);
+  const handleSortColumn = useCallback(
+    (columnKey: string) => {
+      if (!getInvestorServerSortColumn(columnKey) || !onSortColumn) return;
+      onSortColumn(columnKey);
+    },
+    [onSortColumn]
+  );
 
   const handleReorderTableColumns = useCallback(
     (dragKey: string, dropKey: string) => {
@@ -634,7 +623,7 @@ export const InvestorSection = ({
             <tr>
               {selectedColumns.map((column) => {
                 const sortKind = getInvestorColumnSortKind(column.key);
-                const isActive = sortState?.key === column.key;
+                const isActive = sortColumnKey === column.key;
                 const isDraggable = !isFrozenColumnKey(column.key);
                 const isDragging = headerDragKey === column.key;
                 const isDragOver =
@@ -703,7 +692,7 @@ export const InvestorSection = ({
                     aria-sort={
                       sortKind
                         ? isActive
-                          ? sortState?.dir === "asc"
+                          ? sortDirection === "asc"
                             ? "ascending"
                             : "descending"
                           : "none"
@@ -725,7 +714,7 @@ export const InvestorSection = ({
                     )}
                     {sortKind && isActive && (
                       <span className="company-table-sort-indicator">
-                        {sortState?.dir === "asc" ? "▲" : "▼"}
+                        {sortDirection === "asc" ? "▲" : "▼"}
                       </span>
                     )}
                   </th>
@@ -734,12 +723,12 @@ export const InvestorSection = ({
             </tr>
           </thead>
           <tbody>
-            {sortedInvestors.length === 0 ? (
+            {investors.length === 0 ? (
               <tr>
                 <td colSpan={selectedColumns.length}>No investors found.</td>
               </tr>
             ) : (
-              sortedInvestors.map((investor, index) => (
+              investors.map((investor, index) => (
                 <tr key={`${investor.original_new_company_id ?? investor.id ?? index}`}>
                   {selectedColumns.map((column) => (
                     <td

@@ -18,6 +18,8 @@ export interface InvestorFilterClause {
   op: FilterOperator;
 }
 
+export type InvestorSortDirection = "asc" | "desc";
+
 export interface InvestorSearchPayload {
   filters_sql: string;
   geo_filter_sql: string;
@@ -26,6 +28,8 @@ export interface InvestorSearchPayload {
   page: number;
   per_page: number;
   portfolio_only: boolean;
+  sort_column?: string | null;
+  sort_direction?: InvestorSortDirection;
 }
 
 const GEO_FILTER_TYPES = new Set<InvestorFilterType>([
@@ -176,7 +180,7 @@ export function buildInvestorSearchPayloadFromClauses(
 export function investorSearchPayloadToRequestBody(
   payload: InvestorSearchPayload
 ): InvestorSearchPayload {
-  return {
+  const normalized: InvestorSearchPayload = {
     filters_sql: payload.filters_sql || "",
     geo_filter_sql: payload.geo_filter_sql || "",
     PC_Primary_ids_str: payload.PC_Primary_ids_str || "",
@@ -185,6 +189,13 @@ export function investorSearchPayloadToRequestBody(
     per_page: payload.per_page,
     portfolio_only: payload.portfolio_only,
   };
+
+  if (payload.sort_column) {
+    normalized.sort_column = payload.sort_column;
+    normalized.sort_direction = payload.sort_direction ?? "desc";
+  }
+
+  return normalized;
 }
 
 /** Serialize payload for GET investors_with_d_a_list (query string). */
@@ -201,6 +212,11 @@ export function investorSearchPayloadToSearchParams(
   params.append("PC_Primary_ids_str", normalized.PC_Primary_ids_str);
   params.append("PC_Secondary_ids_str", normalized.PC_Secondary_ids_str);
   params.append("portfolio_only", String(Boolean(normalized.portfolio_only)));
+
+  if (normalized.sort_column) {
+    params.append("sort_column", normalized.sort_column);
+    params.append("sort_direction", normalized.sort_direction ?? "desc");
+  }
 
   return params;
 }

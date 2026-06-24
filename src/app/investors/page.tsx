@@ -26,6 +26,10 @@ import {
   fetchInvestorsServer,
   fetchInvestorTypesServer,
 } from "./actions";
+import {
+  getInvestorServerSortColumn,
+  getInvestorServerSortDefaultDirection,
+} from "@/components/investors/investorsTableSort";
 
 const useInvestorsAPI = () => {
   const [investors, setInvestors] = useState<Investor[]>([]);
@@ -172,6 +176,22 @@ function InvestorsPageInner() {
   const [initialInvestorTypeId, setInitialInvestorTypeId] = useState<
     number | undefined
   >(undefined);
+  const [sortColumnKey, setSortColumnKey] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const mergeSortIntoFilters = useCallback(
+    (filters: Filters): Filters => {
+      if (!sortColumnKey) return filters;
+      const apiColumn = getInvestorServerSortColumn(sortColumnKey);
+      if (!apiColumn) return filters;
+      return {
+        ...filters,
+        sort_column: apiColumn,
+        sort_direction: sortDirection,
+      };
+    },
+    [sortColumnKey, sortDirection]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -186,10 +206,46 @@ function InvestorsPageInner() {
   const handleSearch = useCallback(
     (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      void fetchInvestors(1, listFilters, countsFilters);
+      void fetchInvestors(1, mergeSortIntoFilters(listFilters), countsFilters);
     },
-    [fetchInvestors]
+    [fetchInvestors, mergeSortIntoFilters]
   );
+
+  const handleSortColumn = useCallback(
+    (columnKey: string) => {
+      const apiColumn = getInvestorServerSortColumn(columnKey);
+      if (!apiColumn) return;
+
+      const nextDirection: "asc" | "desc" =
+        sortColumnKey === columnKey
+          ? sortDirection === "asc"
+            ? "desc"
+            : "asc"
+          : getInvestorServerSortDefaultDirection(apiColumn);
+
+      setSortColumnKey(columnKey);
+      setSortDirection(nextDirection);
+
+      const base = currentFilters ?? createDefaultInvestorFilters();
+      void fetchInvestors(1, {
+        ...base,
+        page: 1,
+        sort_column: apiColumn,
+        sort_direction: nextDirection,
+      });
+    },
+    [sortColumnKey, sortDirection, currentFilters, fetchInvestors]
+  );
+
+  const handleSortClear = useCallback(() => {
+    setSortColumnKey(null);
+    setSortDirection("desc");
+    const base = currentFilters ?? createDefaultInvestorFilters();
+    const rest = { ...base };
+    delete rest.sort_column;
+    delete rest.sort_direction;
+    void fetchInvestors(1, { ...rest, page: 1 });
+  }, [currentFilters, fetchInvestors]);
 
   const handleFilterColumnsChange = useCallback(
     ({
@@ -232,6 +288,10 @@ function InvestorsPageInner() {
         externalSetShowColumnsModal={setShowColumnsModal}
         onColumnsCountChange={setColumnsCount}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
+        sortColumnKey={sortColumnKey}
+        sortDirection={sortDirection}
+        onSortColumn={handleSortColumn}
+        onSortClear={handleSortClear}
       />
       <Footer />
     </div>

@@ -6,32 +6,62 @@ import {
 
 export type ColumnSortKind = "text" | "number";
 
+/** UI column key → API sort_column value */
+export const INVESTOR_SERVER_SORT_COLUMNS: Record<string, string> = {
+  portfolio_companies: "number_of_active_investments",
+  total_investments: "total_investments",
+  linkedin_members: "linkedin_members",
+  years_since_last_investment: "days_since_last_investment",
+};
+
+const SERVER_SORTABLE_UI_KEYS = new Set(Object.keys(INVESTOR_SERVER_SORT_COLUMNS));
+
+export function getInvestorServerSortColumn(columnKey: string): string | null {
+  return INVESTOR_SERVER_SORT_COLUMNS[columnKey] ?? null;
+}
+
+export function getInvestorUiColumnForServerSortColumn(
+  apiColumn: string
+): string | null {
+  const entry = Object.entries(INVESTOR_SERVER_SORT_COLUMNS).find(
+    ([, apiKey]) => apiKey === apiColumn
+  );
+  return entry?.[0] ?? null;
+}
+
+export function getInvestorServerSortDefaultDirection(
+  apiColumn: string
+): "asc" | "desc" {
+  return apiColumn === "days_since_last_investment" ? "asc" : "desc";
+}
+
 const NOT_SORTABLE = null;
 
 export const INVESTOR_COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   logo: NOT_SORTABLE,
   name: NOT_SORTABLE,
-  type: "text",
+  type: NOT_SORTABLE,
   description: NOT_SORTABLE,
   follow: NOT_SORTABLE,
   portfolio_companies: "number",
-  primary_sectors: "text",
+  primary_sectors: NOT_SORTABLE,
   linkedin_members: "number",
-  country: "text",
-  hq: "text",
+  country: NOT_SORTABLE,
+  hq: NOT_SORTABLE,
   website: NOT_SORTABLE,
   linkedin_url: NOT_SORTABLE,
-  year_founded: "number",
+  year_founded: NOT_SORTABLE,
   total_investments: "number",
   years_since_last_investment: "number",
-  sub_region: "text",
-  state: "text",
-  city: "text",
+  sub_region: NOT_SORTABLE,
+  state: NOT_SORTABLE,
+  city: NOT_SORTABLE,
 };
 
 export function getInvestorColumnSortKind(
   columnKey: string
 ): ColumnSortKind | null {
+  if (!SERVER_SORTABLE_UI_KEYS.has(columnKey)) return null;
   return INVESTOR_COLUMN_SORT_KIND[columnKey] ?? null;
 }
 
@@ -95,13 +125,18 @@ export function getInvestorSortValueForColumn(
 
   if (kind === "number") {
     if (columnKey === "years_since_last_investment") {
+      const days = row.days_since_last_investment;
+      if (days != null) {
+        const parsedDays = Number(days);
+        if (Number.isFinite(parsedDays)) return parsedDays;
+      }
       const rec =
         raw && typeof raw === "object"
           ? (raw as Record<string, unknown>)
           : null;
-      const days = rec?.days_since;
-      if (days != null) {
-        const parsedDays = Number(days);
+      const daysFromLast = rec?.days_since;
+      if (daysFromLast != null) {
+        const parsedDays = Number(daysFromLast);
         if (Number.isFinite(parsedDays)) return parsedDays;
       }
     }

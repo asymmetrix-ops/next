@@ -13,6 +13,7 @@ export const INVESTOR_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = 
   year_founded: ["year_founded", "_years.Year"],
   total_investments: ["total_investments", "number_of_investments"],
   years_since_last_investment: [
+    "days_since_last_investment",
     "years_since_last_investment",
     "last_investment.display",
     "last_investment",

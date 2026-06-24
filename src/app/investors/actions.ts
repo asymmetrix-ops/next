@@ -25,6 +25,7 @@ export interface InvestorListItem {
   linkedin_url?: string;
   year_founded?: number | string | null;
   total_investments?: number | null;
+  days_since_last_investment?: number | null;
   years_since_last_investment?: string | number | null;
   last_investment?: {
     display?: string | null;
