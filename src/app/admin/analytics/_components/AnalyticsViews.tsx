@@ -2562,6 +2562,7 @@ function eaDaysSince(iso: string | null): number {
 const EA_ALERT_LABELS: Record<string, { label: string; cls: string }> = {
   corporate_events:   { label: "Corporate Events",   cls: "bg-violet-50 text-violet-700" },
   insights_analysis:  { label: "Insights & Analysis", cls: "bg-blue-50 text-blue-700" },
+  deal_radar:         { label: "Deal Radar",          cls: "bg-amber-50 text-amber-700" },
   digest:             { label: "Digest",              cls: "bg-teal-50 text-teal-700" },
 };
 

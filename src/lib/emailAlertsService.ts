@@ -89,6 +89,7 @@ class EmailAlertsService {
         item_type: [
           { value: "corporate_events", label: "Corporate Events" },
           { value: "insights_analysis", label: "Insights & Analysis" },
+          { value: "deal_radar", label: "Deal Radar" },
           { value: "digest", label: "Corporate Events and Insights & Analysis" },
         ],
         email_frequency: [
