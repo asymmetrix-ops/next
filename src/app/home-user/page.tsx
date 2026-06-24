@@ -2178,7 +2178,7 @@ export default function HomeUserPage() {
                                 <div className="space-y-1 min-w-0">
                                   <a
                                     href={`/company/${item.companyId}`}
-                                    className="text-sm font-semibold text-blue-700 break-words hover:text-blue-900 hover:underline"
+                                    className="inline-block max-w-full text-sm font-semibold text-blue-700 hover:text-blue-900 hover:underline"
                                     onClick={(
                                       e: React.MouseEvent<HTMLAnchorElement>
                                     ) => {
@@ -2196,8 +2196,9 @@ export default function HomeUserPage() {
                                       router.push(`/company/${item.companyId}`);
                                     }}
                                     >
-                                      {item.companyName}
-                                      <CountryFlagImg iso2={item.hqCountryIso2} />
+                                      <span className="break-words">{item.companyName}</span>
+                                      {"\u00A0"}
+                                      <CountryFlagImg iso2={item.hqCountryIso2} className="ml-0" />
                                     </a>
                                   {item.latestContent && (
                                     <a
@@ -2406,7 +2407,7 @@ export default function HomeUserPage() {
 
                         <a
                           href={href}
-                          className="block mt-3 text-sm font-semibold text-gray-900 hover:text-blue-700"
+                          className="mt-3 inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-semibold text-gray-900 hover:text-blue-700"
                           onClick={(e) => {
                             if (
                               e.defaultPrevented ||
@@ -2421,8 +2422,8 @@ export default function HomeUserPage() {
                             router.push(href);
                           }}
                           >
-                            {article.Headline}
-                            <CountryFlagImg iso2={hqCountryIso2} />
+                            <span className="min-w-0 break-words">{article.Headline}</span>
+                            <CountryFlagImg iso2={hqCountryIso2} className="ml-0 shrink-0" />
                           </a>
 
                         {article.Strapline ? (
@@ -2563,8 +2564,8 @@ export default function HomeUserPage() {
                                 return formatDate(ev.date || event.announcement_date);
                               })()}
                             </div>
-                            <div>
-                              <strong>Target:</strong>{" "}
+                            <div className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                              <strong>Target:</strong>
                               {(() => {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 const ev: any = event as any;
@@ -3144,26 +3145,30 @@ export default function HomeUserPage() {
                                     <div className="space-y-1">
                                       {displayTargets.length > 0 ? (
                                         <div className="text-xs text-gray-500">
-                                          <strong>
-                                            {isPartnership
-                                              ? "Target(s):"
-                                              : "Target:"}
-                                          </strong>{" "}
-                                          {displayTargets.map((tgt, i, arr) => (
-                                            <span key={`tgt-${tgt?.id ?? i}`}>
-                                              {renderTargetEntityInline(tgt)}
-                                              {i < arr.length - 1 && ", "}
-                                            </span>
-                                          ))}
+                                          <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                                            <strong>
+                                              {isPartnership
+                                                ? "Target(s):"
+                                                : "Target:"}
+                                            </strong>
+                                            {displayTargets.map((tgt, i, arr) => (
+                                              <span key={`tgt-${tgt?.id ?? i}`}>
+                                                {renderTargetEntityInline(tgt)}
+                                                {i < arr.length - 1 && ", "}
+                                              </span>
+                                            ))}
+                                          </span>
                                         </div>
                                       ) : targetName && targetObj ? (
                                         <div className="text-xs text-gray-500">
-                                          <strong>
-                                            {isPartnership
-                                              ? "Target(s):"
-                                              : "Target:"}
-                                          </strong>{" "}
-                                          {renderTargetEntityInline(targetObj)}
+                                          <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                                            <strong>
+                                              {isPartnership
+                                                ? "Target(s):"
+                                                : "Target:"}
+                                            </strong>
+                                            {renderTargetEntityInline(targetObj)}
+                                          </span>
                                         </div>
                                       ) : targetName ? (
                                         <div className="text-xs text-gray-500">
