@@ -9,32 +9,53 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
-import { InlineFollowButton } from "@/components/InlineFollowButton";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
-import type { AdvisorListItem, AdvisorsSearchFilters } from "@/app/advisors/actions";
+import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
+import type {
+  CorporateEventListItem,
+  CorporateEventsSearchFilters,
+} from "@/app/corporate-events/actions";
 import {
-  createDefaultAdvisorFilters,
-  advisorsFiltersToSearchParams,
-} from "@/lib/advisorsFilterPayload";
+  createDefaultCorporateEventFilters,
+  corporateEventsFiltersToSearchParams,
+} from "@/lib/corporateEventsFilterPayload";
 import {
-  ADVISORS_COLUMN_CATEGORIES,
-  CANONICAL_ADVISOR_COLUMN_KEYS,
-  DEFAULT_VISIBLE_ADVISOR_COLUMN_KEYS,
-  PROD_DEFAULT_ADVISOR_COLUMN_KEYS,
-  advisorColumnKeysToVisibility,
-  advisorVisibilityToColumnKeys,
-  enforceAdvisorColumnKeyOrder,
-  getEffectiveFrozenAdvisorColumnKeys,
-  reorderAdvisorColumnKeys,
-} from "@/components/advisors/advisorsColumnCategories";
-import { FILTER_PINNED_TOOLTIP } from "@/components/advisors/advisorsColumnFilterMap";
+  CORPORATE_EVENTS_COLUMN_CATEGORIES,
+  CANONICAL_CORPORATE_EVENT_COLUMN_KEYS,
+  DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS,
+  PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS,
+  corporateEventColumnKeysToVisibility,
+  corporateEventVisibilityToColumnKeys,
+  enforceCorporateEventColumnKeyOrder,
+  getEffectiveFrozenCorporateEventColumnKeys,
+  reorderCorporateEventColumnKeys,
+} from "@/components/corporate-events/corporateEventsColumnCategories";
+import { FILTER_PINNED_TOOLTIP } from "@/components/corporate-events/corporateEventsColumnFilterMap";
 import {
-  compareAdvisorSortValues,
-  getAdvisorColumnSortKind,
-  getAdvisorSortValueForColumn,
-} from "@/components/advisors/advisorsTableSort";
-import { SearchEntityDescription } from "@/components/search/SearchEntityDescription";
-import { SearchEntityLogo } from "@/components/search/SearchEntityLogo";
+  compareCorporateEventSortValues,
+  getCorporateEventColumnSortKind,
+  getCorporateEventSortValueForColumn,
+} from "@/components/corporate-events/corporateEventsTableSort";
+import {
+  derivePrimaryFromCompany,
+  deriveSecondaryFromCompany,
+  formatCorporateEventDate,
+  getFundingStage,
+  getTargetCompany,
+  getTargetCountry,
+  normalizeSectorName,
+  renderSectorLinks,
+} from "@/components/corporate-events/corporateEventsTableUtils";
+import {
+  extractAdvisorLinks,
+  extractBuyerLinks,
+  extractInvestorLinks,
+  extractSellerLinks,
+  extractTargetLinks,
+  SEARCH_ENTITY_LINK_STYLE,
+  type EntityLink,
+} from "@/components/corporate-events/corporateEventsPartyLinks";
+import { locationsService } from "@/lib/locationsService";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import {
   buildStickyColumnOffsets,
@@ -42,58 +63,55 @@ import {
   getStickyColumnStyle,
   SearchTablePinIndicator,
 } from "@/components/search/searchTableUtils";
+import { CSVExporter } from "@/utils/csvExport";
+import { ExportLimitModal } from "@/components/ExportLimitModal";
+import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
+import type { CorporateEvent } from "@/types/corporateEvents";
 
-export type Advisor = AdvisorListItem;
-export type Filters = AdvisorsSearchFilters;
+export type CorporateEventItem = CorporateEventListItem;
+export type Filters = CorporateEventsSearchFilters;
 
-const ADVISORS_COLUMNS_STORAGE_KEY = "advisors-search-column-keys-v1";
+const CORPORATE_EVENTS_COLUMNS_STORAGE_KEY =
+  "corporate-events-search-column-keys-v1";
 
-interface AdvisorColumnDefinition {
+interface CorporateEventColumnDefinition {
   key: string;
   label: string;
   wrap?: boolean;
   minWidth?: number;
 }
 
-const ALL_ADVISOR_COLUMNS: AdvisorColumnDefinition[] = [
-  { key: "logo", label: "Logo", minWidth: 88 },
-  { key: "name", label: "Advisor", minWidth: 160 },
-  { key: "description", label: "Description", wrap: true, minWidth: 280 },
-  { key: "events_advised", label: "# Corporate Events Advised", minWidth: 150 },
-  { key: "sectors", label: "Advised D&A Sectors", wrap: true, minWidth: 180 },
-  { key: "linkedin_members", label: "LinkedIn Members", minWidth: 130 },
-  { key: "country", label: "Country", minWidth: 120 },
-  { key: "follow", label: "My Portfolio", minWidth: 120 },
+const ALL_CORPORATE_EVENT_COLUMNS: CorporateEventColumnDefinition[] = [
+  { key: "description", label: "Event", minWidth: 220 },
+  { key: "announcement_date", label: "Date", minWidth: 130 },
+  { key: "target", label: "Target", minWidth: 160 },
+  { key: "target_hq", label: "Target HQ", minWidth: 120 },
+  { key: "parties", label: "Parties", wrap: true, minWidth: 220 },
+  { key: "deal_type", label: "Deal Type", minWidth: 130 },
+  { key: "funding_stage", label: "Funding Stage", minWidth: 130 },
+  { key: "investment_amount", label: "Amount (m)", minWidth: 120 },
+  { key: "enterprise_value", label: "EV (m)", minWidth: 120 },
+  { key: "advisors", label: "Advisors", wrap: true, minWidth: 180 },
+  { key: "primary_sectors", label: "Primary Sectors", wrap: true, minWidth: 180 },
+  { key: "secondary_sectors", label: "Secondary Sectors", wrap: true, minWidth: 180 },
 ];
 
-const COLUMN_MAP = new Map(ALL_ADVISOR_COLUMNS.map((column) => [column.key, column]));
-
-const formatNumber = (value: unknown): string => {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "-";
-  return num.toLocaleString();
-};
+const COLUMN_MAP = new Map(
+  ALL_CORPORATE_EVENT_COLUMNS.map((column) => [column.key, column])
+);
 
 function getValidColumnKeys(keys: string[]): string[] {
-  return enforceAdvisorColumnKeyOrder(
-    keys.filter((key) => CANONICAL_ADVISOR_COLUMN_KEYS.includes(key))
+  return enforceCorporateEventColumnKeyOrder(
+    keys.filter((key) => CANONICAL_CORPORATE_EVENT_COLUMN_KEYS.includes(key))
   );
 }
 
-function escapeCsvField(value: string): string {
-  const s = String(value ?? "").trim();
-  if (s.includes('"') || s.includes("\n") || s.includes(",")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
-export const AdvisorSection = ({
-  advisors,
+export const CorporateEventsSearchSection = ({
+  events,
   loading,
   error,
   pagination,
-  fetchAdvisors,
+  fetchCorporateEvents,
   currentFilters,
   filterPinnedColumnKeys = [],
   externalShowColumnsModal,
@@ -102,17 +120,20 @@ export const AdvisorSection = ({
   onRegisterExportCSV,
   isPortfolioOnlyFilter = false,
 }: {
-  advisors: Advisor[];
+  events: CorporateEventItem[];
   loading: boolean;
   error: string | null;
   pagination: {
+    itemsReceived: number;
     curPage: number;
     nextPage: number | null;
     prevPage: number | null;
+    offset: number;
+    perPage: number;
     pageTotal: number;
-    itemsTotal: number;
+    itemTotal: number;
   };
-  fetchAdvisors: (
+  fetchCorporateEvents: (
     page?: number,
     filters?: Filters,
     countsFilters?: Filters
@@ -128,7 +149,18 @@ export const AdvisorSection = ({
   const router = useRouter();
   const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
-  const [expandedSectors, setExpandedSectors] = useState<Record<number, boolean>>({});
+  const [showExportLimitModal, setShowExportLimitModal] = useState(false);
+  const [exportsLeft, setExportsLeft] = useState(0);
+  const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
+    Record<string, string>
+  >({});
+  const [primaryNameToId, setPrimaryNameToId] = useState<Record<string, number>>(
+    {}
+  );
+  const [secondaryNameToId, setSecondaryNameToId] = useState<
+    Record<string, number>
+  >({});
+
   const showColumnsModal =
     externalShowColumnsModal !== undefined
       ? externalShowColumnsModal
@@ -137,7 +169,7 @@ export const AdvisorSection = ({
     externalSetShowColumnsModal ?? setInternalShowColumnsModal;
   const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
-    DEFAULT_VISIBLE_ADVISOR_COLUMN_KEYS
+    DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS
   );
   const [sortState, setSortState] = useState<{
     key: string;
@@ -147,19 +179,19 @@ export const AdvisorSection = ({
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
 
   const frozenColumnKeys = useMemo(
-    () => getEffectiveFrozenAdvisorColumnKeys(filterPinnedColumnKeys),
+    () => getEffectiveFrozenCorporateEventColumnKeys(filterPinnedColumnKeys),
     [filterPinnedColumnKeys]
   );
 
   const stickyColumnOffsets = useMemo(
-    () => buildStickyColumnOffsets(frozenColumnKeys, ALL_ADVISOR_COLUMNS),
+    () => buildStickyColumnOffsets(frozenColumnKeys, ALL_CORPORATE_EVENT_COLUMNS),
     [frozenColumnKeys]
   );
 
   useEffect(() => {
     if (filterPinnedColumnKeys.length === 0) return;
     setSelectedColumnKeys((current) =>
-      enforceAdvisorColumnKeyOrder(
+      enforceCorporateEventColumnKeyOrder(
         Array.from(new Set([...current, ...filterPinnedColumnKeys])),
         filterPinnedColumnKeys
       )
@@ -168,7 +200,7 @@ export const AdvisorSection = ({
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(ADVISORS_COLUMNS_STORAGE_KEY);
+      const saved = window.localStorage.getItem(CORPORATE_EVENTS_COLUMNS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -180,7 +212,7 @@ export const AdvisorSection = ({
         }
       }
     } catch (storageError) {
-      console.warn("Unable to load advisor column preferences:", storageError);
+      console.warn("Unable to load corporate event column preferences:", storageError);
     } finally {
       setColumnPrefsLoaded(true);
     }
@@ -190,19 +222,72 @@ export const AdvisorSection = ({
     if (!columnPrefsLoaded) return;
     try {
       window.localStorage.setItem(
-        ADVISORS_COLUMNS_STORAGE_KEY,
+        CORPORATE_EVENTS_COLUMNS_STORAGE_KEY,
         JSON.stringify(selectedColumnKeys)
       );
     } catch (storageError) {
-      console.warn("Unable to save advisor column preferences:", storageError);
+      console.warn("Unable to save corporate event column preferences:", storageError);
     }
   }, [selectedColumnKeys, columnPrefsLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const allSecondary =
+          await locationsService.getAllSecondarySectorsWithPrimary();
+        if (!cancelled && Array.isArray(allSecondary)) {
+          const map: Record<string, string> = {};
+          const secIdMap: Record<string, number> = {};
+          const primIdMap: Record<string, number> = {};
+          for (const sec of allSecondary) {
+            const secName = (sec as { sector_name?: string }).sector_name;
+            const secId = (sec as { id?: number }).id;
+            const primary = (sec as { related_primary_sector?: { sector_name?: string; id?: number } })
+              .related_primary_sector;
+            const primaryName = primary?.sector_name;
+            const primaryId = primary?.id;
+            if (secName && primaryName) {
+              map[normalizeSectorName(secName)] = primaryName;
+            }
+            if (secName && typeof secId === "number") {
+              secIdMap[normalizeSectorName(secName)] = secId;
+            }
+            if (primaryName && typeof primaryId === "number") {
+              primIdMap[normalizeSectorName(primaryName)] = primaryId;
+            }
+          }
+          setSecondaryToPrimaryMap(map);
+          setSecondaryNameToId(secIdMap);
+          setPrimaryNameToId((prev) => ({ ...prev, ...primIdMap }));
+        }
+        const primaries = await locationsService.getPrimarySectors();
+        if (!cancelled && Array.isArray(primaries)) {
+          const map: Record<string, number> = {};
+          for (const primary of primaries) {
+            const name = (primary as { sector_name?: string }).sector_name;
+            const id = (primary as { id?: number }).id;
+            if (name && typeof id === "number") {
+              map[normalizeSectorName(name)] = id;
+            }
+          }
+          setPrimaryNameToId((prev) => ({ ...map, ...prev }));
+        }
+      } catch (loadError) {
+        console.warn("[Corporate Events] Failed to load sector mapping", loadError);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const selectedColumns = useMemo(
     () =>
       selectedColumnKeys
         .map((key) => COLUMN_MAP.get(key))
-        .filter((column): column is AdvisorColumnDefinition => Boolean(column)),
+        .filter((column): column is CorporateEventColumnDefinition => Boolean(column)),
     [selectedColumnKeys]
   );
 
@@ -216,37 +301,43 @@ export const AdvisorSection = ({
     }
   }, [selectedColumnKeys, sortState]);
 
-  const sortedAdvisors = useMemo(() => {
-    if (!sortState || !getAdvisorColumnSortKind(sortState.key)) {
-      return advisors;
+  const sortedEvents = useMemo(() => {
+    if (!sortState || !getCorporateEventColumnSortKind(sortState.key)) {
+      return events;
     }
     const { key, dir } = sortState;
-    return [...advisors].sort((a, b) =>
-      compareAdvisorSortValues(
-        getAdvisorSortValueForColumn(a as unknown as Record<string, unknown>, key),
-        getAdvisorSortValueForColumn(b as unknown as Record<string, unknown>, key),
+    return [...events].sort((a, b) =>
+      compareCorporateEventSortValues(
+        getCorporateEventSortValueForColumn(
+          a as unknown as Record<string, unknown>,
+          key
+        ),
+        getCorporateEventSortValueForColumn(
+          b as unknown as Record<string, unknown>,
+          key
+        ),
         dir
       )
     );
-  }, [advisors, sortState]);
+  }, [events, sortState]);
 
-  const handleAdvisorClick = useCallback(
+  const handleEventClick = useCallback(
     (id: number) => {
-      router.push(`/advisor/${id}`);
+      router.push(`/corporate-event/${id}`);
     },
     [router]
   );
 
   const handlePageChange = useCallback(
     (page: number) => {
-      const filters = currentFilters ?? createDefaultAdvisorFilters();
-      void fetchAdvisors(page, { ...filters, page });
+      const filters = currentFilters ?? createDefaultCorporateEventFilters();
+      void fetchCorporateEvents(page, { ...filters, Page: page });
     },
-    [currentFilters, fetchAdvisors]
+    [currentFilters, fetchCorporateEvents]
   );
 
   const handleSortColumn = useCallback((columnKey: string) => {
-    if (!getAdvisorColumnSortKind(columnKey)) return;
+    if (!getCorporateEventColumnSortKind(columnKey)) return;
     setSortState((current) => {
       if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
       return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
@@ -256,8 +347,13 @@ export const AdvisorSection = ({
   const handleReorderTableColumns = useCallback(
     (dragKey: string, dropKey: string) => {
       setSelectedColumnKeys((current) =>
-        enforceAdvisorColumnKeyOrder(
-          reorderAdvisorColumnKeys(current, dragKey, dropKey, filterPinnedColumnKeys),
+        enforceCorporateEventColumnKeyOrder(
+          reorderCorporateEventColumnKeys(
+            current,
+            dragKey,
+            dropKey,
+            filterPinnedColumnKeys
+          ),
           filterPinnedColumnKeys
         )
       );
@@ -271,18 +367,23 @@ export const AdvisorSection = ({
   );
 
   const exportToCsv = useCallback(async () => {
-    const filters = currentFilters ?? createDefaultAdvisorFilters();
-    const itemsTotal = pagination.itemsTotal;
-    if (itemsTotal <= 0) return;
+    if (events.length === 0) return;
+    const limitCheck = await checkExportLimit();
+    if (!limitCheck.canExport) {
+      setExportsLeft(limitCheck.exportsLeft);
+      setShowExportLimitModal(true);
+      return;
+    }
 
     try {
+      const filters = currentFilters ?? createDefaultCorporateEventFilters();
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = advisorsFiltersToSearchParams({
+      const params = corporateEventsFiltersToSearchParams({
         ...filters,
-        page: 1,
-        per_page: itemsTotal,
+        Page: 1,
+        Per_page: pagination.itemTotal || events.length,
       });
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events?${params.toString()}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -291,52 +392,19 @@ export const AdvisorSection = ({
         },
       });
       if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
-
-      const raw = (await response.json()) as {
-        items?: Advisor[];
-        result1?: { items?: Advisor[] };
-        Advisors_companies?: { items?: Advisor[] };
-      };
-      const allAdvisors =
-        raw.items ?? raw.result1?.items ?? raw.Advisors_companies?.items ?? [];
-      const baseUrl = window.location.origin;
-      const headers = [
-        "Advisor Name",
-        "Asymmetrix link",
-        "Description",
-        "Number of corporate events advised",
-        "Advised sectors",
-        "Country",
-      ];
-      const rows = allAdvisors.map((advisor) =>
-        [
-          escapeCsvField(advisor.name ?? ""),
-          escapeCsvField(`${baseUrl}/advisor/${advisor.id}`),
-          escapeCsvField(advisor.description ?? ""),
-          String(advisor.events_advised ?? 0),
-          escapeCsvField(advisor.sectors ?? ""),
-          escapeCsvField(advisor.country ?? ""),
-        ].join(",")
-      );
-      const csv = [headers.join(","), ...rows].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const urlObj = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = urlObj;
-      a.download = `advisors-export-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(urlObj);
+      const data = (await response.json()) as { items?: CorporateEvent[] };
+      CSVExporter.exportCorporateEvents(data.items ?? events, "corporate_events_filtered");
     } catch (exportError) {
       console.error("Export CSV failed:", exportError);
     }
-  }, [currentFilters, pagination.itemsTotal]);
+  }, [currentFilters, events, pagination.itemTotal]);
 
   useEffect(() => {
     onRegisterExportCSV?.(exportToCsv);
   }, [exportToCsv, onRegisterExportCSV]);
 
   const columnsModalInitial = useMemo(
-    () => advisorColumnKeysToVisibility(selectedColumnKeys),
+    () => corporateEventColumnKeysToVisibility(selectedColumnKeys),
     [selectedColumnKeys]
   );
 
@@ -345,28 +413,114 @@ export const AdvisorSection = ({
     [filterPinnedColumnKeys]
   );
 
-  const renderAdvisorCell = (
-    columnKey: string,
-    advisor: Advisor,
-    index: number
+  const renderEntityLinks = (
+    links: EntityLink[],
+    keyPrefix: string
   ): React.ReactNode => {
+    if (links.length === 0) return null;
+    return links.map((link, index) => (
+      <span key={`${keyPrefix}-${link.id ?? link.name}-${index}`}>
+        {link.href ? (
+          <a
+            href={link.href}
+            className="link-blue"
+            style={SEARCH_ENTITY_LINK_STYLE}
+          >
+            {link.name}
+          </a>
+        ) : (
+          <span>{link.name}</span>
+        )}
+        {index < links.length - 1 && ", "}
+      </span>
+    ));
+  };
+
+  const renderPartiesCell = (event: CorporateEventItem) => {
+    const partnership = /partnership/i.test(event.deal_type || "");
+    const targets = extractTargetLinks(event);
+    const buyers = extractBuyerLinks(event);
+    const investors = extractInvestorLinks(event);
+    const sellers = extractSellerLinks(event);
+    const targetLabel = (event as unknown as Record<string, unknown>)
+      .target_label as string | undefined;
+
+    return (
+      <div>
+        <div className="muted-row">
+          <strong>
+            {targetLabel || (partnership ? "Target(s)" : "Target")}:
+          </strong>{" "}
+          {targets.length > 0
+            ? renderEntityLinks(targets, "target")
+            : "-"}
+        </div>
+        {buyers.length > 0 && (
+          <div className="muted-row">
+            <strong>Buyer(s):</strong> {renderEntityLinks(buyers, "buyer")}
+          </div>
+        )}
+        {investors.length > 0 && (
+          <div className="muted-row">
+            <strong>Investor(s):</strong>{" "}
+            {renderEntityLinks(investors, "investor")}
+          </div>
+        )}
+        {!partnership && (
+          <div className="muted-row">
+            <strong>Seller(s):</strong>{" "}
+            {sellers.length > 0
+              ? renderEntityLinks(sellers, "seller")
+              : "-"}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderSectorCell = (
+    text: string,
+    nameToId: Record<string, number>,
+    hrefPrefix: "/sector" | "/sub-sector"
+  ): React.ReactNode => {
+    const links = renderSectorLinks(text, nameToId);
+    if (links.length === 0) return "-";
+    return links.map((entry, index) => (
+      <span key={`${entry.name}-${index}`}>
+        {typeof entry.id === "number" ? (
+          <a
+            href={`${hrefPrefix}/${entry.id}`}
+            className="link-blue"
+            style={SEARCH_ENTITY_LINK_STYLE}
+          >
+            {entry.name}
+          </a>
+        ) : (
+          entry.name
+        )}
+        {index < links.length - 1 && ", "}
+      </span>
+    ));
+  };
+
+  const renderEventCell = (
+    columnKey: string,
+    event: CorporateEventItem
+  ): React.ReactNode => {
+    const target = getTargetCompany(event);
+    const fundingStage = getFundingStage(event);
+    const isPartnership = /partnership/i.test(event.deal_type || "");
+
     switch (columnKey) {
-      case "logo":
-        return (
-          <SearchEntityLogo
-            logo={String(advisor.linkedin_logo || "")}
-            name={String(advisor.name || "")}
-          />
-        );
-      case "name": {
-        const id = advisor.id;
-        const name = advisor.name || "-";
-        if (!id) return name;
+      case "description": {
+        const id = event.id;
+        const description = event.description || "-";
+        if (!id) return description;
         return (
           <a
-            href={`/advisor/${id}`}
-            className="company-name"
-            style={{ textDecoration: "none", color: "#3b82f6" }}
+            href={`/corporate-event/${id}`}
+            className="company-name link-blue"
+            style={SEARCH_ENTITY_LINK_STYLE}
             onClick={(e) => {
               if (
                 e.defaultPrevented ||
@@ -379,72 +533,66 @@ export const AdvisorSection = ({
                 return;
               }
               e.preventDefault();
-              handleAdvisorClick(id);
+              handleEventClick(id);
             }}
           >
-            {name}
+            {description}
           </a>
         );
       }
-      case "description":
-        return <SearchEntityDescription description={advisor.description || "-"} />;
-      case "events_advised":
-        return formatNumber(advisor.events_advised);
-      case "sectors": {
-        const sectorsText = advisor.sectors || "-";
-        const sectorsIsLong = sectorsText.length > 100;
-        const isExpanded = !!expandedSectors[index];
+      case "announcement_date":
+        return formatCorporateEventDate(event.announcement_date);
+      case "target":
         return (
-          <div>
-            <div className={isExpanded ? "sectors-full" : "sectors-truncated"}>
-              {sectorsText}
-            </div>
-            {sectorsIsLong && (
-              <button
-                type="button"
-                className="expand-sectors"
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  color: "#0075df",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
-                onClick={() =>
-                  setExpandedSectors((prev) => ({
-                    ...prev,
-                    [index]: !prev[index],
-                  }))
-                }
-              >
-                {isExpanded ? "Show less" : "Show more"}
-              </button>
-            )}
-          </div>
+          renderEntityLinks(extractTargetLinks(event), "target-col") || "-"
         );
-      }
-      case "linkedin_members":
-        return formatNumber(advisor.linkedin_members);
-      case "country":
-        return advisor.country || "-";
-      case "follow":
-        if (!advisor.id) return null;
+      case "target_hq":
+        return getTargetCountry(event);
+      case "parties":
+        return renderPartiesCell(event);
+      case "deal_type":
+        return event.deal_type || "-";
+      case "funding_stage":
+        return fundingStage || "-";
+      case "investment_amount":
+        return event.investment_data?.investment_amount_m &&
+          event.investment_data?.currency?.Currency
+          ? `${event.investment_data.currency.Currency}${Number(event.investment_data.investment_amount_m).toLocaleString(undefined, { maximumFractionDigits: 3 })}`
+          : "-";
+      case "enterprise_value":
+        return event.ev_data?.enterprise_value_m && event.ev_data?.currency?.Currency
+          ? `${event.ev_data.currency.Currency}${Number(event.ev_data.enterprise_value_m).toLocaleString(undefined, { maximumFractionDigits: 3 })}`
+          : "-";
+      case "advisors":
         return (
-          <div
-            className="company-follow-cell"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <InlineFollowButton
-              followKey="followed_advisors"
-              entityId={advisor.id}
-              label={advisor.name || ""}
-            />
-          </div>
+          renderEntityLinks(extractAdvisorLinks(event), "advisor") || "-"
+        );
+      case "primary_sectors":
+        return renderSectorCell(
+          derivePrimaryFromCompany(target, secondaryToPrimaryMap),
+          primaryNameToId,
+          "/sector"
+        );
+      case "secondary_sectors":
+        return renderSectorCell(
+          deriveSecondaryFromCompany(target),
+          secondaryNameToId,
+          "/sub-sector"
         );
       default:
+        if (columnKey === "deal_metrics") {
+          return (
+            <CorporateEventDealMetrics
+              dealType={event.deal_type}
+              fundingStage={fundingStage || undefined}
+              isPartnership={isPartnership}
+              amountMillions={event.investment_data?.investment_amount_m}
+              amountCurrency={event.investment_data?.currency?.Currency}
+              evMillions={event.ev_data?.enterprise_value_m}
+              evCurrency={event.ev_data?.currency?.Currency}
+            />
+          );
+        }
         return "-";
     }
   };
@@ -568,20 +716,20 @@ export const AdvisorSection = ({
           aria-hidden="true"
         />
         <ColumnsControlRoom
-          categories={ADVISORS_COLUMN_CATEGORIES}
-          defaultVisibleColumnKeys={PROD_DEFAULT_ADVISOR_COLUMN_KEYS}
+          categories={CORPORATE_EVENTS_COLUMN_CATEGORIES}
+          defaultVisibleColumnKeys={PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS}
           initial={columnsModalInitial}
           initialOrder={selectedColumnKeys}
           filterPinnedColumnKeys={filterPinnedColumnKeys}
           title="Columns"
           onCancel={() => setShowColumnsModal(false)}
           onApply={(visible, order) => {
-            const nextKeys = advisorVisibilityToColumnKeys(
+            const nextKeys = corporateEventVisibilityToColumnKeys(
               visible,
               order ?? selectedColumnKeys
             );
             setSelectedColumnKeys(
-              enforceAdvisorColumnKeyOrder(nextKeys, filterPinnedColumnKeys)
+              enforceCorporateEventColumnKeyOrder(nextKeys, filterPinnedColumnKeys)
             );
             setShowColumnsModal(false);
           }}
@@ -589,10 +737,10 @@ export const AdvisorSection = ({
       </>
     );
 
-  if (loading && advisors.length === 0) {
+  if (loading && events.length === 0) {
     return (
       <div className="company-section">
-        <div className="loading">Loading advisors...</div>
+        <div className="loading">Loading corporate events...</div>
         {columnsModalLayer}
         <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
       </div>
@@ -609,10 +757,10 @@ export const AdvisorSection = ({
     );
   }
 
-  if (advisors.length === 0 && isPortfolioOnlyFilter) {
+  if (events.length === 0 && isPortfolioOnlyFilter) {
     return (
       <div className="company-section">
-        <FollowedOnlyEmptyState entity="advisors" />
+        <FollowedOnlyEmptyState entity="corporate events" />
         {columnsModalLayer}
         <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
       </div>
@@ -626,7 +774,7 @@ export const AdvisorSection = ({
           <thead>
             <tr>
               {selectedColumns.map((column) => {
-                const sortKind = getAdvisorColumnSortKind(column.key);
+                const sortKind = getCorporateEventColumnSortKind(column.key);
                 const isActive = sortState?.key === column.key;
                 const isDraggable = !isFrozenColumnKey(column.key);
                 const isDragging = headerDragKey === column.key;
@@ -703,16 +851,7 @@ export const AdvisorSection = ({
                         : undefined
                     }
                   >
-                    {column.key === "follow" ? (
-                      <span
-                        className="company-follow-header-label"
-                        style={{ display: "block", textAlign: "left" }}
-                      >
-                        {column.label}
-                      </span>
-                    ) : (
-                      column.label
-                    )}
+                    {column.label}
                     {isFilterPinnedColumnKey(column.key) && (
                       <SearchTablePinIndicator title={FILTER_PINNED_TOOLTIP} />
                     )}
@@ -727,13 +866,13 @@ export const AdvisorSection = ({
             </tr>
           </thead>
           <tbody>
-            {sortedAdvisors.length === 0 ? (
+            {sortedEvents.length === 0 ? (
               <tr>
-                <td colSpan={selectedColumns.length}>No advisors found.</td>
+                <td colSpan={selectedColumns.length}>No corporate events found.</td>
               </tr>
             ) : (
-              sortedAdvisors.map((advisor, index) => (
-                <tr key={`${advisor.id ?? index}`}>
+              sortedEvents.map((event, index) => (
+                <tr key={`${event.id ?? index}`}>
                   {selectedColumns.map((column) => (
                     <td
                       key={`${column.key}-${index}`}
@@ -747,7 +886,7 @@ export const AdvisorSection = ({
                         ),
                       }}
                     >
-                      {renderAdvisorCell(column.key, advisor, index)}
+                      {renderEventCell(column.key, event)}
                     </td>
                   ))}
                 </tr>
@@ -758,6 +897,12 @@ export const AdvisorSection = ({
       </div>
 
       <div className="pagination">{generatePaginationButtons()}</div>
+      <ExportLimitModal
+        isOpen={showExportLimitModal}
+        onClose={() => setShowExportLimitModal(false)}
+        exportsLeft={exportsLeft}
+        totalExports={EXPORT_LIMIT}
+      />
       {columnsModalLayer}
       <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
     </div>

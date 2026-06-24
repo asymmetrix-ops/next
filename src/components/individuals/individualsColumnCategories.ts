@@ -175,3 +175,37 @@ export const individualVisibilityToColumnKeys = (
     ordered.length > 0 ? ordered : [...PROD_DEFAULT_INDIVIDUAL_COLUMN_KEYS];
   return enforceIndividualColumnKeyOrder(base);
 };
+
+export function reorderIndividualColumnKeys(
+  keys: string[],
+  dragKey: string,
+  dropKey: string,
+  filterPinnedKeys: string[] = []
+): string[] {
+  const frozenKeys = getEffectiveFrozenIndividualColumnKeys(filterPinnedKeys);
+  const frozenSet = new Set(frozenKeys);
+  const ordered = enforceIndividualColumnKeyOrder(keys, filterPinnedKeys);
+  if (dragKey === dropKey) return ordered;
+  if (frozenSet.has(dragKey)) return ordered;
+
+  const fromIndex = ordered.indexOf(dragKey);
+  if (fromIndex < 0) return ordered;
+
+  let toIndex = ordered.indexOf(dropKey);
+  if (toIndex < 0) return ordered;
+
+  if (frozenSet.has(dropKey)) {
+    toIndex = frozenKeys.reduce((max, frozenKey) => {
+      const idx = ordered.indexOf(frozenKey);
+      return idx >= 0 ? Math.max(max, idx) : max;
+    }, -1);
+    if (toIndex < 0) toIndex = 0;
+    else toIndex += 1;
+  }
+
+  const next = [...ordered];
+  const [item] = next.splice(fromIndex, 1);
+  const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
+  next.splice(insertAt, 0, item);
+  return enforceIndividualColumnKeyOrder(next, filterPinnedKeys);
+}

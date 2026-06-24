@@ -31,6 +31,8 @@ import {
 } from "@/components/investors/investorsFilterConfig";
 import { CANONICAL_INVESTOR_COLUMN_KEYS } from "@/components/investors/investorsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
+import { SEARCH_HEADER_ACTION_BUTTON_STYLE } from "@/components/search/searchHeaderActions";
 
 export type InvestorDashboardProps = {
   onSearch?: (
@@ -350,12 +352,19 @@ export const InvestorDashboard = ({
             </h1>
           </div>
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6, flexWrap: "wrap" }}>
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
               total={CANONICAL_INVESTOR_COLUMN_KEYS.length}
               onClick={onColumnsClick}
+            />
+            <RequestDataResearchButton
+              label="Request Investor Profile"
+              context="investor"
+              sourcePage="Investors Search"
+              className="inline-flex items-center justify-center"
+              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
             />
           </div>
         </div>

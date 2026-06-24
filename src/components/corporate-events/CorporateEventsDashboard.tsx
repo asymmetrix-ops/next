@@ -8,59 +8,74 @@ import React, {
   useRef,
 } from "react";
 import { locationsService } from "@/lib/locationsService";
+import { fetchUserPortfolioData } from "@/lib/portfolioData";
 import {
-  buildAdvisorsCountsSearchPayload,
-  buildAdvisorsSearchPayload,
-} from "@/lib/advisorsFilterPayload";
-import type { AdvisorsSearchFilters } from "@/app/advisors/actions";
+  buildCorporateEventsCountsSearchPayload,
+  buildCorporateEventsSearchPayload,
+  type CorporateEventsSearchFilters,
+} from "@/lib/corporateEventsFilterPayload";
 import {
   CompaniesFilterBar,
   FilterBarState,
 } from "@/components/companies/CompaniesFilterBar";
 import {
   FILTER_CATEGORIES,
-  buildAdvisorsFilterDefs,
-  EMPTY_ADVISORS_ROLE_COUNTS,
-  type AdvisorsRoleCounts,
+  buildCorporateEventsFilterDefs,
+  EMPTY_CORPORATE_EVENTS_SUMMARY_STATS,
+  type CorporateEventsSummaryStats,
   type Country,
   type Province,
   type City,
   type PrimarySector,
   type SecondarySector,
-} from "@/components/advisors/advisorsFilterConfig";
-import { CANONICAL_ADVISOR_COLUMN_KEYS } from "@/components/advisors/advisorsColumnCategories";
+} from "@/components/corporate-events/corporateEventsFilterConfig";
+import { CANONICAL_CORPORATE_EVENT_COLUMN_KEYS } from "@/components/corporate-events/corporateEventsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
-import {
-  SEARCH_HEADER_ACTION_BUTTON_STYLE,
-  SearchExportCsvIcon,
-} from "@/components/search/searchHeaderActions";
 
-export type AdvisorDashboardProps = {
+const HEADER_ACTION_BUTTON_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  height: 36,
+  padding: "0 14px",
+  background: "#fff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 500,
+  color: "#374151",
+  cursor: "pointer",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+};
+
+export type CorporateEventsDashboardProps = {
   onSearch?: (
-    listFilters: AdvisorsSearchFilters,
-    countsFilters: AdvisorsSearchFilters,
+    listFilters: CorporateEventsSearchFilters,
+    countsFilters: CorporateEventsSearchFilters,
     portfolioOnly?: boolean
   ) => void;
   onFilterColumnsChange?: (payload: { filterIds: string[] }) => void;
   initialSearch?: string;
-  roleCounts?: AdvisorsRoleCounts;
+  summaryStats?: CorporateEventsSummaryStats;
+  userId?: number | null;
   onColumnsClick?: () => void;
   onExportCSVClick?: () => void;
   columnsActive?: boolean;
   columnsCount?: number;
 };
 
-export const AdvisorDashboard = ({
+export const CorporateEventsDashboard = ({
   onSearch,
   onFilterColumnsChange,
   initialSearch,
-  roleCounts = EMPTY_ADVISORS_ROLE_COUNTS,
+  summaryStats = EMPTY_CORPORATE_EVENTS_SUMMARY_STATS,
+  userId = null,
   onColumnsClick,
   onExportCSVClick,
   columnsActive = false,
   columnsCount = 0,
-}: AdvisorDashboardProps) => {
+}: CorporateEventsDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
     filters: [],
     viewId: null,
@@ -75,6 +90,10 @@ export const AdvisorDashboard = ({
   const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
+    []
+  );
+  const [fundingStages, setFundingStages] = useState<string[]>([]);
+  const [portfolioEntityOptions, setPortfolioEntityOptions] = useState<string[]>(
     []
   );
 
@@ -113,6 +132,37 @@ export const AdvisorDashboard = ({
         setSecondarySectors(sectors.map((s) => ({ id: s.id, sector_name: s.sector_name })))
       )
       .catch(console.error);
+    fetch(
+      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/funding_stage_options"
+    )
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setFundingStages(
+            data
+              .map((value) => (typeof value === "string" ? value : ""))
+              .filter((value): value is string => Boolean(value))
+          );
+        }
+      })
+      .catch(console.error);
+    fetchUserPortfolioData()
+      .then(({ items }) => {
+        const typeLabel: Record<string, string> = {
+          advisor: "Advisor",
+          company: "Company",
+          individual: "Individual",
+          investor: "Investor",
+          sector: "Sector",
+        };
+        setPortfolioEntityOptions(
+          items.map(
+            (item) =>
+              `${item.name} (${typeLabel[item.entity] ?? item.entity})|${item.entity}-${item.id}`
+          )
+        );
+      })
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -137,7 +187,7 @@ export const AdvisorDashboard = ({
   useEffect(() => {
     if (selectedPrimaryNames.length === 0) return;
     const ids = selectedPrimaryNames
-      .map((name) => primarySectors.find((s) => s.sector_name === name)?.id)
+      .map((name) => primarySectors.find((sector) => sector.sector_name === name)?.id)
       .filter((id): id is number => id != null);
     if (ids.length > 0) {
       locationsService.getSecondarySectors(ids).then(setSecondarySectors).catch(console.error);
@@ -146,7 +196,7 @@ export const AdvisorDashboard = ({
 
   const filterDefs = useMemo(
     () =>
-      buildAdvisorsFilterDefs({
+      buildCorporateEventsFilterDefs({
         continentalRegions,
         subRegions,
         countries,
@@ -154,6 +204,8 @@ export const AdvisorDashboard = ({
         cities,
         primarySectors,
         secondarySectors,
+        fundingStages,
+        portfolioEntityOptions,
       }),
     [
       continentalRegions,
@@ -163,6 +215,8 @@ export const AdvisorDashboard = ({
       cities,
       primarySectors,
       secondarySectors,
+      fundingStages,
+      portfolioEntityOptions,
     ]
   );
 
@@ -176,27 +230,33 @@ export const AdvisorDashboard = ({
   }, [filterBarState.filters]);
 
   const buildSearchFilters = useCallback(
-    (): AdvisorsSearchFilters =>
-      buildAdvisorsSearchPayload({
+    (): CorporateEventsSearchFilters =>
+      buildCorporateEventsSearchPayload({
         state: filterBarState,
         primarySectors,
         secondarySectors,
+        userId,
       }),
-    [filterBarState, primarySectors, secondarySectors]
+    [filterBarState, primarySectors, secondarySectors, userId]
   );
 
   const buildCountsSearchFilters = useCallback(
-    (): AdvisorsSearchFilters =>
-      buildAdvisorsCountsSearchPayload({
+    (): CorporateEventsSearchFilters =>
+      buildCorporateEventsCountsSearchPayload({
         state: filterBarState,
         primarySectors,
         secondarySectors,
+        userId,
       }),
-    [filterBarState, primarySectors, secondarySectors]
+    [filterBarState, primarySectors, secondarySectors, userId]
   );
 
   const isPortfolioFilterActive = filterBarState.filters.some(
-    (f) => f.id === "followed" && f.value === true
+    (filter) =>
+      (filter.id === "followed" && filter.value === true) ||
+      (filter.id === "portfolio_entity" &&
+        Array.isArray(filter.value) &&
+        filter.value.length > 0)
   );
   const isPortfolioFilterActiveRef = useRef(isPortfolioFilterActive);
   isPortfolioFilterActiveRef.current = isPortfolioFilterActive;
@@ -226,11 +286,9 @@ export const AdvisorDashboard = ({
     }
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      const listFilters = buildSearchFiltersRef.current();
-      const countsFilters = buildCountsSearchFiltersRef.current();
       onSearchRef.current?.(
-        listFilters,
-        countsFilters,
+        buildSearchFiltersRef.current(),
+        buildCountsSearchFiltersRef.current(),
         isPortfolioFilterActiveRef.current
       );
     }, 350);
@@ -239,14 +297,11 @@ export const AdvisorDashboard = ({
     };
   }, [filterSearchKey]);
 
-  const matchCount = roleCounts.totalCount;
-
-  const roleStats = [
-    { label: "Financial Advisors", value: roleCounts.financialAdvisors },
-    { label: "Commercial Due Diligence", value: roleCounts.commercialDueDiligence },
-    { label: "Vendor Due Diligence", value: roleCounts.vendorDueDiligence },
-    { label: "Management Team Advisory", value: roleCounts.managementTeamAdvisory },
-    { label: "NOMAD", value: roleCounts.nomad },
+  const matchCount = summaryStats.totalCount;
+  const eventStats = [
+    { label: "Acquisitions", value: summaryStats.acquisitions },
+    { label: "Investments", value: summaryStats.investments },
+    { label: "IPOs", value: summaryStats.ipos },
   ];
 
   return (
@@ -273,7 +328,7 @@ export const AdvisorDashboard = ({
                 marginBottom: 5,
               }}
             >
-              Advisors
+              Corporate Events
             </div>
             <h1
               style={{
@@ -287,7 +342,7 @@ export const AdvisorDashboard = ({
                 lineHeight: 1.2,
               }}
             >
-              Advisor search
+              Corporate event search
               <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
                 {matchCount.toLocaleString()} matches
               </span>
@@ -298,46 +353,56 @@ export const AdvisorDashboard = ({
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
-              total={CANONICAL_ADVISOR_COLUMN_KEYS.length}
+              total={CANONICAL_CORPORATE_EVENT_COLUMN_KEYS.length}
               onClick={onColumnsClick}
             />
             <RequestDataResearchButton
-              label="Request Advisor Profile"
-              context="advisor"
-              sourcePage="Advisors Search"
+              label="Request Corporate Event Profile"
+              context="corporate-event"
+              sourcePage="Corporate Events Search"
               className="inline-flex items-center justify-center"
-              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
+              style={HEADER_ACTION_BUTTON_STYLE}
             />
             <button
               type="button"
               onClick={onExportCSVClick}
-              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
+              style={HEADER_ACTION_BUTTON_STYLE}
             >
-              <SearchExportCsvIcon />
+              <svg width="12" height="14" viewBox="0 0 12 14" fill="none" aria-hidden="true">
+                <path
+                  d="M6 1v8M3 6l3 3 3-3M1 13h10"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
               Export CSV
             </button>
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "10px 18px",
-            paddingBottom: 14,
-            fontSize: 12,
-            color: "#64748b",
-          }}
-        >
-          {roleStats.map((stat) => (
-            <span key={stat.label}>
-              <span style={{ color: "#94a3b8" }}>{stat.label}: </span>
-              <span style={{ fontWeight: 600, color: "#334155" }}>
-                {stat.value.toLocaleString()}
+        {summaryStats.acquisitions > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "10px 18px",
+              paddingBottom: 14,
+              fontSize: 12,
+              color: "#64748b",
+            }}
+          >
+            {eventStats.map((stat) => (
+              <span key={stat.label}>
+                <span style={{ color: "#94a3b8" }}>{stat.label}: </span>
+                <span style={{ fontWeight: 600, color: "#334155" }}>
+                  {stat.value.toLocaleString()}
+                </span>
               </span>
-            </span>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div
@@ -354,9 +419,9 @@ export const AdvisorDashboard = ({
             state={filterBarState}
             onStateChange={setFilterBarState}
             totalCount={matchCount}
-            entityLabel="advisors"
-            portfolioOnlyChipLabel="My Portfolio only"
-            portfolioBooleanDescription="Show only advisors in My Portfolio (followed)"
+            entityLabel="corporate events"
+            portfolioOnlyChipLabel="Followed only"
+            portfolioBooleanDescription="Show events tagged to followed companies, advisors, individuals, investors, or sectors."
           />
         </div>
       </div>

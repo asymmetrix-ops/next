@@ -28,6 +28,8 @@ import {
 } from "@/components/individuals/individualsFilterConfig";
 import { CANONICAL_INDIVIDUAL_COLUMN_KEYS } from "@/components/individuals/individualsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
+import { SEARCH_HEADER_ACTION_BUTTON_STYLE } from "@/components/search/searchHeaderActions";
 
 export type IndividualDashboardProps = {
   onSearch?: (
@@ -277,12 +279,19 @@ export const IndividualDashboard = ({
             </h1>
           </div>
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6, flexWrap: "wrap" }}>
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
               total={CANONICAL_INDIVIDUAL_COLUMN_KEYS.length}
               onClick={onColumnsClick}
+            />
+            <RequestDataResearchButton
+              label="Request Individual Profile"
+              context="individual"
+              sourcePage="Individuals Search"
+              className="inline-flex items-center justify-center"
+              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
             />
           </div>
         </div>

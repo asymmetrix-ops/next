@@ -275,6 +275,20 @@ export const SEARCH_TABLE_STYLES = `
       cursor: pointer;
       font-weight: 500;
     }
+    .link-blue {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .link-blue:hover {
+      color: #005bb5;
+    }
+    .muted-row {
+      font-size: 12px;
+      color: #4a5568;
+      margin: 4px 0;
+    }
     .company-description {
       line-height: 1.4;
     }
