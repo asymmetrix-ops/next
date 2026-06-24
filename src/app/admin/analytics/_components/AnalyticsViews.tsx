@@ -2382,18 +2382,6 @@ export function PageInsightsTab() {
 
 type EATab = "all" | "stale" | "bounced" | "inactive";
 
-type EAEmailDailyByItemType = {
-  clicks: number;
-  clicked?: number;
-  failed: number;
-  opened: number;
-  bounced?: number;
-  skipped: number;
-  item_type: string;
-  actually_sent: number;
-  open_rate_pct?: number;
-};
-
 type EAEmailDailyFailedItem = {
   email: string;
   status: string;
@@ -2420,14 +2408,8 @@ type EAEmailDailyStats = {
   total_clicks: number;
   send_rate_pct: string;
   open_rate_pct: string;
-  by_item_type: EAEmailDailyByItemType[];
   failed_list: EAEmailDailyFailedItem[];
 };
-
-function eaDailyOpenRateLabel(opened: number, delivered: number): string {
-  if (delivered <= 0) return "—";
-  return `${Math.round((opened / delivered) * 100)}%`;
-}
 
 function eaDailyFinalStatusBadge(finalStatus: string | null | undefined) {
   const normalized = (finalStatus ?? "").toLowerCase();
@@ -2493,11 +2475,10 @@ type EAEmailListItem = {
   active_subscriptions: number;
   total_sent: number;
   total_opened: number;
+  total_failed: number;
+  total_clicks: number;
   total_bounced: number;
   open_rate_pct: string;
-  sent_30d: number;
-  opened_30d: number;
-  clicks_30d: string;
   last_opened_at: number;
   engagement_status: string;
 };
@@ -2618,7 +2599,6 @@ type EAEmailPerAlertEngagement = {
   last_opened_at: number;
   opened_tracked: number;
   delivered_tracked: number;
-  emails_sent_total: number;
   engagement_status: string;
   emails_sent_tracked: number;
 };
@@ -2637,11 +2617,10 @@ type EAEmailUserDetail = {
   total_failed: number;
   total_clicks: number;
   open_rate_pct: string;
-  sent_30d: number;
-  delivered_30d: number;
-  opened_30d: number;
-  clicks_30d: number;
-  open_rate_30d_pct: string;
+  sent_tracked: number;
+  opened_tracked: number;
+  clicks_tracked: number;
+  open_rate_tracked_pct: string;
   last_opened_at: number;
   alert_settings: EAEmailAlertSetting[];
   by_email_type: EAEmailByType[];
@@ -2718,15 +2697,19 @@ function mapOverviewUserToListItem(row: Record<string, unknown>): EAEmailListIte
     active_subscriptions: eaOverviewNum(
       row.active_subscriptions ?? row.active_alerts ?? row.activeAlerts
     ),
-    total_sent: eaOverviewNum(row.total_sent ?? row.sentCount),
-    total_opened: eaOverviewNum(row.total_opened ?? row.openedCount),
+    total_sent: eaOverviewNum(row.total_sent ?? row.sent_tracked ?? row.sentCount),
+    total_opened: eaOverviewNum(row.total_opened ?? row.opened_tracked ?? row.openedCount),
+    total_failed: eaOverviewNum(row.total_failed),
+    total_clicks: eaOverviewNum(
+      row.total_clicks ?? row.clicks_tracked ?? row.clickedCount
+    ),
     total_bounced: eaOverviewNum(row.total_bounced ?? row.bouncedCount),
     open_rate_pct: String(
-      row.open_rate_pct ?? row.openRate ?? row.open_rate_30d_pct ?? "0"
+      row.open_rate_pct ??
+        row.open_rate_tracked_pct ??
+        row.openRate ??
+        "0"
     ),
-    sent_30d: eaOverviewNum(row.sent_30d ?? row.sentCount),
-    opened_30d: eaOverviewNum(row.opened_30d ?? row.openedCount),
-    clicks_30d: String(row.clicks_30d ?? row.clickedCount ?? row.total_clicks ?? "0"),
     last_opened_at: lastOpenedAt,
     engagement_status: engagementStatus,
   };
@@ -2797,11 +2780,12 @@ function normalizeEmailUserDetail(raw: unknown): EAEmailUserDetail | null {
     total_failed: eaOverviewNum(r.total_failed),
     total_clicks: eaOverviewNum(r.total_clicks),
     open_rate_pct: String(r.open_rate_pct ?? "0"),
-    sent_30d: eaOverviewNum(r.sent_30d),
-    delivered_30d: eaOverviewNum(r.delivered_30d),
-    opened_30d: eaOverviewNum(r.opened_30d),
-    clicks_30d: eaOverviewNum(r.clicks_30d),
-    open_rate_30d_pct: String(r.open_rate_30d_pct ?? "0"),
+    sent_tracked: eaOverviewNum(r.sent_tracked ?? r.total_sent),
+    opened_tracked: eaOverviewNum(r.opened_tracked ?? r.total_opened),
+    clicks_tracked: eaOverviewNum(r.clicks_tracked ?? r.total_clicks),
+    open_rate_tracked_pct: String(
+      r.open_rate_tracked_pct ?? r.open_rate_pct ?? "0"
+    ),
     last_opened_at: eaOverviewNum(r.last_opened_at),
     alert_settings: eaParseJsonArray<EAEmailAlertSetting>(r.alert_settings),
     by_email_type: eaParseJsonArray<EAEmailByType>(r.by_email_type),
@@ -2858,6 +2842,8 @@ function eaEngagementBadge(status: string | null | undefined, bounced: number) {
       return { label: "No opens", cls: "bg-amber-50 text-amber-700" };
     case "bounced":
       return { label: "Bounced", cls: "bg-red-50 text-red-700" };
+    case "failed":
+      return { label: "Failed", cls: "bg-amber-50 text-amber-700" };
     default:
       return {
         label: normalized ? (status ?? "").replace(/_/g, " ") : "Unknown",
@@ -2922,12 +2908,14 @@ function EAEmailListRow({ item }: { item: EAEmailListItem }) {
     };
   }, [expanded, item.user_id]);
 
-  const openRateAllTime = userDetail
-    ? eaFormatRatePct(userDetail.open_rate_pct)
+  const openRate = userDetail
+    ? eaFormatRatePct(userDetail.open_rate_tracked_pct || userDetail.open_rate_pct)
     : `${Math.round(parseFloat(item.open_rate_pct) || 0)}%`;
-  const openRate30d = userDetail
-    ? eaFormatRatePct(userDetail.open_rate_30d_pct)
-    : null;
+  const sentCount = userDetail?.sent_tracked ?? userDetail?.total_sent ?? item.total_sent;
+  const openedCount =
+    userDetail?.opened_tracked ?? userDetail?.total_opened ?? item.total_opened;
+  const clicksCount =
+    userDetail?.clicks_tracked ?? userDetail?.total_clicks ?? item.total_clicks;
   const lastOpened = (userDetail?.last_opened_at ?? item.last_opened_at) > 0
     ? (userDetail?.last_opened_at ?? item.last_opened_at)
     : null;
@@ -2937,9 +2925,6 @@ function EAEmailListRow({ item }: { item: EAEmailListItem }) {
   const subscriptionTypes = item.subscriptions
     ? item.subscriptions.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
-  const sent30d = userDetail?.sent_30d ?? item.sent_30d;
-  const opened30d = userDetail?.opened_30d ?? item.opened_30d;
-  const clicks30d = userDetail?.clicks_30d ?? (Number(item.clicks_30d) || 0);
 
   return (
     <>
@@ -2979,16 +2964,14 @@ function EAEmailListRow({ item }: { item: EAEmailListItem }) {
         </td>
         <td className="px-3 py-2.5">
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium">{openRateAllTime}</span>
+            <span className="text-sm font-medium">{openRate}</span>
             <span className="text-xs text-gray-400">
-              {userDetail
-                ? `all time · ${openRate30d} (30d)`
-                : "list estimate"}
+              {openedCount}/{sentCount} opened
             </span>
           </div>
         </td>
         <td className="px-3 py-2.5 text-xs text-gray-600 whitespace-nowrap">
-          {sent30d} sent · {opened30d} opened · {clicks30d} clicks
+          {sentCount} sent · {openedCount} opened · {clicksCount} clicks
         </td>
         <td className="px-3 py-2.5">
           <span
@@ -3109,60 +3092,139 @@ function EAEmailUserDetailPanel({
   }
 
   const activeAlerts = detail.alert_settings.filter((s) => s.is_active);
+  const sentCount = detail.sent_tracked || detail.total_sent;
+  const openedCount = detail.opened_tracked || detail.total_opened;
+  const clicksCount = detail.clicks_tracked || detail.total_clicks;
+  const openRate =
+    detail.open_rate_tracked_pct || detail.open_rate_pct;
 
   return (
     <div className="px-4 py-3 bg-gray-50 space-y-4 border-t border-gray-100">
       <div>
         <h4 className="text-xs font-medium text-gray-700 mb-1">
-          Open rate for this user
+          Engagement summary
         </h4>
         <p className="text-xs text-gray-400 mb-2">
-          Tracked email engagement from email analytics — not the Postmark list
-          estimate.
+          Tracked email engagement from email analytics.
         </p>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
           <div className="rounded border bg-white px-3 py-2">
-            <div className="text-xs text-gray-500">Open rate (all time)</div>
+            <div className="text-xs text-gray-500">Open rate</div>
             <div className="text-lg font-medium text-green-700">
-              {eaFormatRatePct(detail.open_rate_pct)}
+              {eaFormatRatePct(openRate)}
             </div>
             <div className="text-xs text-gray-400 mt-0.5">
-              {detail.total_opened}/{detail.total_sent} opened
+              {openedCount}/{sentCount} opened
             </div>
           </div>
           <div className="rounded border bg-white px-3 py-2">
-            <div className="text-xs text-gray-500">Open rate (30d)</div>
+            <div className="text-xs text-gray-500">Sent</div>
+            <div className="text-lg font-medium text-gray-900">{sentCount}</div>
+          </div>
+          <div className="rounded border bg-white px-3 py-2">
+            <div className="text-xs text-gray-500">Opened</div>
             <div className="text-lg font-medium text-green-700">
-              {eaFormatRatePct(detail.open_rate_30d_pct)}
-            </div>
-            <div className="text-xs text-gray-400 mt-0.5">
-              {detail.opened_30d}/{detail.sent_30d} opened
+              {openedCount}
             </div>
           </div>
           <div className="rounded border bg-white px-3 py-2">
-            <div className="text-xs text-gray-500">Sent (30d)</div>
-            <div className="text-lg font-medium text-gray-900">{detail.sent_30d}</div>
-          </div>
-          <div className="rounded border bg-white px-3 py-2">
-            <div className="text-xs text-gray-500">Opened (30d)</div>
-            <div className="text-lg font-medium text-green-700">
-              {detail.opened_30d}
+            <div className="text-xs text-gray-500">Failed</div>
+            <div className="text-lg font-medium text-amber-700">
+              {detail.total_failed || "—"}
             </div>
           </div>
           <div className="rounded border bg-white px-3 py-2">
-            <div className="text-xs text-gray-500">Clicks (30d)</div>
+            <div className="text-xs text-gray-500">Clicks</div>
             <div className="text-lg font-medium text-blue-700">
-              {detail.clicks_30d}
+              {clicksCount}
             </div>
           </div>
           <div className="rounded border bg-white px-3 py-2">
-            <div className="text-xs text-gray-500">Total clicks</div>
-            <div className="text-lg font-medium text-blue-700">
-              {detail.total_clicks}
+            <div className="text-xs text-gray-500">Last opened</div>
+            <div className="text-sm font-medium text-gray-900 mt-1">
+              {detail.last_opened_at > 0
+                ? eaFmtDate(detail.last_opened_at)
+                : "—"}
             </div>
           </div>
         </div>
       </div>
+
+      {detail.by_email_type.length > 0 ? (
+        <div>
+          <h4 className="text-xs font-medium text-gray-700 mb-1">
+            By email type
+          </h4>
+          <div className="overflow-x-auto rounded border bg-white">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  {[
+                    "Type",
+                    "Frequency",
+                    "Sent",
+                    "Opened",
+                    "Clicks",
+                    "Status",
+                    "Open rate",
+                    "Last opened",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left font-normal text-gray-500 px-3 py-2"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {detail.by_email_type.map((row) => {
+                  const { label, cls } = eaAlertLabel(row.item_type);
+                  const badge = eaEngagementBadge(row.status, 0);
+                  return (
+                    <tr
+                      key={row.item_type}
+                      className="border-b border-gray-100 last:border-0"
+                    >
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${cls}`}
+                        >
+                          {label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 capitalize text-gray-600">
+                        {eaFormatFrequency(row.frequency)}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-gray-900">
+                        {row.emails_sent}
+                      </td>
+                      <td className="px-3 py-2 text-green-700">{row.opened}</td>
+                      <td className="px-3 py-2 text-blue-700">{row.clicked}</td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${badge.cls}`}
+                        >
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-green-700 font-medium">
+                        {eaFormatRatePct(row.open_rate_pct)}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-600">
+                        {row.last_opened_at > 0
+                          ? eaFmtDate(row.last_opened_at)
+                          : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       {detail.per_alert_engagement.length > 0 ? (
         <div>
@@ -3216,7 +3278,7 @@ function EAEmailUserDetailPanel({
                         {eaFormatFrequency(row.frequency)}
                       </td>
                       <td className="px-3 py-2 font-medium text-gray-900">
-                        {row.emails_sent_total}
+                        {row.emails_sent_tracked}
                       </td>
                       <td className="px-3 py-2 text-green-700">
                         {row.opened_tracked}
@@ -3513,7 +3575,6 @@ function normalizeEmailDailyStats(raw: unknown): EAEmailDailyStats | null {
     total_clicks: eaOverviewNum(r.total_clicks),
     send_rate_pct: String(r.send_rate_pct ?? r.delivery_rate_pct ?? "0"),
     open_rate_pct: String(r.open_rate_pct ?? "0"),
-    by_item_type: eaParseJsonArray<EAEmailDailyByItemType>(r.by_item_type),
     failed_list: eaParseJsonArray<EAEmailDailyFailedItem>(r.failed_list),
   };
 }
@@ -3848,74 +3909,6 @@ export function EmailAnalyticsTab() {
                 </div>
               ) : null}
             </div>
-
-            {dailyStats.by_item_type.length > 0 ? (
-              <div>
-                <h3 className="text-sm font-medium mb-2">By email type</h3>
-                <div className="overflow-x-auto rounded border">
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        {[
-                          "Type",
-                          "Sent",
-                          "Opened",
-                          "Clicks",
-                          "Failed",
-                          "Open rate",
-                        ].map((h) => (
-                          <th
-                            key={h}
-                            className="text-left font-normal text-xs text-gray-500 px-3 py-2"
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dailyStats.by_item_type.map((row) => {
-                        const { label, cls } = eaAlertLabel(row.item_type);
-                        return (
-                          <tr
-                            key={row.item_type}
-                            className="border-b border-gray-100 last:border-0"
-                          >
-                            <td className="px-3 py-2">
-                              <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cls}`}
-                              >
-                                {label}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-green-700 font-medium">
-                              {row.actually_sent}
-                            </td>
-                            <td className="px-3 py-2 text-green-700">
-                              {row.opened}
-                            </td>
-                            <td className="px-3 py-2 text-blue-700">
-                              {row.clicks}
-                            </td>
-                            <td className="px-3 py-2 text-amber-700">
-                              {row.failed || "—"}
-                            </td>
-                            <td className="px-3 py-2">
-                              {row.open_rate_pct != null
-                                ? `${row.open_rate_pct}%`
-                                : eaDailyOpenRateLabel(
-                                    row.opened,
-                                    row.actually_sent
-                                  )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : null}
 
             {dailyStats.failed_list.length > 0 ? (
               <div>
@@ -4264,7 +4257,7 @@ export function EmailAnalyticsTab() {
                       ["activeAlerts", "Subscriptions",     true],
                       ["lastOpened",   "Last opened",       true],
                       ["openRate",     "Open rate",         true],
-                      [null,           "Last 30 days",      false],
+                      [null,           "Engagement",        false],
                       [null,           "Status",            false],
                     ] as [EAUserSortCol | null, string, boolean][]
                   ).map(([col, label, sortable]) => (
