@@ -11,23 +11,19 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "description",
   "parties",
   "advisors",
-  "details",
-  // Both sector filters are defined in EXTRA_FILTER_DEFS (one column, two filters).
-  "primary_sectors",
 ]);
 
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
-  target_company: "target",
+  country: "target_hq",
   primary_sector: "primary_sectors",
-  secondary_sector: "primary_sectors",
-  deal_type: "details",
-  deal_status: "deal_status",
-  funding_stage: "details",
+  secondary_sector: "secondary_sectors",
+  deal_type: "deal_type",
+  deal_status: "deal_type",
+  funding_stage: "funding_stage",
   buyer_investor_type: "parties",
-  product_type: "parties",
   announcement_date: "announcement_date",
-  investment_amount: "details",
-  enterprise_value: "details",
+  investment_amount: "investment_amount",
+  enterprise_value: "enterprise_value",
 };
 
 export const COLUMN_KEY_TO_FILTER_ID: Record<string, string> = Object.fromEntries(
@@ -50,7 +46,6 @@ export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
   const locationFilterIds = new Set([
     "region",
     "sub_region",
-    "target_hq",
     "country",
     "state",
     "city",
@@ -61,9 +56,10 @@ export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
     if (columnKey) keys.add(columnKey);
     if (filterId === "primary_sector" || filterId === "secondary_sector") {
       keys.add("primary_sectors");
+      keys.add("secondary_sectors");
     }
     if (locationFilterIds.has(filterId)) {
-      keys.add("target");
+      keys.add("target_hq");
     }
   }
 
@@ -75,9 +71,23 @@ export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
 function mapColumnCategoryToFilterCategory(
   column: CorporateEventColumnMeta
 ): string {
-  if (column.columnKey === "details") return "event";
-  if (column.columnKey === "primary_sectors") return "sectors";
+  if (column.columnKey === "deal_type" || column.columnKey === "funding_stage") {
+    return "event";
+  }
+  if (
+    column.columnKey === "primary_sectors" ||
+    column.columnKey === "secondary_sectors"
+  ) {
+    return "sectors";
+  }
+  if (column.columnKey === "target_hq") return "location";
   if (column.columnKey === "announcement_date") return "event";
+  if (
+    column.columnKey === "investment_amount" ||
+    column.columnKey === "enterprise_value"
+  ) {
+    return "event";
+  }
   return "event";
 }
 
@@ -141,6 +151,15 @@ export const EXTRA_FILTER_DEFS: Pick<
     options: [],
   },
   {
+    id: "deal_status",
+    label: "Deal Status",
+    fullLabel: "Deal Status",
+    category: "event",
+    type: "Aa",
+    editor: "enum",
+    options: [],
+  },
+  {
     id: "buyer_investor_type",
     label: "Buyer / Investor Type",
     fullLabel: "Buyer / Investor Type",
@@ -156,24 +175,6 @@ export const EXTRA_FILTER_DEFS: Pick<
     category: "event",
     type: "Aa",
     editor: "enum",
-    options: [],
-  },
-  {
-    id: "investment_amount",
-    label: "Amount (m)",
-    fullLabel: "Amount (m)",
-    category: "event",
-    type: "#",
-    editor: "range",
-    options: [],
-  },
-  {
-    id: "enterprise_value",
-    label: "EV (m)",
-    fullLabel: "EV (m)",
-    category: "event",
-    type: "#",
-    editor: "range",
     options: [],
   },
   {
@@ -198,15 +199,6 @@ export const EXTRA_FILTER_DEFS: Pick<
     id: "sub_region",
     label: "Sub-Region",
     fullLabel: "Sub-Region",
-    category: "location",
-    type: "Aa",
-    editor: "enum",
-    options: [],
-  },
-  {
-    id: "target_hq",
-    label: "Target HQ",
-    fullLabel: "Target HQ",
     category: "location",
     type: "Aa",
     editor: "enum",
@@ -241,8 +233,8 @@ export const EXTRA_FILTER_DEFS: Pick<
   },
   {
     id: "primary_sector",
-    label: "Primary Sector(s)",
-    fullLabel: "Primary Sector(s)",
+    label: "Primary Sector",
+    fullLabel: "Primary Sector",
     category: "sectors",
     type: "Aa",
     editor: "enum",
@@ -250,17 +242,8 @@ export const EXTRA_FILTER_DEFS: Pick<
   },
   {
     id: "secondary_sector",
-    label: "Secondary Sector(s)",
-    fullLabel: "Secondary Sector(s)",
-    category: "sectors",
-    type: "Aa",
-    editor: "enum",
-    options: [],
-  },
-  {
-    id: "product_type",
-    label: "Product Type",
-    fullLabel: "Product Type",
+    label: "Secondary Sector",
+    fullLabel: "Secondary Sector",
     category: "sectors",
     type: "Aa",
     editor: "enum",

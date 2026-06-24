@@ -247,12 +247,3 @@ export function renderSectorLinks(
       id: nameToId[normalizeSectorName(name)],
     }));
 }
-
-export {
-  formatCorporateEventAmountCell,
-  formatCorporateEventEnterpriseValue,
-  formatCorporateEventInvestmentAmount,
-  formatCorporateEventMillionsAmount,
-  normalizeCorporateEventAmountDisplay,
-  type CorporateEventAmountFields,
-} from "@/lib/corporateEventAmountDisplay";

@@ -2,7 +2,10 @@ import { getCorporateEventFieldAliasesForColumn } from "./corporateEventsColumnF
 import type { CorporateEvent } from "@/types/corporateEvents";
 import {
   derivePrimaryFromCompany,
+  deriveSecondaryFromCompany,
+  getFundingStage,
   getTargetCompany,
+  getTargetCountry,
   getTargetName,
 } from "./corporateEventsTableUtils";
 
@@ -17,11 +20,15 @@ export const CORPORATE_EVENT_COLUMN_SORT_KIND: Record<
   description: "text",
   announcement_date: "date",
   target: "text",
+  target_hq: "text",
   parties: NOT_SORTABLE,
-  deal_status: "text",
-  details: NOT_SORTABLE,
+  deal_type: "text",
+  funding_stage: "text",
+  investment_amount: "number",
+  enterprise_value: "number",
   advisors: NOT_SORTABLE,
   primary_sectors: "text",
+  secondary_sectors: "text",
 };
 
 export function getCorporateEventColumnSortKind(
@@ -55,8 +62,23 @@ export function getCorporateEventSortValueForColumn(
     case "target":
       raw = getTargetName(corporateEvent);
       break;
+    case "target_hq":
+      raw = getTargetCountry(corporateEvent);
+      break;
+    case "funding_stage":
+      raw = getFundingStage(corporateEvent);
+      break;
+    case "investment_amount":
+      raw = corporateEvent.investment_data?.investment_amount_m;
+      break;
+    case "enterprise_value":
+      raw = corporateEvent.ev_data?.enterprise_value_m;
+      break;
     case "primary_sectors":
       raw = derivePrimaryFromCompany(getTargetCompany(corporateEvent), {});
+      break;
+    case "secondary_sectors":
+      raw = deriveSecondaryFromCompany(getTargetCompany(corporateEvent));
       break;
     default:
       raw = readValue(event, getCorporateEventFieldAliasesForColumn(columnKey));

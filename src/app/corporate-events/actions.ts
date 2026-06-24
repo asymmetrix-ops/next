@@ -2,17 +2,12 @@
 
 import { cookies } from "next/headers";
 import {
-  corporateEventsCountsFiltersToSearchParams,
   corporateEventsFiltersToSearchParams,
   createDefaultCorporateEventFilters,
   type CorporateEventsSearchFilters,
 } from "@/lib/corporateEventsFilterPayload";
-import {
-  mapCorporateEventsCountsResponse,
-  mapResponseToCorporateEventsSummaryStats,
-} from "@/components/corporate-events/corporateEventsFilterConfig";
+import { mapResponseToCorporateEventsSummaryStats } from "@/components/corporate-events/corporateEventsFilterConfig";
 import type { CorporateEvent, CorporateEventsResponse } from "@/types/corporateEvents";
-import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 
 export type { CorporateEventsSearchFilters };
 
@@ -32,7 +27,7 @@ export interface CorporateEventsListResponse {
 }
 
 const CORPORATE_EVENTS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
 
 function normalizeCorporateEventsResponse(
   raw: CorporateEventsResponse,
@@ -69,13 +64,10 @@ export async function fetchCorporateEventsServer(
     if (!token) return null;
 
     const perPage = filters.Per_page > 0 ? filters.Per_page : 50;
-    const preferredCurrencyId =
-      filters.preferred_currency_id ?? (await readPlatformCurrencyIdServer());
     const payload: CorporateEventsSearchFilters = {
       ...filters,
       Page: Math.max(1, page),
       Per_page: perPage,
-      preferred_currency_id: preferredCurrencyId,
     };
 
     const params = corporateEventsFiltersToSearchParams(payload);
@@ -90,17 +82,11 @@ export async function fetchCorporateEventsServer(
     });
 
     if (!response.ok) {
-      const errorBody = await response.text().catch(() => response.statusText);
       console.error(
         `Corporate events API failed (${response.status}):`,
-        errorBody
+        await response.text().catch(() => response.statusText)
       );
-      if (response.status === 401) {
-        return null;
-      }
-      throw new Error(
-        `Corporate events API failed (${response.status}): ${errorBody}`
-      );
+      return null;
     }
 
     const raw = (await response.json()) as CorporateEventsResponse;
@@ -111,55 +97,6 @@ export async function fetchCorporateEventsServer(
     };
   } catch (error) {
     console.error("fetchCorporateEventsServer error:", error);
-    throw error instanceof Error
-      ? error
-      : new Error("Failed to fetch corporate events");
-  }
-}
-
-export async function fetchCorporateEventsCountsServer(
-  filters: CorporateEventsSearchFilters = createDefaultCorporateEventFilters()
-): Promise<ReturnType<typeof mapCorporateEventsCountsResponse> | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("asymmetrix_auth_token")?.value;
-    if (!token) return null;
-
-    const preferredCurrencyId =
-      filters.preferred_currency_id ?? (await readPlatformCurrencyIdServer());
-    const params = corporateEventsCountsFiltersToSearchParams({
-      ...filters,
-      deal_types: [],
-      preferred_currency_id: preferredCurrencyId,
-    });
-    const url = `${CORPORATE_EVENTS_API_BASE}/get_corporate_events_counts?${params.toString()}`;
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => response.statusText);
-      console.error(
-        `Corporate events counts API failed (${response.status}):`,
-        errorBody
-      );
-      if (response.status === 401) {
-        return null;
-      }
-      throw new Error(
-        `Corporate events counts API failed (${response.status}): ${errorBody}`
-      );
-    }
-
-    const data = (await response.json()) as Record<string, unknown>;
-    return mapCorporateEventsCountsResponse(data);
-  } catch (error) {
-    console.error("fetchCorporateEventsCountsServer error:", error);
     return null;
   }
 }

@@ -30,6 +30,11 @@ import {
 } from "@/components/advisors/advisorsFilterConfig";
 import { CANONICAL_ADVISOR_COLUMN_KEYS } from "@/components/advisors/advisorsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
+import {
+  SEARCH_HEADER_ACTION_BUTTON_STYLE,
+  SearchExportCsvIcon,
+} from "@/components/search/searchHeaderActions";
 
 export type AdvisorDashboardProps = {
   onSearch?: (
@@ -41,6 +46,7 @@ export type AdvisorDashboardProps = {
   initialSearch?: string;
   roleCounts?: AdvisorsRoleCounts;
   onColumnsClick?: () => void;
+  onExportCSVClick?: () => void;
   columnsActive?: boolean;
   columnsCount?: number;
 };
@@ -51,6 +57,7 @@ export const AdvisorDashboard = ({
   initialSearch,
   roleCounts = EMPTY_ADVISORS_ROLE_COUNTS,
   onColumnsClick,
+  onExportCSVClick,
   columnsActive = false,
   columnsCount = 0,
 }: AdvisorDashboardProps) => {
@@ -287,13 +294,28 @@ export const AdvisorDashboard = ({
             </h1>
           </div>
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6, flexWrap: "wrap" }}>
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
               total={CANONICAL_ADVISOR_COLUMN_KEYS.length}
               onClick={onColumnsClick}
             />
+            <RequestDataResearchButton
+              label="Request Advisor Profile"
+              context="advisor"
+              sourcePage="Advisors Search"
+              className="inline-flex items-center justify-center"
+              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
+            />
+            <button
+              type="button"
+              onClick={onExportCSVClick}
+              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
+            >
+              <SearchExportCsvIcon />
+              Export CSV
+            </button>
           </div>
         </div>
 

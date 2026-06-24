@@ -7,32 +7,29 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
-import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
-import { fundingStageBadgeStyle, dealStatusBadgeStyle } from "@/lib/corporateEventDealTypeBadge";
+import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
 import type {
   CorporateEventListItem,
   CorporateEventsSearchFilters,
 } from "@/app/corporate-events/actions";
 import {
   createDefaultCorporateEventFilters,
-  corporateEventsExportFiltersToSearchParams,
-  parseCorporateEventsUrlFilters,
+  corporateEventsFiltersToSearchParams,
 } from "@/lib/corporateEventsFilterPayload";
 import {
   CORPORATE_EVENTS_COLUMN_CATEGORIES,
+  CANONICAL_CORPORATE_EVENT_COLUMN_KEYS,
   DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS,
   PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS,
   corporateEventColumnKeysToVisibility,
   corporateEventVisibilityToColumnKeys,
   enforceCorporateEventColumnKeyOrder,
   getEffectiveFrozenCorporateEventColumnKeys,
-  migrateCorporateEventColumnKeys,
   reorderCorporateEventColumnKeys,
 } from "@/components/corporate-events/corporateEventsColumnCategories";
-import { CORPORATE_EVENTS_LIST_TABLE_STYLES } from "@/components/corporate-events/corporateEventsListTableStyles";
 import { FILTER_PINNED_TOOLTIP } from "@/components/corporate-events/corporateEventsColumnFilterMap";
 import {
   compareCorporateEventSortValues,
@@ -41,9 +38,8 @@ import {
 } from "@/components/corporate-events/corporateEventsTableSort";
 import {
   derivePrimaryFromCompany,
+  deriveSecondaryFromCompany,
   formatCorporateEventDate,
-  formatCorporateEventEnterpriseValue,
-  formatCorporateEventInvestmentAmount,
   getFundingStage,
   getTargetCompany,
   getTargetCountry,
@@ -51,7 +47,6 @@ import {
   renderSectorLinks,
 } from "@/components/corporate-events/corporateEventsTableUtils";
 import {
-  extractAdvisorEntries,
   extractAdvisorLinks,
   extractBuyerLinks,
   extractInvestorLinks,
@@ -62,24 +57,22 @@ import {
 } from "@/components/corporate-events/corporateEventsPartyLinks";
 import { locationsService } from "@/lib/locationsService";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
-import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
-import { entityLinksToMultiValueItems } from "@/components/search/searchMultiValueUtils";
 import {
   buildStickyColumnOffsets,
   getSearchTableColumnClassName,
   getStickyColumnStyle,
   SearchTablePinIndicator,
 } from "@/components/search/searchTableUtils";
-import CompactPagination from "@/components/ui/CompactPagination";
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
+import type { CorporateEvent } from "@/types/corporateEvents";
 
 export type CorporateEventItem = CorporateEventListItem;
 export type Filters = CorporateEventsSearchFilters;
 
 const CORPORATE_EVENTS_COLUMNS_STORAGE_KEY =
-  "corporate-events-search-column-keys-v2";
+  "corporate-events-search-column-keys-v1";
 
 interface CorporateEventColumnDefinition {
   key: string;
@@ -89,14 +82,18 @@ interface CorporateEventColumnDefinition {
 }
 
 const ALL_CORPORATE_EVENT_COLUMNS: CorporateEventColumnDefinition[] = [
-  { key: "description", label: "Event", wrap: true, minWidth: 140 },
-  { key: "announcement_date", label: "Date", minWidth: 100 },
-  { key: "parties", label: "Parties", wrap: true, minWidth: 150 },
-  { key: "target", label: "Target HQ", wrap: true, minWidth: 120 },
-  { key: "deal_status", label: "Deal Status", minWidth: 110 },
-  { key: "details", label: "Details", wrap: true, minWidth: 140 },
-  { key: "advisors", label: "Advisors", wrap: true, minWidth: 120 },
-  { key: "primary_sectors", label: "Primary Sector(s)", wrap: true, minWidth: 130 },
+  { key: "description", label: "Event", minWidth: 220 },
+  { key: "announcement_date", label: "Date", minWidth: 130 },
+  { key: "target", label: "Target", minWidth: 160 },
+  { key: "target_hq", label: "Target HQ", minWidth: 120 },
+  { key: "parties", label: "Parties", wrap: true, minWidth: 220 },
+  { key: "deal_type", label: "Deal Type", minWidth: 130 },
+  { key: "funding_stage", label: "Funding Stage", minWidth: 130 },
+  { key: "investment_amount", label: "Amount (m)", minWidth: 120 },
+  { key: "enterprise_value", label: "EV (m)", minWidth: 120 },
+  { key: "advisors", label: "Advisors", wrap: true, minWidth: 180 },
+  { key: "primary_sectors", label: "Primary Sectors", wrap: true, minWidth: 180 },
+  { key: "secondary_sectors", label: "Secondary Sectors", wrap: true, minWidth: 180 },
 ];
 
 const COLUMN_MAP = new Map(
@@ -104,8 +101,8 @@ const COLUMN_MAP = new Map(
 );
 
 function getValidColumnKeys(keys: string[]): string[] {
-  return migrateCorporateEventColumnKeys(
-    keys.filter((key) => typeof key === "string")
+  return enforceCorporateEventColumnKeyOrder(
+    keys.filter((key) => CANONICAL_CORPORATE_EVENT_COLUMN_KEYS.includes(key))
   );
 }
 
@@ -122,7 +119,6 @@ export const CorporateEventsSearchSection = ({
   onColumnsCountChange,
   onRegisterExportCSV,
   isPortfolioOnlyFilter = false,
-  onApplyTargetCompanyFilter,
 }: {
   events: CorporateEventItem[];
   loading: boolean;
@@ -149,11 +145,8 @@ export const CorporateEventsSearchSection = ({
   onColumnsCountChange?: (count: number) => void;
   onRegisterExportCSV?: (fn: () => void) => void;
   isPortfolioOnlyFilter?: boolean;
-  onApplyTargetCompanyFilter?: (companyId: number, companyName: string) => void;
 }) => {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const sectionRef = useRef<HTMLDivElement>(null);
   const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
@@ -164,6 +157,9 @@ export const CorporateEventsSearchSection = ({
   const [primaryNameToId, setPrimaryNameToId] = useState<Record<string, number>>(
     {}
   );
+  const [secondaryNameToId, setSecondaryNameToId] = useState<
+    Record<string, number>
+  >({});
 
   const showColumnsModal =
     externalShowColumnsModal !== undefined
@@ -204,9 +200,7 @@ export const CorporateEventsSearchSection = ({
 
   useEffect(() => {
     try {
-      const saved =
-        window.localStorage.getItem(CORPORATE_EVENTS_COLUMNS_STORAGE_KEY) ??
-        window.localStorage.getItem("corporate-events-search-column-keys-v1");
+      const saved = window.localStorage.getItem(CORPORATE_EVENTS_COLUMNS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -264,6 +258,7 @@ export const CorporateEventsSearchSection = ({
             }
           }
           setSecondaryToPrimaryMap(map);
+          setSecondaryNameToId(secIdMap);
           setPrimaryNameToId((prev) => ({ ...prev, ...primIdMap }));
         }
         const primaries = await locationsService.getPrimarySectors();
@@ -333,23 +328,12 @@ export const CorporateEventsSearchSection = ({
     [router]
   );
 
-  const pageTotal =
-    pagination.pageTotal ||
-    (pagination.nextPage != null
-      ? Math.max(pagination.nextPage, pagination.curPage + 1)
-      : 1);
-
   const handlePageChange = useCallback(
     (page: number) => {
-      if (loading || page < 1 || page > pageTotal || page === pagination.curPage) {
-        return;
-      }
-
-      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       const filters = currentFilters ?? createDefaultCorporateEventFilters();
       void fetchCorporateEvents(page, { ...filters, Page: page });
     },
-    [currentFilters, fetchCorporateEvents, loading, pageTotal, pagination.curPage]
+    [currentFilters, fetchCorporateEvents]
   );
 
   const handleSortColumn = useCallback((columnKey: string) => {
@@ -394,44 +378,26 @@ export const CorporateEventsSearchSection = ({
     try {
       const filters = currentFilters ?? createDefaultCorporateEventFilters();
       const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) throw new Error("Authentication required");
-
-      const params = corporateEventsExportFiltersToSearchParams(filters);
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/export_corporate_events_csv?${params.toString()}`;
+      const params = corporateEventsFiltersToSearchParams({
+        ...filters,
+        Page: 1,
+        Per_page: pagination.itemTotal || events.length,
+      });
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events?${params.toString()}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...(token && { Authorization: `Bearer ${token}` }),
         },
       });
-
-      if (!response.ok) {
-        if (response.status === 403 || response.status === 429) {
-          const retryLimit = await checkExportLimit();
-          setExportsLeft(retryLimit.exportsLeft);
-          setShowExportLimitModal(true);
-          return;
-        }
-        throw new Error(`Export API request failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const rows = Array.isArray(data)
-        ? data
-        : (data as { items?: unknown[] }).items;
-      if (!Array.isArray(rows) || rows.length === 0) {
-        throw new Error("No export data returned");
-      }
-
-      CSVExporter.exportCorporateEventsFromApiResponse(
-        rows as Parameters<typeof CSVExporter.exportCorporateEventsFromApiResponse>[0],
-        "corporate_events_filtered"
-      );
+      if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
+      const data = (await response.json()) as { items?: CorporateEvent[] };
+      CSVExporter.exportCorporateEvents(data.items ?? events, "corporate_events_filtered");
     } catch (exportError) {
       console.error("Export CSV failed:", exportError);
     }
-  }, [currentFilters, events.length]);
+  }, [currentFilters, events, pagination.itemTotal]);
 
   useEffect(() => {
     onRegisterExportCSV?.(exportToCsv);
@@ -449,98 +415,25 @@ export const CorporateEventsSearchSection = ({
 
   const renderEntityLinks = (
     links: EntityLink[],
-    keyPrefix: string,
-    options?: {
-      onLinkClick?: (link: EntityLink) => void;
-    }
-  ): React.ReactNode => (
-    <SearchEntityMultiValueCell
-      items={entityLinksToMultiValueItems(links, keyPrefix)}
-      onLinkClick={
-        options?.onLinkClick
-          ? (event) => {
-              const anchor = event.currentTarget;
-              const href = anchor.getAttribute("href") ?? "";
-              const link = links.find((entry) => entry.href === href);
-              if (link?.id) {
-                options.onLinkClick?.(link);
-              }
-            }
-          : undefined
-      }
-    />
-  );
-
-  const renderSectorCell = (
-    text: string,
-    nameToId: Record<string, number>,
-    hrefPrefix: "/sector" | "/sub-sector"
+    keyPrefix: string
   ): React.ReactNode => {
-    const links = renderSectorLinks(text, nameToId);
-    const items = links.map((entry, index) => ({
-      name: entry.name,
-      href:
-        typeof entry.id === "number" ? `${hrefPrefix}/${entry.id}` : undefined,
-      key: `${hrefPrefix}-${entry.id ?? entry.name}-${index}`,
-    }));
-    return <SearchEntityMultiValueCell items={items} />;
-  };
-
-  const isAdvisorFilterView = useMemo(() => {
-    if ((currentFilters?.filter_advisor_ids?.length ?? 0) > 0) return true;
-    const query = searchParams.toString();
-    const urlFilters = parseCorporateEventsUrlFilters(
-      query ? `?${query}` : undefined
-    );
-    return (urlFilters.filter_advisor_ids?.length ?? 0) > 0;
-  }, [currentFilters?.filter_advisor_ids, searchParams]);
-
-  const renderAdvisorsCell = (event: CorporateEventItem) => {
-    if (!isAdvisorFilterView) {
-      return (
-        <div className="company-table-advisors-cell">
-          {renderEntityLinks(extractAdvisorLinks(event), "advisor") || "-"}
-        </div>
-      );
-    }
-
-    const entries = extractAdvisorEntries(event);
-    if (entries.length === 0) return "-";
-
-    return (
-      <div className="company-table-advisors-cell">
-        {entries.map((advisor, advisorIndex) => (
-          <div
-            key={`${advisor.id ?? advisor.name}-${advisorIndex}`}
-            className="company-table-advisor-entry"
+    if (links.length === 0) return null;
+    return links.map((link, index) => (
+      <span key={`${keyPrefix}-${link.id ?? link.name}-${index}`}>
+        {link.href ? (
+          <a
+            href={link.href}
+            className="link-blue"
+            style={SEARCH_ENTITY_LINK_STYLE}
           >
-            {advisor.href ? (
-              <a href={advisor.href} style={SEARCH_ENTITY_LINK_STYLE}>
-                {advisor.name}
-              </a>
-            ) : (
-              <span>{advisor.name}</span>
-            )}
-            {advisor.individuals.length > 0 ? (
-              <div className="company-table-advisor-individuals">
-                {advisor.individuals.map((person, personIndex) => (
-                  <span key={`${person.id ?? person.name}-${personIndex}`}>
-                    {person.href ? (
-                      <a href={person.href} style={SEARCH_ENTITY_LINK_STYLE}>
-                        {person.name}
-                      </a>
-                    ) : (
-                      <span>{person.name}</span>
-                    )}
-                    {personIndex < advisor.individuals.length - 1 ? ", " : ""}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    );
+            {link.name}
+          </a>
+        ) : (
+          <span>{link.name}</span>
+        )}
+        {index < links.length - 1 && ", "}
+      </span>
+    ));
   };
 
   const renderPartiesCell = (event: CorporateEventItem) => {
@@ -553,17 +446,15 @@ export const CorporateEventsSearchSection = ({
       .target_label as string | undefined;
 
     return (
-      <div className="company-table-parties-cell">
-        {!isAdvisorFilterView && (
-          <div className="muted-row">
-            <strong>
-              {targetLabel || (partnership ? "Target(s)" : "Target")}:
-            </strong>{" "}
-            {targets.length > 0
-              ? renderEntityLinks(targets, "target")
-              : "-"}
-          </div>
-        )}
+      <div>
+        <div className="muted-row">
+          <strong>
+            {targetLabel || (partnership ? "Target(s)" : "Target")}:
+          </strong>{" "}
+          {targets.length > 0
+            ? renderEntityLinks(targets, "target")
+            : "-"}
+        </div>
         {buyers.length > 0 && (
           <div className="muted-row">
             <strong>Buyer(s):</strong> {renderEntityLinks(buyers, "buyer")}
@@ -587,40 +478,29 @@ export const CorporateEventsSearchSection = ({
     );
   };
 
-  const renderDetailsCell = (event: CorporateEventItem): React.ReactNode => {
-    const fundingStage = getFundingStage(event);
-    const dealType = event.deal_type?.trim() || "";
-    const isPartnership = /partnership/i.test(dealType);
-    const amount = formatCorporateEventInvestmentAmount(event);
-    const ev = formatCorporateEventEnterpriseValue(event);
-
-    return (
-      <div>
-        <div className="muted-row">
-          <strong>Deal Type:</strong>{" "}
-          {dealType ? <DealTypeBadge dealType={dealType} /> : "-"}
-        </div>
-        <div className="muted-row">
-          <strong>Funding Stage:</strong>{" "}
-          {fundingStage ? (
-            <span style={fundingStageBadgeStyle()}>{fundingStage}</span>
-          ) : (
-            "-"
-          )}
-        </div>
-        {!isPartnership && (
-          <>
-            <div className="muted-row">
-              <strong>Amount (m):</strong>{" "}
-              {amount === "Not available" ? "-" : amount}
-            </div>
-            <div className="muted-row">
-              <strong>EV (m):</strong> {ev === "Not available" ? "-" : ev}
-            </div>
-          </>
+  const renderSectorCell = (
+    text: string,
+    nameToId: Record<string, number>,
+    hrefPrefix: "/sector" | "/sub-sector"
+  ): React.ReactNode => {
+    const links = renderSectorLinks(text, nameToId);
+    if (links.length === 0) return "-";
+    return links.map((entry, index) => (
+      <span key={`${entry.name}-${index}`}>
+        {typeof entry.id === "number" ? (
+          <a
+            href={`${hrefPrefix}/${entry.id}`}
+            className="link-blue"
+            style={SEARCH_ENTITY_LINK_STYLE}
+          >
+            {entry.name}
+          </a>
+        ) : (
+          entry.name
         )}
-      </div>
-    );
+        {index < links.length - 1 && ", "}
+      </span>
+    ));
   };
 
   const renderEventCell = (
@@ -628,6 +508,8 @@ export const CorporateEventsSearchSection = ({
     event: CorporateEventItem
   ): React.ReactNode => {
     const target = getTargetCompany(event);
+    const fundingStage = getFundingStage(event);
+    const isPartnership = /partnership/i.test(event.deal_type || "");
 
     switch (columnKey) {
       case "description": {
@@ -635,77 +517,188 @@ export const CorporateEventsSearchSection = ({
         const description = event.description || "-";
         if (!id) return description;
         return (
-          <div className="company-table-event-cell">
-            <a
-              href={`/corporate-event/${id}`}
-              className="company-name link-blue"
-              style={SEARCH_ENTITY_LINK_STYLE}
-              onClick={(e) => {
-                if (
-                  e.defaultPrevented ||
-                  e.button !== 0 ||
-                  e.metaKey ||
-                  e.ctrlKey ||
-                  e.shiftKey ||
-                  e.altKey
-                ) {
-                  return;
-                }
-                e.preventDefault();
-                handleEventClick(id);
-              }}
-            >
-              {description}
-            </a>
-          </div>
+          <a
+            href={`/corporate-event/${id}`}
+            className="company-name link-blue"
+            style={SEARCH_ENTITY_LINK_STYLE}
+            onClick={(e) => {
+              if (
+                e.defaultPrevented ||
+                e.button !== 0 ||
+                e.metaKey ||
+                e.ctrlKey ||
+                e.shiftKey ||
+                e.altKey
+              ) {
+                return;
+              }
+              e.preventDefault();
+              handleEventClick(id);
+            }}
+          >
+            {description}
+          </a>
         );
       }
       case "announcement_date":
         return formatCorporateEventDate(event.announcement_date);
-      case "target": {
-        const targetLinks = renderEntityLinks(
-          extractTargetLinks(event),
-          "target-col",
-          onApplyTargetCompanyFilter
-            ? {
-                onLinkClick: (link) => {
-                  if (link.id) {
-                    onApplyTargetCompanyFilter(link.id, link.name);
-                  }
-                },
-              }
-            : undefined
-        );
-        const hq = getTargetCountry(event);
+      case "target":
         return (
-          <div className="company-table-target-cell">
-            {targetLinks || "-"}
-            {hq && hq !== "-" ? (
-              <div className="company-table-entity-subtitle">{hq}</div>
-            ) : null}
-          </div>
+          renderEntityLinks(extractTargetLinks(event), "target-col") || "-"
         );
-      }
+      case "target_hq":
+        return getTargetCountry(event);
       case "parties":
         return renderPartiesCell(event);
-      case "deal_status": {
-        const status = (event as { deal_status?: string }).deal_status?.trim();
-        if (!status) return "-";
-        return <span style={dealStatusBadgeStyle(status)}>{status}</span>;
-      }
-      case "details":
-        return renderDetailsCell(event);
+      case "deal_type":
+        return event.deal_type || "-";
+      case "funding_stage":
+        return fundingStage || "-";
+      case "investment_amount":
+        return event.investment_data?.investment_amount_m &&
+          event.investment_data?.currency?.Currency
+          ? `${event.investment_data.currency.Currency}${Number(event.investment_data.investment_amount_m).toLocaleString(undefined, { maximumFractionDigits: 3 })}`
+          : "-";
+      case "enterprise_value":
+        return event.ev_data?.enterprise_value_m && event.ev_data?.currency?.Currency
+          ? `${event.ev_data.currency.Currency}${Number(event.ev_data.enterprise_value_m).toLocaleString(undefined, { maximumFractionDigits: 3 })}`
+          : "-";
       case "advisors":
-        return renderAdvisorsCell(event);
+        return (
+          renderEntityLinks(extractAdvisorLinks(event), "advisor") || "-"
+        );
       case "primary_sectors":
         return renderSectorCell(
           derivePrimaryFromCompany(target, secondaryToPrimaryMap),
           primaryNameToId,
           "/sector"
         );
+      case "secondary_sectors":
+        return renderSectorCell(
+          deriveSecondaryFromCompany(target),
+          secondaryNameToId,
+          "/sub-sector"
+        );
       default:
+        if (columnKey === "deal_metrics") {
+          return (
+            <CorporateEventDealMetrics
+              dealType={event.deal_type}
+              fundingStage={fundingStage || undefined}
+              isPartnership={isPartnership}
+              amountMillions={event.investment_data?.investment_amount_m}
+              amountCurrency={event.investment_data?.currency?.Currency}
+              evMillions={event.ev_data?.enterprise_value_m}
+              evCurrency={event.ev_data?.currency?.Currency}
+            />
+          );
+        }
         return "-";
     }
+  };
+
+  const generatePaginationButtons = () => {
+    const buttons: React.ReactNode[] = [];
+    const maxVisible = 7;
+    const totalPages =
+      pagination.pageTotal ||
+      (pagination.nextPage != null
+        ? Math.max(pagination.nextPage, pagination.curPage + 1)
+        : 0);
+    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
+    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
+
+    if (totalPages <= 1) return buttons;
+
+    buttons.push(
+      <button
+        key="previous"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(prevPage)}
+        disabled={pagination.curPage <= 1}
+      >
+        Previous
+      </button>
+    );
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
+    } else {
+      buttons.push(
+        <button
+          key={1}
+          type="button"
+          className={`pagination-button ${pagination.curPage === 1 ? "active" : ""}`}
+          onClick={() => handlePageChange(1)}
+        >
+          1
+        </button>
+      );
+      if (pagination.curPage > 3) {
+        buttons.push(
+          <span key="ellipsis1" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+      const start = Math.max(2, pagination.curPage - 1);
+      const end = Math.min(totalPages - 1, pagination.curPage + 1);
+      for (let i = start; i <= end; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
+      if (pagination.curPage < totalPages - 2) {
+        buttons.push(
+          <span key="ellipsis2" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+      buttons.push(
+        <button
+          key={totalPages}
+          type="button"
+          className={`pagination-button ${totalPages === pagination.curPage ? "active" : ""}`}
+          onClick={() => handlePageChange(totalPages)}
+        >
+          {totalPages}
+        </button>
+      );
+    }
+
+    buttons.push(
+      <button
+        key="next"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(nextPage)}
+        disabled={pagination.curPage >= totalPages}
+      >
+        Next
+      </button>
+    );
+
+    return buttons;
   };
 
   const columnsModalLayer =
@@ -775,33 +768,7 @@ export const CorporateEventsSearchSection = ({
   }
 
   return (
-    <div className="company-section corporate-events-list-section" ref={sectionRef}>
-      <div className="company-cards">
-        {sortedEvents.length === 0 ? (
-          <div className="loading">No corporate events found.</div>
-        ) : (
-          sortedEvents.map((event, index) => (
-            <div className="company-card" key={`card-${event.id ?? index}`}>
-              <div className="company-card-header">
-                {renderEventCell("description", event)}
-              </div>
-              <div className="company-card-content">
-                {selectedColumns
-                  .filter((column) => column.key !== "description")
-                  .map((column) => (
-                    <div className="company-card-row" key={column.key}>
-                      <span className="company-card-label">{column.label}</span>
-                      <span className="company-card-value">
-                        {renderEventCell(column.key, event)}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
+    <div className="company-section">
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>
@@ -929,14 +896,7 @@ export const CorporateEventsSearchSection = ({
         </table>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-        <CompactPagination
-          curPage={pagination.curPage}
-          pageTotal={pageTotal}
-          onPageChange={handlePageChange}
-          disabled={loading}
-        />
-      </div>
+      <div className="pagination">{generatePaginationButtons()}</div>
       <ExportLimitModal
         isOpen={showExportLimitModal}
         onClose={() => setShowExportLimitModal(false)}
@@ -944,11 +904,7 @@ export const CorporateEventsSearchSection = ({
         totalExports={EXPORT_LIMIT}
       />
       {columnsModalLayer}
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `${SEARCH_TABLE_STYLES}${CORPORATE_EVENTS_LIST_TABLE_STYLES}`,
-        }}
-      />
+      <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
     </div>
   );
 };

@@ -16,52 +16,44 @@ import {
 } from "@/lib/corporateEventsFilterPayload";
 import {
   CompaniesFilterBar,
-  createFilterInstanceKey,
   FilterBarState,
 } from "@/components/companies/CompaniesFilterBar";
-import {
-  parseCorporateEventsUrlFilters,
-} from "@/lib/corporateEventsFilterPayload";
-import { formatTargetCompanyFilterValue } from "@/lib/corporateEventsTargetCompanyFilter";
 import {
   FILTER_CATEGORIES,
   buildCorporateEventsFilterDefs,
   EMPTY_CORPORATE_EVENTS_SUMMARY_STATS,
-  CORPORATE_EVENT_DEAL_TAB_CONFIG,
-  CORPORATE_EVENT_DEAL_TAB_ORDER,
-  type CorporateEventDealTab,
   type CorporateEventsSummaryStats,
-  DEFAULT_PRODUCT_TYPE_OPTIONS,
+  type Country,
+  type Province,
+  type City,
   type PrimarySector,
   type SecondarySector,
 } from "@/components/corporate-events/corporateEventsFilterConfig";
 import { CANONICAL_CORPORATE_EVENT_COLUMN_KEYS } from "@/components/corporate-events/corporateEventsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
-import {
-  SEARCH_HEADER_ACTION_BUTTON_STYLE,
-  SearchExportCsvIcon,
-} from "@/components/search/searchHeaderActions";
-import {
-  SEARCH_DASHBOARD_ACTIONS,
-  SEARCH_DASHBOARD_EYEBROW,
-  SEARCH_DASHBOARD_FILTER_INNER,
-  SEARCH_DASHBOARD_FILTER_SHELL,
-  SEARCH_DASHBOARD_HEADER_ROW,
-  SEARCH_DASHBOARD_INNER,
-  SEARCH_DASHBOARD_MATCH_COUNT,
-  SEARCH_DASHBOARD_SHELL,
-  SEARCH_DASHBOARD_TITLE,
-  SearchListTabs,
-} from "@/components/search/searchDashboardLayout";
-import { useLocationFilterOptions } from "@/components/search/useLocationFilterOptions";
+
+const HEADER_ACTION_BUTTON_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  height: 36,
+  padding: "0 14px",
+  background: "#fff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 500,
+  color: "#374151",
+  cursor: "pointer",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+};
 
 export type CorporateEventsDashboardProps = {
   onSearch?: (
     listFilters: CorporateEventsSearchFilters,
     countsFilters: CorporateEventsSearchFilters,
-    portfolioOnly?: boolean,
-    refreshCounts?: boolean
+    portfolioOnly?: boolean
   ) => void;
   onFilterColumnsChange?: (payload: { filterIds: string[] }) => void;
   initialSearch?: string;
@@ -71,9 +63,6 @@ export type CorporateEventsDashboardProps = {
   onExportCSVClick?: () => void;
   columnsActive?: boolean;
   columnsCount?: number;
-  onRegisterApplyTargetCompanyFilter?: (
-    fn: (companyId: number, companyName: string) => void
-  ) => void;
 };
 
 export const CorporateEventsDashboard = ({
@@ -86,7 +75,6 @@ export const CorporateEventsDashboard = ({
   onExportCSVClick,
   columnsActive = false,
   columnsCount = 0,
-  onRegisterApplyTargetCompanyFilter,
 }: CorporateEventsDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
     filters: [],
@@ -95,21 +83,29 @@ export const CorporateEventsDashboard = ({
     filterLogic: "and",
   });
 
+  const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
-  const { countries, provinces, cities } = useLocationFilterOptions(filterBarState);
   const [fundingStages, setFundingStages] = useState<string[]>([]);
-  const [productTypes, setProductTypes] = useState<string[]>(
-    DEFAULT_PRODUCT_TYPE_OPTIONS
-  );
   const [portfolioEntityOptions, setPortfolioEntityOptions] = useState<string[]>(
     []
   );
-  const [activeDealTab, setActiveDealTab] = useState<CorporateEventDealTab>("all");
+
+  const selectedCountries = useMemo(() => {
+    const item = filterBarState.filters.find((f) => f.id === "country");
+    return Array.isArray(item?.value) ? (item.value as string[]) : [];
+  }, [filterBarState.filters]);
+
+  const selectedProvinces = useMemo(() => {
+    const item = filterBarState.filters.find((f) => f.id === "state");
+    return Array.isArray(item?.value) ? (item.value as string[]) : [];
+  }, [filterBarState.filters]);
 
   const selectedPrimaryNames = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "primary_sector");
@@ -126,72 +122,7 @@ export const CorporateEventsDashboard = ({
   }, [initialSearch]);
 
   useEffect(() => {
-    const urlFilters = parseCorporateEventsUrlFilters();
-    const companyIds = urlFilters.filter_company_ids ?? [];
-    if (companyIds.length === 0) return;
-
-    setFilterBarState((state) => {
-      if (state.filters.some((filter) => filter.id === "target_company")) {
-        return state;
-      }
-      return {
-        ...state,
-        filters: [
-          ...state.filters,
-          {
-            id: "target_company",
-            key: createFilterInstanceKey(),
-            value: companyIds.map((id) =>
-              formatTargetCompanyFilterValue(`Company ${id}`, id)
-            ),
-          },
-        ],
-      };
-    });
-  }, []);
-
-  const applyTargetCompanyFilter = useCallback(
-    (companyId: number, companyName: string) => {
-      const token = formatTargetCompanyFilterValue(companyName, companyId);
-      setFilterBarState((state) => {
-        const existing = state.filters.find(
-          (filter) => filter.id === "target_company"
-        );
-        if (existing) {
-          const current = Array.isArray(existing.value)
-            ? (existing.value as string[])
-            : [];
-          if (current.includes(token)) return state;
-          return {
-            ...state,
-            filters: state.filters.map((filter) =>
-              filter.key === existing.key
-                ? { ...filter, value: [...current, token] }
-                : filter
-            ),
-          };
-        }
-        return {
-          ...state,
-          filters: [
-            ...state.filters,
-            {
-              id: "target_company",
-              key: createFilterInstanceKey(),
-              value: [token],
-            },
-          ],
-        };
-      });
-    },
-    []
-  );
-
-  useEffect(() => {
-    onRegisterApplyTargetCompanyFilter?.(applyTargetCompanyFilter);
-  }, [applyTargetCompanyFilter, onRegisterApplyTargetCompanyFilter]);
-
-  useEffect(() => {
+    locationsService.getCountries().then(setCountries).catch(console.error);
     locationsService.getContinentalRegions().then(setContinentalRegions).catch(console.error);
     locationsService.getSubRegions().then(setSubRegions).catch(console.error);
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
@@ -202,7 +133,7 @@ export const CorporateEventsDashboard = ({
       )
       .catch(console.error);
     fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
+      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/funding_stage_options"
     )
       .then((response) => (response.ok ? response.json() : []))
       .then((data) => {
@@ -213,12 +144,6 @@ export const CorporateEventsDashboard = ({
               .filter((value): value is string => Boolean(value))
           );
         }
-      })
-      .catch(console.error);
-    locationsService
-      .getProductTypes()
-      .then((types) => {
-        if (types.length > 0) setProductTypes(types);
       })
       .catch(console.error);
     fetchUserPortfolioData()
@@ -241,6 +166,25 @@ export const CorporateEventsDashboard = ({
   }, []);
 
   useEffect(() => {
+    if (selectedCountries.length === 0) {
+      setProvinces([]);
+      return;
+    }
+    locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
+  }, [selectedCountries]);
+
+  useEffect(() => {
+    if (selectedCountries.length === 0) {
+      setCities([]);
+      return;
+    }
+    locationsService
+      .getCities(selectedCountries, selectedProvinces)
+      .then(setCities)
+      .catch(console.error);
+  }, [selectedCountries, selectedProvinces]);
+
+  useEffect(() => {
     if (selectedPrimaryNames.length === 0) return;
     const ids = selectedPrimaryNames
       .map((name) => primarySectors.find((sector) => sector.sector_name === name)?.id)
@@ -261,7 +205,6 @@ export const CorporateEventsDashboard = ({
         primarySectors,
         secondarySectors,
         fundingStages,
-        productTypes,
         portfolioEntityOptions,
       }),
     [
@@ -273,7 +216,6 @@ export const CorporateEventsDashboard = ({
       primarySectors,
       secondarySectors,
       fundingStages,
-      productTypes,
       portfolioEntityOptions,
     ]
   );
@@ -287,19 +229,16 @@ export const CorporateEventsDashboard = ({
     });
   }, [filterBarState.filters]);
 
-  const buildSearchFilters = useCallback((): CorporateEventsSearchFilters => {
-    const tabConfig =
-      activeDealTab !== "all"
-        ? CORPORATE_EVENT_DEAL_TAB_CONFIG[activeDealTab]
-        : null;
-    return buildCorporateEventsSearchPayload({
-      state: filterBarState,
-      primarySectors,
-      secondarySectors,
-      userId,
-      dealTabTypes: tabConfig?.dealTypes,
-    });
-  }, [filterBarState, primarySectors, secondarySectors, userId, activeDealTab]);
+  const buildSearchFilters = useCallback(
+    (): CorporateEventsSearchFilters =>
+      buildCorporateEventsSearchPayload({
+        state: filterBarState,
+        primarySectors,
+        secondarySectors,
+        userId,
+      }),
+    [filterBarState, primarySectors, secondarySectors, userId]
+  );
 
   const buildCountsSearchFilters = useCallback(
     (): CorporateEventsSearchFilters =>
@@ -358,56 +297,59 @@ export const CorporateEventsDashboard = ({
     };
   }, [filterSearchKey]);
 
-  const skipInitialDealTabRef = useRef(true);
-  useEffect(() => {
-    if (skipInitialDealTabRef.current) {
-      skipInitialDealTabRef.current = false;
-      return;
-    }
-    onSearchRef.current?.(
-      buildSearchFiltersRef.current(),
-      buildCountsSearchFiltersRef.current(),
-      isPortfolioFilterActiveRef.current,
-      false
-    );
-  }, [activeDealTab]);
-
-  const dealTabs: {
-    id: CorporateEventDealTab;
-    label: string;
-    count: number;
-    dot: string;
-  }[] = [
-    { id: "all", label: "All", count: summaryStats.totalCount, dot: "#64748b" },
-    ...CORPORATE_EVENT_DEAL_TAB_ORDER.map((id) => ({
-      id,
-      label: CORPORATE_EVENT_DEAL_TAB_CONFIG[id].label,
-      count: summaryStats[CORPORATE_EVENT_DEAL_TAB_CONFIG[id].countKey],
-      dot: CORPORATE_EVENT_DEAL_TAB_CONFIG[id].dot,
-    })),
+  const matchCount = summaryStats.totalCount;
+  const eventStats = [
+    { label: "Acquisitions", value: summaryStats.acquisitions },
+    { label: "Investments", value: summaryStats.investments },
+    { label: "IPOs", value: summaryStats.ipos },
   ];
 
-  const matchCount =
-    activeDealTab === "all"
-      ? summaryStats.totalCount
-      : dealTabs.find((tab) => tab.id === activeDealTab)?.count ??
-        summaryStats.totalCount;
-
   return (
-    <div style={SEARCH_DASHBOARD_SHELL}>
-      <div className="search-dashboard-inner" style={SEARCH_DASHBOARD_INNER}>
-        <div className="search-dashboard-header-row" style={SEARCH_DASHBOARD_HEADER_ROW}>
+    <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+      <div style={{ width: "100%", padding: "20px 28px 0" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 14,
+          }}
+        >
           <div>
-            <div style={SEARCH_DASHBOARD_EYEBROW}>Corporate Events</div>
-            <h1 style={SEARCH_DASHBOARD_TITLE}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+                color: "#94a3b8",
+                marginBottom: 5,
+              }}
+            >
+              Corporate Events
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 26,
+                fontWeight: 700,
+                color: "#0f172a",
+                display: "flex",
+                alignItems: "baseline",
+                gap: 10,
+                lineHeight: 1.2,
+              }}
+            >
               Corporate event search
-              <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
+              <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
                 {matchCount.toLocaleString()} matches
               </span>
             </h1>
           </div>
 
-          <div className="search-dashboard-actions" style={SEARCH_DASHBOARD_ACTIONS}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6, flexWrap: "wrap" }}>
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
@@ -419,28 +361,58 @@ export const CorporateEventsDashboard = ({
               context="corporate-event"
               sourcePage="Corporate Events Search"
               className="inline-flex items-center justify-center"
-              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
+              style={HEADER_ACTION_BUTTON_STYLE}
             />
             <button
               type="button"
               onClick={onExportCSVClick}
-              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
+              style={HEADER_ACTION_BUTTON_STYLE}
             >
-              <SearchExportCsvIcon />
+              <svg width="12" height="14" viewBox="0 0 12 14" fill="none" aria-hidden="true">
+                <path
+                  d="M6 1v8M3 6l3 3 3-3M1 13h10"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
               Export CSV
             </button>
           </div>
         </div>
 
-        <SearchListTabs
-          tabs={dealTabs}
-          activeTabId={activeDealTab}
-          onTabClick={(tabId) => setActiveDealTab(tabId as CorporateEventDealTab)}
-        />
+        {summaryStats.acquisitions > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "10px 18px",
+              paddingBottom: 14,
+              fontSize: 12,
+              color: "#64748b",
+            }}
+          >
+            {eventStats.map((stat) => (
+              <span key={stat.label}>
+                <span style={{ color: "#94a3b8" }}>{stat.label}: </span>
+                <span style={{ fontWeight: 600, color: "#334155" }}>
+                  {stat.value.toLocaleString()}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
-        <div className="search-dashboard-filter-inner" style={SEARCH_DASHBOARD_FILTER_INNER}>
+      <div
+        style={{
+          background: "#fff",
+          borderTop: "1px solid #e2e8f0",
+          borderBottom: "1px solid #e2e8f0",
+        }}
+      >
+        <div style={{ width: "100%", padding: "10px 28px 12px" }}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={FILTER_CATEGORIES}

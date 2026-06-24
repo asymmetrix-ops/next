@@ -4,12 +4,12 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
-import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import type { AdvisorListItem, AdvisorsSearchFilters } from "@/app/advisors/actions";
 import {
@@ -25,6 +25,7 @@ import {
   advisorVisibilityToColumnKeys,
   enforceAdvisorColumnKeyOrder,
   getEffectiveFrozenAdvisorColumnKeys,
+  reorderAdvisorColumnKeys,
 } from "@/components/advisors/advisorsColumnCategories";
 import { FILTER_PINNED_TOOLTIP } from "@/components/advisors/advisorsColumnFilterMap";
 import {
@@ -98,6 +99,7 @@ export const AdvisorSection = ({
   externalShowColumnsModal,
   externalSetShowColumnsModal,
   onColumnsCountChange,
+  onRegisterExportCSV,
   isPortfolioOnlyFilter = false,
 }: {
   advisors: Advisor[];
@@ -120,11 +122,12 @@ export const AdvisorSection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
+  onRegisterExportCSV?: (fn: () => void) => void;
   isPortfolioOnlyFilter?: boolean;
 }) => {
   const router = useRouter();
+  const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
-  const [exportingCsv, setExportingCsv] = useState(false);
   const [expandedSectors, setExpandedSectors] = useState<Record<number, boolean>>({});
   const showColumnsModal =
     externalShowColumnsModal !== undefined
@@ -140,6 +143,8 @@ export const AdvisorSection = ({
     key: string;
     dir: "asc" | "desc";
   } | null>(null);
+  const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
+  const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
 
   const frozenColumnKeys = useMemo(
     () => getEffectiveFrozenAdvisorColumnKeys(filterPinnedColumnKeys),
@@ -248,12 +253,28 @@ export const AdvisorSection = ({
     });
   }, []);
 
+  const handleReorderTableColumns = useCallback(
+    (dragKey: string, dropKey: string) => {
+      setSelectedColumnKeys((current) =>
+        enforceAdvisorColumnKeyOrder(
+          reorderAdvisorColumnKeys(current, dragKey, dropKey, filterPinnedColumnKeys),
+          filterPinnedColumnKeys
+        )
+      );
+    },
+    [filterPinnedColumnKeys]
+  );
+
+  const isFrozenColumnKey = useCallback(
+    (columnKey: string) => frozenColumnKeys.includes(columnKey),
+    [frozenColumnKeys]
+  );
+
   const exportToCsv = useCallback(async () => {
     const filters = currentFilters ?? createDefaultAdvisorFilters();
     const itemsTotal = pagination.itemsTotal;
     if (itemsTotal <= 0) return;
 
-    setExportingCsv(true);
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
       const params = advisorsFiltersToSearchParams({
@@ -307,10 +328,12 @@ export const AdvisorSection = ({
       URL.revokeObjectURL(urlObj);
     } catch (exportError) {
       console.error("Export CSV failed:", exportError);
-    } finally {
-      setExportingCsv(false);
     }
   }, [currentFilters, pagination.itemsTotal]);
+
+  useEffect(() => {
+    onRegisterExportCSV?.(exportToCsv);
+  }, [exportToCsv, onRegisterExportCSV]);
 
   const columnsModalInitial = useMemo(
     () => advisorColumnKeysToVisibility(selectedColumnKeys),
@@ -598,31 +621,6 @@ export const AdvisorSection = ({
 
   return (
     <div className="company-section">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 10,
-          padding: "12px 28px 0",
-          flexWrap: "wrap",
-        }}
-      >
-        <RequestDataResearchButton
-          label="Request Advisor Profile"
-          context="advisor"
-          sourcePage="Advisors Search"
-        />
-        <button
-          type="button"
-          className="pagination-button"
-          onClick={exportToCsv}
-          disabled={exportingCsv || pagination.itemsTotal <= 0}
-          title="Export all filtered advisors to CSV"
-        >
-          {exportingCsv ? "Exporting..." : "Export CSV"}
-        </button>
-      </div>
-
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>
@@ -630,11 +628,18 @@ export const AdvisorSection = ({
               {selectedColumns.map((column) => {
                 const sortKind = getAdvisorColumnSortKind(column.key);
                 const isActive = sortState?.key === column.key;
+                const isDraggable = !isFrozenColumnKey(column.key);
+                const isDragging = headerDragKey === column.key;
+                const isDragOver =
+                  headerDragOverKey === column.key && headerDragKey !== column.key;
                 return (
                   <th
                     key={column.key}
                     className={getSearchTableColumnClassName(column, frozenColumnKeys, [
                       sortKind ? "company-table-th-sortable" : undefined,
+                      isDraggable ? "company-table-th-draggable" : undefined,
+                      isDragging ? "company-table-th-dragging" : undefined,
+                      isDragOver ? "company-table-th-drag-over" : undefined,
                     ])}
                     style={{
                       minWidth: column.minWidth,
@@ -645,7 +650,49 @@ export const AdvisorSection = ({
                         true
                       ),
                     }}
-                    onClick={sortKind ? () => handleSortColumn(column.key) : undefined}
+                    draggable={isDraggable}
+                    onDragStart={
+                      isDraggable
+                        ? (event) => {
+                            headerDidDragRef.current = false;
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", column.key);
+                            setHeaderDragKey(column.key);
+                            setHeaderDragOverKey(null);
+                          }
+                        : undefined
+                    }
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      setHeaderDragOverKey(column.key);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const dragKey =
+                        event.dataTransfer.getData("text/plain") || headerDragKey;
+                      if (dragKey) {
+                        headerDidDragRef.current = true;
+                        handleReorderTableColumns(dragKey, column.key);
+                      }
+                      setHeaderDragKey(null);
+                      setHeaderDragOverKey(null);
+                    }}
+                    onDragEnd={() => {
+                      setHeaderDragKey(null);
+                      setHeaderDragOverKey(null);
+                    }}
+                    onClick={
+                      sortKind
+                        ? () => {
+                            if (headerDidDragRef.current) {
+                              headerDidDragRef.current = false;
+                              return;
+                            }
+                            handleSortColumn(column.key);
+                          }
+                        : undefined
+                    }
                     aria-sort={
                       sortKind
                         ? isActive

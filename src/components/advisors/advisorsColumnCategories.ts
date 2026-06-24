@@ -205,3 +205,37 @@ export const advisorVisibilityToColumnKeys = (
     ordered.length > 0 ? ordered : [...PROD_DEFAULT_ADVISOR_COLUMN_KEYS];
   return enforceAdvisorColumnKeyOrder(base);
 };
+
+export function reorderAdvisorColumnKeys(
+  keys: string[],
+  dragKey: string,
+  dropKey: string,
+  filterPinnedKeys: string[] = []
+): string[] {
+  const frozenKeys = getEffectiveFrozenAdvisorColumnKeys(filterPinnedKeys);
+  const frozenSet = new Set(frozenKeys);
+  const ordered = enforceAdvisorColumnKeyOrder(keys, filterPinnedKeys);
+  if (dragKey === dropKey) return ordered;
+  if (frozenSet.has(dragKey)) return ordered;
+
+  const fromIndex = ordered.indexOf(dragKey);
+  if (fromIndex < 0) return ordered;
+
+  let toIndex = ordered.indexOf(dropKey);
+  if (toIndex < 0) return ordered;
+
+  if (frozenSet.has(dropKey)) {
+    toIndex = frozenKeys.reduce((max, frozenKey) => {
+      const idx = ordered.indexOf(frozenKey);
+      return idx >= 0 ? Math.max(max, idx) : max;
+    }, -1);
+    if (toIndex < 0) toIndex = 0;
+    else toIndex += 1;
+  }
+
+  const next = [...ordered];
+  const [item] = next.splice(fromIndex, 1);
+  const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
+  next.splice(insertAt, 0, item);
+  return enforceAdvisorColumnKeyOrder(next, filterPinnedKeys);
+}

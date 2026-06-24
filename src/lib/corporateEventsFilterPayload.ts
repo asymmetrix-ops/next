@@ -7,8 +7,7 @@ import type {
   BuyerInvestorType,
   CorporateEventsFilters,
 } from "@/types/corporateEvents";
-import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
-import { parseTargetCompanyFilterValues } from "@/lib/corporateEventsTargetCompanyFilter";
+
 export type CorporateEventsSearchFilters = CorporateEventsFilters;
 
 type SectorRef = { id: number; sector_name: string };
@@ -29,19 +28,6 @@ function hasDateRangeValue(
   if (!value || typeof value !== "object") return false;
   const rv = value as { from?: string; to?: string };
   return Boolean(rv.from || rv.to);
-}
-
-function hasRangeValue(
-  value: unknown
-): value is { min?: number; max?: number } {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const rv = value as { min?: number; max?: number };
-  return rv.min !== undefined || rv.max !== undefined;
-}
-
-function toSentinel(value: number | undefined): string {
-  if (value == null || !Number.isFinite(value) || value <= 0) return "0";
-  return String(value);
 }
 
 function resolveSectorIds(names: string[], sectors: SectorRef[]): number[] {
@@ -121,15 +107,6 @@ function buildFiltersFromFilterBar(args: {
     filter_investor_ids: [],
     filter_sector_ids: [],
     filter_individual_ids: [],
-    EV_min: "0",
-    EV_max: "0",
-    Amount_min: "0",
-    Amount_max: "0",
-    Product_Types: [],
-    target_company_id: 0,
-    new_company_id: 0,
-    individual_id: 0,
-    investor_id: 0,
   };
 
   let hasPriorClause = false;
@@ -164,18 +141,8 @@ function buildFiltersFromFilterBar(args: {
       filters.subRegions = v as string[];
       continue;
     }
-    if (
-      (item.id === "country" || item.id === "target_hq") &&
-      Array.isArray(v) &&
-      v.length > 0
-    ) {
+    if (item.id === "country" && Array.isArray(v) && v.length > 0) {
       filters.Countries = v as string[];
-      continue;
-    }
-    if (item.id === "target_company" && Array.isArray(v) && v.length > 0) {
-      (filters.filter_company_ids ??= []).push(
-        ...parseTargetCompanyFilterValues(v as string[])
-      );
       continue;
     }
     if (item.id === "state" && Array.isArray(v) && v.length > 0) {
@@ -202,47 +169,19 @@ function buildFiltersFromFilterBar(args: {
       filters.Date_end = v.to || null;
       continue;
     }
-    if (item.id === "investment_amount" && hasRangeValue(v)) {
-      filters.Amount_min = toSentinel(v.min);
-      filters.Amount_max = toSentinel(v.max);
-      continue;
-    }
-    if (item.id === "enterprise_value" && hasRangeValue(v)) {
-      filters.EV_min = toSentinel(v.min);
-      filters.EV_max = toSentinel(v.max);
-      continue;
-    }
     if (item.id === "followed" && v === true) {
       filters.show_followed = true;
       continue;
     }
     if (item.id === "portfolio_entity" && Array.isArray(v) && v.length > 0) {
       const parsed = parsePortfolioEntityValues(v as string[]);
-      (filters.filter_advisor_ids ??= []).push(...parsed.filter_advisor_ids);
-      (filters.filter_company_ids ??= []).push(...parsed.filter_company_ids);
-      (filters.filter_investor_ids ??= []).push(...parsed.filter_investor_ids);
-      (filters.filter_sector_ids ??= []).push(...parsed.filter_sector_ids);
-      (filters.filter_individual_ids ??= []).push(...parsed.filter_individual_ids);
-      continue;
-    }
-    if (item.id === "product_type" && Array.isArray(v) && v.length > 0) {
-      filters.Product_Types = v as string[];
+      filters.filter_advisor_ids = parsed.filter_advisor_ids;
+      filters.filter_company_ids = parsed.filter_company_ids;
+      filters.filter_investor_ids = parsed.filter_investor_ids;
+      filters.filter_sector_ids = parsed.filter_sector_ids;
+      filters.filter_individual_ids = parsed.filter_individual_ids;
     }
   }
-
-  filters.filter_advisor_ids = Array.from(
-    new Set(filters.filter_advisor_ids ?? [])
-  );
-  filters.filter_company_ids = Array.from(
-    new Set(filters.filter_company_ids ?? [])
-  );
-  filters.filter_investor_ids = Array.from(
-    new Set(filters.filter_investor_ids ?? [])
-  );
-  filters.filter_sector_ids = Array.from(new Set(filters.filter_sector_ids ?? []));
-  filters.filter_individual_ids = Array.from(
-    new Set(filters.filter_individual_ids ?? [])
-  );
 
   return filters;
 }
@@ -268,15 +207,6 @@ export const createDefaultCorporateEventFilters =
     filter_investor_ids: [],
     filter_sector_ids: [],
     filter_individual_ids: [],
-    EV_min: "0",
-    EV_max: "0",
-    Amount_min: "0",
-    Amount_max: "0",
-    Product_Types: [],
-    target_company_id: 0,
-    new_company_id: 0,
-    individual_id: 0,
-    investor_id: 0,
   });
 
 export function buildCorporateEventsSearchPayload(args: {
@@ -286,16 +216,8 @@ export function buildCorporateEventsSearchPayload(args: {
   userId?: number | null;
   page?: number;
   perPage?: number;
-  dealTabTypes?: readonly string[];
 }): CorporateEventsSearchFilters {
-  const filters = buildFiltersFromFilterBar(args);
-  if (args.dealTabTypes && args.dealTabTypes.length > 0) {
-    return {
-      ...filters,
-      deal_types: [...args.dealTabTypes],
-    };
-  }
-  return filters;
+  return buildFiltersFromFilterBar(args);
 }
 
 export function buildCorporateEventsCountsSearchPayload(args: {
@@ -306,14 +228,19 @@ export function buildCorporateEventsCountsSearchPayload(args: {
   page?: number;
   perPage?: number;
 }): CorporateEventsSearchFilters {
-  // Keep filter-bar deal types so tab totals match the active list filters.
   return buildFiltersFromFilterBar(args);
 }
 
-function appendSharedCorporateEventFilterParams(
-  params: URLSearchParams,
+export function corporateEventsFiltersToSearchParams(
   filters: CorporateEventsSearchFilters
-): void {
+): URLSearchParams {
+  const params = new URLSearchParams();
+  const page = Math.max(1, filters.Page || 1);
+  const perPage = filters.Per_page > 0 ? filters.Per_page : 50;
+
+  params.append("Page", String(page));
+  params.append("Per_page", String(perPage));
+
   const hasSpecificEntityFilters =
     (filters.filter_advisor_ids?.length ?? 0) > 0 ||
     (filters.filter_company_ids?.length ?? 0) > 0 ||
@@ -341,15 +268,7 @@ function appendSharedCorporateEventFilterParams(
     (filters.filter_individual_ids ?? []).forEach((id) =>
       params.append("filter_individual_ids[]", String(id))
     );
-  } else {
-    params.append("show_followed", "false");
-    params.append("user_id", "0");
   }
-
-  params.append("new_company_id", String(filters.new_company_id ?? 0));
-  params.append("target_company_id", String(filters.target_company_id ?? 0));
-  params.append("individual_id", String(filters.individual_id ?? 0));
-  params.append("investor_id", String(filters.investor_id ?? 0));
 
   if (filters.search_query) {
     params.append("search_query", filters.search_query);
@@ -366,13 +285,9 @@ function appendSharedCorporateEventFilterParams(
   }
   if (filters.continentalRegions && filters.continentalRegions.length > 0) {
     params.append("Continental_Region", filters.continentalRegions.join(","));
-  } else {
-    params.append("Continental_Region", "");
   }
   if (filters.subRegions && filters.subRegions.length > 0) {
     params.append("geographical_sub_region", filters.subRegions.join(","));
-  } else {
-    params.append("geographical_sub_region", "");
   }
 
   filters.primary_sectors_ids.forEach((id) =>
@@ -382,22 +297,19 @@ function appendSharedCorporateEventFilterParams(
     params.append("Secondary_sectors_ids[]", String(id))
   );
 
+  if (filters.deal_types.length > 0) {
+    params.append("deal_types", filters.deal_types.join(","));
+  }
   if (filters.Deal_Status.length > 0) {
     params.append("Deal_Status", filters.Deal_Status.join(","));
   }
   if (filters.Funding_stage && filters.Funding_stage.length > 0) {
-    filters.Funding_stage.forEach((stage) =>
-      params.append("Funding_stage[]", stage)
-    );
+    params.append("Funding_stage", filters.Funding_stage.join(","));
   }
   if (filters.Buyer_Investor_Types && filters.Buyer_Investor_Types.length > 0) {
-    filters.Buyer_Investor_Types.forEach((type) =>
-      params.append("Buyer_Investor_Types[]", type)
-    );
-  }
-  if (filters.Product_Types && filters.Product_Types.length > 0) {
-    filters.Product_Types.forEach((productType) =>
-      params.append("Product_Types[]", productType)
+    params.append(
+      "Buyer_Investor_Types",
+      filters.Buyer_Investor_Types.join(",")
     );
   }
   if (filters.Date_start) {
@@ -407,181 +319,5 @@ function appendSharedCorporateEventFilterParams(
     params.append("Date_end", filters.Date_end);
   }
 
-  params.append("EV_min", filters.EV_min ?? "0");
-  params.append("EV_max", filters.EV_max ?? "0");
-
-  appendPreferredCurrencyIdToSearchParams(params, filters.preferred_currency_id);
-}
-
-function appendCorporateEventDealTypeParams(
-  params: URLSearchParams,
-  filters: CorporateEventsSearchFilters
-): void {
-  if (filters.deal_types.length > 0) {
-    filters.deal_types.forEach((dealType) =>
-      params.append("deal_types[]", dealType)
-    );
-  }
-}
-
-export function corporateEventsCountsFiltersToSearchParams(
-  filters: CorporateEventsSearchFilters
-): URLSearchParams {
-  const params = new URLSearchParams();
-  appendSharedCorporateEventFilterParams(params, filters);
-  appendCorporateEventDealTypeParams(params, filters);
   return params;
-}
-
-export function corporateEventsExportFiltersToSearchParams(
-  filters: CorporateEventsSearchFilters
-): URLSearchParams {
-  return corporateEventsCountsFiltersToSearchParams(filters);
-}
-
-export function corporateEventsFiltersToSearchParams(
-  filters: CorporateEventsSearchFilters
-): URLSearchParams {
-  const params = new URLSearchParams();
-  const page = Math.max(1, filters.Page || 1);
-  const perPage = filters.Per_page > 0 ? filters.Per_page : 50;
-
-  params.append("Page", String(page));
-  params.append("Per_page", String(perPage));
-
-  appendSharedCorporateEventFilterParams(params, filters);
-  appendCorporateEventDealTypeParams(params, filters);
-
-  return params;
-}
-
-function parsePositiveIntParam(raw: string | null): number {
-  const parsed = Number.parseInt(raw ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
-
-function parseIdListToken(raw: string): number[] {
-  const trimmed = raw.trim();
-  if (!trimmed) return [];
-
-  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((value) => Number(value))
-          .filter((id) => Number.isFinite(id) && id > 0);
-      }
-    } catch {
-      // Fall through to comma-separated parsing.
-    }
-  }
-
-  return trimmed
-    .split(",")
-    .map((value) => Number.parseInt(value.trim(), 10))
-    .filter((id) => Number.isFinite(id) && id > 0);
-}
-
-function parseEntityIdListParam(
-  params: URLSearchParams,
-  key: string
-): number[] {
-  const values = [
-    ...params.getAll(`${key}[]`),
-    ...params.getAll(key),
-  ];
-  if (values.length === 0) return [];
-
-  return Array.from(
-    new Set(values.flatMap((value) => parseIdListToken(value)))
-  );
-}
-
-/** Parse profile-page deep-link filters from the corporate events URL. */
-export function parseCorporateEventsUrlFilters(
-  search?: string
-): Partial<CorporateEventsSearchFilters> {
-  if (typeof window === "undefined" && search == null) return {};
-
-  const params = new URLSearchParams(
-    search ?? (typeof window !== "undefined" ? window.location.search : "")
-  );
-
-  const targetCompanyId = parsePositiveIntParam(
-    params.get("target_company_id")
-  );
-  const newCompanyId = parsePositiveIntParam(params.get("new_company_id"));
-  const individualId = parsePositiveIntParam(params.get("individual_id"));
-  const investorId = parsePositiveIntParam(params.get("investor_id"));
-
-  let filterCompanyIds = parseEntityIdListParam(params, "filter_company_ids");
-  if (filterCompanyIds.length === 0 && newCompanyId > 0) {
-    filterCompanyIds = [newCompanyId];
-  } else if (filterCompanyIds.length === 0 && targetCompanyId > 0) {
-    filterCompanyIds = [targetCompanyId];
-  }
-
-  let filterIndividualIds = parseEntityIdListParam(
-    params,
-    "filter_individual_ids"
-  );
-  if (filterIndividualIds.length === 0 && individualId > 0) {
-    filterIndividualIds = [individualId];
-  }
-
-  return {
-    search_query: params.get("search")?.trim() || "",
-    target_company_id: targetCompanyId,
-    new_company_id: newCompanyId,
-    individual_id: individualId,
-    investor_id: investorId,
-    filter_advisor_ids: parseEntityIdListParam(params, "filter_advisor_ids"),
-    filter_company_ids: filterCompanyIds,
-    filter_individual_ids: filterIndividualIds,
-  };
-}
-
-export function mergeCorporateEventsUrlFilters(
-  filters: CorporateEventsSearchFilters,
-  urlFilters: Partial<CorporateEventsSearchFilters>
-): CorporateEventsSearchFilters {
-  return {
-    ...filters,
-    target_company_id: urlFilters.target_company_id ?? 0,
-    new_company_id: urlFilters.new_company_id ?? 0,
-    individual_id: urlFilters.individual_id ?? 0,
-    investor_id: urlFilters.investor_id ?? 0,
-    filter_advisor_ids:
-      urlFilters.filter_advisor_ids ?? filters.filter_advisor_ids ?? [],
-    filter_company_ids:
-      urlFilters.filter_company_ids ?? filters.filter_company_ids ?? [],
-    filter_individual_ids:
-      urlFilters.filter_individual_ids ?? filters.filter_individual_ids ?? [],
-  };
-}
-
-export function buildCorporateEventsBrowseAllHref(args: {
-  companyId?: number | null;
-  advisorId?: number | null;
-  individualId?: number | null;
-  investorId?: number | null;
-}): string {
-  const params = new URLSearchParams();
-
-  if (args.companyId != null && args.companyId > 0) {
-    params.set("filter_company_ids", String(args.companyId));
-  }
-  if (args.advisorId != null && args.advisorId > 0) {
-    params.set("filter_advisor_ids", String(args.advisorId));
-  }
-  if (args.individualId != null && args.individualId > 0) {
-    params.set("filter_individual_ids", `[${args.individualId}]`);
-  }
-  if (args.investorId != null && args.investorId > 0) {
-    params.set("investor_id", String(args.investorId));
-  }
-
-  const query = params.toString();
-  return query ? `/corporate-events?${query}` : "/corporate-events";
 }

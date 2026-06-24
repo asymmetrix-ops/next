@@ -170,6 +170,7 @@ function AdvisorsPageInner() {
   const [initialSearch, setInitialSearch] = useState<string | undefined>(
     undefined
   );
+  const exportCSVRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -201,6 +202,7 @@ function AdvisorsPageInner() {
         initialSearch={initialSearch}
         roleCounts={roleCounts}
         onColumnsClick={() => setShowColumnsModal((value) => !value)}
+        onExportCSVClick={() => exportCSVRef.current?.()}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
       />
@@ -215,6 +217,9 @@ function AdvisorsPageInner() {
         externalShowColumnsModal={showColumnsModal}
         externalSetShowColumnsModal={setShowColumnsModal}
         onColumnsCountChange={setColumnsCount}
+        onRegisterExportCSV={(fn) => {
+          exportCSVRef.current = fn;
+        }}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
       />
       <Footer />

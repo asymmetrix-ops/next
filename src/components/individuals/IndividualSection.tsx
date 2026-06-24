@@ -4,12 +4,12 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
-import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import type { Individual } from "@/types/individuals";
 import type { IndividualsSearchFilters } from "@/app/individuals/actions";
@@ -23,6 +23,7 @@ import {
   getEffectiveFrozenIndividualColumnKeys,
   individualColumnKeysToVisibility,
   individualVisibilityToColumnKeys,
+  reorderIndividualColumnKeys,
 } from "@/components/individuals/individualsColumnCategories";
 import { FILTER_PINNED_TOOLTIP } from "@/components/individuals/individualsColumnFilterMap";
 import {
@@ -104,6 +105,7 @@ export const IndividualSection = ({
   isPortfolioOnlyFilter?: boolean;
 }) => {
   const router = useRouter();
+  const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal =
     externalShowColumnsModal !== undefined
@@ -119,6 +121,8 @@ export const IndividualSection = ({
     key: string;
     dir: "asc" | "desc";
   } | null>(null);
+  const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
+  const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
 
   const frozenColumnKeys = useMemo(
     () => getEffectiveFrozenIndividualColumnKeys(filterPinnedColumnKeys),
@@ -226,6 +230,23 @@ export const IndividualSection = ({
       return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
     });
   }, []);
+
+  const handleReorderTableColumns = useCallback(
+    (dragKey: string, dropKey: string) => {
+      setSelectedColumnKeys((current) =>
+        enforceIndividualColumnKeyOrder(
+          reorderIndividualColumnKeys(current, dragKey, dropKey, filterPinnedColumnKeys),
+          filterPinnedColumnKeys
+        )
+      );
+    },
+    [filterPinnedColumnKeys]
+  );
+
+  const isFrozenColumnKey = useCallback(
+    (columnKey: string) => frozenColumnKeys.includes(columnKey),
+    [frozenColumnKeys]
+  );
 
   const columnsModalInitial = useMemo(
     () => individualColumnKeysToVisibility(selectedColumnKeys),
@@ -491,20 +512,6 @@ export const IndividualSection = ({
 
   return (
     <div className="company-section">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          padding: "12px 28px 0",
-        }}
-      >
-        <RequestDataResearchButton
-          label="Request Individual Profile"
-          context="individual"
-          sourcePage="Individuals Search"
-        />
-      </div>
-
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>
@@ -512,11 +519,18 @@ export const IndividualSection = ({
               {selectedColumns.map((column) => {
                 const sortKind = getIndividualColumnSortKind(column.key);
                 const isActive = sortState?.key === column.key;
+                const isDraggable = !isFrozenColumnKey(column.key);
+                const isDragging = headerDragKey === column.key;
+                const isDragOver =
+                  headerDragOverKey === column.key && headerDragKey !== column.key;
                 return (
                   <th
                     key={column.key}
                     className={getSearchTableColumnClassName(column, frozenColumnKeys, [
                       sortKind ? "company-table-th-sortable" : undefined,
+                      isDraggable ? "company-table-th-draggable" : undefined,
+                      isDragging ? "company-table-th-dragging" : undefined,
+                      isDragOver ? "company-table-th-drag-over" : undefined,
                     ])}
                     style={{
                       minWidth: column.minWidth,
@@ -527,7 +541,49 @@ export const IndividualSection = ({
                         true
                       ),
                     }}
-                    onClick={sortKind ? () => handleSortColumn(column.key) : undefined}
+                    draggable={isDraggable}
+                    onDragStart={
+                      isDraggable
+                        ? (event) => {
+                            headerDidDragRef.current = false;
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", column.key);
+                            setHeaderDragKey(column.key);
+                            setHeaderDragOverKey(null);
+                          }
+                        : undefined
+                    }
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      setHeaderDragOverKey(column.key);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const dragKey =
+                        event.dataTransfer.getData("text/plain") || headerDragKey;
+                      if (dragKey) {
+                        headerDidDragRef.current = true;
+                        handleReorderTableColumns(dragKey, column.key);
+                      }
+                      setHeaderDragKey(null);
+                      setHeaderDragOverKey(null);
+                    }}
+                    onDragEnd={() => {
+                      setHeaderDragKey(null);
+                      setHeaderDragOverKey(null);
+                    }}
+                    onClick={
+                      sortKind
+                        ? () => {
+                            if (headerDidDragRef.current) {
+                              headerDidDragRef.current = false;
+                              return;
+                            }
+                            handleSortColumn(column.key);
+                          }
+                        : undefined
+                    }
                     aria-sort={
                       sortKind
                         ? isActive

@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -21,6 +22,7 @@ import {
   getEffectiveFrozenInvestorColumnKeys,
   investorColumnKeysToVisibility,
   investorVisibilityToColumnKeys,
+  reorderInvestorColumnKeys,
 } from "@/components/investors/investorsColumnCategories";
 import { FILTER_PINNED_TOOLTIP } from "@/components/investors/investorsColumnFilterMap";
 import { getInvestorFieldAliasesForColumn } from "@/components/investors/investorsColumnFields";
@@ -297,6 +299,7 @@ export const InvestorSection = ({
   isPortfolioOnlyFilter?: boolean;
 }) => {
   const router = useRouter();
+  const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal =
     externalShowColumnsModal !== undefined
@@ -312,6 +315,8 @@ export const InvestorSection = ({
     key: string;
     dir: "asc" | "desc";
   } | null>(null);
+  const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
+  const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
 
   const frozenColumnKeys = useMemo(
     () => getEffectiveFrozenInvestorColumnKeys(filterPinnedColumnKeys),
@@ -419,6 +424,23 @@ export const InvestorSection = ({
       return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
     });
   }, []);
+
+  const handleReorderTableColumns = useCallback(
+    (dragKey: string, dropKey: string) => {
+      setSelectedColumnKeys((current) =>
+        enforceInvestorColumnKeyOrder(
+          reorderInvestorColumnKeys(current, dragKey, dropKey, filterPinnedColumnKeys),
+          filterPinnedColumnKeys
+        )
+      );
+    },
+    [filterPinnedColumnKeys]
+  );
+
+  const isFrozenColumnKey = useCallback(
+    (columnKey: string) => frozenColumnKeys.includes(columnKey),
+    [frozenColumnKeys]
+  );
 
   const columnsModalInitial = useMemo(
     () => investorColumnKeysToVisibility(selectedColumnKeys),
@@ -613,11 +635,18 @@ export const InvestorSection = ({
               {selectedColumns.map((column) => {
                 const sortKind = getInvestorColumnSortKind(column.key);
                 const isActive = sortState?.key === column.key;
+                const isDraggable = !isFrozenColumnKey(column.key);
+                const isDragging = headerDragKey === column.key;
+                const isDragOver =
+                  headerDragOverKey === column.key && headerDragKey !== column.key;
                 return (
                   <th
                     key={column.key}
                     className={getSearchTableColumnClassName(column, frozenColumnKeys, [
                       sortKind ? "company-table-th-sortable" : undefined,
+                      isDraggable ? "company-table-th-draggable" : undefined,
+                      isDragging ? "company-table-th-dragging" : undefined,
+                      isDragOver ? "company-table-th-drag-over" : undefined,
                     ])}
                     style={{
                       minWidth: column.minWidth,
@@ -628,7 +657,49 @@ export const InvestorSection = ({
                         true
                       ),
                     }}
-                    onClick={sortKind ? () => handleSortColumn(column.key) : undefined}
+                    draggable={isDraggable}
+                    onDragStart={
+                      isDraggable
+                        ? (event) => {
+                            headerDidDragRef.current = false;
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", column.key);
+                            setHeaderDragKey(column.key);
+                            setHeaderDragOverKey(null);
+                          }
+                        : undefined
+                    }
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      setHeaderDragOverKey(column.key);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const dragKey =
+                        event.dataTransfer.getData("text/plain") || headerDragKey;
+                      if (dragKey) {
+                        headerDidDragRef.current = true;
+                        handleReorderTableColumns(dragKey, column.key);
+                      }
+                      setHeaderDragKey(null);
+                      setHeaderDragOverKey(null);
+                    }}
+                    onDragEnd={() => {
+                      setHeaderDragKey(null);
+                      setHeaderDragOverKey(null);
+                    }}
+                    onClick={
+                      sortKind
+                        ? () => {
+                            if (headerDidDragRef.current) {
+                              headerDidDragRef.current = false;
+                              return;
+                            }
+                            handleSortColumn(column.key);
+                          }
+                        : undefined
+                    }
                     aria-sort={
                       sortKind
                         ? isActive
