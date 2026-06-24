@@ -19,6 +19,8 @@ export interface AdvisorFilterClause {
 
 export type AdvisorSqlEndpoint = "sql_advisors_list" | "sql_advisors_counts";
 
+export type AdvisorSortDirection = "asc" | "desc";
+
 export interface AdvisorSearchPayload {
   filters_sql: string;
   events_loc_filter_sql: string;
@@ -29,6 +31,8 @@ export interface AdvisorSearchPayload {
   page: number;
   per_page: number;
   portfolio_only: boolean;
+  sort_column?: string | null;
+  sort_direction?: AdvisorSortDirection;
 }
 
 export function getLinkedinAliasForEndpoint(endpoint?: AdvisorSqlEndpoint): "ll" | "ld" {
@@ -183,7 +187,7 @@ export function buildAdvisorSearchPayloadFromClauses(
 export function advisorSearchPayloadToRequestBody(
   payload: AdvisorSearchPayload
 ): AdvisorSearchPayload {
-  return {
+  const normalized: AdvisorSearchPayload = {
     filters_sql: payload.filters_sql || "",
     events_loc_filter_sql: payload.events_loc_filter_sql || "",
     Primary_ids_str: payload.Primary_ids_str || "",
@@ -194,6 +198,13 @@ export function advisorSearchPayloadToRequestBody(
     per_page: payload.per_page,
     portfolio_only: payload.portfolio_only,
   };
+
+  if (payload.sort_column) {
+    normalized.sort_column = payload.sort_column;
+    normalized.sort_direction = payload.sort_direction ?? "desc";
+  }
+
+  return normalized;
 }
 
 /** Serialize payload for GET advisors list/counts endpoints (query string). */
@@ -212,6 +223,11 @@ export function advisorSearchPayloadToSearchParams(
   params.append("need_geo_count", normalized.need_geo_count);
   params.append("need_sector_count", normalized.need_sector_count);
   params.append("portfolio_only", String(Boolean(normalized.portfolio_only)));
+
+  if (normalized.sort_column) {
+    params.append("sort_column", normalized.sort_column);
+    params.append("sort_direction", normalized.sort_direction ?? "desc");
+  }
 
   return params;
 }

@@ -25,6 +25,7 @@ import {
   fetchAdvisorsServer,
   fetchAdvisorsCountsServer,
 } from "./actions";
+import { getAdvisorServerSortColumn } from "@/components/advisors/advisorsTableSort";
 
 const useAdvisorsAPI = () => {
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -171,6 +172,22 @@ function AdvisorsPageInner() {
     undefined
   );
   const exportCSVRef = useRef<(() => void) | null>(null);
+  const [sortColumnKey, setSortColumnKey] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const mergeSortIntoFilters = useCallback(
+    (filters: Filters): Filters => {
+      if (!sortColumnKey) return filters;
+      const apiColumn = getAdvisorServerSortColumn(sortColumnKey);
+      if (!apiColumn) return filters;
+      return {
+        ...filters,
+        sort_column: apiColumn,
+        sort_direction: sortDirection,
+      };
+    },
+    [sortColumnKey, sortDirection]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -181,10 +198,46 @@ function AdvisorsPageInner() {
   const handleSearch = useCallback(
     (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      void fetchAdvisors(1, listFilters, countsFilters);
+      void fetchAdvisors(1, mergeSortIntoFilters(listFilters), countsFilters);
     },
-    [fetchAdvisors]
+    [fetchAdvisors, mergeSortIntoFilters]
   );
+
+  const handleSortColumn = useCallback(
+    (columnKey: string) => {
+      const apiColumn = getAdvisorServerSortColumn(columnKey);
+      if (!apiColumn) return;
+
+      const nextDirection: "asc" | "desc" =
+        sortColumnKey === columnKey
+          ? sortDirection === "asc"
+            ? "desc"
+            : "asc"
+          : "desc";
+
+      setSortColumnKey(columnKey);
+      setSortDirection(nextDirection);
+
+      const base = currentFilters ?? createDefaultAdvisorFilters();
+      void fetchAdvisors(1, {
+        ...base,
+        page: 1,
+        sort_column: apiColumn,
+        sort_direction: nextDirection,
+      });
+    },
+    [sortColumnKey, sortDirection, currentFilters, fetchAdvisors]
+  );
+
+  const handleSortClear = useCallback(() => {
+    setSortColumnKey(null);
+    setSortDirection("desc");
+    const base = currentFilters ?? createDefaultAdvisorFilters();
+    const rest = { ...base };
+    delete rest.sort_column;
+    delete rest.sort_direction;
+    void fetchAdvisors(1, { ...rest, page: 1 });
+  }, [currentFilters, fetchAdvisors]);
 
   const handleFilterColumnsChange = useCallback(
     ({ filterIds }: { filterIds: string[] }) => {
@@ -221,6 +274,10 @@ function AdvisorsPageInner() {
           exportCSVRef.current = fn;
         }}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
+        sortColumnKey={sortColumnKey}
+        sortDirection={sortDirection}
+        onSortColumn={handleSortColumn}
+        onSortClear={handleSortClear}
       />
       <Footer />
     </div>
