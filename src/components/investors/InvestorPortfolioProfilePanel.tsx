@@ -4,19 +4,12 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  CARD_TITLE_STYLE,
-  FIN_METRICS_TAB_BAR_STYLE,
-  LinkPanel,
-  numericValueStyle,
-  T,
   profileTableColAlign,
   profileTableCellStyle,
-  PROFILE_EVENTS_ROW_GAP,
-  PROFILE_EVENTS_ROW_PAD,
   tableColHeaderBarStyle,
   tableColHeaderStyle,
+  T,
 } from "@/components/redesign/primitives";
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
 export type InvestorPortfolioCompany = {
   id: number;
@@ -24,6 +17,7 @@ export type InvestorPortfolioCompany = {
   sectors: string[];
   yearLabel?: string | number | null;
   relatedIndividuals?: Array<{ id: number; name: string }>;
+  linkedinMembers?: number | null;
   country?: string | null;
   logo?: string | null;
 };
@@ -31,40 +25,47 @@ export type InvestorPortfolioCompany = {
 type Pagination = {
   curPage: number;
   pageTotal: number;
-  itemsReceived: number;
-  perPage: number;
+  prevPage: number | null;
+  nextPage: number | null;
 };
 
 type Props = {
-  currentCompanies: InvestorPortfolioCompany[];
-  pastCompanies: InvestorPortfolioCompany[];
-  currentTotal?: number;
-  pastTotal?: number;
-  loadingCurrent?: boolean;
-  loadingPast?: boolean;
-  currentPagination?: Pagination;
-  pastPagination?: Pagination;
-  onCurrentPageChange?: (page: number) => void;
-  onPastPageChange?: (page: number) => void;
-  pageSize?: number;
-  fillGridCell?: boolean;
+  title: string;
+  variant: "current" | "past";
+  companies: InvestorPortfolioCompany[];
+  loading?: boolean;
+  pagination?: Pagination;
+  onPageChange?: (page: number) => void;
+  maxInitial?: number;
 };
 
 const PORTFOLIO_ROW_GRID =
-  "minmax(0, 1.35fr) minmax(0, 1.1fr) minmax(88px, auto) minmax(72px, auto) minmax(0, 1fr)";
-const HEADERS = ["Name", "Sectors", "Country", "Invested", "Deal Lead"] as const;
+  "minmax(0, 1.35fr) minmax(0, 1.1fr) minmax(72px, auto) minmax(0, 1fr) minmax(88px, auto) minmax(72px, auto)";
 
-type PortfolioTab = "current" | "past";
+const COL_GAP = 8;
+
+const HEADERS = [
+  "Name",
+  "Sectors",
+  "Year",
+  "Individuals",
+  "LinkedIn",
+  "Country",
+] as const;
+
+function formatNumber(num: number | null | undefined): string {
+  if (num === undefined || num === null) return "-";
+  return num.toLocaleString("en-US");
+}
 
 function CompanyLogo({ logo, name }: { logo?: string | null; name: string }) {
-  const logoSrc = resolveCompanyLogoSrc(logo);
-  if (logoSrc) {
+  if (logo) {
     return (
       <Image
-        src={logoSrc}
+        src={`data:image/jpeg;base64,${logo}`}
         alt={`${name} logo`}
-        width={24}
-        height={24}
+        width={22}
+        height={22}
         style={{
           objectFit: "contain",
           borderRadius: "50%",
@@ -78,8 +79,8 @@ function CompanyLogo({ logo, name }: { logo?: string | null; name: string }) {
   return (
     <div
       style={{
-        width: 24,
-        height: 24,
+        width: 22,
+        height: 22,
         backgroundColor: T.inset,
         borderRadius: "50%",
         display: "flex",
@@ -97,206 +98,69 @@ function CompanyLogo({ logo, name }: { logo?: string | null; name: string }) {
   );
 }
 
-function sectorLabel(sectors: string[]): string {
-  if (sectors.length === 0) return "-";
-  return sectors.slice(0, 3).join(", ");
-}
-
-function TabButton({
-  active,
-  label,
-  count,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  count: number;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        background: "transparent",
-        border: "none",
-        padding: 0,
-        cursor: "pointer",
-        borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
-        flexShrink: 0,
-        transition: "color 120ms, border-color 120ms",
-      }}
-    >
-      <span
-        style={{
-          ...CARD_TITLE_STYLE,
-          fontWeight: active ? 600 : 500,
-          color: active ? T.ink : T.muted,
-        }}
-      >
-        {label} {count.toLocaleString("en-US")}
-      </span>
-    </button>
-  );
-}
-
-function PortfolioTabHeader({
-  tabs,
-  tab,
-  onSelectTab,
-}: {
-  tabs: Array<{ id: PortfolioTab; label: string; count: number }>;
-  tab: PortfolioTab;
-  onSelectTab: (next: PortfolioTab) => void;
-}) {
-  return (
-    <div style={FIN_METRICS_TAB_BAR_STYLE}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          flexWrap: "nowrap",
-          minWidth: 0,
-          flex: 1,
-          overflow: "hidden",
-        }}
-      >
-        {tabs.map((item) => (
-          <TabButton
-            key={item.id}
-            active={tab === item.id}
-            label={item.label}
-            count={item.count}
-            onClick={() => onSelectTab(item.id)}
-          />
-        ))}
-      </div>
-      <div
-        style={{
-          fontSize: 14,
-          color: T.azure,
-          fontWeight: 500,
-          lineHeight: 1,
-          padding: "2px 4px",
-          flexShrink: 0,
-        }}
-      >
-        →
-      </div>
-    </div>
-  );
-}
-
 export function InvestorPortfolioProfilePanel({
-  currentCompanies,
-  pastCompanies,
-  currentTotal,
-  pastTotal,
-  loadingCurrent = false,
-  loadingPast = false,
-  currentPagination,
-  pastPagination,
-  onCurrentPageChange,
-  onPastPageChange,
-  pageSize = 4,
-  fillGridCell = false,
+  title,
+  variant,
+  companies,
+  loading = false,
+  pagination,
+  onPageChange,
+  maxInitial = 8,
 }: Props) {
-  const [tab, setTab] = useState<PortfolioTab>("current");
   const [showAll, setShowAll] = useState(false);
 
-  const isCurrent = tab === "current";
-  const companies = isCurrent ? currentCompanies : pastCompanies;
-  const loading = isCurrent ? loadingCurrent : loadingPast;
-  const pagination = isCurrent ? currentPagination : pastPagination;
-  const onPageChange = isCurrent ? onCurrentPageChange : onPastPageChange;
+  const yearHeader = variant === "past" ? "Year Exited" : "Year Invested";
 
-  const total =
-    (isCurrent ? currentTotal : pastTotal) ??
-    pagination?.itemsReceived ??
-    companies.length;
+  const headerRight = useMemo(() => {
+    if (loading) return "";
+    const n = companies.length;
+    if (n === 0) return "";
+    return `${n} compan${n === 1 ? "y" : "ies"}`;
+  }, [companies.length, loading]);
 
-  const displayed = showAll ? companies : companies.slice(0, pageSize);
-
-  const footerLeft =
-    total > 0
-      ? showAll
-        ? `Showing all ${total.toLocaleString("en-US")}`
-        : `1–${Math.min(pageSize, total).toLocaleString("en-US")} of ${total.toLocaleString("en-US")}`
-      : "";
-
-  const yearHeader = isCurrent ? "Invested" : "Exited";
-
-  const tabs = useMemo(
-    () => [
-      {
-        id: "current" as const,
-        label: "Current Portfolio",
-        count: currentTotal ?? currentPagination?.itemsReceived ?? currentCompanies.length,
-      },
-      {
-        id: "past" as const,
-        label: "Past Portfolio",
-        count: pastTotal ?? pastPagination?.itemsReceived ?? pastCompanies.length,
-      },
-    ],
-    [
-      currentCompanies.length,
-      currentPagination?.itemsReceived,
-      currentTotal,
-      pastCompanies.length,
-      pastPagination?.itemsReceived,
-      pastTotal,
-    ]
-  );
+  const displayed = showAll ? companies : companies.slice(0, maxInitial);
 
   if (loading) {
     return (
-      <LinkPanel fillGridCell={fillGridCell}>
-        <PortfolioTabHeader tabs={tabs} tab="current" onSelectTab={() => {}} />
-        <div
-          style={{
-            textAlign: "center",
-            padding: "20px 16px",
-            color: T.muted,
-            fontSize: "12.5px",
-            fontFamily: T.sans,
-          }}
-        >
-          Loading portfolio…
-        </div>
-      </LinkPanel>
+      <div
+        style={{
+          textAlign: "center",
+          padding: "20px 16px",
+          color: T.muted,
+          fontSize: "12.5px",
+          fontFamily: T.sans,
+        }}
+      >
+        Loading {variant === "past" ? "past" : "current"} portfolio…
+      </div>
     );
   }
 
   return (
-    <LinkPanel fillGridCell={fillGridCell} className="investor-portfolio-v3-card">
-      <PortfolioTabHeader
-        tabs={tabs}
-        tab={tab}
-        onSelectTab={(next) => {
-          setTab(next);
-          setShowAll(false);
-        }}
-      />
-
+    <div style={{ fontFamily: T.sans, minWidth: 0, maxWidth: "100%" }}>
       <div
         style={{
-          overflowX: "auto",
-          maxWidth: "100%",
-          minWidth: 0,
-          flex: fillGridCell ? 1 : undefined,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "14px 16px 12px",
+          borderBottom: `1px solid ${T.hair}`,
         }}
       >
+        <div style={{ fontSize: "13.5px", fontWeight: 600, color: T.ink }}>{title}</div>
+        {headerRight ? (
+          <div style={{ fontSize: "11.5px", color: T.muted }}>{headerRight}</div>
+        ) : null}
+      </div>
+
+      <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0 }}>
         <div style={{ width: "100%", minWidth: 0, ...profileTableCellStyle }}>
           <div
             style={{
               ...tableColHeaderBarStyle,
               gridTemplateColumns: PORTFOLIO_ROW_GRID,
-              gap: PROFILE_EVENTS_ROW_GAP,
-              padding: PROFILE_EVENTS_ROW_PAD.header,
+              gap: COL_GAP,
+              padding: "8px 16px",
             }}
           >
             {HEADERS.map((h, colIndex) => (
@@ -307,22 +171,21 @@ export function InvestorPortfolioProfilePanel({
                   textAlign: profileTableColAlign(colIndex),
                 }}
               >
-                {h === "Invested" ? yearHeader : h}
+                {h === "Year" ? yearHeader : h}
               </div>
             ))}
           </div>
 
           {displayed.length > 0 ? (
-            displayed.map((company, rowIndex) => {
-              const isLastRow = rowIndex === displayed.length - 1;
+            displayed.map((company, index) => {
+              const last = index === displayed.length - 1;
+              const colAlign = (colIndex: number) => profileTableColAlign(colIndex);
               const yearValue =
                 company.yearLabel !== null &&
                 company.yearLabel !== undefined &&
                 String(company.yearLabel).trim().length > 0
                   ? String(company.yearLabel)
                   : "-";
-              const dealLead = company.relatedIndividuals?.[0];
-              const colAlign = (colIndex: number) => profileTableColAlign(colIndex);
 
               return (
                 <div
@@ -330,19 +193,19 @@ export function InvestorPortfolioProfilePanel({
                   style={{
                     display: "grid",
                     gridTemplateColumns: PORTFOLIO_ROW_GRID,
-                    gap: PROFILE_EVENTS_ROW_GAP,
+                    gap: COL_GAP,
                     alignItems: "center",
-                    padding: PROFILE_EVENTS_ROW_PAD.body,
-                    borderBottom: isLastRow ? "none" : `1px solid ${T.hair}`,
+                    padding: "10px 16px",
+                    borderBottom: last ? "none" : `1px solid ${T.hair}`,
                   }}
                 >
                   <div
                     style={{
                       textAlign: colAlign(0),
+                      minWidth: 0,
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
-                      minWidth: 0,
                     }}
                   >
                     <CompanyLogo logo={company.logo} name={company.name} />
@@ -363,50 +226,46 @@ export function InvestorPortfolioProfilePanel({
                   <div
                     style={{
                       textAlign: colAlign(1),
-                      minWidth: 0,
-                    }}
-                  >
-                    {sectorLabel(company.sectors)}
-                  </div>
-                  <div
-                    style={{
-                      textAlign: colAlign(2),
                       color: T.body,
-                      whiteSpace: "nowrap",
+                      minWidth: 0,
+                      wordBreak: "break-word" as const,
                     }}
                   >
-                    {company.country?.trim() || "-"}
+                    {company.sectors.length > 0
+                      ? `${company.sectors.slice(0, 3).join(", ")}${company.sectors.length > 3 ? "…" : ""}`
+                      : "-"}
                   </div>
+                  <div style={{ textAlign: colAlign(2), color: T.body }}>{yearValue}</div>
                   <div
                     style={{
                       textAlign: colAlign(3),
-                      color: T.body,
-                      whiteSpace: "nowrap",
-                      ...numericValueStyle,
+                      color: T.muted,
+                      minWidth: 0,
                     }}
                   >
-                    {yearValue}
-                  </div>
-                  <div style={{ textAlign: colAlign(4), minWidth: 0 }}>
-                    {dealLead ? (
-                      <Link
-                        href={`/individual/${dealLead.id}`}
-                        prefetch={false}
-                        style={{
-                          color: T.azure,
-                          textDecoration: "underline",
-                          fontWeight: 500,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          display: "block",
-                        }}
-                      >
-                        {dealLead.name}
-                      </Link>
+                    {company.relatedIndividuals && company.relatedIndividuals.length > 0 ? (
+                      company.relatedIndividuals.slice(0, 3).map((individual, idx, arr) => (
+                        <span key={individual.id}>
+                          <Link
+                            href={`/individual/${individual.id}`}
+                            prefetch={false}
+                            style={{ color: T.azure, textDecoration: "underline" }}
+                          >
+                            {individual.name}
+                          </Link>
+                          {idx < arr.length - 1 ? ", " : ""}
+                        </span>
+                      ))
                     ) : (
-                      <span style={{ color: T.muted }}>-</span>
+                      "-"
                     )}
+                    {company.relatedIndividuals && company.relatedIndividuals.length > 3 ? "…" : null}
+                  </div>
+                  <div style={{ textAlign: colAlign(4), color: T.body, fontFamily: T.mono }}>
+                    {formatNumber(company.linkedinMembers ?? null)}
+                  </div>
+                  <div style={{ textAlign: colAlign(5), color: T.body }}>
+                    {company.country?.trim() || "-"}
                   </div>
                 </div>
               );
@@ -414,93 +273,63 @@ export function InvestorPortfolioProfilePanel({
           ) : (
             <div
               style={{
-                padding: "24px 16px",
+                padding: "20px 16px",
                 color: T.muted,
                 fontSize: "12.5px",
                 textAlign: "center",
-                fontFamily: T.sans,
               }}
             >
-              No {isCurrent ? "current" : "past"} portfolio companies found
+              No {variant === "past" ? "past" : "current"} portfolio companies found
             </div>
           )}
         </div>
       </div>
 
-      {total > 0 ? (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            padding: "10px 16px 14px",
-            borderTop: `1px solid ${T.hair}`,
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ fontSize: 12, color: T.muted, ...numericValueStyle }}>{footerLeft}</div>
-          {total > pageSize && !showAll ? (
-            <button
-              type="button"
-              onClick={() => setShowAll(true)}
-              style={{
-                padding: 0,
-                border: "none",
-                background: "none",
-                color: T.azure,
-                fontSize: 12.5,
-                fontWeight: 500,
-                cursor: "pointer",
-                fontFamily: T.sans,
-              }}
-            >
-              View all {total.toLocaleString("en-US")} →
-            </button>
-          ) : showAll && total > pageSize ? (
-            <button
-              type="button"
-              onClick={() => setShowAll(false)}
-              style={{
-                padding: 0,
-                border: "none",
-                background: "none",
-                color: T.azure,
-                fontSize: 12.5,
-                fontWeight: 500,
-                cursor: "pointer",
-                fontFamily: T.sans,
-              }}
-            >
-              Show less
-            </button>
-          ) : null}
+      {companies.length > maxInitial && !showAll ? (
+        <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.hair}` }}>
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            style={{
+              padding: 0,
+              border: "none",
+              background: "none",
+              color: T.azure,
+              fontSize: 12.5,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: T.sans,
+            }}
+          >
+            See all {companies.length} companies
+          </button>
         </div>
       ) : null}
 
-      {showAll && pagination && pagination.pageTotal > 1 && onPageChange ? (
+      {pagination && pagination.pageTotal > 1 && onPageChange ? (
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             gap: 8,
-            padding: "0 16px 14px",
+            padding: "12px 16px 14px",
+            borderTop: `1px solid ${T.hair}`,
           }}
         >
           <button
             type="button"
             onClick={() => onPageChange(pagination.curPage - 1)}
-            disabled={pagination.curPage <= 1}
+            disabled={!pagination.prevPage}
             style={{
               padding: "6px 12px",
               borderRadius: 6,
               border: `1px solid ${T.divider}`,
-              background: pagination.curPage > 1 ? T.panel : T.inset,
-              color: pagination.curPage > 1 ? T.body : T.faint,
+              background: pagination.prevPage ? T.panel : T.inset,
+              color: pagination.prevPage ? T.body : T.faint,
               fontSize: 12.5,
               fontWeight: 500,
-              cursor: pagination.curPage > 1 ? "pointer" : "not-allowed",
+              cursor: pagination.prevPage ? "pointer" : "not-allowed",
               fontFamily: T.sans,
             }}
           >
@@ -512,16 +341,16 @@ export function InvestorPortfolioProfilePanel({
           <button
             type="button"
             onClick={() => onPageChange(pagination.curPage + 1)}
-            disabled={pagination.curPage >= pagination.pageTotal}
+            disabled={!pagination.nextPage}
             style={{
               padding: "6px 12px",
               borderRadius: 6,
               border: `1px solid ${T.divider}`,
-              background: pagination.curPage < pagination.pageTotal ? T.panel : T.inset,
-              color: pagination.curPage < pagination.pageTotal ? T.body : T.faint,
+              background: pagination.nextPage ? T.panel : T.inset,
+              color: pagination.nextPage ? T.body : T.faint,
               fontSize: 12.5,
               fontWeight: 500,
-              cursor: pagination.curPage < pagination.pageTotal ? "pointer" : "not-allowed",
+              cursor: pagination.nextPage ? "pointer" : "not-allowed",
               fontFamily: T.sans,
             }}
           >
@@ -529,6 +358,6 @@ export function InvestorPortfolioProfilePanel({
           </button>
         </div>
       ) : null}
-    </LinkPanel>
+    </div>
   );
 }

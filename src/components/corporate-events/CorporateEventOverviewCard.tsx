@@ -4,7 +4,6 @@ import React from "react";
 import Link from "next/link";
 import { LinkPanel, LinkedH, KV, T, Pill } from "@/components/redesign/primitives";
 import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
-import { DealTypeBadge } from "./DealTypeBadge";
 
 export type CorporateEventSector = {
   id?: number;
@@ -93,12 +92,10 @@ export function CorporateEventOverviewCard({
   sourceUrl,
   fillGridCell = false,
 }: CorporateEventOverviewCardProps) {
-  const isPartnership = /partnership/i.test(dealType || "");
-
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
     { k: "Sector(s)", v: <SectorTags sectors={primarySectors} tone="coral" /> },
     {
-      k: "Secondary Sector(s)",
+      k: "Sub-sector(s)",
       v: <SubSectorTags sectors={subSectors} />,
       show: subSectors.length > 0,
     },
@@ -106,17 +103,16 @@ export function CorporateEventOverviewCard({
     { k: "Date closed", v: displayText(dateClosed) },
     {
       k: "Deal type",
-      v: dealType?.trim() ? <DealTypeBadge dealType={dealType.trim()} /> : faintDash(),
+      v: dealType?.trim() ? <Pill tone="azure">{dealType}</Pill> : faintDash(),
     },
     {
       k: "Deal stage",
       v: dealStage?.trim() ? displayText(dealStage) : faintDash(),
-      show: Boolean(dealStage?.trim()) && !isPartnership,
+      show: Boolean(dealStage?.trim()),
     },
     {
       k: "Investment amount (m)",
       v: amountLine(investmentAmount, investmentCurrency),
-      show: !isPartnership,
     },
     {
       k: "Enterprise value (m)",
@@ -130,7 +126,6 @@ export function CorporateEventOverviewCard({
           ) : null}
         </span>
       ),
-      show: !isPartnership,
     },
     {
       k: "Source",

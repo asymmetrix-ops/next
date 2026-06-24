@@ -2,9 +2,6 @@
 
 import React, { useMemo } from "react";
 import Link from "next/link";
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
-import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
-import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import {
   profileTableCellStyle,
   tableColHeaderBarStyle,
@@ -18,7 +15,6 @@ export type CorporateEventCounterpartyRow = {
   role: string;
   logo?: string;
   href?: string;
-  hqIso2?: string | null;
   individuals: Array<{ id: number; name: string }>;
 };
 
@@ -29,15 +25,13 @@ type Props = {
 const ROW_GRID = "minmax(0, 36%) minmax(0, 22%) minmax(0, 42%)";
 const COL_GAP = 2;
 const ROW_PAD = "6px 10px";
-const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
 function PartyLogo({ logo, name }: { logo?: string; name: string }) {
-  const src = resolveCompanyLogoSrc(logo);
-  if (src) {
+  if (logo) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={src}
+        src={logo}
         alt={`${name} logo`}
         width={18}
         height={18}
@@ -140,24 +134,11 @@ export function CorporateEventCounterpartiesPanel({ counterparties }: Props) {
                           fontSize: 12,
                           minWidth: 0,
                           overflow: "hidden",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        <span
-                          style={{
-                            minWidth: 0,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {cp.name}
-                        </span>
-                        {cp.hqIso2 ? (
-                          <CountryFlagImg iso2={cp.hqIso2} size={ENTITY_FLAG_SIZE_PX} />
-                        ) : null}
+                        {cp.name}
                       </Link>
                     ) : (
                       <span
@@ -165,23 +146,11 @@ export function CorporateEventCounterpartiesPanel({ counterparties }: Props) {
                           fontSize: 12,
                           minWidth: 0,
                           overflow: "hidden",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        <span
-                          style={{
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {cp.name}
-                        </span>
-                        {cp.hqIso2 ? (
-                          <CountryFlagImg iso2={cp.hqIso2} size={ENTITY_FLAG_SIZE_PX} />
-                        ) : null}
+                        {cp.name}
                       </span>
                     )}
                   </div>

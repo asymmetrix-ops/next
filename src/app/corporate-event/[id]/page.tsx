@@ -1,27 +1,27 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { PlusIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { corporateEventsService } from "../../../lib/corporateEventsService";
 import {
   CorporateEventDetailResponse,
   CorporateEventAdvisor,
   Target,
 } from "../../../types/corporateEvents";
-import { useRightClick } from "@/hooks/useRightClick";
 import { ContentArticle } from "@/types/insightsAnalysis";
-import TransactionHero from "@/components/transaction/TransactionHero";
-import DealMetrics from "@/components/transaction/DealMetrics";
-import InsightsSection from "@/components/transaction/InsightsSection";
-import CounterpartiesSection from "@/components/transaction/CounterpartiesSection";
-import AdvisorsSection from "@/components/transaction/AdvisorsSection";
-import RelatedTransactionsSection from "@/components/transaction/RelatedTransactionsSection";
-import PreviousCorporateEventsSection, {
-  PreviousCorporateEventRow,
-} from "@/components/transaction/PreviousCorporateEventsSection";
-import { Button } from "@/components/ui/button";
+import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { LinkPanel, T } from "@/components/redesign/primitives";
+import { CorporateEventOverviewCard } from "@/components/corporate-events/CorporateEventOverviewCard";
+import { CorporateEventCounterpartiesPanel } from "@/components/corporate-events/CorporateEventCounterpartiesPanel";
+import { CorporateEventAdvisorsPanel } from "@/components/corporate-events/CorporateEventAdvisorsPanel";
+import {
+  CorporateEventTransactionsPanel,
+  type CorporateEventTransactionRow,
+} from "@/components/corporate-events/CorporateEventTransactionsPanel";
+import { CorporateEventInsightsPanel } from "@/components/corporate-events/CorporateEventInsightsPanel";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -63,7 +63,8 @@ const CorporateEventDetail = ({
 }: {
   data: CorporateEventDetailResponse;
 }) => {
-  const { createClickableElement } = useRightClick();
+  const descriptionRef = useRef<HTMLDivElement>(null);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   type FlatEventFields = {
     investment_amount_m?: string | number | null;
     investment_amount?: string | number | null;
@@ -231,16 +232,7 @@ const CorporateEventDetail = ({
   };
 
   const [eventArticles, setEventArticles] = useState<ContentArticle[]>([]);
-  const [relatedTransactions, setRelatedTransactions] = useState<
-    Array<{
-      id: number;
-      title: string;
-      date?: string;
-      dealType?: string;
-      target?: string | React.ReactNode;
-      investors?: string | React.ReactNode;
-    }>
-  >([]);
+  const [relatedTransactions, setRelatedTransactions] = useState<CorporateEventTransactionRow[]>([]);
   const [relatedInsights, setRelatedInsights] = useState<
     Array<{ id?: number; tag?: string; date?: string; title: string; content: string }>
   >([]);
@@ -287,11 +279,6 @@ const CorporateEventDetail = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id]);
 
-  // Transform data for components
-  const transactionData = {
-    title: event?.description || "Corporate Event",
-    subtitle: event?.long_description || undefined,
-  };
 
   const sourceUrl = event?.investment_data?.investment_amount_source || event?.deal_terms_data?.deal_terms_source;
 
@@ -453,14 +440,14 @@ const CorporateEventDetail = ({
   }, [primarySectors]);
 
   const counterpartiesData = counterparties.map((counterparty) => {
-                      const nc = counterparty._new_company;
-                      const isInvestor = Boolean(nc?._is_that_investor);
-                      const isDA = isDataAnalyticsCompany(nc);
-                      const href = isInvestor
-                        ? `/investors/${counterparty.new_company_counterparty}`
-                        : isDA
-                        ? `/company/${Number(nc?.id)}`
-                        : undefined;
+    const nc = counterparty._new_company;
+    const isInvestor = Boolean(nc?._is_that_investor);
+    const isDA = isDataAnalyticsCompany(nc);
+    const href = isInvestor
+      ? `/investors/${counterparty.new_company_counterparty}`
+      : isDA
+      ? `/company/${Number(nc?.id)}`
+      : undefined;
 
     const rawLogo =
       nc?._linkedin_data_of_new_company?.linkedin_logo ||
@@ -470,26 +457,21 @@ const CorporateEventDetail = ({
 
     const individuals =
       Array.isArray(counterparty.counterparty_individuals) &&
-                      counterparty.counterparty_individuals.length > 0
-        ? counterparty.counterparty_individuals.map((individual, idx) => (
-                              <span key={individual.id}>
-                                <a
-                                  href={`/individual/${individual.individuals_id}`}
-                className="text-blue-600 hover:underline"
-                                >
-                                  {individual.advisor_individuals}
-                                </a>
-              {idx < counterparty.counterparty_individuals.length - 1 && ", "}
-                              </span>
-          ))
-        : "-";
+      counterparty.counterparty_individuals.length > 0
+        ? counterparty.counterparty_individuals
+            .filter((individual) => typeof individual.individuals_id === "number")
+            .map((individual) => ({
+              id: individual.individuals_id,
+              name: individual.advisor_individuals,
+            }))
+        : [];
 
     return {
       id: counterparty.id,
       name: nc?.name ?? "-",
       role:
         counterparty._counterpartys_type?.counterparty_status ||
-                        counterparty._counterparty_type?.counterparty_status ||
+        counterparty._counterparty_type?.counterparty_status ||
         "-",
       logo,
       individuals,
@@ -498,8 +480,8 @@ const CorporateEventDetail = ({
   });
 
   const advisorsData = advisors.map((a) => {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const anyA = a as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyA = a as any;
     const rawLogo =
       anyA?._new_company?._linkedin_data_of_new_company?.linkedin_logo ||
       anyA?._new_company?.linkedin_data?.linkedin_logo;
@@ -507,62 +489,46 @@ const CorporateEventDetail = ({
 
     const advisedId: number | undefined = anyA?.counterparty_advised;
     const cp = advisedId ? counterpartiesById?.get?.(advisedId) : undefined;
-                        const nc = cp?._new_company;
-                        const isInvestor = Boolean(nc?._is_that_investor);
-                        const isDA = isDataAnalyticsCompany(nc);
-    const advisingHref = isInvestor
-                          ? `/investors/${cp?.new_company_counterparty}`
-                          : isDA
-                          ? `/company/${Number(nc?.id)}`
-                          : undefined;
+    const nc = cp?._new_company;
+    const isInvestor = Boolean(nc?._is_that_investor);
+    const isDA = isDataAnalyticsCompany(nc);
+    const advisedHref = isInvestor
+      ? `/investors/${cp?.new_company_counterparty}`
+      : isDA
+      ? `/company/${Number(nc?.id)}`
+      : undefined;
 
-    const advising = advisingHref
-      ? createClickableElement(
-          advisingHref,
-                            nc?.name || "-",
-          "text-blue-600 hover:underline"
-        )
-      : nc?.name || "-";
-
-                        const advisorList = Array.isArray(anyA?.individuals)
-                          ? (anyA.individuals as Array<{
-                              id: number;
-                              individuals_id?: number;
-                              advisor_individuals: string;
-                            }>)
-                          : undefined;
+    const advisorList = Array.isArray(anyA?.individuals)
+      ? (anyA.individuals as Array<{
+          id: number;
+          individuals_id?: number;
+          advisor_individuals: string;
+        }>)
+      : undefined;
 
     const individuals =
       Array.isArray(advisorList) && advisorList.length > 0
-        ? advisorList.map((ind, idx) => (
-                              <span key={ind.id}>
-                                {typeof ind.individuals_id === "number" ? (
-                                  <a
-                                    href={`/individual/${ind.individuals_id}`}
-                  className="text-blue-600 hover:underline"
-                                  >
-                                    {ind.advisor_individuals}
-                                  </a>
-                                ) : (
-                                  <span>{ind.advisor_individuals}</span>
-                                )}
-              {idx < advisorList.length - 1 && ", "}
-                              </span>
-                            ))
-                          : "-";
+        ? advisorList
+            .filter((ind) => typeof ind.individuals_id === "number")
+            .map((ind) => ({
+              id: ind.individuals_id as number,
+              name: ind.advisor_individuals,
+            }))
+        : [];
 
     return {
       id: a.id,
       name: a._new_company.name,
       logo,
       role: a._advisor_role?.counterparty_status || "Advisor",
-      advising,
+      advisedName: nc?.name || undefined,
+      advisedHref,
       individuals,
       href: `/advisor/${a._new_company.id}`,
     };
   });
 
-  const previousCorporateEventsData: PreviousCorporateEventRow[] =
+  const previousCorporateEventsData: CorporateEventTransactionRow[] =
     previousCorporateEventsRaw
       .filter((e) => e && typeof e.id === "number")
       .map((e) => {
@@ -925,75 +891,276 @@ const CorporateEventDetail = ({
     }
   }, [corporateEventId, event?.description, data, eventArticles, relatedTransactions, relatedInsights]);
 
-  const reportButton = (
-    <div className="flex gap-2">
-      <Button
-        onClick={handleExportPdf}
-        disabled={isExportingPdf || !corporateEventId}
-        size="sm"
-        className="shadow-md bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isExportingPdf ? "Exporting..." : "Export PDF"}
-      </Button>
-      <Button
-        asChild
-        size="sm"
-        className="shadow-md bg-emerald-600 hover:bg-emerald-700 text-white"
-      >
-        <a
-          href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
-            `Contribute Data - ${event?.description ?? "Unknown"}`
-          )}&body=${encodeURIComponent(
-            "Please share the data you'd like to contribute for this corporate event page."
-          )}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Contribute Data
-        </a>
-      </Button>
-    </div>
-  );
+  const eventTitle = event?.description || "Corporate Event";
+  const eventDescription = event?.long_description || "";
+
+  useEffect(() => {
+    if (eventTitle && typeof document !== "undefined") {
+      document.title = `Asymmetrix – ${eventTitle}`;
+    }
+  }, [eventTitle]);
+
+  const reportMailTo = `mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+    `Contribute Data - ${eventTitle}`
+  )}&body=${encodeURIComponent(
+    "Please share the data you'd like to contribute for this corporate event page."
+  )}`;
+
+  const hasCounterparties = counterpartiesData.length > 0;
+  const hasAdvisors = advisorsData.length > 0;
+  const hasPreviousEvents = previousCorporateEventsData.length > 0;
+  const hasRelatedTransactions = relatedTransactions.length > 0;
+  const hasEventInsights = insightsForEvent.length > 0;
+  const hasSectorInsights = relatedInsights.length > 0;
+  const hasInsights = hasEventInsights || hasSectorInsights;
+
+  let gridRow = 2;
+  const counterpartiesGridRow = hasCounterparties ? gridRow++ : 0;
+  const advisorsGridRow = hasAdvisors ? gridRow++ : 0;
+  const previousEventsGridRow = hasPreviousEvents ? gridRow++ : 0;
+  const relatedTransactionsGridRow = hasRelatedTransactions ? gridRow++ : 0;
+
+  const styles = {
+    container: {
+      backgroundColor: T.paper,
+      fontFamily: T.sans,
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column" as const,
+    },
+    maxWidth: {
+      width: "100%",
+      maxWidth: "100%",
+      padding: "18px",
+      flex: 1,
+      display: "flex",
+      flexDirection: "column" as const,
+      overflow: "hidden",
+    },
+  };
+
+  const wideColumnSpan = hasInsights ? "1 / span 2" : "1 / -1";
+
+  const responsiveCss = `
+    .corporate-event-detail-page { overflow-x: hidden; }
+    .responsiveGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 100%;
+      align-items: stretch;
+    }
+    .responsiveGrid > * { min-width: 0; min-height: 0; }
+    .ce-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-description { grid-column: 2 / span 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-counterparties { grid-column: ${wideColumnSpan}; grid-row: ${counterpartiesGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-advisors { grid-column: ${wideColumnSpan}; grid-row: ${advisorsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-previous { grid-column: ${wideColumnSpan}; grid-row: ${previousEventsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-related { grid-column: ${wideColumnSpan}; grid-row: ${relatedTransactionsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-insights { grid-column: 3; grid-row: 2 / ${gridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; gap: 12px; }
+    .ce-grid-counterparties > *,
+    .ce-grid-advisors > *,
+    .ce-grid-previous > *,
+    .ce-grid-related > *,
+    .ce-grid-insights > * {
+      min-width: 0;
+      max-width: 100%;
+      width: 100%;
+    }
+    @media (max-width: 768px) {
+      .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
+      .ce-grid-overview,
+      .ce-grid-description,
+      .ce-grid-counterparties,
+      .ce-grid-advisors,
+      .ce-grid-previous,
+      .ce-grid-related,
+      .ce-grid-insights {
+        grid-column: 1 / -1 !important;
+        grid-row: auto !important;
+        align-self: stretch !important;
+      }
+    }
+  `;
 
   return (
-    <div className="bg-slate-50 min-h-screen">
-      <TransactionHero transaction={transactionData} reportButton={reportButton} sourceUrl={sourceUrl} />
+    <div className="corporate-event-detail-page" style={styles.container}>
+      <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+            padding: "22px 0",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flex: 1 }}>
+            <span
+              style={{
+                fontSize: 24,
+                fontWeight: 600,
+                color: T.ink,
+                letterSpacing: "-0.4px",
+                lineHeight: 1.2,
+                fontFamily: T.sans,
+              }}
+            >
+              {eventTitle}
+            </span>
+          </div>
 
-      <DealMetrics metrics={metricsData} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={isExportingPdf || !corporateEventId}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontFamily: T.sans,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "#fff",
+                backgroundColor: isExportingPdf ? T.faint : "#475569",
+                border: "none",
+                borderRadius: 6,
+                padding: "8px 14px",
+                cursor: isExportingPdf || !corporateEventId ? "not-allowed" : "pointer",
+              }}
+            >
+              <ArrowUpTrayIcon width={15} height={15} strokeWidth={2} aria-hidden />
+              {isExportingPdf ? "Exporting…" : "Export PDF"}
+            </button>
+            <a
+              href={reportMailTo}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontFamily: T.sans,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "#fff",
+                backgroundColor: T.emerald,
+                borderRadius: 6,
+                padding: "8px 14px",
+                textDecoration: "none",
+              }}
+            >
+              <PlusIcon width={15} height={15} strokeWidth={2} aria-hidden />
+              Contribute Data
+            </a>
+          </div>
+        </div>
+      </div>
 
-      {insightsForEvent.length > 0 && (
-        <InsightsSection insights={insightsForEvent} title="Insights & Analysis" />
-      )}
+      <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={styles.maxWidth}>
+          <style>{responsiveCss}</style>
+          <div className="responsiveGrid">
+            <div className="ce-grid-overview">
+              <CorporateEventOverviewCard
+                fillGridCell
+                primarySectors={primarySectors}
+                subSectors={subSectorsWithIds}
+                dateAnnounced={metricsData.dateAnnounced}
+                dateClosed={metricsData.dateClosed}
+                dealType={metricsData.dealType}
+                dealStage={metricsData.dealStage}
+                investmentAmount={metricsData.investmentAmount}
+                investmentCurrency={metricsData.currency}
+                enterpriseValue={metricsData.enterpriseValue}
+                enterpriseValueCurrency={metricsData.enterpriseValueCurrency}
+                enterpriseValueSourceLabel={metricsData.enterpriseValueSourceLabel}
+                sourceUrl={sourceUrl}
+              />
+            </div>
 
-      {counterpartiesData.length > 0 && (
-        <CounterpartiesSection
-          counterparties={counterpartiesData}
-          createClickableElement={createClickableElement}
-        />
-      )}
+            <div
+              className="ce-grid-description"
+              ref={descriptionRef}
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignSelf: isDescriptionExpanded ? "start" : "stretch",
+                overflow: isDescriptionExpanded ? "visible" : "hidden",
+              }}
+            >
+              <DescriptionCard
+                text={eventDescription}
+                expanded={isDescriptionExpanded}
+                onToggleExpand={() => setIsDescriptionExpanded((prev) => !prev)}
+                contentRef={descriptionRef}
+                fillGridCell
+              />
+            </div>
 
-      {previousCorporateEventsData.length > 0 && (
-        <PreviousCorporateEventsSection events={previousCorporateEventsData} />
-      )}
+            {hasCounterparties ? (
+              <div className="ce-grid-counterparties">
+                <LinkPanel fillGridCell>
+                  <CorporateEventCounterpartiesPanel counterparties={counterpartiesData} />
+                </LinkPanel>
+              </div>
+            ) : null}
 
-      {advisorsData.length > 0 && (
-        <AdvisorsSection
-          advisors={advisorsData}
-          createClickableElement={createClickableElement}
-        />
-      )}
+            {hasAdvisors ? (
+              <div className="ce-grid-advisors">
+                <LinkPanel fillGridCell>
+                  <CorporateEventAdvisorsPanel advisors={advisorsData} />
+                </LinkPanel>
+              </div>
+            ) : null}
 
-      {relatedTransactions.length > 0 && (
-        <RelatedTransactionsSection transactions={relatedTransactions} />
-      )}
+            {hasPreviousEvents ? (
+              <div className="ce-grid-previous">
+                <LinkPanel fillGridCell>
+                  <CorporateEventTransactionsPanel
+                    title="Previous Corporate Events"
+                    rows={previousCorporateEventsData}
+                  />
+                </LinkPanel>
+              </div>
+            ) : null}
 
-      {relatedInsights.length > 0 && (
-        <InsightsSection
-          insights={relatedInsights}
-          title="Sector Insights & Analysis"
-          showIcon={false}
-        />
-      )}
+            {hasRelatedTransactions ? (
+              <div className="ce-grid-related">
+                <LinkPanel fillGridCell>
+                  <CorporateEventTransactionsPanel
+                    title="Recent Sector Transactions"
+                    rows={relatedTransactions}
+                  />
+                </LinkPanel>
+              </div>
+            ) : null}
+
+            {hasInsights ? (
+              <div className="ce-grid-insights">
+                {hasEventInsights ? (
+                  <CorporateEventInsightsPanel
+                    title="Insights & Analysis"
+                    insights={insightsForEvent}
+                    fillGridCell
+                  />
+                ) : null}
+                {hasSectorInsights ? (
+                  <CorporateEventInsightsPanel
+                    title="Sector Insights & Analysis"
+                    insights={relatedInsights}
+                    fillGridCell
+                  />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
@@ -1047,14 +1214,26 @@ const CorporateEventDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen">
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: T.paper,
+          fontFamily: T.sans,
+        }}
+      >
         <Header />
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="text-lg text-slate-600">
-              Loading corporate event details...
-            </div>
-          </div>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            color: T.muted,
+          }}
+        >
+          Loading corporate event details…
         </div>
         <Footer />
       </div>
@@ -1063,12 +1242,26 @@ const CorporateEventDetailPage = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen">
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: T.paper,
+          fontFamily: T.sans,
+        }}
+      >
         <Header />
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <div className="text-red-800 font-medium">{error}</div>
-          </div>
+        <div
+          style={{
+            flex: 1,
+            padding: 32,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ textAlign: "center", color: T.down }}>{error}</div>
         </div>
         <Footer />
       </div>
@@ -1077,12 +1270,27 @@ const CorporateEventDetailPage = () => {
 
   if (!data) {
     return (
-      <div className="min-h-screen">
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: T.paper,
+          fontFamily: T.sans,
+        }}
+      >
         <Header />
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center">
-            <div className="text-slate-600">Corporate event not found</div>
-          </div>
+        <div
+          style={{
+            flex: 1,
+            padding: 32,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            color: T.muted,
+          }}
+        >
+          Corporate event not found
         </div>
         <Footer />
       </div>
@@ -1090,7 +1298,15 @@ const CorporateEventDetailPage = () => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: T.paper,
+        fontFamily: T.sans,
+      }}
+    >
       <Header />
       <CorporateEventDetail data={data} />
       <Footer />

@@ -6,14 +6,11 @@ import Image from "next/image";
 import {
   profileTableColAlign,
   profileTableCellStyle,
-  PROFILE_EVENTS_ROW_GAP,
-  PROFILE_EVENTS_ROW_PAD,
   tableColHeaderBarStyle,
   tableColHeaderStyle,
   T,
   Pill,
 } from "@/components/redesign/primitives";
-import { LinkedInProfileButton } from "@/components/redesign/LinkedInProfileButton";
 import type { RelatedIndividual } from "@/types/individual";
 
 type Props = {
@@ -22,7 +19,9 @@ type Props = {
 };
 
 const RELATED_ROW_GRID =
-  "minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr) minmax(72px, auto) 40px";
+  "minmax(0, 1.2fr) minmax(0, 1fr) minmax(72px, auto) minmax(0, 1fr)";
+
+const COL_GAP = 8;
 
 function CompanyLogo({ logo, name }: { logo?: string; name: string }) {
   if (logo) {
@@ -75,7 +74,6 @@ export function IndividualRelatedProfilePanel({
   }, [individuals.length]);
 
   const displayed = showAll ? individuals : individuals.slice(0, maxInitial);
-  const colAlign = (colIndex: number) => profileTableColAlign(colIndex);
 
   return (
     <div style={{ fontFamily: T.sans, minWidth: 0, maxWidth: "100%" }}>
@@ -97,21 +95,21 @@ export function IndividualRelatedProfilePanel({
       </div>
 
       <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0 }}>
-        <div style={{ width: "100%", minWidth: 640, ...profileTableCellStyle }}>
+        <div style={{ width: "100%", minWidth: 560, ...profileTableCellStyle }}>
           <div
             style={{
               ...tableColHeaderBarStyle,
               gridTemplateColumns: RELATED_ROW_GRID,
-              gap: PROFILE_EVENTS_ROW_GAP,
-              padding: PROFILE_EVENTS_ROW_PAD.header,
+              gap: COL_GAP,
+              padding: "8px 16px",
             }}
           >
-            {(["Name", "Company", "Role", "Status", "LinkedIn"] as const).map((h, colIndex) => (
+            {(["Company", "Individual", "Status", "Role"] as const).map((h, colIndex) => (
               <div
                 key={h}
                 style={{
                   ...tableColHeaderStyle,
-                  textAlign: h === "LinkedIn" ? "center" : colAlign(colIndex),
+                  textAlign: profileTableColAlign(colIndex),
                 }}
               >
                 {h}
@@ -122,20 +120,13 @@ export function IndividualRelatedProfilePanel({
           {displayed.length > 0 ? (
             displayed.map((related, index) => {
               const last = index === displayed.length - 1;
+              const colAlign = (colIndex: number) => profileTableColAlign(colIndex);
               const companyName = related._new_company?.name || "-";
               const logo =
                 related._new_company?._linkedin_data_of_new_company?.linkedin_logo ||
                 related._new_company?.linkedin_data?.linkedin_logo ||
                 "";
               const isCurrent = related.Status === "Current";
-              const companyHref = related._new_company?._is_that_investor
-                ? `/investors/${related._new_company.id}`
-                : related._new_company?.id
-                  ? `/company/${related._new_company.id}`
-                  : undefined;
-              const linkedinUrl =
-                (related._individuals as { linkedin_URL?: string }).linkedin_URL ||
-                (related._individuals as { linkedin_url?: string }).linkedin_url;
 
               return (
                 <div
@@ -143,32 +134,15 @@ export function IndividualRelatedProfilePanel({
                   style={{
                     display: "grid",
                     gridTemplateColumns: RELATED_ROW_GRID,
-                    gap: PROFILE_EVENTS_ROW_GAP,
+                    gap: COL_GAP,
                     alignItems: "center",
-                    padding: PROFILE_EVENTS_ROW_PAD.body,
+                    padding: "10px 16px",
                     borderBottom: last ? "none" : `1px solid ${T.hair}`,
                   }}
                 >
-                  <div style={{ textAlign: colAlign(0), minWidth: 0 }}>
-                    <Link
-                      href={`/individual/${related._individuals.id}`}
-                      prefetch={false}
-                      style={{
-                        color: T.azure,
-                        textDecoration: "underline",
-                        fontWeight: 500,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "block",
-                      }}
-                    >
-                      {related._individuals.advisor_individuals}
-                    </Link>
-                  </div>
                   <div
                     style={{
-                      textAlign: colAlign(1),
+                      textAlign: colAlign(0),
                       minWidth: 0,
                       display: "flex",
                       alignItems: "center",
@@ -176,16 +150,15 @@ export function IndividualRelatedProfilePanel({
                     }}
                   >
                     <CompanyLogo logo={logo} name={companyName} />
-                    {companyHref ? (
+                    {related._new_company?.id ? (
                       <Link
-                        href={companyHref}
+                        href={`/company/${related._new_company.id}`}
                         prefetch={false}
                         style={{
                           color: T.azure,
                           textDecoration: "underline",
                           fontWeight: 500,
                           wordBreak: "break-word" as const,
-                          minWidth: 0,
                         }}
                       >
                         {companyName}
@@ -194,21 +167,20 @@ export function IndividualRelatedProfilePanel({
                       companyName
                     )}
                   </div>
-                  <div
-                    style={{
-                      textAlign: colAlign(2),
-                      color: T.body,
-                      minWidth: 0,
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    {(related.job_titles_id || []).map((jt) => jt.job_title).join(", ") || "-"}
+                  <div style={{ textAlign: colAlign(1), minWidth: 0 }}>
+                    <Link
+                      href={`/individual/${related._individuals.id}`}
+                      prefetch={false}
+                      style={{ color: T.azure, textDecoration: "underline", fontWeight: 500 }}
+                    >
+                      {related._individuals.advisor_individuals}
+                    </Link>
                   </div>
-                  <div style={{ textAlign: colAlign(3) }}>
+                  <div style={{ textAlign: colAlign(2) }}>
                     <Pill tone={isCurrent ? "emerald" : "neutral"}>{related.Status}</Pill>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "center" }}>
-                    <LinkedInProfileButton href={linkedinUrl} />
+                  <div style={{ textAlign: colAlign(3), color: T.body, minWidth: 0 }}>
+                    {(related.job_titles_id || []).map((jt) => jt.job_title).join(", ") || "-"}
                   </div>
                 </div>
               );
@@ -216,11 +188,10 @@ export function IndividualRelatedProfilePanel({
           ) : (
             <div
               style={{
-                padding: "24px 16px",
+                padding: "20px 16px",
                 color: T.muted,
                 fontSize: "12.5px",
                 textAlign: "center",
-                fontFamily: T.sans,
               }}
             >
               No related individuals available
@@ -229,23 +200,23 @@ export function IndividualRelatedProfilePanel({
         </div>
       </div>
 
-      {individuals.length > maxInitial ? (
-        <div style={{ textAlign: "center", padding: "12px 0 16px" }}>
+      {individuals.length > maxInitial && !showAll ? (
+        <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.hair}` }}>
           <button
             type="button"
-            onClick={() => setShowAll(!showAll)}
+            onClick={() => setShowAll(true)}
             style={{
-              background: "none",
+              padding: 0,
               border: "none",
+              background: "none",
               color: T.azure,
-              textDecoration: "underline",
-              cursor: "pointer",
-              fontSize: "12.5px",
+              fontSize: 12.5,
               fontWeight: 500,
+              cursor: "pointer",
               fontFamily: T.sans,
             }}
           >
-            {showAll ? "Show less" : "See more"}
+            See all {individuals.length} individuals
           </button>
         </div>
       ) : null}

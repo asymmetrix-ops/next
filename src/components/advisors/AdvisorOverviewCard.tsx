@@ -1,20 +1,22 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { LinkPanel, LinkedH, KV, T, Pill } from "@/components/redesign/primitives";
 import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 
+export type AdvisorSector = {
+  id?: number;
+  name: string;
+  href?: string;
+};
+
 export type AdvisorOverviewCardProps = {
-  type?: string | null;
-  focus?: string[];
+  advisedDaSectors?: AdvisorSector[];
   yearFounded?: string | number | null;
   website?: string | null;
   websiteLabel?: string | null;
   hq?: string | null;
-  linkedinUrl?: string | null;
-  ownership?: string | null;
-  ticker?: string | null;
-  status?: string | null;
   transactionsAdvised?: number | null;
   fillGridCell?: boolean;
 };
@@ -32,76 +34,40 @@ function displayText(value: string | number | null | undefined): React.ReactNode
   return normalized === EM ? faintDash() : normalized;
 }
 
-function FocusTags({ items }: { items: string[] }) {
-  if (items.length === 0) return faintDash();
+function SectorTags({ sectors }: { sectors: AdvisorSector[] }) {
+  if (sectors.length === 0) return faintDash();
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-      {items.map((label) => (
-        <Pill key={label} tone="coral">
-          {label}
-        </Pill>
-      ))}
+      {sectors.map((s) =>
+        s.href ? (
+          <Link key={`${s.name}-${s.href}`} href={s.href} prefetch={false} style={{ textDecoration: "none" }}>
+            <Pill tone="lavender">{s.name}</Pill>
+          </Link>
+        ) : (
+          <Pill key={s.name} tone="lavender">{s.name}</Pill>
+        )
+      )}
     </div>
   );
 }
 
-function StatusTag({ label }: { label: string }) {
-  const normalized = label.trim();
-  if (!normalized || normalized === EM) return faintDash();
-
-  const lower = normalized.toLowerCase();
-  const tone =
-    lower.includes("active") || lower.includes("operating")
-      ? "up"
-      : lower.includes("inactive") || lower.includes("closed")
-        ? "down"
-        : "neutral";
-
-  return <Pill tone={tone}>{normalized}</Pill>;
-}
-
-function OwnershipValue({
-  ownership,
-  ticker,
-}: {
-  ownership?: string | null;
-  ticker?: string | null;
-}) {
-  const ownershipText = ownership?.trim();
-  const tickerText = ticker?.trim();
-
-  if (!ownershipText && !tickerText) return faintDash();
-
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-      {ownershipText ? <span>{ownershipText}</span> : null}
-      {tickerText ? (
-        <span style={{ fontFamily: T.mono, color: T.body }}>{tickerText}</span>
-      ) : null}
-    </span>
-  );
-}
-
 export function AdvisorOverviewCard({
-  type,
-  focus = [],
+  advisedDaSectors = [],
   yearFounded,
   website,
   websiteLabel,
   hq,
-  linkedinUrl,
-  ownership,
-  ticker,
-  status,
   transactionsAdvised,
   fillGridCell = false,
 }: AdvisorOverviewCardProps) {
-  const rows: { k: string; v: React.ReactNode }[] = [
-    { k: "Type", v: displayText(type) },
-    { k: "Focus", v: <FocusTags items={focus} /> },
+  const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
+    {
+      k: "Advised D&A sector(s)",
+      v: <SectorTags sectors={advisedDaSectors} />,
+      show: advisedDaSectors.length > 0,
+    },
     { k: "Year founded", v: displayText(yearFounded) },
-    { k: "HQ", v: displayText(hq) },
     {
       k: "Website",
       v: website?.trim() ? (
@@ -117,29 +83,7 @@ export function AdvisorOverviewCard({
         faintDash()
       ),
     },
-    {
-      k: "LinkedIn",
-      v: linkedinUrl?.trim() ? (
-        <a
-          href={linkedinUrl.trim()}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: T.azure, textDecoration: "none" }}
-        >
-          LinkedIn
-        </a>
-      ) : (
-        faintDash()
-      ),
-    },
-    {
-      k: "Ownership",
-      v: <OwnershipValue ownership={ownership} ticker={ticker} />,
-    },
-    {
-      k: "Status",
-      v: <StatusTag label={status?.trim() || "Active"} />,
-    },
+    { k: "HQ", v: displayText(hq) },
     {
       k: "D&A transactions advised",
       v:
@@ -151,6 +95,8 @@ export function AdvisorOverviewCard({
     },
   ];
 
+  const visible = rows.filter((r) => r.show !== false);
+
   return (
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH>Overview</LinkedH>
@@ -158,18 +104,12 @@ export function AdvisorOverviewCard({
         style={{
           padding: "2px 14px 8px",
           ...(fillGridCell
-            ? {
-                flex: 1,
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "flex-start",
-              }
+            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start" }
             : {}),
         }}
       >
-        {rows.map((row, i) => (
-          <KV key={row.k} k={row.k} v={row.v} last={i === rows.length - 1} />
+        {visible.map((row, i) => (
+          <KV key={row.k} k={row.k} v={row.v} last={i === visible.length - 1} />
         ))}
       </div>
     </LinkPanel>
