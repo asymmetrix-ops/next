@@ -52,6 +52,19 @@ export function createFilterInstanceKey(): string {
 
 export type FilterCombineLogic = "and" | "or";
 
+const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function isoDateToDdMmYyyy(iso: string): string {
+  const match = ISO_DATE_RE.exec(iso.trim());
+  if (!match) return iso;
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function formatDateFilterDisplay(raw: string): string {
+  if (ISO_DATE_RE.test(raw.trim())) return isoDateToDdMmYyyy(raw);
+  return raw;
+}
+
 function getFilterEnumValues(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.filter((entry): entry is string => typeof entry === "string");
@@ -361,20 +374,11 @@ function summarize(def: FilterDef, value: unknown): string {
     );
   if (def.editor === "date_range") {
     const v = value as { from?: string; to?: string };
-    const fmt = (raw: string) => {
-      const date = new Date(raw);
-      if (Number.isNaN(date.getTime())) return raw;
-      return date.toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    };
     if (v.from?.trim() && v.to?.trim()) {
-      return `${fmt(v.from.trim())} – ${fmt(v.to.trim())}`;
+      return `${formatDateFilterDisplay(v.from.trim())} – ${formatDateFilterDisplay(v.to.trim())}`;
     }
-    if (v.from?.trim()) return `From ${fmt(v.from.trim())}`;
-    if (v.to?.trim()) return `Until ${fmt(v.to.trim())}`;
+    if (v.from?.trim()) return `From ${formatDateFilterDisplay(v.from.trim())}`;
+    if (v.to?.trim()) return `Until ${formatDateFilterDisplay(v.to.trim())}`;
     return "";
   }
   if (def.editor === "segmented") return String(value);
@@ -1635,7 +1639,6 @@ function DateRangeEditor({
   return (
     <EditorShell
       title={def.fullLabel}
-      hint="Leave blank for open start/end"
       compact
       onDismiss={onDismiss}
       footer={
@@ -1660,7 +1663,7 @@ function DateRangeEditor({
           applyDisabled={from.trim() === "" && to.trim() === ""}
         />
       }
-      width={288}
+      width={320}
     >
       <div
         style={{
@@ -1670,33 +1673,13 @@ function DateRangeEditor({
           gap: 6,
         }}
       >
-        <label
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            flex: 1,
-            padding: "4px 6px",
-            background: "white",
-            border: "1px solid var(--border-1)",
-            borderRadius: "var(--r-md)",
-          }}
-        >
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            aria-label="From date"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              border: "none",
-              outline: "none",
-              fontFamily: "var(--font-sans)",
-              fontSize: "var(--fs-12)",
-              color: "var(--fg-1)",
-            }}
-          />
-        </label>
+        <DateInput
+          value={from}
+          onChange={setFrom}
+          compact
+          compactWidth={130}
+          aria-label="From date"
+        />
         <span
           style={{
             color: "var(--fg-4)",
@@ -1706,35 +1689,64 @@ function DateRangeEditor({
         >
           to
         </span>
-        <label
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            flex: 1,
-            padding: "4px 6px",
-            background: "white",
-            border: "1px solid var(--border-1)",
-            borderRadius: "var(--r-md)",
-          }}
-        >
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            aria-label="To date"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              border: "none",
-              outline: "none",
-              fontFamily: "var(--font-sans)",
-              fontSize: "var(--fs-12)",
-              color: "var(--fg-1)",
-            }}
-          />
-        </label>
+        <DateInput
+          value={to}
+          onChange={setTo}
+          compact
+          compactWidth={130}
+          aria-label="To date"
+        />
       </div>
     </EditorShell>
+  );
+}
+
+function DateInput({
+  value,
+  onChange,
+  compact = false,
+  compactWidth = 108,
+  "aria-label": ariaLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  compact?: boolean;
+  compactWidth?: number;
+  "aria-label"?: string;
+}) {
+  return (
+    <label
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        width: compact ? compactWidth : undefined,
+        flex: compact ? `0 0 ${compactWidth}px` : 1,
+        padding: compact ? "3px 6px" : "5px 8px",
+        background: "white",
+        border: "1px solid var(--border-1)",
+        borderRadius: "var(--r-md)",
+        boxSizing: "border-box",
+      }}
+    >
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={ariaLabel}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          width: "100%",
+          border: "none",
+          outline: "none",
+          fontFamily: "var(--font-sans)",
+          fontSize: compact ? "var(--fs-12)" : "var(--fs-13)",
+          color: "var(--fg-1)",
+          background: "transparent",
+          colorScheme: "light",
+        }}
+      />
+    </label>
   );
 }
 
