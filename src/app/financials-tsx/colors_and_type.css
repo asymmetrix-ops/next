@@ -1,0 +1,342 @@
+/* =============================================================
+   Asymmetrix Design System — Core Tokens
+   Colors, type, spacing, radii, shadows, motion
+   ============================================================= */
+
+/* --- Webfonts (Google Fonts) ----------------------------------
+   Inter        — UI + display sans (primary)
+   Source Serif 4 — editorial accent (article display, reports)
+   JetBrains Mono — tabular / mono / data labels
+   NOTE: substitutions — see README "Type" section. If the real
+   Asymmetrix product uses different webfonts, swap here.
+   ------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ===========================================================
+     COLORS — Brand
+     Derived from the Asymmetrix logo:
+       Light hemisphere #2DB7FF  → "Asymmetrix Cyan"
+       Dark hemisphere  #0370AA  → "Asymmetrix Deep"
+     The cyan is the energetic mark; the deep blue is the
+     institutional/authority color used for primary UI.
+     =========================================================== */
+  --ax-cyan-50:  #E8F8FF;
+  --ax-cyan-100: #C6ECFF;
+  --ax-cyan-200: #8DDAFF;
+  --ax-cyan-300: #54C7FF;
+  --ax-cyan-400: #2DB7FF;   /* brand cyan */
+  --ax-cyan-500: #15A2EA;
+  --ax-cyan-600: #0788C8;
+  --ax-cyan-700: #0370AA;   /* brand deep */
+  --ax-cyan-800: #02527D;
+  --ax-cyan-900: #013A58;
+  --ax-cyan-950: #001E2F;
+
+  /* ===========================================================
+     COLORS — Neutrals (cool gray, slight blue cast)
+     =========================================================== */
+  --ax-gray-0:   #FFFFFF;
+  --ax-gray-25:  #FAFBFC;
+  --ax-gray-50:  #F4F6F8;
+  --ax-gray-100: #ECEFF3;
+  --ax-gray-200: #DDE2E8;
+  --ax-gray-300: #C5CCD4;
+  --ax-gray-400: #99A2AD;
+  --ax-gray-500: #6B7480;
+  --ax-gray-600: #4B5460;
+  --ax-gray-700: #343C46;
+  --ax-gray-800: #1F252E;
+  --ax-gray-900: #11161D;
+  --ax-gray-950: #070A0F;
+
+  /* ===========================================================
+     COLORS — Semantic data
+     Used to color deltas, deal types, sector chips.
+     =========================================================== */
+  --ax-positive:   #128A5C;   /* up, gain, acquired */
+  --ax-positive-bg:#DCF3E9;
+  --ax-negative:   #C7382A;   /* down, loss, divested */
+  --ax-negative-bg:#FBE3E0;
+  --ax-warning:    #B5790B;   /* watch, pending */
+  --ax-warning-bg: #FFF1D2;
+  --ax-info:       var(--ax-cyan-600);
+  --ax-info-bg:    var(--ax-cyan-50);
+  --ax-neutral:    var(--ax-gray-500);
+  --ax-neutral-bg: var(--ax-gray-100);
+
+  /* Editorial accent — "Deal Perspective" tag, callouts */
+  --ax-accent-amber: #E8A33B;
+  --ax-accent-amber-bg: #FBF1DE;
+
+  /* ===========================================================
+     COLORS — Semantic foreground / background
+     =========================================================== */
+  --fg-1: var(--ax-gray-900);   /* primary text */
+  --fg-2: var(--ax-gray-700);   /* body */
+  --fg-3: var(--ax-gray-500);   /* muted / secondary */
+  --fg-4: var(--ax-gray-400);   /* placeholder / disabled */
+  --fg-inverse: var(--ax-gray-0);
+  --fg-brand: var(--ax-cyan-700);
+  --fg-link: var(--ax-cyan-600);
+
+  --bg-1: var(--ax-gray-0);     /* page */
+  --bg-2: var(--ax-gray-25);    /* section / surface */
+  --bg-3: var(--ax-gray-50);    /* sunken / inset */
+  --bg-4: var(--ax-gray-100);   /* hover / chip */
+  --bg-inverse: var(--ax-gray-900);
+  --bg-brand: var(--ax-cyan-700);
+  --bg-brand-soft: var(--ax-cyan-50);
+
+  --border-1: var(--ax-gray-200);   /* default */
+  --border-2: var(--ax-gray-300);   /* emphasized */
+  --border-strong: var(--ax-gray-700);
+  --border-brand: var(--ax-cyan-400);
+  --focus-ring: 0 0 0 3px rgba(45, 183, 255, 0.35);
+
+  /* ===========================================================
+     TYPE — Families
+     =========================================================== */
+  --font-sans:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: var(--font-sans);   /* swap to --font-serif for editorial layouts */
+
+  /* ===========================================================
+     TYPE — Scale (modular 1.200 minor third, tuned for B2B)
+     =========================================================== */
+  --fs-12: 0.75rem;    /* 12 — micro (eyebrow, footnote, chip) */
+  --fs-13: 0.8125rem;  /* 13 — small (table cells, captions) */
+  --fs-14: 0.875rem;   /* 14 — body small / UI default */
+  --fs-15: 0.9375rem;  /* 15 — body */
+  --fs-16: 1rem;       /* 16 — body large */
+  --fs-18: 1.125rem;   /* 18 — subhead */
+  --fs-20: 1.25rem;    /* 20 — h5 */
+  --fs-24: 1.5rem;     /* 24 — h4 */
+  --fs-28: 1.75rem;    /* 28 — h3 */
+  --fs-32: 2rem;       /* 32 — h2 */
+  --fs-40: 2.5rem;     /* 40 — h1 */
+  --fs-56: 3.5rem;     /* 56 — hero */
+  --fs-72: 4.5rem;     /* 72 — display */
+
+  --lh-tight: 1.1;      /* @kind font */
+  --lh-snug: 1.25;      /* @kind font */
+  --lh-normal: 1.4;     /* @kind font */
+  --lh-relaxed: 1.55;   /* @kind font */
+  --lh-loose: 1.7;      /* @kind font */
+
+  --ls-tight: -0.022em;   /* @kind font */
+  --ls-snug:  -0.012em;   /* @kind font */
+  --ls-normal: 0;         /* @kind font */
+  --ls-wide:  0.04em;     /* @kind font */
+  --ls-wider: 0.08em;     /* @kind font */
+  --ls-brand: 0.14em;     /* @kind font */
+
+  --fw-regular: 400;    /* @kind font */
+  --fw-medium: 500;     /* @kind font */
+  --fw-semibold: 600;   /* @kind font */
+  --fw-bold: 700;       /* @kind font */
+  --fw-extrabold: 800;  /* @kind font */
+
+  /* ===========================================================
+     SPACING — 4px base
+     =========================================================== */
+  --s-0: 0;     /* @kind spacing */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-7: 32px;
+  --s-8: 40px;
+  --s-9: 48px;
+  --s-10: 64px;
+  --s-11: 80px;
+  --s-12: 96px;
+  --s-13: 128px;
+
+  /* ===========================================================
+     RADII
+     =========================================================== */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 6px;     /* default button, input */
+  --r-lg: 10px;    /* card */
+  --r-xl: 16px;    /* hero card, modal */
+  --r-pill: 999px;
+
+  /* ===========================================================
+     SHADOWS — restrained, B2B style. Mostly use borders.
+     =========================================================== */
+  --shadow-xs: 0 1px 2px rgba(17, 22, 29, 0.04);
+  --shadow-sm: 0 1px 2px rgba(17, 22, 29, 0.06), 0 1px 1px rgba(17, 22, 29, 0.04);
+  --shadow-md: 0 4px 12px rgba(17, 22, 29, 0.06), 0 1px 2px rgba(17, 22, 29, 0.04);
+  --shadow-lg: 0 12px 32px rgba(17, 22, 29, 0.10), 0 2px 6px rgba(17, 22, 29, 0.04);
+  --shadow-popover: 0 8px 24px rgba(17, 22, 29, 0.12);
+  --shadow-brand-glow: 0 8px 28px rgba(3, 112, 170, 0.18);
+
+  /* ===========================================================
+     MOTION
+     =========================================================== */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);    /* @kind other */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1); /* @kind other */
+  --ease-emph: cubic-bezier(0.2, 0.9, 0.2, 1);  /* @kind other */
+
+  --dur-fast: 120ms;    /* @kind other */
+  --dur-base: 180ms;    /* @kind other */
+  --dur-slow: 280ms;    /* @kind other */
+  --dur-slower: 420ms;  /* @kind other */
+
+  /* ===========================================================
+     LAYOUT
+     =========================================================== */
+  --container-narrow: 720px;    /* @kind other */
+  --container-default: 1080px;  /* @kind other */
+  --container-wide: 1280px;     /* @kind other */
+  --container-full: 1440px;     /* @kind other */
+}
+
+/* =============================================================
+   Semantic typography presets
+   Use as CSS classes, or @extend via composition.
+   ============================================================= */
+
+/* Brand wordmark — ASYMMETRIX is always uppercase with brand tracking */
+.ax-wordmark {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-brand);
+  text-transform: uppercase;
+  color: var(--fg-1);
+}
+
+/* Eyebrow — used above section titles, "Deal Perspective" style */
+.ax-eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-wider);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* Display — marketing hero */
+.ax-display {
+  font-family: var(--font-display);
+  font-size: var(--fs-72);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tight);
+  font-weight: var(--fw-bold);
+  color: var(--fg-1);
+}
+
+.ax-h1 {
+  font-family: var(--font-display);
+  font-size: var(--fs-40);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-snug);
+  font-weight: var(--fw-bold);
+  color: var(--fg-1);
+}
+
+.ax-h2 {
+  font-family: var(--font-display);
+  font-size: var(--fs-32);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-snug);
+  font-weight: var(--fw-bold);
+  color: var(--fg-1);
+}
+
+.ax-h3 {
+  font-family: var(--font-display);
+  font-size: var(--fs-24);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-snug);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-1);
+}
+
+.ax-h4 {
+  font-family: var(--font-sans);
+  font-size: var(--fs-18);
+  line-height: var(--lh-snug);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-1);
+}
+
+.ax-h5 {
+  font-family: var(--font-sans);
+  font-size: var(--fs-15);
+  line-height: var(--lh-snug);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-1);
+  letter-spacing: 0;
+}
+
+.ax-body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-15);
+  line-height: var(--lh-relaxed);
+  font-weight: var(--fw-regular);
+  color: var(--fg-2);
+}
+
+.ax-body-sm {
+  font-family: var(--font-sans);
+  font-size: var(--fs-13);
+  line-height: var(--lh-normal);
+  color: var(--fg-2);
+}
+
+.ax-lead {
+  font-family: var(--font-sans);
+  font-size: var(--fs-20);
+  line-height: var(--lh-relaxed);
+  font-weight: var(--fw-regular);
+  color: var(--fg-2);
+}
+
+.ax-editorial {
+  /* Use for long-form article display headings; opt-in serif */
+  font-family: var(--font-serif);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.005em;
+}
+
+.ax-caption {
+  font-family: var(--font-sans);
+  font-size: var(--fs-12);
+  line-height: var(--lh-normal);
+  color: var(--fg-3);
+}
+
+.ax-meta {
+  /* Date stamps, source attributions */
+  font-family: var(--font-sans);
+  font-size: var(--fs-12);
+  line-height: var(--lh-normal);
+  color: var(--fg-3);
+  font-weight: var(--fw-medium);
+}
+
+.ax-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+
+.ax-numeric {
+  /* Tabular figures for financial / sector numbers */
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+.ax-link {
+  color: var(--fg-link);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.ax-link:hover { color: var(--ax-cyan-700); }

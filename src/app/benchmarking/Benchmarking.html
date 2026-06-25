@@ -1,0 +1,149 @@
+<!doctype html>
+<!-- @dsCard group="Brand" name="Benchmarking Control Room" subtitle="Company-vs-peers ranking + sector-vs-sector heatmap" viewport="1440x1000" -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Benchmarking — Asymmetrix</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="../colors_and_type.css">
+  <style>
+    html, body { margin: 0; padding: 0; background: var(--ax-gray-50); font-family: var(--font-sans); color: var(--fg-1); }
+    body { min-height: 100vh; }
+    :root { --shell-max: 1240px; }
+
+    .app-nav { background: linear-gradient(180deg, var(--ax-cyan-950) 0%, var(--ax-cyan-900) 100%); color: white; padding: 10px 24px; }
+    .app-nav-inner { max-width: var(--shell-max); margin: 0 auto; display: flex; align-items: center; gap: 24px; }
+    .brand-mark { width: 28px; height: 28px; border-radius: 50%; background: white; display: inline-flex; align-items: center; justify-content: center; }
+    .brand-mark::before { content: ''; width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, var(--ax-cyan-400) 0%, var(--ax-cyan-700) 100%); }
+    .brand-wordmark { font-weight: 700; letter-spacing: var(--ls-brand); font-size: 13px; }
+    .app-nav-right { margin-left: auto; display: flex; align-items: center; gap: 16px; color: rgba(255,255,255,0.75); font-size: var(--fs-13); }
+    .app-nav-right .logout { padding: 4px 10px; background: rgba(255,255,255,0.10); border-radius: var(--r-sm); cursor: pointer; color: white; }
+
+    .app-tabs { background: white; border-bottom: 1px solid var(--border-1); padding: 0 24px; }
+    .app-tabs-inner { max-width: var(--shell-max); margin: 0 auto; display: flex; align-items: center; gap: 4px; height: 46px; }
+    .app-tabs .tab { padding: 12px 12px; font-size: var(--fs-14); color: var(--fg-2); cursor: pointer; position: relative; white-space: nowrap; }
+    .app-tabs .tab.active { color: var(--fg-1); font-weight: 600; }
+    .app-tabs .tab.active::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px; background: var(--ax-cyan-700); border-radius: 2px 2px 0 0; }
+    .app-tabs .tab.new-badge::after { content: 'NEW'; position: absolute; top: 4px; right: -4px; background: var(--ax-cyan-700); color: white; font-size: 8.5px; font-weight: 700; letter-spacing: 0.06em; padding: 1px 4px; border-radius: 3px; }
+    .app-tabs .avatar { margin-left: auto; width: 28px; height: 28px; border-radius: 50%; background: var(--ax-cyan-700); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+
+    .page { padding: 16px 24px 48px; max-width: var(--shell-max); margin: 0 auto; box-sizing: border-box; }
+    .page-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; gap: 20px; }
+    .page-head .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); margin-bottom: 3px; }
+    .page-head h1 { font-family: var(--font-sans); font-size: 22px; font-weight: 700; letter-spacing: -0.012em; margin: 0; }
+    .page-head .subhead { margin-top: 4px; font-size: 12.5px; color: var(--fg-3); max-width: 600px; }
+    .page-head-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-family: var(--font-sans); font-size: var(--fs-13); font-weight: 600; border-radius: var(--r-md); cursor: pointer; border: 1px solid var(--border-1); background: white; color: var(--fg-1); }
+    .btn.primary { background: var(--ax-gray-900); color: white; border-color: var(--ax-gray-900); }
+
+    /* mode switch */
+    .mode-switch { display: inline-flex; padding: 3px; background: white; border: 1px solid var(--border-1); border-radius: var(--r-lg); margin-bottom: 16px; box-shadow: var(--shadow-xs); }
+    .mode-switch button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border: none; background: transparent; font-family: var(--font-sans); font-size: 13.5px; font-weight: 600; color: var(--fg-2); cursor: pointer; border-radius: 7px; }
+    .mode-switch button.on { background: var(--ax-cyan-700); color: white; box-shadow: var(--shadow-sm); }
+    .mode-switch button svg { opacity: 0.9; }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <div class="app-nav">
+   <div class="app-nav-inner">
+    <span class="brand-mark"></span>
+    <span class="brand-wordmark">ASYMMETRIX</span>
+    <div class="app-nav-right">
+      <span>Newsletter</span>
+      <span>About Us</span>
+      <span class="logout">Log out</span>
+    </div>
+   </div>
+  </div>
+  <div class="app-tabs">
+   <div class="app-tabs-inner">
+    <span class="tab">Dashboard</span>
+    <span class="tab">Companies</span>
+    <span class="tab">Sectors</span>
+    <span class="tab">Investors</span>
+    <span class="tab">Advisors</span>
+    <span class="tab">Individuals</span>
+    <span class="tab">Corporate Events</span>
+    <span class="tab active new-badge">Financial Intelligence</span>
+    <span class="tab">Insight &amp; Analysis</span>
+    <span class="avatar">PA</span>
+   </div>
+  </div>
+
+  <div class="page">
+    <div id="appRoot"></div>
+  </div>
+  <div id="tweaksRoot"></div>
+
+  <script type="text/babel" data-presets="react" src="benchmarking-data.jsx"></script>
+  <script type="text/babel" data-presets="react" src="benchmark-company.jsx"></script>
+  <script type="text/babel" data-presets="react" src="benchmark-sector.jsx"></script>
+  <script type="text/babel" data-presets="react" src="../filters/tweaks-panel.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "defaultMode": "company",
+      "chipStyle": "neutral",
+      "showPeerDots": true
+    }/*EDITMODE-END*/;
+
+    function ModeIcon({ kind }) {
+      if (kind === 'company') return (
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="5" cy="5" r="2.2" stroke="currentColor" strokeWidth="1.4"/><circle cx="11.5" cy="9" r="1.5" stroke="currentColor" strokeWidth="1.4"/><circle cx="4.5" cy="11.5" r="1.5" stroke="currentColor" strokeWidth="1.4"/><circle cx="11.5" cy="3.5" r="1.5" stroke="currentColor" strokeWidth="1.4"/></svg>
+      );
+      return (
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4"/></svg>
+      );
+    }
+
+    function App() {
+      const [tweaks, setTweaks] = window.useTweaks ? window.useTweaks(TWEAK_DEFAULTS) : [TWEAK_DEFAULTS, () => {}];
+
+
+      return (
+        <>
+          <div className="page-head">
+            <div>
+              <div className="eyebrow">Financial Intelligence</div>
+              <h1>Financial Benchmark</h1>
+            </div>
+            <div className="page-head-actions">
+              <button className="btn">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v6m0 0l-2-2m2 2l2-2M2 10h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                Export
+              </button>
+              <button className="btn primary">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2v8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                Save benchmark
+              </button>
+            </div>
+          </div>
+
+          <window.BenchmarkCompany tweaks={tweaks} />
+
+          {window.TweaksPanel && (
+            <window.TweaksPanel title="Benchmarking Tweaks">
+              <window.TweakSection title="Peer filter chips">
+                <window.TweakRadio label="Style" value={tweaks.chipStyle}
+                  onChange={v => setTweaks('chipStyle', v)}
+                  options={[{ value: 'neutral', label: 'Neutral' }, { value: 'cyan', label: 'Cyan' }]}/>
+              </window.TweakSection>
+              <window.TweakSection title="Distribution bars">
+                <window.TweakToggle label="Show individual peer dots" value={tweaks.showPeerDots}
+                  onChange={v => setTweaks('showPeerDots', v)}/>
+              </window.TweakSection>
+            </window.TweaksPanel>
+          )}
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('appRoot')).render(<App />);
+  </script>
+</body>
+</html>

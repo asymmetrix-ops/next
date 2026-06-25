@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Distribution viz — options</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin: 0; background: var(--ax-gray-100); font-family: var(--font-sans); color: var(--fg-1); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 28px 64px; }
+  .head .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); }
+  .head h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.015em; margin: 4px 0 6px; }
+  .head p { font-size: 13.5px; line-height: 1.5; color: var(--fg-3); max-width: 680px; margin: 0; }
+
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 26px; }
+
+  /* the option block */
+  .opt { background: transparent; }
+  .opt-label { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .opt-num { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; color: var(--ax-cyan-700); background: var(--ax-cyan-50); border: 1px solid var(--border-brand); border-radius: 5px; padding: 1px 7px; }
+  .opt-name { font-size: 13.5px; font-weight: 700; color: var(--fg-1); }
+  .opt-note { font-size: 11.5px; color: var(--fg-3); line-height: 1.45; margin: 8px 2px 0; }
+
+  /* mirror of the real headline metric card */
+  .card { background: white; border: 1px solid var(--border-1); border-radius: var(--r-lg); padding: 16px 18px; box-shadow: var(--shadow-xs); }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .card-metric { font-size: 12.5px; font-weight: 600; color: var(--fg-3); }
+  .pct-pill { display: inline-flex; align-items: baseline; gap: 3px; padding: 3px 9px; background: var(--ax-positive-bg); color: var(--ax-positive); border-radius: var(--r-pill); font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .pct-pill .u { font-size: 10px; font-weight: 600; opacity: 0.7; }
+  .card-val { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }
+  .card-val .big { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .card-val .delta { font-size: 12.5px; font-weight: 600; color: var(--ax-positive); }
+  .card-val .delta .m { color: var(--fg-4); font-weight: 500; }
+  .viz { margin-top: 14px; }
+  .scale { display: flex; justify-content: space-between; margin-top: 5px; font-size: 10.5px; color: var(--fg-4); font-variant-numeric: tabular-nums; }
+  .scale .mid { color: var(--fg-3); }
+
+  text { font-family: var(--font-sans); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="eyebrow">Benchmarking · headline cards</div>
+    <h1>Where does the target sit among peers?</h1>
+    <p>Six ways to render the same fact in the headline metric card — Gain's 26% revenue growth against 13 peers (median 14%, 85th percentile, rank #3 of 14). Same data each time; only the distribution graphic changes. Each trades off differently between <em>“how do I rank”</em> and <em>“what does the spread look like.”</em></p>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+/* ---- shared dataset (Gain, revenue growth) ---- */
+const D = {
+  metric: 'Revenue growth', unit: '%',
+  target: 26.0, median: 14.0, min: 7.0, max: 35.0, q1: 11.0, q3: 19.0,
+  pct: 85, rank: 3, of: 14,
+  peers: [7, 9, 10, 11, 12, 13, 14, 15, 17, 19, 22, 28, 35],
+};
+const POS = '#128A5C', POSBG = '#DCF3E9', GRID = '#ECEFF3', G200 = '#DDE2E8', G300 = '#C5CCD4', G400 = '#99A2AD', G500 = '#6B7480', G600 = '#4B5460';
+const W = 250; // svg content width
+const fmt = v => v.toFixed(0) + '%';
+
+/* domain helper */
+function domain() {
+  const lo0 = Math.min(D.min, D.target), hi0 = Math.max(D.max, D.target);
+  const pad = (hi0 - lo0) * 0.08;
+  const lo = lo0 - pad, hi = hi0 + pad;
+  return { lo, hi, x: v => ((v - lo) / (hi - lo)) * W };
+}
+
+/* ---------- OPTION 1 — Percentile bar ---------- */
+function optPercentile() {
+  const H = 46, barY = 14, barH = 14, pad = 6, fullW = W - pad * 2;
+  const px = pad + (D.pct / 100) * fullW;
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
+    <defs><linearGradient id="pg" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#E6EAEF"/><stop offset="0.5" stop-color="#BFE7D6"/><stop offset="1" stop-color="${POS}"/>
+    </linearGradient></defs>
+    <rect x="${pad}" y="${barY}" width="${fullW}" height="${barH}" rx="7" fill="url(#pg)"/>
+    <!-- quartile ticks -->
+    ${[25,50,75].map(q=>{const tx=pad+q/100*fullW;return `<line x1="${tx}" x2="${tx}" y1="${barY}" y2="${barY+barH}" stroke="white" stroke-width="1" opacity="0.7"/>`}).join('')}
+    <!-- marker -->
+    <line x1="${px}" x2="${px}" y1="${barY-5}" y2="${barY+barH+5}" stroke="${G600}" stroke-width="2"/>
+    <circle cx="${px}" cy="${barY+barH/2}" r="6" fill="white" stroke="${POS}" stroke-width="3"/>
+    <text x="${px}" y="9" text-anchor="middle" font-size="11" font-weight="800" fill="${POS}">85th</text>
+  </svg>
+  <div class="scale"><span>0th</span><span class="mid">50th (peer median)</span><span>100th</span></div>`;
+}
+
+/* ---------- OPTION 2 — Box & whisker ---------- */
+function optBox() {
+  const { x } = domain();
+  const H = 66, cy = 44, boxH = 18;
+  const xm = x(D.min), x1 = x(D.q1), xmd = x(D.median), x3 = x(D.q3), xM = x(D.max), xt = x(D.target);
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block">
+    <!-- whiskers -->
+    <line x1="${xm}" x2="${xM}" y1="${cy}" y2="${cy}" stroke="${G300}" stroke-width="1.5"/>
+    <line x1="${xm}" x2="${xm}" y1="${cy-5}" y2="${cy+5}" stroke="${G400}" stroke-width="1.5"/>
+    <line x1="${xM}" x2="${xM}" y1="${cy-5}" y2="${cy+5}" stroke="${G400}" stroke-width="1.5"/>
+    <!-- box -->
+    <rect x="${x1}" y="${cy-boxH/2}" width="${x3-x1}" height="${boxH}" rx="3" fill="${POSBG==='#DCF3E9'?'#EEF1F5':'#EEF1F5'}" stroke="${G300}" stroke-width="1"/>
+    <line x1="${xmd}" x2="${xmd}" y1="${cy-boxH/2}" y2="${cy+boxH/2}" stroke="${G600}" stroke-width="2"/>
+    <!-- target -->
+    <line x1="${xt}" x2="${xt}" y1="20" y2="${cy+boxH/2+2}" stroke="${POS}" stroke-width="1" stroke-dasharray="2 2" opacity="0.5"/>
+    <path d="M${xt},${cy-boxH/2-12} l6,7 -6,7 -6,-7 z" fill="${POS}" stroke="white" stroke-width="1.5"/>
+    <text x="${xt}" y="13" text-anchor="middle" font-size="11" font-weight="800" fill="${POS}">26%</text>
+    <text x="${xmd}" y="${cy+boxH/2+13}" text-anchor="middle" font-size="9.5" fill="${G500}">med 14%</text>
+  </svg>
+  <div class="scale"><span>min ${fmt(D.min)}</span><span></span><span>max ${fmt(D.max)}</span></div>`;
+}
+
+/* ---------- OPTION 3 — Mini histogram + target line ---------- */
+function optHistogram() {
+  const { lo, hi, x } = domain();
+  const H = 64, base = 50, maxH = 36, nb = 9;
+  const bw = (hi - lo) / nb;
+  const counts = new Array(nb).fill(0);
+  D.peers.forEach(v => { let i = Math.min(nb - 1, Math.floor((v - lo) / bw)); counts[i]++; });
+  const mx = Math.max(...counts);
+  const gap = 2, colW = W / nb;
+  const bars = counts.map((c, i) => {
+    const h = c ? (c / mx) * maxH : 0;
+    const bx = i * colW + gap / 2;
+    return `<rect x="${bx}" y="${base - h}" width="${colW - gap}" height="${h}" rx="2" fill="${G200}"/>`;
+  }).join('');
+  const xt = x(D.target);
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block">
+    ${bars}
+    <line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="${G200}" stroke-width="1"/>
+    <line x1="${xt}" x2="${xt}" y1="6" y2="${base}" stroke="${POS}" stroke-width="2.5"/>
+    <circle cx="${xt}" cy="6" r="3.5" fill="${POS}"/>
+    <text x="${xt > W - 28 ? xt - 6 : xt + 6}" y="14" text-anchor="${xt > W - 28 ? 'end' : 'start'}" font-size="11" font-weight="800" fill="${POS}">Gain 26%</text>
+  </svg>
+  <div class="scale"><span>${fmt(D.min)}</span><span class="mid"># of peers</span><span>${fmt(D.max)}</span></div>`;
+}
+
+/* ---------- OPTION 4 — Refined dot strip (cleaned-up current) ---------- */
+function optStrip() {
+  const { x } = domain();
+  const H = 58, cy = 40;
+  const x1 = x(D.q1), x3 = x(D.q3), xmd = x(D.median), xt = x(D.target);
+  const dots = D.peers.map(v => `<circle cx="${x(v)}" cy="${cy}" r="2.6" fill="${G400}" opacity="0.55"/>`).join('');
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block">
+    <line x1="0" x2="${W}" y1="${cy}" y2="${cy}" stroke="${GRID}" stroke-width="3" stroke-linecap="round"/>
+    <rect x="${x1}" y="${cy-6}" width="${x3-x1}" height="12" rx="3" fill="${G200}"/>
+    ${dots}
+    <line x1="${xmd}" x2="${xmd}" y1="${cy-9}" y2="${cy+9}" stroke="${G600}" stroke-width="2"/>
+    <!-- target with stem + bubble -->
+    <line x1="${xt}" x2="${xt}" y1="14" y2="${cy}" stroke="${POS}" stroke-width="1.5"/>
+    <circle cx="${xt}" cy="${cy}" r="7" fill="${POS}" stroke="white" stroke-width="2.5"/>
+    <text x="${xt}" y="11" text-anchor="middle" font-size="11" font-weight="800" fill="${POS}">26%</text>
+    <text x="${xmd}" y="${cy+20}" text-anchor="middle" font-size="9.5" fill="${G500}">med 14%</text>
+  </svg>
+  <div class="scale"><span>${fmt(D.min)}</span><span></span><span>${fmt(D.max)}</span></div>`;
+}
+
+/* ---------- OPTION 5 — Rank ladder ---------- */
+function optRank() {
+  const H = 46, y = 30, pad = 4, fullW = W - pad * 2;
+  const sorted = [...D.peers, D.target].sort((a, b) => a - b); // worst→best
+  const n = sorted.length;
+  const ticks = sorted.map((v, i) => {
+    const tx = pad + (i / (n - 1)) * fullW;
+    const isT = v === D.target;
+    if (isT) return `<line x1="${tx}" x2="${tx}" y1="${y-13}" y2="${y+8}" stroke="${POS}" stroke-width="3" stroke-linecap="round"/>
+      <text x="${tx}" y="${y-17}" text-anchor="middle" font-size="11" font-weight="800" fill="${POS}">#3</text>`;
+    return `<line x1="${tx}" x2="${tx}" y1="${y-6}" y2="${y+6}" stroke="${G300}" stroke-width="2" stroke-linecap="round"/>`;
+  }).join('');
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block">
+    <line x1="${pad}" x2="${W-pad}" y1="${y}" y2="${y}" stroke="${GRID}" stroke-width="1.5"/>
+    ${ticks}
+  </svg>
+  <div class="scale"><span>worst of ${D.of}</span><span class="mid">#3 of ${D.of}</span><span>best</span></div>`;
+}
+
+/* ---------- OPTION 6 — Density curve ---------- */
+function optDensity() {
+  const { lo, hi, x } = domain();
+  const H = 64, base = 52, top = 8;
+  const all = [...D.peers, D.target];
+  const bw = (hi - lo) / 6;
+  const N = 80;
+  const dens = [];
+  let mx = 0;
+  for (let i = 0; i <= N; i++) {
+    const xv = lo + (hi - lo) * (i / N);
+    let d = 0;
+    all.forEach(v => { const z = (xv - v) / bw; d += Math.exp(-0.5 * z * z); });
+    dens.push(d); if (d > mx) mx = d;
+  }
+  const px = i => (i / N) * W;
+  const py = d => base - (d / mx) * (base - top);
+  let line = `M0,${base}`;
+  dens.forEach((d, i) => { line += ` L${px(i).toFixed(1)},${py(d).toFixed(1)}`; });
+  const xt = x(D.target);
+  // shaded region left of target
+  const ti = Math.round((D.target - lo) / (hi - lo) * N);
+  let fill = `M0,${base}`;
+  for (let i = 0; i <= ti; i++) fill += ` L${px(i).toFixed(1)},${py(dens[i]).toFixed(1)}`;
+  fill += ` L${px(ti).toFixed(1)},${base} Z`;
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block">
+    <path d="${fill}" fill="${POSBG}"/>
+    <path d="${line}" fill="none" stroke="${G400}" stroke-width="1.5"/>
+    <line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="${G200}" stroke-width="1"/>
+    <line x1="${xt}" x2="${xt}" y1="${top-2}" y2="${base}" stroke="${POS}" stroke-width="2.5"/>
+    <circle cx="${xt}" cy="${top-2}" r="3.5" fill="${POS}"/>
+    <text x="${xt > W - 28 ? xt - 6 : xt + 6}" y="${top+5}" text-anchor="${xt > W - 28 ? 'end' : 'start'}" font-size="11" font-weight="800" fill="${POS}">26%</text>
+  </svg>
+  <div class="scale"><span>${fmt(D.min)}</span><span class="mid">beats 85% of peers</span><span>${fmt(D.max)}</span></div>`;
+}
+
+const OPTS = [
+  { n: '01', name: 'Percentile bar', note: 'Pure ranking read — a 0→100th scale with the target pinned. Instantly answers “how good is this” but hides the actual spread and values.', viz: optPercentile },
+  { n: '02', name: 'Box & whisker', note: 'The analyst-standard. Min/max whiskers, interquartile box, median line, target diamond. Precise and familiar, slightly denser.', viz: optBox },
+  { n: '03', name: 'Histogram + marker', note: 'Shows the true shape of the peer set — clusters and gaps — with the target as a line. Best for spotting a long tail or bimodal peers.', viz: optHistogram },
+  { n: '04', name: 'Refined dot-strip', note: 'The current approach, cleaned up: faint track, shaded IQR, subtle peer dots, labelled median, and a target with a value bubble + stem.', viz: optStrip },
+  { n: '05', name: 'Rank ladder', note: 'Strips out magnitude entirely — just ordinal position among the N peers. Calmest, most scannable across a column of cards.', viz: optRank },
+  { n: '06', name: 'Density curve', note: 'A smooth distribution with the “beaten” region shaded. Most elegant, but abstract — values are implied, not exact.', viz: optDensity },
+];
+
+document.getElementById('grid').innerHTML = OPTS.map(o => `
+  <div class="opt">
+    <div class="opt-label"><span class="opt-num">${o.n}</span><span class="opt-name">${o.name}</span></div>
+    <div class="card">
+      <div class="card-top">
+        <span class="card-metric">${D.metric}</span>
+        <span class="pct-pill">85th<span class="u">pctl</span></span>
+      </div>
+      <div class="card-val">
+        <span class="big">26.0%</span>
+        <span class="delta">+12.0pts <span class="m">vs median</span></span>
+      </div>
+      <div class="viz">${o.viz()}</div>
+    </div>
+    <div class="opt-note">${o.note}</div>
+  </div>
+`).join('');
+</script>
+</body>
+</html>

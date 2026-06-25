@@ -1,0 +1,440 @@
+<!doctype html>
+<!-- @dsCard group="Brand" name="Benchmarking — Viz Explorations" subtitle="Alternative directions for the headline stat + distribution read" viewport="1440x1200" -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Benchmarking — Design Explorations</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="../colors_and_type.css">
+  <style>
+    html, body { margin: 0; padding: 0; background: var(--ax-gray-50); font-family: var(--font-sans); color: var(--fg-1); }
+    :root { --shell-max: 1240px; }
+
+    /* hero */
+    .ex-hero { background: linear-gradient(160deg, var(--ax-cyan-900) 0%, var(--ax-cyan-950) 70%); color: white; }
+    .ex-hero-inner { max-width: var(--shell-max); margin: 0 auto; padding: 30px 24px 34px; }
+    .ex-back { display: inline-flex; align-items: center; gap: 6px; color: rgba(255,255,255,0.7); font-size: 12.5px; font-weight: 600; text-decoration: none; }
+    .ex-back:hover { color: white; }
+    .ex-kicker { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ax-cyan-400); margin: 22px 0 10px; }
+    .ex-hero h1 { font-size: 38px; line-height: 1.04; letter-spacing: -0.022em; font-weight: 800; margin: 0; max-width: 760px; }
+    .ex-hero h1 em { font-style: normal; color: var(--ax-cyan-300); }
+    .ex-hero p { margin: 14px 0 0; font-size: 15px; line-height: 1.55; color: rgba(255,255,255,0.78); max-width: 620px; }
+
+    .page { max-width: var(--shell-max); margin: 0 auto; padding: 8px 24px 80px; box-sizing: border-box; }
+
+    /* section header */
+    .sec { margin-top: 44px; }
+    .sec-head { display: flex; align-items: flex-end; gap: 16px; border-bottom: 2px solid var(--ax-gray-900); padding-bottom: 12px; margin-bottom: 22px; }
+    .sec-num { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: white; background: var(--ax-gray-900); border-radius: var(--r-sm); padding: 3px 8px; flex-shrink: 0; line-height: 1.2; }
+    .sec-head h2 { font-size: 23px; font-weight: 800; letter-spacing: -0.018em; margin: 0; }
+    .sec-head .q { margin-left: auto; font-size: 13.5px; color: var(--fg-3); font-weight: 500; max-width: 380px; text-align: right; }
+
+    /* concept grid */
+    .grid { display: grid; gap: 16px; }
+    .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+
+    .concept { background: white; border: 1px solid var(--border-1); border-radius: var(--r-xl); overflow: hidden; display: flex; flex-direction: column; transition: box-shadow var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); }
+    .concept:hover { box-shadow: var(--shadow-md); border-color: var(--border-2); }
+    .concept.pick { border-color: var(--ax-cyan-600); box-shadow: var(--shadow-brand-glow); }
+    .concept-top { padding: 16px 18px 8px; display: flex; align-items: center; gap: 10px; }
+    .concept-tag { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--fg-4); letter-spacing: 0.04em; }
+    .concept-name { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+    .pick-badge { margin-left: auto; font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: white; background: var(--ax-cyan-600); border-radius: var(--r-pill); padding: 3px 9px; }
+    .concept-stage { padding: 18px 18px 22px; flex: 1; display: flex; align-items: center; justify-content: center; min-height: 168px; background: linear-gradient(180deg, var(--ax-gray-25), white); }
+    .concept-stage.dark { background: none; }
+    .concept-note { padding: 13px 18px 16px; border-top: 1px solid var(--ax-gray-100); }
+    .concept-note .what { font-size: 12.5px; color: var(--fg-2); line-height: 1.5; }
+    .concept-note .trade { font-size: 11.5px; color: var(--fg-4); line-height: 1.45; margin-top: 5px; }
+    .concept-note .trade b { color: var(--ax-warning); font-weight: 700; }
+
+    .lead-row { display: flex; gap: 20px; flex-wrap: wrap; align-items: baseline; margin: -6px 0 20px; }
+    .lead-row .metric-context { font-size: 12.5px; color: var(--fg-3); }
+    .lead-row .metric-context b { color: var(--fg-1); font-weight: 700; }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <div class="ex-hero">
+    <div class="ex-hero-inner">
+      <a class="ex-back" href="Benchmarking.html">
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M7.5 2.5L4 6l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back to the control room
+      </a>
+      <div class="ex-kicker">Design exploration · Benchmarking</div>
+      <h1>How loud is the verdict, and<br>how much <em>spread</em> do we show?</h1>
+      <p>Two decisions drive how this page reads. The <strong style="color:white">headline stat</strong> sets the emotional register — gauge, rank, or grade. The <strong style="color:white">distribution</strong> decides whether we hand over a clean ranking or the messy truth of the peer field. Below: four takes on each, on the same data.</p>
+    </div>
+  </div>
+
+  <div class="page">
+    <div id="root"></div>
+  </div>
+
+  <script type="text/babel" data-presets="react">
+    // ---------- shared demo data (Gain vs 23 peers) ----------
+    const TARGET = { name: 'Gain', composite: 78, rank: 3, of: 24, overallPct: 88 };
+    const GROWTH = {
+      label: 'Revenue growth', unit: '%', target: 26.0, median: 13.5, mean: 14.8,
+      min: -4, q1: 9, q3: 21, max: 38, pct: 85,
+      peers: [-4, 2, 5, 7, 8, 9, 11, 12, 12, 13, 13.5, 14, 15, 16, 17, 18, 19, 21, 22, 24, 28, 31, 38],
+    };
+    const POS = { lo: -10, hi: 44 };
+    const px = (v) => ((v - POS.lo) / (POS.hi - POS.lo)) * 100;
+    const ord = (n) => { const s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v-20)%10] || s[v] || s[0]); };
+    const GRAD = 'linear-gradient(90deg, #EAF6F0 0%, #BEE4D2 28%, #79C9A5 56%, #2C9970 82%, #0E7A50 100%)';
+
+    function ConceptCard({ tag, name, pick, what, trade, dark, children }) {
+      return (
+        <div className={'concept' + (pick ? ' pick' : '')}>
+          <div className="concept-top">
+            <span className="concept-tag">{tag}</span>
+            <span className="concept-name">{name}</span>
+            {pick && <span className="pick-badge">Our pick</span>}
+          </div>
+          <div className={'concept-stage' + (dark ? ' dark' : '')}>{children}</div>
+          <div className="concept-note">
+            <div className="what">{what}</div>
+            <div className="trade">{trade}</div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ============================================================
+       HEADLINE STAT CONCEPTS
+       ============================================================ */
+
+    // A1 — Score card (current baseline)
+    function ScoreCard() {
+      return (
+        <div style={{ width: '100%', maxWidth: 230, background: 'linear-gradient(165deg, var(--ax-cyan-900), var(--ax-cyan-950))', borderRadius: 'var(--r-lg)', padding: '16px 18px', color: 'white' }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)' }}>Composite percentile</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>Gain vs 23 peers</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 16 }}>
+            <span style={{ fontSize: 46, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{TARGET.composite}</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>/ 100</span>
+          </div>
+          <div style={{ marginTop: 14, height: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ width: TARGET.composite + '%', height: '100%', background: 'var(--ax-cyan-400)', borderRadius: 3 }} />
+          </div>
+        </div>
+      );
+    }
+
+    // A2 — Arc gauge
+    function ArcGauge() {
+      const r = 78, cx = 100, cy = 96, sw = 16;
+      const a0 = Math.PI, a1 = 0; // 180deg sweep, left->right
+      const frac = TARGET.composite / 100;
+      const ang = a0 + (a1 - a0) * frac;
+      const pt = (a) => [cx + r * Math.cos(a), cy + r * Math.sin(a) * -1]; // y up
+      const [sx, sy] = pt(a0), [ex, ey] = pt(ang), [fx, fy] = pt(a1);
+      const knob = pt(ang);
+      const arc = (x0,y0,x1,y1,large) => `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`;
+      return (
+        <div style={{ width: '100%', maxWidth: 230, background: 'white', border: '1px solid var(--border-1)', borderRadius: 'var(--r-lg)', padding: '14px 16px 16px', textAlign: 'center' }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg-3)', textAlign: 'left' }}>Composite</div>
+          <svg viewBox="0 0 200 116" style={{ width: '100%', display: 'block' }}>
+            <path d={arc(sx,sy,fx,fy,1)} fill="none" stroke="var(--ax-gray-100)" strokeWidth={sw} strokeLinecap="round" />
+            <defs>
+              <linearGradient id="ag" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stopColor="#79C9A5" /><stop offset="1" stopColor="#0E7A50" />
+              </linearGradient>
+            </defs>
+            <path d={arc(sx,sy,ex,ey, frac > 0.5 ? 1 : 0)} fill="none" stroke="url(#ag)" strokeWidth={sw} strokeLinecap="round" />
+            <circle cx={knob[0]} cy={knob[1]} r="9" fill="white" stroke="var(--ax-positive)" strokeWidth="4" />
+            <text x="100" y="92" textAnchor="middle" fontSize="40" fontWeight="800" fill="var(--fg-1)" style={{ fontVariantNumeric: 'tabular-nums' }}>{TARGET.composite}</text>
+            <text x="100" y="110" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--fg-3)">/ 100 composite</text>
+          </svg>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ax-positive)' }}>Top {100 - TARGET.overallPct}% of the field</div>
+        </div>
+      );
+    }
+
+    // A3 — Rank-first
+    function RankFirst() {
+      return (
+        <div style={{ width: '100%', maxWidth: 230, background: 'white', border: '1px solid var(--border-1)', borderRadius: 'var(--r-lg)', padding: '18px' }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fg-3)' }}>Rank in peer set</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 8 }}>
+            <span style={{ fontSize: 60, fontWeight: 800, lineHeight: 0.9, color: 'var(--ax-cyan-700)', letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>#{TARGET.rank}</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg-3)' }}>of {TARGET.of}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 4, marginTop: 16 }}>
+            {Array.from({ length: TARGET.of }).map((_, i) => (
+              <div key={i} style={{ flex: 1, height: 22, borderRadius: 2, background: i < TARGET.rank ? 'var(--ax-cyan-600)' : 'var(--ax-gray-100)' }} />
+            ))}
+          </div>
+          <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--fg-2)' }}>
+            <b style={{ color: 'var(--fg-1)' }}>{ord(TARGET.overallPct)}</b> percentile · <b style={{ color: 'var(--fg-1)' }}>{TARGET.composite}</b>/100 composite
+          </div>
+        </div>
+      );
+    }
+
+    // A4 — Verdict / tier
+    function VerdictTier() {
+      return (
+        <div style={{ width: '100%', maxWidth: 230, background: 'var(--ax-positive-bg)', border: '1px solid #B6E2CE', borderRadius: 'var(--r-lg)', padding: '18px' }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ax-positive)' }}>The verdict</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+            <span style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--ax-positive)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 800, flexShrink: 0 }}>A−</span>
+            <div>
+              <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--ax-positive)', letterSpacing: '-0.01em', lineHeight: 1 }}>Leader</div>
+              <div style={{ fontSize: 12.5, color: 'var(--fg-2)', marginTop: 4 }}>{ord(TARGET.overallPct)} percentile overall</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 14, marginTop: 16, paddingTop: 13, borderTop: '1px solid #C2E7D6' }}>
+            <div><div style={{ fontSize: 17, fontWeight: 800, color: 'var(--fg-1)' }}>#{TARGET.rank}</div><div style={{ fontSize: 10.5, color: 'var(--fg-3)' }}>of {TARGET.of}</div></div>
+            <div><div style={{ fontSize: 17, fontWeight: 800, color: 'var(--fg-1)' }}>{TARGET.composite}</div><div style={{ fontSize: 10.5, color: 'var(--fg-3)' }}>composite</div></div>
+            <div><div style={{ fontSize: 17, fontWeight: 800, color: 'var(--ax-positive)' }}>+12pt</div><div style={{ fontSize: 10.5, color: 'var(--fg-3)' }}>vs median</div></div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ============================================================
+       DISTRIBUTION CONCEPTS  (Revenue growth, same numbers)
+       ============================================================ */
+
+    function VizFrame({ children, footer }) {
+      return (
+        <div style={{ width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--fg-3)' }}>{GROWTH.label}</span>
+            <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--fg-1)', fontVariantNumeric: 'tabular-nums' }}>{GROWTH.target}%</span>
+          </div>
+          {children}
+          {footer}
+        </div>
+      );
+    }
+
+    // B1 — Percentile bar (current)
+    function PercentileBar() {
+      const knobD = 22;
+      const clampPos = (v) => `clamp(${knobD/2}px, ${v}%, calc(100% - ${knobD/2}px))`;
+      const p = GROWTH.pct;
+      return (
+        <VizFrame footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10.5, color: 'var(--fg-4)' }}>
+            <span>0th</span><span>50th (peer median)</span><span>100th</span>
+          </div>
+        }>
+          <div style={{ position: 'relative', height: 20, marginBottom: 6 }}>
+            <span style={{ position: 'absolute', left: clampPos(p), transform: 'translateX(-50%)', fontSize: 15, fontWeight: 800, color: 'var(--ax-positive)' }}>{ord(p)}</span>
+          </div>
+          <div style={{ position: 'relative', height: 14 }}>
+            <div style={{ position: 'absolute', inset: 0, borderRadius: 7, background: GRAD }} />
+            {[25,50,75].map(x => <div key={x} style={{ position: 'absolute', top: 0, bottom: 0, left: x + '%', width: 3, transform: 'translateX(-50%)', background: 'white' }} />)}
+            <div style={{ position: 'absolute', top: '50%', left: clampPos(p), width: knobD, height: knobD, transform: 'translate(-50%,-50%)', borderRadius: '50%', background: 'white', border: '3px solid var(--ax-positive)', boxShadow: 'var(--shadow-sm)' }} />
+          </div>
+        </VizFrame>
+      );
+    }
+
+    // B2 — Dot strip (beeswarm)
+    function DotStrip() {
+      const H = 60;
+      return (
+        <VizFrame footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10.5, color: 'var(--fg-4)' }}>
+            <span>{GROWTH.min}%</span><span>median {GROWTH.median}%</span><span>{GROWTH.max}%</span>
+          </div>
+        }>
+          <div style={{ position: 'relative', height: H }}>
+            <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: 2, transform: 'translateY(-50%)', background: 'var(--ax-gray-100)' }} />
+            {/* median tick */}
+            <div style={{ position: 'absolute', top: 6, bottom: 6, left: px(GROWTH.median) + '%', width: 2, transform: 'translateX(-50%)', background: 'var(--ax-gray-500)' }} />
+            {GROWTH.peers.map((v, i) => (
+              <div key={i} style={{ position: 'absolute', left: px(v) + '%', top: `calc(50% + ${(i % 2 ? 1 : -1) * (5 + (i % 3) * 4)}px)`, width: 8, height: 8, transform: 'translate(-50%,-50%)', borderRadius: '50%', background: 'var(--ax-gray-300)', border: '1px solid white' }} />
+            ))}
+            {/* target */}
+            <div style={{ position: 'absolute', left: px(GROWTH.target) + '%', top: '50%', width: 16, height: 16, transform: 'translate(-50%,-50%)', borderRadius: '50%', background: 'var(--ax-positive)', border: '2.5px solid white', boxShadow: '0 0 0 1px var(--ax-positive)' }} />
+            <span style={{ position: 'absolute', left: px(GROWTH.target) + '%', top: 'calc(50% - 22px)', transform: 'translateX(-50%)', fontSize: 11.5, fontWeight: 800, color: 'var(--ax-positive)', whiteSpace: 'nowrap' }}>Gain · {GROWTH.target}%</span>
+          </div>
+        </VizFrame>
+      );
+    }
+
+    // B3 — Box & whisker
+    function BoxWhisker() {
+      const y = 30;
+      return (
+        <VizFrame footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10.5, color: 'var(--fg-4)' }}>
+            <span>{GROWTH.min}%</span><span>{GROWTH.max}%</span>
+          </div>
+        }>
+          <div style={{ position: 'relative', height: 64 }}>
+            <svg viewBox="0 0 100 64" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+              {/* whiskers */}
+              <line x1={px(GROWTH.min)} y1={y} x2={px(GROWTH.q1)} y2={y} stroke="var(--ax-gray-400)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+              <line x1={px(GROWTH.q3)} y1={y} x2={px(GROWTH.max)} y2={y} stroke="var(--ax-gray-400)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+              <line x1={px(GROWTH.min)} y1={y-7} x2={px(GROWTH.min)} y2={y+7} stroke="var(--ax-gray-400)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+              <line x1={px(GROWTH.max)} y1={y-7} x2={px(GROWTH.max)} y2={y+7} stroke="var(--ax-gray-400)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            </svg>
+            {/* IQR box */}
+            <div style={{ position: 'absolute', top: y - 12, height: 24, left: px(GROWTH.q1) + '%', width: (px(GROWTH.q3) - px(GROWTH.q1)) + '%', background: 'var(--ax-cyan-50)', border: '1.5px solid var(--ax-cyan-500)', borderRadius: 3, top: 18 }} />
+            {/* median */}
+            <div style={{ position: 'absolute', top: 18, height: 24, left: px(GROWTH.median) + '%', width: 2.5, transform: 'translateX(-50%)', background: 'var(--ax-cyan-700)' }} />
+            {/* target */}
+            <div style={{ position: 'absolute', top: y, left: px(GROWTH.target) + '%', width: 16, height: 16, transform: 'translate(-50%,-50%)', borderRadius: '50%', background: 'var(--ax-positive)', border: '2.5px solid white', boxShadow: '0 0 0 1px var(--ax-positive)' }} />
+            <span style={{ position: 'absolute', left: px(GROWTH.target) + '%', top: 0, transform: 'translateX(-50%)', fontSize: 11.5, fontWeight: 800, color: 'var(--ax-positive)' }}>Gain</span>
+            <span style={{ position: 'absolute', left: px(GROWTH.median) + '%', top: 46, transform: 'translateX(-50%)', fontSize: 10.5, fontWeight: 600, color: 'var(--ax-cyan-700)' }}>median</span>
+          </div>
+        </VizFrame>
+      );
+    }
+
+    // B4 — Density ridgeline
+    function Density() {
+      // simple gaussian KDE over peers
+      const N = 80, bw = 5.5;
+      const xs = Array.from({ length: N }, (_, i) => POS.lo + (POS.hi - POS.lo) * i / (N - 1));
+      const all = GROWTH.peers.concat([GROWTH.target]);
+      const dens = xs.map(x => all.reduce((s, v) => s + Math.exp(-((x - v) ** 2) / (2 * bw * bw)), 0));
+      const dmax = Math.max(...dens);
+      const W = 100, H = 56;
+      const X = x => ((x - POS.lo) / (POS.hi - POS.lo)) * W;
+      const Y = d => H - (d / dmax) * (H - 6);
+      let d = `M 0 ${H} `;
+      xs.forEach((x, i) => { d += `L ${X(x).toFixed(2)} ${Y(dens[i]).toFixed(2)} `; });
+      d += `L ${W} ${H} Z`;
+      return (
+        <VizFrame footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10.5, color: 'var(--fg-4)' }}>
+            <span>{GROWTH.min}%</span><span>median {GROWTH.median}%</span><span>{GROWTH.max}%</span>
+          </div>
+        }>
+          <div style={{ position: 'relative', height: 64 }}>
+            <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: 56 }}>
+              <defs><linearGradient id="dg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#BEE4D2" /><stop offset="1" stopColor="#2C9970" /></linearGradient></defs>
+              <path d={d} fill="url(#dg)" fillOpacity="0.55" stroke="#2C9970" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            </svg>
+            <div style={{ position: 'absolute', top: 0, bottom: 8, left: px(GROWTH.median) + '%', width: 1.5, transform: 'translateX(-50%)', background: 'var(--ax-gray-500)', borderLeft: '1px dashed var(--ax-gray-500)' }} />
+            <div style={{ position: 'absolute', top: 0, bottom: 8, left: px(GROWTH.target) + '%', width: 2.5, transform: 'translateX(-50%)', background: 'var(--ax-positive)' }} />
+            <span style={{ position: 'absolute', left: px(GROWTH.target) + '%', top: -2, transform: 'translateX(-50%)', fontSize: 11.5, fontWeight: 800, color: 'var(--ax-positive)', whiteSpace: 'nowrap' }}>Gain {GROWTH.target}%</span>
+          </div>
+        </VizFrame>
+      );
+    }
+
+    // B5 — Bullet chart
+    function Bullet() {
+      const bands = [ { to: 33, c: '#EAF6F0' }, { to: 66, c: '#CDEBDC' }, { to: 100, c: '#A6DCC2' } ];
+      return (
+        <VizFrame footer={
+          <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 10.5, color: 'var(--fg-4)' }}>
+            <span><span style={{ display: 'inline-block', width: 9, height: 9, background: '#A6DCC2', borderRadius: 2, marginRight: 4, verticalAlign: -1 }} />laggard → pack → leader</span>
+            <span style={{ marginLeft: 'auto' }}><span style={{ display: 'inline-block', width: 9, height: 9, background: 'var(--ax-gray-500)', borderRadius: 2, marginRight: 4, verticalAlign: -1 }} />peer median</span>
+          </div>
+        }>
+          <div style={{ position: 'relative', height: 34 }}>
+            {/* qualitative bands */}
+            <div style={{ position: 'absolute', inset: 0, borderRadius: 5, overflow: 'hidden', display: 'flex' }}>
+              {bands.map((b, i) => <div key={i} style={{ width: (b.to - (bands[i-1]?.to || 0)) + '%', background: b.c }} />)}
+            </div>
+            {/* median tick */}
+            <div style={{ position: 'absolute', top: -4, bottom: -4, left: px(GROWTH.median) + '%', width: 2.5, transform: 'translateX(-50%)', background: 'var(--ax-gray-500)' }} />
+            {/* target measure bar */}
+            <div style={{ position: 'absolute', top: '50%', left: 0, height: 10, width: px(GROWTH.target) + '%', transform: 'translateY(-50%)', background: 'var(--ax-positive)', borderRadius: '0 3px 3px 0' }} />
+            <span style={{ position: 'absolute', left: `calc(${px(GROWTH.target)}% + 6px)`, top: '50%', transform: 'translateY(-50%)', fontSize: 11.5, fontWeight: 800, color: 'var(--ax-positive)' }}>Gain</span>
+          </div>
+        </VizFrame>
+      );
+    }
+
+    function App() {
+      return (
+        <>
+          {/* SECTION 1 — headline stat */}
+          <div className="sec">
+            <div className="sec-head">
+              <span className="sec-num">01</span>
+              <h2>The headline stat</h2>
+              <span className="q">One number, four registers — from quiet score to a stated verdict.</span>
+            </div>
+            <div className="grid cols-2" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+              <ConceptCard tag="A1" name="Score card" dark
+                what="Today's baseline — composite out of 100 with a fill bar."
+                trade="Calm and on-brand, but the number floats free of any reference — 78 of what?">
+                <ScoreCard />
+              </ConceptCard>
+              <ConceptCard tag="A2" name="Arc gauge" pick dark
+                what="A dial fills toward the score, with a plain-English 'top 12%' beneath."
+                trade="Instantly legible and confident; the arc gives the number a frame to sit in.">
+                <ArcGauge />
+              </ConceptCard>
+              <ConceptCard tag="A3" name="Rank-first" dark
+                what="Leads with #3 of 24 and a seat-map of the field; percentile plays support."
+                trade="Most concrete read of all. Rank swings hard as the peer set changes.">
+                <RankFirst />
+              </ConceptCard>
+              <ConceptCard tag="A4" name="Verdict tier" dark
+                what="States a conclusion — a grade and a 'Leader' label — then backs it with stats."
+                trade={<>Punchiest by far. <b>Opinionated</b> — needs defensible grade thresholds.</>}>
+                <VerdictTier />
+              </ConceptCard>
+            </div>
+          </div>
+
+          {/* SECTION 2 — distribution */}
+          <div className="sec">
+            <div className="sec-head">
+              <span className="sec-num">02</span>
+              <h2>The distribution read</h2>
+              <span className="q">All five show Gain at 26.0% revenue growth — they differ on how much of the peer field they reveal.</span>
+            </div>
+            <div className="lead-row">
+              <span className="metric-context">Same data throughout · target <b>Gain 26.0%</b> · peer median <b>13.5%</b> · range <b>−4% to 38%</b> · <b>85th</b> percentile</span>
+            </div>
+            <div className="grid cols-3">
+              <ConceptCard tag="B1" name="Percentile bar" 
+                what="Pure ranking read — a 0–100 scale with the target pinned."
+                trade={<>Answers “how good?” instantly but <b>hides spread and real values</b>.</>}>
+                <PercentileBar />
+              </ConceptCard>
+              <ConceptCard tag="B2" name="Dot strip" pick
+                what="Every peer is a dot; the target lights up. Shows clustering, gaps and outliers."
+                trade="Honest and rich. Reads best with a label only on the target.">
+                <DotStrip />
+              </ConceptCard>
+              <ConceptCard tag="B3" name="Box & whisker" 
+                what="The classic: IQR box, median line, whiskers to the extremes, target dot."
+                trade={<>Precise five-number summary. <b>Assumes a stats-literate reader</b>.</>}>
+                <BoxWhisker />
+              </ConceptCard>
+              <ConceptCard tag="B4" name="Density curve" 
+                what="A smoothed shape of the field — where peers bunch and where they thin out."
+                trade={<>Beautiful for big peer sets; <b>fuzzy and overkill</b> for ~20 names.</>}>
+                <Density />
+              </ConceptCard>
+              <ConceptCard tag="B5" name="Bullet chart" 
+                what="Qualitative bands (laggard → pack → leader) with a target bar and median tick."
+                trade="Great for at-a-glance status; bands need a defined, defensible cutoff.">
+                <Bullet />
+              </ConceptCard>
+              <div className="concept" style={{ border: '1px dashed var(--border-2)', background: 'var(--ax-gray-25)', justifyContent: 'center', alignItems: 'center', padding: 22, textAlign: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--fg-1)', marginBottom: 6 }}>Recommended pairing</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--fg-2)', lineHeight: 1.55 }}>
+                    <b>Dot strip</b> in the scorecard rows (truth of the field) + <b>percentile bar</b> in the headline cards (fast verdict). Best of both reads without doubling the ink.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
