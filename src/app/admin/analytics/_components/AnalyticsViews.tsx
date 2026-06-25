@@ -2706,6 +2706,40 @@ function eaFormatRatePct(value: string | number | null | undefined): string {
   return `${n % 1 === 0 ? Math.round(n) : n.toFixed(1)}%`;
 }
 
+/** Failed = API status is failed and more than one send attempt failed. */
+function eaIsEmailFailed(
+  status: string | null | undefined,
+  failedAttempts: number
+): boolean {
+  return (status ?? "").toLowerCase() === "failed" && failedAttempts > 1;
+}
+
+function eaEffectiveEngagementStatus(
+  status: string | null | undefined,
+  failedAttempts: number
+): string {
+  if (eaIsEmailFailed(status, failedAttempts)) return "failed";
+  if ((status ?? "").toLowerCase() === "failed") return "active";
+  return status ?? "";
+}
+
+function eaDisplayFailedAttempts(
+  status: string | null | undefined,
+  failedAttempts: number
+): string | number {
+  return eaIsEmailFailed(status, failedAttempts) ? failedAttempts : "—";
+}
+
+function eaSumFailedAttempts(
+  rows: Array<{ status?: string; engagement_status?: string; failed_attempts?: number }>
+): number {
+  return rows.reduce((sum, row) => {
+    const status = row.engagement_status ?? row.status ?? "";
+    const attempts = row.failed_attempts ?? 0;
+    return sum + (eaIsEmailFailed(status, attempts) ? attempts : 0);
+  }, 0);
+}
+
 function eaFailedAttemptsByType(
   perAlert: EAEmailPerAlertEngagement[]
 ): Record<string, number> {
@@ -3041,7 +3075,10 @@ function EAEmailListRow({ item }: { item: EAEmailListItem }) {
     : null;
   const stale =
     eaDaysSince(lastOpened ? new Date(lastOpened).toISOString() : null) > 7;
-  const badge = eaEngagementBadge(item.engagement_status, item.total_bounced);
+  const badge = eaEngagementBadge(
+    eaEffectiveEngagementStatus(item.engagement_status, item.total_failed),
+    item.total_bounced
+  );
   const subscriptionTypes = item.subscriptions
     ? item.subscriptions.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
@@ -3218,6 +3255,20 @@ function EAEmailUserDetailPanel({
   const openRate =
     detail.open_rate_tracked_pct || detail.open_rate_pct;
   const failedAttemptsByType = eaFailedAttemptsByType(detail.per_alert_engagement);
+  const totalFailedAttempts =
+    detail.per_alert_engagement.length > 0
+      ? eaSumFailedAttempts(detail.per_alert_engagement)
+      : detail.by_email_type.length > 0
+      ? eaSumFailedAttempts(
+          detail.by_email_type.map((row) => ({
+            status: row.status,
+            failed_attempts:
+              row.failed_attempts ?? failedAttemptsByType[row.item_type] ?? 0,
+          }))
+        )
+      : eaIsEmailFailed("failed", detail.total_failed)
+      ? detail.total_failed
+      : 0;
 
   return (
     <div className="px-4 py-3 bg-gray-50 space-y-4 border-t border-gray-100">
@@ -3251,7 +3302,7 @@ function EAEmailUserDetailPanel({
           <div className="rounded border bg-white px-3 py-2">
             <div className="text-xs text-gray-500">Failed attempts</div>
             <div className="text-lg font-medium text-amber-700">
-              {detail.total_failed}
+              {totalFailedAttempts > 0 ? totalFailedAttempts : "—"}
             </div>
           </div>
           <div className="rounded border bg-white px-3 py-2">
@@ -3303,9 +3354,12 @@ function EAEmailUserDetailPanel({
               <tbody>
                 {detail.by_email_type.map((row) => {
                   const { label, cls } = eaAlertLabel(row.item_type);
-                  const badge = eaEngagementBadge(row.status, 0);
                   const failedAttempts =
                     row.failed_attempts ?? failedAttemptsByType[row.item_type] ?? 0;
+                  const badge = eaEngagementBadge(
+                    eaEffectiveEngagementStatus(row.status, failedAttempts),
+                    0
+                  );
                   return (
                     <tr
                       key={row.item_type}
@@ -3327,9 +3381,7 @@ function EAEmailUserDetailPanel({
                       <td className="px-3 py-2 text-green-700">{row.opened}</td>
                       <td className="px-3 py-2 text-blue-700">{row.clicked}</td>
                       <td className="px-3 py-2 text-amber-700">
-                        {row.status === "failed" || failedAttempts > 0
-                          ? failedAttempts
-                          : "—"}
+                        {eaDisplayFailedAttempts(row.status, failedAttempts)}
                       </td>
                       <td className="px-3 py-2">
                         <span
@@ -3391,7 +3443,13 @@ function EAEmailUserDetailPanel({
               <tbody>
                 {detail.per_alert_engagement.map((row) => {
                   const { label, cls } = eaAlertLabel(row.item_type);
-                  const badge = eaEngagementBadge(row.engagement_status, 0);
+                  const badge = eaEngagementBadge(
+                    eaEffectiveEngagementStatus(
+                      row.engagement_status,
+                      row.failed_attempts
+                    ),
+                    0
+                  );
                   return (
                     <tr
                       key={row.alert_id}
@@ -3423,10 +3481,10 @@ function EAEmailUserDetailPanel({
                         {row.clicks_tracked}
                       </td>
                       <td className="px-3 py-2 text-amber-700">
-                        {row.engagement_status === "failed" ||
-                        row.failed_attempts > 0
-                          ? row.failed_attempts
-                          : "—"}
+                        {eaDisplayFailedAttempts(
+                          row.engagement_status,
+                          row.failed_attempts
+                        )}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-gray-600">
                         {row.last_opened_at > 0
