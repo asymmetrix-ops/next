@@ -60,7 +60,10 @@ const useAdvisorsAPI = () => {
           }
           setRoleCounts((current) => ({
             ...countsData,
-            totalCount: current.totalCount || countsData.totalCount,
+            totalCount:
+              countsData.totalCount > 0
+                ? countsData.totalCount
+                : current.totalCount,
           }));
         })
         .catch((countsError) => {
@@ -70,7 +73,12 @@ const useAdvisorsAPI = () => {
   }, []);
 
   const fetchAdvisors = useCallback(
-    async (page: number = 1, filters?: Filters, countsFilters?: Filters) => {
+    async (
+      page: number = 1,
+      filters?: Filters,
+      countsFilters?: Filters,
+      refreshCounts: boolean = true
+    ) => {
       const requestId = ++lastRequestIdRef.current;
       setLoading(true);
       setError(null);
@@ -88,10 +96,12 @@ const useAdvisorsAPI = () => {
           ? filters
           : currentFiltersRef.current ?? createDefaultAdvisorFilters();
       const countsFiltersToUse =
-        countsFilters ?? currentCountsFiltersRef.current ?? filtersToUse;
+        countsFilters ??
+        currentCountsFiltersRef.current ??
+        filtersToUse;
 
       try {
-        if (page === 1) {
+        if (page === 1 && refreshCounts) {
           scheduleCountsFetch(countsFiltersToUse);
         }
 
@@ -110,10 +120,15 @@ const useAdvisorsAPI = () => {
             pageTotal: data.pageTotal,
             itemsTotal: data.itemsTotal,
           });
-          if (page === 1) {
+          if (
+            page === 1 &&
+            !filtersToUse.advisor_role_ids_str &&
+            data.itemsTotal > 0
+          ) {
             setRoleCounts((current) => ({
               ...current,
-              totalCount: data.itemsTotal,
+              totalCount:
+                current.totalCount > 0 ? current.totalCount : data.itemsTotal,
             }));
           }
         }
@@ -196,9 +211,19 @@ function AdvisorsPageInner() {
   }, []);
 
   const handleSearch = useCallback(
-    (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
+    (
+      listFilters: Filters,
+      countsFilters: Filters,
+      portfolioOnly?: boolean,
+      refreshCounts: boolean = true
+    ) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      void fetchAdvisors(1, mergeSortIntoFilters(listFilters), countsFilters);
+      void fetchAdvisors(
+        1,
+        mergeSortIntoFilters(listFilters),
+        countsFilters,
+        refreshCounts
+      );
     },
     [fetchAdvisors, mergeSortIntoFilters]
   );

@@ -21,6 +21,9 @@ import {
   FILTER_CATEGORIES,
   buildAdvisorsFilterDefs,
   EMPTY_ADVISORS_ROLE_COUNTS,
+  ADVISOR_ROLE_TAB_CONFIG,
+  ADVISOR_ROLE_TAB_ORDER,
+  type AdvisorRoleTab,
   type AdvisorsRoleCounts,
   type Country,
   type Province,
@@ -40,7 +43,8 @@ export type AdvisorDashboardProps = {
   onSearch?: (
     listFilters: AdvisorsSearchFilters,
     countsFilters: AdvisorsSearchFilters,
-    portfolioOnly?: boolean
+    portfolioOnly?: boolean,
+    refreshCounts?: boolean
   ) => void;
   onFilterColumnsChange?: (payload: { filterIds: string[] }) => void;
   initialSearch?: string;
@@ -77,6 +81,8 @@ export const AdvisorDashboard = ({
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
+  const [activeAdvisorRoleTab, setActiveAdvisorRoleTab] =
+    useState<AdvisorRoleTab>("all");
 
   const selectedCountries = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "country");
@@ -175,15 +181,18 @@ export const AdvisorDashboard = ({
     });
   }, [filterBarState.filters]);
 
-  const buildSearchFilters = useCallback(
-    (): AdvisorsSearchFilters =>
-      buildAdvisorsSearchPayload({
-        state: filterBarState,
-        primarySectors,
-        secondarySectors,
-      }),
-    [filterBarState, primarySectors, secondarySectors]
-  );
+  const buildSearchFilters = useCallback((): AdvisorsSearchFilters => {
+    const tabConfig =
+      activeAdvisorRoleTab !== "all"
+        ? ADVISOR_ROLE_TAB_CONFIG[activeAdvisorRoleTab]
+        : null;
+    return buildAdvisorsSearchPayload({
+      state: filterBarState,
+      primarySectors,
+      secondarySectors,
+      advisorRoleId: tabConfig?.roleId,
+    });
+  }, [filterBarState, primarySectors, secondarySectors, activeAdvisorRoleTab]);
 
   const buildCountsSearchFilters = useCallback(
     (): AdvisorsSearchFilters =>
@@ -239,15 +248,40 @@ export const AdvisorDashboard = ({
     };
   }, [filterSearchKey]);
 
-  const matchCount = roleCounts.totalCount;
+  const skipInitialRoleTabRef = useRef(true);
+  useEffect(() => {
+    if (skipInitialRoleTabRef.current) {
+      skipInitialRoleTabRef.current = false;
+      return;
+    }
+    onSearchRef.current?.(
+      buildSearchFiltersRef.current(),
+      buildCountsSearchFiltersRef.current(),
+      isPortfolioFilterActiveRef.current,
+      false
+    );
+  }, [activeAdvisorRoleTab]);
 
-  const roleStats = [
-    { label: "Financial Advisors", value: roleCounts.financialAdvisors },
-    { label: "Commercial Due Diligence", value: roleCounts.commercialDueDiligence },
-    { label: "Vendor Due Diligence", value: roleCounts.vendorDueDiligence },
-    { label: "Management Team Advisory", value: roleCounts.managementTeamAdvisory },
-    { label: "NOMAD", value: roleCounts.nomad },
+  const roleTabs: {
+    id: AdvisorRoleTab;
+    label: string;
+    count: number;
+    dot: string;
+  }[] = [
+    { id: "all", label: "All", count: roleCounts.totalCount, dot: "#64748b" },
+    ...ADVISOR_ROLE_TAB_ORDER.map((id) => ({
+      id,
+      label: ADVISOR_ROLE_TAB_CONFIG[id].label,
+      count: roleCounts[ADVISOR_ROLE_TAB_CONFIG[id].countKey],
+      dot: ADVISOR_ROLE_TAB_CONFIG[id].dot,
+    })),
   ];
+
+  const matchCount =
+    activeAdvisorRoleTab === "all"
+      ? roleCounts.totalCount
+      : roleTabs.find((tab) => tab.id === activeAdvisorRoleTab)?.count ??
+        roleCounts.totalCount;
 
   return (
     <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
@@ -259,7 +293,7 @@ export const AdvisorDashboard = ({
             alignItems: "flex-start",
             gap: 16,
             flexWrap: "wrap",
-            marginBottom: 14,
+            marginBottom: 18,
           }}
         >
           <div>
@@ -319,24 +353,49 @@ export const AdvisorDashboard = ({
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "10px 18px",
-            paddingBottom: 14,
-            fontSize: 12,
-            color: "#64748b",
-          }}
-        >
-          {roleStats.map((stat) => (
-            <span key={stat.label}>
-              <span style={{ color: "#94a3b8" }}>{stat.label}: </span>
-              <span style={{ fontWeight: 600, color: "#334155" }}>
-                {stat.value.toLocaleString()}
-              </span>
-            </span>
-          ))}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", paddingBottom: 14 }}>
+          {roleTabs.map((tab) => {
+            const active = activeAdvisorRoleTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveAdvisorRoleTab(tab.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  height: 34,
+                  padding: "0 14px",
+                  background: active ? "#0f172a" : "transparent",
+                  color: active ? "#fff" : "#64748b",
+                  border: "1px solid",
+                  borderColor: active ? "#0f172a" : "transparent",
+                  borderBottom: "none",
+                  borderRadius: "8px 8px 0 0",
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 500,
+                  cursor: "pointer",
+                  transition: "background 0.12s, color 0.12s",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: active ? "rgba(255,255,255,0.7)" : tab.dot,
+                    flexShrink: 0,
+                  }}
+                />
+                {tab.label}
+                <span style={{ fontSize: 12, opacity: 0.75 }}>
+                  {tab.count.toLocaleString()}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
