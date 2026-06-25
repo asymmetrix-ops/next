@@ -25,6 +25,12 @@ import {
   mapManagementRoleToCard,
   type ManagementRoleLike,
 } from "@/utils/individualHelpers";
+import {
+  fetchCompanyLinkedIn,
+  mapLinkedInHistoryToTimeSeries,
+  resolveLinkedInDisplayEmployeeCount,
+  type CompanyLinkedInResponse,
+} from "@/lib/companyLinkedIn";
 
 type ManagementRole = ManagementRoleLike & {
   id: number;
@@ -969,6 +975,8 @@ const CompanyDetail = () => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
   const [isOverviewNarrow, setIsOverviewNarrow] = useState(false);
+  const [companyLinkedIn, setCompanyLinkedIn] =
+    useState<CompanyLinkedInResponse | null>(null);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -1477,6 +1485,17 @@ const CompanyDetail = () => {
       fetchFinancialMetrics(companyId);
       fetchCompanyInvestors(companyId);
       fetchCompanyTransactionStatus(companyId);
+
+      setCompanyLinkedIn(null);
+      void (async () => {
+        try {
+          const token = localStorage.getItem("asymmetrix_auth_token");
+          const data = await fetchCompanyLinkedIn(companyId, token);
+          setCompanyLinkedIn(data);
+        } catch (err) {
+          console.warn("Failed to fetch company LinkedIn data:", err);
+        }
+      })();
     }
   }, [
     companyId,
@@ -1750,7 +1769,9 @@ const CompanyDetail = () => {
 
   // Compute a safe LinkedIn URL from API (only allow linkedin.com domains)
   const linkedinUrl: string | undefined = (() => {
-    const raw = company.linkedin_data?.LinkedIn_URL;
+    const raw =
+      companyLinkedIn?.profile?.linkedin_url ??
+      company.linkedin_data?.LinkedIn_URL;
     if (!raw) return undefined;
     const trimmed = String(raw).trim();
     if (!trimmed) return undefined;
@@ -2068,12 +2089,22 @@ const CompanyDetail = () => {
         typeof row.ebitda === "number"
     );
 
-  // Process employee data
-  const employeeData = company._companies_employees_count_monthly || [];
-  const currentEmployeeCount =
+  // Process employee data (LinkedIn history preferred; profile count for headline)
+  const employeeData =
+    companyLinkedIn?.employee_history &&
+    companyLinkedIn.employee_history.length > 0
+      ? mapLinkedInHistoryToTimeSeries(companyLinkedIn.employee_history)
+      : company._companies_employees_count_monthly || [];
+  const seriesEmployeeCount =
     employeeData.length > 0
       ? employeeData[employeeData.length - 1].employees_count
       : 0;
+  const currentEmployeeCount = resolveLinkedInDisplayEmployeeCount(
+    companyLinkedIn,
+    seriesEmployeeCount
+  );
+  const linkedinGrowthPct =
+    companyLinkedIn?.growth_1y_pct ?? company.linkedin_growth_1y_pct;
 
   // Determine if there are subsidiaries to display
   const hasSubsidiaries = Boolean(
@@ -4206,10 +4237,10 @@ const CompanyDetail = () => {
                   LinkedIn growth (1 yr):
                 </span>
                 <span style={styles.value}>
-                  {formatPercent(company.linkedin_growth_1y_pct)}
+                  {formatPercent(linkedinGrowthPct)}
                 </span>
                 <span style={styles.sourceValue}>
-                  {getNumeric(company.linkedin_growth_1y_pct) !== undefined
+                  {getNumeric(linkedinGrowthPct) !== undefined
                     ? "LinkedIn"
                     : ""}
                 </span>
@@ -4735,10 +4766,10 @@ const CompanyDetail = () => {
                   LinkedIn growth (1 yr):
                 </span>
                 <span style={styles.value}>
-                  {formatPercent(company.linkedin_growth_1y_pct)}
+                  {formatPercent(linkedinGrowthPct)}
                 </span>
                 <span style={styles.sourceValue}>
-                  {getNumeric(company.linkedin_growth_1y_pct) !== undefined
+                  {getNumeric(linkedinGrowthPct) !== undefined
                     ? "LinkedIn"
                     : ""}
                 </span>

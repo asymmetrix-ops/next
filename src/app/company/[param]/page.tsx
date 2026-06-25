@@ -25,7 +25,9 @@ import {
 import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
 import {
   fetchCompanyLinkedIn,
+  formatLinkedInEmployeeCountDate,
   mapLinkedInHistoryToTimeSeries,
+  resolveLinkedInDisplayEmployeeCount,
   type CompanyLinkedInResponse,
 } from "@/lib/companyLinkedIn";
 import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
@@ -2747,13 +2749,20 @@ const CompanyDetail = () => {
     companyLinkedIn?.employee_history && companyLinkedIn.employee_history.length > 0
       ? mapLinkedInHistoryToTimeSeries(companyLinkedIn.employee_history)
       : resolveEmployeeTimeSeries(company);
-  const currentEmployeeCount = (() => {
-    const fromSeries = resolveChartEmployeeCount(employeeData);
-    if (fromSeries > 0) return fromSeries;
-    const fromProfile = companyLinkedIn?.profile?.employee_count;
-    if (typeof fromProfile === "number" && fromProfile > 0) return fromProfile;
-    return 0;
-  })();
+  const currentEmployeeCount = resolveLinkedInDisplayEmployeeCount(
+    companyLinkedIn,
+    resolveChartEmployeeCount(employeeData)
+  );
+
+  const employeeCountAsOf =
+    formatLinkedInEmployeeCountDate(
+      companyLinkedIn?.profile?.employee_count_date
+    ) ??
+    (() => {
+      const latest = employeeData[employeeData.length - 1];
+      if (!latest?.date) return undefined;
+      return formatLinkedInEmployeeCountDate(latest.date);
+    })();
 
   const finMetricsData = buildFinancialMetricsSections({
     financialMetrics,
@@ -4558,18 +4567,7 @@ const CompanyDetail = () => {
                 dates={employeeData.map((e) => e.date)}
                 count={currentEmployeeCount}
                 yoyLabel={overviewEmployeesYoY || undefined}
-                asOf={(() => {
-                  const latest = employeeData[employeeData.length - 1];
-                  if (!latest?.date) return undefined;
-                  try {
-                    return new Date(latest.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      year: "numeric",
-                    });
-                  } catch {
-                    return undefined;
-                  }
-                })()}
+                asOf={employeeCountAsOf}
                 linkedinUrl={linkedinUrl}
               />
             </div>
@@ -4689,22 +4687,7 @@ const CompanyDetail = () => {
                   dates={employeeData.map((e) => e.date)}
                   count={currentEmployeeCount}
                   yoyLabel={overviewEmployeesYoY || undefined}
-                  asOf={(() => {
-                    const nonZero = employeeData.filter((e) => e.employees_count > 0);
-                    const ref =
-                      nonZero.length > 0
-                        ? nonZero[nonZero.length - 1]
-                        : employeeData[employeeData.length - 1];
-                    if (!ref?.date) return undefined;
-                    try {
-                      return new Date(ref.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        year: "numeric",
-                      });
-                    } catch {
-                      return undefined;
-                    }
-                  })()}
+                  asOf={employeeCountAsOf}
                   linkedinUrl={linkedinUrl}
                 />
               </div>

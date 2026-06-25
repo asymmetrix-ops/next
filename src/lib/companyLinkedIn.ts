@@ -40,6 +40,25 @@ export function mapLinkedInHistoryToTimeSeries(
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** Headline count: prefer LinkedIn profile snapshot over last history point. */
+export function resolveLinkedInDisplayEmployeeCount(
+  linkedIn: CompanyLinkedInResponse | null | undefined,
+  fallbackFromSeries = 0
+): number {
+  const fromProfile = linkedIn?.profile?.employee_count;
+  if (typeof fromProfile === "number" && fromProfile > 0) return fromProfile;
+  return fallbackFromSeries;
+}
+
+export function formatLinkedInEmployeeCountDate(
+  dateStr: string | undefined
+): string | undefined {
+  if (!dateStr) return undefined;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
 export async function fetchCompanyLinkedIn(
   newCompanyId: string | number,
   token?: string | null
