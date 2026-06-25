@@ -26,6 +26,8 @@ export interface AdvisorSearchPayload {
   events_loc_filter_sql: string;
   Primary_ids_str: string;
   Secondary_ids_str: string;
+  /** Comma-separated role ids for list filtering (empty = all advisors). */
+  advisor_role_ids_str: string;
   need_geo_count: string;
   need_sector_count: string;
   page: number;
@@ -176,6 +178,7 @@ export function buildAdvisorSearchPayloadFromClauses(
     events_loc_filter_sql: buildAdvisorFiltersSql(locClauses, linkedinAlias),
     Primary_ids_str: (options.primarySectorIds ?? []).join(","),
     Secondary_ids_str: (options.secondarySectorIds ?? []).join(","),
+    advisor_role_ids_str: "",
     need_geo_count: options.needGeoCount ? "1" : "0",
     need_sector_count: options.needSectorCount ? "1" : "0",
     page,
@@ -192,6 +195,7 @@ export function advisorSearchPayloadToRequestBody(
     events_loc_filter_sql: payload.events_loc_filter_sql || "",
     Primary_ids_str: payload.Primary_ids_str || "",
     Secondary_ids_str: payload.Secondary_ids_str || "",
+    advisor_role_ids_str: payload.advisor_role_ids_str || "",
     need_geo_count: payload.need_geo_count || "0",
     need_sector_count: payload.need_sector_count || "0",
     page: payload.page,
@@ -220,6 +224,7 @@ export function advisorSearchPayloadToSearchParams(
   params.append("events_loc_filter_sql", normalized.events_loc_filter_sql);
   params.append("Primary_ids_str", normalized.Primary_ids_str);
   params.append("Secondary_ids_str", normalized.Secondary_ids_str);
+  params.append("advisor_role_ids_str", normalized.advisor_role_ids_str);
   params.append("need_geo_count", normalized.need_geo_count);
   params.append("need_sector_count", normalized.need_sector_count);
   params.append("portfolio_only", String(Boolean(normalized.portfolio_only)));

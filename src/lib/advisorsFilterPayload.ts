@@ -159,6 +159,7 @@ export const createDefaultAdvisorFilters = (): AdvisorsSearchFilters =>
     events_loc_filter_sql: "",
     Primary_ids_str: "",
     Secondary_ids_str: "",
+    advisor_role_ids_str: "",
     need_geo_count: "0",
     need_sector_count: "0",
     page: 1,
@@ -172,12 +173,20 @@ export function buildAdvisorsSearchPayload(args: {
   secondarySectors: SectorRef[];
   page?: number;
   perPage?: number;
+  advisorRoleId?: number;
 }): AdvisorsSearchFilters {
-  const { state, primarySectors, secondarySectors, page = 1, perPage = 25 } = args;
+  const {
+    state,
+    primarySectors,
+    secondarySectors,
+    page = 1,
+    perPage = 25,
+    advisorRoleId,
+  } = args;
   const { clauses, portfolioOnly, primarySectorIds, secondarySectorIds } =
     buildClausesFromFilterBar({ state, primarySectors, secondarySectors });
 
-  return advisorSearchPayloadToRequestBody(
+  const payload = advisorSearchPayloadToRequestBody(
     buildAdvisorSearchPayloadFromClauses(clauses, {
       page,
       perPage,
@@ -189,6 +198,12 @@ export function buildAdvisorsSearchPayload(args: {
       endpoint: "sql_advisors_list",
     })
   );
+
+  return {
+    ...payload,
+    advisor_role_ids_str:
+      advisorRoleId != null && advisorRoleId > 0 ? String(advisorRoleId) : "",
+  };
 }
 
 export function buildAdvisorsCountsSearchPayload(args: {
