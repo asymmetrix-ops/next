@@ -181,6 +181,15 @@ export const IndividualDashboard = ({
     });
   }, [filterBarState.filters, activeRoleTab]);
 
+  const buildCountsFilters = useCallback((): IndividualsSearchFilters => {
+    return buildIndividualsSearchPayload({
+      state: filterBarState,
+      primarySectors,
+      secondarySectors,
+      jobTitles,
+    });
+  }, [filterBarState, primarySectors, secondarySectors, jobTitles]);
+
   const buildSearchFilters = useCallback((): IndividualsSearchFilters => {
     const tabConfig =
       activeRoleTab !== "all" ? INDIVIDUAL_ROLE_TAB_CONFIG[activeRoleTab] : null;
@@ -206,6 +215,8 @@ export const IndividualDashboard = ({
   const skipInitialSearchRef = useRef(true);
   const buildSearchFiltersRef = useRef(buildSearchFilters);
   buildSearchFiltersRef.current = buildSearchFilters;
+  const buildCountsFiltersRef = useRef(buildCountsFilters);
+  buildCountsFiltersRef.current = buildCountsFilters;
   const onSearchRef = useRef(onSearch);
   onSearchRef.current = onSearch;
 
@@ -225,10 +236,9 @@ export const IndividualDashboard = ({
     }
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      const filters = buildSearchFiltersRef.current();
       onSearchRef.current?.(
-        filters,
-        filters,
+        buildSearchFiltersRef.current(),
+        buildCountsFiltersRef.current(),
         isPortfolioFilterActiveRef.current
       );
     }, 350);
@@ -245,7 +255,7 @@ export const IndividualDashboard = ({
     }
     onSearchRef.current?.(
       buildSearchFiltersRef.current(),
-      buildSearchFiltersRef.current(),
+      buildCountsFiltersRef.current(),
       isPortfolioFilterActiveRef.current
     );
   }, [activeRoleTab]);

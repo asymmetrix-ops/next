@@ -177,3 +177,36 @@ export function mapResponseToIndividualsSummaryCounts(
     founders: data.founders || 0,
   };
 }
+
+function readCount(raw: Record<string, unknown>, ...keys: string[]): number {
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return 0;
+}
+
+/** Map get_individuals_counts API response to tab summary counts. */
+export function mapIndividualsCountsResponse(
+  raw: Record<string, unknown> | null | undefined
+): IndividualsSummaryCounts {
+  if (!raw) return EMPTY_INDIVIDUALS_SUMMARY_COUNTS;
+  return {
+    totalCount: readCount(
+      raw,
+      "totalIndividuals",
+      "total_individuals",
+      "totalCount",
+      "total_count"
+    ),
+    currentRoles: readCount(raw, "currentRoles", "current_roles"),
+    pastRoles: readCount(raw, "pastRoles", "past_roles"),
+    ceos: readCount(raw, "ceos"),
+    chairs: readCount(raw, "chairs"),
+    founders: readCount(raw, "founders"),
+  };
+}
