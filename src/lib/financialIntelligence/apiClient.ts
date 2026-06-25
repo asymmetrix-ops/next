@@ -1,20 +1,7 @@
 import { authService } from "@/lib/auth";
-import { readEntityLogo } from "@/lib/companyLogo";
-import {
-  COMPANIES_API_BASE,
-  companySearchPayloadToSearchParams,
-  normalizeCompanySearchPayload,
-} from "@/lib/companiesFilterPayload";
-import {
-  appendPreferredCurrencyIdToSearchParams,
-  readPlatformCurrencyIdClient,
-  resolvePreferredCurrencyId,
-} from "@/lib/platformCurrency";
 import { peersRequestToSearchParams } from "./filterPayload";
 import {
-  companyFinancialMetricsToRawFi,
   extractTargetRow,
-  mergeFiCompanyRows,
   normalizeCompanyRow,
   normalizePeersResponse,
   readApiError,
@@ -27,16 +14,7 @@ import type {
 } from "./types";
 
 const FI_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:UMz0Ao3v";
-
-const COMPANY_FINANCIAL_METRICS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics";
-
-export interface FiCompanySearchHit {
-  id: number;
-  name: string;
-  logo?: string | null;
-}
+  "https://xdil-abvj-o7rq.e2.xano.io/api:26OHS3YC:develop";
 
 function getAuthHeaders(): Record<string, string> | null {
   const token = authService.getToken();
@@ -47,75 +25,8 @@ function getAuthHeaders(): Record<string, string> | null {
   };
 }
 
-async function fetchCompanyFinancialMetricsRow(
-  companyId: number,
-  headers: Record<string, string>,
-  preferredCurrencyId: number
-): Promise<Record<string, unknown> | null> {
-  try {
-    const params = new URLSearchParams({ new_company_id: String(companyId) });
-    appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
-    let response = await fetch(
-      `${COMPANY_FINANCIAL_METRICS_API_BASE}?${params.toString()}`,
-      { method: "GET", headers, cache: "no-store" }
-    );
-
-    if (!response.ok) {
-      const candidateBodies = [
-        { new_company_id: companyId, preferred_currency_id: preferredCurrencyId },
-        { company_id: companyId, preferred_currency_id: preferredCurrencyId },
-        { id: companyId, preferred_currency_id: preferredCurrencyId },
-      ];
-      for (const body of candidateBodies) {
-        const attempt = await fetch(COMPANY_FINANCIAL_METRICS_API_BASE, {
-          method: "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
-          cache: "no-store",
-          body: JSON.stringify(body),
-        });
-        if (attempt.ok) {
-          response = attempt;
-          break;
-        }
-      }
-    }
-
-    if (!response.ok) return null;
-
-    const payload = await response.json();
-    if (Array.isArray(payload)) {
-      return (payload[0] as Record<string, unknown> | undefined) ?? null;
-    }
-    return payload && typeof payload === "object"
-      ? (payload as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-async function enrichTargetFromCompanyProfile(
-  row: FiCompanyRow,
-  headers: Record<string, string>,
-  preferredCurrencyId: number
-): Promise<FiCompanyRow> {
-  const profileRaw = await fetchCompanyFinancialMetricsRow(
-    row.company_id,
-    headers,
-    preferredCurrencyId
-  );
-  if (!profileRaw) return row;
-
-  const profileRow = normalizeCompanyRow(
-    companyFinancialMetricsToRawFi(profileRaw),
-    row.company_id
-  );
-  return mergeFiCompanyRows(row, profileRow);
-}
-
 export async function fetchFiTarget(
-  companyId: number,
-  preferredCurrencyId?: number
+  companyId: number
 ): Promise<FiFetchResult<FiCompanyRow>> {
   try {
     const headers = getAuthHeaders();
@@ -123,13 +34,8 @@ export async function fetchFiTarget(
       return { ok: false, error: "Authentication required — please log in again." };
     }
 
-    const currencyId = resolvePreferredCurrencyId(
-      preferredCurrencyId ?? readPlatformCurrencyIdClient()
-    );
-    const params = new URLSearchParams();
-    appendPreferredCurrencyIdToSearchParams(params, currencyId);
     const response = await fetch(
-      `${FI_API_BASE}/financial-intelligence/target/${companyId}?${params.toString()}`,
+      `${FI_API_BASE}/financial-intelligence/target/${companyId}`,
       { method: "GET", headers, cache: "no-store" }
     );
 
@@ -138,7 +44,7 @@ export async function fetchFiTarget(
     }
 
     const payload = await response.json();
-    let row = normalizeCompanyRow(extractTargetRow(payload, companyId), companyId);
+    const row = normalizeCompanyRow(extractTargetRow(payload, companyId), companyId);
 
     if (!row.company_id) {
       const keys = Object.keys(unwrapPayloadKeys(payload)).join(", ") || "none";
@@ -147,8 +53,6 @@ export async function fetchFiTarget(
         error: `Target API returned no company data (response keys: ${keys}).`,
       };
     }
-
-    row = await enrichTargetFromCompanyProfile(row, headers, currencyId);
 
     return { ok: true, data: row };
   } catch (err) {
@@ -188,75 +92,21 @@ export async function fetchFiPeers(
   }
 }
 
-/** Fetch logos from Get_new_company for benchmark rows missing company_logo. */
-export async function fetchFiCompanyLogosByIds(
-  companyIds: number[]
-): Promise<Map<number, string>> {
-  const headers = getAuthHeaders();
-  if (!headers || companyIds.length === 0) return new Map();
-
-  const uniqueIds = Array.from(new Set(companyIds.filter((id) => id > 0)));
-  const logoMap = new Map<number, string>();
-
-  await Promise.all(
-    uniqueIds.map(async (companyId) => {
-      try {
-        const response = await fetch(
-          `${COMPANIES_API_BASE}/Get_new_company/${companyId}`,
-          { method: "GET", headers, cache: "no-store" }
-        );
-        if (!response.ok) return;
-
-        const data = await response.json();
-        const record =
-          data && typeof data === "object" && "Company" in (data as object)
-            ? (data as Record<string, unknown>).Company
-            : data;
-        const logo = readEntityLogo(record);
-        if (logo) logoMap.set(companyId, logo);
-      } catch {
-        // ignore individual fetch failures
-      }
-    })
-  );
-
-  return logoMap;
-}
-
-export function applyFiCompanyLogos(
-  rows: FiCompanyRow[],
-  logoMap: Map<number, string>
-): FiCompanyRow[] {
-  if (logoMap.size === 0) return rows;
-  return rows.map((row) => {
-    if (row.company_logo) return row;
-    const logo = logoMap.get(row.company_id);
-    return logo ? { ...row, company_logo: logo } : row;
-  });
-}
-
 export async function searchFiCompanies(
-  query: string,
-  preferredCurrencyId?: number
-): Promise<FiCompanySearchHit[]> {
+  query: string
+): Promise<Array<{ id: number; name: string }>> {
   try {
     const headers = getAuthHeaders();
-    if (!headers || query.trim().length < 2) return [];
+    if (!headers || !query.trim()) return [];
 
-    const params = companySearchPayloadToSearchParams(
-      normalizeCompanySearchPayload({
-        query: query.trim(),
-        Offset: 1,
-        Per_page: 10,
-        preferred_currency_id: resolvePreferredCurrencyId(
-          preferredCurrencyId ?? readPlatformCurrencyIdClient()
-        ),
-      }),
-      { page: 1, perPage: 10 }
-    );
+    const params = new URLSearchParams({
+      search_query: query.trim(),
+      page: "1",
+      per_page: "10",
+    });
 
     const response = await fetch(
-      `${COMPANIES_API_BASE}/Get_new_companies?${params.toString()}`,
+      `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_all_companies?${params.toString()}`,
       { method: "GET", headers, cache: "no-store" }
     );
 
@@ -264,7 +114,6 @@ export async function searchFiCompanies(
 
     const payload = await response.json();
     const items =
-      payload?.result1?.items ??
       payload?.companies?.items ??
       payload?.items ??
       (Array.isArray(payload) ? payload : []);
@@ -273,7 +122,6 @@ export async function searchFiCompanies(
       .map((item) => ({
         id: Number(item.id ?? 0),
         name: String(item.name ?? ""),
-        logo: readEntityLogo(item),
       }))
       .filter((item) => item.id > 0 && item.name);
   } catch {

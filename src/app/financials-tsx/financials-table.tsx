@@ -1,20 +1,19 @@
 import React, { useMemo } from 'react';
 import type { FinRow, ColumnDef, Tweaks, SectorMedian } from './types';
 import { FIN_SECTOR_MEDIAN } from './financials-data';
-import { CompanyAvatar } from '@/components/CompanyAvatar';
 
 // ── Number formatting ────────────────────────────────────────────────────────
 
 function fmtCurrency(v: number | undefined | null, symbol = '$'): string {
   if (v === null || v === undefined) return '—';
   const n = Number(v);
-  if (Math.abs(n) >= 1000) return symbol + Math.round(n / 1000) + 'b';
-  return symbol + Math.round(n) + 'm';
+  if (Math.abs(n) >= 1000) return symbol + (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'b';
+  return symbol + n.toFixed(0) + 'm';
 }
 
 function fmtX(v: number | undefined | null): string {
   if (v === null || v === undefined || !isFinite(v as number)) return '—';
-  return Math.round(Number(v)) + 'x';
+  return Number(v).toFixed(1) + 'x';
 }
 
 // ── Coloring helpers ─────────────────────────────────────────────────────────
@@ -108,22 +107,22 @@ export function buildColumns(currencySymbol: string): ColumnDef[] {
     { id: 'rule_of_40',    label: 'Rule of 40',        kind: 'count',    align: 'right' },
     { id: 'ev_revenue',    label: 'EV / Revenue',      kind: 'multiple', align: 'right', median: 'ev_revenue' },
     { id: 'ev_ebitda',     label: 'EV / EBITDA',       kind: 'multiple', align: 'right', median: 'ev_ebitda' },
-    { id: 'subscription_revenue_pc', label: 'Subscription revenue %', kind: 'percent', align: 'right' },
-    { id: 'subscription_revenue_m', label: 'Subscription revenue (m)', kind: 'currency', align: 'right', symbol: currencySymbol },
+    { id: 'recurring_revenue', label: 'Recurring rev', kind: 'currency', align: 'right', symbol: currencySymbol },
+    { id: 'arr',               label: 'ARR',           kind: 'currency', align: 'right', symbol: currencySymbol },
     { id: 'churn',             label: 'Churn',         kind: 'percent',  align: 'right' },
     { id: 'grr',               label: 'GRR',           kind: 'percent',  align: 'right' },
     { id: 'nrr',               label: 'NRR',           kind: 'percent',  align: 'right' },
-    { id: 'new_clients_rev',   label: 'New Clients Revenue Growth', kind: 'percent', align: 'right' },
+    { id: 'new_clients_rev',   label: 'New clients rev growth', kind: 'percent', align: 'right' },
     { id: 'upsell',            label: 'Upsell',        kind: 'percent',  align: 'right' },
     { id: 'cross_sell',        label: 'Cross-sell',    kind: 'percent',  align: 'right' },
     { id: 'price_increase',    label: 'Price increase',kind: 'percent',  align: 'right' },
     { id: 'revenue_expansion', label: 'Revenue expansion', kind: 'percent', align: 'right' },
     { id: 'ebit',             label: 'EBIT',                 kind: 'currency', align: 'right', symbol: currencySymbol },
     { id: 'ev_ebit',          label: 'EV / EBIT',            kind: 'multiple', align: 'right', median: 'ev_ebit' },
-    { id: 'num_clients',      label: 'Number of Clients',    kind: 'count',    align: 'right' },
-    { id: 'rev_per_client',   label: 'Revenue per Client',   kind: 'currency', align: 'right', symbol: currencySymbol },
-    { id: 'num_employees',    label: 'Number of Employees',  kind: 'count',    align: 'right' },
-    { id: 'rev_per_employee', label: 'Revenue per Employee', kind: 'currency', align: 'right', symbol: currencySymbol },
+    { id: 'num_clients',      label: 'Clients',              kind: 'count',    align: 'right' },
+    { id: 'rev_per_client',   label: 'Revenue / client',     kind: 'currency', align: 'right', symbol: currencySymbol },
+    { id: 'num_employees',    label: 'Employees',            kind: 'count',    align: 'right' },
+    { id: 'rev_per_employee', label: 'Revenue / employee',   kind: 'currency', align: 'right', symbol: currencySymbol },
     { id: 'financial_year',   label: 'FY end',               kind: 'text',     align: 'left',  minWidth: 90 },
     { id: 'trend',            label: '5y trend',             kind: 'spark',    align: 'right', noSort: true, minWidth: 70 },
   ];
@@ -155,30 +154,17 @@ export function Cell({ col, row, tweaks, currencySymbol, isMedian, sectorMedian 
   switch (col.kind) {
     case 'company':
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          {!tweaks.hideCompanyAvatars && (
-            <CompanyAvatar name={row.name} logo={row.logo} size={22} fallbackColor={row.color} />
-          )}
-          <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{
+            width: 22, height: 22, borderRadius: 5, flexShrink: 0,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            background: row.color, color: 'white', fontSize: 10, fontWeight: 700,
+          }}>{row.name.split(' ')[0][0]}</span>
+          <div style={{ minWidth: 0 }}>
             <div style={{
               fontWeight: 600, fontSize: 12.5, color: 'var(--fg-1)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>{row.name}</div>
-            {row.isManuallyAdded && (
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  color: 'var(--ax-cyan-700)',
-                  background: 'var(--ax-cyan-50)',
-                  padding: '1px 5px',
-                  borderRadius: 999,
-                  flexShrink: 0,
-                }}
-              >
-                ADDED
-              </span>
-            )}
           </div>
         </div>
       );
@@ -198,17 +184,6 @@ export function Cell({ col, row, tweaks, currencySymbol, isMedian, sectorMedian 
       return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{v == null ? '—' : (v as number).toLocaleString()}</span>;
 
     case 'currency':
-      if (col.id === 'rev_per_employee' || col.id === 'rev_per_client') {
-        const n = v as number;
-        if (n == null || !Number.isFinite(n)) return <span style={{ color: 'var(--fg-4)' }}>—</span>;
-        if (Math.abs(n) >= 1_000_000) {
-          return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${Math.round(n / 1_000_000)}m</span>;
-        }
-        if (Math.abs(n) >= 1000) {
-          return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${Math.round(n / 1000)}k</span>;
-        }
-        return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${Math.round(n).toLocaleString()}</span>;
-      }
       return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtCurrency(v as number, col.symbol ?? currencySymbol)}</span>;
 
     case 'percent': {
@@ -220,7 +195,7 @@ export function Cell({ col, row, tweaks, currencySymbol, isMedian, sectorMedian 
         : 'var(--fg-1)';
       return (
         <span style={{ fontVariantNumeric: 'tabular-nums', color: fg, fontWeight: col.delta ? 600 : 500 }}>
-          {sign}{Math.round(n)}%
+          {sign}{n.toFixed(n % 1 === 0 ? 0 : 1)}%
         </span>
       );
     }
@@ -261,8 +236,6 @@ export interface FinancialsTableProps {
   onSort: (id: string) => void;
   visibleColumnIds: string[];
   sectorMedian?: SectorMedian;
-  onExcludePeer?: (companyId: number) => void;
-  footer?: React.ReactNode;
 }
 
 export function FinancialsTable({
@@ -274,28 +247,15 @@ export function FinancialsTable({
   onSort,
   visibleColumnIds,
   sectorMedian = FIN_SECTOR_MEDIAN,
-  onExcludePeer,
-  footer,
 }: FinancialsTableProps) {
   const allColumns = buildColumns(currencySymbol);
-  const columns = useMemo(() => {
-    const byId = new Map(allColumns.map((column) => [column.id, column]));
-    return visibleColumnIds
-      .map((id) => byId.get(id))
-      .filter((column): column is ColumnDef => Boolean(column));
-  }, [allColumns, visibleColumnIds]);
-  const showActions = Boolean(tweaks.showPeerActions && onExcludePeer);
-  const tableMinWidth = useMemo(
-    () =>
-      columns.reduce((sum, col) => sum + (col.minWidth ?? 88), 0) + (showActions ? 40 : 0),
-    [columns, showActions]
+  const columns = useMemo(
+    () => allColumns.filter(c => visibleColumnIds.includes(c.id)),
+    [allColumns, visibleColumnIds]
   );
 
-  const aggregateRowLabel =
-    tweaks.peerAggregateMode === "mean" ? "Sector mean" : "Sector median";
-
   const medianRow: FinRow = useMemo(() => ({
-    name: aggregateRowLabel,
+    name: 'Sector median',
     primary: '— Comparable group —',
     secondary: `${rows.length} companies`,
     country: '', hq: '', ownership: 'Public', color: 'var(--ax-cyan-700)',
@@ -311,7 +271,7 @@ export function FinancialsTable({
     ev_ebit: sectorMedian.ev_ebit,
     rev_multiple: sectorMedian.rev_multiple,
     trend: [],
-  }), [rows.length, sectorMedian, aggregateRowLabel]);
+  }), [rows.length, sectorMedian]);
 
   const sortedRows = useMemo(() => {
     if (!sortId) return rows;
@@ -333,18 +293,8 @@ export function FinancialsTable({
   };
 
   return (
-    <div style={{ background: 'white', border: '1px solid var(--border-1)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
-      <div style={{ overflow: 'auto' }}>
-        <table
-          style={{
-            width: '100%',
-            minWidth: tableMinWidth,
-            borderCollapse: 'collapse',
-            fontSize: 12,
-            fontFamily: 'var(--font-sans)',
-            tableLayout: 'auto',
-          }}
-        >
+    <div style={{ background: 'white', border: '1px solid var(--border-1)', borderRadius: 'var(--r-lg)', overflow: 'auto', marginTop: 12 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: 'var(--font-sans)' }}>
         <thead>
           <tr>
             {columns.map(c => (
@@ -355,6 +305,7 @@ export function FinancialsTable({
                   textAlign: c.align,
                   cursor: c.noSort ? 'default' : 'pointer',
                   minWidth: c.minWidth,
+                  width: c.sticky ? c.minWidth : 1,
                   position: c.sticky ? 'sticky' : 'static',
                   left: c.sticky ? 0 : undefined,
                   zIndex: c.sticky ? 2 : 1,
@@ -365,9 +316,7 @@ export function FinancialsTable({
                 </span>
               </th>
             ))}
-            {showActions && (
-              <th aria-label="Remove" style={{ ...thBase, width: 40, minWidth: 40, textAlign: 'center' }} />
-            )}
+            <th aria-hidden style={{ ...thBase, width: 'auto', padding: 0 }} />
           </tr>
         </thead>
         <tbody>
@@ -386,9 +335,7 @@ export function FinancialsTable({
                 }}>
                   {c.id === 'company' ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {!tweaks.hideCompanyAvatars && (
-                        <span style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--ax-cyan-700)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>Σ</span>
-                      )}
+                      <span style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--ax-cyan-700)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>Σ</span>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ax-cyan-800)' }}>Sector median</div>
                         <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--ax-cyan-700)' }}>across {rows.length} matching companies</div>
@@ -401,21 +348,11 @@ export function FinancialsTable({
                   )}
                 </td>
               ))}
-              {showActions && (
-                <td
-                  aria-hidden
-                  style={{
-                    padding: 0,
-                    width: 40,
-                    borderBottom: '2px solid var(--ax-cyan-100)',
-                    background: 'var(--ax-cyan-50)',
-                  }}
-                />
-              )}
+              <td aria-hidden style={{ padding: 0, width: 'auto', borderBottom: '2px solid var(--ax-cyan-100)', background: 'var(--ax-cyan-50)' }} />
             </tr>
           )}
           {sortedRows.map((row, idx) => (
-            <tr key={`${row.companyId ?? row.name}-${idx}`}
+            <tr key={row.name + idx}
               style={{ background: 'transparent' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--ax-gray-25)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
@@ -433,39 +370,11 @@ export function FinancialsTable({
                   <Cell col={c} row={row} tweaks={tweaks} currencySymbol={currencySymbol} sectorMedian={sectorMedian} />
                 </td>
               ))}
-              {showActions && (
-                <td
-                  style={{
-                    padding: '7px 8px',
-                    textAlign: 'center',
-                    borderBottom: idx === sortedRows.length - 1 ? 'none' : '1px solid var(--ax-gray-100)',
-                  }}
-                >
-                  {row.companyId != null && (
-                    <button
-                      type="button"
-                      onClick={() => onExcludePeer?.(row.companyId!)}
-                      aria-label={`Remove ${row.name} from benchmark`}
-                      style={{
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--fg-4)',
-                        cursor: 'pointer',
-                        fontSize: 16,
-                        lineHeight: 1,
-                      }}
-                    >
-                      ×
-                    </button>
-                  )}
-                </td>
-              )}
+              <td aria-hidden style={{ padding: 0, width: 'auto', borderBottom: idx === sortedRows.length - 1 ? 'none' : '1px solid var(--ax-gray-100)' }} />
             </tr>
           ))}
         </tbody>
       </table>
-      </div>
-      {footer}
     </div>
   );
 }

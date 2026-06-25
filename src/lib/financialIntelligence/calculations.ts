@@ -1,131 +1,14 @@
-import type {
-  FiCompanyRow,
-  FiMetricDef,
-  FiMetricFormat,
-  FiMetricKey,
-  FiMetricSourceType,
-  FiPeerAggregateMode,
-} from "./types";
-import { isMetricSourceAllowed } from "./sourceTypes";
+import type { FiCompanyRow, FiMetricDef, FiMetricKey } from "./types";
 
 export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
-  { key: "revenue_m_usd", label: "Revenue", higherIsBetter: true, format: "currency" },
-  { key: "ev_usd", label: "EV", higherIsBetter: true, format: "currency" },
-  { key: "ebitda_m_usd", label: "EBITDA", higherIsBetter: true, format: "currency" },
-  { key: "ebit_m_usd", label: "EBIT (m)", higherIsBetter: true, format: "currency" },
-  { key: "ebitda_margin", label: "EBITDA margin", higherIsBetter: true, format: "percent" },
   { key: "rev_growth_pc", label: "Revenue growth", higherIsBetter: true, format: "percent" },
   { key: "rule_of_40", label: "Rule of 40", higherIsBetter: true, format: "percent" },
-  {
-    key: "subscription_revenue_pc",
-    label: "Subscription revenue %",
-    higherIsBetter: true,
-    format: "percent",
-  },
-  {
-    key: "subscription_revenue_m",
-    label: "Subscription revenue (m)",
-    higherIsBetter: true,
-    format: "currency",
-  },
-  { key: "churn_pc", label: "Churn", higherIsBetter: false, format: "percent" },
-  { key: "grr_pc", label: "GRR", higherIsBetter: true, format: "percent" },
-  { key: "nrr", label: "NRR", higherIsBetter: true, format: "percent" },
-  {
-    key: "new_client_growth_pc",
-    label: "New Clients Revenue Growth",
-    higherIsBetter: true,
-    format: "percent",
-  },
-  { key: "upsell_pc", label: "Upsell", higherIsBetter: true, format: "percent" },
-  { key: "cross_sell_pc", label: "Cross-sell", higherIsBetter: true, format: "percent" },
-  { key: "price_increase_pc", label: "Price Increase", higherIsBetter: true, format: "percent" },
-  {
-    key: "rev_expansion_pc",
-    label: "Revenue Expansion",
-    higherIsBetter: true,
-    format: "percent",
-  },
-  { key: "no_of_clients", label: "Number of Clients", higherIsBetter: true, format: "count" },
-  {
-    key: "revenue_per_client",
-    label: "Revenue per Client",
-    higherIsBetter: true,
-    format: "currency_k",
-  },
-  { key: "no_employees", label: "Number of Employees", higherIsBetter: true, format: "count" },
-  {
-    key: "revenue_per_employee",
-    label: "Revenue per Employee",
-    higherIsBetter: true,
-    format: "currency_k",
-  },
-  {
-    key: "revenue_multiple",
-    label: "Revenue multiple",
-    higherIsBetter: true,
-    format: "multiple",
-  },
-  {
-    key: "ev_revenue_x",
-    label: "EV / Revenue",
-    higherIsBetter: true,
-    format: "multiple",
-  },
-  {
-    key: "ev_ebitda_x",
-    label: "EV / EBITDA",
-    higherIsBetter: true,
-    format: "multiple",
-  },
+  { key: "ebitda_margin", label: "EBITDA margin", higherIsBetter: true, format: "percent" },
+  { key: "ebit_margin", label: "EBIT margin", higherIsBetter: true, format: "percent" },
+  { key: "ev_revenue_x", label: "EV / Revenue", higherIsBetter: false, format: "multiple" },
+  { key: "ev_ebitda_x", label: "EV / EBITDA", higherIsBetter: false, format: "multiple" },
+  { key: "revenue_multiple", label: "Revenue multiple", higherIsBetter: false, format: "multiple" },
 ];
-
-export const FI_BENCHMARK_SECTIONS: Array<{
-  id: string;
-  label: string;
-  keys: FiMetricKey[];
-}> = [
-  {
-    id: "financial_metrics",
-    label: "Financial Metrics",
-    keys: [
-      "revenue_m_usd",
-      "ebitda_m_usd",
-      "ev_usd",
-    ],
-  },
-  {
-    id: "subscription_metrics",
-    label: "Subscription Metrics",
-    keys: [
-      "subscription_revenue_pc",
-      "subscription_revenue_m",
-      "churn_pc",
-      "grr_pc",
-      "nrr",
-      "new_client_growth_pc",
-      "upsell_pc",
-      "cross_sell_pc",
-      "price_increase_pc",
-      "rev_expansion_pc",
-    ],
-  },
-  {
-    id: "other_metrics",
-    label: "Other Metrics",
-    keys: [
-      "ebit_m_usd",
-      "no_of_clients",
-      "revenue_per_client",
-      "no_employees",
-      "revenue_per_employee",
-    ],
-  },
-];
-
-export const FI_BENCHMARK_SCORECARD_KEYS: FiMetricKey[] = FI_BENCHMARK_SECTIONS.flatMap(
-  (section) => section.keys
-);
 
 export function toMillions(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value)) return null;
@@ -135,77 +18,31 @@ export function toMillions(value: number | null | undefined): number | null {
 
 export function getMetricValue(row: FiCompanyRow, key: FiMetricKey): number | null {
   switch (key) {
-    case "revenue_m_usd":
-      return toMillions(row.revenue_m_usd);
-    case "ebitda_m_usd":
-      return toMillions(row.ebitda_m_usd);
-    case "ebit_m_usd":
-      return toMillions(row.ebit_m_usd);
-    case "ev_usd":
-      return toMillions(row.ev_usd);
-    case "no_of_clients":
-      return row.no_of_clients;
-    case "revenue_per_client":
-      return row.revenue_per_client;
-    case "no_employees":
-      return row.no_employees;
-    case "revenue_per_employee":
-      return row.revenue_per_employee;
-    case "subscription_revenue_pc":
-      return row.subscription_revenue_pc;
-    case "subscription_revenue_m":
-      return toMillions(row.subscription_revenue_m);
-    case "grr_pc":
-      return row.grr_pc;
     case "rev_growth_pc":
       return row.rev_growth_pc;
-    case "new_client_growth_pc":
-      return row.new_client_growth_pc;
     case "rule_of_40":
       if (row.rule_of_40 != null && Number.isFinite(row.rule_of_40)) return row.rule_of_40;
       if (row.rev_growth_pc != null && row.ebitda_margin != null) {
         return row.rev_growth_pc + row.ebitda_margin;
       }
       return null;
-    case "nrr":
-      return row.nrr;
-    case "churn_pc":
-      return row.churn_pc;
-    case "upsell_pc":
-      return row.upsell_pc;
-    case "cross_sell_pc":
-      return row.cross_sell_pc;
-    case "price_increase_pc":
-      return row.price_increase_pc;
-    case "rev_expansion_pc":
-      return row.rev_expansion_pc;
     case "ebitda_margin":
       return row.ebitda_margin;
-    case "revenue_multiple":
-      return row.revenue_multiple;
+    case "ebit_margin": {
+      const revenue = toMillions(row.revenue_m_usd);
+      const ebit = toMillions(row.ebit_m_usd);
+      if (revenue == null || ebit == null || revenue === 0) return null;
+      return (ebit / revenue) * 100;
+    }
     case "ev_revenue_x":
-      if (row.ev_revenue_x != null && Number.isFinite(row.ev_revenue_x)) return row.ev_revenue_x;
-      {
-        const revenue = toMillions(row.revenue_m_usd);
-        const ev = toMillions(row.ev_usd);
-        if (revenue != null && ev != null && revenue !== 0) return ev / revenue;
-      }
-      return null;
+      return row.ev_revenue_x;
     case "ev_ebitda_x":
       return row.ev_ebitda_x;
+    case "revenue_multiple":
+      return row.revenue_multiple;
     default:
       return null;
   }
-}
-
-/** Peer metric value for benchmark math — null when source type is filtered out. */
-export function getPeerMetricValueForCalc(
-  peer: FiCompanyRow,
-  key: FiMetricKey,
-  allowedSources: FiMetricSourceType[]
-): number | null {
-  if (!isMetricSourceAllowed(peer, key, allowedSources)) return null;
-  return getMetricValue(peer, key);
 }
 
 export function quantile(values: number[], q: number): number | null {
@@ -246,110 +83,6 @@ export function peerMedian(values: number[]): number | null {
   return sorted[mid];
 }
 
-export function peerMean(values: number[]): number | null {
-  const nums = values.filter((v) => Number.isFinite(v));
-  if (nums.length === 0) return null;
-  return nums.reduce((sum, value) => sum + value, 0) / nums.length;
-}
-
-export function peerAggregate(
-  values: number[],
-  mode: FiPeerAggregateMode = "median"
-): number | null {
-  return mode === "mean" ? peerMean(values) : peerMedian(values);
-}
-
-export function peerAggregateLabels(mode: FiPeerAggregateMode) {
-  const noun = mode === "mean" ? "mean" : "median";
-  return {
-    noun,
-    title: mode === "mean" ? "Mean" : "Median",
-    peerColumn: `Peer ${noun}`,
-    sectorRow: `Sector ${noun}`,
-    vsPeer: `vs ${noun}`,
-  };
-}
-
-export const METRIC_PERCENT_DECIMALS = 1;
-
-export function roundMetricPercent(value: number): number {
-  const factor = 10 ** METRIC_PERCENT_DECIMALS;
-  return Math.round(value * factor) / factor;
-}
-
-/** Percent metric as shown in the UI, e.g. "+19.4%". */
-export function formatMetricPercent(value: number): string {
-  const rounded = roundMetricPercent(value);
-  if (rounded > 0) return `+${rounded.toFixed(METRIC_PERCENT_DECIMALS)}%`;
-  return `${rounded.toFixed(METRIC_PERCENT_DECIMALS)}%`;
-}
-
-/** Delta for percent metrics, e.g. "-2.3%" or "(-2.3%)". */
-export function formatMetricPercentDelta(
-  delta: number,
-  options?: { paren?: boolean }
-): string {
-  const rounded = roundMetricPercent(delta);
-  const abs = Math.abs(rounded).toFixed(METRIC_PERCENT_DECIMALS);
-  if (options?.paren) {
-    const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
-    return `(${sign}${abs}%)`;
-  }
-  const sign = rounded > 0 ? "+" : "";
-  return `${sign}${rounded.toFixed(METRIC_PERCENT_DECIMALS)}%`;
-}
-
-/** Numeric value as shown in the UI (before suffix like %, m, k, x). Mirrors fmtFiMetric rounding. */
-export function metricDisplayNumber(value: number, format: FiMetricFormat): number {
-  if (format === "percent") return roundMetricPercent(value);
-  if (format === "currency") {
-    if (Math.abs(value) >= 1000) return Math.round(value / 1000);
-    return Math.round(value);
-  }
-  if (format === "currency_k") {
-    if (Math.abs(value) >= 1_000_000) return Math.round(value / 1_000_000);
-    if (Math.abs(value) >= 1000) return Math.round(value / 1000);
-    return Math.round(value);
-  }
-  return Math.round(value);
-}
-
-function metricDisplayScale(value: number, format: FiMetricFormat): number {
-  if (format === "currency") return Math.abs(value) >= 1000 ? 1000 : 1;
-  if (format === "currency_k") {
-    if (Math.abs(value) >= 1_000_000) return 1_000_000;
-    if (Math.abs(value) >= 1000) return 1000;
-    return 1;
-  }
-  return 1;
-}
-
-/** Delta between target and peer aggregate using the same rounding as displayed values. */
-export function computeDeltaVsAggregate(
-  targetValue: number,
-  aggregateValue: number,
-  format: FiMetricFormat
-): number {
-  if (format === "percent") {
-    return (
-      metricDisplayNumber(targetValue, format) - metricDisplayNumber(aggregateValue, format)
-    );
-  }
-  if (format === "count" || format === "multiple") {
-    return Math.round(targetValue) - Math.round(aggregateValue);
-  }
-
-  const targetScale = metricDisplayScale(targetValue, format);
-  const aggregateScale = metricDisplayScale(aggregateValue, format);
-  if (targetScale !== aggregateScale) {
-    return targetValue - aggregateValue;
-  }
-
-  const targetDisplay = metricDisplayNumber(targetValue, format);
-  const aggregateDisplay = metricDisplayNumber(aggregateValue, format);
-  return (targetDisplay - aggregateDisplay) * targetScale;
-}
-
 export function computePercentile(
   targetValue: number,
   peerValues: number[],
@@ -384,18 +117,16 @@ export function computeRank(
 
 export function computeCompositePercentile(
   target: FiCompanyRow,
-  peers: FiCompanyRow[],
-  allowedSources: FiMetricSourceType[] = ["Public", "Estimate", "Proprietary"]
+  peers: FiCompanyRow[]
 ): number | null {
   const scores: number[] = [];
 
   for (const metric of FI_BENCHMARK_METRICS) {
-    if (!FI_BENCHMARK_SCORECARD_KEYS.includes(metric.key)) continue;
     const targetValue = getMetricValue(target, metric.key);
     if (targetValue == null) continue;
 
     const peerValues = peers
-      .map((peer) => getPeerMetricValueForCalc(peer, metric.key, allowedSources))
+      .map((peer) => getMetricValue(peer, metric.key))
       .filter((v): v is number => v != null && Number.isFinite(v));
 
     const percentile = computePercentile(targetValue, peerValues, metric.higherIsBetter);

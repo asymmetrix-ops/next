@@ -4,25 +4,19 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import type { FilterState } from "@/app/financials-tsx/types";
 import {
-  DEFAULT_FI_PEER_COLUMN_IDS,
-  columnIdsToVisibility,
-  FI_PEER_COLUMN_CATEGORIES,
-  FI_PEER_COLUMN_TOTAL,
-  resolvePeerColumnIdsFromModal,
-} from "@/lib/financialIntelligence/fiPeerColumnCategories";
-import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
-import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
+  FIN_COLUMN_DEFAULT_VISIBILITY,
+  FIN_COLUMN_ORDER,
+} from "@/app/financials-tsx/financials-columns";
 import { FinancialsTable } from "@/app/financials-tsx/financials-table";
 import "../financials-tsx/colors_and_type.css";
-import { fetchFiPeers, fetchFiTarget, searchFiCompanies, fetchFiCompanyLogosByIds, applyFiCompanyLogos, type FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
-import { FiControlBar, type FiIdOption } from "./components/FiControlBar";
 import {
-  FiBenchmarkRefreshing,
-  FiBenchmarkSkeleton,
-} from "./components/FiBenchmarkSkeleton";
+  fetchFiLocationsServer,
+} from "./actions";
+import { fetchFiPeers, fetchFiTarget, searchFiCompanies } from "@/lib/financialIntelligence/apiClient";
+import { TargetSelector } from "./components/TargetSelector";
+import { FiFilterBar } from "./components/FiFilterBar";
 import {
   BenchmarkTable,
   CompositeHero,
@@ -38,64 +32,16 @@ import {
 } from "@/lib/financialIntelligence/mappers";
 import {
   buildPeersRequest,
-  type FiFilterLookups,
+  peersRequestToSavedBenchmark,
+  savedBenchmarkToFilters,
 } from "@/lib/financialIntelligence/filterPayload";
-import { buildDefaultFilters } from "@/lib/financialIntelligence/defaultFilters";
 import {
   computeCompositePercentile,
 } from "@/lib/financialIntelligence/calculations";
-import { exportBenchmarkToCsv } from "@/lib/financialIntelligence/exportCsv";
-import { annotateManuallyAddedPeers } from "@/lib/financialIntelligence/normalize";
-import {
-  DEFAULT_FI_SOURCE_TYPES,
-  FI_SOURCE_TYPES,
-  isDefaultSourceTypes,
-  type FiMetricSourceType,
-} from "@/lib/financialIntelligence/sourceTypes";
-import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
-import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
-
-function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow {
-  return {
-    company_id: id,
-    company_name: meta?.name ?? `Company #${id}`,
-    company_logo: meta?.logo ?? null,
-    sectors_id: "",
-    location_country: "",
-    location_region: "",
-    financial_year: 0,
-    financial_year_value: 0,
-    fy_ye_month: 0,
-    revenue_m_usd: null,
-    rev_growth_pc: null,
-    new_client_growth_pc: null,
-    ebitda_margin: null,
-    ebitda_m_usd: null,
-    ebit_m_usd: null,
-    rule_of_40: null,
-    subscription_revenue_pc: null,
-    subscription_revenue_m: null,
-    nrr: null,
-    churn_pc: null,
-    grr_pc: null,
-    upsell_pc: null,
-    cross_sell_pc: null,
-    price_increase_pc: null,
-    rev_expansion_pc: null,
-    ev_usd: null,
-    no_of_clients: null,
-    revenue_per_client: null,
-    no_employees: null,
-    revenue_per_employee: null,
-    revenue_multiple: null,
-    ev_revenue_x: null,
-    ev_ebitda_x: null,
-    url: null,
-  };
-}
+import { loadSavedBenchmarks, saveBenchmark } from "@/lib/financialIntelligence/storage";
+import type { FiCompanyRow, FiLocationRow, SavedBenchmark } from "@/lib/financialIntelligence/types";
 
 export default function FinancialIntelligencePage() {
-  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const [target, setTarget] = useState<FiCompanyRow | null>(null);
   const [peers, setPeers] = useState<FiCompanyRow[]>([]);
   const [totalPeers, setTotalPeers] = useState(0);
@@ -106,70 +52,39 @@ export default function FinancialIntelligencePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [primarySectors, setPrimarySectors] = useState<FiSectorLookup[]>([]);
-  const [secondarySectors, setSecondarySectors] = useState<FiSecondarySectorLookup[]>([]);
-  const [regionOptions, setRegionOptions] = useState<FiIdOption[]>([]);
-  const [countryOptions, setCountryOptions] = useState<FiIdOption[]>([]);
-  const [excludedPeers, setExcludedPeers] = useState<FiCompanyRow[]>([]);
-  const [allowedSources, setAllowedSources] = useState<FiMetricSourceType[]>([
-    ...DEFAULT_FI_SOURCE_TYPES,
-  ]);
-  const [showBulkAddModal, setShowBulkAddModal] = useState(false);
-  const [peerAggregateMode, setPeerAggregateMode] = useState<FiPeerAggregateMode>("median");
+  const [primarySectors, setPrimarySectors] = useState<Array<{ id: number; sector_name: string }>>(
+    []
+  );
+  const [secondarySectors, setSecondarySectors] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
+  const [regions, setRegions] = useState<string[]>([]);
+  const [countries, setCountries] = useState<string[]>([]);
+  const [locations, setLocations] = useState<FiLocationRow[]>([]);
+  const [savedBenchmarks, setSavedBenchmarks] = useState<SavedBenchmark[]>([]);
 
   const [sortId, setSortId] = useState("revenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [addQuery, setAddQuery] = useState("");
-  const [addResults, setAddResults] = useState<FiCompanySearchHit[]>([]);
-  const [peerColumnIds, setPeerColumnIds] = useState<string[]>(() => [
-    ...DEFAULT_FI_PEER_COLUMN_IDS,
-  ]);
-  const [showPeerColumnsModal, setShowPeerColumnsModal] = useState(false);
-
-  const filterLookups: FiFilterLookups = useMemo(
-    () => ({
-      regionOptions,
-      countryOptions,
-      primarySectors,
-      secondarySectors,
-    }),
-    [regionOptions, countryOptions, primarySectors, secondarySectors]
-  );
+  const [addResults, setAddResults] = useState<Array<{ id: number; name: string }>>([]);
 
   useEffect(() => {
+    setSavedBenchmarks(loadSavedBenchmarks());
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
     locationsService
       .getAllSecondarySectorsWithPrimary()
-      .then((rows) =>
-        setSecondarySectors(
-          rows.map((row) => ({
-            id: row.id,
-            sector_name: row.sector_name,
-            related_primary_id: row.related_primary_sector?.id ?? null,
-            related_primary_name: row.related_primary_sector?.sector_name ?? null,
-          }))
-        )
-      )
+      .then(setSecondarySectors)
       .catch(() =>
-        locationsService
-          .getSecondarySectors([])
-          .then((rows) =>
-            setSecondarySectors(rows.map((row) => ({ id: row.id, sector_name: row.sector_name })))
-          )
-          .catch(console.error)
+        locationsService.getSecondarySectors([]).then(setSecondarySectors).catch(console.error)
       );
-    locationsService
-      .getContinentalRegionsWithIds()
-      .then(setRegionOptions)
-      .catch(console.error);
+    locationsService.getContinentalRegions().then(setRegions).catch(console.error);
     locationsService
       .getCountries()
       .then((rows) =>
-        setCountryOptions(
-          rows.map((row) => ({ id: row.id, name: row.locations_Country }))
-        )
+        setCountries(rows.map((row) => row.locations_Country).filter(Boolean))
       )
       .catch(console.error);
+    fetchFiLocationsServer().then(setLocations).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -178,70 +93,42 @@ export default function FinancialIntelligencePage() {
       return;
     }
     const timer = window.setTimeout(async () => {
-      const items = await searchFiCompanies(addQuery, preferredCurrencyId);
+      const items = await searchFiCompanies(addQuery);
       setAddResults(items.filter((item) => item.id !== target?.company_id));
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [addQuery, target?.company_id, preferredCurrencyId]);
+  }, [addQuery, target?.company_id]);
 
   const loadBenchmark = useCallback(
-    async (
-      companyId: number,
-      nextFilters = filters,
-      include = companyIdsInclude,
-      exclude = companyIdsExclude,
-      applyDefaultsIfEmpty = false
-    ) => {
+    async (companyId: number, nextFilters = filters, include = companyIdsInclude, exclude = companyIdsExclude) => {
       setLoading(true);
       setError(null);
 
       try {
-        const targetResult = await fetchFiTarget(companyId, preferredCurrencyId);
-        if (!targetResult.ok) {
-          throw new Error(targetResult.error);
-        }
-
-        let filtersToUse = nextFilters;
-        if (applyDefaultsIfEmpty && filtersToUse.length === 0) {
-          filtersToUse = buildDefaultFilters(targetResult.data, filterLookups);
-        }
-
         const request = buildPeersRequest({
           targetCompanyId: companyId,
-          filters: filtersToUse,
+          filters: nextFilters,
           companyIdsInclude: include,
           companyIdsExclude: exclude,
           primarySectors,
           secondarySectors,
-          regionOptions,
-          preferredCurrencyId,
+          locations,
         });
 
-        const peersResult = await fetchFiPeers(request);
+        const [targetResult, peersResult] = await Promise.all([
+          fetchFiTarget(companyId),
+          fetchFiPeers(request),
+        ]);
+
+        if (!targetResult.ok) {
+          throw new Error(targetResult.error);
+        }
         if (!peersResult.ok) {
           throw new Error(peersResult.error);
         }
 
-        const missingLogoIds = [
-          ...(targetResult.data.company_logo ? [] : [targetResult.data.company_id]),
-          ...peersResult.data.peers
-            .filter((peer) => !peer.company_logo)
-            .map((peer) => peer.company_id),
-        ];
-        const logoMap = await fetchFiCompanyLogosByIds(missingLogoIds);
-        const enrichedTarget = applyFiCompanyLogos([targetResult.data], logoMap)[0];
-        const enrichedPeers = applyFiCompanyLogos(peersResult.data.peers, logoMap);
-
-        setTarget((prev) => ({
-          ...enrichedTarget,
-          company_logo:
-            enrichedTarget.company_logo ??
-            peersResult.data.target_logo ??
-            prev?.company_logo ??
-            null,
-        }));
-        setFilters(filtersToUse);
-        setPeers(annotateManuallyAddedPeers(enrichedPeers, include));
+        setTarget(targetResult.data);
+        setPeers(peersResult.data.peers);
         setTotalPeers(peersResult.data.total_peers);
         setIsDefaultMode(peersResult.data.is_default_mode);
       } catch (err) {
@@ -250,26 +137,15 @@ export default function FinancialIntelligencePage() {
         setLoading(false);
       }
     },
-    [filters, companyIdsInclude, companyIdsExclude, filterLookups, primarySectors, secondarySectors, regionOptions, preferredCurrencyId]
+    [filters, companyIdsInclude, companyIdsExclude, primarySectors, secondarySectors, locations]
   );
 
-  useEffect(() => {
-    if (!target?.company_id) return;
-    void loadBenchmark(target.company_id, filters, companyIdsInclude, companyIdsExclude);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preferredCurrencyId]);
-
   const selectTarget = useCallback(
-    (companyId: number, meta?: FiCompanySearchHit) => {
+    (companyId: number) => {
       setFilters([]);
       setCompanyIdsInclude([]);
       setCompanyIdsExclude([]);
-      setExcludedPeers([]);
-      setPeers([]);
-      setTotalPeers(0);
-      setAllowedSources([...DEFAULT_FI_SOURCE_TYPES]);
-      setTarget(placeholderTarget(companyId, meta));
-      void loadBenchmark(companyId, [], [], [], true);
+      void loadBenchmark(companyId, [], [], []);
     },
     [loadBenchmark]
   );
@@ -281,8 +157,6 @@ export default function FinancialIntelligencePage() {
     setFilters([]);
     setCompanyIdsInclude([]);
     setCompanyIdsExclude([]);
-    setExcludedPeers([]);
-    setAllowedSources([...DEFAULT_FI_SOURCE_TYPES]);
     setError(null);
   }, []);
 
@@ -294,31 +168,9 @@ export default function FinancialIntelligencePage() {
     [loadBenchmark, target]
   );
 
-  const toggleSourceType = useCallback((type: FiMetricSourceType) => {
-    setAllowedSources((prev) => {
-      const nextSet = new Set(prev);
-      if (nextSet.has(type)) {
-        if (nextSet.size <= 1) return prev;
-        nextSet.delete(type);
-      } else {
-        nextSet.add(type);
-      }
-      return FI_SOURCE_TYPES.filter((item) => nextSet.has(item));
-    });
-  }, []);
-
   const addFilter = useCallback(
     (filter: FilterState) => {
       const next = [...filters.filter((item) => item.id !== filter.id), filter];
-      setFilters(next);
-      refreshPeers(next, companyIdsInclude, companyIdsExclude);
-    },
-    [filters, companyIdsInclude, companyIdsExclude, refreshPeers]
-  );
-
-  const updateFilter = useCallback(
-    (filter: FilterState) => {
-      const next = filters.map((item) => (item.id === filter.id ? filter : item));
       setFilters(next);
       refreshPeers(next, companyIdsInclude, companyIdsExclude);
     },
@@ -339,65 +191,24 @@ export default function FinancialIntelligencePage() {
     setFilters([]);
     setCompanyIdsInclude([]);
     setCompanyIdsExclude([]);
-    setExcludedPeers([]);
-    setAllowedSources([...DEFAULT_FI_SOURCE_TYPES]);
     void loadBenchmark(target.company_id, [], [], []);
   }, [loadBenchmark, target]);
 
-  const applySuggestedFilters = useCallback(() => {
-    if (!target) return;
-    const suggested = buildDefaultFilters(target, filterLookups);
-    setFilters(suggested);
-    refreshPeers(suggested, companyIdsInclude, companyIdsExclude);
-  }, [target, filterLookups, companyIdsInclude, companyIdsExclude, refreshPeers]);
-
   const excludePeer = useCallback(
     (companyId: number) => {
-      const peer = peers.find((row) => row.company_id === companyId);
-      const wasManuallyAdded =
-        companyIdsInclude.includes(companyId) || Boolean(peer?.is_manually_added);
-      if (peer) {
-        setExcludedPeers((prev) => [
-          ...prev.filter((row) => row.company_id !== companyId),
-          { ...peer, is_manually_added: wasManuallyAdded },
-        ]);
-      }
       const nextExclude = Array.from(new Set([...companyIdsExclude, companyId]));
       const nextInclude = companyIdsInclude.filter((id) => id !== companyId);
       setCompanyIdsExclude(nextExclude);
       setCompanyIdsInclude(nextInclude);
       refreshPeers(filters, nextInclude, nextExclude);
     },
-    [companyIdsExclude, companyIdsInclude, filters, peers, refreshPeers]
-  );
-
-  const restorePeer = useCallback(
-    (companyId: number) => {
-      const excludedPeer = excludedPeers.find((row) => row.company_id === companyId);
-      const nextExclude = companyIdsExclude.filter((id) => id !== companyId);
-      const nextInclude = excludedPeer?.is_manually_added
-        ? Array.from(new Set([...companyIdsInclude, companyId]))
-        : companyIdsInclude;
-      setExcludedPeers((prev) => prev.filter((row) => row.company_id !== companyId));
-      setCompanyIdsExclude(nextExclude);
-      setCompanyIdsInclude(nextInclude);
-      refreshPeers(filters, nextInclude, nextExclude);
-    },
-    [companyIdsExclude, companyIdsInclude, excludedPeers, filters, refreshPeers]
+    [companyIdsExclude, companyIdsInclude, filters, refreshPeers]
   );
 
   const restoreAllPeers = useCallback(() => {
-    const nextInclude = Array.from(
-      new Set([
-        ...companyIdsInclude,
-        ...excludedPeers.filter((peer) => peer.is_manually_added).map((peer) => peer.company_id),
-      ])
-    );
-    setExcludedPeers([]);
     setCompanyIdsExclude([]);
-    setCompanyIdsInclude(nextInclude);
-    refreshPeers(filters, nextInclude, []);
-  }, [companyIdsInclude, excludedPeers, filters, refreshPeers]);
+    refreshPeers(filters, companyIdsInclude, []);
+  }, [companyIdsInclude, filters, refreshPeers]);
 
   const addPeerCompany = useCallback(
     (companyId: number) => {
@@ -412,217 +223,198 @@ export default function FinancialIntelligencePage() {
     [companyIdsExclude, companyIdsInclude, filters, refreshPeers]
   );
 
-  const selectedCompanyIdList = useMemo(() => {
-    if (!target) return [];
-    const ids = new Set<number>([target.company_id]);
-    for (const peer of peers) {
-      ids.add(peer.company_id);
-    }
-    return Array.from(ids);
-  }, [target, peers]);
-
   const handleSaveBenchmark = useCallback(() => {
-    if (selectedCompanyIdList.length === 0) return;
-    setShowBulkAddModal(true);
-  }, [selectedCompanyIdList]);
+    if (!target) return;
+    const request = buildPeersRequest({
+      targetCompanyId: target.company_id,
+      filters,
+      companyIdsInclude,
+      companyIdsExclude,
+      primarySectors,
+      secondarySectors,
+      locations,
+    });
+    const saved = peersRequestToSavedBenchmark(request, target.company_name);
+    setSavedBenchmarks(saveBenchmark(saved));
+  }, [
+    target,
+    filters,
+    companyIdsInclude,
+    companyIdsExclude,
+    primarySectors,
+    secondarySectors,
+    locations,
+  ]);
+
+  const loadSaved = useCallback(
+    (saved: SavedBenchmark) => {
+      const nextFilters = savedBenchmarkToFilters(saved);
+      setFilters(nextFilters);
+      setCompanyIdsInclude(saved.company_ids_include);
+      setCompanyIdsExclude(saved.company_ids_exclude);
+      void loadBenchmark(
+        saved.target_company_id,
+        nextFilters,
+        saved.company_ids_include,
+        saved.company_ids_exclude
+      );
+    },
+    [loadBenchmark]
+  );
 
   const headlineMetrics = useMemo(() => {
     if (!target) return [];
-    return buildHeadlineMetrics(target, peers, allowedSources, peerAggregateMode);
-  }, [target, peers, allowedSources, peerAggregateMode]);
+    return buildHeadlineMetrics(target, peers);
+  }, [target, peers]);
 
   const benchmarkRows = useMemo(() => {
     if (!target) return [];
-    return buildBenchmarkMetricRows(target, peers, allowedSources, peerAggregateMode);
-  }, [target, peers, allowedSources, peerAggregateMode]);
+    return buildBenchmarkMetricRows(target, peers);
+  }, [target, peers]);
 
   const compositePercentile = useMemo(() => {
     if (!target) return null;
-    return computeCompositePercentile(target, peers, allowedSources);
-  }, [target, peers, allowedSources]);
-
-  const handleExportCsv = useCallback(() => {
-    if (!target) return;
-    exportBenchmarkToCsv({
-      target,
-      peers,
-      benchmarkRows,
-      headlineMetrics,
-      compositePercentile,
-      peerAggregateMode,
-    });
-  }, [target, peers, benchmarkRows, headlineMetrics, compositePercentile, peerAggregateMode]);
+    return computeCompositePercentile(target, peers);
+  }, [target, peers]);
 
   const peerFinRows = useMemo(
     () => peers.map((peer) => mapCompanyToFinRow(peer, primarySectors, secondarySectors)),
     [peers, primarySectors, secondarySectors]
   );
 
-  const sectorMedian = useMemo(
-    () => buildPeerSectorMedian(peers, peerAggregateMode),
-    [peers, peerAggregateMode]
-  );
+  const sectorMedian = useMemo(() => buildPeerSectorMedian(peers), [peers]);
 
-  const visibleColumnIds = peerColumnIds;
-
-  const peerColumnVisibilityInitial = useMemo(
-    () => columnIdsToVisibility(peerColumnIds),
-    [peerColumnIds]
-  );
-
-  const handleApplyPeerColumns = useCallback(
-    (visible: Record<string, boolean>, order?: string[]) => {
-      setPeerColumnIds(resolvePeerColumnIdsFromModal(visible, order));
-      setShowPeerColumnsModal(false);
-    },
+  const visibleColumnIds = useMemo(
+    () => FIN_COLUMN_ORDER.filter((id) => FIN_COLUMN_DEFAULT_VISIBILITY[id]),
     []
   );
-
-  const effectiveDefaultMode = isDefaultMode && isDefaultSourceTypes(allowedSources);
-
-  const showBenchmarkSkeleton = loading && peers.length === 0;
-  const showBenchmarkContent = target && !showBenchmarkSkeleton;
-  const isRefreshingBenchmark = loading && peers.length > 0;
 
   return (
     <div className="min-h-screen" style={{ background: "var(--ax-gray-25)", fontFamily: "var(--font-sans)" }}>
       <Header />
-      <main style={{ width: "100%", padding: "20px 28px 48px", boxSizing: "border-box" }}>
+      <main style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 32px 48px" }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ax-cyan-700)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            Financial Intelligence
+          </div>
+          <h1 style={{ margin: "6px 0 8px", fontSize: 28, fontWeight: 800, color: "var(--fg-1)" }}>
+            Financial Benchmark
+          </h1>
+          <p style={{ margin: 0, color: "var(--fg-3)", fontSize: 14, maxWidth: 760 }}>
+            Compare a target company against a peer set. Metrics, percentiles, and medians are
+            computed client-side after target and peer data load.
+          </p>
+        </div>
+
         <div
           style={{
             display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 16,
-            marginBottom: 20,
+            flexWrap: "wrap",
+            gap: 12,
+            alignItems: "center",
+            marginBottom: 16,
           }}
         >
-          <div>
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: "var(--ax-cyan-700)",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-              }}
-            >
-              Financial Intelligence
-            </div>
-            <h1 style={{ margin: "6px 0 8px", fontSize: 28, fontWeight: 800, color: "var(--fg-1)" }}>
-              Financial Benchmark
-            </h1>
-            <p style={{ margin: 0, color: "var(--fg-3)", fontSize: 14, maxWidth: 760 }}>
-              Compare a target company against a peer set. Metrics, percentiles, and medians are
-              computed client-side after target and peer data load.
-            </p>
-          </div>
+          <TargetSelector
+            targetId={target?.company_id ?? null}
+            targetName={target?.company_name ?? null}
+            targetLogo={target?.company_logo ?? null}
+            targetUrl={target?.url ?? null}
+            loading={loading}
+            onSelect={selectTarget}
+            onClear={clearTarget}
+          />
 
           {target && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <>
               <button
                 type="button"
-                onClick={handleExportCsv}
-                disabled={loading || peers.length === 0}
+                disabled={isDefaultMode || loading}
+                onClick={resetToDefault}
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "8px 14px",
-                  borderRadius: "var(--r-md)",
+                  padding: "8px 12px",
+                  borderRadius: "var(--r-sm)",
                   border: "1px solid var(--border-1)",
-                  background: "white",
-                  color: "var(--fg-1)",
+                  background: isDefaultMode ? "var(--ax-gray-100)" : "white",
+                  color: isDefaultMode ? "var(--fg-4)" : "var(--fg-2)",
                   fontWeight: 600,
                   fontSize: 12,
-                  cursor: loading || peers.length === 0 ? "default" : "pointer",
-                  opacity: loading || peers.length === 0 ? 0.5 : 1,
-                  fontFamily: "var(--font-sans)",
+                  cursor: isDefaultMode ? "default" : "pointer",
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M8 2v8M5 9l3 3 3-3"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M3 13h10"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                Export
+                Reset to default
               </button>
               <button
                 type="button"
                 onClick={handleSaveBenchmark}
-                disabled={loading || selectedCompanyIdList.length === 0}
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "8px 14px",
-                  borderRadius: "var(--r-md)",
+                  padding: "8px 12px",
+                  borderRadius: "var(--r-sm)",
                   border: "none",
-                  background: "var(--ax-gray-900)",
+                  background: "var(--ax-cyan-700)",
                   color: "white",
                   fontWeight: 600,
                   fontSize: 12,
-                  cursor: loading || selectedCompanyIdList.length === 0 ? "default" : "pointer",
-                  opacity: loading || selectedCompanyIdList.length === 0 ? 0.5 : 1,
-                  fontFamily: "var(--font-sans)",
+                  cursor: "pointer",
                 }}
               >
-                <svg width="12" height="12" viewBox="0 0 12 12">
-                  <path
-                    d="M6 2v8M2 6h8"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
                 Save benchmark
               </button>
-            </div>
+              <span
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  background: "var(--ax-gray-100)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--fg-2)",
+                }}
+              >
+                {totalPeers || peers.length} peers
+              </span>
+            </>
           )}
         </div>
 
-        <FiControlBar
-          targetId={target?.company_id ?? null}
-          targetName={target?.company_name ?? null}
-          targetLogo={target?.company_logo ?? null}
-          loading={loading}
-          onSelectTarget={selectTarget}
-          onClearTarget={clearTarget}
-          filters={filters}
-          onAddFilter={addFilter}
-          onUpdateFilter={updateFilter}
-          onRemoveFilter={removeFilter}
-          primarySectorOptions={primarySectors.map((s) => s.sector_name)}
-          secondarySectorOptions={secondarySectors.map((s) => s.sector_name)}
-          primarySectors={primarySectors}
-          secondarySectors={secondarySectors}
-          regionOptions={regionOptions}
-          countryOptions={countryOptions}
-          peerCount={totalPeers || peers.length}
-          isDefaultMode={effectiveDefaultMode}
-          onResetToDefault={resetToDefault}
-          onApplySuggestedFilters={applySuggestedFilters}
-          allowedSources={allowedSources}
-          onToggleSourceType={toggleSourceType}
-          addQuery={addQuery}
-          onAddQueryChange={setAddQuery}
-          addResults={addResults}
-          onAddCompany={addPeerCompany}
-          peerAggregateMode={peerAggregateMode}
-          onPeerAggregateModeChange={setPeerAggregateMode}
-        />
+        {savedBenchmarks.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+            {savedBenchmarks.map((saved) => (
+              <button
+                key={`${saved.target_company_id}-${saved.saved_at}`}
+                type="button"
+                onClick={() => loadSaved(saved)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  border: "1px solid var(--border-1)",
+                  background: "white",
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                {saved.label ?? `Company #${saved.target_company_id}`}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {showBenchmarkSkeleton && <FiBenchmarkSkeleton />}
+        {target && (
+          <div style={{ marginBottom: 16 }}>
+            <FiFilterBar
+              filters={filters}
+              onAddFilter={addFilter}
+              onRemoveFilter={removeFilter}
+              primarySectorOptions={primarySectors.map((s) => s.sector_name)}
+              secondarySectorOptions={secondarySectors.map((s) => s.sector_name)}
+              regionOptions={regions}
+              countryOptions={countries}
+            />
+          </div>
+        )}
+
+        {loading && (
+          <div style={{ padding: 24, color: "var(--fg-3)", fontSize: 14 }}>Loading benchmark…</div>
+        )}
 
         {error && (
           <div
@@ -650,13 +442,12 @@ export default function FinancialIntelligencePage() {
               fontSize: 14,
             }}
           >
-            Select a target company to load its financial profile and default peer set.
+            Select a target company by ID to load its financial profile and default peer set.
           </div>
         )}
 
-        {showBenchmarkContent && (
-          <FiBenchmarkRefreshing active={isRefreshingBenchmark}>
-            <>
+        {target && !loading && (
+          <>
             <div
               style={{
                 display: "grid",
@@ -670,135 +461,68 @@ export default function FinancialIntelligencePage() {
                 targetName={target.company_name}
                 peerCount={peers.length}
               />
-              <HeadlineMetricCards metrics={headlineMetrics} peerAggregateMode={peerAggregateMode} />
+              <HeadlineMetricCards metrics={headlineMetrics} />
             </div>
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) 280px",
-                gap: 12,
-                alignItems: "start",
+                gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 340px)",
+                gap: 16,
                 marginBottom: 16,
-                minWidth: 0,
               }}
             >
-              <BenchmarkTable
-                rows={benchmarkRows}
-                targetName={target.company_name}
-                target={target}
-                peers={peers}
-                peerAggregateMode={peerAggregateMode}
-              />
+              <BenchmarkTable rows={benchmarkRows} targetName={target.company_name} />
               <PeerCompaniesCard
                 peers={peers}
-                target={target}
-                excludedPeers={excludedPeers}
+                targetFinancialYear={target.financial_year || null}
                 excludedIds={companyIdsExclude}
-                manuallyAddedIds={companyIdsInclude}
                 onExclude={excludePeer}
-                onRestorePeer={restorePeer}
                 onRestoreAll={restoreAllPeers}
                 onAddCompany={addPeerCompany}
                 addQuery={addQuery}
                 onAddQueryChange={setAddQuery}
                 addResults={addResults}
-                onPickAddResult={() => setAddQuery("")}
+                onPickAddResult={() => undefined}
               />
             </div>
 
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  marginBottom: 8,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 12,
-                }}
+            <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 700, color: "var(--fg-1)" }}>Peer financials table</div>
+              <Link
+                href={`/new_company/${target.company_id}`}
+                style={{ fontSize: 12, color: "var(--ax-cyan-700)", fontWeight: 600 }}
               >
-                <div>
-                  <div style={{ fontWeight: 700, color: "var(--fg-1)" }}>Peer financials table</div>
-                  <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
-                    {peers.length} {peers.length === 1 ? "company" : "companies"}
-                    {companyIdsExclude.length > 0 ? ` · ${companyIdsExclude.length} dropped` : ""}
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                  <SearchColumnsButton
-                    active={showPeerColumnsModal}
-                    count={peerColumnIds.length}
-                    total={FI_PEER_COLUMN_TOTAL}
-                    onClick={() => setShowPeerColumnsModal((open) => !open)}
-                  />
-                  <Link
-                    href={`/new_company/${target.company_id}`}
-                    style={{ fontSize: 12, color: "var(--ax-cyan-700)", fontWeight: 600, flexShrink: 0 }}
-                  >
-                    View target profile →
-                  </Link>
-                </div>
-              </div>
-
-              <FinancialsTable
-                rows={peerFinRows}
-                tweaks={{
-                  sectionName: "Financial Intelligence",
-                  showMedian: true,
-                  colorMultiples: true,
-                  chipStyle: "cyan",
-                  chipIcon: true,
-                  density: "comfortable",
-                  hideCompanyAvatars: false,
-                  peerAggregateMode,
-                }}
-                sortId={sortId}
-                sortDir={sortDir}
-                onSort={(id) => {
-                  if (sortId === id) setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
-                  else {
-                    setSortId(id);
-                    setSortDir("desc");
-                  }
-                }}
-                visibleColumnIds={visibleColumnIds}
-                sectorMedian={sectorMedian}
-              />
+                View target profile →
+              </Link>
             </div>
-            </>
-          </FiBenchmarkRefreshing>
+
+            <FinancialsTable
+              rows={peerFinRows}
+              tweaks={{
+                sectionName: "Financial Intelligence",
+                showMedian: true,
+                colorMultiples: true,
+                chipStyle: "cyan",
+                chipIcon: true,
+                density: "comfortable",
+              }}
+              sortId={sortId}
+              sortDir={sortDir}
+              onSort={(id) => {
+                if (sortId === id) setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+                else {
+                  setSortId(id);
+                  setSortDir("desc");
+                }
+              }}
+              visibleColumnIds={visibleColumnIds}
+              sectorMedian={sectorMedian}
+            />
+          </>
         )}
       </main>
-      <BulkAddToPortfolioModal
-        isOpen={showBulkAddModal}
-        onClose={() => setShowBulkAddModal(false)}
-        companyIds={selectedCompanyIdList}
-      />
       <Footer />
-      {showPeerColumnsModal && (
-        <>
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 199,
-              cursor: "default",
-            }}
-            onClick={() => setShowPeerColumnsModal(false)}
-            aria-hidden
-          />
-          <ColumnsControlRoom
-            initial={peerColumnVisibilityInitial}
-            initialOrder={peerColumnIds}
-            onCancel={() => setShowPeerColumnsModal(false)}
-            onApply={handleApplyPeerColumns}
-            categories={FI_PEER_COLUMN_CATEGORIES}
-            title="Column Control Room"
-            defaultVisibleColumnKeys={DEFAULT_FI_PEER_COLUMN_IDS}
-            reorderHint="Drag rows to reorder. Company stays fixed as the first column."
-          />
-        </>
-      )}
     </div>
   );
 }

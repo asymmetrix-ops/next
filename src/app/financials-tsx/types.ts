@@ -10,9 +10,6 @@ export type Ownership =
 
 export interface FinRow {
   name: string;
-  companyId?: number;
-  logo?: string | null;
-  isManuallyAdded?: boolean;
   primary: string;
   secondary: string;
   country: string;
@@ -32,8 +29,8 @@ export interface FinRow {
   rev_multiple: number;
   trend: number[];
   // optional extended columns
-  subscription_revenue_pc?: number;
-  subscription_revenue_m?: number;
+  recurring_revenue?: number;
+  arr?: number;
   churn?: number;
   grr?: number;
   nrr?: number;
@@ -104,7 +101,7 @@ export interface FilterDef {
 
 export interface FilterState {
   id: string;
-  value: string[] | number[] | { min?: number; max?: number } | string;
+  value: string[] | { min?: number; max?: number } | string;
 }
 
 export interface AppState {
@@ -120,12 +117,6 @@ export interface Tweaks {
   chipStyle: 'neutral' | 'cyan' | 'outlined';
   chipIcon: boolean;
   density: 'compact' | 'comfortable' | 'spacious';
-  /** Hide colored initial/logo beside company names in the table. */
-  hideCompanyAvatars?: boolean;
-  /** Show remove control per peer row (Financial Intelligence). */
-  showPeerActions?: boolean;
-  /** Peer-set aggregate row uses median or mean (Financial Intelligence). */
-  peerAggregateMode?: "median" | "mean";
 }
 
 export interface SectorMedian {
