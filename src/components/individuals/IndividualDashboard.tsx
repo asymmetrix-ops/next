@@ -18,6 +18,9 @@ import {
   FILTER_CATEGORIES,
   buildIndividualsFilterDefs,
   EMPTY_INDIVIDUALS_SUMMARY_COUNTS,
+  INDIVIDUAL_ROLE_TAB_CONFIG,
+  INDIVIDUAL_ROLE_TAB_ORDER,
+  type IndividualRoleTab,
   type IndividualsSummaryCounts,
   type Country,
   type Province,
@@ -37,7 +40,10 @@ export type IndividualDashboardProps = {
     countsFilters: IndividualsSearchFilters,
     portfolioOnly?: boolean
   ) => void;
-  onFilterColumnsChange?: (payload: { filterIds: string[] }) => void;
+  onFilterColumnsChange?: (payload: {
+    filterIds: string[];
+    roleTabActive: boolean;
+  }) => void;
   initialSearch?: string;
   summaryCounts?: IndividualsSummaryCounts;
   jobTitles: JobTitleOption[];
@@ -62,6 +68,8 @@ export const IndividualDashboard = ({
     searchText: initialSearch || "",
     filterLogic: "and",
   });
+
+  const [activeRoleTab, setActiveRoleTab] = useState<IndividualRoleTab>("all");
 
   const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
@@ -169,19 +177,24 @@ export const IndividualDashboard = ({
   useEffect(() => {
     onFilterColumnsChangeRef.current?.({
       filterIds: filterBarState.filters.map((filter) => filter.id),
+      roleTabActive: activeRoleTab !== "all",
     });
-  }, [filterBarState.filters]);
+  }, [filterBarState.filters, activeRoleTab]);
 
-  const buildSearchFilters = useCallback(
-    (): IndividualsSearchFilters =>
-      buildIndividualsSearchPayload({
-        state: filterBarState,
-        primarySectors,
-        secondarySectors,
-        jobTitles,
-      }),
-    [filterBarState, primarySectors, secondarySectors, jobTitles]
-  );
+  const buildSearchFilters = useCallback((): IndividualsSearchFilters => {
+    const tabConfig =
+      activeRoleTab !== "all" ? INDIVIDUAL_ROLE_TAB_CONFIG[activeRoleTab] : null;
+    return buildIndividualsSearchPayload({
+      state: filterBarState,
+      primarySectors,
+      secondarySectors,
+      jobTitles,
+      roleTabJobTitleIds: tabConfig?.jobTitleIds
+        ? [...tabConfig.jobTitleIds]
+        : undefined,
+      roleTabStatuses: tabConfig?.statuses ? [...tabConfig.statuses] : undefined,
+    });
+  }, [filterBarState, primarySectors, secondarySectors, jobTitles, activeRoleTab]);
 
   const isPortfolioFilterActive = filterBarState.filters.some(
     (f) => f.id === "followed" && f.value === true
@@ -224,15 +237,39 @@ export const IndividualDashboard = ({
     };
   }, [filterSearchKey]);
 
-  const matchCount = summaryCounts.totalCount;
+  const skipInitialTabRef = useRef(true);
+  useEffect(() => {
+    if (skipInitialTabRef.current) {
+      skipInitialTabRef.current = false;
+      return;
+    }
+    onSearchRef.current?.(
+      buildSearchFiltersRef.current(),
+      buildSearchFiltersRef.current(),
+      isPortfolioFilterActiveRef.current
+    );
+  }, [activeRoleTab]);
 
-  const summaryStats = [
-    { label: "CEOs", value: summaryCounts.ceos },
-    { label: "Current roles", value: summaryCounts.currentRoles },
-    { label: "Chair", value: summaryCounts.chairs },
-    { label: "Past roles", value: summaryCounts.pastRoles },
-    { label: "Founder", value: summaryCounts.founders },
+  const roleTabs: {
+    id: IndividualRoleTab;
+    label: string;
+    count: number;
+    dot: string;
+  }[] = [
+    { id: "all", label: "All", count: summaryCounts.totalCount, dot: "#64748b" },
+    ...INDIVIDUAL_ROLE_TAB_ORDER.map((id) => ({
+      id,
+      label: INDIVIDUAL_ROLE_TAB_CONFIG[id].label,
+      count: summaryCounts[INDIVIDUAL_ROLE_TAB_CONFIG[id].countKey],
+      dot: INDIVIDUAL_ROLE_TAB_CONFIG[id].dot,
+    })),
   ];
+
+  const matchCount =
+    activeRoleTab === "all"
+      ? summaryCounts.totalCount
+      : roleTabs.find((tab) => tab.id === activeRoleTab)?.count ??
+        summaryCounts.totalCount;
 
   return (
     <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
@@ -244,7 +281,7 @@ export const IndividualDashboard = ({
             alignItems: "flex-start",
             gap: 16,
             flexWrap: "wrap",
-            marginBottom: 14,
+            marginBottom: 18,
           }}
         >
           <div>
@@ -296,24 +333,49 @@ export const IndividualDashboard = ({
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "10px 18px",
-            paddingBottom: 14,
-            fontSize: 12,
-            color: "#64748b",
-          }}
-        >
-          {summaryStats.map((stat) => (
-            <span key={stat.label}>
-              <span style={{ color: "#94a3b8" }}>{stat.label}: </span>
-              <span style={{ fontWeight: 600, color: "#334155" }}>
-                {stat.value.toLocaleString()}
-              </span>
-            </span>
-          ))}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {roleTabs.map((tab) => {
+            const active = activeRoleTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveRoleTab(tab.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  height: 34,
+                  padding: "0 14px",
+                  background: active ? "#0f172a" : "transparent",
+                  color: active ? "#fff" : "#64748b",
+                  border: "1px solid",
+                  borderColor: active ? "#0f172a" : "transparent",
+                  borderBottom: "none",
+                  borderRadius: "8px 8px 0 0",
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 500,
+                  cursor: "pointer",
+                  transition: "background 0.12s, color 0.12s",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: active ? "rgba(255,255,255,0.7)" : tab.dot,
+                    flexShrink: 0,
+                  }}
+                />
+                {tab.label}
+                <span style={{ fontSize: 12, opacity: 0.75 }}>
+                  {tab.count.toLocaleString()}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

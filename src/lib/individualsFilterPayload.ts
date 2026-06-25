@@ -115,6 +115,8 @@ export function buildIndividualsSearchPayload(args: {
   jobTitles: JobTitleRef[];
   page?: number;
   perPage?: number;
+  roleTabJobTitleIds?: number[];
+  roleTabStatuses?: string[];
 }): IndividualsSearchFilters {
   const {
     state,
@@ -123,6 +125,8 @@ export function buildIndividualsSearchPayload(args: {
     jobTitles,
     page = 1,
     perPage = 50,
+    roleTabJobTitleIds,
+    roleTabStatuses,
   } = args;
 
   let filters = createDefaultIndividualFilters();
@@ -138,6 +142,13 @@ export function buildIndividualsSearchPayload(args: {
       secondarySectors,
       jobTitles
     );
+  }
+
+  if (roleTabJobTitleIds && roleTabJobTitleIds.length > 0) {
+    filters.Job_Titles = [...roleTabJobTitleIds];
+  }
+  if (roleTabStatuses && roleTabStatuses.length > 0) {
+    filters.Statuses = [...roleTabStatuses];
   }
 
   return filters;
