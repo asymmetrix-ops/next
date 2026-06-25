@@ -50,6 +50,64 @@ export const EMPTY_INDIVIDUALS_SUMMARY_COUNTS: IndividualsSummaryCounts = {
   founders: 0,
 };
 
+export type IndividualRoleTab =
+  | "all"
+  | "ceos"
+  | "current_roles"
+  | "chair"
+  | "past_roles"
+  | "founder";
+
+export const INDIVIDUAL_ROLE_TAB_ORDER: Exclude<IndividualRoleTab, "all">[] = [
+  "ceos",
+  "current_roles",
+  "chair",
+  "past_roles",
+  "founder",
+];
+
+export const INDIVIDUAL_ROLE_TAB_CONFIG: Record<
+  Exclude<IndividualRoleTab, "all">,
+  {
+    label: string;
+    dot: string;
+    countKey: keyof IndividualsSummaryCounts;
+    jobTitleIds?: readonly number[];
+    statuses?: readonly string[];
+  }
+> = {
+  ceos: {
+    label: "CEOs",
+    dot: "#3b82f6",
+    countKey: "ceos",
+    jobTitleIds: [4],
+  },
+  current_roles: {
+    label: "Current roles",
+    dot: "#10b981",
+    countKey: "currentRoles",
+    statuses: ["Current"],
+  },
+  chair: {
+    label: "Chair",
+    dot: "#8b5cf6",
+    countKey: "chairs",
+    jobTitleIds: [5],
+  },
+  past_roles: {
+    label: "Past roles",
+    dot: "#64748b",
+    countKey: "pastRoles",
+    statuses: ["Past"],
+  },
+  founder: {
+    label: "Founder",
+    dot: "#f59e0b",
+    countKey: "founders",
+    jobTitleIds: [21],
+  },
+};
+
 export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "location", name: "Location" },
   { id: "sectors", name: "Sector" },
