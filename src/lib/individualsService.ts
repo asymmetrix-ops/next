@@ -1,6 +1,6 @@
 import { IndividualsResponse, IndividualsFilters } from "../types/individuals";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
 
 class IndividualsService {
   private getAuthHeaders() {

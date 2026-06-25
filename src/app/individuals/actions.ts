@@ -5,9 +5,13 @@ import type { Individual, IndividualsResponse } from "@/types/individuals";
 import {
   createDefaultIndividualFilters,
   individualsFiltersToSearchParams,
+  individualsCountsFiltersToSearchParams,
   type IndividualsSearchFilters,
 } from "@/lib/individualsFilterPayload";
-import { mapResponseToIndividualsSummaryCounts } from "@/components/individuals/individualsFilterConfig";
+import {
+  mapResponseToIndividualsSummaryCounts,
+  mapIndividualsCountsResponse,
+} from "@/components/individuals/individualsFilterConfig";
 
 export type { IndividualsSearchFilters };
 
@@ -22,7 +26,10 @@ export interface IndividualsListResponse {
   summaryCounts: ReturnType<typeof mapResponseToIndividualsSummaryCounts>;
 }
 
-const INDIVIDUALS_API_BASE =
+// List lives on the main branch; counts endpoint is only on :develop.
+const INDIVIDUALS_LIST_API_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
+const INDIVIDUALS_COUNTS_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
 
 export async function fetchIndividualsServer(
@@ -39,7 +46,7 @@ export async function fetchIndividualsServer(
       per_page: filters.per_page > 0 ? filters.per_page : 50,
     };
     const params = individualsFiltersToSearchParams(payload);
-    const url = `${INDIVIDUALS_API_BASE}/get_all_individuals?${params.toString()}`;
+    const url = `${INDIVIDUALS_LIST_API_BASE}/get_all_individuals?${params.toString()}`;
 
     const response = await fetch(url, {
       method: "GET",
@@ -73,6 +80,41 @@ export async function fetchIndividualsServer(
     };
   } catch (error) {
     console.error("fetchIndividualsServer error:", error);
+    return null;
+  }
+}
+
+export async function fetchIndividualsCountsServer(
+  filters: IndividualsSearchFilters = createDefaultIndividualFilters()
+): Promise<ReturnType<typeof mapIndividualsCountsResponse> | null> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("asymmetrix_auth_token")?.value;
+    if (!token) return null;
+
+    const params = individualsCountsFiltersToSearchParams(filters);
+    const url = `${INDIVIDUALS_COUNTS_API_BASE}/get_individuals_counts?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error(
+        `Individuals counts API failed (${response.status}):`,
+        await response.text().catch(() => response.statusText)
+      );
+      return null;
+    }
+
+    const data = (await response.json()) as Record<string, unknown>;
+    return mapIndividualsCountsResponse(data);
+  } catch (error) {
+    console.error("fetchIndividualsCountsServer error:", error);
     return null;
   }
 }

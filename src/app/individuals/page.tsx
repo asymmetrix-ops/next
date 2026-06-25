@@ -24,6 +24,7 @@ import {
 } from "@/components/individuals/individualsFilterConfig";
 import {
   fetchIndividualsServer,
+  fetchIndividualsCountsServer,
   fetchJobTitlesServer,
 } from "./actions";
 
@@ -32,7 +33,10 @@ const useIndividualsAPI = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const lastRequestIdRef = useRef(0);
+  const lastCountsRequestIdRef = useRef(0);
+  const countsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentFiltersRef = useRef<Filters | undefined>(undefined);
+  const currentCountsFiltersRef = useRef<Filters | undefined>(undefined);
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
     undefined
   );
@@ -48,56 +52,87 @@ const useIndividualsAPI = () => {
   );
   const [jobTitles, setJobTitles] = useState<JobTitleOption[]>([]);
 
-  const fetchIndividuals = useCallback(async (page: number = 1, filters?: Filters) => {
-    const requestId = ++lastRequestIdRef.current;
-    setLoading(true);
-    setError(null);
-
-    if (filters !== undefined) {
-      currentFiltersRef.current = filters;
-      setCurrentFilters(filters);
-    }
-
-    const filtersToUse =
-      filters !== undefined
-        ? filters
-        : currentFiltersRef.current ?? createDefaultIndividualFilters();
-
-    try {
-      const data = await fetchIndividualsServer({ ...filtersToUse, page });
-
-      if (!data) {
-        throw new Error("Failed to fetch individuals - authentication required");
-      }
-
-      if (requestId === lastRequestIdRef.current) {
-        setIndividuals(data.items);
-        setPagination({
-          curPage: data.curPage,
-          nextPage: data.nextPage,
-          prevPage: data.prevPage,
-          pageTotal: data.pageTotal,
-          itemsTotal: data.itemsTotal,
+  const scheduleCountsFetch = useCallback((countsFilters: Filters) => {
+    if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
+    countsTimeoutRef.current = setTimeout(() => {
+      const countsRequestId = ++lastCountsRequestIdRef.current;
+      void fetchIndividualsCountsServer(countsFilters)
+        .then((countsData) => {
+          if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
+            return;
+          }
+          setSummaryCounts(countsData);
+        })
+        .catch((countsError) => {
+          console.error("Error fetching individual summary counts:", countsError);
         });
-        setSummaryCounts(data.summaryCounts);
-      }
-    } catch (err) {
-      if (requestId === lastRequestIdRef.current) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch individuals"
-        );
-      }
-      console.error("Error fetching individuals:", err);
-    } finally {
-      if (requestId === lastRequestIdRef.current) {
-        setLoading(false);
-      }
-    }
+    }, 400);
   }, []);
+
+  const fetchIndividuals = useCallback(
+    async (page: number = 1, filters?: Filters, countsFilters?: Filters) => {
+      const requestId = ++lastRequestIdRef.current;
+      setLoading(true);
+      setError(null);
+
+      if (filters !== undefined) {
+        currentFiltersRef.current = filters;
+        setCurrentFilters(filters);
+      }
+      if (countsFilters !== undefined) {
+        currentCountsFiltersRef.current = countsFilters;
+      }
+
+      const filtersToUse =
+        filters !== undefined
+          ? filters
+          : currentFiltersRef.current ?? createDefaultIndividualFilters();
+      const countsFiltersToUse =
+        countsFilters ??
+        currentCountsFiltersRef.current ??
+        filtersToUse;
+
+      try {
+        if (page === 1) {
+          scheduleCountsFetch(countsFiltersToUse);
+        }
+
+        const data = await fetchIndividualsServer({ ...filtersToUse, page });
+
+        if (!data) {
+          throw new Error("Failed to fetch individuals - authentication required");
+        }
+
+        if (requestId === lastRequestIdRef.current) {
+          setIndividuals(data.items);
+          setPagination({
+            curPage: data.curPage,
+            nextPage: data.nextPage,
+            prevPage: data.prevPage,
+            pageTotal: data.pageTotal,
+            itemsTotal: data.itemsTotal,
+          });
+        }
+      } catch (err) {
+        if (requestId === lastRequestIdRef.current) {
+          setError(
+            err instanceof Error ? err.message : "Failed to fetch individuals"
+          );
+        }
+        console.error("Error fetching individuals:", err);
+      } finally {
+        if (requestId === lastRequestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [scheduleCountsFetch]
+  );
 
   useEffect(() => {
     void fetchJobTitlesServer().then(setJobTitles).catch(console.error);
-    fetchIndividuals(1, createDefaultIndividualFilters());
+    const defaults = createDefaultIndividualFilters();
+    fetchIndividuals(1, defaults, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -144,9 +179,9 @@ function IndividualsPageInner() {
   }, []);
 
   const handleSearch = useCallback(
-    (listFilters: Filters, _countsFilters: Filters, portfolioOnly?: boolean) => {
+    (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      void fetchIndividuals(1, listFilters);
+      void fetchIndividuals(1, listFilters, countsFilters);
     },
     [fetchIndividuals]
   );

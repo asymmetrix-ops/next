@@ -154,16 +154,24 @@ export function buildIndividualsSearchPayload(args: {
   return filters;
 }
 
-export function individualsFiltersToSearchParams(
+/** Counts payload — filter bar only, no role-tab constraints. */
+export function buildIndividualsCountsSearchPayload(args: {
+  state: FilterBarState;
+  primarySectors: SectorRef[];
+  secondarySectors: SectorRef[];
+  jobTitles: JobTitleRef[];
+}): IndividualsSearchFilters {
+  return buildIndividualsSearchPayload({
+    ...args,
+    page: 0,
+    perPage: 0,
+  });
+}
+
+function appendIndividualsFilterParams(
+  params: URLSearchParams,
   filters: IndividualsSearchFilters
-): URLSearchParams {
-  const params = new URLSearchParams();
-  const page = Math.max(1, filters.page || 1);
-  const perPage = filters.per_page > 0 ? filters.per_page : 50;
-
-  params.append("Offset", String(page));
-  params.append("Per_page", String(perPage));
-
+): void {
   if (filters.Search_Query) {
     params.append("search_query", filters.Search_Query);
   }
@@ -200,5 +208,27 @@ export function individualsFiltersToSearchParams(
   }
 
   params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
+}
+
+export function individualsFiltersToSearchParams(
+  filters: IndividualsSearchFilters
+): URLSearchParams {
+  const params = new URLSearchParams();
+  const page = Math.max(1, filters.page || 1);
+  const perPage = filters.per_page > 0 ? filters.per_page : 50;
+
+  params.append("Offset", String(page));
+  params.append("Per_page", String(perPage));
+  appendIndividualsFilterParams(params, filters);
+  return params;
+}
+
+export function individualsCountsFiltersToSearchParams(
+  filters: IndividualsSearchFilters
+): URLSearchParams {
+  const params = new URLSearchParams();
+  params.append("Offset", "0");
+  params.append("Per_page", "0");
+  appendIndividualsFilterParams(params, filters);
   return params;
 }
