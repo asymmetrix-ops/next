@@ -216,8 +216,16 @@ export function buildCorporateEventsSearchPayload(args: {
   userId?: number | null;
   page?: number;
   perPage?: number;
+  dealTabTypes?: readonly string[];
 }): CorporateEventsSearchFilters {
-  return buildFiltersFromFilterBar(args);
+  const filters = buildFiltersFromFilterBar(args);
+  if (args.dealTabTypes && args.dealTabTypes.length > 0) {
+    return {
+      ...filters,
+      deal_types: [...args.dealTabTypes],
+    };
+  }
+  return filters;
 }
 
 export function buildCorporateEventsCountsSearchPayload(args: {
@@ -228,19 +236,17 @@ export function buildCorporateEventsCountsSearchPayload(args: {
   page?: number;
   perPage?: number;
 }): CorporateEventsSearchFilters {
-  return buildFiltersFromFilterBar(args);
+  const filters = buildFiltersFromFilterBar(args);
+  return {
+    ...filters,
+    deal_types: [],
+  };
 }
 
-export function corporateEventsFiltersToSearchParams(
+function appendSharedCorporateEventFilterParams(
+  params: URLSearchParams,
   filters: CorporateEventsSearchFilters
-): URLSearchParams {
-  const params = new URLSearchParams();
-  const page = Math.max(1, filters.Page || 1);
-  const perPage = filters.Per_page > 0 ? filters.Per_page : 50;
-
-  params.append("Page", String(page));
-  params.append("Per_page", String(perPage));
-
+): void {
   const hasSpecificEntityFilters =
     (filters.filter_advisor_ids?.length ?? 0) > 0 ||
     (filters.filter_company_ids?.length ?? 0) > 0 ||
@@ -268,7 +274,12 @@ export function corporateEventsFiltersToSearchParams(
     (filters.filter_individual_ids ?? []).forEach((id) =>
       params.append("filter_individual_ids[]", String(id))
     );
+  } else {
+    params.append("show_followed", "false");
+    params.append("user_id", "0");
   }
+
+  params.append("new_company_id", "0");
 
   if (filters.search_query) {
     params.append("search_query", filters.search_query);
@@ -285,9 +296,13 @@ export function corporateEventsFiltersToSearchParams(
   }
   if (filters.continentalRegions && filters.continentalRegions.length > 0) {
     params.append("Continental_Region", filters.continentalRegions.join(","));
+  } else {
+    params.append("Continental_Region", "");
   }
   if (filters.subRegions && filters.subRegions.length > 0) {
     params.append("geographical_sub_region", filters.subRegions.join(","));
+  } else {
+    params.append("geographical_sub_region", "");
   }
 
   filters.primary_sectors_ids.forEach((id) =>
@@ -297,9 +312,6 @@ export function corporateEventsFiltersToSearchParams(
     params.append("Secondary_sectors_ids[]", String(id))
   );
 
-  if (filters.deal_types.length > 0) {
-    params.append("deal_types", filters.deal_types.join(","));
-  }
   if (filters.Deal_Status.length > 0) {
     params.append("Deal_Status", filters.Deal_Status.join(","));
   }
@@ -317,6 +329,34 @@ export function corporateEventsFiltersToSearchParams(
   }
   if (filters.Date_end) {
     params.append("Date_end", filters.Date_end);
+  }
+}
+
+export function corporateEventsCountsFiltersToSearchParams(
+  filters: CorporateEventsSearchFilters
+): URLSearchParams {
+  const params = new URLSearchParams();
+  appendSharedCorporateEventFilterParams(params, {
+    ...filters,
+    deal_types: [],
+  });
+  return params;
+}
+
+export function corporateEventsFiltersToSearchParams(
+  filters: CorporateEventsSearchFilters
+): URLSearchParams {
+  const params = new URLSearchParams();
+  const page = Math.max(1, filters.Page || 1);
+  const perPage = filters.Per_page > 0 ? filters.Per_page : 50;
+
+  params.append("Page", String(page));
+  params.append("Per_page", String(perPage));
+
+  appendSharedCorporateEventFilterParams(params, filters);
+
+  if (filters.deal_types.length > 0) {
+    params.append("deal_types", filters.deal_types.join(","));
   }
 
   return params;

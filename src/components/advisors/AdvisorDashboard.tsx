@@ -38,6 +38,18 @@ import {
   SEARCH_HEADER_ACTION_BUTTON_STYLE,
   SearchExportCsvIcon,
 } from "@/components/search/searchHeaderActions";
+import {
+  SEARCH_DASHBOARD_ACTIONS,
+  SEARCH_DASHBOARD_EYEBROW,
+  SEARCH_DASHBOARD_FILTER_INNER,
+  SEARCH_DASHBOARD_FILTER_SHELL,
+  SEARCH_DASHBOARD_HEADER_ROW,
+  SEARCH_DASHBOARD_INNER,
+  SEARCH_DASHBOARD_MATCH_COUNT,
+  SEARCH_DASHBOARD_SHELL,
+  SEARCH_DASHBOARD_TITLE,
+  SearchListTabs,
+} from "@/components/search/searchDashboardLayout";
 
 export type AdvisorDashboardProps = {
   onSearch?: (
@@ -284,51 +296,20 @@ export const AdvisorDashboard = ({
         roleCounts.totalCount;
 
   return (
-    <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-      <div style={{ width: "100%", padding: "20px 28px 0" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 16,
-            flexWrap: "wrap",
-            marginBottom: 18,
-          }}
-        >
+    <div style={SEARCH_DASHBOARD_SHELL}>
+      <div style={SEARCH_DASHBOARD_INNER}>
+        <div style={SEARCH_DASHBOARD_HEADER_ROW}>
           <div>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.09em",
-                textTransform: "uppercase",
-                color: "#94a3b8",
-                marginBottom: 5,
-              }}
-            >
-              Advisors
-            </div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 26,
-                fontWeight: 700,
-                color: "#0f172a",
-                display: "flex",
-                alignItems: "baseline",
-                gap: 10,
-                lineHeight: 1.2,
-              }}
-            >
+            <div style={SEARCH_DASHBOARD_EYEBROW}>Advisors</div>
+            <h1 style={SEARCH_DASHBOARD_TITLE}>
               Advisor search
-              <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
+              <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
                 {matchCount.toLocaleString()} matches
               </span>
             </h1>
           </div>
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6, flexWrap: "wrap" }}>
+          <div style={SEARCH_DASHBOARD_ACTIONS}>
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
@@ -353,60 +334,15 @@ export const AdvisorDashboard = ({
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", paddingBottom: 14 }}>
-          {roleTabs.map((tab) => {
-            const active = activeAdvisorRoleTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveAdvisorRoleTab(tab.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  height: 34,
-                  padding: "0 14px",
-                  background: active ? "#0f172a" : "transparent",
-                  color: active ? "#fff" : "#64748b",
-                  border: "1px solid",
-                  borderColor: active ? "#0f172a" : "transparent",
-                  borderBottom: "none",
-                  borderRadius: "8px 8px 0 0",
-                  fontSize: 13,
-                  fontWeight: active ? 600 : 500,
-                  cursor: "pointer",
-                  transition: "background 0.12s, color 0.12s",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <span
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: "50%",
-                    background: active ? "rgba(255,255,255,0.7)" : tab.dot,
-                    flexShrink: 0,
-                  }}
-                />
-                {tab.label}
-                <span style={{ fontSize: 12, opacity: 0.75 }}>
-                  {tab.count.toLocaleString()}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <SearchListTabs
+          tabs={roleTabs}
+          activeTabId={activeAdvisorRoleTab}
+          onTabClick={(tabId) => setActiveAdvisorRoleTab(tabId as AdvisorRoleTab)}
+        />
       </div>
 
-      <div
-        style={{
-          background: "#fff",
-          borderTop: "1px solid #e2e8f0",
-          borderBottom: "1px solid #e2e8f0",
-        }}
-      >
-        <div style={{ width: "100%", padding: "10px 28px 12px" }}>
+      <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
+        <div style={SEARCH_DASHBOARD_FILTER_INNER}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={FILTER_CATEGORIES}
