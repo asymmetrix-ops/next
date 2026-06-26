@@ -20,7 +20,9 @@ import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
 import {
   appendDealRadarItems,
+  applyHqCountryIso2ToCorporateEvents,
   applyHqCountryIso2ToDealRadarItems,
+  collectMissingHqCountryIso2CompanyIdsFromCorporateEvents,
   mapDealRadarItem,
   readHqCountryIso2,
   type DealRadarItem,
@@ -1421,6 +1423,37 @@ export default function HomeUserPage() {
     });
   }, [tryLoadMoreDealRadarIfNearBottom]);
 
+  const enrichCorporateEventCountryFlags = useCallback(
+    async (events: CorporateEvent[]): Promise<CorporateEvent[]> => {
+      const missingCompanyIds =
+        collectMissingHqCountryIso2CompanyIdsFromCorporateEvents(
+          events as unknown as Record<string, unknown>[]
+        );
+      if (missingCompanyIds.length === 0) return events;
+
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) return events;
+
+      try {
+        const rows = await fetchCompanyTableDataByIds(missingCompanyIds, token);
+        const isoByCompanyId = new Map<number, string | null>(
+          Array.from(rows.entries()).map(([companyId, row]) => [
+            companyId,
+            readHqCountryIso2(row),
+          ])
+        );
+        return applyHqCountryIso2ToCorporateEvents(
+          events as unknown as Record<string, unknown>[],
+          isoByCompanyId
+        ) as unknown as CorporateEvent[];
+      } catch (error) {
+        console.error("Error enriching corporate event country flags:", error);
+        return events;
+      }
+    },
+    []
+  );
+
   const fetchCorporateEvents = useCallback(async () => {
     try {
       setCorporateEventsLoading(true);
@@ -1441,7 +1474,10 @@ export default function HomeUserPage() {
         eventsData = responseValue as CorporateEvent[];
       }
 
-      setCorporateEvents(eventsData || []);
+      const enrichedEvents = await enrichCorporateEventCountryFlags(
+        eventsData || []
+      );
+      setCorporateEvents(enrichedEvents);
     } catch (error) {
       console.error("Error fetching corporate events:", error);
       if (
@@ -1454,7 +1490,7 @@ export default function HomeUserPage() {
     } finally {
       setCorporateEventsLoading(false);
     }
-  }, []);
+  }, [enrichCorporateEventCountryFlags]);
 
   const fetchInsightsArticles = useCallback(async () => {
     try {
@@ -2564,8 +2600,9 @@ export default function HomeUserPage() {
                                 return formatDate(ev.date || event.announcement_date);
                               })()}
                             </div>
-                            <div className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                            <div>
                               <strong>Target:</strong>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5">
                               {(() => {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 const ev: any = event as any;
@@ -2614,6 +2651,7 @@ export default function HomeUserPage() {
                                 }
                                 return <span>Not Available</span>;
                               })()}
+                              </div>
                             </div>
                             <div>
                               <strong>Seller(s):</strong>{" "}
@@ -3073,7 +3111,7 @@ export default function HomeUserPage() {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-4 text-xs text-gray-900">
+                              <td className="px-4 py-4 min-w-0 overflow-hidden text-xs text-gray-900">
                                 {/* Parties column */}
                                 {(() => {
                                   const isPartnership =
@@ -3145,30 +3183,30 @@ export default function HomeUserPage() {
                                     <div className="space-y-1">
                                       {displayTargets.length > 0 ? (
                                         <div className="text-xs text-gray-500">
-                                          <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                                            <strong>
-                                              {isPartnership
-                                                ? "Target(s):"
-                                                : "Target:"}
-                                            </strong>
+                                          <strong>
+                                            {isPartnership
+                                              ? "Target(s):"
+                                              : "Target:"}
+                                          </strong>
+                                          <div className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5">
                                             {displayTargets.map((tgt, i, arr) => (
                                               <span key={`tgt-${tgt?.id ?? i}`}>
                                                 {renderTargetEntityInline(tgt)}
                                                 {i < arr.length - 1 && ", "}
                                               </span>
                                             ))}
-                                          </span>
+                                          </div>
                                         </div>
                                       ) : targetName && targetObj ? (
                                         <div className="text-xs text-gray-500">
-                                          <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                                            <strong>
-                                              {isPartnership
-                                                ? "Target(s):"
-                                                : "Target:"}
-                                            </strong>
+                                          <strong>
+                                            {isPartnership
+                                              ? "Target(s):"
+                                              : "Target:"}
+                                          </strong>
+                                          <div className="mt-0.5">
                                             {renderTargetEntityInline(targetObj)}
-                                          </span>
+                                          </div>
                                         </div>
                                       ) : targetName ? (
                                         <div className="text-xs text-gray-500">

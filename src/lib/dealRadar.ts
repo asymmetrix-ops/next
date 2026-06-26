@@ -215,6 +215,87 @@ const normalizeIso2 = (value: unknown): string | null => {
   return /^[a-z]{2}$/.test(normalized) ? normalized : null;
 };
 
+const US_STATE_AND_TERRITORY_CODES = new Set([
+  "AL",
+  "AK",
+  "AZ",
+  "AR",
+  "CA",
+  "CO",
+  "CT",
+  "DE",
+  "FL",
+  "GA",
+  "HI",
+  "ID",
+  "IL",
+  "IN",
+  "IA",
+  "KS",
+  "KY",
+  "LA",
+  "ME",
+  "MD",
+  "MA",
+  "MI",
+  "MN",
+  "MS",
+  "MO",
+  "MT",
+  "NE",
+  "NV",
+  "NH",
+  "NJ",
+  "NM",
+  "NY",
+  "NC",
+  "ND",
+  "OH",
+  "OK",
+  "OR",
+  "PA",
+  "RI",
+  "SC",
+  "SD",
+  "TN",
+  "TX",
+  "UT",
+  "VT",
+  "VA",
+  "WA",
+  "WV",
+  "WI",
+  "WY",
+  "DC",
+  "PR",
+  "VI",
+  "GU",
+  "AS",
+  "MP",
+]);
+
+const COUNTRY_NAME_TO_ISO2: Record<string, string> = {
+  "united states": "us",
+  "united states of america": "us",
+  usa: "us",
+  "u.s.": "us",
+  "u.s.a.": "us",
+  "united kingdom": "gb",
+  uk: "gb",
+  "great britain": "gb",
+};
+
+const readCountryTextAsIso2 = (value: unknown): string | null => {
+  const direct = normalizeIso2(value);
+  if (direct) return direct;
+
+  const text = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (!text) return null;
+  return COUNTRY_NAME_TO_ISO2[text] ?? null;
+};
+
 export const readHqCountryIso2 = (raw: Record<string, unknown>): string | null => {
   const directKeys = [
     "hq_country_iso2",
@@ -232,20 +313,182 @@ export const readHqCountryIso2 = (raw: Record<string, unknown>): string | null =
 
   const fallbackKeys = ["hq_country", "hqCountry", "HQ_country", "country"];
   for (const key of fallbackKeys) {
-    const iso2 = normalizeIso2(raw[key]);
+    const iso2 = readCountryTextAsIso2(raw[key]);
     if (iso2) return iso2;
   }
 
   const locations = raw._locations ?? raw.locations;
   if (locations && typeof locations === "object") {
     const locationRecord = locations as Record<string, unknown>;
-    const iso2 = normalizeIso2(
+    const iso2 = readCountryTextAsIso2(
       locationRecord.Country ?? locationRecord.country
     );
     if (iso2) return iso2;
   }
 
+  const stateKeys = ["hq_state", "hqState", "HQ_state", "state", "province"];
+  for (const key of stateKeys) {
+    const state = String(raw[key] ?? "")
+      .trim()
+      .toUpperCase();
+    if (US_STATE_AND_TERRITORY_CODES.has(state)) return "us";
+  }
+
   return null;
+};
+
+export const parseCorporateEventEntityArray = (
+  value: unknown
+): Record<string, unknown>[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.filter(
+      (entry) => entry && typeof entry === "object"
+    ) as Record<string, unknown>[];
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (entry) => entry && typeof entry === "object"
+        ) as Record<string, unknown>[];
+      }
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+export const collectMissingHqCountryIso2CompanyIds = (
+  entities: Record<string, unknown>[]
+): number[] => {
+  const ids: number[] = [];
+  const seen = new Set<number>();
+
+  for (const entity of entities) {
+    if (readHqCountryIso2(entity)) continue;
+    const id = Number(entity.id);
+    if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+
+  return ids;
+};
+
+export const applyHqCountryIso2ToEntities = <T extends Record<string, unknown>>(
+  entities: T[],
+  isoByCompanyId: Map<number, string | null>
+): T[] => {
+  if (isoByCompanyId.size === 0) return entities;
+
+  return entities.map((entity) => {
+    if (readHqCountryIso2(entity)) return entity;
+    const id = Number(entity.id);
+    if (!Number.isFinite(id) || id <= 0) return entity;
+    const iso2 = isoByCompanyId.get(id);
+    return iso2 ? { ...entity, hq_country_iso2: iso2 } : entity;
+  });
+};
+
+const CORPORATE_EVENT_ENTITY_ARRAY_FIELDS = [
+  "targets",
+  "buyers",
+  "investors",
+  "sales",
+  "buyers_investors",
+] as const;
+
+const readCorporateEventTargetObject = (
+  value: unknown
+): Record<string, unknown> | null => {
+  if (!value) return null;
+  if (typeof value === "object") {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value === "string") {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (parsed && typeof parsed === "object") {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
+export const collectMissingHqCountryIso2CompanyIdsFromCorporateEvents = (
+  events: Record<string, unknown>[]
+): number[] => {
+  const seen = new Set<number>();
+  const ids: number[] = [];
+
+  const addIds = (entityList: Record<string, unknown>[]) => {
+    for (const id of collectMissingHqCountryIso2CompanyIds(entityList)) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+  };
+
+  for (const event of events) {
+    for (const field of CORPORATE_EVENT_ENTITY_ARRAY_FIELDS) {
+      addIds(parseCorporateEventEntityArray(event[field]));
+    }
+
+    const targetObj = readCorporateEventTargetObject(event.target);
+    if (targetObj) addIds([targetObj]);
+  }
+
+  return ids;
+};
+
+export const applyHqCountryIso2ToCorporateEvents = (
+  events: Record<string, unknown>[],
+  isoByCompanyId: Map<number, string | null>
+): Record<string, unknown>[] => {
+  if (isoByCompanyId.size === 0) return events;
+
+  return events.map((event) => {
+    const enriched: Record<string, unknown> = { ...event };
+
+    for (const field of CORPORATE_EVENT_ENTITY_ARRAY_FIELDS) {
+      const original = enriched[field];
+      const parsed = parseCorporateEventEntityArray(original);
+      if (parsed.length === 0) continue;
+
+      const enrichedEntities = applyHqCountryIso2ToEntities(
+        parsed,
+        isoByCompanyId
+      );
+      enriched[field] =
+        typeof original === "string"
+          ? JSON.stringify(enrichedEntities)
+          : enrichedEntities;
+    }
+
+    const targetValue = enriched.target;
+    const targetObj = readCorporateEventTargetObject(targetValue);
+    if (targetObj) {
+      const [enrichedTarget] = applyHqCountryIso2ToEntities(
+        [targetObj],
+        isoByCompanyId
+      );
+      enriched.target =
+        typeof targetValue === "string"
+          ? JSON.stringify(enrichedTarget)
+          : enrichedTarget;
+    }
+
+    return enriched;
+  });
 };
 
 export const applyHqCountryIso2ToDealRadarItems = (

@@ -91,34 +91,35 @@ export const CorporateEventTargetLink: React.FC<CorporateEventTargetLinkProps> =
   flagClassName,
 }) => {
   const hqCountryIso2 = entity ? readHqCountryIso2(entity) : null;
-  const flagEl = <CountryFlagImg iso2={hqCountryIso2} className={flagClassName} />;
+  const flagEl = hqCountryIso2 ? (
+    <CountryFlagImg iso2={hqCountryIso2} className={flagClassName} />
+  ) : null;
+
+  const stackClassName = cn(
+    linkClassName,
+    flagEl
+      ? "inline-flex flex-col items-start gap-0.5 max-w-full align-middle"
+      : "inline-block max-w-full align-middle"
+  );
+
+  const content = (
+    <>
+      <span className="leading-snug break-words">{name}</span>
+      {flagEl}
+    </>
+  );
 
   if (href) {
     return (
-      <a
-        href={href}
-        className={cn(
-          linkClassName,
-          "inline-flex items-center gap-1 align-middle whitespace-nowrap"
-        )}
-        style={linkStyle}
-      >
-        {name}
-        {flagEl}
+      <a href={href} className={stackClassName} style={linkStyle}>
+        {content}
       </a>
     );
   }
 
   return (
-    <span
-      className={cn(
-        linkClassName,
-        "inline-flex items-center gap-1 align-middle whitespace-nowrap"
-      )}
-      style={linkStyle}
-    >
-      {name}
-      {flagEl}
+    <span className={stackClassName} style={linkStyle}>
+      {content}
     </span>
   );
 };
