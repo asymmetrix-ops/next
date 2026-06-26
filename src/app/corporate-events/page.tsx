@@ -21,7 +21,7 @@ import {
   EMPTY_CORPORATE_EVENTS_SUMMARY_STATS,
   type CorporateEventsSummaryStats,
 } from "@/components/corporate-events/corporateEventsFilterConfig";
-import { fetchCorporateEventsServer } from "./actions";
+import { fetchCorporateEventsServer, fetchCorporateEventsCountsServer } from "./actions";
 import type { CorporateEventListItem } from "./actions";
 
 const useCorporateEventsAPI = (userId: number | null) => {
@@ -29,6 +29,8 @@ const useCorporateEventsAPI = (userId: number | null) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const lastRequestIdRef = useRef(0);
+  const lastCountsRequestIdRef = useRef(0);
+  const countsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentFiltersRef = useRef<Filters | undefined>(undefined);
   const currentCountsFiltersRef = useRef<Filters | undefined>(undefined);
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
@@ -47,8 +49,38 @@ const useCorporateEventsAPI = (userId: number | null) => {
   const [summaryStats, setSummaryStats] =
     useState<CorporateEventsSummaryStats>(EMPTY_CORPORATE_EVENTS_SUMMARY_STATS);
 
+  const scheduleCountsFetch = useCallback((countsFilters: Filters) => {
+    if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
+    countsTimeoutRef.current = setTimeout(() => {
+      const countsRequestId = ++lastCountsRequestIdRef.current;
+      void fetchCorporateEventsCountsServer({
+        ...countsFilters,
+        user_id: userId,
+        deal_types: [],
+      })
+        .then((countsData) => {
+          if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
+            return;
+          }
+          setSummaryStats((current) => ({
+            ...countsData,
+            totalCount:
+              countsData.totalCount > 0 ? countsData.totalCount : current.totalCount,
+          }));
+        })
+        .catch((countsError) => {
+          console.error("Error fetching corporate event counts:", countsError);
+        });
+    }, 400);
+  }, [userId]);
+
   const fetchCorporateEvents = useCallback(
-    async (page: number = 1, filters?: Filters, countsFilters?: Filters) => {
+    async (
+      page: number = 1,
+      filters?: Filters,
+      countsFilters?: Filters,
+      refreshCounts: boolean = true
+    ) => {
       const requestId = ++lastRequestIdRef.current;
       setLoading(true);
       setError(null);
@@ -65,6 +97,10 @@ const useCorporateEventsAPI = (userId: number | null) => {
         filters !== undefined
           ? filters
           : currentFiltersRef.current ?? createDefaultCorporateEventFilters();
+      const countsFiltersToUse =
+        countsFilters ??
+        currentCountsFiltersRef.current ??
+        filtersToUse;
       const resolvedFilters: Filters = {
         ...filtersToUse,
         user_id: userId,
@@ -72,6 +108,14 @@ const useCorporateEventsAPI = (userId: number | null) => {
       };
 
       try {
+        if (page === 1 && refreshCounts) {
+          scheduleCountsFetch({
+            ...countsFiltersToUse,
+            user_id: userId,
+            deal_types: [],
+          });
+        }
+
         const data = await fetchCorporateEventsServer(page, resolvedFilters);
 
         if (!data) {
@@ -92,7 +136,17 @@ const useCorporateEventsAPI = (userId: number | null) => {
             pageTotal: data.pageTotal,
             itemTotal: data.itemTotal,
           });
-          setSummaryStats(data.summaryStats);
+          if (
+            page === 1 &&
+            filtersToUse.deal_types.length === 0 &&
+            data.itemTotal > 0
+          ) {
+            setSummaryStats((current) => ({
+              ...current,
+              totalCount:
+                current.totalCount > 0 ? current.totalCount : data.itemTotal,
+            }));
+          }
         }
       } catch (err) {
         if (requestId === lastRequestIdRef.current) {
@@ -109,11 +163,12 @@ const useCorporateEventsAPI = (userId: number | null) => {
         }
       }
     },
-    [userId]
+    [userId, scheduleCountsFetch]
   );
 
   useEffect(() => {
-    fetchCorporateEvents(1, createDefaultCorporateEventFilters());
+    const defaults = createDefaultCorporateEventFilters();
+    fetchCorporateEvents(1, defaults, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
@@ -165,9 +220,14 @@ function CorporateEventsPageInner() {
   }, []);
 
   const handleSearch = useCallback(
-    (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
+    (
+      listFilters: Filters,
+      countsFilters: Filters,
+      portfolioOnly?: boolean,
+      refreshCounts: boolean = true
+    ) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      void fetchCorporateEvents(1, listFilters, countsFilters);
+      void fetchCorporateEvents(1, listFilters, countsFilters, refreshCounts);
     },
     [fetchCorporateEvents]
   );

@@ -36,6 +36,14 @@ import {
   type OwnershipTab,
 } from "@/components/companies/companiesFilterConfig";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
+import {
+  SEARCH_DASHBOARD_ACTIONS,
+  SEARCH_DASHBOARD_EYEBROW,
+  SEARCH_DASHBOARD_HEADER_ROW,
+  SEARCH_DASHBOARD_MATCH_COUNT,
+  SEARCH_DASHBOARD_TITLE,
+  SearchListTabs,
+} from "@/components/search/searchDashboardLayout";
 
 export type CompanyDashboardProps = {
   onSearch?: (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => void;
@@ -393,43 +401,17 @@ export const CompanyDashboard = ({
         {/* ── Header row: eyebrow + title + action buttons ── */}
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 16,
-            flexWrap: "wrap",
+            ...SEARCH_DASHBOARD_HEADER_ROW,
             marginBottom: embedded ? 12 : 18,
             width: embedded ? "100%" : undefined,
           }}
         >
           {!hidePageHeader && (
           <div>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.09em",
-                textTransform: "uppercase",
-                color: "#94a3b8",
-                marginBottom: 5,
-              }}
-            >
-              Companies
-            </div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 26,
-                fontWeight: 700,
-                color: "#0f172a",
-                display: "flex",
-                alignItems: "baseline",
-                gap: 10,
-                lineHeight: 1.2,
-              }}
-            >
+            <div style={SEARCH_DASHBOARD_EYEBROW}>Companies</div>
+            <h1 style={SEARCH_DASHBOARD_TITLE}>
               Company search
-              <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
+              <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
                 {matchCount.toLocaleString()} matches
               </span>
             </h1>
@@ -439,10 +421,7 @@ export const CompanyDashboard = ({
           {/* Action buttons */}
           <div
             style={{
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-              paddingTop: 6,
+              ...SEARCH_DASHBOARD_ACTIONS,
               marginLeft: hidePageHeader ? "auto" : undefined,
               width: hidePageHeader && embedded ? "100%" : undefined,
               justifyContent: hidePageHeader && embedded ? "flex-end" : undefined,
@@ -499,51 +478,15 @@ export const CompanyDashboard = ({
 
         {/* ── Ownership quick-filter tabs ── */}
         {!hideOwnershipTabs && !fixedOwnershipTypeIds && (
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {ownershipTabs.map((tab) => {
-            const active = activeOwnershipTab === tab.id;
-            const tabButton = (
-              <button
-                onClick={() => setActiveOwnershipTab(tab.id)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  height: 34, padding: "0 14px",
-                  background: active ? "#0f172a" : "transparent",
-                  color: active ? "#fff" : "#64748b",
-                  border: "1px solid",
-                  borderColor: active ? "#0f172a" : "transparent",
-                  borderBottom: "none",
-                  borderRadius: "8px 8px 0 0",
-                  fontSize: 13, fontWeight: active ? 600 : 500,
-                  cursor: "pointer",
-                  transition: "background 0.12s, color 0.12s",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <span
-                  style={{
-                    width: 7, height: 7, borderRadius: "50%",
-                    background: active ? "rgba(255,255,255,0.7)" : tab.dot,
-                    flexShrink: 0,
-                  }}
-                />
-                {tab.label}
-                <span style={{ fontSize: 12, opacity: 0.75 }}>
-                  {tab.count.toLocaleString()}
-                </span>
-              </button>
-            );
-
-            if (tab.id !== "other") {
-              return React.cloneElement(tabButton, { key: tab.id });
-            }
-
+        <SearchListTabs
+          tabs={ownershipTabs}
+          activeTabId={activeOwnershipTab}
+          onTabClick={(tabId) => setActiveOwnershipTab(tabId as OwnershipTab)}
+          renderTabWrapper={(tab, button) => {
+            if (tab.id !== "other") return button;
             return (
-              <div
-                key={tab.id}
-                className="ownership-tab-other-tooltip-wrap"
-              >
-                {tabButton}
+              <div className="ownership-tab-other-tooltip-wrap">
+                {button}
                 <div className="ownership-tab-other-tooltip" role="tooltip">
                   <ul>
                     {OTHER_OWNERSHIP_TOOLTIP_LABELS.map((label) => (
@@ -553,8 +496,8 @@ export const CompanyDashboard = ({
                 </div>
               </div>
             );
-          })}
-        </div>
+          }}
+        />
         )}
       </div>
 
