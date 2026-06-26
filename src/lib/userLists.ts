@@ -1,8 +1,9 @@
 import { authService } from "@/lib/auth";
 import { extractPortfolioList, parseUserId } from "@/lib/portfolioListUtils";
-
-const XANO_PORTFOLIO_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
+import {
+  buildCreateUserListPayload,
+  XANO_USER_PORTFOLIO_BASE,
+} from "@/lib/portfolioApi";
 
 async function fetchWithAuth(
   url: string,
@@ -40,19 +41,14 @@ export async function resolveAuthUserId(): Promise<number | null> {
   return parseUserId(me?.id);
 }
 
-/** GET get_users_lists — called from the browser so it appears in DevTools. */
+/** GET get_users_lists — auth identifies user; no user_id param. */
 export async function fetchUserListsFromXano(): Promise<unknown> {
   const token = authService.getToken();
   if (!token) {
     throw new Error("Missing auth token");
   }
 
-  const userId = await resolveAuthUserId();
-  if (userId == null) {
-    throw new Error("Could not resolve user id");
-  }
-
-  const url = `${XANO_PORTFOLIO_BASE}/get_users_lists?user_id=${encodeURIComponent(String(userId))}`;
+  const url = `${XANO_USER_PORTFOLIO_BASE}/get_users_lists`;
   const resp = await fetchWithAuth(url, token, { method: "GET" });
 
   const text = await resp.text().catch(() => "");
@@ -84,24 +80,21 @@ export async function createUserListInXano(listName: string): Promise<unknown> {
     throw new Error("Missing auth token");
   }
 
-  const userId = await resolveAuthUserId();
-  if (userId == null) {
-    throw new Error("Could not resolve user id");
-  }
-
   const name = listName.trim();
   if (!name) {
     throw new Error("List name is required");
   }
 
-  const resp = await fetchWithAuth(`${XANO_PORTFOLIO_BASE}/user_lists`, token, {
-    method: "POST",
-    body: JSON.stringify({
-      user_id: userId,
-      portfolio_label: name,
-      list_name: name,
-    }),
-  });
+  const userId = (await resolveAuthUserId()) ?? 0;
+
+  const resp = await fetchWithAuth(
+    `${XANO_USER_PORTFOLIO_BASE}/user_lists`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify(buildCreateUserListPayload(name, userId)),
+    }
+  );
 
   const text = await resp.text().catch(() => "");
   let data: unknown = null;
