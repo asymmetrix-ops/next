@@ -3,7 +3,6 @@ import type {
   FiBenchmarkMetricRow,
   FiCompanyRow,
   FiHeadlineMetric,
-  FiPeerAggregateMode,
 } from "./types";
 
 function escapeCsvField(value: string): string {
@@ -31,7 +30,6 @@ export interface BenchmarkCsvInput {
   benchmarkRows: FiBenchmarkMetricRow[];
   headlineMetrics: FiHeadlineMetric[];
   compositePercentile: number | null;
-  peerAggregateMode?: FiPeerAggregateMode;
   exportedAt?: Date;
 }
 
@@ -42,11 +40,8 @@ export function buildBenchmarkCsv(input: BenchmarkCsvInput): string {
     benchmarkRows,
     headlineMetrics,
     compositePercentile,
-    peerAggregateMode = "median",
     exportedAt = new Date(),
   } = input;
-
-  const peerAggregateNoun = peerAggregateMode === "mean" ? "Mean" : "Median";
 
   const lines: string[] = [];
 
@@ -66,9 +61,9 @@ export function buildBenchmarkCsv(input: BenchmarkCsvInput): string {
     csvRow([
       "Metric",
       "Target Value",
-      `Peer ${peerAggregateNoun}`,
+      "Peer Median",
       "Percentile",
-      `Delta vs ${peerAggregateNoun}`,
+      "Delta vs Median",
     ])
   );
   for (const row of headlineMetrics) {
@@ -89,11 +84,11 @@ export function buildBenchmarkCsv(input: BenchmarkCsvInput): string {
     csvRow([
       "Metric",
       "Target Value",
-      `Peer ${peerAggregateNoun}`,
+      "Peer Median",
       "Percentile",
       "Rank",
       "Rank Total",
-      `Delta vs ${peerAggregateNoun}`,
+      "Delta vs Median",
     ])
   );
   for (const row of benchmarkRows) {
