@@ -2491,6 +2491,20 @@ function SectorsTab() {
   );
 }
 
+function normalizeDescriptionText(raw: string): string {
+  const trimmed = raw.trim();
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (typeof parsed === "string") return parsed.trim();
+  } catch {
+    // not JSON-encoded
+  }
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
 function DescriptionsTab() {
   const [companyId, setCompanyId] = useState("");
   const [description, setDescription] = useState<string | null>(null);
@@ -2521,22 +2535,20 @@ function DescriptionsTab() {
     setLoading(true);
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_description_data/${id}`;
-      const res = await fetch(url, {
+      const res = await fetch(`/api/admin/company-description/${id}`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        credentials: "include",
-        body: JSON.stringify({ new_company_id: id }),
       });
       if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || `Request failed (${res.status})`);
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(data?.error || `Request failed (${res.status})`);
       }
       const text = await res.text();
-      setDescription(text);
+      setDescription(normalizeDescriptionText(text));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unexpected error");
     } finally {
@@ -2558,21 +2570,22 @@ function DescriptionsTab() {
     setSuccess(null);
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I:develop/edit_company/${id}`;
-      const res = await fetch(url, {
+      const res = await fetch(`/api/admin/edit-company/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        credentials: "include",
         body: JSON.stringify({
-          updates: { Description: description },
+          new_company_id: id,
+          updates: { description: normalizeDescriptionText(description) },
         }),
       });
       if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || `Update failed (${res.status})`);
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(data?.error || `Update failed (${res.status})`);
       }
       setSuccess("Description approved and saved.");
     } catch (err) {
