@@ -39,6 +39,7 @@ import {
   computeCompositePercentile,
 } from "@/lib/financialIntelligence/calculations";
 import { loadSavedBenchmarks, saveBenchmark } from "@/lib/financialIntelligence/storage";
+import { exportBenchmarkToCsv } from "@/lib/financialIntelligence/exportCsv";
 import type { FiCompanyRow, SavedBenchmark } from "@/lib/financialIntelligence/types";
 
 function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow {
@@ -313,6 +314,17 @@ export default function FinancialIntelligencePage() {
     return computeCompositePercentile(target, peers);
   }, [target, peers]);
 
+  const handleExportCsv = useCallback(() => {
+    if (!target) return;
+    exportBenchmarkToCsv({
+      target,
+      peers,
+      benchmarkRows,
+      headlineMetrics,
+      compositePercentile,
+    });
+  }, [target, peers, benchmarkRows, headlineMetrics, compositePercentile]);
+
   const peerFinRows = useMemo(
     () => peers.map((peer) => mapCompanyToFinRow(peer, primarySectors, secondarySectors)),
     [peers, primarySectors, secondarySectors]
@@ -367,6 +379,8 @@ export default function FinancialIntelligencePage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               <button
                 type="button"
+                onClick={handleExportCsv}
+                disabled={loading || peers.length === 0}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -378,7 +392,8 @@ export default function FinancialIntelligencePage() {
                   color: "var(--fg-1)",
                   fontWeight: 600,
                   fontSize: 12,
-                  cursor: "pointer",
+                  cursor: loading || peers.length === 0 ? "default" : "pointer",
+                  opacity: loading || peers.length === 0 ? 0.5 : 1,
                   fontFamily: "var(--font-sans)",
                 }}
               >
