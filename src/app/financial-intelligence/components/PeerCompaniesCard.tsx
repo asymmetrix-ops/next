@@ -60,6 +60,7 @@ interface PeerCompaniesCardProps {
   targetFyYeMonth?: number | null;
   excludedPeers: FiCompanyRow[];
   excludedIds: number[];
+  manuallyAddedIds?: number[];
   onExclude: (companyId: number) => void;
   onRestorePeer: (companyId: number) => void;
   onRestoreAll: () => void;
@@ -76,6 +77,7 @@ export function PeerCompaniesCard({
   targetFyYeMonth,
   excludedPeers,
   excludedIds,
+  manuallyAddedIds = [],
   onExclude,
   onRestorePeer,
   onRestoreAll,
@@ -85,6 +87,8 @@ export function PeerCompaniesCard({
   addResults,
   onPickAddResult,
 }: PeerCompaniesCardProps) {
+  const manuallyAddedSet = new Set(manuallyAddedIds);
+
   return (
     <div
       style={{
@@ -185,6 +189,8 @@ export function PeerCompaniesCard({
               (targetFyYeMonth != null &&
                 peer.fy_ye_month > 0 &&
                 peer.fy_ye_month !== targetFyYeMonth));
+          const isManuallyAdded =
+            Boolean(peer.is_manually_added) || manuallyAddedSet.has(peer.company_id);
 
           return (
             <div
@@ -211,7 +217,7 @@ export function PeerCompaniesCard({
                   >
                     {peer.company_name}
                   </span>
-                  {peer.is_manually_added && (
+                  {isManuallyAdded && (
                     <span
                       style={{
                         fontSize: 10,

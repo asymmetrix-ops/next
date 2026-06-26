@@ -50,8 +50,26 @@ export function normalizeCompanyRow(
     ev_revenue_x: safeFiniteNumber(raw.ev_revenue_x),
     ev_ebitda_x: safeFiniteNumber(raw.ev_ebitda_x),
     url: normalizeLogo(raw.url),
-    is_manually_added: Boolean(raw.is_manually_added),
+    is_manually_added: Boolean(
+      raw.is_manually_added ?? raw.manually_added ?? raw.is_added
+    ),
   };
+}
+
+/** Mark peers the user added via company_ids_include (or API flag). */
+export function annotateManuallyAddedPeers(
+  peers: FiCompanyRow[],
+  manuallyAddedIds: number[]
+): FiCompanyRow[] {
+  const addedIds = new Set(
+    manuallyAddedIds.filter((id) => Number.isFinite(id) && id > 0)
+  );
+  if (addedIds.size === 0) return peers;
+
+  return peers.map((peer) => ({
+    ...peer,
+    is_manually_added: Boolean(peer.is_manually_added) || addedIds.has(peer.company_id),
+  }));
 }
 
 export function unwrapApiPayload(payload: unknown): Record<string, unknown> {
