@@ -1,7 +1,14 @@
 "use client";
 
-import React from "react";
-import type { FiBenchmarkMetricRow, FiHeadlineMetric } from "@/lib/financialIntelligence/types";
+import React, { useEffect, useState } from "react";
+import type {
+  FiBenchmarkMetricRow,
+  FiCompanyRow,
+  FiHeadlineMetric,
+  FiMetricKey,
+} from "@/lib/financialIntelligence/types";
+import { getMetricValue } from "@/lib/financialIntelligence/calculations";
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { DistBar, PercentileBar, PctPill } from "./benchmark-viz";
 
 const FONT = "var(--font-sans)";
@@ -36,6 +43,282 @@ function fmtDelta(
   else text = `${sign}${delta.toFixed(1)}x vs median`;
   const positive = higherIsBetter ? delta >= 0 : delta <= 0;
   return { text, positive };
+}
+
+function fmtSigned(
+  delta: number,
+  format: "percent" | "multiple" | "currency"
+): string {
+  const sign = delta > 0 ? "+" : "";
+  if (format === "currency") return `${sign}$${Math.abs(delta).toFixed(0)}m`;
+  if (format === "percent") return `${sign}${delta.toFixed(1)}%`;
+  return `${sign}${delta.toFixed(1)}x`;
+}
+
+function BreakdownLogo({ name, logo }: { name: string; logo?: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const src = resolveCompanyLogoSrc(logo);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [logo]);
+
+  if (src && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        onError={() => setFailed(true)}
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 4,
+          objectFit: "contain",
+          background: "var(--ax-gray-25)",
+          border: "1px solid var(--border-1)",
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      style={{
+        width: 18,
+        height: 18,
+        borderRadius: 4,
+        background: "var(--ax-cyan-700)",
+        color: "white",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 10,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      {name[0]}
+    </span>
+  );
+}
+
+function MetricBreakdown({
+  row,
+  target,
+  peers,
+  isLast,
+}: {
+  row: FiBenchmarkMetricRow;
+  target: FiCompanyRow;
+  peers: FiCompanyRow[];
+  isLast: boolean;
+}) {
+  const metricKey = row.key as FiMetricKey;
+  const list = [
+    {
+      id: target.company_id,
+      name: target.company_name,
+      logo: target.company_logo,
+      value: row.targetValue,
+      isTarget: true,
+    },
+    ...peers.map((peer) => ({
+      id: peer.company_id,
+      name: peer.company_name,
+      logo: peer.company_logo,
+      value: getMetricValue(peer, metricKey),
+      isTarget: false,
+    })),
+  ].filter(
+    (entry): entry is typeof entry & { value: number } =>
+      entry.value != null && Number.isFinite(entry.value)
+  );
+
+  list.sort((a, b) =>
+    row.higherIsBetter ? b.value - a.value : a.value - b.value
+  );
+
+  if (list.length === 0) {
+    return (
+      <div
+        style={{
+          background: "var(--ax-gray-25)",
+          borderBottom: isLast ? "none" : "1px solid var(--ax-gray-100)",
+          padding: "12px 16px 14px 38px",
+          fontSize: 12,
+          color: "var(--fg-4)",
+          fontStyle: "italic",
+          fontFamily: FONT,
+        }}
+      >
+        No values reported for this metric.
+      </div>
+    );
+  }
+
+  const values = list.map((entry) => entry.value);
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const span = hi - lo || 1;
+  const median = row.peerMedian;
+
+  let dividerAt = -1;
+  if (median != null) {
+    for (let i = 0; i < list.length; i++) {
+      const worseThanMedian = row.higherIsBetter
+        ? list[i].value < median
+        : list[i].value > median;
+      if (worseThanMedian) {
+        dividerAt = i;
+        break;
+      }
+    }
+  }
+
+  const items: React.ReactNode[] = [];
+  list.forEach((entry, index) => {
+    if (index === dividerAt) {
+      items.push(
+        <div
+          key="median-divider"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "5px 0 5px 36px",
+          }}
+        >
+          <span style={{ flex: 1, height: 0, borderTop: "1px dashed var(--ax-gray-400)" }} />
+          <span
+            style={{
+              fontSize: 10.5,
+              fontWeight: 700,
+              color: "var(--fg-3)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Peer median · {fmtMetric(median, row.format)}
+          </span>
+          <span style={{ flex: 1, height: 0, borderTop: "1px dashed var(--ax-gray-400)" }} />
+        </div>
+      );
+    }
+
+    const fill = Math.max(2, ((entry.value - lo) / span) * 100);
+    items.push(
+      <div
+        key={entry.id}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "26px 172px 1fr 76px",
+          alignItems: "center",
+          gap: 10,
+          padding: "5px 0",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 11,
+            color: "var(--fg-4)",
+            fontVariantNumeric: "tabular-nums",
+            textAlign: "right",
+          }}
+        >
+          {index + 1}
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <BreakdownLogo name={entry.name} logo={entry.logo} />
+          <span
+            style={{
+              fontSize: 12.5,
+              fontWeight: entry.isTarget ? 700 : 500,
+              color: "var(--fg-1)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {entry.name}
+          </span>
+          {entry.isTarget && (
+            <span
+              style={{
+                fontSize: 8.5,
+                fontWeight: 700,
+                color: "var(--ax-cyan-700)",
+                letterSpacing: "0.05em",
+                background: "var(--ax-cyan-50)",
+                border: "1px solid var(--border-brand)",
+                borderRadius: 3,
+                padding: "0 4px",
+                flexShrink: 0,
+              }}
+            >
+              TARGET
+            </span>
+          )}
+        </span>
+        <span style={{ position: "relative", height: 8, background: "var(--ax-gray-100)", borderRadius: 4 }}>
+          <span
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: `${fill}%`,
+              borderRadius: 4,
+              background: entry.isTarget ? "var(--ax-positive)" : "var(--ax-gray-300)",
+            }}
+          />
+        </span>
+        <span
+          style={{
+            fontSize: 12.5,
+            fontWeight: entry.isTarget ? 700 : 600,
+            color: entry.isTarget ? "var(--ax-positive)" : "var(--fg-2)",
+            textAlign: "right",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {fmtMetric(entry.value, row.format)}
+        </span>
+      </div>
+    );
+  });
+
+  return (
+    <div
+      style={{
+        background: "var(--ax-gray-25)",
+        borderBottom: isLast ? "none" : "1px solid var(--ax-gray-100)",
+        padding: "12px 16px 14px 38px",
+        fontFamily: FONT,
+      }}
+    >
+      <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginBottom: 9 }}>
+        All{" "}
+        <strong style={{ color: "var(--fg-1)" }}>{list.length}</strong> companies ranked by{" "}
+        {row.label} — {target.company_name} sits{" "}
+        <strong style={{ color: "var(--fg-1)" }}>
+          #{row.rank ?? "—"}
+        </strong>{" "}
+        of {row.rankTotal ?? list.length}
+        {row.deltaVsMedian != null && (
+          <span>
+            ,{" "}
+            <strong style={{ color: "var(--fg-1)" }}>
+              {fmtSigned(row.deltaVsMedian, row.format)}
+            </strong>{" "}
+            vs the peer median
+          </span>
+        )}
+        .
+      </div>
+      <div style={{ maxHeight: 300, overflowY: "auto", paddingRight: 4 }}>{items}</div>
+    </div>
+  );
 }
 
 interface CompositeHeroProps {
@@ -190,19 +473,23 @@ export function HeadlineMetricCards({ metrics }: { metrics: FiHeadlineMetric[] }
 interface BenchmarkTableProps {
   rows: FiBenchmarkMetricRow[];
   targetName: string;
+  target: FiCompanyRow;
+  peers: FiCompanyRow[];
 }
 
-export function BenchmarkTable({ rows, targetName }: BenchmarkTableProps) {
+const SCORECARD_COLS = "180px 92px 92px 1fr 96px 92px";
+
+export function BenchmarkTable({ rows, targetName, target, peers }: BenchmarkTableProps) {
+  const [openMetricKey, setOpenMetricKey] = useState<string | null>(null);
+
   const th: React.CSSProperties = {
-    padding: "10px 16px",
     fontSize: 10.5,
     fontWeight: 700,
     letterSpacing: "0.06em",
     textTransform: "uppercase",
     color: "var(--fg-3)",
-    borderBottom: "1px solid var(--border-1)",
-    background: "var(--ax-gray-25)",
     fontFamily: FONT,
+    minWidth: 0,
   };
 
   return (
@@ -215,117 +502,170 @@ export function BenchmarkTable({ rows, targetName }: BenchmarkTableProps) {
         fontFamily: FONT,
       }}
     >
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "180px 92px 92px 1fr 96px 92px",
-          alignItems: "center",
-          minWidth: 720,
-        }}
-      >
-        <div style={{ ...th }}>Metric</div>
-        <div style={{ ...th, textAlign: "right" }}>{targetName}</div>
-        <div style={{ ...th, textAlign: "right" }}>Peer median</div>
-        <div style={{ ...th, paddingLeft: 16 }}>Distribution</div>
-        <div style={{ ...th, textAlign: "center" }}>Percentile</div>
-        <div style={{ ...th, textAlign: "center" }}>Rank</div>
+      <div style={{ minWidth: 720 }}>
+        {/* Header — single row, same nested grid as data rows */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: SCORECARD_COLS,
+            alignItems: "center",
+            padding: "10px 16px",
+            borderBottom: "1px solid var(--border-1)",
+            background: "var(--ax-gray-25)",
+          }}
+        >
+          <div style={th}>Metric</div>
+          <div
+            style={{ ...th, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+            title={targetName}
+          >
+            {targetName}
+          </div>
+          <div style={{ ...th, textAlign: "right" }}>Peer median</div>
+          <div style={{ ...th, paddingLeft: 16 }}>Distribution</div>
+          <div style={{ ...th, textAlign: "center" }}>Percentile</div>
+          <div style={{ ...th, textAlign: "center" }}>Rank</div>
+        </div>
 
         {rows.map((row, index) => {
           const delta = fmtDelta(row.deltaVsMedian, row.format, row.higherIsBetter);
           const isLast = index === rows.length - 1;
-          const cellBorder = isLast ? "none" : "1px solid var(--ax-gray-100)";
+          const isOpen = openMetricKey === String(row.key);
+          const rowBorder = isOpen || !isLast ? "1px solid var(--ax-gray-100)" : "none";
 
           return (
             <React.Fragment key={String(row.key)}>
               <div
+                role="button"
+                tabIndex={0}
+                onClick={() =>
+                  setOpenMetricKey(isOpen ? null : String(row.key))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setOpenMetricKey(isOpen ? null : String(row.key));
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  if (!isOpen) e.currentTarget.style.background = "var(--ax-gray-25)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = isOpen ? "var(--ax-gray-25)" : "transparent";
+                }}
                 style={{
-                  padding: "10px 16px",
-                  borderBottom: cellBorder,
-                  fontSize: "var(--fs-13)",
-                  color: "var(--fg-2)",
+                  display: "grid",
+                  gridTemplateColumns: SCORECARD_COLS,
+                  alignItems: "center",
+                  padding: "11px 16px",
+                  borderBottom: rowBorder,
+                  cursor: "pointer",
+                  background: isOpen ? "var(--ax-gray-25)" : "transparent",
                 }}
               >
-                <div style={{ fontWeight: 600, color: "var(--fg-1)" }}>{row.label}</div>
-                <div style={{ fontSize: 10, color: "var(--fg-4)", marginTop: 2 }}>
-                  {row.higherIsBetter ? "↑ better" : "↓ cheaper"}
-                </div>
-              </div>
-              <div
-                style={{
-                  padding: "10px 16px",
-                  borderBottom: cellBorder,
-                  textAlign: "right",
-                  fontWeight: 600,
-                  fontSize: "var(--fs-13)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {fmtMetric(row.targetValue, row.format)}
-              </div>
-              <div
-                style={{
-                  padding: "10px 16px",
-                  borderBottom: cellBorder,
-                  textAlign: "right",
-                  color: "var(--fg-3)",
-                  fontSize: "var(--fs-13)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                <div>{fmtMetric(row.peerMedian, row.format)}</div>
-                {delta.positive != null && (
+                <div style={{ fontSize: "var(--fs-13)", color: "var(--fg-2)", minWidth: 0 }}>
                   <div
                     style={{
-                      fontSize: 10,
-                      marginTop: 2,
-                      color: delta.positive ? "var(--ax-positive)" : "var(--ax-negative)",
+                      fontWeight: 600,
+                      color: "var(--fg-1)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      minWidth: 0,
                     }}
                   >
-                    {delta.text.split(" vs")[0]}
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        flexShrink: 0,
+                        transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                        transition: "transform 120ms",
+                        color: "var(--fg-4)",
+                      }}
+                    >
+                      ›
+                    </span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {row.label}
+                    </span>
+                    <span style={{ fontSize: 10, color: "var(--fg-4)", fontWeight: 500, flexShrink: 0 }}>
+                      {row.higherIsBetter ? "↑ better" : "↓ cheaper"}
+                    </span>
                   </div>
-                )}
+                </div>
+                <div
+                  style={{
+                    textAlign: "right",
+                    fontWeight: 600,
+                    fontSize: "var(--fs-13)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {fmtMetric(row.targetValue, row.format)}
+                </div>
+                <div
+                  style={{
+                    textAlign: "right",
+                    color: "var(--fg-3)",
+                    fontSize: "var(--fs-13)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  <div>{fmtMetric(row.peerMedian, row.format)}</div>
+                  {delta.positive != null && (
+                    <div
+                      style={{
+                        fontSize: 10,
+                        marginTop: 2,
+                        color: delta.positive ? "var(--ax-positive)" : "var(--ax-negative)",
+                      }}
+                    >
+                      {delta.text.split(" vs")[0]}
+                    </div>
+                  )}
+                </div>
+                <div style={{ paddingLeft: 16, paddingRight: 8 }} onClick={(e) => e.stopPropagation()}>
+                  <DistBar
+                    target={row.targetValue}
+                    min={row.min}
+                    max={row.max}
+                    q1={row.q1}
+                    q3={row.q3}
+                    median={row.peerMedian}
+                    percentile={row.percentile}
+                    peerValues={row.peerValues}
+                    formatValue={(v) => fmtMetric(v, row.format)}
+                  />
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <PctPill pct={row.percentile} />
+                </div>
+                <div
+                  style={{
+                    textAlign: "center",
+                    fontSize: "var(--fs-13)",
+                    color: "var(--fg-2)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {row.rank != null && row.rankTotal != null ? (
+                    <>
+                      <strong style={{ color: "var(--fg-1)", fontWeight: 700 }}>#{row.rank}</strong>{" "}
+                      <span style={{ color: "var(--fg-4)" }}>/ {row.rankTotal}</span>
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </div>
               </div>
-              <div style={{ padding: "10px 16px", borderBottom: cellBorder, paddingLeft: 16 }}>
-                <DistBar
-                  target={row.targetValue}
-                  min={row.min}
-                  max={row.max}
-                  q1={row.q1}
-                  q3={row.q3}
-                  median={row.peerMedian}
-                  percentile={row.percentile}
-                  peerValues={row.peerValues}
-                  formatValue={(v) => fmtMetric(v, row.format)}
+              {isOpen && (
+                <MetricBreakdown
+                  row={row}
+                  target={target}
+                  peers={peers}
+                  isLast={isLast}
                 />
-              </div>
-              <div
-                style={{
-                  padding: "10px 16px",
-                  borderBottom: cellBorder,
-                  textAlign: "center",
-                }}
-              >
-                <PctPill pct={row.percentile} />
-              </div>
-              <div
-                style={{
-                  padding: "10px 16px",
-                  borderBottom: cellBorder,
-                  textAlign: "center",
-                  fontSize: "var(--fs-13)",
-                  color: "var(--fg-2)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {row.rank != null && row.rankTotal != null ? (
-                  <>
-                    <strong style={{ color: "var(--fg-1)", fontWeight: 700 }}>#{row.rank}</strong>{" "}
-                    <span style={{ color: "var(--fg-4)" }}>/ {row.rankTotal}</span>
-                  </>
-                ) : (
-                  "—"
-                )}
-              </div>
+              )}
             </React.Fragment>
           );
         })}

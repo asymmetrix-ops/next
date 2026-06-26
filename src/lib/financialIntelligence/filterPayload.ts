@@ -1,5 +1,5 @@
 import type { FilterState } from "@/app/financials-tsx/types";
-import type { FiLocationRow, FiPeersRequest, FiSectorLookup, SavedBenchmark } from "./types";
+import type { FiPeersRequest, FiSectorLookup, SavedBenchmark } from "./types";
 
 function rangeValue(filter: FilterState | undefined): { min?: number; max?: number } {
   if (!filter) return {};
@@ -14,6 +14,13 @@ function enumValues(filter: FilterState | undefined): string[] {
   if (Array.isArray(filter.value)) return filter.value.map(String);
   if (typeof filter.value === "string" && filter.value) return [filter.value];
   return [];
+}
+
+function numericEnumValues(filter: FilterState | undefined): number[] {
+  if (!filter || !Array.isArray(filter.value)) return [];
+  return filter.value
+    .map((item) => (typeof item === "number" ? item : Number(item)))
+    .filter((n) => Number.isFinite(n) && n > 0);
 }
 
 function toSentinel(value: number | undefined): string {
@@ -42,25 +49,14 @@ export function resolveSectorIds(
   return Array.from(ids);
 }
 
-export function resolveLocationIds(
-  filters: FilterState[],
-  locations: FiLocationRow[]
-): number[] {
+export function resolveLocationIds(filters: FilterState[]): number[] {
   const ids = new Set<number>();
-  const regions = enumValues(filters.find((f) => f.id === "region"));
-  const countries = enumValues(filters.find((f) => f.id === "country"));
 
-  for (const location of locations) {
-    const region = (location.Continental_Region || "").trim();
-    const country = (location.Country || "").trim();
-
-    if (regions.length > 0 && regions.includes(region)) {
-      ids.add(location.id);
-      continue;
-    }
-    if (countries.length > 0 && countries.includes(country)) {
-      ids.add(location.id);
-    }
+  for (const id of numericEnumValues(filters.find((f) => f.id === "country"))) {
+    ids.add(id);
+  }
+  for (const id of numericEnumValues(filters.find((f) => f.id === "region"))) {
+    ids.add(id);
   }
 
   return Array.from(ids);
@@ -85,7 +81,6 @@ export function buildPeersRequest(args: {
   companyIdsExclude: number[];
   primarySectors: FiSectorLookup[];
   secondarySectors: FiSectorLookup[];
-  locations: FiLocationRow[];
 }): FiPeersRequest {
   const revenue = rangeValue(args.filters.find((f) => f.id === "revenue"));
   const ev = rangeValue(args.filters.find((f) => f.id === "ev"));
@@ -94,7 +89,7 @@ export function buildPeersRequest(args: {
   return {
     target_company_id: args.targetCompanyId,
     sectors_id: resolveSectorIds(args.filters, args.primarySectors, args.secondarySectors),
-    location_ids: resolveLocationIds(args.filters, args.locations),
+    location_ids: resolveLocationIds(args.filters),
     revenue_min_usd_m: toSentinel(revenue.min),
     revenue_max_usd_m: toSentinel(revenue.max),
     ebitda_margin_min: toSentinel(ebitdaMargin.min),

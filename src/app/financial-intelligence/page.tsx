@@ -11,12 +11,12 @@ import {
 } from "@/app/financials-tsx/financials-columns";
 import { FinancialsTable } from "@/app/financials-tsx/financials-table";
 import "../financials-tsx/colors_and_type.css";
+import { fetchFiPeers, fetchFiTarget, searchFiCompanies, type FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
+import { FiControlBar, type FiIdOption } from "./components/FiControlBar";
 import {
-  fetchFiLocationsServer,
-} from "./actions";
-import { fetchFiPeers, fetchFiTarget, searchFiCompanies } from "@/lib/financialIntelligence/apiClient";
-import { TargetSelector } from "./components/TargetSelector";
-import { FiFilterBar } from "./components/FiFilterBar";
+  FiBenchmarkRefreshing,
+  FiBenchmarkSkeleton,
+} from "./components/FiBenchmarkSkeleton";
 import {
   BenchmarkTable,
   CompositeHero,
@@ -39,7 +39,31 @@ import {
   computeCompositePercentile,
 } from "@/lib/financialIntelligence/calculations";
 import { loadSavedBenchmarks, saveBenchmark } from "@/lib/financialIntelligence/storage";
-import type { FiCompanyRow, FiLocationRow, SavedBenchmark } from "@/lib/financialIntelligence/types";
+import type { FiCompanyRow, SavedBenchmark } from "@/lib/financialIntelligence/types";
+
+function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow {
+  return {
+    company_id: id,
+    company_name: meta?.name ?? `Company #${id}`,
+    company_logo: meta?.logo ?? null,
+    sectors_id: "",
+    location_country: "",
+    location_region: "",
+    financial_year: 0,
+    fy_ye_month: 0,
+    revenue_m_usd: null,
+    rev_growth_pc: null,
+    ebitda_margin: null,
+    ebitda_m_usd: null,
+    ebit_m_usd: null,
+    rule_of_40: null,
+    ev_usd: null,
+    revenue_multiple: null,
+    ev_revenue_x: null,
+    ev_ebitda_x: null,
+    url: null,
+  };
+}
 
 export default function FinancialIntelligencePage() {
   const [target, setTarget] = useState<FiCompanyRow | null>(null);
@@ -58,15 +82,14 @@ export default function FinancialIntelligencePage() {
   const [secondarySectors, setSecondarySectors] = useState<
     Array<{ id: number; sector_name: string }>
   >([]);
-  const [regions, setRegions] = useState<string[]>([]);
-  const [countries, setCountries] = useState<string[]>([]);
-  const [locations, setLocations] = useState<FiLocationRow[]>([]);
+  const [regionOptions, setRegionOptions] = useState<FiIdOption[]>([]);
+  const [countryOptions, setCountryOptions] = useState<FiIdOption[]>([]);
   const [savedBenchmarks, setSavedBenchmarks] = useState<SavedBenchmark[]>([]);
 
   const [sortId, setSortId] = useState("revenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [addQuery, setAddQuery] = useState("");
-  const [addResults, setAddResults] = useState<Array<{ id: number; name: string }>>([]);
+  const [addResults, setAddResults] = useState<FiCompanySearchHit[]>([]);
 
   useEffect(() => {
     setSavedBenchmarks(loadSavedBenchmarks());
@@ -77,14 +100,18 @@ export default function FinancialIntelligencePage() {
       .catch(() =>
         locationsService.getSecondarySectors([]).then(setSecondarySectors).catch(console.error)
       );
-    locationsService.getContinentalRegions().then(setRegions).catch(console.error);
+    locationsService
+      .getContinentalRegionsWithIds()
+      .then(setRegionOptions)
+      .catch(console.error);
     locationsService
       .getCountries()
       .then((rows) =>
-        setCountries(rows.map((row) => row.locations_Country).filter(Boolean))
+        setCountryOptions(
+          rows.map((row) => ({ id: row.id, name: row.locations_Country }))
+        )
       )
       .catch(console.error);
-    fetchFiLocationsServer().then(setLocations).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -112,7 +139,6 @@ export default function FinancialIntelligencePage() {
           companyIdsExclude: exclude,
           primarySectors,
           secondarySectors,
-          locations,
         });
 
         const [targetResult, peersResult] = await Promise.all([
@@ -137,14 +163,17 @@ export default function FinancialIntelligencePage() {
         setLoading(false);
       }
     },
-    [filters, companyIdsInclude, companyIdsExclude, primarySectors, secondarySectors, locations]
+    [filters, companyIdsInclude, companyIdsExclude, primarySectors, secondarySectors]
   );
 
   const selectTarget = useCallback(
-    (companyId: number) => {
+    (companyId: number, meta?: FiCompanySearchHit) => {
       setFilters([]);
       setCompanyIdsInclude([]);
       setCompanyIdsExclude([]);
+      setPeers([]);
+      setTotalPeers(0);
+      setTarget(placeholderTarget(companyId, meta));
       void loadBenchmark(companyId, [], [], []);
     },
     [loadBenchmark]
@@ -171,6 +200,15 @@ export default function FinancialIntelligencePage() {
   const addFilter = useCallback(
     (filter: FilterState) => {
       const next = [...filters.filter((item) => item.id !== filter.id), filter];
+      setFilters(next);
+      refreshPeers(next, companyIdsInclude, companyIdsExclude);
+    },
+    [filters, companyIdsInclude, companyIdsExclude, refreshPeers]
+  );
+
+  const updateFilter = useCallback(
+    (filter: FilterState) => {
+      const next = filters.map((item) => (item.id === filter.id ? filter : item));
       setFilters(next);
       refreshPeers(next, companyIdsInclude, companyIdsExclude);
     },
@@ -232,7 +270,6 @@ export default function FinancialIntelligencePage() {
       companyIdsExclude,
       primarySectors,
       secondarySectors,
-      locations,
     });
     const saved = peersRequestToSavedBenchmark(request, target.company_name);
     setSavedBenchmarks(saveBenchmark(saved));
@@ -243,7 +280,6 @@ export default function FinancialIntelligencePage() {
     companyIdsExclude,
     primarySectors,
     secondarySectors,
-    locations,
   ]);
 
   const loadSaved = useCallback(
@@ -289,92 +325,136 @@ export default function FinancialIntelligencePage() {
     []
   );
 
+  const showBenchmarkSkeleton = loading && peers.length === 0;
+  const showBenchmarkContent = target && !showBenchmarkSkeleton;
+  const isRefreshingBenchmark = loading && peers.length > 0;
+
   return (
     <div className="min-h-screen" style={{ background: "var(--ax-gray-25)", fontFamily: "var(--font-sans)" }}>
       <Header />
       <main style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 32px 48px" }}>
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ax-cyan-700)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            Financial Intelligence
-          </div>
-          <h1 style={{ margin: "6px 0 8px", fontSize: 28, fontWeight: 800, color: "var(--fg-1)" }}>
-            Financial Benchmark
-          </h1>
-          <p style={{ margin: 0, color: "var(--fg-3)", fontSize: 14, maxWidth: 760 }}>
-            Compare a target company against a peer set. Metrics, percentiles, and medians are
-            computed client-side after target and peer data load.
-          </p>
-        </div>
-
         <div
           style={{
             display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            alignItems: "center",
-            marginBottom: 16,
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 16,
+            marginBottom: 20,
           }}
         >
-          <TargetSelector
-            targetId={target?.company_id ?? null}
-            targetName={target?.company_name ?? null}
-            targetLogo={target?.company_logo ?? null}
-            targetUrl={target?.url ?? null}
-            loading={loading}
-            onSelect={selectTarget}
-            onClear={clearTarget}
-          />
+          <div>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--ax-cyan-700)",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+              }}
+            >
+              Financial Intelligence
+            </div>
+            <h1 style={{ margin: "6px 0 8px", fontSize: 28, fontWeight: 800, color: "var(--fg-1)" }}>
+              Financial Benchmark
+            </h1>
+            <p style={{ margin: 0, color: "var(--fg-3)", fontSize: 14, maxWidth: 760 }}>
+              Compare a target company against a peer set. Metrics, percentiles, and medians are
+              computed client-side after target and peer data load.
+            </p>
+          </div>
 
           {target && (
-            <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               <button
                 type="button"
-                disabled={isDefaultMode || loading}
-                onClick={resetToDefault}
                 style={{
-                  padding: "8px 12px",
-                  borderRadius: "var(--r-sm)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 14px",
+                  borderRadius: "var(--r-md)",
                   border: "1px solid var(--border-1)",
-                  background: isDefaultMode ? "var(--ax-gray-100)" : "white",
-                  color: isDefaultMode ? "var(--fg-4)" : "var(--fg-2)",
+                  background: "white",
+                  color: "var(--fg-1)",
                   fontWeight: 600,
                   fontSize: 12,
-                  cursor: isDefaultMode ? "default" : "pointer",
+                  cursor: "pointer",
+                  fontFamily: "var(--font-sans)",
                 }}
               >
-                Reset to default
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M8 2v8M5 9l3 3 3-3"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M3 13h10"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Export
               </button>
               <button
                 type="button"
                 onClick={handleSaveBenchmark}
                 style={{
-                  padding: "8px 12px",
-                  borderRadius: "var(--r-sm)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 14px",
+                  borderRadius: "var(--r-md)",
                   border: "none",
-                  background: "var(--ax-cyan-700)",
+                  background: "var(--ax-gray-900)",
                   color: "white",
                   fontWeight: 600,
                   fontSize: 12,
                   cursor: "pointer",
+                  fontFamily: "var(--font-sans)",
                 }}
               >
+                <svg width="12" height="12" viewBox="0 0 12 12">
+                  <path
+                    d="M6 2v8M2 6h8"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
                 Save benchmark
               </button>
-              <span
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  background: "var(--ax-gray-100)",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--fg-2)",
-                }}
-              >
-                {totalPeers || peers.length} peers
-              </span>
-            </>
+            </div>
           )}
         </div>
+
+        <FiControlBar
+          targetId={target?.company_id ?? null}
+          targetName={target?.company_name ?? null}
+          targetLogo={target?.company_logo ?? null}
+          targetUrl={target?.url ?? null}
+          loading={loading}
+          onSelectTarget={selectTarget}
+          onClearTarget={clearTarget}
+          filters={filters}
+          onAddFilter={addFilter}
+          onUpdateFilter={updateFilter}
+          onRemoveFilter={removeFilter}
+          primarySectorOptions={primarySectors.map((s) => s.sector_name)}
+          secondarySectorOptions={secondarySectors.map((s) => s.sector_name)}
+          regionOptions={regionOptions}
+          countryOptions={countryOptions}
+          peerCount={totalPeers || peers.length}
+          isDefaultMode={isDefaultMode}
+          onResetToDefault={resetToDefault}
+          addQuery={addQuery}
+          onAddQueryChange={setAddQuery}
+          addResults={addResults}
+          onAddCompany={addPeerCompany}
+        />
 
         {savedBenchmarks.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
@@ -398,23 +478,7 @@ export default function FinancialIntelligencePage() {
           </div>
         )}
 
-        {target && (
-          <div style={{ marginBottom: 16 }}>
-            <FiFilterBar
-              filters={filters}
-              onAddFilter={addFilter}
-              onRemoveFilter={removeFilter}
-              primarySectorOptions={primarySectors.map((s) => s.sector_name)}
-              secondarySectorOptions={secondarySectors.map((s) => s.sector_name)}
-              regionOptions={regions}
-              countryOptions={countries}
-            />
-          </div>
-        )}
-
-        {loading && (
-          <div style={{ padding: 24, color: "var(--fg-3)", fontSize: 14 }}>Loading benchmark…</div>
-        )}
+        {showBenchmarkSkeleton && <FiBenchmarkSkeleton />}
 
         {error && (
           <div
@@ -442,12 +506,13 @@ export default function FinancialIntelligencePage() {
               fontSize: 14,
             }}
           >
-            Select a target company by ID to load its financial profile and default peer set.
+            Select a target company to load its financial profile and default peer set.
           </div>
         )}
 
-        {target && !loading && (
-          <>
+        {showBenchmarkContent && (
+          <FiBenchmarkRefreshing active={isRefreshingBenchmark}>
+            <>
             <div
               style={{
                 display: "grid",
@@ -472,7 +537,12 @@ export default function FinancialIntelligencePage() {
                 marginBottom: 16,
               }}
             >
-              <BenchmarkTable rows={benchmarkRows} targetName={target.company_name} />
+              <BenchmarkTable
+                rows={benchmarkRows}
+                targetName={target.company_name}
+                target={target}
+                peers={peers}
+              />
               <PeerCompaniesCard
                 peers={peers}
                 targetFinancialYear={target.financial_year || null}
@@ -483,7 +553,7 @@ export default function FinancialIntelligencePage() {
                 addQuery={addQuery}
                 onAddQueryChange={setAddQuery}
                 addResults={addResults}
-                onPickAddResult={() => undefined}
+                onPickAddResult={(item) => addPeerCompany(item.id)}
               />
             </div>
 
@@ -519,7 +589,8 @@ export default function FinancialIntelligencePage() {
               visibleColumnIds={visibleColumnIds}
               sectorMedian={sectorMedian}
             />
-          </>
+            </>
+          </FiBenchmarkRefreshing>
         )}
       </main>
       <Footer />

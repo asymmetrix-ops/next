@@ -101,7 +101,7 @@ export interface FilterDef {
 
 export interface FilterState {
   id: string;
-  value: string[] | { min?: number; max?: number } | string;
+  value: string[] | number[] | { min?: number; max?: number } | string;
 }
 
 export interface AppState {
