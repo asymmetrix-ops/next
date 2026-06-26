@@ -53,7 +53,7 @@ export const FIN_FILTER_DEFS: FilterDef[] = [
   /* ---- Profitability ---- */
   { id: 'revenue', label: 'Revenue', fullLabel: 'Revenue ($m)', category: 'profitability', type: '$', editor: 'range',
     unit: '$m', min: 0, max: 5000,
-    presets: [['<$10m',0,10],['$10–50m',10,50],['$50–500m',50,500],['$500m+',500,5000]] },
+    presets: [['<$10m',0,10],['$10–49m',10,49],['$50–99m',50,99],['$100–499m',100,499],['$500m+',500,5000]] },
   { id: 'ebitda', label: 'EBITDA', fullLabel: 'EBITDA ($m)', category: 'profitability', type: '$', editor: 'range',
     unit: '$m', min: -100, max: 2000,
     presets: [['Profitable',0,2000],['$10m+',10,2000],['$50m+',50,2000]] },

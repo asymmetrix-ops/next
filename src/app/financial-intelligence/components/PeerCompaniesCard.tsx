@@ -57,8 +57,11 @@ function PeerCompanyLogo({ name, logo }: { name: string; logo?: string | null })
 interface PeerCompaniesCardProps {
   peers: FiCompanyRow[];
   targetFinancialYear: number | null;
+  targetFyYeMonth?: number | null;
+  excludedPeers: FiCompanyRow[];
   excludedIds: number[];
   onExclude: (companyId: number) => void;
+  onRestorePeer: (companyId: number) => void;
   onRestoreAll: () => void;
   onAddCompany: (companyId: number) => void;
   addQuery: string;
@@ -70,8 +73,11 @@ interface PeerCompaniesCardProps {
 export function PeerCompaniesCard({
   peers,
   targetFinancialYear,
+  targetFyYeMonth,
+  excludedPeers,
   excludedIds,
   onExclude,
+  onRestorePeer,
   onRestoreAll,
   onAddCompany,
   addQuery,
@@ -175,7 +181,10 @@ export function PeerCompaniesCard({
           const vintageMismatch =
             targetFinancialYear != null &&
             peer.financial_year > 0 &&
-            peer.financial_year !== targetFinancialYear;
+            (peer.financial_year !== targetFinancialYear ||
+              (targetFyYeMonth != null &&
+                peer.fy_ye_month > 0 &&
+                peer.fy_ye_month !== targetFyYeMonth));
 
           return (
             <div
@@ -218,7 +227,12 @@ export function PeerCompaniesCard({
                   )}
                   {vintageMismatch && targetFinancialYear != null && (
                     <span
-                      title={vintageTooltip(peer.financial_year, targetFinancialYear)}
+                      title={vintageTooltip(
+                        peer.financial_year,
+                        targetFinancialYear,
+                        peer.fy_ye_month,
+                        targetFyYeMonth
+                      )}
                       style={{ cursor: "help", color: "var(--ax-warning)" }}
                     >
                       ⚑
@@ -252,6 +266,57 @@ export function PeerCompaniesCard({
           </div>
         )}
       </div>
+
+      {excludedPeers.length > 0 && (
+        <div
+          style={{
+            borderTop: "1px solid var(--border-1)",
+            padding: "12px 16px",
+            background: "var(--ax-gray-25)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "var(--fg-3)",
+              marginBottom: 8,
+            }}
+          >
+            Dropped from benchmark
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {excludedPeers.map((peer) => (
+              <button
+                key={peer.company_id}
+                type="button"
+                onClick={() => onRestorePeer(peer.company_id)}
+                title={`Restore ${peer.company_name}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  border: "1px solid var(--border-1)",
+                  background: "white",
+                  fontSize: 12,
+                  color: "var(--fg-3)",
+                  textDecoration: "line-through",
+                  cursor: "pointer",
+                }}
+              >
+                {peer.company_name}
+                <span style={{ textDecoration: "none", color: "var(--fg-link)", fontWeight: 700 }}>
+                  Restore
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

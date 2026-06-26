@@ -714,6 +714,7 @@ export interface FiControlBarProps {
   peerCount: number;
   isDefaultMode: boolean;
   onResetToDefault: () => void;
+  onApplySuggestedFilters?: () => void;
   addQuery: string;
   onAddQueryChange: (query: string) => void;
   addResults: FiCompanySearchHit[];
@@ -739,6 +740,7 @@ export function FiControlBar({
   peerCount,
   isDefaultMode,
   onResetToDefault,
+  onApplySuggestedFilters,
   addQuery,
   onAddQueryChange,
   addResults,
@@ -1184,6 +1186,24 @@ export function FiControlBar({
                   gap: 12,
                 }}
               >
+                {isDefaultMode && filters.length === 0 && onApplySuggestedFilters && (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={onApplySuggestedFilters}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "var(--fg-link)",
+                      fontSize: "var(--fs-12)",
+                      fontWeight: 600,
+                      cursor: loading ? "default" : "pointer",
+                      fontFamily: "var(--font-sans)",
+                    }}
+                  >
+                    Apply suggested filters
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={isDefaultMode || loading}

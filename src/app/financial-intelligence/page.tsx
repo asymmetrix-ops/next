@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import type { FilterState } from "@/app/financials-tsx/types";
 import {
   FIN_COLUMN_DEFAULT_VISIBILITY,
@@ -13,6 +14,7 @@ import { FinancialsTable } from "@/app/financials-tsx/financials-table";
 import "../financials-tsx/colors_and_type.css";
 import { fetchFiPeers, fetchFiTarget, searchFiCompanies, type FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
 import { FiControlBar, type FiIdOption } from "./components/FiControlBar";
+import { FiModeTabs, FiSectorComingSoon, type FiBenchmarkMode } from "./components/FiModeTabs";
 import {
   FiBenchmarkRefreshing,
   FiBenchmarkSkeleton,
@@ -32,15 +34,14 @@ import {
 } from "@/lib/financialIntelligence/mappers";
 import {
   buildPeersRequest,
-  peersRequestToSavedBenchmark,
-  savedBenchmarkToFilters,
+  type FiFilterLookups,
 } from "@/lib/financialIntelligence/filterPayload";
+import { buildDefaultFiltersFromTarget } from "@/lib/financialIntelligence/defaultFilters";
 import {
   computeCompositePercentile,
 } from "@/lib/financialIntelligence/calculations";
-import { loadSavedBenchmarks, saveBenchmark } from "@/lib/financialIntelligence/storage";
 import { exportBenchmarkToCsv } from "@/lib/financialIntelligence/exportCsv";
-import type { FiCompanyRow, SavedBenchmark } from "@/lib/financialIntelligence/types";
+import type { FiCompanyRow } from "@/lib/financialIntelligence/types";
 
 function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow {
   return {
@@ -85,15 +86,26 @@ export default function FinancialIntelligencePage() {
   >([]);
   const [regionOptions, setRegionOptions] = useState<FiIdOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<FiIdOption[]>([]);
-  const [savedBenchmarks, setSavedBenchmarks] = useState<SavedBenchmark[]>([]);
+  const [excludedPeers, setExcludedPeers] = useState<FiCompanyRow[]>([]);
+  const [benchmarkMode, setBenchmarkMode] = useState<FiBenchmarkMode>("company");
+  const [showBulkAddModal, setShowBulkAddModal] = useState(false);
 
   const [sortId, setSortId] = useState("revenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [addQuery, setAddQuery] = useState("");
   const [addResults, setAddResults] = useState<FiCompanySearchHit[]>([]);
 
+  const filterLookups: FiFilterLookups = useMemo(
+    () => ({
+      regionOptions,
+      countryOptions,
+      primarySectors,
+      secondarySectors,
+    }),
+    [regionOptions, countryOptions, primarySectors, secondarySectors]
+  );
+
   useEffect(() => {
-    setSavedBenchmarks(loadSavedBenchmarks());
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
     locationsService
       .getAllSecondarySectorsWithPrimary()
@@ -128,11 +140,21 @@ export default function FinancialIntelligencePage() {
   }, [addQuery, target?.company_id]);
 
   const loadBenchmark = useCallback(
-    async (companyId: number, nextFilters = filters, include = companyIdsInclude, exclude = companyIdsExclude) => {
+    async (
+      companyId: number,
+      nextFilters = filters,
+      include = companyIdsInclude,
+      exclude = companyIdsExclude
+    ) => {
       setLoading(true);
       setError(null);
 
       try {
+        const targetResult = await fetchFiTarget(companyId);
+        if (!targetResult.ok) {
+          throw new Error(targetResult.error);
+        }
+
         const request = buildPeersRequest({
           targetCompanyId: companyId,
           filters: nextFilters,
@@ -142,19 +164,13 @@ export default function FinancialIntelligencePage() {
           secondarySectors,
         });
 
-        const [targetResult, peersResult] = await Promise.all([
-          fetchFiTarget(companyId),
-          fetchFiPeers(request),
-        ]);
-
-        if (!targetResult.ok) {
-          throw new Error(targetResult.error);
-        }
+        const peersResult = await fetchFiPeers(request);
         if (!peersResult.ok) {
           throw new Error(peersResult.error);
         }
 
         setTarget(targetResult.data);
+        setFilters(nextFilters);
         setPeers(peersResult.data.peers);
         setTotalPeers(peersResult.data.total_peers);
         setIsDefaultMode(peersResult.data.is_default_mode);
@@ -164,7 +180,7 @@ export default function FinancialIntelligencePage() {
         setLoading(false);
       }
     },
-    [filters, companyIdsInclude, companyIdsExclude, primarySectors, secondarySectors]
+    [filters, companyIdsInclude, companyIdsExclude, primarySectors, secondarySectors, filterLookups]
   );
 
   const selectTarget = useCallback(
@@ -172,6 +188,7 @@ export default function FinancialIntelligencePage() {
       setFilters([]);
       setCompanyIdsInclude([]);
       setCompanyIdsExclude([]);
+      setExcludedPeers([]);
       setPeers([]);
       setTotalPeers(0);
       setTarget(placeholderTarget(companyId, meta));
@@ -187,6 +204,7 @@ export default function FinancialIntelligencePage() {
     setFilters([]);
     setCompanyIdsInclude([]);
     setCompanyIdsExclude([]);
+    setExcludedPeers([]);
     setError(null);
   }, []);
 
@@ -230,21 +248,47 @@ export default function FinancialIntelligencePage() {
     setFilters([]);
     setCompanyIdsInclude([]);
     setCompanyIdsExclude([]);
+    setExcludedPeers([]);
     void loadBenchmark(target.company_id, [], [], []);
   }, [loadBenchmark, target]);
 
+  const applySuggestedFilters = useCallback(() => {
+    if (!target) return;
+    const suggested = buildDefaultFiltersFromTarget(target, filterLookups);
+    setFilters(suggested);
+    refreshPeers(suggested, companyIdsInclude, companyIdsExclude);
+  }, [target, filterLookups, companyIdsInclude, companyIdsExclude, refreshPeers]);
+
   const excludePeer = useCallback(
     (companyId: number) => {
+      const peer = peers.find((row) => row.company_id === companyId);
+      if (peer) {
+        setExcludedPeers((prev) => [
+          ...prev.filter((row) => row.company_id !== companyId),
+          peer,
+        ]);
+      }
       const nextExclude = Array.from(new Set([...companyIdsExclude, companyId]));
       const nextInclude = companyIdsInclude.filter((id) => id !== companyId);
       setCompanyIdsExclude(nextExclude);
       setCompanyIdsInclude(nextInclude);
       refreshPeers(filters, nextInclude, nextExclude);
     },
+    [companyIdsExclude, companyIdsInclude, filters, peers, refreshPeers]
+  );
+
+  const restorePeer = useCallback(
+    (companyId: number) => {
+      setExcludedPeers((prev) => prev.filter((row) => row.company_id !== companyId));
+      const nextExclude = companyIdsExclude.filter((id) => id !== companyId);
+      setCompanyIdsExclude(nextExclude);
+      refreshPeers(filters, companyIdsInclude, nextExclude);
+    },
     [companyIdsExclude, companyIdsInclude, filters, refreshPeers]
   );
 
   const restoreAllPeers = useCallback(() => {
+    setExcludedPeers([]);
     setCompanyIdsExclude([]);
     refreshPeers(filters, companyIdsInclude, []);
   }, [companyIdsInclude, filters, refreshPeers]);
@@ -262,42 +306,19 @@ export default function FinancialIntelligencePage() {
     [companyIdsExclude, companyIdsInclude, filters, refreshPeers]
   );
 
-  const handleSaveBenchmark = useCallback(() => {
-    if (!target) return;
-    const request = buildPeersRequest({
-      targetCompanyId: target.company_id,
-      filters,
-      companyIdsInclude,
-      companyIdsExclude,
-      primarySectors,
-      secondarySectors,
-    });
-    const saved = peersRequestToSavedBenchmark(request, target.company_name);
-    setSavedBenchmarks(saveBenchmark(saved));
-  }, [
-    target,
-    filters,
-    companyIdsInclude,
-    companyIdsExclude,
-    primarySectors,
-    secondarySectors,
-  ]);
+  const selectedCompanyIdList = useMemo(() => {
+    if (!target) return [];
+    const ids = new Set<number>([target.company_id]);
+    for (const peer of peers) {
+      ids.add(peer.company_id);
+    }
+    return Array.from(ids);
+  }, [target, peers]);
 
-  const loadSaved = useCallback(
-    (saved: SavedBenchmark) => {
-      const nextFilters = savedBenchmarkToFilters(saved);
-      setFilters(nextFilters);
-      setCompanyIdsInclude(saved.company_ids_include);
-      setCompanyIdsExclude(saved.company_ids_exclude);
-      void loadBenchmark(
-        saved.target_company_id,
-        nextFilters,
-        saved.company_ids_include,
-        saved.company_ids_exclude
-      );
-    },
-    [loadBenchmark]
-  );
+  const handleSaveBenchmark = useCallback(() => {
+    if (selectedCompanyIdList.length === 0) return;
+    setShowBulkAddModal(true);
+  }, [selectedCompanyIdList]);
 
   const headlineMetrics = useMemo(() => {
     if (!target) return [];
@@ -417,6 +438,7 @@ export default function FinancialIntelligencePage() {
               <button
                 type="button"
                 onClick={handleSaveBenchmark}
+                disabled={loading || selectedCompanyIdList.length === 0}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -428,7 +450,8 @@ export default function FinancialIntelligencePage() {
                   color: "white",
                   fontWeight: 600,
                   fontSize: 12,
-                  cursor: "pointer",
+                  cursor: loading || selectedCompanyIdList.length === 0 ? "default" : "pointer",
+                  opacity: loading || selectedCompanyIdList.length === 0 ? 0.5 : 1,
                   fontFamily: "var(--font-sans)",
                 }}
               >
@@ -446,6 +469,12 @@ export default function FinancialIntelligencePage() {
           )}
         </div>
 
+        <FiModeTabs mode={benchmarkMode} onModeChange={setBenchmarkMode} />
+
+        {benchmarkMode === "sector" ? (
+          <FiSectorComingSoon />
+        ) : (
+          <>
         <FiControlBar
           targetId={target?.company_id ?? null}
           targetName={target?.company_name ?? null}
@@ -465,33 +494,12 @@ export default function FinancialIntelligencePage() {
           peerCount={totalPeers || peers.length}
           isDefaultMode={isDefaultMode}
           onResetToDefault={resetToDefault}
+          onApplySuggestedFilters={applySuggestedFilters}
           addQuery={addQuery}
           onAddQueryChange={setAddQuery}
           addResults={addResults}
           onAddCompany={addPeerCompany}
         />
-
-        {savedBenchmarks.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-            {savedBenchmarks.map((saved) => (
-              <button
-                key={`${saved.target_company_id}-${saved.saved_at}`}
-                type="button"
-                onClick={() => loadSaved(saved)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  border: "1px solid var(--border-1)",
-                  background: "white",
-                  fontSize: 12,
-                  cursor: "pointer",
-                }}
-              >
-                {saved.label ?? `Company #${saved.target_company_id}`}
-              </button>
-            ))}
-          </div>
-        )}
 
         {showBenchmarkSkeleton && <FiBenchmarkSkeleton />}
 
@@ -561,8 +569,11 @@ export default function FinancialIntelligencePage() {
               <PeerCompaniesCard
                 peers={peers}
                 targetFinancialYear={target.financial_year || null}
+                targetFyYeMonth={target.fy_ye_month || null}
+                excludedPeers={excludedPeers}
                 excludedIds={companyIdsExclude}
                 onExclude={excludePeer}
+                onRestorePeer={restorePeer}
                 onRestoreAll={restoreAllPeers}
                 onAddCompany={addPeerCompany}
                 addQuery={addQuery}
@@ -607,7 +618,14 @@ export default function FinancialIntelligencePage() {
             </>
           </FiBenchmarkRefreshing>
         )}
+          </>
+        )}
       </main>
+      <BulkAddToPortfolioModal
+        isOpen={showBulkAddModal}
+        onClose={() => setShowBulkAddModal(false)}
+        companyIds={selectedCompanyIdList}
+      />
       <Footer />
     </div>
   );
