@@ -7,7 +7,7 @@ import type {
   FiHeadlineMetric,
   FiMetricKey,
 } from "@/lib/financialIntelligence/types";
-import { getMetricValue } from "@/lib/financialIntelligence/calculations";
+import { FI_BENCHMARK_SECTIONS, getMetricValue } from "@/lib/financialIntelligence/calculations";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { DistBar, PercentileBar, PctPill } from "./benchmark-viz";
 
@@ -333,6 +333,11 @@ export function CompositeHero({
   peerCount,
 }: CompositeHeroProps) {
   const score = compositePercentile ?? 0;
+  const tooltip =
+    "Equal-weight average of all metric percentiles where the target has a value. " +
+    "Example: if Revenue growth is at the 70th percentile and EBITDA margin at the 50th, " +
+    "those scores are averaged with every other ranked metric.";
+
   return (
     <div
       style={{
@@ -350,14 +355,42 @@ export function CompositeHero({
       <div>
         <div
           style={{
-            fontSize: 10.5,
-            fontWeight: 700,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.6)",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
           }}
         >
-          Composite percentile
+          <div
+            style={{
+              fontSize: 10.5,
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.6)",
+            }}
+          >
+            Composite percentile
+          </div>
+          <span
+            title={tooltip}
+            aria-label={tooltip}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              border: "1px solid rgba(255,255,255,0.35)",
+              color: "rgba(255,255,255,0.85)",
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: "help",
+              flexShrink: 0,
+            }}
+          >
+            i
+          </span>
         </div>
         {targetName != null && peerCount != null && (
           <div style={{ fontSize: "var(--fs-12)", color: "rgba(255,255,255,0.7)", marginTop: 2 }}>
@@ -492,6 +525,150 @@ export function BenchmarkTable({ rows, targetName, target, peers }: BenchmarkTab
     minWidth: 0,
   };
 
+  const rowByKey = new Map(rows.map((row) => [String(row.key), row]));
+
+  const renderMetricRow = (
+    row: FiBenchmarkMetricRow,
+    index: number,
+    sectionLength: number,
+    isLastSection: boolean
+  ) => {
+    const delta = fmtDelta(row.deltaVsMedian, row.format, row.higherIsBetter);
+    const isLastInSection = index === sectionLength - 1;
+    const isLastOverall = isLastSection && isLastInSection;
+    const isOpen = openMetricKey === String(row.key);
+    const rowBorder = isOpen || !isLastOverall ? "1px solid var(--ax-gray-100)" : "none";
+
+    return (
+      <React.Fragment key={String(row.key)}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setOpenMetricKey(isOpen ? null : String(row.key))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setOpenMetricKey(isOpen ? null : String(row.key));
+            }
+          }}
+          onMouseEnter={(e) => {
+            if (!isOpen) e.currentTarget.style.background = "var(--ax-gray-25)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = isOpen ? "var(--ax-gray-25)" : "transparent";
+          }}
+          style={{
+            display: "grid",
+            gridTemplateColumns: SCORECARD_COLS,
+            alignItems: "center",
+            padding: "11px 16px",
+            borderBottom: rowBorder,
+            cursor: "pointer",
+            background: isOpen ? "var(--ax-gray-25)" : "transparent",
+          }}
+        >
+          <div style={{ fontSize: "var(--fs-13)", color: "var(--fg-2)", minWidth: 0 }}>
+            <div
+              style={{
+                fontWeight: 600,
+                color: "var(--fg-1)",
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+                minWidth: 0,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  flexShrink: 0,
+                  transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                  transition: "transform 120ms",
+                  color: "var(--fg-4)",
+                }}
+              >
+                ›
+              </span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {row.label}
+              </span>
+              <span style={{ fontSize: 10, color: "var(--fg-4)", fontWeight: 500, flexShrink: 0 }}>
+                {row.higherIsBetter ? "↑ better" : "↓ cheaper"}
+              </span>
+            </div>
+          </div>
+          <div
+            style={{
+              textAlign: "right",
+              fontWeight: 600,
+              fontSize: "var(--fs-13)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {fmtMetric(row.targetValue, row.format)}
+          </div>
+          <div
+            style={{
+              textAlign: "right",
+              color: "var(--fg-3)",
+              fontSize: "var(--fs-13)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            <div>{fmtMetric(row.peerMedian, row.format)}</div>
+            {delta.positive != null && (
+              <div
+                style={{
+                  fontSize: 10,
+                  marginTop: 2,
+                  color: delta.positive ? "var(--ax-positive)" : "var(--ax-negative)",
+                }}
+              >
+                {delta.text.split(" vs")[0]}
+              </div>
+            )}
+          </div>
+          <div style={{ paddingLeft: 16, paddingRight: 8 }} onClick={(e) => e.stopPropagation()}>
+            <DistBar
+              target={row.targetValue}
+              min={row.min}
+              max={row.max}
+              q1={row.q1}
+              q3={row.q3}
+              median={row.peerMedian}
+              percentile={row.percentile}
+              peerValues={row.peerValues}
+              formatValue={(v) => fmtMetric(v, row.format)}
+            />
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <PctPill pct={row.percentile} />
+          </div>
+          <div
+            style={{
+              textAlign: "center",
+              fontSize: "var(--fs-13)",
+              color: "var(--fg-2)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {row.rank != null && row.rankTotal != null ? (
+              <>
+                <strong style={{ color: "var(--fg-1)", fontWeight: 700 }}>#{row.rank}</strong>{" "}
+                <span style={{ color: "var(--fg-4)" }}>/ {row.rankTotal}</span>
+              </>
+            ) : (
+              "—"
+            )}
+          </div>
+        </div>
+        {isOpen && (
+          <MetricBreakdown row={row} target={target} peers={peers} isLast={isLastOverall} />
+        )}
+      </React.Fragment>
+    );
+  };
+
   return (
     <div
       style={{
@@ -527,144 +704,31 @@ export function BenchmarkTable({ rows, targetName, target, peers }: BenchmarkTab
           <div style={{ ...th, textAlign: "center" }}>Rank</div>
         </div>
 
-        {rows.map((row, index) => {
-          const delta = fmtDelta(row.deltaVsMedian, row.format, row.higherIsBetter);
-          const isLast = index === rows.length - 1;
-          const isOpen = openMetricKey === String(row.key);
-          const rowBorder = isOpen || !isLast ? "1px solid var(--ax-gray-100)" : "none";
+        {FI_BENCHMARK_SECTIONS.map((section, sectionIndex) => {
+          const sectionRows = section.keys
+            .map((key) => rowByKey.get(key))
+            .filter((row): row is FiBenchmarkMetricRow => row != null);
+          if (sectionRows.length === 0) return null;
+          const isLastSection = sectionIndex === FI_BENCHMARK_SECTIONS.length - 1;
 
           return (
-            <React.Fragment key={String(row.key)}>
+            <React.Fragment key={section.id}>
               <div
-                role="button"
-                tabIndex={0}
-                onClick={() =>
-                  setOpenMetricKey(isOpen ? null : String(row.key))
-                }
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setOpenMetricKey(isOpen ? null : String(row.key));
-                  }
-                }}
-                onMouseEnter={(e) => {
-                  if (!isOpen) e.currentTarget.style.background = "var(--ax-gray-25)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = isOpen ? "var(--ax-gray-25)" : "transparent";
-                }}
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: SCORECARD_COLS,
-                  alignItems: "center",
-                  padding: "11px 16px",
-                  borderBottom: rowBorder,
-                  cursor: "pointer",
-                  background: isOpen ? "var(--ax-gray-25)" : "transparent",
+                  padding: "8px 16px",
+                  background: "var(--ax-gray-50)",
+                  borderBottom: "1px solid var(--border-1)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: "var(--fg-3)",
                 }}
               >
-                <div style={{ fontSize: "var(--fs-13)", color: "var(--fg-2)", minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontWeight: 600,
-                      color: "var(--fg-1)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 7,
-                      minWidth: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        flexShrink: 0,
-                        transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-                        transition: "transform 120ms",
-                        color: "var(--fg-4)",
-                      }}
-                    >
-                      ›
-                    </span>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {row.label}
-                    </span>
-                    <span style={{ fontSize: 10, color: "var(--fg-4)", fontWeight: 500, flexShrink: 0 }}>
-                      {row.higherIsBetter ? "↑ better" : "↓ cheaper"}
-                    </span>
-                  </div>
-                </div>
-                <div
-                  style={{
-                    textAlign: "right",
-                    fontWeight: 600,
-                    fontSize: "var(--fs-13)",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {fmtMetric(row.targetValue, row.format)}
-                </div>
-                <div
-                  style={{
-                    textAlign: "right",
-                    color: "var(--fg-3)",
-                    fontSize: "var(--fs-13)",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  <div>{fmtMetric(row.peerMedian, row.format)}</div>
-                  {delta.positive != null && (
-                    <div
-                      style={{
-                        fontSize: 10,
-                        marginTop: 2,
-                        color: delta.positive ? "var(--ax-positive)" : "var(--ax-negative)",
-                      }}
-                    >
-                      {delta.text.split(" vs")[0]}
-                    </div>
-                  )}
-                </div>
-                <div style={{ paddingLeft: 16, paddingRight: 8 }} onClick={(e) => e.stopPropagation()}>
-                  <DistBar
-                    target={row.targetValue}
-                    min={row.min}
-                    max={row.max}
-                    q1={row.q1}
-                    q3={row.q3}
-                    median={row.peerMedian}
-                    percentile={row.percentile}
-                    peerValues={row.peerValues}
-                    formatValue={(v) => fmtMetric(v, row.format)}
-                  />
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <PctPill pct={row.percentile} />
-                </div>
-                <div
-                  style={{
-                    textAlign: "center",
-                    fontSize: "var(--fs-13)",
-                    color: "var(--fg-2)",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {row.rank != null && row.rankTotal != null ? (
-                    <>
-                      <strong style={{ color: "var(--fg-1)", fontWeight: 700 }}>#{row.rank}</strong>{" "}
-                      <span style={{ color: "var(--fg-4)" }}>/ {row.rankTotal}</span>
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </div>
+                {section.label}
               </div>
-              {isOpen && (
-                <MetricBreakdown
-                  row={row}
-                  target={target}
-                  peers={peers}
-                  isLast={isLast}
-                />
+              {sectionRows.map((row, index) =>
+                renderMetricRow(row, index, sectionRows.length, isLastSection)
               )}
             </React.Fragment>
           );

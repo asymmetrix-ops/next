@@ -238,10 +238,33 @@ export function buildHeadlineMetrics(
 
 export function vintageTooltip(
   peerYear: number,
-  targetYear: number
+  targetYear: number,
+  peerMonth?: number | null,
+  targetMonth?: number | null
 ): string {
+  const fmtPeriod = (year: number, month?: number | null) => {
+    if (year <= 0) return "unknown period";
+    if (month != null && month >= 1 && month <= 12) {
+      return `FY${year} (YE month ${month})`;
+    }
+    return `FY${year}`;
+  };
+
+  const peerLabel = fmtPeriod(peerYear, peerMonth);
+  const targetLabel = fmtPeriod(targetYear, targetMonth);
+
   if (peerYear < targetYear) {
-    return `This company's latest financials are from FY${peerYear}; target uses FY${targetYear}`;
+    return `This company's latest financials are from ${peerLabel}; target uses ${targetLabel}.`;
   }
-  return `This company's latest financials are from FY${peerYear} (more recent than target FY${targetYear})`;
+  if (peerYear > targetYear) {
+    return `This company's latest financials are from ${peerLabel} (more recent than target ${targetLabel}).`;
+  }
+  if (
+    peerMonth != null &&
+    targetMonth != null &&
+    peerMonth !== targetMonth
+  ) {
+    return `Year-end month differs: peer ${peerLabel} vs target ${targetLabel}.`;
+  }
+  return `Financial period: ${peerLabel} vs target ${targetLabel}.`;
 }

@@ -10,6 +10,24 @@ export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
   { key: "revenue_multiple", label: "Revenue multiple", higherIsBetter: false, format: "multiple" },
 ];
 
+export const FI_BENCHMARK_SECTIONS: Array<{
+  id: string;
+  label: string;
+  keys: FiMetricKey[];
+}> = [
+  { id: "growth", label: "Growth", keys: ["rev_growth_pc", "rule_of_40"] },
+  {
+    id: "profitability",
+    label: "Profitability",
+    keys: ["ebitda_margin", "ebit_margin"],
+  },
+  {
+    id: "valuation",
+    label: "Valuation",
+    keys: ["ev_revenue_x", "ev_ebitda_x", "revenue_multiple"],
+  },
+];
+
 export function toMillions(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value)) return null;
   if (Math.abs(value) >= 1_000_000) return value / 1_000_000;

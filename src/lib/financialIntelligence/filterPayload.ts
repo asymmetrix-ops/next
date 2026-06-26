@@ -1,6 +1,13 @@
 import type { FilterState } from "@/app/financials-tsx/types";
 import type { FiPeersRequest, FiSectorLookup, SavedBenchmark } from "./types";
 
+export interface FiFilterLookups {
+  regionOptions: Array<{ id: number; name: string }>;
+  countryOptions: Array<{ id: number; name: string }>;
+  primarySectors: FiSectorLookup[];
+  secondarySectors: FiSectorLookup[];
+}
+
 function rangeValue(filter: FilterState | undefined): { min?: number; max?: number } {
   if (!filter) return {};
   if (typeof filter.value === "object" && !Array.isArray(filter.value)) {
@@ -101,8 +108,46 @@ export function buildPeersRequest(args: {
   };
 }
 
-export function savedBenchmarkToFilters(saved: SavedBenchmark): FilterState[] {
+export function savedBenchmarkToFilters(
+  saved: SavedBenchmark,
+  lookups?: FiFilterLookups
+): FilterState[] {
   const filters: FilterState[] = [];
+
+  if (lookups && saved.location_ids.length > 0) {
+    const regionIds = saved.location_ids.filter((id) =>
+      lookups.regionOptions.some((r) => r.id === id)
+    );
+    const countryIds = saved.location_ids.filter((id) =>
+      lookups.countryOptions.some((c) => c.id === id)
+    );
+    if (regionIds.length > 0) {
+      filters.push({ id: "region", value: regionIds });
+    }
+    if (countryIds.length > 0) {
+      filters.push({ id: "country", value: countryIds });
+    }
+  }
+
+  if (lookups && saved.sectors_id.length > 0) {
+    const primaryNames: string[] = [];
+    const secondaryNames: string[] = [];
+    for (const id of saved.sectors_id) {
+      const primary = lookups.primarySectors.find((s) => s.id === id);
+      if (primary) {
+        primaryNames.push(primary.sector_name);
+        continue;
+      }
+      const secondary = lookups.secondarySectors.find((s) => s.id === id);
+      if (secondary) secondaryNames.push(secondary.sector_name);
+    }
+    if (primaryNames.length > 0) {
+      filters.push({ id: "primary_sector", value: primaryNames });
+    }
+    if (secondaryNames.length > 0) {
+      filters.push({ id: "secondary_sector", value: secondaryNames });
+    }
+  }
 
   if (saved.revenue_min_usd_m != null || saved.revenue_max_usd_m != null) {
     filters.push({
