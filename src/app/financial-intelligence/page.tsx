@@ -41,6 +41,7 @@ import {
   computeCompositePercentile,
 } from "@/lib/financialIntelligence/calculations";
 import { exportBenchmarkToCsv } from "@/lib/financialIntelligence/exportCsv";
+import { annotateManuallyAddedPeers } from "@/lib/financialIntelligence/normalize";
 import type { FiCompanyRow } from "@/lib/financialIntelligence/types";
 
 function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow {
@@ -171,7 +172,7 @@ export default function FinancialIntelligencePage() {
 
         setTarget(targetResult.data);
         setFilters(nextFilters);
-        setPeers(peersResult.data.peers);
+        setPeers(annotateManuallyAddedPeers(peersResult.data.peers, include));
         setTotalPeers(peersResult.data.total_peers);
         setIsDefaultMode(peersResult.data.is_default_mode);
       } catch (err) {
@@ -572,6 +573,7 @@ export default function FinancialIntelligencePage() {
                 targetFyYeMonth={target.fy_ye_month || null}
                 excludedPeers={excludedPeers}
                 excludedIds={companyIdsExclude}
+                manuallyAddedIds={companyIdsInclude}
                 onExclude={excludePeer}
                 onRestorePeer={restorePeer}
                 onRestoreAll={restoreAllPeers}
