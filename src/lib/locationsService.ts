@@ -2,8 +2,14 @@ import { authService } from "./auth";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop";
 
-interface Country {
+export interface Country {
+  id: number;
   locations_Country: string;
+}
+
+export interface ContinentalRegion {
+  id: number;
+  name: string;
 }
 
 interface Province {
@@ -109,7 +115,20 @@ class LocationsService {
       );
     }
 
-    return await response.json();
+    const data = (await response.json()) as unknown;
+    const rows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
+
+    const mapped: Country[] = [];
+    for (const row of rows) {
+      const id = Number(row.id ?? row.locations_id ?? 0);
+      const name = String(
+        row.locations_Country ?? row.locations_country ?? row.Country ?? ""
+      ).trim();
+      if (!Number.isFinite(id) || id <= 0 || !name) continue;
+      mapped.push({ id, locations_Country: name });
+    }
+
+    return mapped;
   }
 
   async getProvinces(countries: string[]): Promise<Province[]> {
@@ -324,8 +343,8 @@ class LocationsService {
     return await response.json();
   }
 
-  // New: Fetch continental regions list (strings)
-  async getContinentalRegions(): Promise<string[]> {
+  // Fetch continental regions with x2_42 location IDs (FI peers filter).
+  async getContinentalRegionsWithIds(): Promise<ContinentalRegion[]> {
     const url = `${BASE_URL}/continental_region_filter`;
 
     const response = await fetch(url, {
@@ -345,16 +364,29 @@ class LocationsService {
       );
     }
 
-    const data = (await response.json()) as Array<{
-      Locations_Continental_Region1?: string;
-    }>;
-    const list = Array.isArray(data)
-      ? data
-          .map((item) => (item?.Locations_Continental_Region1 || "").trim())
-          .filter((v) => v && v.length > 0)
-      : [];
-    // Deduplicate
-    return Array.from(new Set(list));
+    const data = (await response.json()) as unknown;
+    const rows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
+
+    const mapped: ContinentalRegion[] = [];
+    for (const row of rows) {
+      const id = Number(row.id ?? row.locations_id ?? 0);
+      const name = String(
+        row.Locations_Continental_Region1 ??
+          row.locations_continental_region1 ??
+          row.locations_Continental_Region1 ??
+          ""
+      ).trim();
+      if (!Number.isFinite(id) || id <= 0 || !name) continue;
+      mapped.push({ id, name });
+    }
+
+    return mapped;
+  }
+
+  // Continental region names for filter dropdowns (companies, events, etc.)
+  async getContinentalRegions(): Promise<string[]> {
+    const rows = await this.getContinentalRegionsWithIds();
+    return Array.from(new Set(rows.map((row) => row.name)));
   }
 
   // New: Fetch geographical sub-regions list (strings)
@@ -480,6 +512,17 @@ class LocationsService {
       this.contentTypesForArticlesInFlight = null;
     });
     return this.contentTypesForArticlesInFlight;
+  }
+  /** Country rows with x2_42 IDs — used for region name fallback in FI peers filter. */
+  async getAllLocationsWithIds(): Promise<
+    { id: number; Country: string; Continental_Region: string }[]
+  > {
+    const countries = await this.getCountries();
+    return countries.map((row) => ({
+      id: row.id,
+      Country: row.locations_Country,
+      Continental_Region: "",
+    }));
   }
 }
 

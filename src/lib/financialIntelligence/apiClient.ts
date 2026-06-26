@@ -1,4 +1,8 @@
 import { authService } from "@/lib/auth";
+import {
+  companySearchPayloadToSearchParams,
+  normalizeCompanySearchPayload,
+} from "@/lib/companiesFilterPayload";
 import { peersRequestToSearchParams } from "./filterPayload";
 import {
   extractTargetRow,
@@ -15,6 +19,15 @@ import type {
 
 const FI_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:26OHS3YC:develop";
+
+const COMPANIES_API_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
+
+export interface FiCompanySearchHit {
+  id: number;
+  name: string;
+  logo?: string | null;
+}
 
 function getAuthHeaders(): Record<string, string> | null {
   const token = authService.getToken();
@@ -94,19 +107,22 @@ export async function fetchFiPeers(
 
 export async function searchFiCompanies(
   query: string
-): Promise<Array<{ id: number; name: string }>> {
+): Promise<FiCompanySearchHit[]> {
   try {
     const headers = getAuthHeaders();
-    if (!headers || !query.trim()) return [];
+    if (!headers || query.trim().length < 2) return [];
 
-    const params = new URLSearchParams({
-      search_query: query.trim(),
-      page: "1",
-      per_page: "10",
-    });
+    const params = companySearchPayloadToSearchParams(
+      normalizeCompanySearchPayload({
+        query: query.trim(),
+        Offset: 1,
+        Per_page: 10,
+      }),
+      { page: 1, perPage: 10 }
+    );
 
     const response = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_all_companies?${params.toString()}`,
+      `${COMPANIES_API_BASE}/Get_new_companies?${params.toString()}`,
       { method: "GET", headers, cache: "no-store" }
     );
 
@@ -114,6 +130,7 @@ export async function searchFiCompanies(
 
     const payload = await response.json();
     const items =
+      payload?.result1?.items ??
       payload?.companies?.items ??
       payload?.items ??
       (Array.isArray(payload) ? payload : []);
@@ -122,6 +139,10 @@ export async function searchFiCompanies(
       .map((item) => ({
         id: Number(item.id ?? 0),
         name: String(item.name ?? ""),
+        logo:
+          typeof item.linkedin_logo === "string" && item.linkedin_logo.trim()
+            ? item.linkedin_logo
+            : null,
       }))
       .filter((item) => item.id > 0 && item.name);
   } catch {

@@ -33,7 +33,7 @@ export function normalizeCompanyRow(
   return {
     company_id,
     company_name: String(raw.company_name ?? raw.name ?? ""),
-    company_logo: normalizeLogo(raw.company_logo),
+    company_logo: normalizeLogo(raw.company_logo ?? raw.linkedin_logo),
     sectors_id: String(raw.sectors_id ?? ""),
     location_country: String(raw.location_country ?? ""),
     location_region: String(raw.location_region ?? ""),
