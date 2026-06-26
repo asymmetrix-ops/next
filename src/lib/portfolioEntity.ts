@@ -1,4 +1,5 @@
 import type { XanoPortfolio } from "@/store/portfolioStore";
+import { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
 import {
   ENTITY_TYPE_TO_FOLLOW_KEY,
   followPortfolioEntity,
@@ -242,11 +243,7 @@ export async function fetchEntityListMembership(args: {
   inPortfolio: boolean;
   containingLists: EntityListCheckResult["lists"];
 }> {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("asymmetrix_auth_token")
-      : null;
-
+  const token = getAuthToken();
   if (!token) {
     throw new Error("Please sign in to check list membership.");
   }
@@ -256,21 +253,29 @@ export async function fetchEntityListMembership(args: {
     entity_id: String(args.entityId),
   });
 
-  const res = await fetch(`/api/portfolio/lists/entity/check?${qs.toString()}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "x-asym-token": token,
-    },
-    credentials: "include",
-    signal: args.signal,
-  });
+  const request = (authHeader: string) =>
+    fetch(`${XANO_USER_PORTFOLIO_BASE}/lists/entity/check?${qs.toString()}`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: authHeader,
+      },
+      signal: args.signal,
+    });
+
+  let res = await request(`Bearer ${token}`);
+
+  if (res.status === 401) {
+    res = await request(token);
+  }
 
   const json = (await res.json().catch(() => null)) as unknown;
 
   if (!res.ok) {
     const msg =
-      json && typeof json === "object" && "error" in json
+      json && typeof json === "object" && "message" in json
+        ? String((json as { message: unknown }).message)
+        : json && typeof json === "object" && "error" in json
         ? String((json as { error: unknown }).error)
         : `Request failed (${res.status})`;
     throw new Error(msg);
@@ -302,49 +307,80 @@ export function getPortfoliosContainingEntity(
   return portfolios.filter((p) => isEntityInPortfolio(p, entityType, entityId));
 }
 
+function getAuthToken(): string | null {
+  return typeof window !== "undefined"
+    ? localStorage.getItem("asymmetrix_auth_token")
+    : null;
+}
+
+async function xanoListEntityRequest(
+  path: string,
+  method: "POST" | "PATCH",
+  body: Record<string, unknown>
+): Promise<void> {
+  const token = getAuthToken();
+  if (!token) {
+    throw Object.assign(new Error("Please sign in to update a portfolio."), {
+      status: 401,
+    });
+  }
+
+  const request = (authHeader: string) =>
+    fetch(`${XANO_USER_PORTFOLIO_BASE}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: authHeader,
+      },
+      body: JSON.stringify(body),
+    });
+
+  let res = await request(`Bearer ${token}`);
+
+  if (res.status === 401) {
+    res = await request(token);
+  }
+
+  const text = await res.text().catch(() => "");
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!res.ok) {
+    const msg =
+      data && typeof data === "object" && "message" in data
+        ? String((data as { message: unknown }).message)
+        : `Request failed (${res.status})`;
+    throw Object.assign(new Error(msg), { status: res.status, data });
+  }
+}
+
 export async function addEntityToPortfolioApi(args: {
   portfolioId: number;
   entityType: PortfolioEntityType;
   entityId: number;
-  /** When true, skip global follow PATCH (caller batches separately). */
+  /** When true, skip global follow (caller handles follow separately). */
   skipGlobalFollow?: boolean;
 }): Promise<void> {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("asymmetrix_auth_token")
-      : null;
-
-  if (!token) {
-    throw new Error("Please sign in to add to a portfolio.");
-  }
-
   if (!args.skipGlobalFollow) {
     const followKey = ENTITY_TYPE_TO_FOLLOW_KEY[args.entityType];
     await followPortfolioEntity({ followKey, entityId: args.entityId });
     invalidateUserPortfolioRecordCache();
   }
 
-  const res = await fetch(`/api/portfolio/lists/${args.portfolioId}/entities`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-asym-token": token,
-    },
-    credentials: "include",
-    body: JSON.stringify({
+  await xanoListEntityRequest(
+    `/lists/${args.portfolioId}/entities`,
+    "POST",
+    {
       id: args.portfolioId,
       entity_type: args.entityType,
       entity_id: args.entityId,
-    }),
-  });
-
-  const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-
-  if (!res.ok) {
-    const msg =
-      typeof json?.error === "string" ? json.error : `Request failed (${res.status})`;
-    throw new Error(msg);
-  }
+    }
+  );
 }
 
 export async function removeEntityFromPortfolioApi(args: {
@@ -352,37 +388,13 @@ export async function removeEntityFromPortfolioApi(args: {
   entityType: PortfolioEntityType;
   entityId: number;
 }): Promise<void> {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("asymmetrix_auth_token")
-      : null;
-
-  if (!token) {
-    throw new Error("Please sign in to update a portfolio.");
-  }
-
-  const res = await fetch(
-    `/api/portfolio/lists/${args.portfolioId}/entities/remove`,
+  await xanoListEntityRequest(
+    `/lists/${args.portfolioId}/entities/remove`,
+    "PATCH",
     {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "x-asym-token": token,
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        id: args.portfolioId,
-        entity_type: args.entityType,
-        entity_id: args.entityId,
-      }),
+      id: args.portfolioId,
+      entity_type: args.entityType,
+      entity_id: args.entityId,
     }
   );
-
-  const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-
-  if (!res.ok) {
-    const msg =
-      typeof json?.error === "string" ? json.error : `Request failed (${res.status})`;
-    throw new Error(msg);
-  }
 }
