@@ -52,6 +52,7 @@ import type { CompaniesOwnershipCounts } from "@/components/companies/companiesF
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import { SearchEntityLogo } from "@/components/search/SearchEntityLogo";
 import { SearchEntityDescription } from "@/components/search/SearchEntityDescription";
+import CompactPagination from "@/components/ui/CompactPagination";
 
 interface CompanyCSVRow extends BaseCompanyCSVRow {
   Revenue?: string;
@@ -1683,124 +1684,6 @@ export const CompanySection = ({
     ]
   );
 
-  const generatePaginationButtons = () => {
-    const buttons: React.ReactNode[] = [];
-    const maxVisible = 7;
-    const totalPages =
-      pagination.pageTotal ||
-      (pagination.nextPage != null ? Math.max(pagination.nextPage, pagination.curPage + 1) : 0);
-    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
-    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
-
-    if (totalPages <= 1) {
-      return buttons;
-    }
-
-    buttons.push(
-      <button
-        key="previous"
-        className="pagination-button pagination-nav"
-        onClick={() => handlePageChange(prevPage)}
-        disabled={pagination.curPage <= 1}
-      >
-        Previous
-      </button>
-    );
-
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) {
-        buttons.push(
-          <button
-            key={i}
-            className={`pagination-button ${
-              i === pagination.curPage ? "active" : ""
-            }`}
-            onClick={() => handlePageChange(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-    } else {
-      // Always show first page
-      buttons.push(
-        <button
-          key={1}
-          className={`pagination-button ${
-            1 === pagination.curPage ? "active" : ""
-          }`}
-          onClick={() => handlePageChange(1)}
-        >
-          1
-        </button>
-      );
-
-      if (pagination.curPage > 3) {
-        buttons.push(
-          <span key="ellipsis1" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-
-      // Show pages around current
-      const start = Math.max(2, pagination.curPage - 1);
-      const end = Math.min(totalPages - 1, pagination.curPage + 1);
-
-      for (let i = start; i <= end; i++) {
-        if (i > 1 && i < totalPages) {
-          buttons.push(
-            <button
-              key={i}
-              className={`pagination-button ${
-                i === pagination.curPage ? "active" : ""
-              }`}
-              onClick={() => handlePageChange(i)}
-            >
-              {i}
-            </button>
-          );
-        }
-      }
-
-      if (pagination.curPage < totalPages - 2) {
-        buttons.push(
-          <span key="ellipsis2" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-
-      // Always show last page
-      if (totalPages > 1) {
-        buttons.push(
-          <button
-            key={totalPages}
-            className={`pagination-button ${
-              totalPages === pagination.curPage ? "active" : ""
-            }`}
-            onClick={() => handlePageChange(totalPages)}
-          >
-            {totalPages}
-          </button>
-        );
-      }
-    }
-
-    buttons.push(
-      <button
-        key="next"
-        className="pagination-button pagination-nav"
-        onClick={() => handlePageChange(nextPage)}
-        disabled={pagination.curPage >= totalPages}
-      >
-        Next
-      </button>
-    );
-
-    return buttons;
-  };
-
   const style = SEARCH_TABLE_STYLES;
 
   const columnsModalLayer = [
@@ -2429,8 +2312,17 @@ export const CompanySection = ({
       ),
     React.createElement(
       "div",
-      { className: "pagination" },
-      generatePaginationButtons()
+      { style: { display: "flex", justifyContent: "center", padding: "12px 8px" } },
+      React.createElement(CompactPagination, {
+        curPage: pagination.curPage,
+        pageTotal:
+          pagination.pageTotal ||
+          (pagination.nextPage != null
+            ? Math.max(pagination.nextPage, pagination.curPage + 1)
+            : 1),
+        onPageChange: handlePageChange,
+        disabled: loading,
+      })
     ),
     React.createElement(ExportLimitModal, {
       isOpen: showExportLimitModal,
