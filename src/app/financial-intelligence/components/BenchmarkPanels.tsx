@@ -14,7 +14,7 @@ import {
   sourceTypeColor,
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
-import { DistBar, PercentileBar, PctPill } from "./benchmark-viz";
+import { PercentileBar, PctPill } from "./benchmark-viz";
 import { fmtFiMetric, SourceColoredValue } from "./SourceTypeValue";
 
 const FONT = "var(--font-sans)";
@@ -597,16 +597,11 @@ export function BenchmarkTable({ rows, targetName, target, peers }: BenchmarkTab
             )}
           </div>
           <div style={{ paddingLeft: 16, paddingRight: 8 }} onClick={(e) => e.stopPropagation()}>
-            <DistBar
-              target={row.targetValue}
-              min={row.min}
-              max={row.max}
-              q1={row.q1}
-              q3={row.q3}
-              median={row.peerMedian}
-              percentile={row.percentile}
-              peerValues={row.peerValues}
-              formatValue={(v) => fmtMetric(v, row.format)}
+            <PercentileBar
+              pct={row.percentile}
+              height={14}
+              showNumber={false}
+              showScale={false}
             />
           </div>
           <div style={{ textAlign: "center" }}>
@@ -667,7 +662,7 @@ export function BenchmarkTable({ rows, targetName, target, peers }: BenchmarkTab
             {targetName}
           </div>
           <div style={{ ...th, textAlign: "right" }}>Peer median</div>
-          <div style={{ ...th, paddingLeft: 16 }}>Distribution</div>
+          <div style={{ ...th, paddingLeft: 16 }}>Ranking</div>
           <div style={{ ...th, textAlign: "center" }}>Percentile</div>
           <div style={{ ...th, textAlign: "center" }}>Rank</div>
         </div>
@@ -718,34 +713,14 @@ export function BenchmarkTable({ rows, targetName, target, peers }: BenchmarkTab
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <span
             style={{
-              width: 13,
-              height: 13,
-              borderRadius: "50%",
-              background: "var(--ax-positive)",
-              border: "2px solid white",
-              boxShadow: "0 0 0 1px var(--ax-positive)",
+              width: 28,
+              height: 8,
+              borderRadius: 4,
+              background:
+                "linear-gradient(90deg, #EAF6F0 0%, #BEE4D2 28%, #79C9A5 56%, #2C9970 82%, #0E7A50 100%)",
             }}
           />
-          Target
-        </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span
-            style={{
-              width: 5,
-              height: 5,
-              borderRadius: "50%",
-              background: "var(--ax-gray-400)",
-            }}
-          />
-          Peer
-        </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 2, height: 12, background: "var(--ax-gray-600)" }} />
-          Median
-        </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 20, height: 8, background: "var(--ax-gray-200)", borderRadius: 2 }} />
-          IQR (Q1–Q3)
+          Percentile scale
         </span>
         <span
           style={{
