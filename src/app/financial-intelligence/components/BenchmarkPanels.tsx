@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import type {
   FiBenchmarkMetricRow,
   FiCompanyRow,
@@ -8,10 +8,63 @@ import type {
   FiMetricKey,
 } from "@/lib/financialIntelligence/types";
 import { FI_BENCHMARK_SECTIONS, getMetricValue } from "@/lib/financialIntelligence/calculations";
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
+import {
+  FI_SOURCE_TYPES,
+  getMetricSourceType,
+  sourceTypeColor,
+  type FiMetricSourceType,
+} from "@/lib/financialIntelligence/sourceTypes";
 import { DistBar, PercentileBar, PctPill } from "./benchmark-viz";
 
 const FONT = "var(--font-sans)";
+
+function SourceTypeDot({
+  type,
+  title,
+}: {
+  type: FiMetricSourceType | null | undefined;
+  title?: string;
+}) {
+  if (!type) return null;
+  return (
+    <span
+      title={title ?? `${type} data`}
+      style={{
+        width: 7,
+        height: 7,
+        borderRadius: "50%",
+        background: sourceTypeColor(type),
+        flexShrink: 0,
+        display: "inline-block",
+      }}
+    />
+  );
+}
+
+function MetricValueWithSource({
+  value,
+  format,
+  sourceType,
+}: {
+  value: number | null;
+  format: "percent" | "multiple" | "currency";
+  sourceType?: FiMetricSourceType | null;
+}) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        gap: 6,
+        width: "100%",
+      }}
+    >
+      <SourceTypeDot type={sourceType} />
+      <span>{fmtMetric(value, format)}</span>
+    </span>
+  );
+}
 
 function fmtMetric(
   value: number | null,
@@ -55,55 +108,6 @@ function fmtSigned(
   return `${sign}${delta.toFixed(1)}x`;
 }
 
-function BreakdownLogo({ name, logo }: { name: string; logo?: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const src = resolveCompanyLogoSrc(logo);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [logo]);
-
-  if (src && !failed) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt=""
-        onError={() => setFailed(true)}
-        style={{
-          width: 18,
-          height: 18,
-          borderRadius: 4,
-          objectFit: "contain",
-          background: "var(--ax-gray-25)",
-          border: "1px solid var(--border-1)",
-          flexShrink: 0,
-        }}
-      />
-    );
-  }
-
-  return (
-    <span
-      style={{
-        width: 18,
-        height: 18,
-        borderRadius: 4,
-        background: "var(--ax-cyan-700)",
-        color: "white",
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 10,
-        fontWeight: 700,
-        flexShrink: 0,
-      }}
-    >
-      {name[0]}
-    </span>
-  );
-}
-
 function MetricBreakdown({
   row,
   target,
@@ -120,15 +124,15 @@ function MetricBreakdown({
     {
       id: target.company_id,
       name: target.company_name,
-      logo: target.company_logo,
       value: row.targetValue,
+      sourceType: getMetricSourceType(target, metricKey),
       isTarget: true,
     },
     ...peers.map((peer) => ({
       id: peer.company_id,
       name: peer.company_name,
-      logo: peer.company_logo,
       value: getMetricValue(peer, metricKey),
+      sourceType: getMetricSourceType(peer, metricKey),
       isTarget: false,
     })),
   ].filter(
@@ -229,7 +233,6 @@ function MetricBreakdown({
           {index + 1}
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <BreakdownLogo name={entry.name} logo={entry.logo} />
           <span
             style={{
               fontSize: 12.5,
@@ -282,7 +285,11 @@ function MetricBreakdown({
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          {fmtMetric(entry.value, row.format)}
+          <MetricValueWithSource
+            value={entry.value}
+            format={row.format}
+            sourceType={entry.sourceType}
+          />
         </span>
       </div>
     );
@@ -605,7 +612,11 @@ export function BenchmarkTable({ rows, targetName, target, peers }: BenchmarkTab
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {fmtMetric(row.targetValue, row.format)}
+            <MetricValueWithSource
+              value={row.targetValue}
+              format={row.format}
+              sourceType={row.targetSourceType}
+            />
           </div>
           <div
             style={{
@@ -778,6 +789,29 @@ export function BenchmarkTable({ rows, targetName, target, peers }: BenchmarkTab
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 20, height: 8, background: "var(--ax-gray-200)", borderRadius: 2 }} />
           IQR (Q1–Q3)
+        </span>
+        <span
+          style={{
+            marginLeft: "auto",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 14,
+            flexWrap: "wrap",
+          }}
+        >
+          {FI_SOURCE_TYPES.map((type) => (
+            <span key={type} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: sourceTypeColor(type),
+                }}
+              />
+              {type}
+            </span>
+          ))}
         </span>
       </div>
     </div>

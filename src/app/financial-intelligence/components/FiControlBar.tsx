@@ -7,6 +7,11 @@ import {
   searchFiCompanies,
   type FiCompanySearchHit,
 } from "@/lib/financialIntelligence/apiClient";
+import {
+  FI_SOURCE_TYPES,
+  sourceTypeColor,
+  type FiMetricSourceType,
+} from "@/lib/financialIntelligence/sourceTypes";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
 export interface FiIdOption {
@@ -715,6 +720,8 @@ export interface FiControlBarProps {
   isDefaultMode: boolean;
   onResetToDefault: () => void;
   onApplySuggestedFilters?: () => void;
+  allowedSources: FiMetricSourceType[];
+  onToggleSourceType: (type: FiMetricSourceType) => void;
   addQuery: string;
   onAddQueryChange: (query: string) => void;
   addResults: FiCompanySearchHit[];
@@ -741,6 +748,8 @@ export function FiControlBar({
   isDefaultMode,
   onResetToDefault,
   onApplySuggestedFilters,
+  allowedSources,
+  onToggleSourceType,
   addQuery,
   onAddQueryChange,
   addResults,
@@ -1227,6 +1236,58 @@ export function FiControlBar({
             </>
           )}
         </div>
+
+        {targetId && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 14,
+              marginTop: 10,
+              paddingTop: 10,
+              borderTop: "1px solid var(--ax-gray-100)",
+            }}
+          >
+            <span className="ax-eyebrow">Data sources</span>
+            {FI_SOURCE_TYPES.map((type) => {
+              const checked = allowedSources.includes(type);
+              const disabled = loading || (checked && allowedSources.length <= 1);
+              return (
+                <label
+                  key={type}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: "var(--fs-13)",
+                    color: "var(--fg-2)",
+                    cursor: disabled ? "default" : "pointer",
+                    opacity: disabled && !checked ? 0.5 : 1,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={disabled}
+                    onChange={() => onToggleSourceType(type)}
+                    style={{ accentColor: sourceTypeColor(type) }}
+                  />
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: sourceTypeColor(type),
+                      flexShrink: 0,
+                    }}
+                  />
+                  {type}
+                </label>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

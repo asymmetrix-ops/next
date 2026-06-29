@@ -1,4 +1,5 @@
 import type { FiCompanyRow, FiPeersResponse } from "./types";
+import { parseSourceType } from "./sourceTypes";
 
 export function safeFiniteNumber(value: unknown): number | null {
   if (value == null || value === "" || value === "$NaN" || value === "NaN") return null;
@@ -49,6 +50,10 @@ export function normalizeCompanyRow(
     revenue_multiple: safeFiniteNumber(raw.revenue_multiple),
     ev_revenue_x: safeFiniteNumber(raw.ev_revenue_x),
     ev_ebitda_x: safeFiniteNumber(raw.ev_ebitda_x),
+    revenue_source_type: parseSourceType(raw.revenue_source_type),
+    rev_growth_source_type: parseSourceType(raw.rev_growth_source_type),
+    ebitda_source_type: parseSourceType(raw.ebitda_source_type),
+    ev_source_type: parseSourceType(raw.ev_source_type),
     url: normalizeLogo(raw.url),
     is_manually_added: Boolean(
       raw.is_manually_added ?? raw.manually_added ?? raw.is_added

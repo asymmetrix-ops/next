@@ -1,4 +1,5 @@
-import type { FiCompanyRow, FiMetricDef, FiMetricKey } from "./types";
+import type { FiCompanyRow, FiMetricDef, FiMetricKey, FiMetricSourceType } from "./types";
+import { isMetricSourceAllowed } from "./sourceTypes";
 
 export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
   { key: "rev_growth_pc", label: "Revenue growth", higherIsBetter: true, format: "percent" },
@@ -61,6 +62,16 @@ export function getMetricValue(row: FiCompanyRow, key: FiMetricKey): number | nu
     default:
       return null;
   }
+}
+
+/** Peer metric value for benchmark math — null when source type is filtered out. */
+export function getPeerMetricValueForCalc(
+  peer: FiCompanyRow,
+  key: FiMetricKey,
+  allowedSources: FiMetricSourceType[]
+): number | null {
+  if (!isMetricSourceAllowed(peer, key, allowedSources)) return null;
+  return getMetricValue(peer, key);
 }
 
 export function quantile(values: number[], q: number): number | null {
@@ -135,7 +146,8 @@ export function computeRank(
 
 export function computeCompositePercentile(
   target: FiCompanyRow,
-  peers: FiCompanyRow[]
+  peers: FiCompanyRow[],
+  allowedSources: FiMetricSourceType[] = ["Public", "Estimate", "Proprietary"]
 ): number | null {
   const scores: number[] = [];
 
@@ -144,7 +156,7 @@ export function computeCompositePercentile(
     if (targetValue == null) continue;
 
     const peerValues = peers
-      .map((peer) => getMetricValue(peer, metric.key))
+      .map((peer) => getPeerMetricValueForCalc(peer, metric.key, allowedSources))
       .filter((v): v is number => v != null && Number.isFinite(v));
 
     const percentile = computePercentile(targetValue, peerValues, metric.higherIsBetter);

@@ -155,11 +155,13 @@ export function Cell({ col, row, tweaks, currencySymbol, isMedian, sectorMedian 
     case 'company':
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{
-            width: 22, height: 22, borderRadius: 5, flexShrink: 0,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            background: row.color, color: 'white', fontSize: 10, fontWeight: 700,
-          }}>{row.name.split(' ')[0][0]}</span>
+          {!tweaks.hideCompanyAvatars && (
+            <span style={{
+              width: 22, height: 22, borderRadius: 5, flexShrink: 0,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              background: row.color, color: 'white', fontSize: 10, fontWeight: 700,
+            }}>{row.name.split(' ')[0][0]}</span>
+          )}
           <div style={{ minWidth: 0 }}>
             <div style={{
               fontWeight: 600, fontSize: 12.5, color: 'var(--fg-1)',
@@ -335,7 +337,9 @@ export function FinancialsTable({
                 }}>
                   {c.id === 'company' ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--ax-cyan-700)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>Σ</span>
+                      {!tweaks.hideCompanyAvatars && (
+                        <span style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--ax-cyan-700)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>Σ</span>
+                      )}
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ax-cyan-800)' }}>Sector median</div>
                         <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--ax-cyan-700)' }}>across {rows.length} matching companies</div>
