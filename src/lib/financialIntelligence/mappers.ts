@@ -13,6 +13,7 @@ import {
 import {
   DEFAULT_FI_SOURCE_TYPES,
   getMetricSourceType,
+  getHeadlineMetricSourceType,
   isHeadlineSourceAllowed,
   type FiMetricSourceType,
 } from "./sourceTypes";
@@ -238,6 +239,7 @@ export function buildHeadlineMetrics(
       key: def.key,
       label: def.label,
       targetValue,
+      targetSourceType: getHeadlineMetricSourceType(target, def.key),
       peerMedian: median,
       peerValues,
       percentile,

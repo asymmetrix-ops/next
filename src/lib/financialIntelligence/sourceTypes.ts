@@ -16,6 +16,19 @@ export const SOURCE_TYPE_COLORS: Record<FiMetricSourceType, string> = {
   Proprietary: "#8b5cf6",
 };
 
+/** Display order for the data-source legend (matches product design). */
+export const FI_SOURCE_TYPES_UI_ORDER: FiMetricSourceType[] = [
+  "Proprietary",
+  "Public",
+  "Estimate",
+];
+
+export const SOURCE_TYPE_DESCRIPTIONS: Record<FiMetricSourceType, string> = {
+  Proprietary: "Asymmetrix research & primary data",
+  Public: "Public filings & disclosures",
+  Estimate: "Modelled / estimated figures",
+};
+
 export function parseSourceType(value: unknown): FiMetricSourceType | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();

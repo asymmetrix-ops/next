@@ -5,8 +5,6 @@ import {
   sourceTypeColor,
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
-import { formatMetricPercent } from "@/lib/financialIntelligence/calculations";
-import type { FiMetricFormat } from "@/lib/financialIntelligence/types";
 
 export function SourceTypeDot({
   type,
@@ -33,42 +31,36 @@ export function SourceTypeDot({
   );
 }
 
-export function fmtFiMetric(value: number | null, format: FiMetricFormat): string {
+export function fmtFiMetric(
+  value: number | null,
+  format: "percent" | "multiple" | "currency"
+): string {
   if (value == null || !Number.isFinite(value)) return "—";
   if (format === "currency") {
     const n = Math.abs(value);
-    if (n >= 1000) return `$${Math.round(value / 1000)}b`;
-    return `$${Math.round(value)}m`;
-  }
-  if (format === "currency_k") {
-    if (Math.abs(value) >= 1_000_000) {
-      return `$${Math.round(value / 1_000_000)}m`;
-    }
-    if (Math.abs(value) >= 1000) {
-      return `$${Math.round(value / 1000)}k`;
-    }
-    return `$${Math.round(value)}`;
-  }
-  if (format === "count") {
-    return Math.round(value).toLocaleString("en-US");
+    if (n >= 1000) return `$${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}b`;
+    return `$${value.toFixed(0)}m`;
   }
   if (format === "percent") {
-    return formatMetricPercent(value);
+    const sign = value > 0 ? "+" : "";
+    return `${sign}${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
   }
-  return `${Math.round(value)}x`;
+  return `${value.toFixed(1)}x`;
 }
 
 export function SourceColoredValue({
   value,
   format,
   sourceType,
+  dotAfter = true,
   fontWeight = 600,
   fontSize,
   justify = "flex-end",
 }: {
   value: number | null;
-  format: FiMetricFormat;
+  format: "percent" | "multiple" | "currency";
   sourceType?: FiMetricSourceType | null;
+  dotAfter?: boolean;
   fontWeight?: number;
   fontSize?: number | string;
   justify?: "flex-start" | "flex-end" | "center";
@@ -81,6 +73,7 @@ export function SourceColoredValue({
         display: "inline-flex",
         alignItems: "center",
         justifyContent: justify,
+        gap: 6,
         width: justify === "flex-end" ? "100%" : undefined,
         color,
         fontWeight,
@@ -88,7 +81,9 @@ export function SourceColoredValue({
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      {fmtFiMetric(value, format)}
+      {!dotAfter && <SourceTypeDot type={sourceType} />}
+      <span>{fmtFiMetric(value, format)}</span>
+      {dotAfter && <SourceTypeDot type={sourceType} />}
     </span>
   );
 }

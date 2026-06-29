@@ -8,10 +8,12 @@ import {
   type FiCompanySearchHit,
 } from "@/lib/financialIntelligence/apiClient";
 import {
-  FI_SOURCE_TYPES,
+  FI_SOURCE_TYPES_UI_ORDER,
+  SOURCE_TYPE_DESCRIPTIONS,
   sourceTypeColor,
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
+import { SourceTypeDot } from "./SourceTypeValue";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
 export interface FiIdOption {
@@ -1240,52 +1242,88 @@ export function FiControlBar({
         {targetId && (
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 14,
               marginTop: 10,
               paddingTop: 10,
               borderTop: "1px solid var(--ax-gray-100)",
             }}
           >
-            <span className="ax-eyebrow">Data sources</span>
-            {FI_SOURCE_TYPES.map((type) => {
-              const checked = allowedSources.includes(type);
-              const disabled = loading || (checked && allowedSources.length <= 1);
-              return (
-                <label
-                  key={type}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: "var(--fs-13)",
-                    color: "var(--fg-2)",
-                    cursor: disabled ? "default" : "pointer",
-                    opacity: disabled && !checked ? 0.5 : 1,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    disabled={disabled}
-                    onChange={() => onToggleSourceType(type)}
-                    style={{ accentColor: sourceTypeColor(type) }}
-                  />
-                  <span
+            <div
+              className="ax-eyebrow"
+              style={{ marginBottom: 10 }}
+            >
+              Data source
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+              }}
+            >
+              {FI_SOURCE_TYPES_UI_ORDER.map((type) => {
+                const checked = allowedSources.includes(type);
+                const disabled = loading || (checked && allowedSources.length <= 1);
+                return (
+                  <label
+                    key={type}
                     style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: sourceTypeColor(type),
-                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      padding: "10px 14px",
+                      borderRadius: "var(--r-md)",
+                      border: checked
+                        ? `1px solid ${sourceTypeColor(type)}33`
+                        : "1px solid var(--border-1)",
+                      background: checked ? "white" : "var(--ax-gray-25)",
+                      cursor: disabled ? "default" : "pointer",
+                      opacity: disabled && !checked ? 0.55 : 1,
+                      minWidth: 200,
+                      flex: "1 1 200px",
+                      maxWidth: 280,
                     }}
-                  />
-                  {type}
-                </label>
-              );
-            })}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={disabled}
+                      onChange={() => onToggleSourceType(type)}
+                      style={{
+                        marginTop: 3,
+                        accentColor: sourceTypeColor(type),
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span style={{ minWidth: 0 }}>
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 7,
+                          fontSize: "var(--fs-13)",
+                          fontWeight: 600,
+                          color: "var(--fg-1)",
+                        }}
+                      >
+                        <SourceTypeDot type={type} size={8} />
+                        {type}
+                      </span>
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: 3,
+                          fontSize: 11,
+                          lineHeight: 1.35,
+                          color: "var(--fg-3)",
+                        }}
+                      >
+                        {SOURCE_TYPE_DESCRIPTIONS[type]}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

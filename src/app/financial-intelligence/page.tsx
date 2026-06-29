@@ -603,6 +603,8 @@ export default function FinancialIntelligencePage() {
                 excludedPeers={excludedPeers}
                 excludedIds={companyIdsExclude}
                 manuallyAddedIds={companyIdsInclude}
+                primarySectors={primarySectors}
+                secondarySectors={secondarySectors}
                 onExclude={excludePeer}
                 onRestorePeer={restorePeer}
                 onRestoreAll={restoreAllPeers}
