@@ -393,7 +393,7 @@ export default function FinancialIntelligencePage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--ax-gray-25)", fontFamily: "var(--font-sans)" }}>
       <Header />
-      <main style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 32px 48px" }}>
+      <main style={{ width: "100%", padding: "20px 28px 48px", boxSizing: "border-box" }}>
         <div
           style={{
             display: "flex",
@@ -585,35 +585,39 @@ export default function FinancialIntelligencePage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 340px)",
-                gap: 16,
+                gridTemplateColumns: "260px repeat(3, minmax(0, 1fr))",
+                gap: 12,
                 marginBottom: 16,
               }}
             >
-              <BenchmarkTable
-                rows={benchmarkRows}
-                targetName={target.company_name}
-                target={target}
-                peers={peers}
-              />
-              <PeerCompaniesCard
-                peers={peers}
-                targetFinancialYear={target.financial_year || null}
-                targetFyYeMonth={target.fy_ye_month || null}
-                excludedPeers={excludedPeers}
-                excludedIds={companyIdsExclude}
-                manuallyAddedIds={companyIdsInclude}
-                primarySectors={primarySectors}
-                secondarySectors={secondarySectors}
-                onExclude={excludePeer}
-                onRestorePeer={restorePeer}
-                onRestoreAll={restoreAllPeers}
-                onAddCompany={addPeerCompany}
-                addQuery={addQuery}
-                onAddQueryChange={setAddQuery}
-                addResults={addResults}
-                onPickAddResult={(item) => addPeerCompany(item.id)}
-              />
+              <div style={{ gridColumn: "1 / 4", minWidth: 0 }}>
+                <BenchmarkTable
+                  rows={benchmarkRows}
+                  targetName={target.company_name}
+                  target={target}
+                  peers={peers}
+                />
+              </div>
+              <div style={{ gridColumn: "4 / 5", minWidth: 0 }}>
+                <PeerCompaniesCard
+                  peers={peers}
+                  targetFinancialYear={target.financial_year || null}
+                  targetFyYeMonth={target.fy_ye_month || null}
+                  excludedPeers={excludedPeers}
+                  excludedIds={companyIdsExclude}
+                  manuallyAddedIds={companyIdsInclude}
+                  primarySectors={primarySectors}
+                  secondarySectors={secondarySectors}
+                  onExclude={excludePeer}
+                  onRestorePeer={restorePeer}
+                  onRestoreAll={restoreAllPeers}
+                  onAddCompany={addPeerCompany}
+                  addQuery={addQuery}
+                  onAddQueryChange={setAddQuery}
+                  addResults={addResults}
+                  onPickAddResult={(item) => addPeerCompany(item.id)}
+                />
+              </div>
             </div>
 
             <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
