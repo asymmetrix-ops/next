@@ -2,8 +2,9 @@
 
 import React from "react";
 import type { FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
-import type { FiCompanyRow } from "@/lib/financialIntelligence/types";
-import { vintageTooltip } from "@/lib/financialIntelligence/mappers";
+import { resolveSectorNames, vintageTooltip } from "@/lib/financialIntelligence/mappers";
+import type { FiCompanyRow, FiSectorLookup } from "@/lib/financialIntelligence/types";
+import { SourceColoredValue } from "./SourceTypeValue";
 
 interface PeerCompaniesCardProps {
   peers: FiCompanyRow[];
@@ -12,6 +13,8 @@ interface PeerCompaniesCardProps {
   excludedPeers: FiCompanyRow[];
   excludedIds: number[];
   manuallyAddedIds?: number[];
+  primarySectors: FiSectorLookup[];
+  secondarySectors: FiSectorLookup[];
   onExclude: (companyId: number) => void;
   onRestorePeer: (companyId: number) => void;
   onRestoreAll: () => void;
@@ -22,6 +25,18 @@ interface PeerCompaniesCardProps {
   onPickAddResult: (company: FiCompanySearchHit) => void;
 }
 
+const thStyle: React.CSSProperties = {
+  fontSize: 10.5,
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: "var(--fg-4)",
+  textAlign: "left",
+  padding: "8px 12px",
+  borderBottom: "1px solid var(--border-1)",
+  background: "var(--ax-gray-25)",
+};
+
 export function PeerCompaniesCard({
   peers,
   targetFinancialYear,
@@ -29,6 +44,8 @@ export function PeerCompaniesCard({
   excludedPeers,
   excludedIds,
   manuallyAddedIds = [],
+  primarySectors,
+  secondarySectors,
   onExclude,
   onRestorePeer,
   onRestoreAll,
@@ -55,166 +72,178 @@ export function PeerCompaniesCard({
           borderBottom: "1px solid var(--border-1)",
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
-          gap: 8,
+          alignItems: "flex-start",
+          gap: 12,
         }}
       >
         <div>
           <div style={{ fontWeight: 700, color: "var(--fg-1)" }}>Companies in this benchmark</div>
           <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
-            {peers.length} active · {excludedIds.length} excluded
+            {peers.length} {peers.length === 1 ? "company" : "companies"}
+            {excludedIds.length > 0 ? ` · ${excludedIds.length} excluded` : ""}
           </div>
         </div>
-        {excludedIds.length > 0 && (
-          <button
-            type="button"
-            onClick={onRestoreAll}
+        <div style={{ width: 180, flexShrink: 0 }}>
+          <input
+            type="text"
+            value={addQuery}
+            placeholder="Add a company…"
+            onChange={(e) => onAddQueryChange(e.target.value)}
             style={{
-              padding: "5px 10px",
+              width: "100%",
+              padding: "7px 10px",
               borderRadius: "var(--r-sm)",
               border: "1px solid var(--border-1)",
-              background: "white",
               fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
             }}
-          >
-            Restore all
-          </button>
-        )}
+          />
+        </div>
       </div>
 
-      <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-1)" }}>
-        <input
-          type="text"
-          value={addQuery}
-          placeholder="Add company by name…"
-          onChange={(e) => onAddQueryChange(e.target.value)}
+      {addResults.length > 0 && (
+        <div
           style={{
-            width: "100%",
-            padding: "8px 10px",
-            borderRadius: "var(--r-sm)",
-            border: "1px solid var(--border-1)",
-            fontSize: 13,
+            borderBottom: "1px solid var(--border-1)",
+            padding: "6px 12px",
+            background: "var(--ax-gray-25)",
           }}
-        />
-        {addResults.length > 0 && (
-          <div style={{ marginTop: 6 }}>
-            {addResults.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  onAddCompany(item.id);
-                  onPickAddResult(item);
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "6px 4px",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  color: "var(--fg-1)",
-                }}
-              >
-                <span style={{ flex: 1, fontWeight: 600 }}>{item.name}</span>
-                <span style={{ color: "var(--ax-cyan-700)", fontWeight: 700 }}>+</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div style={{ maxHeight: 360, overflow: "auto" }}>
-        {peers.map((peer) => {
-          const vintageMismatch =
-            targetFinancialYear != null &&
-            peer.financial_year > 0 &&
-            (peer.financial_year !== targetFinancialYear ||
-              (targetFyYeMonth != null &&
-                peer.fy_ye_month > 0 &&
-                peer.fy_ye_month !== targetFyYeMonth));
-          const isManuallyAdded =
-            Boolean(peer.is_manually_added) || manuallyAddedSet.has(peer.company_id);
-
-          return (
-            <div
-              key={peer.company_id}
+        >
+          {addResults.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                onAddCompany(item.id);
+                onPickAddResult(item);
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
-                padding: "10px 16px",
-                borderBottom: "1px solid var(--ax-gray-100)",
+                gap: 8,
+                width: "100%",
+                textAlign: "left",
+                padding: "6px 4px",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 12,
+                color: "var(--fg-1)",
               }}
             >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span
-                    style={{
-                      fontWeight: 600,
-                      fontSize: 13,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {peer.company_name}
-                  </span>
-                  {isManuallyAdded && (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: "var(--ax-cyan-700)",
-                        background: "var(--ax-cyan-50)",
-                        padding: "1px 6px",
-                        borderRadius: 999,
-                      }}
-                    >
-                      ADDED
-                    </span>
-                  )}
-                  {vintageMismatch && targetFinancialYear != null && (
-                    <span
-                      title={vintageTooltip(
-                        peer.financial_year,
-                        targetFinancialYear,
-                        peer.fy_ye_month,
-                        targetFyYeMonth
+              <span style={{ flex: 1, fontWeight: 600 }}>{item.name}</span>
+              <span style={{ color: "var(--ax-cyan-700)", fontWeight: 700 }}>+</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ maxHeight: 420, overflow: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Company</th>
+              <th style={thStyle}>Region</th>
+              <th style={thStyle}>Model</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>Revenue</th>
+              <th style={{ ...thStyle, width: 36 }} aria-label="Remove" />
+            </tr>
+          </thead>
+          <tbody>
+            {peers.map((peer) => {
+              const sectors = resolveSectorNames(peer.sectors_id, primarySectors, secondarySectors);
+              const vintageMismatch =
+                targetFinancialYear != null &&
+                peer.financial_year > 0 &&
+                (peer.financial_year !== targetFinancialYear ||
+                  (targetFyYeMonth != null &&
+                    peer.fy_ye_month > 0 &&
+                    peer.fy_ye_month !== targetFyYeMonth));
+              const isManuallyAdded =
+                Boolean(peer.is_manually_added) || manuallyAddedSet.has(peer.company_id);
+              const revenueM = peer.revenue_m_usd;
+
+              return (
+                <tr key={peer.company_id} style={{ borderBottom: "1px solid var(--ax-gray-100)" }}>
+                  <td style={{ padding: "9px 12px", maxWidth: 160 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          fontSize: 12.5,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {peer.company_name}
+                      </span>
+                      {isManuallyAdded && (
+                        <span
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 700,
+                            color: "var(--ax-cyan-700)",
+                            background: "var(--ax-cyan-50)",
+                            padding: "1px 5px",
+                            borderRadius: 999,
+                            flexShrink: 0,
+                          }}
+                        >
+                          ADDED
+                        </span>
                       )}
-                      style={{ cursor: "help", color: "var(--ax-warning)" }}
+                      {vintageMismatch && targetFinancialYear != null && (
+                        <span
+                          title={vintageTooltip(
+                            peer.financial_year,
+                            targetFinancialYear,
+                            peer.fy_ye_month,
+                            targetFyYeMonth
+                          )}
+                          style={{ cursor: "help", color: "var(--ax-warning)", flexShrink: 0 }}
+                        >
+                          ⚑
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--fg-2)" }}>
+                    {peer.location_region || peer.location_country || "—"}
+                  </td>
+                  <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--fg-2)" }}>
+                    {sectors.secondary !== "—" ? sectors.secondary : sectors.primary}
+                  </td>
+                  <td style={{ padding: "9px 12px", textAlign: "right" }}>
+                    <SourceColoredValue
+                      value={revenueM}
+                      format="currency"
+                      sourceType={peer.revenue_source_type}
+                      fontWeight={700}
+                      fontSize={12.5}
+                    />
+                  </td>
+                  <td style={{ padding: "9px 8px", textAlign: "center" }}>
+                    <button
+                      type="button"
+                      onClick={() => onExclude(peer.company_id)}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        color: "var(--fg-4)",
+                        cursor: "pointer",
+                        fontSize: 16,
+                        lineHeight: 1,
+                      }}
+                      aria-label={`Remove ${peer.company_name} from benchmark`}
                     >
-                      ⚑
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: 11, color: "var(--fg-3)" }}>
-                  {peer.location_country || "—"} · FY{peer.financial_year || "—"}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onExclude(peer.company_id)}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  color: "var(--fg-3)",
-                  cursor: "pointer",
-                  fontSize: 16,
-                }}
-                aria-label={`Remove ${peer.company_name} from benchmark`}
-              >
-                ×
-              </button>
-            </div>
-          );
-        })}
+                      ×
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
         {peers.length === 0 && (
           <div style={{ padding: 16, color: "var(--fg-3)", fontSize: 13 }}>
             No peers in the current benchmark set.
@@ -240,91 +269,53 @@ export function PeerCompaniesCard({
               marginBottom: 8,
             }}
           >
-            Dropped from benchmark
+            Excluded ({excludedPeers.length})
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {excludedPeers.map((peer) => (
+          {excludedPeers.map((peer) => (
+            <div
+              key={peer.company_id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                padding: "4px 0",
+                fontSize: 12,
+              }}
+            >
+              <span style={{ color: "var(--fg-2)" }}>{peer.company_name}</span>
               <button
-                key={peer.company_id}
                 type="button"
                 onClick={() => onRestorePeer(peer.company_id)}
-                title={`Restore ${peer.company_name}`}
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 10px",
-                  borderRadius: 999,
-                  border: "1px solid var(--border-1)",
-                  background: "white",
-                  fontSize: 12,
-                  color: "var(--fg-3)",
-                  textDecoration: "line-through",
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--fg-link)",
+                  fontWeight: 600,
                   cursor: "pointer",
+                  fontSize: 11,
                 }}
               >
-                {peer.company_name}
-                <span style={{ textDecoration: "none", color: "var(--fg-link)", fontWeight: 700 }}>
-                  Restore
-                </span>
+                Restore
               </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface MetricHistogramProps {
-  title: string;
-  bins: { min: number; max: number; count: number }[];
-  targetValue: number | null;
-  format: "percent" | "multiple";
-}
-
-export function MetricHistogram({ title, bins, targetValue, format }: MetricHistogramProps) {
-  const maxCount = Math.max(...bins.map((bin) => bin.count), 1);
-
-  return (
-    <div
-      style={{
-        background: "white",
-        border: "1px solid var(--border-1)",
-        borderRadius: "var(--r-lg)",
-        padding: "14px 16px",
-      }}
-    >
-      <div style={{ fontWeight: 700, marginBottom: 10, color: "var(--fg-1)" }}>{title}</div>
-      {bins.length === 0 ? (
-        <div style={{ fontSize: 12, color: "var(--fg-3)" }}>Not enough peer data</div>
-      ) : (
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 72 }}>
-          {bins.map((bin, index) => {
-            const height = Math.max(6, (bin.count / maxCount) * 64);
-            const containsTarget =
-              targetValue != null &&
-              targetValue >= bin.min &&
-              (index === bins.length - 1 ? targetValue <= bin.max : targetValue < bin.max);
-
-            return (
-              <div
-                key={`${bin.min}-${bin.max}`}
-                title={`${bin.min.toFixed(1)}–${bin.max.toFixed(1)}: ${bin.count}`}
-                style={{
-                  flex: 1,
-                  height,
-                  borderRadius: 3,
-                  background: containsTarget ? "var(--ax-cyan-600)" : "var(--ax-cyan-100)",
-                }}
-              />
-            );
-          })}
-        </div>
-      )}
-      {targetValue != null && (
-        <div style={{ marginTop: 8, fontSize: 11, color: "var(--fg-3)" }}>
-          Target: {format === "percent" ? `${targetValue.toFixed(1)}%` : `${targetValue.toFixed(1)}x`}
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={onRestoreAll}
+            style={{
+              marginTop: 8,
+              border: "none",
+              background: "transparent",
+              color: "var(--fg-link)",
+              fontWeight: 600,
+              cursor: "pointer",
+              fontSize: 11,
+              padding: 0,
+            }}
+          >
+            Restore all
+          </button>
         </div>
       )}
     </div>

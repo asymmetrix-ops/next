@@ -111,6 +111,7 @@ export interface FiHeadlineMetric {
   key: string;
   label: string;
   targetValue: number | null;
+  targetSourceType?: FiMetricSourceType | null;
   peerMedian: number | null;
   peerValues: number[];
   percentile: number | null;

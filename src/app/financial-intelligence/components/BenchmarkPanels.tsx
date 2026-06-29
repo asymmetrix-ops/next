@@ -9,78 +9,37 @@ import type {
 } from "@/lib/financialIntelligence/types";
 import { FI_BENCHMARK_SECTIONS, getMetricValue } from "@/lib/financialIntelligence/calculations";
 import {
-  FI_SOURCE_TYPES,
+  FI_SOURCE_TYPES_UI_ORDER,
   getMetricSourceType,
   sourceTypeColor,
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
 import { DistBar, PercentileBar, PctPill } from "./benchmark-viz";
+import { fmtFiMetric, SourceColoredValue } from "./SourceTypeValue";
 
 const FONT = "var(--font-sans)";
 
-function SourceTypeDot({
-  type,
-  title,
-}: {
-  type: FiMetricSourceType | null | undefined;
-  title?: string;
-}) {
-  if (!type) return null;
-  return (
-    <span
-      title={title ?? `${type} data`}
-      style={{
-        width: 7,
-        height: 7,
-        borderRadius: "50%",
-        background: sourceTypeColor(type),
-        flexShrink: 0,
-        display: "inline-block",
-      }}
-    />
-  );
-}
+const fmtMetric = fmtFiMetric;
 
 function MetricValueWithSource({
   value,
   format,
   sourceType,
+  fontWeight,
 }: {
   value: number | null;
   format: "percent" | "multiple" | "currency";
   sourceType?: FiMetricSourceType | null;
+  fontWeight?: number;
 }) {
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        gap: 6,
-        width: "100%",
-      }}
-    >
-      <SourceTypeDot type={sourceType} />
-      <span>{fmtMetric(value, format)}</span>
-    </span>
+    <SourceColoredValue
+      value={value}
+      format={format}
+      sourceType={sourceType}
+      fontWeight={fontWeight ?? 600}
+    />
   );
-}
-
-function fmtMetric(
-  value: number | null,
-  format: "percent" | "multiple" | "currency"
-): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  if (format === "currency") {
-    const n = Math.abs(value);
-    if (n >= 1000) return `$${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}b`;
-    return `$${value.toFixed(0)}m`;
-  }
-  if (format === "percent") {
-    const sign = value > 0 ? "+" : "";
-    return `${sign}${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
-  }
-  return `${value.toFixed(1)}x`;
 }
 
 function fmtDelta(
@@ -280,15 +239,15 @@ function MetricBreakdown({
           style={{
             fontSize: 12.5,
             fontWeight: entry.isTarget ? 700 : 600,
-            color: entry.isTarget ? "var(--ax-positive)" : "var(--fg-2)",
             textAlign: "right",
-            fontVariantNumeric: "tabular-nums",
           }}
         >
-          <MetricValueWithSource
+          <SourceColoredValue
             value={entry.value}
             format={row.format}
             sourceType={entry.sourceType}
+            fontWeight={entry.isTarget ? 700 : 600}
+            fontSize={12.5}
           />
         </span>
       </div>
@@ -476,17 +435,15 @@ export function HeadlineMetricCards({ metrics }: { metrics: FiHeadlineMetric[] }
               <PctPill pct={metric.percentile} small />
             </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 8 }}>
-              <span
-                style={{
-                  fontSize: "var(--fs-28)",
-                  fontWeight: 700,
-                  color: "var(--fg-1)",
-                  fontVariantNumeric: "tabular-nums",
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                {fmtMetric(metric.targetValue, metric.format)}
-              </span>
+              <SourceColoredValue
+                value={metric.targetValue}
+                format={metric.format}
+                sourceType={metric.targetSourceType}
+                dotAfter={false}
+                fontWeight={700}
+                fontSize="var(--fs-28)"
+                justify="flex-start"
+              />
               {delta.positive != null && (
                 <span
                   style={{
@@ -799,7 +756,7 @@ export function BenchmarkTable({ rows, targetName, target, peers }: BenchmarkTab
             flexWrap: "wrap",
           }}
         >
-          {FI_SOURCE_TYPES.map((type) => (
+          {FI_SOURCE_TYPES_UI_ORDER.map((type) => (
             <span key={type} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <span
                 style={{
