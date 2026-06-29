@@ -11,9 +11,9 @@ export const FI_SOURCE_TYPES: FiMetricSourceType[] = [
 export const DEFAULT_FI_SOURCE_TYPES: FiMetricSourceType[] = [...FI_SOURCE_TYPES];
 
 export const SOURCE_TYPE_COLORS: Record<FiMetricSourceType, string> = {
-  Public: "#22c55e",
-  Estimate: "#f59e0b",
-  Proprietary: "#8b5cf6",
+  Proprietary: "#2DB7FF",
+  Public: "#0F172A",
+  Estimate: "#9CA3AF",
 };
 
 /** Display order for the data-source legend (matches product design). */
