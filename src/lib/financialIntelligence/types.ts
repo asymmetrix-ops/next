@@ -1,5 +1,7 @@
 import type { FilterState } from "@/app/financials-tsx/types";
 
+export type FiMetricSourceType = "Public" | "Estimate" | "Proprietary";
+
 export interface FiCompanyRow {
   company_id: number;
   company_name: string;
@@ -19,6 +21,10 @@ export interface FiCompanyRow {
   revenue_multiple: number | null;
   ev_revenue_x: number | null;
   ev_ebitda_x: number | null;
+  revenue_source_type?: FiMetricSourceType | null;
+  rev_growth_source_type?: FiMetricSourceType | null;
+  ebitda_source_type?: FiMetricSourceType | null;
+  ev_source_type?: FiMetricSourceType | null;
   url?: string | null;
   is_manually_added?: boolean;
 }
@@ -98,6 +104,7 @@ export interface FiBenchmarkMetricRow {
   deltaVsMedian: number | null;
   higherIsBetter: boolean;
   format: "percent" | "multiple" | "currency";
+  targetSourceType?: FiMetricSourceType | null;
 }
 
 export interface FiHeadlineMetric {

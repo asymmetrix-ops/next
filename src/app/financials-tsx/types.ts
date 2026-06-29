@@ -117,6 +117,8 @@ export interface Tweaks {
   chipStyle: 'neutral' | 'cyan' | 'outlined';
   chipIcon: boolean;
   density: 'compact' | 'comfortable' | 'spacious';
+  /** Hide colored initial/logo beside company names in the table. */
+  hideCompanyAvatars?: boolean;
 }
 
 export interface SectorMedian {

@@ -6,9 +6,16 @@ import {
   computePercentile,
   computeRank,
   getMetricValue,
+  getPeerMetricValueForCalc,
   peerMedian,
   toMillions,
 } from "./calculations";
+import {
+  DEFAULT_FI_SOURCE_TYPES,
+  getMetricSourceType,
+  isHeadlineSourceAllowed,
+  type FiMetricSourceType,
+} from "./sourceTypes";
 import type {
   FiBenchmarkMetricRow,
   FiCompanyRow,
@@ -135,12 +142,13 @@ export function buildPeerSectorMedian(peers: FiCompanyRow[]): SectorMedian {
 
 export function buildBenchmarkMetricRows(
   target: FiCompanyRow,
-  peers: FiCompanyRow[]
+  peers: FiCompanyRow[],
+  allowedSources: FiMetricSourceType[] = DEFAULT_FI_SOURCE_TYPES
 ): FiBenchmarkMetricRow[] {
   return FI_BENCHMARK_METRICS.map((metric) => {
     const targetValue = getMetricValue(target, metric.key);
     const peerValues = peers
-      .map((peer) => getMetricValue(peer, metric.key))
+      .map((peer) => getPeerMetricValueForCalc(peer, metric.key, allowedSources))
       .filter((v): v is number => v != null && Number.isFinite(v));
     const median = peerMedian(peerValues);
     const percentile =
@@ -171,16 +179,18 @@ export function buildBenchmarkMetricRows(
       deltaVsMedian,
       higherIsBetter: metric.higherIsBetter,
       format: metric.format,
+      targetSourceType: getMetricSourceType(target, metric.key),
     };
   });
 }
 
 export function buildHeadlineMetrics(
   target: FiCompanyRow,
-  peers: FiCompanyRow[]
+  peers: FiCompanyRow[],
+  allowedSources: FiMetricSourceType[] = DEFAULT_FI_SOURCE_TYPES
 ): FiHeadlineMetric[] {
   const defs: Array<{
-    key: string;
+    key: "revenue" | "ebitda" | "rev_growth";
     label: string;
     getValue: (row: FiCompanyRow) => number | null;
     format: "percent" | "currency";
@@ -212,7 +222,9 @@ export function buildHeadlineMetrics(
   return defs.map((def) => {
     const targetValue = def.getValue(target);
     const peerValues = peers
-      .map((peer) => def.getValue(peer))
+      .map((peer) =>
+        isHeadlineSourceAllowed(peer, def.key, allowedSources) ? def.getValue(peer) : null
+      )
       .filter((v): v is number => v != null && Number.isFinite(v));
     const median = peerMedian(peerValues);
     const percentile =

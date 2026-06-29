@@ -11,51 +11,9 @@ export const FI_SOURCE_TYPES: FiMetricSourceType[] = [
 export const DEFAULT_FI_SOURCE_TYPES: FiMetricSourceType[] = [...FI_SOURCE_TYPES];
 
 export const SOURCE_TYPE_COLORS: Record<FiMetricSourceType, string> = {
-  Proprietary: "#2DB7FF",
-  Public: "#0F172A",
-  Estimate: "#9CA3AF",
-};
-
-/** Display order for the data-source legend (matches product design). */
-export const FI_SOURCE_TYPES_UI_ORDER: FiMetricSourceType[] = [
-  "Proprietary",
-  "Public",
-  "Estimate",
-];
-
-export const SOURCE_TYPE_DESCRIPTIONS: Record<FiMetricSourceType, string> = {
-  Proprietary: "Asymmetrix research & primary data",
-  Public: "Public filings & disclosures",
-  Estimate: "Modelled / estimated figures",
-};
-
-const METRIC_SOURCE_FIELD: Partial<
-  Record<FiMetricKey, keyof FiCompanyRow>
-> = {
-  revenue_m_usd: "revenue_source_type",
-  ebitda_m_usd: "ebitda_source_type",
-  ebit_m_usd: "ebit_source_type",
-  ev_usd: "ev_source_type",
-  no_of_clients: "no_of_clients_source_type",
-  revenue_per_client: "revenue_per_client_source_type",
-  no_employees: "no_employees_source_type",
-  revenue_per_employee: "revenue_per_employee_source_type",
-  rev_growth_pc: "rev_growth_source_type",
-  new_client_growth_pc: "new_client_growth_source_type",
-  rule_of_40: "rule_of_40_source_type",
-  subscription_revenue_pc: "subscription_revenue_pc_source_type",
-  subscription_revenue_m: "subscription_revenue_m_source_type",
-  nrr: "nrr_source_type",
-  churn_pc: "churn_source_type",
-  grr_pc: "grr_source_type",
-  upsell_pc: "upsell_source_type",
-  cross_sell_pc: "cross_sell_source_type",
-  price_increase_pc: "price_increase_source_type",
-  rev_expansion_pc: "rev_expansion_source_type",
-  ebitda_margin: "ebitda_source_type",
-  revenue_multiple: "revenue_multiple_source_type",
-  ev_revenue_x: "ev_source_type",
-  ev_ebitda_x: "ev_source_type",
+  Public: "#22c55e",
+  Estimate: "#f59e0b",
+  Proprietary: "#8b5cf6",
 };
 
 export function parseSourceType(value: unknown): FiMetricSourceType | null {
@@ -64,58 +22,6 @@ export function parseSourceType(value: unknown): FiMetricSourceType | null {
   if (normalized === "public") return "Public";
   if (normalized === "estimate") return "Estimate";
   if (normalized === "proprietary") return "Proprietary";
-  return null;
-}
-
-function parseSourceLabelFuzzy(value: unknown): FiMetricSourceType | null {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim().toLowerCase();
-  if (!normalized) return null;
-  if (normalized === "linkedin") return "Public";
-  if (normalized.includes("public") || normalized.includes("filing")) {
-    return "Public";
-  }
-  if (
-    normalized.includes("proprietary") ||
-    normalized.includes("asymmetrix") ||
-    normalized.includes("company provided") ||
-    normalized.includes("third party") ||
-    normalized.includes("trusted third")
-  ) {
-    return "Proprietary";
-  }
-  if (
-    normalized.includes("estimate") ||
-    normalized.includes("model") ||
-    normalized.includes("analyst")
-  ) {
-    return "Estimate";
-  }
-  return null;
-}
-
-const SOURCE_TYPE_BY_COLOR: Record<string, FiMetricSourceType> = {
-  "#2db7ff": "Proprietary",
-  "#0f172a": "Public",
-  "#9ca3af": "Estimate",
-};
-
-export function resolveFinancialMetricSourceType(
-  label?: unknown,
-  code?: unknown,
-  color?: unknown
-): FiMetricSourceType | null {
-  const fromLabel = parseSourceType(label) ?? parseSourceLabelFuzzy(label);
-  if (fromLabel) return fromLabel;
-
-  const fromCode = parseSourceType(code) ?? parseSourceLabelFuzzy(code);
-  if (fromCode) return fromCode;
-
-  if (typeof color === "string") {
-    const byColor = SOURCE_TYPE_BY_COLOR[color.trim().toLowerCase()];
-    if (byColor) return byColor;
-  }
-
   return null;
 }
 
@@ -134,19 +40,22 @@ export function getMetricSourceType(
   row: FiCompanyRow,
   metricKey: FiMetricKey
 ): FiMetricSourceType | null {
-  if (metricKey === "rule_of_40") {
-    return (
-      row.rule_of_40_source_type ??
-      row.rev_growth_source_type ??
-      row.ebitda_source_type ??
-      null
-    );
+  switch (metricKey) {
+    case "rev_growth_pc":
+      return row.rev_growth_source_type ?? null;
+    case "rule_of_40":
+      return row.rev_growth_source_type ?? row.ebitda_source_type ?? null;
+    case "ebitda_margin":
+    case "ebit_margin":
+      return row.ebitda_source_type ?? null;
+    case "ev_revenue_x":
+    case "ev_ebitda_x":
+      return row.ev_source_type ?? null;
+    case "revenue_multiple":
+      return row.revenue_source_type ?? null;
+    default:
+      return null;
   }
-
-  const field = METRIC_SOURCE_FIELD[metricKey];
-  if (!field) return null;
-  const value = row[field];
-  return typeof value === "string" ? (value as FiMetricSourceType) : null;
 }
 
 function isSingleMetricSourceAllowed(

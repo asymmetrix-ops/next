@@ -1,58 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import type { FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
 import type { FiCompanyRow } from "@/lib/financialIntelligence/types";
 import { vintageTooltip } from "@/lib/financialIntelligence/mappers";
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
-
-function PeerCompanyLogo({ name, logo }: { name: string; logo?: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const src = resolveCompanyLogoSrc(logo);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [logo]);
-
-  if (src && !failed) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt=""
-        onError={() => setFailed(true)}
-        style={{
-          width: 24,
-          height: 24,
-          borderRadius: 6,
-          objectFit: "contain",
-          background: "var(--ax-gray-25)",
-          border: "1px solid var(--border-1)",
-          flexShrink: 0,
-        }}
-      />
-    );
-  }
-
-  return (
-    <span
-      style={{
-        width: 24,
-        height: 24,
-        borderRadius: 6,
-        background: "var(--ax-gray-200)",
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 10,
-        fontWeight: 700,
-        flexShrink: 0,
-      }}
-    >
-      {name[0]}
-    </span>
-  );
-}
 
 interface PeerCompaniesCardProps {
   peers: FiCompanyRow[];
@@ -171,7 +122,6 @@ export function PeerCompaniesCard({
                   color: "var(--fg-1)",
                 }}
               >
-                <PeerCompanyLogo name={item.name} logo={item.logo} />
                 <span style={{ flex: 1, fontWeight: 600 }}>{item.name}</span>
                 <span style={{ color: "var(--ax-cyan-700)", fontWeight: 700 }}>+</span>
               </button>
@@ -203,7 +153,6 @@ export function PeerCompaniesCard({
                 borderBottom: "1px solid var(--ax-gray-100)",
               }}
             >
-              <PeerCompanyLogo name={peer.company_name} logo={peer.company_logo} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span
