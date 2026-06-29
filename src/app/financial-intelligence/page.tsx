@@ -36,7 +36,7 @@ import {
   buildPeersRequest,
   type FiFilterLookups,
 } from "@/lib/financialIntelligence/filterPayload";
-import { buildSuggestedFilters } from "@/lib/financialIntelligence/defaultFilters";
+import { buildDefaultFilters } from "@/lib/financialIntelligence/defaultFilters";
 import {
   computeCompositePercentile,
 } from "@/lib/financialIntelligence/calculations";
@@ -154,7 +154,8 @@ export default function FinancialIntelligencePage() {
       companyId: number,
       nextFilters = filters,
       include = companyIdsInclude,
-      exclude = companyIdsExclude
+      exclude = companyIdsExclude,
+      applyDefaultsIfEmpty = false
     ) => {
       setLoading(true);
       setError(null);
@@ -165,9 +166,14 @@ export default function FinancialIntelligencePage() {
           throw new Error(targetResult.error);
         }
 
+        let filtersToUse = nextFilters;
+        if (applyDefaultsIfEmpty && filtersToUse.length === 0) {
+          filtersToUse = buildDefaultFilters(targetResult.data, filterLookups);
+        }
+
         const request = buildPeersRequest({
           targetCompanyId: companyId,
-          filters: nextFilters,
+          filters: filtersToUse,
           companyIdsInclude: include,
           companyIdsExclude: exclude,
           primarySectors,
@@ -180,7 +186,7 @@ export default function FinancialIntelligencePage() {
         }
 
         setTarget(targetResult.data);
-        setFilters(nextFilters);
+        setFilters(filtersToUse);
         setPeers(annotateManuallyAddedPeers(peersResult.data.peers, include));
         setTotalPeers(peersResult.data.total_peers);
         setIsDefaultMode(peersResult.data.is_default_mode);
@@ -190,7 +196,7 @@ export default function FinancialIntelligencePage() {
         setLoading(false);
       }
     },
-    [filters, companyIdsInclude, companyIdsExclude, primarySectors, secondarySectors]
+    [filters, companyIdsInclude, companyIdsExclude, filterLookups, primarySectors, secondarySectors]
   );
 
   const selectTarget = useCallback(
@@ -203,7 +209,7 @@ export default function FinancialIntelligencePage() {
       setTotalPeers(0);
       setAllowedSources([...DEFAULT_FI_SOURCE_TYPES]);
       setTarget(placeholderTarget(companyId, meta));
-      void loadBenchmark(companyId, [], [], []);
+      void loadBenchmark(companyId, [], [], [], true);
     },
     [loadBenchmark]
   );
@@ -280,7 +286,7 @@ export default function FinancialIntelligencePage() {
 
   const applySuggestedFilters = useCallback(() => {
     if (!target) return;
-    const suggested = buildSuggestedFilters(target, filterLookups.regionOptions);
+    const suggested = buildDefaultFilters(target, filterLookups);
     setFilters(suggested);
     refreshPeers(suggested, companyIdsInclude, companyIdsExclude);
   }, [target, filterLookups, companyIdsInclude, companyIdsExclude, refreshPeers]);

@@ -13,7 +13,13 @@ import {
   sourceTypeColor,
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
+import {
+  ListViewEnumEditor,
+  ListViewIdEnumEditor,
+  ListViewRangeEditor,
+} from "@/components/filters/ListViewFilterEditors";
 import { SourceTypeDot } from "./SourceTypeValue";
+import { FiFilterPicker } from "./FiFilterPicker";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
 export interface FiIdOption {
@@ -45,6 +51,11 @@ const API_FILTER_IDS = new Set([
   "ebitda_margin",
 ]);
 
+function isUnboundedMax(max: number | undefined): boolean {
+  if (max === undefined) return false;
+  return max >= 999999 || max >= 1e15 || max === Number.MAX_SAFE_INTEGER;
+}
+
 function formatRangeValue(
   v: { min?: number; max?: number } | null | undefined,
   unit?: string
@@ -58,7 +69,10 @@ function formatRangeValue(
     if (unit === "x") return `${n}x`;
     return n.toLocaleString();
   };
-  if (v.min !== undefined && v.max !== undefined) return `${fmt(v.min)}–${fmt(v.max)}`;
+  if (v.min !== undefined && v.max !== undefined) {
+    if (isUnboundedMax(v.max)) return `${fmt(v.min)} – no limit`;
+    return `${fmt(v.min)}–${fmt(v.max)}`;
+  }
   if (v.min !== undefined) return `≥ ${fmt(v.min)}`;
   if (v.max !== undefined) return `≤ ${fmt(v.max)}`;
   return "";
@@ -96,11 +110,13 @@ function Pop({
   onDismiss,
   children,
   width = 260,
+  bare = false,
 }: {
   anchorRef: React.RefObject<HTMLElement | null>;
   onDismiss: () => void;
   children: React.ReactNode;
   width?: number;
+  bare?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -147,14 +163,14 @@ function Pop({
         position: "fixed",
         top: pos?.top ?? 0,
         left: pos?.left ?? 0,
-        width,
+        width: bare ? undefined : width,
         visibility: pos ? "visible" : "hidden",
         zIndex: 9999,
-        background: "white",
-        border: "1px solid var(--border-1)",
-        borderRadius: "var(--r-lg)",
-        boxShadow: "var(--shadow-popover)",
-        padding: 10,
+        background: bare ? "transparent" : "white",
+        border: bare ? "none" : "1px solid var(--border-1)",
+        borderRadius: bare ? 0 : "var(--r-lg)",
+        boxShadow: bare ? "none" : "var(--shadow-popover)",
+        padding: bare ? 0 : 10,
         fontFamily: "var(--font-sans)",
       }}
     >
@@ -189,14 +205,15 @@ function FilterChip({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        background: "var(--ax-gray-50)",
-        border: "1px solid var(--border-1)",
+        background: "var(--ax-cyan-50)",
+        border: "1px solid var(--ax-cyan-100)",
         borderRadius: "var(--r-md)",
         fontSize: "var(--fs-13)",
         fontFamily: "var(--font-sans)",
         cursor: "pointer",
         userSelect: "none",
         height: 30,
+        transition: "box-shadow 120ms",
         boxShadow: hover ? "0 1px 2px rgba(17,22,29,0.08)" : "none",
       }}
     >
@@ -205,7 +222,7 @@ function FilterChip({
           display: "inline-flex",
           alignItems: "center",
           padding: "0 8px 0 10px",
-          color: "var(--fg-3)",
+          color: "var(--ax-cyan-700)",
           fontWeight: 500,
         }}
       >
@@ -216,9 +233,9 @@ function FilterChip({
           display: "inline-flex",
           alignItems: "center",
           padding: "0 8px",
-          color: "var(--fg-1)",
+          color: "var(--ax-cyan-700)",
           fontWeight: 600,
-          borderLeft: "1px dashed var(--ax-gray-200)",
+          borderLeft: "1px dashed var(--ax-cyan-200)",
         }}
       >
         {summary}
@@ -253,251 +270,6 @@ function FilterChip({
         </svg>
       </button>
     </span>
-  );
-}
-
-function IdEnumEditor({
-  options,
-  initial,
-  onApply,
-}: {
-  options: FiIdOption[];
-  initial: number[];
-  onApply: (values: number[]) => void;
-}) {
-  const [selected, setSelected] = useState<number[]>(initial);
-
-  return (
-    <div>
-      <div style={{ maxHeight: 240, overflowY: "auto" }}>
-        {options.map((option) => {
-          const on = selected.includes(option.id);
-          return (
-            <label
-              key={option.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "5px 6px",
-                borderRadius: 6,
-                cursor: "pointer",
-                background: on ? "var(--ax-cyan-50)" : "transparent",
-                fontSize: "var(--fs-13)",
-                color: "var(--fg-1)",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={on}
-                onChange={() =>
-                  setSelected((prev) =>
-                    on ? prev.filter((v) => v !== option.id) : [...prev, option.id]
-                  )
-                }
-                style={{ accentColor: "var(--ax-cyan-600)" }}
-              />
-              {option.name}
-            </label>
-          );
-        })}
-      </div>
-      <button
-        type="button"
-        disabled={selected.length === 0}
-        onClick={() => onApply(selected)}
-        style={{
-          marginTop: 10,
-          width: "100%",
-          padding: "6px 12px",
-          borderRadius: "var(--r-sm)",
-          border: "none",
-          background: "var(--ax-gray-900)",
-          color: "white",
-          fontWeight: 600,
-          fontSize: "var(--fs-12)",
-          cursor: selected.length === 0 ? "default" : "pointer",
-          opacity: selected.length === 0 ? 0.5 : 1,
-        }}
-      >
-        Done
-      </button>
-    </div>
-  );
-}
-
-function EnumEditor({
-  options,
-  initial,
-  onApply,
-}: {
-  options: string[];
-  initial: string[];
-  onApply: (values: string[]) => void;
-}) {
-  const [selected, setSelected] = useState<string[]>(initial);
-
-  return (
-    <div>
-      <div style={{ maxHeight: 240, overflowY: "auto" }}>
-        {options.map((option) => {
-          const on = selected.includes(option);
-          return (
-            <label
-              key={option}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "5px 6px",
-                borderRadius: 6,
-                cursor: "pointer",
-                background: on ? "var(--ax-cyan-50)" : "transparent",
-                fontSize: "var(--fs-13)",
-                color: "var(--fg-1)",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={on}
-                onChange={() =>
-                  setSelected((prev) =>
-                    on ? prev.filter((v) => v !== option) : [...prev, option]
-                  )
-                }
-                style={{ accentColor: "var(--ax-cyan-600)" }}
-              />
-              {option}
-            </label>
-          );
-        })}
-      </div>
-      <button
-        type="button"
-        disabled={selected.length === 0}
-        onClick={() => onApply(selected)}
-        style={{
-          marginTop: 10,
-          width: "100%",
-          padding: "6px 12px",
-          borderRadius: "var(--r-sm)",
-          border: "none",
-          background: "var(--ax-gray-900)",
-          color: "white",
-          fontWeight: 600,
-          fontSize: "var(--fs-12)",
-          cursor: selected.length === 0 ? "default" : "pointer",
-          opacity: selected.length === 0 ? 0.5 : 1,
-        }}
-      >
-        Done
-      </button>
-    </div>
-  );
-}
-
-function RangeEditor({
-  def,
-  initial,
-  onApply,
-}: {
-  def: FilterDef;
-  initial: { min?: number; max?: number };
-  onApply: (value: { min?: number; max?: number }) => void;
-}) {
-  const [min, setMin] = useState(initial.min != null ? String(initial.min) : "");
-  const [max, setMax] = useState(initial.max != null ? String(initial.max) : "");
-
-  return (
-    <div>
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          color: "var(--fg-3)",
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
-          marginBottom: 8,
-        }}
-      >
-        {def.label}
-      </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <input
-          type="number"
-          placeholder="Min"
-          value={min}
-          onChange={(e) => setMin(e.target.value)}
-          style={{
-            width: "50%",
-            padding: "6px 8px",
-            border: "1px solid var(--border-1)",
-            borderRadius: 6,
-            fontSize: "var(--fs-13)",
-            fontFamily: "var(--font-sans)",
-          }}
-        />
-        <span style={{ color: "var(--fg-4)" }}>–</span>
-        <input
-          type="number"
-          placeholder="Max"
-          value={max}
-          onChange={(e) => setMax(e.target.value)}
-          style={{
-            width: "50%",
-            padding: "6px 8px",
-            border: "1px solid var(--border-1)",
-            borderRadius: 6,
-            fontSize: "var(--fs-13)",
-            fontFamily: "var(--font-sans)",
-          }}
-        />
-      </div>
-      {def.presets && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-          {def.presets.map(([label, pMin, pMax]) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => onApply({ min: pMin, max: pMax })}
-              style={{
-                padding: "4px 8px",
-                borderRadius: 999,
-                border: "1px solid var(--border-1)",
-                background: "var(--ax-gray-25)",
-                fontSize: 11,
-                cursor: "pointer",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={() =>
-          onApply({
-            min: min ? Number(min) : undefined,
-            max: max ? Number(max) : undefined,
-          })
-        }
-        style={{
-          marginTop: 10,
-          width: "100%",
-          padding: "6px 12px",
-          borderRadius: "var(--r-sm)",
-          border: "none",
-          background: "var(--ax-gray-900)",
-          color: "white",
-          fontWeight: 600,
-          fontSize: "var(--fs-12)",
-          cursor: "pointer",
-        }}
-      >
-        Done
-      </button>
-    </div>
   );
 }
 
@@ -763,7 +535,7 @@ export function FiControlBar({
   const [addFilterOpen, setAddFilterOpen] = useState(false);
   const [addCompanyOpen, setAddCompanyOpen] = useState(false);
   const [editingFilterId, setEditingFilterId] = useState<string | null>(null);
-  const [pendingDefId, setPendingDefId] = useState<string | null>(null);
+  const [pendingDef, setPendingDef] = useState<FilterDef | null>(null);
 
   const targetPickerRef = useRef<HTMLButtonElement>(null);
   const targetSearchInputRef = useRef<HTMLInputElement>(null);
@@ -776,11 +548,78 @@ export function FiControlBar({
   const availableDefs = FIN_FILTER_DEFS.filter(
     (def) => API_FILTER_IDS.has(def.id) && !filters.some((f) => f.id === def.id)
   );
-  const pendingDef = availableDefs.find((d) => d.id === pendingDefId);
+  const pendingDefResolved = pendingDef;
   const editingFilter = filters.find((f) => f.id === editingFilterId);
   const editingDef = editingFilter
     ? FIN_FILTER_DEFS.find((d) => d.id === editingFilter.id)
     : null;
+
+  const filterOptionCounts: Partial<Record<string, number>> = {
+    region: regionOptions.length,
+    country: countryOptions.length,
+    primary_sector: primarySectorOptions.length,
+    secondary_sector: secondarySectorOptions.length,
+  };
+
+  const renderFilterEditor = (
+    def: FilterDef,
+    onApply: (value: FilterState["value"]) => void,
+    options?: {
+      initial?: FilterState["value"];
+      onBack?: () => void;
+      onRemove?: () => void;
+      onDismiss?: () => void;
+    }
+  ) => {
+    const dismiss = options?.onDismiss ?? (() => {});
+
+    if (ID_FILTER_IDS.has(def.id)) {
+      return (
+        <ListViewIdEnumEditor
+          def={def}
+          options={idOptionsForDef(def)}
+          value={initialIdFilterValues(options?.initial)}
+          onApply={(values) => onApply(values)}
+          onBack={options?.onBack}
+          onRemove={options?.onRemove}
+          onDismiss={dismiss}
+        />
+      );
+    }
+    if (def.editor === "enum") {
+      return (
+        <ListViewEnumEditor
+          def={def}
+          options={optionsForDef(def)}
+          value={
+            Array.isArray(options?.initial) ? (options.initial as string[]) : []
+          }
+          onApply={(values) => onApply(values)}
+          onBack={options?.onBack}
+          onRemove={options?.onRemove}
+          onDismiss={dismiss}
+        />
+      );
+    }
+    return (
+      <ListViewRangeEditor
+        def={def}
+        value={
+          typeof options?.initial === "object" &&
+          options.initial != null &&
+          !Array.isArray(options.initial)
+            ? (options.initial as { min?: number; max?: number })
+            : null
+        }
+        onApply={(value) => {
+          if (value) onApply(value);
+        }}
+        onBack={options?.onBack}
+        onRemove={options?.onRemove}
+        onDismiss={dismiss}
+      />
+    );
+  };
 
   const optionsForDef = (def: FilterDef): string[] => {
     switch (def.id) {
@@ -982,43 +821,22 @@ export function FiControlBar({
                 <Pop
                   anchorRef={editingAnchorRef}
                   onDismiss={() => setEditingFilterId(null)}
+                  bare
                 >
-                  {ID_FILTER_IDS.has(editingDef.id) ? (
-                    <IdEnumEditor
-                      options={idOptionsForDef(editingDef)}
-                      initial={initialIdFilterValues(editingFilter.value)}
-                      onApply={(values) => {
-                        onUpdateFilter({ id: editingFilter.id, value: values });
+                  {renderFilterEditor(
+                    editingDef,
+                    (value) => {
+                      onUpdateFilter({ id: editingFilter.id, value });
+                      setEditingFilterId(null);
+                    },
+                    {
+                      initial: editingFilter.value,
+                      onRemove: () => {
+                        onRemoveFilter(editingFilter.id);
                         setEditingFilterId(null);
-                      }}
-                    />
-                  ) : editingDef.editor === "enum" ? (
-                    <EnumEditor
-                      options={optionsForDef(editingDef)}
-                      initial={
-                        Array.isArray(editingFilter.value)
-                          ? (editingFilter.value as string[])
-                          : []
-                      }
-                      onApply={(values) => {
-                        onUpdateFilter({ id: editingFilter.id, value: values });
-                        setEditingFilterId(null);
-                      }}
-                    />
-                  ) : (
-                    <RangeEditor
-                      def={editingDef}
-                      initial={
-                        typeof editingFilter.value === "object" &&
-                        !Array.isArray(editingFilter.value)
-                          ? (editingFilter.value as { min?: number; max?: number })
-                          : {}
-                      }
-                      onApply={(value) => {
-                        onUpdateFilter({ id: editingFilter.id, value });
-                        setEditingFilterId(null);
-                      }}
-                    />
+                      },
+                      onDismiss: () => setEditingFilterId(null),
+                    }
                   )}
                 </Pop>
               )}
@@ -1028,7 +846,7 @@ export function FiControlBar({
                 type="button"
                 onClick={() => {
                   setAddFilterOpen((v) => !v);
-                  setPendingDefId(null);
+                  setPendingDef(null);
                 }}
                 style={{
                   display: "inline-flex",
@@ -1058,87 +876,36 @@ export function FiControlBar({
               </button>
 
               {addFilterOpen && (
-                <Pop anchorRef={addFilterRef} onDismiss={() => setAddFilterOpen(false)} width={220}>
-                  {!pendingDef ? (
-                    <>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: "var(--fg-3)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.04em",
-                          marginBottom: 6,
-                        }}
-                      >
-                        Add a filter
-                      </div>
-                      {availableDefs.length === 0 && (
-                        <div style={{ fontSize: 12, color: "var(--fg-4)", padding: "4px 6px" }}>
-                          All filters added.
-                        </div>
-                      )}
-                      {availableDefs.map((def) => (
-                        <button
-                          key={def.id}
-                          type="button"
-                          onClick={() => setPendingDefId(def.id)}
-                          style={{
-                            display: "block",
-                            width: "100%",
-                            textAlign: "left",
-                            padding: "7px 8px",
-                            border: "none",
-                            background: "transparent",
-                            borderRadius: 6,
-                            fontSize: "var(--fs-13)",
-                            color: "var(--fg-1)",
-                            cursor: "pointer",
-                            fontFamily: "var(--font-sans)",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "var(--ax-gray-50)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "transparent";
-                          }}
-                        >
-                          {def.label}
-                        </button>
-                      ))}
-                    </>
-                  ) : ID_FILTER_IDS.has(pendingDef.id) ? (
-                    <IdEnumEditor
-                      options={idOptionsForDef(pendingDef)}
-                      initial={[]}
-                      onApply={(values) => {
-                        onAddFilter({ id: pendingDef.id, value: values });
-                        setAddFilterOpen(false);
-                        setPendingDefId(null);
-                      }}
-                    />
-                  ) : pendingDef.editor === "enum" ? (
-                    <EnumEditor
-                      options={optionsForDef(pendingDef)}
-                      initial={[]}
-                      onApply={(values) => {
-                        onAddFilter({ id: pendingDef.id, value: values });
-                        setAddFilterOpen(false);
-                        setPendingDefId(null);
-                      }}
-                    />
-                  ) : (
-                    <RangeEditor
-                      def={pendingDef}
-                      initial={{}}
-                      onApply={(value) => {
-                        onAddFilter({ id: pendingDef.id, value });
-                        setAddFilterOpen(false);
-                        setPendingDefId(null);
-                      }}
-                    />
-                  )}
-                </Pop>
+                <FiFilterPicker
+                  anchorRef={addFilterRef}
+                  onDismiss={() => {
+                    setAddFilterOpen(false);
+                    setPendingDef(null);
+                  }}
+                  availableDefs={availableDefs}
+                  activeDef={pendingDefResolved}
+                  onPickDef={setPendingDef}
+                  optionCounts={filterOptionCounts}
+                  editorContent={
+                    pendingDefResolved
+                      ? renderFilterEditor(
+                          pendingDefResolved,
+                          (value) => {
+                            onAddFilter({ id: pendingDefResolved.id, value });
+                            setAddFilterOpen(false);
+                            setPendingDef(null);
+                          },
+                          {
+                            onBack: () => setPendingDef(null),
+                            onDismiss: () => {
+                              setAddFilterOpen(false);
+                              setPendingDef(null);
+                            },
+                          }
+                        )
+                      : undefined
+                  }
+                />
               )}
 
               <button
@@ -1197,7 +964,7 @@ export function FiControlBar({
                   gap: 12,
                 }}
               >
-                {isDefaultMode && filters.length === 0 && onApplySuggestedFilters && (
+                {filters.length === 0 && onApplySuggestedFilters && (
                   <button
                     type="button"
                     disabled={loading}
