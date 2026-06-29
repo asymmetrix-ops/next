@@ -64,6 +64,10 @@ export function PeerCompaniesCard({
         border: "1px solid var(--border-1)",
         borderRadius: "var(--r-lg)",
         overflow: "hidden",
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
       <div
@@ -137,7 +141,7 @@ export function PeerCompaniesCard({
         </div>
       )}
 
-      <div style={{ maxHeight: 420, overflow: "auto" }}>
+      <div style={{ flex: 1, minHeight: 0, maxHeight: 420, overflow: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -164,7 +168,7 @@ export function PeerCompaniesCard({
 
               return (
                 <tr key={peer.company_id} style={{ borderBottom: "1px solid var(--ax-gray-100)" }}>
-                  <td style={{ padding: "9px 12px", maxWidth: 160 }}>
+                  <td style={{ padding: "9px 12px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                       <span
                         style={{
