@@ -26,6 +26,8 @@ export interface IndividualRole {
   new_company: RoleCompany;
 }
 
+export type CompanyPageType = "advisor" | "company" | "investor";
+
 // Role Company
 export interface RoleCompany {
   id: number;
@@ -33,6 +35,7 @@ export interface RoleCompany {
   linkedin_data: {
     linkedin_logo: string;
   };
+  _page_type?: CompanyPageType;
   _is_that_investor: boolean;
   _linkedin_data_of_new_company: {
     linkedin_logo: string; // Base64 encoded
@@ -162,6 +165,7 @@ export interface RelatedIndividual {
     linkedin_data: {
       linkedin_logo: string;
     };
+    _page_type?: CompanyPageType;
     _is_that_investor: boolean;
     _linkedin_data_of_new_company: {
       linkedin_logo: string;

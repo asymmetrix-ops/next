@@ -67,10 +67,14 @@ export default function IndividualProfilePage() {
 
   const getCompanyHref = (opts: {
     companyId?: number | null;
+    pageType?: string | null;
     isInvestor?: boolean | null;
   }) => {
     const companyId = opts.companyId ?? undefined;
     if (!companyId) return "";
+    if (opts.pageType === "advisor") return `/advisor/${companyId}`;
+    if (opts.pageType === "investor") return `/investors/${companyId}`;
+    if (opts.pageType === "company") return `/company/${companyId}`;
     return opts.isInvestor ? `/investors/${companyId}` : `/company/${companyId}`;
   };
 
@@ -711,6 +715,7 @@ export default function IndividualProfilePage() {
                                   companyId:
                                     role.employee_new_company_id ??
                                     role.new_company?.id,
+                                  pageType: role.new_company?._page_type,
                                   isInvestor: role.new_company?._is_that_investor,
                                 })}
                                 style={{
@@ -899,6 +904,8 @@ export default function IndividualProfilePage() {
                                     companyId:
                                       relatedIndividual.employee_new_company_id ??
                                       relatedIndividual._new_company?.id,
+                                    pageType:
+                                      relatedIndividual._new_company?._page_type,
                                     isInvestor:
                                       relatedIndividual._new_company?._is_that_investor,
                                   })}
