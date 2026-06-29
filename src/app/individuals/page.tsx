@@ -668,10 +668,11 @@ const IndividualsPage = () => {
       // Convert filters to URL parameters for GET request
       const params = new URLSearchParams();
 
-      // Backend Offset is the 1-based page number (1, 2, 3…), not an item index.
       const page = Math.max(1, filters.page || 1);
-      params.append("Offset", String(page));
-      params.append("Per_page", filters.per_page.toString());
+      const perPage = filters.per_page;
+      const offset = (page - 1) * perPage;
+      params.append("Offset", String(offset));
+      params.append("Per_page", perPage.toString());
 
       // Add search query
       if (filters.Search_Query)
@@ -755,7 +756,7 @@ const IndividualsPage = () => {
           curPage: currentPage,
           nextPage: currentPage < totalPages ? currentPage + 1 : null,
           prevPage: currentPage > 1 ? currentPage - 1 : null,
-          offset: currentPage,
+          offset: (currentPage - 1) * (data.perPage || filters.per_page),
           perPage: data.perPage || filters.per_page,
           pageTotal: totalPages,
         });

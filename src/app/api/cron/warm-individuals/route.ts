@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
   );
 
   const start = performance.now();
-  const offset = 1;
+  const offset = 0;
   const perPage = 50;
 
   const bearerFromReq = getBearerFromRequest(request);
