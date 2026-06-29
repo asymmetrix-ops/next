@@ -1908,11 +1908,14 @@ const CompanyDetail = () => {
           Managmant_Roles_current: data.Managmant_Roles_current || [],
           Managmant_Roles_past: data.Managmant_Roles_past || [],
           // Former company name(s) may come from root or inside Company
-          Former_name:
-            (data as unknown as { Former_name?: string[] })?.Former_name ||
-            (data.Company as unknown as { Former_name?: string[] })
-              ?.Former_name ||
-            [],
+          Former_name: parseStructuredArray<string>(
+            firstNonEmptyStructuredField(
+              (data as unknown as { Former_name?: unknown })?.Former_name,
+              (data as unknown as { former_names?: unknown })?.former_names,
+              (data.Company as unknown as { Former_name?: unknown })
+                ?.Former_name
+            )
+          ),
           // Merge Company + root subsidiary payloads (growth % may only exist on one).
           have_subsidiaries_companies: mergeHaveSubsidiariesCompanies(
             data.Company.have_subsidiaries_companies,
@@ -2840,6 +2843,13 @@ const CompanyDetail = () => {
   })();
 
   // Market Overview removed: no TradingView symbols computation
+
+  const formerNameDisplay = (() => {
+    const names = parseStructuredArray<string>(company?.Former_name).filter(
+      (v) => typeof v === "string" && v.trim().length > 0
+    );
+    return names.length > 0 ? names.join(", ") : null;
+  })();
 
   const productTypeRows = parseStructuredArray<CompanyProductTypeItem>(
     company.Product_Type
@@ -3847,12 +3857,19 @@ const CompanyDetail = () => {
                     }
                     name={company.name}
                   />
-                  <span style={{
-                    fontSize: "24px", fontWeight: 600, color: T.ink,
-                    letterSpacing: "-0.4px", lineHeight: 1.2, fontFamily: T.sans,
-                  }}>
-                    {company.name}
-                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <span style={{
+                      fontSize: "24px", fontWeight: 600, color: T.ink,
+                      letterSpacing: "-0.4px", lineHeight: 1.2, fontFamily: T.sans,
+                    }}>
+                      {company.name}
+                    </span>
+                    {formerNameDisplay && (
+                      <div style={styles.formerName}>
+                        (Formerly {formerNameDisplay})
+                      </div>
+                    )}
+                  </div>
                 </div>
 
           {/* Right: action buttons */}

@@ -1311,11 +1311,14 @@ const CompanyDetail = () => {
           Managmant_Roles_current: data.Managmant_Roles_current || [],
           Managmant_Roles_past: data.Managmant_Roles_past || [],
           // Former company name(s) may come from root or inside Company
-          Former_name:
-            (data as unknown as { Former_name?: string[] })?.Former_name ||
-            (data.Company as unknown as { Former_name?: string[] })
-              ?.Former_name ||
-            [],
+          Former_name: parseStructuredArray<string>(
+            firstNonEmptyStructuredField(
+              (data as unknown as { Former_name?: unknown })?.Former_name,
+              (data as unknown as { former_names?: unknown })?.former_names,
+              (data.Company as unknown as { Former_name?: unknown })
+                ?.Former_name
+            )
+          ),
           have_subsidiaries_companies: data.have_subsidiaries_companies || {
             have_subsidiaries_companies: false,
             Subsidiaries_companies: [],
@@ -2135,12 +2138,12 @@ const CompanyDetail = () => {
   // Market Overview removed: no TradingView symbols computation
 
   // Build a readable former name string if present
-  const formerNameDisplay =
-    Array.isArray(company?.Former_name) && company.Former_name.length > 0
-      ? company.Former_name.filter(
-          (v) => typeof v === "string" && v.trim().length > 0
-        ).join(", ")
-      : null;
+  const formerNameDisplay = (() => {
+    const names = parseStructuredArray<string>(company?.Former_name).filter(
+      (v) => typeof v === "string" && v.trim().length > 0
+    );
+    return names.length > 0 ? names.join(", ") : null;
+  })();
 
   const productTypeRows = parseStructuredArray<CompanyProductTypeItem>(
     company.Product_Type
