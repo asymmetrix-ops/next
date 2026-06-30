@@ -9,7 +9,8 @@ export interface IndividualProfile {
   id: number;
   advisor_individuals: string;
   bio: string;
-  linkedin_URL: string;
+  linkedin_url?: string;
+  linkedin_URL?: string;
   locations_id: number;
   phone: string;
   email: string;

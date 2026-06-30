@@ -14,6 +14,7 @@ import {
   formatDate,
   formatJobTitles,
   formatAdvisorsList,
+  getIndividualLinkedInUrl,
 } from "../../../utils/individualHelpers";
 import {
   IndividualRole,
@@ -218,6 +219,7 @@ export default function IndividualProfilePage() {
 
   const { Individual, Roles } = profileData;
   const location = formatIndividualLocation(Individual._locations);
+  const linkedinUrl = getIndividualLinkedInUrl(Individual);
 
   return (
     <div
@@ -326,9 +328,9 @@ export default function IndividualProfilePage() {
 
                 <div>
                   <strong>LinkedIn:</strong>{" "}
-                  {Individual.linkedin_URL ? (
+                  {linkedinUrl ? (
                     <a
-                      href={Individual.linkedin_URL}
+                      href={linkedinUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{

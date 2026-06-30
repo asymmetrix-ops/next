@@ -131,6 +131,15 @@ export const getManagementRoleLinkedInUrl = (
   normalizeLinkedInProfileUrl(role.Individual?.LinkedIn_URL) ||
   normalizeExternalProfileUrl(role.current_employer_url);
 
+export const getIndividualLinkedInUrl = (individual: {
+  linkedin_url?: string;
+  linkedin_URL?: string;
+  LinkedIn_URL?: string;
+}): string | undefined =>
+  normalizeLinkedInProfileUrl(individual.linkedin_url) ||
+  normalizeLinkedInProfileUrl(individual.linkedin_URL) ||
+  normalizeLinkedInProfileUrl(individual.LinkedIn_URL);
+
 export const extractJobTitleStrings = (
   jobTitlesId: unknown,
   fallbackJobTitles?: unknown
