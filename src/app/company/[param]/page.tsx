@@ -35,10 +35,9 @@ import { ManagementProfilePanel } from "@/components/company/ManagementProfilePa
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { OverviewCard } from "@/components/redesign/OverviewCard";
-import { RevenueModelCard } from "@/components/redesign/RevenueModelCard";
+import { ProductAttributesCard } from "@/components/redesign/ProductAttributesCard";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
-import { ProductDataToggleCard } from "@/components/redesign/ProductDataToggleCard";
 import {
   ProductUsersListCard,
   type ProductUsersSection,
@@ -3382,39 +3381,31 @@ const CompanyDetail = () => {
   const showCoreProducts =
     coreProductsSections.length > 0 || usersUseCaseSections.length > 0;
   const showDataCollection = dataCollectionMethodRows.length > 0;
+  const showProductAttributes =
+    showProductType || showRevenueModel || showDataCollection;
   const showAiRisk = aiRiskData != null && aiRiskData.axes.length > 0;
   const showCorporateEvents =
     corporateEventsLoading || ceTotal > 0 || corporateEvents.length > 0;
 
-  const col2StackWithoutRevenue =
-    (showCoreProducts ? 1 : 0) + (showDataCollection ? 1 : 0);
-
   let productMixGridRow = 0;
-  let revenueModelGridCol = 1;
-  let revenueModelGridRow = 0;
+  let productMixGridSpan = 1;
   let coreProductsGridRow = 0;
-  let dataCollectionGridRow = 0;
+  let coreProductsGridSpan = 1;
   let headcountGridRow = 0;
   let managementGridRow = 0;
   let corporateEventsGridRow = 0;
   let subsidiariesGridRow = 0;
 
   if (showAiRisk) {
-    const col1Stack =
-      (showProductType ? 1 : 0) + (showRevenueModel ? 1 : 0);
-    const col2Stack = col2StackWithoutRevenue;
+    const col1Stack = showProductAttributes ? 1 : 0;
+    const col2Stack = showCoreProducts ? 1 : 0;
     const productZoneHeight = Math.max(col1Stack, col2Stack, 2);
     const wideSectionStartRow = PRODUCT_ROW_START + productZoneHeight;
 
-    productMixGridRow = showProductType ? PRODUCT_ROW_START : 0;
-    revenueModelGridCol = 1;
-    revenueModelGridRow = showRevenueModel
-      ? PRODUCT_ROW_START + (showProductType ? 1 : 0)
-      : 0;
+    productMixGridRow = showProductAttributes ? PRODUCT_ROW_START : 0;
+    productMixGridSpan = showProductAttributes ? productZoneHeight : 1;
     coreProductsGridRow = showCoreProducts ? PRODUCT_ROW_START : 0;
-    dataCollectionGridRow = showDataCollection
-      ? PRODUCT_ROW_START + (showCoreProducts ? 1 : 0)
-      : 0;
+    coreProductsGridSpan = showCoreProducts ? productZoneHeight : 1;
     headcountGridRow = Math.max(wideSectionStartRow, rightRailHeadcountRow);
     managementGridRow = hasManagement ? headcountGridRow + 1 : 0;
     corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
@@ -3422,30 +3413,21 @@ const CompanyDetail = () => {
       ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
       : 0;
   } else {
-    /** No AI risk: row 3 = product type | data collection | headcount;
-     *  wide cards under cols 1–2; revenue model under headcount (col 3). */
     const leftTopStack = Math.max(
-      showProductType ? 1 : 0,
-      col2StackWithoutRevenue
+      showProductAttributes ? 1 : 0,
+      showCoreProducts ? 1 : 0
     );
     const wideSectionStartRow = PRODUCT_ROW_START + leftTopStack;
 
-    productMixGridRow = showProductType ? PRODUCT_ROW_START : 0;
+    productMixGridRow = showProductAttributes ? PRODUCT_ROW_START : 0;
+    productMixGridSpan = 1;
     coreProductsGridRow = showCoreProducts ? PRODUCT_ROW_START : 0;
-    dataCollectionGridRow = showDataCollection
-      ? PRODUCT_ROW_START + (showCoreProducts ? 1 : 0)
-      : 0;
+    coreProductsGridSpan = 1;
     headcountGridRow = rightRailHeadcountRow;
-    revenueModelGridCol = 3;
-    revenueModelGridRow = showRevenueModel ? rightRailHeadcountRow + 1 : 0;
+    managementGridRow = hasManagement ? rightRailHeadcountRow + 1 : 0;
     corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
     subsidiariesGridRow = hasSubsidiaries
       ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
-      : 0;
-    managementGridRow = hasManagement
-      ? showRevenueModel
-        ? rightRailHeadcountRow + 2
-        : rightRailHeadcountRow + 1
       : 0;
   }
 
@@ -3502,10 +3484,8 @@ const CompanyDetail = () => {
       display: flex;
       flex-direction: column;
     }
-    .company-grid-product-mix { grid-column: 1; grid-row: ${productMixGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-revenue-model { grid-column: ${revenueModelGridCol}; grid-row: ${revenueModelGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-product-users { grid-column: 2; grid-row: ${coreProductsGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-data-collection { grid-column: 2; grid-row: ${dataCollectionGridRow}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-product-mix { grid-column: 1; grid-row: ${productMixGridRow} / span ${productMixGridSpan}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: flex-start; }
+    .company-grid-product-users { grid-column: 2; grid-row: ${coreProductsGridRow} / span ${coreProductsGridSpan}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
     .company-grid-ai-risk { grid-column: 3; grid-row: ${PRODUCT_ROW_START} / span 2; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
     .company-grid-corporate-events,
     .company-grid-subsidiaries,
@@ -3766,9 +3746,7 @@ const CompanyDetail = () => {
       .company-grid-finance-secondary,
       .company-grid-insights,
       .company-grid-product-mix,
-      .company-grid-revenue-model,
       .company-grid-product-users,
-      .company-grid-data-collection,
       .company-grid-ai-risk,
       .company-grid-corporate-events,
       .company-grid-subsidiaries,
@@ -4420,26 +4398,16 @@ const CompanyDetail = () => {
               </div>
             )}
 
-            {/* Rows 3–4: Product type + Revenue | Users + Data collection | AI Defensibility Index (tall) */}
-            {productTypeRows.length > 0 && (
+            {/* Rows 3–4: Product attributes (type + revenue + data collection) | Core products | AI Defensibility Index (tall) */}
+            {showProductAttributes && (
               <div className="company-grid-product-mix">
-                <ProductDataToggleCard
-                  variant="product_type"
+                <ProductAttributesCard
                   productRows={productTypeBarRows}
-                  dataRows={productDataToggleDataRows}
-                  fillGridCell
-                />
-              </div>
-            )}
-
-            {revenueModelRows.length > 0 && (
-              <div className="company-grid-revenue-model">
-                <RevenueModelCard
-                  rows={revenueModelRows.map((r) => ({
+                  revenueRows={revenueModelRows.map((r) => ({
                     name: r.label,
                     weight: r.value,
                   }))}
-                  fillGridCell
+                  dataRows={productDataToggleDataRows}
                 />
               </div>
             )}
@@ -4449,17 +4417,6 @@ const CompanyDetail = () => {
                 <ProductUsersListCard
                   sections={coreProductsSections}
                   useCaseSections={usersUseCaseSections}
-                  fillGridCell
-                />
-              </div>
-            )}
-
-            {dataCollectionMethodRows.length > 0 && (
-              <div className="company-grid-data-collection">
-                <ProductDataToggleCard
-                  variant="data_collection"
-                  productRows={productTypeBarRows}
-                  dataRows={productDataToggleDataRows}
                   fillGridCell
                 />
               </div>
