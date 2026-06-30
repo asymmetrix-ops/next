@@ -233,8 +233,8 @@ export default function SettingsPage() {
             Notification Preferences
           </h1>
           <p className="text-gray-600">
-            Manage your email notification preferences for corporate events and
-            insights.
+            Manage your email notification preferences for corporate events,
+            insights, and deal radar.
           </p>
         </div>
 
@@ -318,7 +318,7 @@ export default function SettingsPage() {
                   />
                   <div>
                     <p className="text-gray-900 font-medium">
-                      Send Corporate Events and Insights &amp; Analysis together
+                      Send Corporate Events, Insights &amp; Analysis, and Deal Radar together
                     </p>
                     <p className="text-gray-600 text-sm">
                       Available because both are set to{" "}

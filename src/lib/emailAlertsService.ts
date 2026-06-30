@@ -90,7 +90,7 @@ class EmailAlertsService {
           { value: "corporate_events", label: "Corporate Events" },
           { value: "insights_analysis", label: "Insights & Analysis" },
           { value: "deal_radar", label: "Deal Radar" },
-          { value: "digest", label: "Corporate Events and Insights & Analysis" },
+          { value: "digest", label: "Corporate Events, Insights & Analysis, and Deal Radar" },
         ],
         email_frequency: [
           { value: "as_added", label: "As they are added to platform" },
