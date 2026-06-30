@@ -75,6 +75,7 @@ import {
   fetchCompanyAiRisksV2,
   type CompanyAiRiskData,
 } from "@/lib/companyAiRisks";
+import { fetchCompanyProductUsers } from "@/lib/companyProductUsers";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
@@ -1747,61 +1748,15 @@ const CompanyDetail = () => {
     }
   }, []);
 
-  // Fetch Core Products & Services from company_products_services API (CA)
-  const fetchProductServices = useCallback(async (id: string | number) => {
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const headers: Record<string, string> = {
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
-      const base = `${COMPANIES_API_BASE}/company_products_services`;
-      const params = new URLSearchParams({ new_company_id: String(id) });
-      const res = await fetch(`${base}?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { title: string; body: string }[];
-      if (!Array.isArray(data) || data.length === 0) return;
-      setProductServicesData(
-        data.map((item) => ({
-          title: item.title,
-          body: item.body?.replace(/&nbsp;/g, " ").trim(),
-        }))
-      );
-    } catch {
-      // Non-fatal; fall back to static data
-    }
-  }, []);
-
-  const fetchUsersUseCases = useCallback(async (id: string | number) => {
+  const fetchCompanyProductUsersData = useCallback(async (id: string | number) => {
+    setProductServicesData(null);
     setUsersUseCasesData(null);
     try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const headers: Record<string, string> = {
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
-      const base = `${COMPANIES_API_BASE}/company_users_use_cases`;
-      const params = new URLSearchParams({ new_company_id: String(id) });
-      const res = await fetch(`${base}?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { title: string; body: string }[];
-      if (!Array.isArray(data) || data.length === 0) return;
-      setUsersUseCasesData(
-        data.map((item) => ({
-          title: item.title,
-          body: item.body?.replace(/&nbsp;/g, " ").trim(),
-        }))
-      );
+      const { products, users } = await fetchCompanyProductUsers(id);
+      if (products.length > 0) setProductServicesData(products);
+      if (users.length > 0) setUsersUseCasesData(users);
     } catch {
-      // Non-fatal
+      // Non-fatal; fall back to static company payload
     }
   }, []);
 
@@ -2094,8 +2049,7 @@ const CompanyDetail = () => {
       fetchCompanyInvestors(companyId);
       fetchCompanyTransactionStatus(companyId);
       fetchCompanyAiRisksData(companyId);
-      fetchProductServices(companyId);
-      fetchUsersUseCases(companyId);
+      fetchCompanyProductUsersData(companyId);
 
       setCompanyLinkedIn(null);
       void (async () => {
@@ -2116,8 +2070,7 @@ const CompanyDetail = () => {
     fetchCompanyInvestors,
     fetchCompanyTransactionStatus,
     fetchCompanyAiRisksData,
-    fetchProductServices,
-    fetchUsersUseCases,
+    fetchCompanyProductUsersData,
   ]);
 
 
