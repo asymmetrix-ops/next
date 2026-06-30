@@ -286,10 +286,19 @@ export async function fetchCompanyAiRisksV2(
 
   const data: unknown = await res.json();
   if (Array.isArray(data)) {
+    const row = pickBestCompanyAiRiskRecord(data);
+    if (isCompanyAiRiskRecord(row)) {
+      return mapCompanyAiRiskRecordToData(row);
+    }
     return mapAiRisksV2ToData(data as CompanyAiRiskV2Factor[]);
   }
-  if (data && typeof data === "object" && "factors" in data) {
-    return mapAiRisksV2ToData(data as CompanyAiRiskV2Response);
+  if (data && typeof data === "object") {
+    if (isCompanyAiRiskRecord(data)) {
+      return mapCompanyAiRiskRecordToData(data);
+    }
+    if ("factors" in data) {
+      return mapAiRisksV2ToData(data as CompanyAiRiskV2Response);
+    }
   }
   return null;
 }
@@ -305,12 +314,24 @@ export type CompanyAiRiskScores = {
   data_moat?: number | null;
 };
 
+export type CompanyAiRiskRationale = {
+  data_moat?: string | null;
+  replicability?: string | null;
+  authority?: string | null;
+  accuracy_matters?: string | null;
+  historical_data?: string | null;
+  value_at_stake?: string | null;
+  workflow_moat?: string | null;
+  human_judgement?: string | null;
+};
+
 export type CompanyAiRiskRecord = {
   id?: number;
   created_at?: number;
   company?: number;
   risk?: CompanyAiRiskScores | null;
   defense?: CompanyAiRiskScores | null;
+  rationale?: CompanyAiRiskRationale | null;
 };
 
 const COMPANY_AI_RISKS_BASE = `${COMPANIES_API_BASE}/company_ai_risks`;
@@ -318,7 +339,8 @@ const COMPANY_AI_RISKS_BASE = `${COMPANIES_API_BASE}/company_ai_risks`;
 type AxisMeta = {
   key: string;
   label: string;
-  apiKey: keyof CompanyAiRiskScores;
+  scoreKey?: keyof CompanyAiRiskScores;
+  rationaleKey: keyof CompanyAiRiskRationale;
   blurb: string;
 };
 
@@ -326,48 +348,55 @@ const AXIS_META: AxisMeta[] = [
   {
     key: "data_moat",
     label: "Data Moat",
-    apiKey: "data_moat",
+    scoreKey: "data_moat",
+    rationaleKey: "data_moat",
     blurb: "Strength of proprietary or hard-to-replicate data assets.",
   },
   {
     key: "replic",
     label: "Replicability",
-    apiKey: "replicability",
+    scoreKey: "replicability",
+    rationaleKey: "replicability",
     blurb:
       "Measures how easily AI could replicate this capability without proprietary inputs or relationships.",
   },
   {
     key: "authority",
     label: "Authority / Source of Truth",
-    apiKey: "authority",
+    scoreKey: "authority",
+    rationaleKey: "authority",
     blurb:
       "Whether the dataset is treated as a primary source of truth for the use case.",
   },
   {
     key: "accuracy",
     label: "Accuracy Matters",
-    apiKey: "accuracy_matters",
+    scoreKey: "accuracy_matters",
+    rationaleKey: "accuracy_matters",
     blurb:
       "Reflects whether users require observed, high-fidelity outputs rather than modelled estimates.",
   },
   {
     key: "history",
     label: "Historical Data",
-    apiKey: "historical_data",
+    scoreKey: "historical_data",
+    rationaleKey: "historical_data",
     blurb:
       "Depth and continuity of historical records that cannot be recreated after the fact.",
   },
   {
     key: "stakes",
     label: "Size of Decision / Value at Stake",
-    apiKey: "value_at_stake",
+    scoreKey: "value_at_stake",
+    rationaleKey: "value_at_stake",
     blurb:
       "Captures the business impact if outputs are wrong — budgets, compliance, or strategic decisions at risk.",
   },
   {
     key: "workflow",
     label: "Workflow Moat",
-    apiKey: "workflow_moat",
+    scoreKey: "workflow_moat",
+    rationaleKey: "workflow_moat",
     blurb:
       "Embedded distribution and recurring use in customer workflows that deepen over time.",
   },
@@ -375,6 +404,73 @@ const AXIS_META: AxisMeta[] = [
 
 export function scoreTierLabel(score: number): string {
   return scoreToTierName(score);
+}
+
+function isCompanyAiRiskRecord(value: unknown): value is CompanyAiRiskRecord {
+  if (!value || typeof value !== "object") return false;
+  const scores =
+    (value as CompanyAiRiskRecord).defense ??
+    (value as CompanyAiRiskRecord).risk;
+  if (!scores || typeof scores !== "object") return false;
+  return (
+    "replicability" in scores ||
+    "data_moat" in scores ||
+    "accuracy_matters" in scores
+  );
+}
+
+/** Map a score-based API row to full radar card data. */
+export function mapCompanyAiRiskRecordToData(
+  record: CompanyAiRiskRecord | null | undefined
+): CompanyAiRiskData | null {
+  const axes = mapCompanyAiRisksToAxes(record);
+  if (!axes) return null;
+
+  const avgDefensibility =
+    axes.reduce((sum, axis) => sum + axis.score, 0) / axes.length;
+
+  return {
+    axes,
+    avgDefensibility,
+    tier: getAiExposureHeadline(avgDefensibility).label,
+  };
+}
+
+function rationaleRichness(record: CompanyAiRiskRecord): number {
+  const r = record.rationale;
+  if (!r || typeof r !== "object") return 0;
+  return Object.values(r).filter(
+    (v) => typeof v === "string" && v.trim().length > 0
+  ).length;
+}
+
+/** Prefer the row with the richest rationale, then the latest created_at. */
+function pickBestCompanyAiRiskRecord(
+  rows: unknown[]
+): CompanyAiRiskRecord | undefined {
+  const records = rows.filter(isCompanyAiRiskRecord);
+  if (records.length === 0) return undefined;
+  if (records.length === 1) return records[0];
+
+  return records.reduce((best, row) => {
+    const bestRichness = rationaleRichness(best);
+    const rowRichness = rationaleRichness(row);
+    if (rowRichness !== bestRichness) {
+      return rowRichness > bestRichness ? row : best;
+    }
+    return (row.created_at ?? 0) > (best.created_at ?? 0) ? row : best;
+  });
+}
+
+function resolveAxisBlurb(
+  record: CompanyAiRiskRecord,
+  meta: AxisMeta
+): string {
+  const rationaleText = record.rationale?.[meta.rationaleKey];
+  if (typeof rationaleText === "string" && rationaleText.trim()) {
+    return decodeHtmlEntities(rationaleText.trim());
+  }
+  return meta.blurb;
 }
 
 /** Map Xano `company_ai_risks` row to radar axes (defensibility scores only). */
@@ -385,16 +481,19 @@ export function mapCompanyAiRisksToAxes(
 
   const axes: AIRiskAxis[] = [];
   for (const meta of AXIS_META) {
-    const raw =
-      record.defense?.[meta.apiKey] ?? record.risk?.[meta.apiKey];
-    if (typeof raw !== "number" || !Number.isFinite(raw)) continue;
+    const raw = meta.scoreKey
+      ? record.defense?.[meta.scoreKey] ?? record.risk?.[meta.scoreKey]
+      : undefined;
+    const hasScore = typeof raw === "number" && Number.isFinite(raw);
+    if (!hasScore) continue;
+
     const score = normalizeToThreeScore(raw);
     axes.push({
       key: meta.key,
       label: meta.label,
       score,
       tier: scoreTierLabel(score),
-      blurb: meta.blurb,
+      blurb: resolveAxisBlurb(record, meta),
     });
   }
 
