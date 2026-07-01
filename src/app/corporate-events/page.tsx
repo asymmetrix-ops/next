@@ -1047,6 +1047,7 @@ const CorporateEventsPageContent = () => {
     offset: 0,
     perPage: 25,
     pageTotal: 0,
+    itemTotal: 0,
   });
   const [summaryData, setSummaryData] = useState({
     acquisitions: 0,
@@ -1413,6 +1414,7 @@ const CorporateEventsPageContent = () => {
         offset: data.offset,
         perPage: filters.Per_page,
         pageTotal: data.pageTotal,
+        itemTotal: data.itemTotal,
       });
       setSummaryData({
         acquisitions: data.acquisitions,
@@ -2976,6 +2978,17 @@ const CorporateEventsPageContent = () => {
 
       {/* Corporate Events Table Section */}
       <div className="corporate-event-section">
+        <div
+          style={{
+            padding: "0 8px 12px",
+            fontSize: "14px",
+            fontWeight: 500,
+            color: "#4a5568",
+          }}
+        >
+          Total: {pagination.itemTotal.toLocaleString()}
+        </div>
+
         {/* Results Table */}
         {corporateEvents.length > 0 && (
           <CorporateEventsTable events={corporateEvents} loading={loading} />
