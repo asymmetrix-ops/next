@@ -1,5 +1,6 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { cookies } from "next/headers";
+import { buildLogoSrc } from "@/lib/logoSrc";
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -54,9 +55,7 @@ export async function generateMetadata(
       ? `${name} investor profile on Asymmetrix.`
       : "Investor profile on Asymmetrix.");
 
-  const imageUrl = meta?.logo
-    ? `data:image/jpeg;base64,${meta.logo}`
-    : `${base.origin}/og-image.jpg`;
+  const imageUrl = buildLogoSrc(meta?.logo) ?? `${base.origin}/og-image.jpg`;
   const url = new URL(`/investors/${id}`, base).toString();
 
   return {

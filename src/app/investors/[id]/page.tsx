@@ -20,6 +20,7 @@ import {
 import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 import { isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
+import { buildLogoSrc } from "@/lib/logoSrc";
 import {
   LineChart,
   Line,
@@ -334,13 +335,15 @@ const LinkedInHistoryChart = ({ data }: { data: LinkedInHistory[] }) => {
 
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
-  if (logo) {
+  const logoSrc = buildLogoSrc(logo);
+  if (logoSrc) {
     return (
       <Image
-        src={`data:image/jpeg;base64,${logo}`}
+        src={logoSrc}
         alt={`${name} logo`}
         width={40}
         height={40}
+        unoptimized
         className="company-logo"
         style={{
           objectFit: "contain",

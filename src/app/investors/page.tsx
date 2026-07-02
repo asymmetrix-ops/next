@@ -8,6 +8,7 @@ import CompactPagination from "@/components/ui/CompactPagination";
 import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
+import { buildLogoSrc } from "@/lib/logoSrc";
 
 // Types for API integration
 interface Investor {
@@ -1080,13 +1081,14 @@ const InvestorsPage = () => {
       ? description.substring(0, 220) + "..."
       : description;
     const [isExpanded, setIsExpanded] = useState(false);
+    const logoSrc = buildLogoSrc(investor.linkedin_logo);
 
     return (
       <tr key={investor.id || index}>
         <td>
-          {investor.linkedin_logo ? (
+          {logoSrc ? (
             <img
-              src={`data:image/jpeg;base64,${investor.linkedin_logo}`}
+              src={logoSrc}
               alt={`${investor.company_name} logo`}
               className="investor-logo"
               loading={isPriority ? "eager" : "lazy"}
@@ -1189,6 +1191,7 @@ const InvestorsPage = () => {
     const isDescriptionLong = description.length > 220;
     const truncatedDescription = truncateDescription(description);
     const [isExpanded, setIsExpanded] = useState(false);
+    const logoSrc = buildLogoSrc(investor.linkedin_logo);
 
     return (
       <div
@@ -1211,9 +1214,9 @@ const InvestorsPage = () => {
             gap: "12px",
           }}
         >
-          {investor.linkedin_logo ? (
+          {logoSrc ? (
             <img
-              src={`data:image/jpeg;base64,${investor.linkedin_logo}`}
+              src={logoSrc}
               alt={`${investor.company_name} logo`}
               style={{
                 width: "50px",
