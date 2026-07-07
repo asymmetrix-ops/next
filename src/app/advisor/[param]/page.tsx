@@ -17,16 +17,16 @@ import {
   formatDate,
   getAdvisorYearFoundedDisplay,
 } from "../../../utils/advisorHelpers";
-import { locationsService } from "@/lib/locationsService";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
-import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { AdvisorOverviewCard } from "@/components/advisors/AdvisorOverviewCard";
+import { AdvisorPeopleCard } from "@/components/advisors/AdvisorPeopleCard";
 import {
   AdvisorDealsProfilePanel,
   type AdvisorDealEvent,
 } from "@/components/advisors/AdvisorDealsProfilePanel";
+import type { Advisor, AdvisorRoleRef } from "../../../types/advisor";
 
 interface LinkedInHistory {
   date: string;
@@ -136,7 +136,6 @@ export default function AdvisorProfilePage() {
   const advisorId = parseInt(params.param as string);
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [exportingDeals, setExportingDeals] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
   // Roles fetched from the LinkedIn/company endpoint (includes job titles)
@@ -145,17 +144,33 @@ export default function AdvisorProfilePage() {
     individuals_id: number;
     Individual_text?: string;
     advisor_individuals?: string;
-    job_titles_id?: Array<{ id?: number; job_title: string }>;
+    job_titles_id?: Array<{ id?: number; job_title: string } | number>;
+    linkedin_URL?: string;
+    linkedin_url?: string;
+    LinkedIn_URL?: string;
   }
   const [rolesCurrent, setRolesCurrent] = useState<RoleItem[]>([]);
   const [rolesPast, setRolesPast] = useState<RoleItem[]>([]);
-  // Sector filter state
-  const [filterPrimarySectors, setFilterPrimarySectors] = useState<Array<{ id: number; sector_name: string }>>([]);
-  const [filterSecondarySectors, setFilterSecondarySectors] = useState<Array<{ id: number; sector_name: string }>>([]);
-  const [selectedFilterPrimary, setSelectedFilterPrimary] = useState<number[]>([]);
-  const [selectedFilterSecondary, setSelectedFilterSecondary] = useState<number[]>([]);
-  const [loadingFilterPrimary, setLoadingFilterPrimary] = useState(false);
-  const [loadingFilterSecondary, setLoadingFilterSecondary] = useState(false);
+
+  const resolvePersonLinkedIn = (role: RoleItem): string | undefined => {
+    for (const raw of [role.linkedin_URL, role.linkedin_url, role.LinkedIn_URL]) {
+      const url = typeof raw === "string" ? raw.trim() : "";
+      if (url) return url;
+    }
+    return undefined;
+  };
+
+  const formatRoleTitles = (role: RoleItem): string => {
+    const titles = role.job_titles_id;
+    if (!Array.isArray(titles) || titles.length === 0) return "";
+    return titles
+      .map((jt) => {
+        if (typeof jt === "number") return "";
+        return jt.job_title?.trim() || "";
+      })
+      .filter(Boolean)
+      .join(", ");
+  };
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
     advisorId,
@@ -166,15 +181,6 @@ export default function AdvisorProfilePage() {
   // Replaced corporate event navigation with right-clickable links via createClickableElement
 
   // Removed unused handler; replaced by mailto link button
-
-  const escapeCsvField = (value: string): string => {
-    if (value == null) return "";
-    const s = String(value).trim();
-    if (s.includes('"') || s.includes("\n") || s.includes(",")) {
-      return `"${s.replace(/"/g, '""')}"`;
-    }
-    return s;
-  };
 
   const coerceUnknownToArray = (raw: unknown): unknown[] => {
     if (Array.isArray(raw)) return raw;
@@ -191,83 +197,11 @@ export default function AdvisorProfilePage() {
     }
   };
 
-  const getEventRowForCsv = (event: AdvisorDealEvent): string[] => {
-    const date = event.announcement_date
-      ? formatDate(event.announcement_date)
-      : "-";
-    const counterparty = (event.company_advised_role || event.company_advised_name || "-").trim() || "-";
-    const clientName = (event.company_advised_name || "").trim() || "-";
-    const sectors = (() => {
-      const arr = coerceUnknownToArray(event.primary_sectors as unknown);
-      return arr
-        .map((s) => String((s as { sector_name?: string })?.sector_name || "").trim())
-        .filter(Boolean)
-        .join(", ") || "-";
-    })();
-    let ev = "-";
-    const value = event.enterprise_value_m;
-    const currency = (event.currency_name || "").trim();
-    if (value != null && value !== "") {
-      ev = currency ? formatCurrency(String(value), currency) : String(value);
-    }
-    const individuals = coerceUnknownToArray(event.advisor_individuals as unknown)
-      .map((p) => String((p as { name?: string })?.name || "").trim())
-      .filter(Boolean)
-      .join(", ") || "-";
-    const otherAdvisors = coerceUnknownToArray(event.other_advisors as unknown)
-      .map((a) =>
-        String((a as { advisor_company_name?: string })?.advisor_company_name || "").trim()
-      )
-      .filter(Boolean)
-      .join(", ") || "-";
-    return [
-      event.description ?? "",
-      date,
-      event.deal_type ?? "-",
-      counterparty,
-      clientName,
-      sectors,
-      ev,
-      individuals,
-      otherAdvisors,
-    ];
-  };
-
-  const exportDealsToCsv = () => {
-    if (filteredEvents.length === 0) return;
-    setExportingDeals(true);
-    try {
-      const headers = [
-        "Description",
-        "Date Announced",
-        "Type",
-        "Counterparty Advised",
-        "Client Name",
-        "Sector(s)",
-        "Enterprise Value",
-        "Individuals",
-        "Other Advisors",
-      ];
-      const rows = filteredEvents.map((event) =>
-        getEventRowForCsv(event).map(escapeCsvField).join(",")
-      );
-      // Prepend UTF-8 BOM so Excel and other tools correctly detect encoding.
-      const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const urlObj = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = urlObj;
-      a.download = `advisor-${advisorId}-deals-advised-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(urlObj);
-    } catch (err) {
-      console.error("Export Deals Advised failed:", err);
-    } finally {
-      setExportingDeals(false);
-    }
-  };
-
   const buildAdvisorPageSnapshot = () => {
+    const safeEvents: AdvisorDealEvent[] = Array.isArray(corporateEvents)
+      ? (corporateEvents as unknown as AdvisorDealEvent[])
+      : [];
+
     const baseUrl =
       typeof window !== "undefined"
         ? window.location.origin
@@ -295,7 +229,7 @@ export default function AdvisorProfilePage() {
       | { LinkedIn_URL?: string; LinkedIn_Employee?: number; LinkedIn_Emp__Date?: string; linkedin_logo?: string }
       | undefined;
 
-    const normalizedDeals = filteredEvents.map((event) => {
+    const normalizedDeals = safeEvents.map((event) => {
       const companyAdvisedId = event.company_advised_id ?? null;
       const companyAdvisedName = (event.company_advised_name || "").trim() || null;
       const companyAdvisedRole = (event.company_advised_role || "").trim() || null;
@@ -394,13 +328,17 @@ export default function AdvisorProfilePage() {
       const fallbacksUsed: string[] = [];
 
       const fromRoles = (roles: RoleItem[]) =>
-        roles.map((role) => ({
-          id: role.id,
-          individual_id: role.individuals_id,
-          name:
-            (role.advisor_individuals || role.Individual_text || "").trim() || "Unknown",
-          job_titles: role.job_titles_id?.map((jt) => jt.job_title) || [],
-        }));
+        roles.map((role) => {
+          const titles = formatRoleTitles(role);
+          return {
+            id: role.id,
+            individual_id: role.individuals_id,
+            name:
+              (role.advisor_individuals || role.Individual_text || "").trim() || "Unknown",
+            job_titles: titles ? titles.split(", ") : [],
+            linkedin_url: resolvePersonLinkedIn(role) ?? null,
+          };
+        });
 
       const fromProfileIndividuals = (
         arr: Array<{
@@ -495,10 +433,10 @@ export default function AdvisorProfilePage() {
       },
       deals_advised: {
         total_count: safeEvents.length,
-        filtered_count: filteredEvents.length,
+        filtered_count: safeEvents.length,
         active_filters: {
-          primary_sector_ids: selectedFilterPrimary,
-          secondary_sector_ids: selectedFilterSecondary,
+          primary_sector_ids: [],
+          secondary_sector_ids: [],
         },
         items: normalizedDeals,
       },
@@ -517,14 +455,8 @@ export default function AdvisorProfilePage() {
         },
       },
       deal_filter_option_lists: {
-        primary_sectors: filterPrimarySectors.map((s) => ({
-          id: s.id,
-          sector_name: s.sector_name,
-        })),
-        secondary_sectors: filterSecondarySectors.map((s) => ({
-          id: s.id,
-          sector_name: s.sector_name,
-        })),
+        primary_sectors: [],
+        secondary_sectors: [],
       },
     };
   };
@@ -641,47 +573,6 @@ export default function AdvisorProfilePage() {
     }
   }, [advisorData?.Advisor?.name]);
 
-  // Fetch primary sectors for deal filters
-  useEffect(() => {
-    let cancelled = false;
-    const fetchPrimary = async () => {
-      setLoadingFilterPrimary(true);
-      try {
-        const data = await locationsService.getPrimarySectors();
-        if (!cancelled) setFilterPrimarySectors(data);
-      } catch {
-        // silent fail
-      } finally {
-        if (!cancelled) setLoadingFilterPrimary(false);
-      }
-    };
-    fetchPrimary();
-    return () => { cancelled = true; };
-  }, []);
-
-  // Fetch secondary sectors when primary selection changes
-  useEffect(() => {
-    if (selectedFilterPrimary.length === 0) {
-      setFilterSecondarySectors([]);
-      setSelectedFilterSecondary([]);
-      return;
-    }
-    let cancelled = false;
-    const fetchSecondary = async () => {
-      setLoadingFilterSecondary(true);
-      try {
-        const data = await locationsService.getSecondarySectors(selectedFilterPrimary);
-        if (!cancelled) setFilterSecondarySectors(data);
-      } catch {
-        // silent fail
-      } finally {
-        if (!cancelled) setLoadingFilterSecondary(false);
-      }
-    };
-    fetchSecondary();
-    return () => { cancelled = true; };
-  }, [selectedFilterPrimary]);
-
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
@@ -721,8 +612,55 @@ export default function AdvisorProfilePage() {
     );
   }
 
-  const { Advisor, Portfolio_companies_count, Advisors_individuals, Advised_DA_sectors } =
-    advisorData;
+  const { Advisor, Portfolio_companies_count, Advisors_individuals } = advisorData;
+
+  const extractAdvisorFocus = (advisor: Advisor): string[] => {
+    const raw = advisor.primary_business_focus_id;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((item) => {
+        const focus = item?.business_focus;
+        return typeof focus === "string" ? focus.trim() : "";
+      })
+      .filter(Boolean);
+  };
+
+  const extractAdvisorType = (advisor: Advisor): string | null => {
+    const roleLists: AdvisorRoleRef[][] = [];
+    if (Array.isArray(advisor._advisor_roles)) roleLists.push(advisor._advisor_roles);
+    if (Array.isArray(advisor.advisor_roles)) roleLists.push(advisor.advisor_roles);
+
+    for (const roles of roleLists) {
+      for (const role of roles) {
+        const label =
+          role.role_name?.trim() ||
+          role.advisor_role?.trim() ||
+          role.name?.trim() ||
+          role.counterparty_status?.trim();
+        if (label) return label;
+      }
+    }
+
+    const focus = extractAdvisorFocus(advisor);
+    return focus[0] ?? null;
+  };
+
+  const extractAdvisorOwnership = (advisor: Advisor): string | null => {
+    return advisor._ownership_type?.ownership?.trim() || null;
+  };
+
+  const extractAdvisorTicker = (advisor: Advisor): string | null => {
+    const ticker = advisor.ticker ?? advisor.Ticker;
+    return typeof ticker === "string" && ticker.trim() ? ticker.trim() : null;
+  };
+
+  const extractAdvisorStatus = (advisor: Advisor): string => {
+    const lifecycle = advisor.Lifecycle_stage?.Lifecycle_Stage?.trim();
+    if (lifecycle) return lifecycle;
+    const status = advisor.status?.trim();
+    if (status) return status;
+    return "Active";
+  };
 
   const hq = `${Advisor._locations?.City || ""}, ${
     Advisor._locations?.State__Province__County || ""
@@ -730,61 +668,23 @@ export default function AdvisorProfilePage() {
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
 
-  const coerceArray = <T,>(raw: unknown): T[] => {
-    if (Array.isArray(raw)) return raw as T[];
-    if (raw === null || raw === undefined) return [];
-    if (typeof raw !== "string") return [];
-    const trimmed = raw.trim();
-    if (!trimmed || trimmed === "[]") return [];
-    try {
-      const normalized = trimmed.replace(/\\u0022/g, '"');
-      const parsed = JSON.parse(normalized) as unknown;
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    } catch {
-      return [];
-    }
-  };
-
   const safeEvents: AdvisorDealEvent[] = Array.isArray(corporateEvents)
     ? (corporateEvents as unknown as AdvisorDealEvent[])
     : [];
 
-  const filteredEvents = (() => {
-    if (selectedFilterPrimary.length === 0 && selectedFilterSecondary.length === 0) {
-      return safeEvents;
-    }
-    return safeEvents.filter((event) => {
-      const sectors = coerceArray<{
-        id?: number;
-        sector_name?: string;
-        sector_importance?: string;
-      }>(event.primary_sectors);
-      if (selectedFilterPrimary.length > 0) {
-        const primaryIds = sectors
-          .filter((s) => String(s.sector_importance || "").toLowerCase().includes("primary"))
-          .map((s) => s.id);
-        if (!selectedFilterPrimary.some((id) => primaryIds.includes(id))) return false;
-      }
-      if (selectedFilterSecondary.length > 0) {
-        const secondaryIds = sectors
-          .filter((s) => !String(s.sector_importance || "").toLowerCase().includes("primary"))
-          .map((s) => s.id);
-        if (!selectedFilterSecondary.some((id) => secondaryIds.includes(id))) return false;
-      }
-      return true;
-    });
-  })();
-
-  const managementCurrentPeople = (() => {
+  const peopleCurrent = (() => {
     if (rolesCurrent.length > 0) {
       return rolesCurrent.map((role) => ({
+        id: role.id,
         name: role.advisor_individuals || role.Individual_text || "Unknown",
-        role: role.job_titles_id?.map((jt) => jt.job_title).join(", ") || "",
+        role: formatRoleTitles(role),
         individualId: role.individuals_id,
+        linkedinUrl: resolvePersonLinkedIn(role),
       }));
     }
     if (advisorData.Advisors_individuals_current?.length) {
       return advisorData.Advisors_individuals_current.map((individual) => ({
+        id: individual.id,
         name: individual.advisor_individuals,
         role: individual.job_titles_id?.map((jt) => jt.job_title).join(", ") || "",
         individualId: individual.individuals_id,
@@ -792,6 +692,7 @@ export default function AdvisorProfilePage() {
     }
     if (Advisors_individuals?.length) {
       return Advisors_individuals.map((individual) => ({
+        id: individual.id,
         name: individual.advisor_individuals,
         role: individual.job_titles_id?.map((jt) => jt.job_title).join(", ") || "",
         individualId: individual.individuals_id,
@@ -800,16 +701,19 @@ export default function AdvisorProfilePage() {
     return [];
   })();
 
-  const managementPastPeople = (() => {
+  const peoplePast = (() => {
     if (rolesPast.length > 0) {
       return rolesPast.map((role) => ({
+        id: role.id,
         name: role.advisor_individuals || role.Individual_text || "Unknown",
-        role: role.job_titles_id?.map((jt) => jt.job_title).join(", ") || "",
+        role: formatRoleTitles(role),
         individualId: role.individuals_id,
+        linkedinUrl: resolvePersonLinkedIn(role),
       }));
     }
     if (advisorData.Advisors_individuals_past?.length) {
       return advisorData.Advisors_individuals_past.map((individual) => ({
+        id: individual.id,
         name: individual.advisor_individuals,
         role: individual.job_titles_id?.map((jt) => jt.job_title).join(", ") || "",
         individualId: individual.individuals_id,
@@ -817,8 +721,6 @@ export default function AdvisorProfilePage() {
     }
     return [];
   })();
-
-  const hasManagement = managementCurrentPeople.length > 0 || managementPastPeople.length > 0;
   const currentHeadcount = resolveChartEmployeeCount(linkedInHistory);
   const headcountYoY = computeEmployeeYoYFromMonthly(linkedInHistory);
   const linkedinUrl = Advisor.linkedin_data?.LinkedIn_URL;
@@ -867,15 +769,16 @@ export default function AdvisorProfilePage() {
     .advisor-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .advisor-grid-description { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .advisor-grid-headcount { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .advisor-grid-management { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .advisor-grid-people { grid-column: 3; grid-row: ${dealsGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .advisor-grid-deals { grid-column: 1 / span 2; grid-row: ${dealsGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
     .advisor-grid-deals > * { min-width: 0; max-width: 100%; width: 100%; }
+    .advisor-grid-people > * { min-width: 0; max-width: 100%; width: 100%; }
     @media (max-width: 768px) {
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .advisor-grid-overview,
       .advisor-grid-description,
       .advisor-grid-headcount,
-      .advisor-grid-management,
+      .advisor-grid-people,
       .advisor-grid-deals {
         grid-column: 1 / -1 !important;
         grid-row: auto !important;
@@ -987,18 +890,18 @@ export default function AdvisorProfilePage() {
             <div className="advisor-grid-overview">
               <AdvisorOverviewCard
                 fillGridCell
-                advisedDaSectors={(Advised_DA_sectors || [])
-                  .filter((s) => s?.sector_name)
-                  .map((s) => ({
-                    name: s.sector_name,
-                    href: s.id ? `/sector/${s.id}` : undefined,
-                  }))}
+                type={extractAdvisorType(Advisor)}
+                focus={extractAdvisorFocus(Advisor)}
                 yearFounded={getAdvisorYearFoundedDisplay(Advisor)}
                 website={Advisor.url}
                 websiteLabel={
                   Advisor.url?.trim() ? formatWebsiteDisplayLabel(Advisor.url) : undefined
                 }
                 hq={hq || undefined}
+                linkedinUrl={linkedinUrl}
+                ownership={extractAdvisorOwnership(Advisor)}
+                ticker={extractAdvisorTicker(Advisor)}
+                status={extractAdvisorStatus(Advisor)}
                 transactionsAdvised={Portfolio_companies_count}
               />
             </div>
@@ -1050,53 +953,23 @@ export default function AdvisorProfilePage() {
               />
             </div>
 
-            {hasManagement && (
-              <div className="advisor-grid-management">
-                <ManagementCard
-                  fillGridCell
-                  current={managementCurrentPeople}
-                  past={managementPastPeople}
-                  maxVisible={6}
-                />
-              </div>
-            )}
-
             <div className="advisor-grid-deals">
               <LinkPanel fillGridCell className="advisor-deals-v3-card">
                 <AdvisorDealsProfilePanel
-                  events={filteredEvents}
+                  variant="summary"
+                  events={safeEvents}
                   totalCount={safeEvents.length}
-                  filterPrimarySectors={filterPrimarySectors}
-                  filterSecondarySectors={filterSecondarySectors}
-                  selectedFilterPrimary={selectedFilterPrimary}
-                  selectedFilterSecondary={selectedFilterSecondary}
-                  loadingFilterPrimary={loadingFilterPrimary}
-                  loadingFilterSecondary={loadingFilterSecondary}
-                  onAddPrimaryFilter={(id) => {
-                    if (!selectedFilterPrimary.includes(id)) {
-                      setSelectedFilterPrimary((prev) => [...prev, id]);
-                    }
-                  }}
-                  onRemovePrimaryFilter={(id) => {
-                    setSelectedFilterPrimary((prev) => prev.filter((x) => x !== id));
-                  }}
-                  onAddSecondaryFilter={(id) => {
-                    if (!selectedFilterSecondary.includes(id)) {
-                      setSelectedFilterSecondary((prev) => [...prev, id]);
-                    }
-                  }}
-                  onRemoveSecondaryFilter={(id) => {
-                    setSelectedFilterSecondary((prev) => prev.filter((x) => x !== id));
-                  }}
-                  onClearFilters={() => {
-                    setSelectedFilterPrimary([]);
-                    setSelectedFilterSecondary([]);
-                  }}
-                  onExportCsv={exportDealsToCsv}
-                  exportingDeals={exportingDeals}
-                  maxInitial={10}
+                  pageSize={8}
                 />
               </LinkPanel>
+            </div>
+
+            <div className="advisor-grid-people">
+              <AdvisorPeopleCard
+                fillGridCell
+                current={peopleCurrent}
+                past={peoplePast}
+              />
             </div>
           </div>
         </div>
