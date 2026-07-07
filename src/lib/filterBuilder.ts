@@ -97,6 +97,20 @@ const esc = (s: string) => `'${String(s).replace(/'/g, "''")}'`;
 const inList = (values: string[] | number[]) =>
   (values as string[]).map((v) => esc(String(v))).join(",");
 
+function buildTransactionStatusFilter(statuses: string[]): string {
+  if (!statuses.length) return "";
+  const escapedList = statuses
+    .map((s) => `'${s.replace(/'/g, "''").toLowerCase()}'`)
+    .join(", ");
+  return `EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(nc.transaction_status_history::jsonb) AS elem
+    JOIN x2_133 tsl ON tsl.id = (elem->>'transaction_status_id')::int
+    WHERE (elem->>'active')::boolean = true
+      AND LOWER(tsl.label) IN (${escapedList})
+  )`;
+}
+
 function buildRangeSql(field: string, min?: number, max?: number): string | null {
   const hasMin = min != null && !Number.isNaN(min);
   const hasMax = max != null && !Number.isNaN(max);
@@ -188,8 +202,13 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
         return Array.isArray(val)
           ? `nc.ownership_type_id IN (${(val as number[]).join(",")})`
           : `nc.ownership_type_id = ${Number(val)}`;
-      case "transaction_status":
-        return `LOWER(nc."Transaction_status") = LOWER(${esc(String(val))})`;
+      case "transaction_status": {
+        const statuses = Array.isArray(val)
+          ? (val as string[])
+          : [String(val)];
+        const sql = buildTransactionStatusFilter(statuses);
+        return sql || null;
+      }
 
       case "portfolio_companies": {
         const ids = Array.isArray(val) ? (val as number[]) : [];
