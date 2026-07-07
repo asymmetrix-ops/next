@@ -2380,7 +2380,28 @@ export function PageInsightsTab() {
 
 // ─── Email Analytics ──────────────────────────────────────────────────────────
 
-type EATab = "all" | "stale" | "bounced" | "inactive";
+type EATab = "all" | "stale" | "bounced" | "inactive" | "dcp";
+
+type EADcpListItem = {
+  id: number;
+  recipient_email: string;
+  status: string;
+  sent_at: number;
+  delivered_at: number | null;
+  opened_at: number;
+  clicked_at: number | null;
+  clicks: number;
+  failed_reason: string;
+  was_delivered: boolean;
+  was_opened: boolean;
+  was_clicked: boolean;
+};
+
+type EADcpListMeta = {
+  page: number;
+  per_page: number;
+  total_count: number;
+};
 
 type EAEmailDailyFailedItem = {
   email: string;
@@ -2801,6 +2822,79 @@ const EMAIL_ANALYTICS_DAILY_STATS_URL =
 
 const EMAIL_ANALYTICS_USER_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_analytics/user";
+
+const EMAIL_ANALYTICS_DCP_LIST_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_delivery_log/dcp_list";
+
+const EA_DCP_PER_PAGE = 25;
+
+function normalizeDcpList(json: unknown): {
+  items: EADcpListItem[];
+  meta: EADcpListMeta;
+} {
+  const root =
+    json && typeof json === "object" ? (json as Record<string, unknown>) : {};
+  const response =
+    root.response && typeof root.response === "object"
+      ? (root.response as Record<string, unknown>)
+      : root;
+  const results = Array.isArray(response.results) ? response.results : [];
+
+  const items: EADcpListItem[] = results.map((row) => {
+    const r =
+      row && typeof row === "object" ? (row as Record<string, unknown>) : {};
+    return {
+      id: eaOverviewNum(r.id),
+      recipient_email: String(r.recipient_email ?? ""),
+      status: String(r.status ?? ""),
+      sent_at: eaOverviewNum(r.sent_at),
+      delivered_at:
+        r.delivered_at == null
+          ? null
+          : eaOverviewNum(r.delivered_at) || null,
+      opened_at: eaOverviewNum(r.opened_at),
+      clicked_at:
+        r.clicked_at == null ? null : eaOverviewNum(r.clicked_at) || null,
+      clicks: eaOverviewNum(r.clicks),
+      failed_reason: String(r.failed_reason ?? ""),
+      was_delivered: Boolean(r.was_delivered),
+      was_opened: Boolean(r.was_opened),
+      was_clicked: Boolean(r.was_clicked),
+    };
+  });
+
+  return {
+    items,
+    meta: {
+      page: eaOverviewNum(response.page) || 1,
+      per_page: eaOverviewNum(response.per_page) || EA_DCP_PER_PAGE,
+      total_count: eaOverviewNum(response.total_count),
+    },
+  };
+}
+
+function eaDcpBoolBadge(value: boolean): { label: string; cls: string } {
+  return value
+    ? { label: "Yes", cls: "bg-green-100 text-green-800" }
+    : { label: "No", cls: "bg-gray-100 text-gray-600" };
+}
+
+function emailAnalyticsDcpQueryParams(
+  dateFrom: string,
+  dateTo: string,
+  recipientEmail: string,
+  page: number,
+  perPage: number
+): string {
+  const params = new URLSearchParams({
+    date_from: dateFrom,
+    date_to: dateTo,
+    recipient_email: recipientEmail,
+    page: String(page),
+    per_page: String(perPage),
+  });
+  return params.toString();
+}
 
 function postmarkAnalyticsQueryParams(filters: EAOverviewFilters): string {
   const params = new URLSearchParams({ days: "30" });
@@ -3804,6 +3898,19 @@ export function EmailAnalyticsTab() {
   const [dailyLoading, setDailyLoading] = useState(true);
   const [dailyError, setDailyError] = useState<string | null>(null);
   const [allUsersCount, setAllUsersCount] = useState(0);
+  const [dcpItems, setDcpItems] = useState<EADcpListItem[]>([]);
+  const [dcpMeta, setDcpMeta] = useState<EADcpListMeta>({
+    page: 1,
+    per_page: EA_DCP_PER_PAGE,
+    total_count: 0,
+  });
+  const [dcpLoading, setDcpLoading] = useState(false);
+  const [dcpError, setDcpError] = useState<string | null>(null);
+  const [dcpDateFrom, setDcpDateFrom] = useState("");
+  const [dcpDateTo, setDcpDateTo] = useState("");
+  const [dcpRecipientEmail, setDcpRecipientEmail] = useState("");
+  const [dcpRecipientInput, setDcpRecipientInput] = useState("");
+  const [dcpPage, setDcpPage] = useState(1);
   type EAUserSortCol = "openRate" | "sentCount" | "lastOpened" | "name" | "activeAlerts";
   const [userSortCol, setUserSortCol] = useState<EAUserSortCol>("openRate");
   const [userSortDir, setUserSortDir] = useState<SortDirection>("desc");
@@ -3854,6 +3961,7 @@ export function EmailAnalyticsTab() {
   }, [filters]);
 
   const fetchUserList = useCallback(async () => {
+    if (tab === "dcp") return;
     setListLoading(true);
     setListError(null);
     try {
@@ -3944,10 +4052,56 @@ export function EmailAnalyticsTab() {
     }
   }, [auditDate]);
 
+  const fetchDcpList = useCallback(async () => {
+    setDcpLoading(true);
+    setDcpError(null);
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("asymmetrix_auth_token")
+          : "";
+      const res = await fetch(
+        `${EMAIL_ANALYTICS_DCP_LIST_URL}?${emailAnalyticsDcpQueryParams(
+          dcpDateFrom,
+          dcpDateTo,
+          dcpRecipientEmail,
+          dcpPage,
+          EA_DCP_PER_PAGE
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`${res.status} ${text}`);
+      }
+      const json = await res.json();
+      const { items, meta } = normalizeDcpList(json);
+      setDcpItems(items);
+      setDcpMeta(meta);
+    } catch (e) {
+      setDcpItems([]);
+      setDcpMeta({ page: 1, per_page: EA_DCP_PER_PAGE, total_count: 0 });
+      setDcpError(
+        e instanceof Error ? e.message : "Failed to load DCP delivery log"
+      );
+    } finally {
+      setDcpLoading(false);
+    }
+  }, [dcpDateFrom, dcpDateTo, dcpRecipientEmail, dcpPage]);
+
   const refreshAll = useCallback(() => {
     fetchAnalytics();
     fetchDailyStats();
-  }, [fetchAnalytics, fetchDailyStats]);
+    if (tab === "dcp") {
+      fetchDcpList();
+    }
+  }, [fetchAnalytics, fetchDailyStats, fetchDcpList, tab]);
 
   const updateFilter = (key: keyof EAOverviewFilters, value: string) => {
     setPage(1);
@@ -3963,6 +4117,19 @@ export function EmailAnalyticsTab() {
   }, [searchInput]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDcpRecipientEmail(dcpRecipientInput.trim());
+      setDcpPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [dcpRecipientInput]);
+
+  useEffect(() => {
+    if (tab !== "dcp") return;
+    fetchDcpList();
+  }, [tab, fetchDcpList]);
+
+  useEffect(() => {
     fetchOverviewStats();
   }, [fetchOverviewStats]);
 
@@ -3976,6 +4143,9 @@ export function EmailAnalyticsTab() {
 
   useEffect(() => {
     setPage(1);
+    if (tab === "dcp") {
+      setDcpPage(1);
+    }
   }, [tab, auditDate]);
 
   const engagementTabCounts = useMemo((): EAEngagementTabCounts => {
@@ -3991,6 +4161,8 @@ export function EmailAnalyticsTab() {
 
   const tabCount = (t: EATab): number => {
     switch (t) {
+      case "dcp":
+        return dcpMeta.total_count;
       case "stale":
         return engagementTabCounts.stale;
       case "bounced":
@@ -4027,7 +4199,13 @@ export function EmailAnalyticsTab() {
     ["stale", "Not opened 7d+"],
     ["bounced", "Bounced"],
     ["inactive", "Inactive"],
+    ["dcp", "DCP"],
   ];
+
+  const dcpTotalPages = Math.max(
+    1,
+    Math.ceil(dcpMeta.total_count / dcpMeta.per_page)
+  );
 
   return (
     <div className="space-y-4">
@@ -4236,10 +4414,18 @@ export function EmailAnalyticsTab() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={refreshAll}
-              disabled={overviewLoading || listLoading || dailyLoading}
+              disabled={
+                overviewLoading ||
+                listLoading ||
+                dailyLoading ||
+                (tab === "dcp" && dcpLoading)
+              }
               className="text-sm border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
             >
-              {overviewLoading || listLoading || dailyLoading
+              {overviewLoading ||
+              listLoading ||
+              dailyLoading ||
+              (tab === "dcp" && dcpLoading)
                 ? "Loading…"
                 : "↻ Refresh"}
             </button>
@@ -4402,11 +4588,20 @@ export function EmailAnalyticsTab() {
         </div>
       ) : null}
 
-      {/* Per-user engagement table */}
+      {/* Per-user engagement / DCP delivery log */}
       <div className="bg-white rounded border">
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
-          <h2 className="text-sm font-medium">Per-user engagement</h2>
-          {listMeta ? (
+          <h2 className="text-sm font-medium">
+            {tab === "dcp" ? "DCP delivery log" : "Per-user engagement"}
+          </h2>
+          {tab === "dcp" ? (
+            <span className="text-xs text-gray-500">
+              {dcpMeta.total_count.toLocaleString()} records
+              {dcpTotalPages > 1
+                ? ` · Page ${dcpMeta.page} of ${dcpTotalPages}`
+                : ""}
+            </span>
+          ) : listMeta ? (
             <span className="text-xs text-gray-500">
               {listMeta.total_count.toLocaleString()} users
               {listMeta.total_pages > 1
@@ -4417,6 +4612,7 @@ export function EmailAnalyticsTab() {
         </div>
 
         {/* Badge legend */}
+        {tab !== "dcp" ? (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs text-gray-600">
           <span className="font-medium text-gray-500 mr-1">Status:</span>
           <span className="flex items-center gap-1">
@@ -4440,6 +4636,7 @@ export function EmailAnalyticsTab() {
             <b>Inactive</b> — no active email subscriptions
           </span>
         </div>
+        ) : null}
 
         {/* Sub-tabs */}
         <div className="flex border-b border-gray-200 px-4">
@@ -4448,6 +4645,7 @@ export function EmailAnalyticsTab() {
               key={t}
               onClick={() => {
                 setPage(1);
+                setDcpPage(1);
                 setTab(t);
               }}
               className={`text-sm py-2 px-3 border-b-2 mr-1 ${
@@ -4464,6 +4662,200 @@ export function EmailAnalyticsTab() {
           ))}
         </div>
 
+        {tab === "dcp" ? (
+          <>
+            {dcpError ? (
+              <div className="mx-4 mt-4 bg-red-50 text-red-700 rounded border border-red-200 px-3 py-2 text-sm">
+                Failed to load DCP delivery log: {dcpError}
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-100">
+              <input
+                type="date"
+                value={dcpDateFrom}
+                onChange={(e) => {
+                  setDcpDateFrom(e.target.value);
+                  setDcpPage(1);
+                }}
+                className="text-sm border rounded px-2 py-1.5"
+                aria-label="Date from"
+              />
+              <span className="text-xs text-gray-400">to</span>
+              <input
+                type="date"
+                value={dcpDateTo}
+                onChange={(e) => {
+                  setDcpDateTo(e.target.value);
+                  setDcpPage(1);
+                }}
+                className="text-sm border rounded px-2 py-1.5"
+                aria-label="Date to"
+              />
+              <input
+                type="search"
+                value={dcpRecipientInput}
+                onChange={(e) => setDcpRecipientInput(e.target.value)}
+                placeholder="Filter by recipient email…"
+                className="text-sm border rounded px-2 py-1.5 min-w-[220px]"
+              />
+              {(dcpDateFrom || dcpDateTo || dcpRecipientInput) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDcpDateFrom("");
+                    setDcpDateTo("");
+                    setDcpRecipientInput("");
+                    setDcpRecipientEmail("");
+                    setDcpPage(1);
+                  }}
+                  className="text-xs text-gray-500 hover:text-gray-800 underline"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
+              {dcpLoading ? (
+                <div className="text-center py-8 text-sm text-gray-500">
+                  Loading…
+                </div>
+              ) : (
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      {[
+                        "ID",
+                        "Recipient",
+                        "Status",
+                        "Sent at",
+                        "Delivered at",
+                        "Opened at",
+                        "Clicked at",
+                        "Clicks",
+                        "Delivered",
+                        "Opened",
+                        "Clicked",
+                        "Failed reason",
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          className="text-left font-normal text-xs text-gray-500 px-3 py-2 whitespace-nowrap"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dcpItems.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={12}
+                          className="text-center py-8 text-sm text-gray-500"
+                        >
+                          No DCP delivery records match this filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      dcpItems.map((row) => {
+                        const deliveredBadge = eaDcpBoolBadge(row.was_delivered);
+                        const openedBadge = eaDcpBoolBadge(row.was_opened);
+                        const clickedBadge = eaDcpBoolBadge(row.was_clicked);
+                        return (
+                          <tr
+                            key={row.id}
+                            className="border-b border-gray-100 last:border-0"
+                          >
+                            <td className="px-3 py-2 text-gray-700">{row.id}</td>
+                            <td className="px-3 py-2 text-gray-900">
+                              {row.recipient_email || "—"}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                {row.status || "—"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-gray-700">
+                              {formatTimestamp(row.sent_at || null)}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-gray-700">
+                              {formatTimestamp(row.delivered_at)}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-gray-700">
+                              {formatTimestamp(row.opened_at || null)}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-gray-700">
+                              {formatTimestamp(row.clicked_at)}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700">
+                              {row.clicks}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${deliveredBadge.cls}`}
+                              >
+                                {deliveredBadge.label}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${openedBadge.cls}`}
+                              >
+                                {openedBadge.label}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${clickedBadge.cls}`}
+                              >
+                                {clickedBadge.label}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-gray-600 max-w-[200px] truncate">
+                              {row.failed_reason || "—"}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {dcpMeta.total_count > 0 && dcpTotalPages > 1 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
+                <span>
+                  Showing page {dcpMeta.page} of {dcpTotalPages} (
+                  {dcpMeta.total_count.toLocaleString()} total)
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDcpPage((p) => Math.max(1, p - 1))}
+                    disabled={dcpLoading || dcpMeta.page <= 1}
+                    className="border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDcpPage((p) => Math.min(dcpTotalPages, p + 1))
+                    }
+                    disabled={dcpLoading || dcpMeta.page >= dcpTotalPages}
+                    className="border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <>
         <div className="overflow-x-auto">
           {listLoading ? (
             <div className="text-center py-8 text-sm text-gray-500">
@@ -4554,6 +4946,8 @@ export function EmailAnalyticsTab() {
             </div>
           </div>
         ) : null}
+          </>
+        )}
       </div>
     </div>
   );
