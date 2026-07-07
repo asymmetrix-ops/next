@@ -11,14 +11,8 @@ import {
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
 import { CorporateEventTargetLink } from "@/components/corporate-events/CorporateEventPartyLink";
-import type { CorporateEvent } from "@/components/corporate-events/CorporateEventsTable";
 import { isNonEmptyDisplayString as isNonEmptyString } from "@/lib/emptyDisplay";
-import {
-  resolveAdvisorDisplayName,
-  resolveAdvisorRouteId,
-} from "@/components/corporate-events/corporateEventsPartyLinks";
-import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
-import { formatCorporateEventAmountCell } from "@/lib/corporateEventAmountDisplay";
+import type { CorporateEvent } from "@/components/corporate-events/CorporateEventsTable";
 
 type Props = {
   events: CorporateEvent[];
@@ -56,8 +50,74 @@ function formatFullDate(iso?: string | null): string {
   }
 }
 
+function sanitizeAmountValue(value?: number | string | null): number | string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return value;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  const num = Number(trimmed.replace(/,/g, ""));
+  return Number.isNaN(num) ? trimmed : num;
+}
+
 function formatAmountCell(event: CorporateEvent): string {
-  return formatCorporateEventAmountCell(event);
+  const ne = event as {
+    deal_type?: string;
+    investment_display?: string | null;
+    ev_display?: string | null;
+    investment_data?: {
+      investment_amount_m?: number | string;
+      investment_amount?: number | string;
+      currency?: string | { Currency?: string } | null;
+      _currency?: { Currency?: string };
+    };
+    ev_data?: {
+      enterprise_value_m?: number | string;
+      ev_band?: string;
+      currency?: { Currency?: string } | null;
+      _currency?: { Currency?: string };
+    };
+  };
+
+  const dealType = ne.deal_type || "";
+  if (/partnership/i.test(dealType)) return "-";
+
+  const amountDisplay = ne.investment_display ?? null;
+  if (isNonEmptyString(amountDisplay)) return amountDisplay;
+
+  const amountRaw =
+    ne.investment_data?.investment_amount_m ?? ne.investment_data?.investment_amount ?? null;
+  const amount = sanitizeAmountValue(amountRaw);
+  const currency =
+    typeof ne.investment_data?.currency === "string"
+      ? ne.investment_data.currency
+      : ne.investment_data?.currency?.Currency ||
+        ne.investment_data?._currency?.Currency;
+
+  if (amount != null && typeof amount === "number" && isNonEmptyString(currency)) {
+    const cur = currency!.trim();
+    const prefix = cur.length <= 4 ? `${cur} ` : `${cur} `;
+    return `${prefix}${amount.toLocaleString(undefined, { maximumFractionDigits: 1 })}m`;
+  }
+
+  const evDisplay = ne.ev_display ?? null;
+  if (isNonEmptyString(evDisplay)) return evDisplay;
+
+  const evRaw = ne.ev_data?.enterprise_value_m ?? null;
+  const evAmount = sanitizeAmountValue(evRaw);
+  const evCurrency =
+    ne.ev_data?._currency?.Currency || ne.ev_data?.currency?.Currency;
+  if (evAmount != null && typeof evAmount === "number" && isNonEmptyString(evCurrency)) {
+    return `${evCurrency!.trim()} ${evAmount.toLocaleString(undefined, { maximumFractionDigits: 1 })}m`;
+  }
+
+  if (isNonEmptyString(ne.ev_data?.ev_band)) return ne.ev_data!.ev_band!;
+  return "-";
+}
+
+function dealTypeTone(dealType: string): "coral" | "lavender" {
+  const d = dealType.toLowerCase();
+  if (d.includes("divest")) return "coral";
+  return "lavender";
 }
 
 type Coinvestor = { id?: number; name: string; href?: string };
@@ -122,7 +182,6 @@ type AdvisorEntry = { id?: number; name: string };
 function collectAdvisors(event: CorporateEvent): AdvisorEntry[] {
   const ne = event as {
     advisors?: Array<{
-      id?: number;
       advisor_company?: { id?: number; name?: string };
       advisor_company_id?: number;
       advisor_company_name?: string;
@@ -144,8 +203,12 @@ function collectAdvisors(event: CorporateEvent): AdvisorEntry[] {
 
   return [
     ...newAdvisors.map((a) => ({
-      id: resolveAdvisorRouteId(a),
-      name: resolveAdvisorDisplayName(a) || a.advisor_company_name || "",
+      id: a.advisor_company?.id || a.advisor_company_id || a._new_company?.id,
+      name:
+        a.advisor_company?.name ||
+        a.advisor_company_name ||
+        a._new_company?.name ||
+        "",
     })),
     ...legacyAdvisors.map((a) => ({
       id: a._new_company?.id,
@@ -374,6 +437,7 @@ export function InvestorCorporateEventsProfilePanel({
             {displayed.map((event, rowIndex) => {
               const ne = event as { announcement_date?: string; deal_type?: string };
               const dealTypeStr = ne.deal_type || "-";
+              const tone = dealTypeTone(dealTypeStr);
               const coinvestors = collectCoinvestors(event);
               const advisors = collectAdvisors(event);
               const isLastRow = rowIndex === displayed.length - 1;
@@ -389,11 +453,7 @@ export function InvestorCorporateEventsProfilePanel({
                   </div>
                   <div style={{ ...cellStyle, textAlign: COL_ALIGN[1] }}>{renderTargetCell(event)}</div>
                   <div style={{ ...cellStyle, textAlign: COL_ALIGN[2] }}>
-                    {dealTypeStr && dealTypeStr !== "-" ? (
-                      <DealTypeBadge dealType={dealTypeStr} />
-                    ) : (
-                      "-"
-                    )}
+                    <Pill tone={tone}>{dealTypeStr}</Pill>
                   </div>
                   <div style={{ ...cellStyle, textAlign: COL_ALIGN[3] }}>
                     <CoinvestorChips coinvestors={coinvestors} />

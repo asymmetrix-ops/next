@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -11,18 +11,30 @@ import {
   ArrowUpTrayIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
-import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
-import { ManagementCard } from "@/components/redesign/ManagementCard";
-import { LinkPanel, T } from "@/components/redesign/primitives";
-import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
+import { T } from "@/components/redesign/primitives";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
 import { InvestorOverviewCard } from "@/components/investors/InvestorOverviewCard";
 import {
   InvestorPortfolioProfilePanel,
   type InvestorPortfolioCompany,
 } from "@/components/investors/InvestorPortfolioProfilePanel";
+import {
+  InvestorFocusMixCard,
+  type InvestorMixRow,
+} from "@/components/investors/InvestorFocusMixCard";
+import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
+import { InvestorCorporateEventsProfilePanel } from "@/components/investors/InvestorCorporateEventsProfilePanel";
+
+const INVESTOR_PROFILE_TABS = [
+  "Summary",
+  "Strategy",
+  "Portfolio",
+  "People",
+  "Deals",
+  "Market",
+] as const;
 
 // Types for API integration
 interface InvestorLocation {
@@ -69,6 +81,7 @@ interface TeamMember {
   Individual_text: string;
   job_titles_id: Array<{ job_title: string }>;
   current_employer_url: string;
+  individuals_id?: number;
 }
 
 interface PortfolioCompany {
@@ -290,6 +303,50 @@ function resolveChartEmployeeCount(data: LinkedInHistory[]): number {
   return last > 0 ? last : lastNonZero;
 }
 
+interface PortfolioMixApiRow {
+  label: string;
+  company_count?: number;
+  percentage?: string | number;
+}
+
+interface PortfolioMixResponse {
+  investor_id?: number;
+  sector_mix?: PortfolioMixApiRow[];
+  stage_focus?: PortfolioMixApiRow[];
+  geography?: PortfolioMixApiRow[];
+}
+
+function mapPortfolioMixRows(rows: PortfolioMixApiRow[] | undefined): InvestorMixRow[] {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((row) => row?.label?.trim())
+    .map((row) => {
+      const pctRaw = row.percentage;
+      const pct =
+        typeof pctRaw === "number"
+          ? pctRaw
+          : Number.parseFloat(String(pctRaw ?? "").replace(/%/g, "").trim());
+      return {
+        label: row.label.trim(),
+        pct: Number.isFinite(pct) ? pct : 0,
+      };
+    });
+}
+
+function extractOptionalString(raw: unknown, keys: string[]): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (Array.isArray(value) && value.length > 0) {
+      const first = value[0];
+      if (typeof first === "string" && first.trim()) return first.trim();
+    }
+  }
+  return null;
+}
+
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   if (logo) {
     return (
@@ -330,10 +387,10 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
 
 const InvestorDetailPage = () => {
   const params = useParams();
-  const router = useRouter();
   const investorId = params.id as string;
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [activeProfileTab, setActiveProfileTab] = useState<string>("Summary");
 
   const [investorData, setInvestorData] = useState<InvestorData | null>(null);
   const [portfolioCompanies, setPortfolioCompanies] = useState<
@@ -367,16 +424,14 @@ const InvestorDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [pastPortfolioLoading, setPastPortfolioLoading] = useState(false);
+  const [portfolioMix, setPortfolioMix] = useState<PortfolioMixResponse | null>(null);
+  const [portfolioMixLoading, setPortfolioMixLoading] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [resolvedIndividualIds, setResolvedIndividualIds] = useState<
     Map<string, number>
   >(new Map());
 
   const [error, setError] = useState<string | null>(null);
-  const {
-    display: timeSinceLastInvestment,
-    loading: timeSinceLastInvestmentLoading,
-  } = useTimeSinceLastInvestment(investorId);
 
   // Fetch investor data
   const fetchInvestorData = useCallback(async () => {
@@ -884,6 +939,36 @@ const InvestorDetailPage = () => {
     }
   }, [investorId]);
 
+  const fetchPortfolioMix = useCallback(async () => {
+    setPortfolioMixLoading(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/investor_portfolio_mix/${encodeURIComponent(investorId)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Portfolio mix API request failed: ${response.statusText}`);
+      }
+
+      const data = (await response.json()) as PortfolioMixResponse;
+      setPortfolioMix(data);
+    } catch (err) {
+      console.error("Error fetching investor portfolio mix:", err);
+      setPortfolioMix(null);
+    } finally {
+      setPortfolioMixLoading(false);
+    }
+  }, [investorId]);
+
   useEffect(() => {
     if (investorId) {
       fetchInvestorData();
@@ -891,6 +976,7 @@ const InvestorDetailPage = () => {
       fetchPastPortfolioCompanies(1);
       fetchCorporateEvents();
       fetchLinkedInHistory();
+      fetchPortfolioMix();
     }
   }, [
     fetchInvestorData,
@@ -898,6 +984,7 @@ const InvestorDetailPage = () => {
     fetchPastPortfolioCompanies,
     fetchCorporateEvents,
     fetchLinkedInHistory,
+    fetchPortfolioMix,
     investorId,
   ]);
 
@@ -917,78 +1004,6 @@ const InvestorDetailPage = () => {
       typeof window !== "undefined" ? window.location.href : ""
     }`
   )}`;
-
-  // Removed: handleCompanyNameClick - no longer used, navigation goes directly to corporate-event/{event.id}
-
-  const handleAdvisorClick = async (advisorName: string) => {
-    console.log("Advisor clicked:", advisorName);
-    try {
-      // Search for the advisor using the advisors API
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      const params = new URLSearchParams();
-      params.append("search_query", advisorName);
-      params.append("page", "0");
-      params.append("per_page", "10");
-
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Advisor search results:", data);
-
-        // Find the matching advisor by name
-        const matchingAdvisor = data.Advisors_companies?.items?.find(
-          (advisor: { name: string; id: number }) =>
-            advisor.name === advisorName
-        );
-
-        if (matchingAdvisor && matchingAdvisor.id) {
-          console.log("Found matching advisor with ID:", matchingAdvisor.id);
-
-          // Verify the advisor exists using the get_the_advisor_new_company API
-          const advisorResponse = await fetch(
-            `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_the_advisor_new_company?new_comp_id=${matchingAdvisor.id}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                ...(token && { Authorization: `Bearer ${token}` }),
-              },
-            }
-          );
-
-          if (advisorResponse.ok) {
-            console.log(
-              "Advisor profile confirmed, navigating to:",
-              `/advisor/${matchingAdvisor.id}`
-            );
-            router.push(`/advisor/${matchingAdvisor.id}`);
-          } else {
-            console.error(
-              "Advisor profile not found:",
-              advisorResponse.statusText
-            );
-          }
-        } else {
-          console.log("No matching advisor found with ID - no navigation");
-        }
-      } else {
-        console.error("Failed to search for advisor:", response.statusText);
-      }
-    } catch (error) {
-      console.error("Error handling advisor click:", error);
-    }
-  };
 
   // Resolve individual id by name via API
   const resolveIndividualIdByName = async (
@@ -1012,9 +1027,10 @@ const InvestorDetailPage = () => {
       );
       if (!response.ok) return null;
       const data = await response.json();
+      const normalizedName = individualName.trim().toLowerCase();
       const match = data.Individuals_list?.items?.find(
         (ind: { advisor_individuals: string; id: number }) =>
-          ind.advisor_individuals === individualName
+          ind.advisor_individuals?.trim().toLowerCase() === normalizedName
       );
       return match?.id ?? null;
     } catch (error) {
@@ -1051,84 +1067,6 @@ const InvestorDetailPage = () => {
 
     resolveAllIds();
   }, [investorData]);
-
-  const handleCorporateEventDescriptionClick = async (
-    eventId?: number,
-    eventDescription?: string
-  ) => {
-    console.log("Corporate event description clicked:", {
-      eventId,
-      eventDescription,
-    });
-
-    // If we have a direct ID, use it immediately
-    if (eventId) {
-      console.log("Using direct event ID:", eventId);
-      router.push(`/corporate-event/${eventId}`);
-      return;
-    }
-
-    // Fallback: search by description if no ID available
-    if (!eventDescription) {
-      console.error("No event ID or description provided");
-      return;
-    }
-
-    try {
-      // Try to find the event ID by searching the main corporate events API
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      const params = new URLSearchParams();
-      params.append("search_query", eventDescription);
-      params.append("Page", "0");
-      params.append("Per_page", "10");
-
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Search results:", data);
-
-        // Find the matching event by description
-        const matchingEvent = data.items?.find(
-          (event: { description: string; id: number }) =>
-            event.description === eventDescription
-        );
-
-        if (matchingEvent && matchingEvent.id) {
-          console.log("Found matching event with ID:", matchingEvent.id);
-          router.push(`/corporate-event/${matchingEvent.id}`);
-        } else {
-          console.log("No matching event found with ID");
-          // Fallback: navigate to corporate events page with search
-          router.push(
-            `/corporate-events?search=${encodeURIComponent(eventDescription)}`
-          );
-        }
-      } else {
-        console.error("Failed to search for event:", response.statusText);
-        // Fallback: navigate to corporate events page with search
-        router.push(
-          `/corporate-events?search=${encodeURIComponent(eventDescription)}`
-        );
-      }
-    } catch (error) {
-      console.error("Error searching for event:", error);
-      // Fallback: navigate to corporate events page with search
-      router.push(
-        `/corporate-events?search=${encodeURIComponent(eventDescription)}`
-      );
-    }
-  };
 
   const handlePortfolioPageChange = (page: number) => {
     fetchPortfolioCompanies(page);
@@ -1279,10 +1217,21 @@ const InvestorDetailPage = () => {
   const {
     Investor,
     Focus,
-    Invested_DA_sectors,
     Investment_Team_Roles_current,
     Investment_Team_Roles_past,
   } = investorData;
+
+  const investorRaw = Investor as Investor & Record<string, unknown>;
+  const investorType =
+    extractOptionalString(investorRaw, ["investor_type", "type"]) ||
+    extractOptionalString(investorData as unknown, ["investor_type"]);
+  const investorOwnership =
+    extractOptionalString(investorRaw, ["ownership", "ownership_type"]) ||
+    (investorRaw._ownership_type && typeof investorRaw._ownership_type === "object"
+      ? extractOptionalString(investorRaw._ownership_type, ["ownership"])
+      : null);
+  const investorStatus =
+    extractOptionalString(investorRaw, ["status", "investor_status"]) || "Active";
 
   const hq = `${Investor._locations?.City || ""}, ${
     Investor._locations?.State__Province__County || ""
@@ -1290,22 +1239,27 @@ const InvestorDetailPage = () => {
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
 
-  const hasManagement =
-    Investment_Team_Roles_current.length > 0 ||
-    Investment_Team_Roles_past.length > 0;
-  const showCorporateEvents = corporateEvents.length > 0;
+  const resolveTeamMemberIndividualId = (member: TeamMember): number | undefined => {
+    if (typeof member.individuals_id === "number" && member.individuals_id > 0) {
+      return member.individuals_id;
+    }
+    return resolvedIndividualIds.get(member.Individual_text);
+  };
 
-  const managementCurrentPeople = Investment_Team_Roles_current.map((member) => ({
-    name: member.Individual_text,
-    role: member.job_titles_id.map((jt) => jt.job_title).join(", "),
-    individualId: resolvedIndividualIds.get(member.Individual_text),
-  }));
-
-  const managementPastPeople = Investment_Team_Roles_past.map((member) => ({
-    name: member.Individual_text,
-    role: member.job_titles_id.map((jt) => jt.job_title).join(", "),
-    individualId: resolvedIndividualIds.get(member.Individual_text),
-  }));
+  const teamMembers: InvestorTeamMember[] = [
+    ...Investment_Team_Roles_current.map((member) => ({
+      name: member.Individual_text,
+      role: member.job_titles_id.map((jt) => jt.job_title).join(", "),
+      individualId: resolveTeamMemberIndividualId(member),
+      tenure: null,
+    })),
+    ...Investment_Team_Roles_past.map((member) => ({
+      name: member.Individual_text,
+      role: member.job_titles_id.map((jt) => jt.job_title).join(", "),
+      individualId: resolveTeamMemberIndividualId(member),
+      tenure: null,
+    })),
+  ];
 
   const mapPortfolioCompany = (
     company: PortfolioCompany,
@@ -1316,7 +1270,6 @@ const InvestorDetailPage = () => {
     sectors: company.sectors_id.map((s) => s.sector_name).filter(Boolean),
     yearLabel: variant === "past" ? company.year_exited : company.year_invested,
     relatedIndividuals: company.related_to_investor_individuals,
-    linkedinMembers: company._linkedin_data_of_new_company?.linkedin_employee,
     country: company._locations?.Country,
     logo: company._linkedin_data_of_new_company?.linkedin_logo,
   });
@@ -1330,26 +1283,11 @@ const InvestorDetailPage = () => {
 
   const currentHeadcount = resolveChartEmployeeCount(linkedInHistory);
   const headcountYoY = computeEmployeeYoYFromMonthly(linkedInHistory);
+  const headcountHistoryMonths = linkedInHistory.filter((e) => e.employees_count > 0).length;
 
-  const profileTokens = {
-    paper: T.paper,
-    hair: T.hair,
-    ink: T.ink,
-    body: T.body,
-    muted: T.muted,
-    inset: T.inset,
-    azure: T.azure,
-    azureSoft: T.azureSoft,
-    coralSoft: T.coralSoft,
-    down: T.down,
-    sans: T.sans,
-    mono: T.mono,
-  };
-
-  const WIDE_ROW_START = 2;
-  const currentPortfolioGridRow = WIDE_ROW_START;
-  const pastPortfolioGridRow = WIDE_ROW_START + 1;
-  const corporateEventsGridRow = showCorporateEvents ? WIDE_ROW_START + 2 : 0;
+  const sectorMix = mapPortfolioMixRows(portfolioMix?.sector_mix);
+  const stageFocus = mapPortfolioMixRows(portfolioMix?.stage_focus);
+  const geographyMix = mapPortfolioMixRows(portfolioMix?.geography);
 
   const styles = {
     container: {
@@ -1391,14 +1329,15 @@ const InvestorDetailPage = () => {
     .responsiveGrid > * { min-width: 0; min-height: 0; }
     .investor-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .investor-grid-description { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .investor-grid-headcount { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .investor-grid-management { grid-column: 3; grid-row: 2 / span 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .investor-grid-current-portfolio { grid-column: 1 / span 2; grid-row: ${currentPortfolioGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .investor-grid-past-portfolio { grid-column: 1 / span 2; grid-row: ${pastPortfolioGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .investor-grid-corporate-events { grid-column: 1 / span 2; grid-row: ${corporateEventsGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .investor-grid-current-portfolio > *,
-    .investor-grid-past-portfolio > *,
-    .investor-grid-corporate-events > * {
+    .investor-grid-focus-mix { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .investor-grid-portfolio { grid-column: 1 / span 2; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .investor-grid-people { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .investor-grid-corporate-events { grid-column: 1 / span 2; grid-row: 3; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .investor-grid-headcount { grid-column: 3; grid-row: 3; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .investor-grid-portfolio > *,
+    .investor-grid-corporate-events > *,
+    .investor-grid-people > *,
+    .investor-grid-headcount > * {
       min-width: 0;
       max-width: 100%;
       width: 100%;
@@ -1407,11 +1346,11 @@ const InvestorDetailPage = () => {
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .investor-grid-overview,
       .investor-grid-description,
-      .investor-grid-headcount,
-      .investor-grid-management,
-      .investor-grid-current-portfolio,
-      .investor-grid-past-portfolio,
-      .investor-grid-corporate-events {
+      .investor-grid-focus-mix,
+      .investor-grid-portfolio,
+      .investor-grid-people,
+      .investor-grid-corporate-events,
+      .investor-grid-headcount {
         grid-column: 1 / -1 !important;
         grid-row: auto !important;
         align-self: stretch !important;
@@ -1508,10 +1447,53 @@ const InvestorDetailPage = () => {
             </a>
           </div>
         </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: "2px",
+            overflowX: "auto" as const,
+            scrollbarWidth: "none" as const,
+          }}
+        >
+          {INVESTOR_PROFILE_TABS.map((tab) => {
+            const active = tab === activeProfileTab;
+            const disabled = tab !== "Summary";
+            return (
+              <button
+                key={tab}
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  if (!disabled) setActiveProfileTab(tab);
+                }}
+                style={{
+                  padding: "10px 14px",
+                  fontFamily: T.sans,
+                  fontSize: "13px",
+                  fontWeight: active ? 600 : 500,
+                  color: disabled ? T.faint : active ? T.ink : T.muted,
+                  borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
+                  marginBottom: "-1px",
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap" as const,
+                  transition: "color 120ms",
+                  background: "transparent",
+                  borderTop: "none",
+                  borderLeft: "none",
+                  borderRight: "none",
+                }}
+              >
+                {tab}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="investor-detail-content" style={styles.maxWidth}>
+          {activeProfileTab === "Summary" ? (
           <div style={styles.responsiveGrid} className="responsiveGrid">
             <div className="investor-grid-overview">
               <InvestorOverviewCard
@@ -1520,18 +1502,22 @@ const InvestorDetailPage = () => {
                   name: f.sector_name,
                   href: f.id ? `/sector/${f.id}` : undefined,
                 }))}
-                investedDaSectors={Invested_DA_sectors.filter((s) => s?.sector_name).map((s) => ({
-                  name: s.sector_name,
-                  href: s.id ? `/sector/${s.id}` : undefined,
-                }))}
+                type={investorType}
                 yearFounded={Investor._years?.Year || Investor.year_founded || null}
                 website={Investor.url}
                 websiteLabel={
                   Investor.url?.trim() ? formatWebsiteDisplayLabel(Investor.url) : undefined
                 }
                 hq={hq || undefined}
-                lastInvestment={timeSinceLastInvestment}
-                lastInvestmentLoading={timeSinceLastInvestmentLoading}
+                linkedinUrl={
+                  linkedinUrl ||
+                  Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
+                  undefined
+                }
+                ownership={investorOwnership}
+                status={investorStatus}
+                employees={currentHeadcount > 0 ? currentHeadcount : null}
+                employeesYoY={headcountYoY || undefined}
               />
             </div>
 
@@ -1552,6 +1538,56 @@ const InvestorDetailPage = () => {
                 onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
                 contentRef={descriptionRef}
                 fillGridCell={!isDescriptionExpanded}
+              />
+            </div>
+
+            <div className="investor-grid-focus-mix">
+              <InvestorFocusMixCard
+                fillGridCell
+                loading={portfolioMixLoading}
+                sectorMix={sectorMix}
+                stageFocus={stageFocus}
+                geography={geographyMix}
+              />
+            </div>
+
+            <div className="investor-grid-portfolio">
+              <InvestorPortfolioProfilePanel
+                fillGridCell
+                currentCompanies={currentPortfolioRows}
+                pastCompanies={pastPortfolioRows}
+                currentTotal={portfolioPagination.itemsReceived || undefined}
+                pastTotal={pastPortfolioPagination.itemsReceived || undefined}
+                loadingCurrent={portfolioLoading}
+                loadingPast={pastPortfolioLoading}
+                currentPagination={{
+                  curPage: portfolioPagination.curPage,
+                  pageTotal: portfolioPagination.pageTotal,
+                  itemsReceived: portfolioPagination.itemsReceived,
+                  perPage: portfolioPagination.perPage,
+                }}
+                pastPagination={{
+                  curPage: pastPortfolioPagination.curPage,
+                  pageTotal: pastPortfolioPagination.pageTotal,
+                  itemsReceived: pastPortfolioPagination.itemsReceived,
+                  perPage: pastPortfolioPagination.perPage,
+                }}
+                onCurrentPageChange={handlePortfolioPageChange}
+                onPastPageChange={handlePastPortfolioPageChange}
+                pageSize={4}
+              />
+            </div>
+
+            <div className="investor-grid-people">
+              <InvestorPeopleCard fillGridCell members={teamMembers} maxVisible={6} />
+            </div>
+
+            <div className="investor-grid-corporate-events">
+              <InvestorCorporateEventsProfilePanel
+                fillGridCell
+                events={corporateEvents as unknown as CorporateEventsTableEvent[]}
+                loading={corporateEventsLoading}
+                maxInitialEvents={5}
               />
             </div>
 
@@ -1578,6 +1614,11 @@ const InvestorDetailPage = () => {
                     return undefined;
                   }
                 })()}
+                historyLabel={
+                  headcountHistoryMonths > 0
+                    ? `${headcountHistoryMonths}-month history`
+                    : undefined
+                }
                 linkedinUrl={
                   linkedinUrl ||
                   Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
@@ -1585,67 +1626,20 @@ const InvestorDetailPage = () => {
                 }
               />
             </div>
-
-            {hasManagement && (
-              <div className="investor-grid-management">
-                <ManagementCard
-                  fillGridCell
-                  current={managementCurrentPeople}
-                  past={managementPastPeople}
-                  maxVisible={6}
-                />
-              </div>
-            )}
-
-            <div className="investor-grid-current-portfolio">
-              <LinkPanel fillGridCell className="investor-portfolio-v3-card">
-                <InvestorPortfolioProfilePanel
-                  title="Current Portfolio"
-                  variant="current"
-                  companies={currentPortfolioRows}
-                  loading={portfolioLoading}
-                  pagination={portfolioPagination}
-                  onPageChange={handlePortfolioPageChange}
-                  maxInitial={8}
-                />
-              </LinkPanel>
-            </div>
-
-            <div className="investor-grid-past-portfolio">
-              <LinkPanel fillGridCell className="investor-portfolio-v3-card">
-                <InvestorPortfolioProfilePanel
-                  title="Past Portfolio"
-                  variant="past"
-                  companies={pastPortfolioRows}
-                  loading={pastPortfolioLoading}
-                  pagination={pastPortfolioPagination}
-                  onPageChange={handlePastPortfolioPageChange}
-                  maxInitial={8}
-                />
-              </LinkPanel>
-            </div>
-
-            {showCorporateEvents && (
-              <div className="investor-grid-corporate-events">
-                <LinkPanel fillGridCell className="corporate-events-v3-card">
-                  <CorporateEventsProfilePanel
-                    tokens={profileTokens}
-                    events={corporateEvents as unknown as CorporateEventsTableEvent[]}
-                    loading={corporateEventsLoading}
-                    maxInitialEvents={5}
-                    onEventClick={handleCorporateEventDescriptionClick}
-                    onAdvisorClick={(advisorId, advisorName) => {
-                      if (advisorId) {
-                        router.push(`/advisor/${advisorId}`);
-                      } else if (advisorName) {
-                        handleAdvisorClick(advisorName);
-                      }
-                    }}
-                  />
-                </LinkPanel>
-              </div>
-            )}
           </div>
+          ) : (
+            <div
+              style={{
+                padding: "48px 24px",
+                textAlign: "center",
+                color: T.muted,
+                fontFamily: T.sans,
+                fontSize: 14,
+              }}
+            >
+              {activeProfileTab} view coming soon.
+            </div>
+          )}
         </div>
         <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
       </main>

@@ -15,7 +15,8 @@ import { isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 export type InvestorTeamMember = {
   id?: number;
   name: string;
-  roleTitle?: string | null;
+  role: string;
+  tenure?: string | null;
   individualId?: number;
 };
 
@@ -25,7 +26,7 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-const PEOPLE_ROW_GRID = "32px minmax(0, 1.35fr) minmax(0, 1.2fr)";
+const PEOPLE_ROW_GRID = "32px minmax(0, 1.35fr) minmax(0, 1fr) minmax(72px, auto)";
 const COL_GAP = 8;
 
 function initialsFor(name: string): string {
@@ -73,7 +74,8 @@ function ColHeader() {
     >
       <div />
       <div style={tableColHeaderStyle}>Name</div>
-      <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>Role title</div>
+      <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>Role</div>
+      <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>Tenure</div>
     </div>
   );
 }
@@ -87,9 +89,9 @@ function PersonRow({
   index: number;
   last: boolean;
 }) {
-  const roleTitle =
-    person.roleTitle && !isEmptyDisplayValue(person.roleTitle)
-      ? normalizeEmptyDisplay(person.roleTitle)
+  const tenure =
+    person.tenure && !isEmptyDisplayValue(person.tenure)
+      ? normalizeEmptyDisplay(person.tenure)
       : "-";
 
   return (
@@ -148,8 +150,9 @@ function PersonRow({
           fontSize: 12.5,
         }}
       >
-        {roleTitle}
+        {isEmptyDisplayValue(person.role) ? "-" : normalizeEmptyDisplay(person.role)}
       </div>
+      <div style={{ color: T.body, textAlign: "center", fontSize: 12.5 }}>{tenure}</div>
     </div>
   );
 }

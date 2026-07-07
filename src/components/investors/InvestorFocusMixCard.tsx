@@ -1,16 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import {
-  CARD_TITLE_STYLE,
-  descriptionBodyStyle,
-  FIN_METRICS_TAB_BAR_STYLE,
-  LinkPanel,
-  numericPctValueStyle,
-  numericValueStyle,
-  PctBar,
-  T,
-} from "@/components/redesign/primitives";
+import { LinkPanel, PctBar, T } from "@/components/redesign/primitives";
 import { mixBarColorFor } from "./investorSectorColors";
 
 export type InvestorMixRow = {
@@ -45,67 +36,21 @@ function TabButton({
       type="button"
       onClick={onClick}
       style={{
-        display: "flex",
-        alignItems: "center",
         background: "transparent",
         border: "none",
-        padding: 0,
+        padding: "0 0 4px",
         cursor: "pointer",
+        fontFamily: T.sans,
+        fontSize: 13,
+        fontWeight: active ? 600 : 500,
+        color: active ? T.ink : T.muted,
         borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
-        flexShrink: 0,
+        whiteSpace: "nowrap",
         transition: "color 120ms, border-color 120ms",
       }}
     >
-      <span
-        style={{
-          ...CARD_TITLE_STYLE,
-          fontWeight: active ? 600 : 500,
-          color: active ? T.ink : T.muted,
-        }}
-      >
-        {label}
-      </span>
+      {label}
     </button>
-  );
-}
-
-function FocusMixHeader({
-  tab,
-  onSelectTab,
-}: {
-  tab: Tab;
-  onSelectTab: (next: Tab) => void;
-}) {
-  return (
-    <div style={FIN_METRICS_TAB_BAR_STYLE}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          flexWrap: "nowrap",
-          minWidth: 0,
-          flex: 1,
-          overflow: "hidden",
-        }}
-      >
-        <TabButton active={tab === "sector"} label="Sector mix" onClick={() => onSelectTab("sector")} />
-        <TabButton active={tab === "stage"} label="Stage focus" onClick={() => onSelectTab("stage")} />
-        <TabButton active={tab === "geography"} label="Geography" onClick={() => onSelectTab("geography")} />
-      </div>
-      <div
-        style={{
-          fontSize: 14,
-          color: T.azure,
-          fontWeight: 500,
-          lineHeight: 1,
-          padding: "2px 4px",
-          flexShrink: 0,
-        }}
-      >
-        →
-      </div>
-    </div>
   );
 }
 
@@ -124,9 +69,9 @@ function MixBody({
         style={{
           padding: "20px 16px",
           color: T.muted,
+          fontSize: 12.5,
           textAlign: "center",
           flex: fillGridCell ? 1 : undefined,
-          ...descriptionBodyStyle,
         }}
       >
         No data available
@@ -155,6 +100,7 @@ function MixBody({
               gap: 10,
               padding: "9px 0",
               borderBottom: i === rows.length - 1 ? "none" : `1px solid ${T.hair}`,
+              fontSize: 12.5,
             }}
           >
             <div
@@ -164,7 +110,6 @@ function MixBody({
                 alignItems: "center",
                 gap: 8,
                 minWidth: 0,
-                ...descriptionBodyStyle,
               }}
             >
               <span
@@ -190,8 +135,11 @@ function MixBody({
             <PctBar pct={row.pct} color={color} />
             <div
               style={{
-                ...numericPctValueStyle,
+                fontFamily: T.mono,
+                fontSize: 12,
+                color: T.ink,
                 textAlign: "right",
+                fontVariantNumeric: "tabular-nums",
               }}
             >
               {row.pct}%
@@ -232,7 +180,7 @@ function MixFooter({
         flexWrap: "wrap",
       }}
     >
-      <div style={{ fontSize: 12, color: T.muted, ...numericValueStyle }}>{left}</div>
+      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.mono }}>{left}</div>
       {!expanded ? (
         <button
           type="button"
@@ -308,14 +256,29 @@ export function InvestorFocusMixCard({
   if (loading) {
     return (
       <LinkPanel fillGridCell={fillGridCell}>
-        <FocusMixHeader tab="sector" onSelectTab={() => {}} />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 14px 10px",
+            borderBottom: `1px solid ${T.hair}`,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
+            <TabButton active label="Sector mix" onClick={() => {}} />
+            <TabButton active={false} label="Stage focus" onClick={() => {}} />
+            <TabButton active={false} label="Geography" onClick={() => {}} />
+          </div>
+          <div style={{ fontSize: 14, color: T.azure, fontWeight: 500, lineHeight: 1 }}>→</div>
+        </div>
         <div
           style={{
             padding: "20px 16px",
             color: T.muted,
+            fontSize: 12.5,
             textAlign: "center",
             flex: fillGridCell ? 1 : undefined,
-            ...descriptionBodyStyle,
           }}
         >
           Loading portfolio mix…
@@ -326,7 +289,34 @@ export function InvestorFocusMixCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <FocusMixHeader tab={tab} onSelectTab={selectTab} />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 14px 10px",
+          flexShrink: 0,
+          borderBottom: `1px solid ${T.hair}`,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 16, minWidth: 0, overflow: "hidden" }}>
+          <TabButton active={tab === "sector"} label="Sector mix" onClick={() => selectTab("sector")} />
+          <TabButton active={tab === "stage"} label="Stage focus" onClick={() => selectTab("stage")} />
+          <TabButton active={tab === "geography"} label="Geography" onClick={() => selectTab("geography")} />
+        </div>
+        <div
+          style={{
+            fontSize: 14,
+            color: T.azure,
+            fontWeight: 500,
+            lineHeight: 1,
+            padding: "2px 4px",
+            flexShrink: 0,
+          }}
+        >
+          →
+        </div>
+      </div>
 
       <MixBody
         rows={displayedRows}
