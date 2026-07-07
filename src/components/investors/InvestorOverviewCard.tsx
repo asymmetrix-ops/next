@@ -2,8 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { LinkPanel, LinkedH, KV, T, Pill } from "@/components/redesign/primitives";
-import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+import { LinkPanel, LinkedH, KV, T, Pill, Delta } from "@/components/redesign/primitives";
+import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 
 export type InvestorFocusSector = {
   id?: number;
@@ -13,13 +13,16 @@ export type InvestorFocusSector = {
 
 export type InvestorOverviewCardProps = {
   focusSectors?: InvestorFocusSector[];
-  investedDaSectors?: InvestorFocusSector[];
+  type?: string | null;
   yearFounded?: string | number | null;
   website?: string | null;
   websiteLabel?: string | null;
   hq?: string | null;
-  lastInvestment?: string | null;
-  lastInvestmentLoading?: boolean;
+  linkedinUrl?: string | null;
+  ownership?: string | null;
+  status?: string | null;
+  employees?: number | null;
+  employeesYoY?: string | null;
   fillGridCell?: boolean;
 };
 
@@ -36,13 +39,7 @@ function displayText(value: string | number | null | undefined): React.ReactNode
   return normalized === EM ? faintDash() : normalized;
 }
 
-function SectorTags({
-  sectors,
-  tone,
-}: {
-  sectors: InvestorFocusSector[];
-  tone: "coral" | "lavender";
-}) {
+function FocusTags({ sectors }: { sectors: InvestorFocusSector[] }) {
   if (sectors.length === 0) return faintDash();
 
   return (
@@ -50,38 +47,50 @@ function SectorTags({
       {sectors.map((s) =>
         s.href ? (
           <Link key={`${s.name}-${s.href}`} href={s.href} prefetch={false} style={{ textDecoration: "none" }}>
-            <Pill tone={tone}>{s.name}</Pill>
+            <Pill tone="lavender">{s.name}</Pill>
           </Link>
         ) : (
-          <Pill key={s.name} tone={tone}>{s.name}</Pill>
+          <Pill key={s.name} tone="lavender">{s.name}</Pill>
         )
       )}
     </div>
   );
 }
 
+function StatusTag({ label }: { label: string }) {
+  const normalized = label.trim();
+  if (!normalized || normalized === EM) return faintDash();
+
+  const lower = normalized.toLowerCase();
+  const tone =
+    lower.includes("active") || lower.includes("operating")
+      ? "up"
+      : lower.includes("inactive") || lower.includes("closed")
+        ? "down"
+        : "neutral";
+
+  return <Pill tone={tone}>{normalized}</Pill>;
+}
+
 export function InvestorOverviewCard({
   focusSectors = [],
-  investedDaSectors = [],
+  type,
   yearFounded,
   website,
   websiteLabel,
   hq,
-  lastInvestment,
-  lastInvestmentLoading,
+  linkedinUrl,
+  ownership,
+  status,
+  employees,
+  employeesYoY,
   fillGridCell = false,
 }: InvestorOverviewCardProps) {
-  const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
-    {
-      k: "Focus",
-      v: <SectorTags sectors={focusSectors} tone="coral" />,
-    },
-    {
-      k: "Invested D&A sector(s)",
-      v: <SectorTags sectors={investedDaSectors} tone="lavender" />,
-      show: investedDaSectors.length > 0,
-    },
-    { k: "Year founded", v: displayText(yearFounded) },
+  const rows: { k: string; v: React.ReactNode }[] = [
+    { k: "Focus", v: <FocusTags sectors={focusSectors} /> },
+    { k: "Type", v: displayText(type) },
+    { k: "Year Founded", v: displayText(yearFounded) },
+    { k: "HQ", v: displayText(hq) },
     {
       k: "Website",
       v: website?.trim() ? (
@@ -97,24 +106,46 @@ export function InvestorOverviewCard({
         faintDash()
       ),
     },
-    { k: "HQ", v: displayText(hq) },
     {
-      k: "Time since last investment",
-      v: lastInvestmentLoading ? (
-        <span style={{ color: T.faint }}>Loading…</span>
-      ) : lastInvestment && !isEmptyDisplayValue(lastInvestment) ? (
-        lastInvestment
+      k: "LinkedIn",
+      v: linkedinUrl?.trim() ? (
+        <a
+          href={linkedinUrl.trim()}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: T.azure, textDecoration: "none" }}
+        >
+          LinkedIn
+        </a>
       ) : (
         faintDash()
       ),
     },
+    { k: "Ownership", v: displayText(ownership) },
+    {
+      k: "Status",
+      v: <StatusTag label={status?.trim() || "Active"} />,
+    },
+    {
+      k: "Employees",
+      v: (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {employees != null && employees > 0 ? (
+            <>
+              <span style={{ fontFamily: T.mono }}>{employees.toLocaleString("en-US")}</span>
+              {employeesYoY ? <Delta value={employeesYoY} /> : null}
+            </>
+          ) : (
+            faintDash()
+          )}
+        </span>
+      ),
+    },
   ];
-
-  const visible = rows.filter((r) => r.show !== false);
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH>Overview</LinkedH>
+      <LinkedH showArrow>Overview</LinkedH>
       <div
         style={{
           padding: "2px 14px 8px",
@@ -123,8 +154,8 @@ export function InvestorOverviewCard({
             : {}),
         }}
       >
-        {visible.map((row, i) => (
-          <KV key={row.k} k={row.k} v={row.v} last={i === visible.length - 1} />
+        {rows.map((row, i) => (
+          <KV key={row.k} k={row.k} v={row.v} last={i === rows.length - 1} />
         ))}
       </div>
     </LinkPanel>

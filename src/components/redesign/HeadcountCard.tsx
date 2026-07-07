@@ -80,6 +80,8 @@ type Props = {
   count?: unknown;
   /** "As of" label shown under the headline. */
   asOf?: string;
+  /** e.g. "56-month history" */
+  historyLabel?: string;
   /** LinkedIn company URL for the footer icon. */
   linkedinUrl?: string;
   fillGridCell?: boolean;
@@ -91,6 +93,7 @@ export function HeadcountCard({
   yoyLabel,
   count,
   asOf,
+  historyLabel,
   linkedinUrl,
   fillGridCell = false,
 }: Props) {
@@ -212,10 +215,10 @@ export function HeadcountCard({
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH
         right={yoyLabel ? <Delta value={yoyLabel} /> : undefined}
-        showArrow={!yoyLabel}
+        showArrow
         leftSlot={linkedinIcon}
       >
-        LinkedIn Employee Count
+        LinkedIn employee count
       </LinkedH>
 
       <div
@@ -257,7 +260,8 @@ export function HeadcountCard({
               paddingTop: 1,
             }}
           >
-            Total full-time employees{asOf ? ` · ${asOf}` : ""}
+            Total employees{asOf ? ` · ${asOf}` : ""}
+            {historyLabel ? ` · ${historyLabel}` : ""}
           </div>
         </div>
 

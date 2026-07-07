@@ -36,6 +36,7 @@ export interface TeamMember {
   Individual_text: string;
   job_titles_id: Array<{ job_title: string }>;
   current_employer_url: string;
+  individuals_id?: number;
 }
 
 export interface PortfolioCompany {
