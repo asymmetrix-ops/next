@@ -25,6 +25,7 @@ import {
   type InvestorMixRow,
 } from "@/components/investors/InvestorFocusMixCard";
 import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
+import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import { InvestorCorporateEventsProfilePanel } from "@/components/investors/InvestorCorporateEventsProfilePanel";
 
 const INVESTOR_PROFILE_TABS = [
@@ -80,6 +81,7 @@ interface FocusSector {
 interface TeamMember {
   Individual_text: string;
   job_titles_id: Array<{ job_title: string }>;
+  job_titles?: unknown;
   current_employer_url: string;
   individuals_id?: number;
 }
@@ -1246,19 +1248,18 @@ const InvestorDetailPage = () => {
     return resolvedIndividualIds.get(member.Individual_text);
   };
 
+  const mapTeamMember = (member: TeamMember): InvestorTeamMember => {
+    const roleTitle = formatJobTitlesFromId(member.job_titles_id, member.job_titles);
+    return {
+      name: member.Individual_text,
+      roleTitle: roleTitle || null,
+      individualId: resolveTeamMemberIndividualId(member),
+    };
+  };
+
   const teamMembers: InvestorTeamMember[] = [
-    ...Investment_Team_Roles_current.map((member) => ({
-      name: member.Individual_text,
-      role: member.job_titles_id.map((jt) => jt.job_title).join(", "),
-      individualId: resolveTeamMemberIndividualId(member),
-      tenure: null,
-    })),
-    ...Investment_Team_Roles_past.map((member) => ({
-      name: member.Individual_text,
-      role: member.job_titles_id.map((jt) => jt.job_title).join(", "),
-      individualId: resolveTeamMemberIndividualId(member),
-      tenure: null,
-    })),
+    ...Investment_Team_Roles_current.map(mapTeamMember),
+    ...Investment_Team_Roles_past.map(mapTeamMember),
   ];
 
   const mapPortfolioCompany = (
