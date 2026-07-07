@@ -6,7 +6,6 @@ import {
   LinkPanel,
   LinkedH,
   T,
-  MANAGEMENT_ROW_GRID,
   profileTableCellStyle,
   tableColHeaderBarStyle,
   tableColHeaderStyle,
@@ -30,17 +29,53 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-const COL_GAP = 6;
+const PEOPLE_ROW_GRID = "32px minmax(0, 1.35fr) minmax(0, 1fr) auto";
+const COL_GAP = 8;
+
+function initialsFor(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 2);
+}
+
+function Avatar({ name, index }: { name: string; index: number }) {
+  const hue = (index * 53) % 360;
+  return (
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        background: `oklch(86% 0.04 ${hue})`,
+        color: T.body,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: T.sans,
+        fontWeight: 600,
+        fontSize: 10.5,
+        flexShrink: 0,
+      }}
+    >
+      {initialsFor(name) || "?"}
+    </div>
+  );
+}
 
 function ColHeader() {
   return (
     <div
       style={{
         ...tableColHeaderBarStyle,
-        gridTemplateColumns: MANAGEMENT_ROW_GRID,
+        gridTemplateColumns: PEOPLE_ROW_GRID,
         gap: COL_GAP,
+        padding: "8px 16px",
       }}
     >
+      <div />
       <div style={tableColHeaderStyle}>Name</div>
       <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>Role</div>
       <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>LinkedIn</div>
@@ -50,24 +85,27 @@ function ColHeader() {
 
 function PersonRow({
   person,
+  index,
   last,
 }: {
   person: AdvisorPerson;
+  index: number;
   last: boolean;
 }) {
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: MANAGEMENT_ROW_GRID,
-        alignItems: "start",
+        gridTemplateColumns: PEOPLE_ROW_GRID,
+        alignItems: "center",
         gap: COL_GAP,
         padding: "10px 16px",
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
         ...profileTableCellStyle,
       }}
     >
-      <div style={{ minWidth: 0, paddingTop: 1, textAlign: "left" }}>
+      <Avatar name={person.name} index={index} />
+      <div style={{ minWidth: 0, textAlign: "left" }}>
         {person.individualId ? (
           <Link
             href={`/individual/${person.individualId}`}
@@ -81,7 +119,6 @@ function PersonRow({
               overflow: "hidden",
               textOverflow: "ellipsis",
               display: "block",
-              textAlign: "left",
             }}
           >
             {person.name}
@@ -96,7 +133,6 @@ function PersonRow({
               overflow: "hidden",
               textOverflow: "ellipsis",
               display: "block",
-              textAlign: "left",
             }}
           >
             {person.name}
@@ -109,18 +145,12 @@ function PersonRow({
           textAlign: "center",
           lineHeight: 1.55,
           minWidth: 0,
-          paddingTop: 1,
+          fontSize: 12.5,
         }}
       >
         {isEmptyDisplayValue(person.role) ? "-" : normalizeEmptyDisplay(person.role)}
       </div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          paddingTop: 1,
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "center" }}>
         <LinkedInProfileButton href={person.linkedinUrl} />
       </div>
     </div>
@@ -146,7 +176,7 @@ function TabButton({
         padding: "0 0 2px",
         cursor: "pointer",
         fontFamily: T.sans,
-        fontSize: 13,
+        fontSize: 12.5,
         fontWeight: active ? 600 : 500,
         color: active ? T.ink : T.muted,
         borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
@@ -177,7 +207,7 @@ export function AdvisorPeopleCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH>People</LinkedH>
+      <LinkedH showArrow>People</LinkedH>
 
       <div
         style={{
@@ -205,6 +235,7 @@ export function AdvisorPeopleCard({
             <PersonRow
               key={`${tab}-${person.id ?? person.individualId ?? index}`}
               person={person}
+              index={index}
               last={index === activeList.length - 1}
             />
           ))
@@ -213,9 +244,8 @@ export function AdvisorPeopleCard({
             style={{
               padding: "20px 16px",
               color: T.muted,
-              fontSize: "12.5px",
+              fontSize: 12.5,
               textAlign: "center",
-              fontFamily: T.sans,
             }}
           >
             No {tab} people available

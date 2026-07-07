@@ -29,7 +29,7 @@ export function DescriptionCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell || expanded}>
-      <LinkedH>Description</LinkedH>
+      <LinkedH showArrow>Description</LinkedH>
       <div
         style={{
           padding: "10px 16px 12px",

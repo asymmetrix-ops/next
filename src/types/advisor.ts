@@ -9,6 +9,21 @@ export interface AdvisorResponse {
   Advisors_individuals_past?: AdvisorIndividual[];
 }
 
+export interface OwnershipType {
+  ownership?: string;
+}
+
+export interface LifecycleStage {
+  Lifecycle_Stage?: string;
+}
+
+export interface AdvisorRoleRef {
+  role_name?: string;
+  advisor_role?: string;
+  name?: string;
+  counterparty_status?: string;
+}
+
 // Advisor Main Entity
 export interface Advisor {
   id: number;
@@ -26,6 +41,13 @@ export interface Advisor {
   _locations: Location;
   _linkedin_data_of_new_company: LinkedInDataNew;
   _years?: { Year?: number | string };
+  _ownership_type?: OwnershipType;
+  Lifecycle_stage?: LifecycleStage;
+  ticker?: string;
+  Ticker?: string;
+  _advisor_roles?: AdvisorRoleRef[];
+  advisor_roles?: AdvisorRoleRef[];
+  status?: string;
 }
 
 // Business Focus
