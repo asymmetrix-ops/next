@@ -81,6 +81,7 @@ export function buildCompaniesFilterDefs({
         "Rumoured in Market",
         "Transaction anticipated within 18 months",
         "Reported in Market",
+        "Process on hold",
       ],
     },
     year_founded: {
