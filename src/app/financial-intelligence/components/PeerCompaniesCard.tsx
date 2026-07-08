@@ -3,9 +3,8 @@
 import React from "react";
 import { DroppedPeersBar } from "./DroppedPeersBar";
 import type { FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
-import { resolveSectorNames, vintageTooltip, companyColor } from "@/lib/financialIntelligence/mappers";
-import type { FiCompanyRow, FiSectorLookup } from "@/lib/financialIntelligence/types";
-import { SourceColoredValue } from "./SourceTypeValue";
+import { vintageTooltip, companyColor } from "@/lib/financialIntelligence/mappers";
+import type { FiCompanyRow } from "@/lib/financialIntelligence/types";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 
 interface PeerCompaniesCardProps {
@@ -15,8 +14,6 @@ interface PeerCompaniesCardProps {
   excludedPeers: FiCompanyRow[];
   excludedIds: number[];
   manuallyAddedIds?: number[];
-  primarySectors: FiSectorLookup[];
-  secondarySectors: FiSectorLookup[];
   onExclude: (companyId: number) => void;
   onRestorePeer: (companyId: number) => void;
   onRestoreAll: () => void;
@@ -27,18 +24,6 @@ interface PeerCompaniesCardProps {
   onPickAddResult: (company: FiCompanySearchHit) => void;
 }
 
-const thStyle: React.CSSProperties = {
-  fontSize: 10.5,
-  fontWeight: 700,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  color: "var(--fg-4)",
-  textAlign: "left",
-  padding: "8px 12px",
-  borderBottom: "1px solid var(--border-1)",
-  background: "var(--ax-gray-25)",
-};
-
 export function PeerCompaniesCard({
   peers,
   targetFinancialYear,
@@ -46,8 +31,6 @@ export function PeerCompaniesCard({
   excludedPeers,
   excludedIds,
   manuallyAddedIds = [],
-  primarySectors,
-  secondarySectors,
   onExclude,
   onRestorePeer,
   onRestoreAll,
@@ -73,44 +56,42 @@ export function PeerCompaniesCard({
     >
       <div
         style={{
-          padding: "14px 16px",
+          padding: "10px 12px",
           borderBottom: "1px solid var(--border-1)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          gap: 12,
         }}
       >
-        <div>
-          <div style={{ fontWeight: 700, color: "var(--fg-1)" }}>Companies in this benchmark</div>
-          <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
-            {peers.length} {peers.length === 1 ? "company" : "companies"}
-            {excludedIds.length > 0 ? ` · ${excludedIds.length} dropped` : ""}
-          </div>
+        <div style={{ fontWeight: 700, fontSize: 13, color: "var(--fg-1)" }}>
+          Companies in this benchmark
         </div>
-        <div style={{ width: 180, flexShrink: 0 }}>
-          <input
-            type="text"
-            value={addQuery}
-            placeholder="Add a company…"
-            onChange={(e) => onAddQueryChange(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "7px 10px",
-              borderRadius: "var(--r-sm)",
-              border: "1px solid var(--border-1)",
-              fontSize: 12,
-            }}
-          />
+        <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>
+          {peers.length} {peers.length === 1 ? "company" : "companies"}
+          {excludedIds.length > 0 ? ` · ${excludedIds.length} dropped` : ""}
         </div>
+        <input
+          type="text"
+          value={addQuery}
+          placeholder="Add a company…"
+          onChange={(e) => onAddQueryChange(e.target.value)}
+          style={{
+            width: "100%",
+            marginTop: 8,
+            padding: "6px 8px",
+            borderRadius: "var(--r-sm)",
+            border: "1px solid var(--border-1)",
+            fontSize: 12,
+            boxSizing: "border-box",
+          }}
+        />
       </div>
 
       {addResults.length > 0 && (
         <div
           style={{
             borderBottom: "1px solid var(--border-1)",
-            padding: "6px 12px",
+            padding: "4px 8px",
             background: "var(--ax-gray-25)",
+            maxHeight: 160,
+            overflowY: "auto",
           }}
         >
           {addResults.map((item) => (
@@ -120,6 +101,7 @@ export function PeerCompaniesCard({
               onClick={() => {
                 onAddCompany(item.id);
                 onPickAddResult(item);
+                onAddQueryChange("");
               }}
               style={{
                 display: "flex",
@@ -127,7 +109,7 @@ export function PeerCompaniesCard({
                 gap: 8,
                 width: "100%",
                 textAlign: "left",
-                padding: "6px 4px",
+                padding: "5px 4px",
                 border: "none",
                 background: "transparent",
                 cursor: "pointer",
@@ -135,130 +117,111 @@ export function PeerCompaniesCard({
                 color: "var(--fg-1)",
               }}
             >
-              <span style={{ flex: 1, fontWeight: 600 }}>{item.name}</span>
-              <span style={{ color: "var(--ax-cyan-700)", fontWeight: 700 }}>+</span>
+              <CompanyAvatar name={item.name} logo={item.logo} size={18} />
+              <span style={{ flex: 1, fontWeight: 600, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {item.name}
+              </span>
+              <span style={{ color: "var(--ax-cyan-700)", fontWeight: 700, flexShrink: 0 }}>+</span>
             </button>
           ))}
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, maxHeight: 420, overflow: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Company</th>
-              <th style={thStyle}>Region</th>
-              <th style={thStyle}>Model</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>Revenue</th>
-              <th style={{ ...thStyle, width: 36 }} aria-label="Remove" />
-            </tr>
-          </thead>
-          <tbody>
-            {peers.map((peer) => {
-              const sectors = resolveSectorNames(peer.sectors_id, primarySectors, secondarySectors);
-              const vintageMismatch =
-                targetFinancialYear != null &&
-                peer.financial_year > 0 &&
-                (peer.financial_year !== targetFinancialYear ||
-                  (targetFyYeMonth != null &&
-                    peer.fy_ye_month > 0 &&
-                    peer.fy_ye_month !== targetFyYeMonth));
-              const isManuallyAdded =
-                Boolean(peer.is_manually_added) || manuallyAddedSet.has(peer.company_id);
-              const revenueM = peer.revenue_m_usd;
-
-              return (
-                <tr key={peer.company_id} style={{ borderBottom: "1px solid var(--ax-gray-100)" }}>
-                  <td style={{ padding: "9px 12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                      <CompanyAvatar
-                        name={peer.company_name}
-                        logo={peer.company_logo}
-                        size={22}
-                        fallbackColor={companyColor(peer.company_id)}
-                      />
-                      <span
-                        style={{
-                          fontWeight: 600,
-                          fontSize: 12.5,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {peer.company_name}
-                      </span>
-                      {isManuallyAdded && (
-                        <span
-                          style={{
-                            fontSize: 9,
-                            fontWeight: 700,
-                            color: "var(--ax-cyan-700)",
-                            background: "var(--ax-cyan-50)",
-                            padding: "1px 5px",
-                            borderRadius: 999,
-                            flexShrink: 0,
-                          }}
-                        >
-                          ADDED
-                        </span>
-                      )}
-                      {vintageMismatch && targetFinancialYear != null && (
-                        <span
-                          title={vintageTooltip(
-                            peer.financial_year,
-                            targetFinancialYear,
-                            peer.fy_ye_month,
-                            targetFyYeMonth
-                          )}
-                          style={{ cursor: "help", color: "var(--ax-warning)", flexShrink: 0 }}
-                        >
-                          ⚑
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--fg-2)" }}>
-                    {peer.location_region || peer.location_country || "—"}
-                  </td>
-                  <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--fg-2)" }}>
-                    {sectors.secondary !== "—" ? sectors.secondary : sectors.primary}
-                  </td>
-                  <td style={{ padding: "9px 12px", textAlign: "right" }}>
-                    <SourceColoredValue
-                      value={revenueM}
-                      format="currency"
-                      sourceType={peer.revenue_source_type}
-                      fontWeight={700}
-                      fontSize={12.5}
-                    />
-                  </td>
-                  <td style={{ padding: "9px 8px", textAlign: "center" }}>
-                    <button
-                      type="button"
-                      onClick={() => onExclude(peer.company_id)}
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        color: "var(--fg-4)",
-                        cursor: "pointer",
-                        fontSize: 16,
-                        lineHeight: 1,
-                      }}
-                      aria-label={`Remove ${peer.company_name} from benchmark`}
-                    >
-                      ×
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {peers.length === 0 && (
-          <div style={{ padding: 16, color: "var(--fg-3)", fontSize: 13 }}>
+      <div style={{ flex: 1, minHeight: 0, maxHeight: 520, overflow: "auto" }}>
+        {peers.length === 0 ? (
+          <div style={{ padding: 12, color: "var(--fg-3)", fontSize: 12 }}>
             No peers in the current benchmark set.
           </div>
+        ) : (
+          peers.map((peer) => {
+            const vintageMismatch =
+              targetFinancialYear != null &&
+              peer.financial_year > 0 &&
+              (peer.financial_year !== targetFinancialYear ||
+                (targetFyYeMonth != null &&
+                  peer.fy_ye_month > 0 &&
+                  peer.fy_ye_month !== targetFyYeMonth));
+            const isManuallyAdded =
+              Boolean(peer.is_manually_added) || manuallyAddedSet.has(peer.company_id);
+
+            return (
+              <div
+                key={peer.company_id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "7px 10px",
+                  borderBottom: "1px solid var(--ax-gray-100)",
+                }}
+              >
+                <CompanyAvatar
+                  name={peer.company_name}
+                  logo={peer.company_logo}
+                  size={20}
+                  fallbackColor={companyColor(peer.company_id)}
+                />
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontWeight: 600,
+                    fontSize: 12,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {peer.company_name}
+                </span>
+                {isManuallyAdded && (
+                  <span
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 700,
+                      color: "var(--ax-cyan-700)",
+                      background: "var(--ax-cyan-50)",
+                      padding: "1px 5px",
+                      borderRadius: 999,
+                      flexShrink: 0,
+                    }}
+                  >
+                    ADDED
+                  </span>
+                )}
+                {vintageMismatch && targetFinancialYear != null && (
+                  <span
+                    title={vintageTooltip(
+                      peer.financial_year,
+                      targetFinancialYear,
+                      peer.fy_ye_month,
+                      targetFyYeMonth
+                    )}
+                    style={{ cursor: "help", color: "var(--ax-warning)", flexShrink: 0, fontSize: 11 }}
+                  >
+                    ⚑
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onExclude(peer.company_id)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: "var(--fg-4)",
+                    cursor: "pointer",
+                    fontSize: 15,
+                    lineHeight: 1,
+                    flexShrink: 0,
+                    padding: "0 2px",
+                  }}
+                  aria-label={`Remove ${peer.company_name} from benchmark`}
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })
         )}
       </div>
 

@@ -21,6 +21,8 @@ import {
 import { SourceTypeDot } from "./SourceTypeValue";
 import { FiFilterPicker } from "./FiFilterPicker";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
+import { resolveSectorFilterChipLabel } from "@/lib/financialIntelligence/sectorFilters";
+import type { FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
 
 export interface FiIdOption {
   id: number;
@@ -30,7 +32,7 @@ export interface FiIdOption {
 /** @deprecated Use FiIdOption */
 export type FiCountryOption = FiIdOption;
 
-const ID_FILTER_IDS = new Set(["country", "region"]);
+const ID_FILTER_IDS = new Set(["country"]);
 
 const FILTER_BAR_CSS = `
   .fi-control-root { font-family: var(--font-sans); }
@@ -186,6 +188,8 @@ function FilterChip({
   onRemove,
   countryOptions = [],
   regionOptions = [],
+  primarySectors = [],
+  secondarySectors = [],
 }: {
   def: FilterDef;
   value: unknown;
@@ -193,9 +197,18 @@ function FilterChip({
   onRemove: () => void;
   countryOptions?: FiIdOption[];
   regionOptions?: FiIdOption[];
+  primarySectors?: FiSectorLookup[];
+  secondarySectors?: FiSecondarySectorLookup[];
 }) {
   const [hover, setHover] = useState(false);
   const summary = summarize(def, value, countryOptions, regionOptions);
+  const chipLabel =
+    def.id === "primary_sector" || def.id === "secondary_sector"
+      ? resolveSectorFilterChipLabel({ id: def.id, value: value as FilterState["value"] }, {
+          primarySectors,
+          secondarySectors,
+        })
+      : def.label;
 
   return (
     <span
@@ -226,7 +239,7 @@ function FilterChip({
           fontWeight: 500,
         }}
       >
-        {def.label}:
+        {chipLabel}:
       </span>
       <span
         style={{
@@ -433,6 +446,8 @@ export interface FiControlBarProps {
   onRemoveFilter: (id: string) => void;
   primarySectorOptions: string[];
   secondarySectorOptions: string[];
+  primarySectors: FiSectorLookup[];
+  secondarySectors: FiSecondarySectorLookup[];
   regionOptions: FiIdOption[];
   countryOptions: FiIdOption[];
   peerCount: number;
@@ -461,6 +476,8 @@ export function FiControlBar({
   onRemoveFilter,
   primarySectorOptions,
   secondarySectorOptions,
+  primarySectors,
+  secondarySectors,
   regionOptions,
   countryOptions,
   peerCount,
@@ -570,6 +587,8 @@ export function FiControlBar({
 
   const optionsForDef = (def: FilterDef): string[] => {
     switch (def.id) {
+      case "region":
+        return regionOptions.map((option) => option.name);
       case "primary_sector":
         return primarySectorOptions;
       case "secondary_sector":
@@ -581,7 +600,6 @@ export function FiControlBar({
 
   const idOptionsForDef = (def: FilterDef): FiIdOption[] => {
     if (def.id === "country") return countryOptions;
-    if (def.id === "region") return regionOptions;
     return [];
   };
 
@@ -754,6 +772,8 @@ export function FiControlBar({
                       value={filter.value}
                       countryOptions={countryOptions}
                       regionOptions={regionOptions}
+                      primarySectors={primarySectors}
+                      secondarySectors={secondarySectors}
                       onEdit={() => {
                         editingAnchorRef.current = chipRefs.current[filter.id];
                         setEditingFilterId(filter.id);

@@ -1,11 +1,11 @@
 import type { FilterState } from "@/app/financials-tsx/types";
-import type { FiPeersRequest, FiSectorLookup, SavedBenchmark } from "./types";
+import type { FiPeersRequest, FiSecondarySectorLookup, FiSectorLookup, SavedBenchmark } from "./types";
 
 export interface FiFilterLookups {
   regionOptions: Array<{ id: number; name: string }>;
   countryOptions: Array<{ id: number; name: string }>;
   primarySectors: FiSectorLookup[];
-  secondarySectors: FiSectorLookup[];
+  secondarySectors: FiSecondarySectorLookup[];
 }
 
 function rangeValue(filter: FilterState | undefined): { min?: number; max?: number } {
@@ -62,15 +62,36 @@ export function resolveLocationIds(filters: FilterState[]): number[] {
   for (const id of numericEnumValues(filters.find((f) => f.id === "country"))) {
     ids.add(id);
   }
-  for (const id of numericEnumValues(filters.find((f) => f.id === "region"))) {
-    ids.add(id);
-  }
 
   return Array.from(ids);
 }
 
+export function resolveRegions(
+  filters: FilterState[],
+  regionOptions: Array<{ id: number; name: string }> = []
+): string[] {
+  const filter = filters.find((f) => f.id === "region");
+  if (!filter || !Array.isArray(filter.value)) return [];
+
+  const names = new Set<string>();
+  for (const item of filter.value) {
+    if (typeof item === "string" && item.trim()) {
+      names.add(item.trim());
+      continue;
+    }
+    const id = typeof item === "number" ? item : Number(item);
+    if (Number.isFinite(id) && id > 0) {
+      const match = regionOptions.find((r) => r.id === id);
+      if (match?.name) names.add(match.name);
+    }
+  }
+
+  return Array.from(names);
+}
+
 export function hasActiveApiFilters(request: FiPeersRequest): boolean {
   if (request.sectors_id.length > 0) return true;
+  if (request.regions.length > 0) return true;
   if (request.location_ids.length > 0) return true;
   if (Number(request.revenue_min_usd_m) > 0) return true;
   if (Number(request.revenue_max_usd_m) > 0) return true;
@@ -87,7 +108,8 @@ export function buildPeersRequest(args: {
   companyIdsInclude: number[];
   companyIdsExclude: number[];
   primarySectors: FiSectorLookup[];
-  secondarySectors: FiSectorLookup[];
+  secondarySectors: FiSecondarySectorLookup[];
+  regionOptions?: Array<{ id: number; name: string }>;
 }): FiPeersRequest {
   const revenue = rangeValue(args.filters.find((f) => f.id === "revenue"));
   const ev = rangeValue(args.filters.find((f) => f.id === "ev"));
@@ -96,6 +118,7 @@ export function buildPeersRequest(args: {
   return {
     target_company_id: args.targetCompanyId,
     sectors_id: resolveSectorIds(args.filters, args.primarySectors, args.secondarySectors),
+    regions: resolveRegions(args.filters, args.regionOptions ?? []),
     location_ids: resolveLocationIds(args.filters),
     revenue_min_usd_m: toSentinel(revenue.min),
     revenue_max_usd_m: toSentinel(revenue.max),
@@ -114,16 +137,26 @@ export function savedBenchmarkToFilters(
 ): FilterState[] {
   const filters: FilterState[] = [];
 
-  if (lookups && saved.location_ids.length > 0) {
-    const regionIds = saved.location_ids.filter((id) =>
-      lookups.regionOptions.some((r) => r.id === id)
-    );
+  if (lookups) {
+    if (saved.regions?.length > 0) {
+      filters.push({ id: "region", value: [...saved.regions] });
+    } else if (saved.location_ids.length > 0) {
+      const regionIds = saved.location_ids.filter((id) =>
+        lookups.regionOptions.some((r) => r.id === id)
+      );
+      if (regionIds.length > 0) {
+        const regionNames = regionIds
+          .map((id) => lookups.regionOptions.find((r) => r.id === id)?.name)
+          .filter(Boolean) as string[];
+        if (regionNames.length > 0) {
+          filters.push({ id: "region", value: regionNames });
+        }
+      }
+    }
+
     const countryIds = saved.location_ids.filter((id) =>
       lookups.countryOptions.some((c) => c.id === id)
     );
-    if (regionIds.length > 0) {
-      filters.push({ id: "region", value: regionIds });
-    }
     if (countryIds.length > 0) {
       filters.push({ id: "country", value: countryIds });
     }
@@ -194,6 +227,7 @@ export function peersRequestToSavedBenchmark(
   return {
     target_company_id: request.target_company_id,
     sectors_id: request.sectors_id,
+    regions: request.regions,
     location_ids: request.location_ids,
     revenue_min_usd_m: parseNullable(request.revenue_min_usd_m),
     revenue_max_usd_m: parseNullable(request.revenue_max_usd_m),
@@ -212,6 +246,7 @@ export function createDefaultPeersRequest(targetCompanyId: number): FiPeersReque
   return {
     target_company_id: targetCompanyId,
     sectors_id: [],
+    regions: [],
     location_ids: [],
     revenue_min_usd_m: "0",
     revenue_max_usd_m: "0",
@@ -236,6 +271,9 @@ export function peersRequestToSearchParams(request: FiPeersRequest): URLSearchPa
 
   for (const id of request.sectors_id) {
     params.append("sectors_id[]", String(id));
+  }
+  for (const region of request.regions) {
+    params.append("regions[]", region);
   }
   for (const id of request.location_ids) {
     params.append("location_ids[]", String(id));
