@@ -10,6 +10,9 @@ export type Ownership =
 
 export interface FinRow {
   name: string;
+  companyId?: number;
+  logo?: string | null;
+  isManuallyAdded?: boolean;
   primary: string;
   secondary: string;
   country: string;
@@ -119,6 +122,8 @@ export interface Tweaks {
   density: 'compact' | 'comfortable' | 'spacious';
   /** Hide colored initial/logo beside company names in the table. */
   hideCompanyAvatars?: boolean;
+  /** Show remove control per peer row (Financial Intelligence). */
+  showPeerActions?: boolean;
 }
 
 export interface SectorMedian {

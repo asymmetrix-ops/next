@@ -185,7 +185,10 @@ export default function FinancialIntelligencePage() {
           throw new Error(peersResult.error);
         }
 
-        setTarget(targetResult.data);
+        setTarget((prev) => ({
+          ...targetResult.data,
+          company_logo: targetResult.data.company_logo ?? prev?.company_logo ?? null,
+        }));
         setFilters(filtersToUse);
         setPeers(annotateManuallyAddedPeers(peersResult.data.peers, include));
         setTotalPeers(peersResult.data.total_peers);
@@ -294,10 +297,12 @@ export default function FinancialIntelligencePage() {
   const excludePeer = useCallback(
     (companyId: number) => {
       const peer = peers.find((row) => row.company_id === companyId);
+      const wasManuallyAdded =
+        companyIdsInclude.includes(companyId) || Boolean(peer?.is_manually_added);
       if (peer) {
         setExcludedPeers((prev) => [
           ...prev.filter((row) => row.company_id !== companyId),
-          peer,
+          { ...peer, is_manually_added: wasManuallyAdded },
         ]);
       }
       const nextExclude = Array.from(new Set([...companyIdsExclude, companyId]));
@@ -311,19 +316,31 @@ export default function FinancialIntelligencePage() {
 
   const restorePeer = useCallback(
     (companyId: number) => {
-      setExcludedPeers((prev) => prev.filter((row) => row.company_id !== companyId));
+      const excludedPeer = excludedPeers.find((row) => row.company_id === companyId);
       const nextExclude = companyIdsExclude.filter((id) => id !== companyId);
+      const nextInclude = excludedPeer?.is_manually_added
+        ? Array.from(new Set([...companyIdsInclude, companyId]))
+        : companyIdsInclude;
+      setExcludedPeers((prev) => prev.filter((row) => row.company_id !== companyId));
       setCompanyIdsExclude(nextExclude);
-      refreshPeers(filters, companyIdsInclude, nextExclude);
+      setCompanyIdsInclude(nextInclude);
+      refreshPeers(filters, nextInclude, nextExclude);
     },
-    [companyIdsExclude, companyIdsInclude, filters, refreshPeers]
+    [companyIdsExclude, companyIdsInclude, excludedPeers, filters, refreshPeers]
   );
 
   const restoreAllPeers = useCallback(() => {
+    const nextInclude = Array.from(
+      new Set([
+        ...companyIdsInclude,
+        ...excludedPeers.filter((peer) => peer.is_manually_added).map((peer) => peer.company_id),
+      ])
+    );
     setExcludedPeers([]);
     setCompanyIdsExclude([]);
-    refreshPeers(filters, companyIdsInclude, []);
-  }, [companyIdsInclude, filters, refreshPeers]);
+    setCompanyIdsInclude(nextInclude);
+    refreshPeers(filters, nextInclude, []);
+  }, [companyIdsInclude, excludedPeers, filters, refreshPeers]);
 
   const addPeerCompany = useCallback(
     (companyId: number) => {
@@ -588,77 +605,85 @@ export default function FinancialIntelligencePage() {
               <HeadlineMetricCards metrics={headlineMetrics} />
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "260px repeat(3, minmax(0, 1fr))",
-                gap: 12,
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ gridColumn: "1 / 4", minWidth: 0 }}>
-                <BenchmarkTable
-                  rows={benchmarkRows}
-                  targetName={target.company_name}
-                  target={target}
-                  peers={peers}
-                />
-              </div>
-              <div style={{ gridColumn: "4 / 5", minWidth: 0 }}>
-                <PeerCompaniesCard
-                  peers={peers}
-                  targetFinancialYear={target.financial_year || null}
-                  targetFyYeMonth={target.fy_ye_month || null}
-                  excludedPeers={excludedPeers}
-                  excludedIds={companyIdsExclude}
-                  manuallyAddedIds={companyIdsInclude}
-                  primarySectors={primarySectors}
-                  secondarySectors={secondarySectors}
-                  onExclude={excludePeer}
-                  onRestorePeer={restorePeer}
-                  onRestoreAll={restoreAllPeers}
-                  onAddCompany={addPeerCompany}
-                  addQuery={addQuery}
-                  onAddQueryChange={setAddQuery}
-                  addResults={addResults}
-                  onPickAddResult={(item) => addPeerCompany(item.id)}
-                />
-              </div>
+            <div style={{ marginBottom: 16, minWidth: 0 }}>
+              <BenchmarkTable
+                rows={benchmarkRows}
+                targetName={target.company_name}
+                target={target}
+                peers={peers}
+              />
             </div>
 
-            <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, color: "var(--fg-1)" }}>Peer financials table</div>
-              <Link
-                href={`/new_company/${target.company_id}`}
-                style={{ fontSize: 12, color: "var(--ax-cyan-700)", fontWeight: 600 }}
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  marginBottom: 8,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                }}
               >
-                View target profile →
-              </Link>
+                <div>
+                  <div style={{ fontWeight: 700, color: "var(--fg-1)" }}>Peer financials table</div>
+                  <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
+                    {peers.length} {peers.length === 1 ? "company" : "companies"}
+                    {companyIdsExclude.length > 0 ? ` · ${companyIdsExclude.length} dropped` : ""}
+                  </div>
+                </div>
+                <Link
+                  href={`/new_company/${target.company_id}`}
+                  style={{ fontSize: 12, color: "var(--ax-cyan-700)", fontWeight: 600, flexShrink: 0 }}
+                >
+                  View target profile →
+                </Link>
+              </div>
+
+              <FinancialsTable
+                rows={peerFinRows}
+                tweaks={{
+                  sectionName: "Financial Intelligence",
+                  showMedian: true,
+                  colorMultiples: true,
+                  chipStyle: "cyan",
+                  chipIcon: true,
+                  density: "comfortable",
+                  hideCompanyAvatars: false,
+                }}
+                sortId={sortId}
+                sortDir={sortDir}
+                onSort={(id) => {
+                  if (sortId === id) setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+                  else {
+                    setSortId(id);
+                    setSortDir("desc");
+                  }
+                }}
+                visibleColumnIds={visibleColumnIds}
+                sectorMedian={sectorMedian}
+              />
             </div>
 
-            <FinancialsTable
-              rows={peerFinRows}
-              tweaks={{
-                sectionName: "Financial Intelligence",
-                showMedian: true,
-                colorMultiples: true,
-                chipStyle: "cyan",
-                chipIcon: true,
-                density: "comfortable",
-                hideCompanyAvatars: true,
-              }}
-              sortId={sortId}
-              sortDir={sortDir}
-              onSort={(id) => {
-                if (sortId === id) setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
-                else {
-                  setSortId(id);
-                  setSortDir("desc");
-                }
-              }}
-              visibleColumnIds={visibleColumnIds}
-              sectorMedian={sectorMedian}
-            />
+            <div style={{ marginTop: 16, minWidth: 0 }}>
+              <PeerCompaniesCard
+                peers={peers}
+                targetFinancialYear={target.financial_year || null}
+                targetFyYeMonth={target.fy_ye_month || null}
+                excludedPeers={excludedPeers}
+                excludedIds={companyIdsExclude}
+                manuallyAddedIds={companyIdsInclude}
+                primarySectors={primarySectors}
+                secondarySectors={secondarySectors}
+                onExclude={excludePeer}
+                onRestorePeer={restorePeer}
+                onRestoreAll={restoreAllPeers}
+                onAddCompany={addPeerCompany}
+                addQuery={addQuery}
+                onAddQueryChange={setAddQuery}
+                addResults={addResults}
+                onPickAddResult={(item) => addPeerCompany(item.id)}
+              />
+            </div>
             </>
           </FiBenchmarkRefreshing>
         )}

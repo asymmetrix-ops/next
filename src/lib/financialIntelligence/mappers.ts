@@ -94,6 +94,9 @@ export function mapCompanyToFinRow(
 
   return {
     name: row.company_name,
+    companyId: row.company_id,
+    logo: row.company_logo,
+    isManuallyAdded: Boolean(row.is_manually_added),
     primary: sectors.primary,
     secondary: sectors.secondary,
     country: row.location_country || "—",

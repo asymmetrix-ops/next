@@ -16,10 +16,42 @@ function normalizeFinancialYear(value: unknown): number {
   return safeInt(value, 0);
 }
 
+const FY_YE_MONTH_NAMES: Record<string, number> = {
+  january: 1,
+  february: 2,
+  march: 3,
+  april: 4,
+  may: 5,
+  june: 6,
+  july: 7,
+  august: 8,
+  september: 9,
+  october: 10,
+  november: 11,
+  december: 12,
+};
+
+function normalizeFyYeMonth(value: unknown): number {
+  if (typeof value === "string") {
+    const named = FY_YE_MONTH_NAMES[value.trim().toLowerCase()];
+    if (named) return named;
+  }
+  return safeInt(value, 0);
+}
+
 function normalizeLogo(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  let trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  // FI APIs sometimes wrap base64 across lines (\r\n).
+  if (
+    !trimmed.startsWith("http://") &&
+    !trimmed.startsWith("https://") &&
+    !trimmed.startsWith("data:image")
+  ) {
+    trimmed = trimmed.replace(/\s+/g, "");
+  }
+  return trimmed;
 }
 
 export function normalizeCompanyRow(
@@ -39,7 +71,7 @@ export function normalizeCompanyRow(
     location_country: String(raw.location_country ?? ""),
     location_region: String(raw.location_region ?? ""),
     financial_year: normalizeFinancialYear(raw.financial_year),
-    fy_ye_month: safeInt(raw.fy_ye_month, 0),
+    fy_ye_month: normalizeFyYeMonth(raw.fy_ye_month),
     revenue_m_usd: safeFiniteNumber(raw.revenue_m_usd),
     rev_growth_pc: safeFiniteNumber(raw.rev_growth_pc),
     ebitda_margin: safeFiniteNumber(raw.ebitda_margin),
@@ -96,6 +128,10 @@ export function extractTargetRow(
   }
 
   const obj = unwrapApiPayload(payload);
+
+  if (obj.found === false) {
+    return { company_id: requestedCompanyId };
+  }
 
   for (const key of ["target", "company", "result", "item", "record"] as const) {
     const nested = obj[key];
