@@ -20,7 +20,7 @@ import {
 } from "@/components/filters/ListViewFilterEditors";
 import { SourceTypeDot } from "./SourceTypeValue";
 import { FiFilterPicker } from "./FiFilterPicker";
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
+import { CompanyAvatar } from "@/components/CompanyAvatar";
 
 export interface FiIdOption {
   id: number;
@@ -62,9 +62,9 @@ function formatRangeValue(
 ): string {
   if (!v) return "";
   const fmt = (n: number) => {
-    if (unit === "$m" && Math.abs(n) >= 1000)
-      return `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}b`;
-    if (unit === "$m") return `$${n}m`;
+    if (unit === "$m") {
+      return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}m`;
+    }
     if (unit === "%") return `${n}%`;
     if (unit === "x") return `${n}x`;
     return n.toLocaleString();
@@ -236,6 +236,7 @@ function FilterChip({
           color: "var(--ax-cyan-700)",
           fontWeight: 600,
           borderLeft: "1px dashed var(--ax-cyan-200)",
+          whiteSpace: "nowrap",
         }}
       >
         {summary}
@@ -269,62 +270,6 @@ function FilterChip({
           />
         </svg>
       </button>
-    </span>
-  );
-}
-
-function CompanyAvatar({
-  name,
-  logo,
-  size = 22,
-}: {
-  name: string;
-  logo?: string | null;
-  size?: number;
-}) {
-  const [failed, setFailed] = useState(false);
-  const src = resolveCompanyLogoSrc(logo);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [logo]);
-
-  if (src && !failed) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt=""
-        onError={() => setFailed(true)}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: 5,
-          objectFit: "contain",
-          background: "var(--ax-gray-25)",
-          border: "1px solid var(--border-1)",
-          flexShrink: 0,
-        }}
-      />
-    );
-  }
-  return (
-    <span
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 5,
-        background: "var(--ax-cyan-700)",
-        color: "white",
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: size <= 18 ? 10 : 11,
-        fontWeight: 700,
-        flexShrink: 0,
-      }}
-    >
-      {name[0]}
     </span>
   );
 }
@@ -601,16 +546,18 @@ export function FiControlBar({
         />
       );
     }
+    const initialRange =
+      typeof options?.initial === "object" &&
+      options.initial != null &&
+      !Array.isArray(options.initial)
+        ? (options.initial as { min?: number; max?: number })
+        : null;
+
     return (
       <ListViewRangeEditor
+        key={`${def.id}-${initialRange?.min ?? "x"}-${initialRange?.max ?? "x"}`}
         def={def}
-        value={
-          typeof options?.initial === "object" &&
-          options.initial != null &&
-          !Array.isArray(options.initial)
-            ? (options.initial as { min?: number; max?: number })
-            : null
-        }
+        value={initialRange}
         onApply={(value) => {
           if (value) onApply(value);
         }}

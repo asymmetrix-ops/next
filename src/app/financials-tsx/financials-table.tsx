@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { FinRow, ColumnDef, Tweaks, SectorMedian } from './types';
 import { FIN_SECTOR_MEDIAN } from './financials-data';
+import { CompanyAvatar } from '@/components/CompanyAvatar';
 
 // ── Number formatting ────────────────────────────────────────────────────────
 
@@ -154,19 +155,30 @@ export function Cell({ col, row, tweaks, currencySymbol, isMedian, sectorMedian 
   switch (col.kind) {
     case 'company':
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           {!tweaks.hideCompanyAvatars && (
-            <span style={{
-              width: 22, height: 22, borderRadius: 5, flexShrink: 0,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              background: row.color, color: 'white', fontSize: 10, fontWeight: 700,
-            }}>{row.name.split(' ')[0][0]}</span>
+            <CompanyAvatar name={row.name} logo={row.logo} size={22} fallbackColor={row.color} />
           )}
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{
               fontWeight: 600, fontSize: 12.5, color: 'var(--fg-1)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>{row.name}</div>
+            {row.isManuallyAdded && (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: 'var(--ax-cyan-700)',
+                  background: 'var(--ax-cyan-50)',
+                  padding: '1px 5px',
+                  borderRadius: 999,
+                  flexShrink: 0,
+                }}
+              >
+                ADDED
+              </span>
+            )}
           </div>
         </div>
       );
@@ -238,6 +250,8 @@ export interface FinancialsTableProps {
   onSort: (id: string) => void;
   visibleColumnIds: string[];
   sectorMedian?: SectorMedian;
+  onExcludePeer?: (companyId: number) => void;
+  footer?: React.ReactNode;
 }
 
 export function FinancialsTable({
@@ -249,11 +263,19 @@ export function FinancialsTable({
   onSort,
   visibleColumnIds,
   sectorMedian = FIN_SECTOR_MEDIAN,
+  onExcludePeer,
+  footer,
 }: FinancialsTableProps) {
   const allColumns = buildColumns(currencySymbol);
   const columns = useMemo(
     () => allColumns.filter(c => visibleColumnIds.includes(c.id)),
     [allColumns, visibleColumnIds]
+  );
+  const showActions = Boolean(tweaks.showPeerActions && onExcludePeer);
+  const tableMinWidth = useMemo(
+    () =>
+      columns.reduce((sum, col) => sum + (col.minWidth ?? 88), 0) + (showActions ? 40 : 0),
+    [columns, showActions]
   );
 
   const medianRow: FinRow = useMemo(() => ({
@@ -295,8 +317,18 @@ export function FinancialsTable({
   };
 
   return (
-    <div style={{ background: 'white', border: '1px solid var(--border-1)', borderRadius: 'var(--r-lg)', overflow: 'auto', marginTop: 12 }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: 'var(--font-sans)' }}>
+    <div style={{ background: 'white', border: '1px solid var(--border-1)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+      <div style={{ overflow: 'auto' }}>
+        <table
+          style={{
+            width: '100%',
+            minWidth: tableMinWidth,
+            borderCollapse: 'collapse',
+            fontSize: 12,
+            fontFamily: 'var(--font-sans)',
+            tableLayout: 'auto',
+          }}
+        >
         <thead>
           <tr>
             {columns.map(c => (
@@ -307,7 +339,6 @@ export function FinancialsTable({
                   textAlign: c.align,
                   cursor: c.noSort ? 'default' : 'pointer',
                   minWidth: c.minWidth,
-                  width: c.sticky ? c.minWidth : 1,
                   position: c.sticky ? 'sticky' : 'static',
                   left: c.sticky ? 0 : undefined,
                   zIndex: c.sticky ? 2 : 1,
@@ -318,7 +349,9 @@ export function FinancialsTable({
                 </span>
               </th>
             ))}
-            <th aria-hidden style={{ ...thBase, width: 'auto', padding: 0 }} />
+            {showActions && (
+              <th aria-label="Remove" style={{ ...thBase, width: 40, minWidth: 40, textAlign: 'center' }} />
+            )}
           </tr>
         </thead>
         <tbody>
@@ -352,11 +385,21 @@ export function FinancialsTable({
                   )}
                 </td>
               ))}
-              <td aria-hidden style={{ padding: 0, width: 'auto', borderBottom: '2px solid var(--ax-cyan-100)', background: 'var(--ax-cyan-50)' }} />
+              {showActions && (
+                <td
+                  aria-hidden
+                  style={{
+                    padding: 0,
+                    width: 40,
+                    borderBottom: '2px solid var(--ax-cyan-100)',
+                    background: 'var(--ax-cyan-50)',
+                  }}
+                />
+              )}
             </tr>
           )}
           {sortedRows.map((row, idx) => (
-            <tr key={row.name + idx}
+            <tr key={`${row.companyId ?? row.name}-${idx}`}
               style={{ background: 'transparent' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--ax-gray-25)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
@@ -374,11 +417,39 @@ export function FinancialsTable({
                   <Cell col={c} row={row} tweaks={tweaks} currencySymbol={currencySymbol} sectorMedian={sectorMedian} />
                 </td>
               ))}
-              <td aria-hidden style={{ padding: 0, width: 'auto', borderBottom: idx === sortedRows.length - 1 ? 'none' : '1px solid var(--ax-gray-100)' }} />
+              {showActions && (
+                <td
+                  style={{
+                    padding: '7px 8px',
+                    textAlign: 'center',
+                    borderBottom: idx === sortedRows.length - 1 ? 'none' : '1px solid var(--ax-gray-100)',
+                  }}
+                >
+                  {row.companyId != null && (
+                    <button
+                      type="button"
+                      onClick={() => onExcludePeer?.(row.companyId!)}
+                      aria-label={`Remove ${row.name} from benchmark`}
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        color: 'var(--fg-4)',
+                        cursor: 'pointer',
+                        fontSize: 16,
+                        lineHeight: 1,
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
+      {footer}
     </div>
   );
 }

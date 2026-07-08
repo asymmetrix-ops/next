@@ -1,10 +1,12 @@
 "use client";
 
 import React from "react";
+import { DroppedPeersBar } from "./DroppedPeersBar";
 import type { FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
-import { resolveSectorNames, vintageTooltip } from "@/lib/financialIntelligence/mappers";
+import { resolveSectorNames, vintageTooltip, companyColor } from "@/lib/financialIntelligence/mappers";
 import type { FiCompanyRow, FiSectorLookup } from "@/lib/financialIntelligence/types";
 import { SourceColoredValue } from "./SourceTypeValue";
+import { CompanyAvatar } from "@/components/CompanyAvatar";
 
 interface PeerCompaniesCardProps {
   peers: FiCompanyRow[];
@@ -65,7 +67,6 @@ export function PeerCompaniesCard({
         borderRadius: "var(--r-lg)",
         overflow: "hidden",
         width: "100%",
-        height: "100%",
         display: "flex",
         flexDirection: "column",
       }}
@@ -84,7 +85,7 @@ export function PeerCompaniesCard({
           <div style={{ fontWeight: 700, color: "var(--fg-1)" }}>Companies in this benchmark</div>
           <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
             {peers.length} {peers.length === 1 ? "company" : "companies"}
-            {excludedIds.length > 0 ? ` · ${excludedIds.length} excluded` : ""}
+            {excludedIds.length > 0 ? ` · ${excludedIds.length} dropped` : ""}
           </div>
         </div>
         <div style={{ width: 180, flexShrink: 0 }}>
@@ -169,7 +170,13 @@ export function PeerCompaniesCard({
               return (
                 <tr key={peer.company_id} style={{ borderBottom: "1px solid var(--ax-gray-100)" }}>
                   <td style={{ padding: "9px 12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                      <CompanyAvatar
+                        name={peer.company_name}
+                        logo={peer.company_logo}
+                        size={22}
+                        fallbackColor={companyColor(peer.company_id)}
+                      />
                       <span
                         style={{
                           fontWeight: 600,
@@ -255,73 +262,12 @@ export function PeerCompaniesCard({
         )}
       </div>
 
-      {excludedPeers.length > 0 && (
-        <div
-          style={{
-            borderTop: "1px solid var(--border-1)",
-            padding: "12px 16px",
-            background: "var(--ax-gray-25)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: "var(--fg-3)",
-              marginBottom: 8,
-            }}
-          >
-            Excluded ({excludedPeers.length})
-          </div>
-          {excludedPeers.map((peer) => (
-            <div
-              key={peer.company_id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 8,
-                padding: "4px 0",
-                fontSize: 12,
-              }}
-            >
-              <span style={{ color: "var(--fg-2)" }}>{peer.company_name}</span>
-              <button
-                type="button"
-                onClick={() => onRestorePeer(peer.company_id)}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  color: "var(--fg-link)",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontSize: 11,
-                }}
-              >
-                Restore
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={onRestoreAll}
-            style={{
-              marginTop: 8,
-              border: "none",
-              background: "transparent",
-              color: "var(--fg-link)",
-              fontWeight: 600,
-              cursor: "pointer",
-              fontSize: 11,
-              padding: 0,
-            }}
-          >
-            Restore all
-          </button>
-        </div>
-      )}
+      <DroppedPeersBar
+        excludedPeers={excludedPeers}
+        excludedIds={excludedIds}
+        onRestorePeer={onRestorePeer}
+        onRestoreAll={onRestoreAll}
+      />
     </div>
   );
 }

@@ -34,15 +34,15 @@ export function DroppedPeersBar({
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 6,
-        padding: "8px 10px",
+        gap: 8,
+        padding: "10px 16px",
         borderTop: "1px solid var(--border-1)",
         background: "var(--ax-gray-25)",
         flexWrap: "wrap",
       }}
     >
-      <span style={{ fontSize: 10.5, color: "var(--fg-3)", flexShrink: 0 }}>
-        Dropped:
+      <span style={{ fontSize: 11.5, color: "var(--fg-3)", flexShrink: 0 }}>
+        Dropped from benchmark:
       </span>
       {droppedPeers.map((peer) => (
         <button

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { FilterDef } from "@/app/financials-tsx/types";
 
 export interface IdFilterOption {
@@ -296,6 +296,11 @@ export function ListViewRangeEditor({
     v.max !== undefined && !isUnboundedMax(v.max) ? String(v.max) : ""
   );
 
+  useEffect(() => {
+    setLo(v.min !== undefined ? String(v.min) : "");
+    setHi(v.max !== undefined && !isUnboundedMax(v.max) ? String(v.max) : "");
+  }, [v.min, v.max]);
+
   const applyPreset = ([, mn, mx]: [string, number, number]) => {
     setLo(String(mn));
     setHi(isUnboundedMax(mx) ? "" : String(mx));
@@ -306,9 +311,9 @@ export function ListViewRangeEditor({
 
   const fmt = (n: number) => {
     const u = def.unit;
-    if (u === "$m" && Math.abs(n) >= 1000)
-      return `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}b`;
-    if (u === "$m") return `$${n}m`;
+    if (u === "$m") {
+      return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}m`;
+    }
     if (u === "%") return `${n}%`;
     if (u === "x") return `${n}x`;
     return n.toLocaleString();
