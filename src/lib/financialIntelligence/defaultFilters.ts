@@ -1,25 +1,10 @@
 import type { FilterState } from "@/app/financials-tsx/types";
-import { parseSectorsId } from "./mappers";
-import type { FiCompanyRow, FiSectorLookup } from "./types";
-
-export interface FiIdOption {
-  id: number;
-  name: string;
-}
+import { pickDefaultSectorFilter } from "./sectorFilters";
+import type { FiCompanyRow, FiSecondarySectorLookup, FiSectorLookup } from "./types";
 
 export interface FiDefaultFilterLookups {
-  regionOptions: FiIdOption[];
   primarySectors: FiSectorLookup[];
-  secondarySectors: FiSectorLookup[];
-}
-
-function matchIdOptionByName(
-  name: string | null | undefined,
-  options: FiIdOption[]
-): number | null {
-  const needle = (name || "").trim().toLowerCase();
-  if (!needle) return null;
-  return options.find((o) => o.name.trim().toLowerCase() === needle)?.id ?? null;
+  secondarySectors: FiSecondarySectorLookup[];
 }
 
 /** Logarithmic revenue bracket — looser bands for larger companies. */
@@ -33,7 +18,7 @@ export function revenueBracket(rev: number): { min: number; max: number } {
 }
 
 /**
- * Default peer-set filters: Region, Primary sector, Revenue bucket.
+ * Default peer-set filters: Region, Primary sector (preferred), Revenue bucket.
  * Derived from the target row (pure FE).
  */
 export function buildDefaultFilters(
@@ -42,30 +27,14 @@ export function buildDefaultFilters(
 ): FilterState[] {
   const filters: FilterState[] = [];
 
-  const regionId = matchIdOptionByName(target.location_region, args.regionOptions);
-  if (regionId != null) {
-    filters.push({ id: "region", value: [regionId] });
+  const region = (target.location_region || "").trim();
+  if (region) {
+    filters.push({ id: "region", value: [region] });
   }
 
-  const sectorIds = parseSectorsId(target.sectors_id);
-  if (sectorIds.length > 0) {
-    const primaryNames: string[] = [];
-    for (const id of sectorIds) {
-      const primary = args.primarySectors.find((s) => s.id === id);
-      if (primary) primaryNames.push(primary.sector_name);
-    }
-    if (primaryNames.length > 0) {
-      filters.push({ id: "primary_sector", value: [primaryNames[0]] });
-    } else {
-      const secondaryNames: string[] = [];
-      for (const id of sectorIds) {
-        const secondary = args.secondarySectors.find((s) => s.id === id);
-        if (secondary) secondaryNames.push(secondary.sector_name);
-      }
-      if (secondaryNames.length > 0) {
-        filters.push({ id: "secondary_sector", value: [secondaryNames[0]] });
-      }
-    }
+  const sectorFilter = pickDefaultSectorFilter(target.sectors_id, args);
+  if (sectorFilter) {
+    filters.push(sectorFilter);
   }
 
   const rev = target.revenue_m_usd;

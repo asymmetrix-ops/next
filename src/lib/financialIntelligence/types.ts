@@ -38,6 +38,7 @@ export interface FiPeersResponse {
 export interface FiPeersRequest {
   target_company_id: number;
   sectors_id: number[];
+  regions: string[];
   location_ids: number[];
   revenue_min_usd_m: string;
   revenue_max_usd_m: string;
@@ -59,6 +60,7 @@ export interface FiBenchmarkState {
 export interface SavedBenchmark {
   target_company_id: number;
   sectors_id: number[];
+  regions: string[];
   location_ids: number[];
   revenue_min_usd_m: number | null;
   revenue_max_usd_m: number | null;
@@ -129,6 +131,11 @@ export interface FiLocationRow {
 export interface FiSectorLookup {
   id: number;
   sector_name: string;
+}
+
+export interface FiSecondarySectorLookup extends FiSectorLookup {
+  related_primary_id?: number | null;
+  related_primary_name?: string | null;
 }
 
 export type FiFetchResult<T> =

@@ -48,7 +48,7 @@ import {
   isDefaultSourceTypes,
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
-import type { FiCompanyRow } from "@/lib/financialIntelligence/types";
+import type { FiCompanyRow, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
 
 function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow {
   return {
@@ -85,12 +85,8 @@ export default function FinancialIntelligencePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [primarySectors, setPrimarySectors] = useState<Array<{ id: number; sector_name: string }>>(
-    []
-  );
-  const [secondarySectors, setSecondarySectors] = useState<
-    Array<{ id: number; sector_name: string }>
-  >([]);
+  const [primarySectors, setPrimarySectors] = useState<FiSectorLookup[]>([]);
+  const [secondarySectors, setSecondarySectors] = useState<FiSecondarySectorLookup[]>([]);
   const [regionOptions, setRegionOptions] = useState<FiIdOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<FiIdOption[]>([]);
   const [excludedPeers, setExcludedPeers] = useState<FiCompanyRow[]>([]);
@@ -119,9 +115,23 @@ export default function FinancialIntelligencePage() {
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
     locationsService
       .getAllSecondarySectorsWithPrimary()
-      .then(setSecondarySectors)
+      .then((rows) =>
+        setSecondarySectors(
+          rows.map((row) => ({
+            id: row.id,
+            sector_name: row.sector_name,
+            related_primary_id: row.related_primary_sector?.id ?? null,
+            related_primary_name: row.related_primary_sector?.sector_name ?? null,
+          }))
+        )
+      )
       .catch(() =>
-        locationsService.getSecondarySectors([]).then(setSecondarySectors).catch(console.error)
+        locationsService
+          .getSecondarySectors([])
+          .then((rows) =>
+            setSecondarySectors(rows.map((row) => ({ id: row.id, sector_name: row.sector_name })))
+          )
+          .catch(console.error)
       );
     locationsService
       .getContinentalRegionsWithIds()
@@ -178,6 +188,7 @@ export default function FinancialIntelligencePage() {
           companyIdsExclude: exclude,
           primarySectors,
           secondarySectors,
+          regionOptions,
         });
 
         const peersResult = await fetchFiPeers(request);
@@ -540,6 +551,8 @@ export default function FinancialIntelligencePage() {
           onRemoveFilter={removeFilter}
           primarySectorOptions={primarySectors.map((s) => s.sector_name)}
           secondarySectorOptions={secondarySectors.map((s) => s.sector_name)}
+          primarySectors={primarySectors}
+          secondarySectors={secondarySectors}
           regionOptions={regionOptions}
           countryOptions={countryOptions}
           peerCount={totalPeers || peers.length}
@@ -605,12 +618,37 @@ export default function FinancialIntelligencePage() {
               <HeadlineMetricCards metrics={headlineMetrics} />
             </div>
 
-            <div style={{ marginBottom: 16, minWidth: 0 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) 280px",
+                gap: 12,
+                alignItems: "start",
+                marginBottom: 16,
+                minWidth: 0,
+              }}
+            >
               <BenchmarkTable
                 rows={benchmarkRows}
                 targetName={target.company_name}
                 target={target}
                 peers={peers}
+              />
+              <PeerCompaniesCard
+                peers={peers}
+                targetFinancialYear={target.financial_year || null}
+                targetFyYeMonth={target.fy_ye_month || null}
+                excludedPeers={excludedPeers}
+                excludedIds={companyIdsExclude}
+                manuallyAddedIds={companyIdsInclude}
+                onExclude={excludePeer}
+                onRestorePeer={restorePeer}
+                onRestoreAll={restoreAllPeers}
+                onAddCompany={addPeerCompany}
+                addQuery={addQuery}
+                onAddQueryChange={setAddQuery}
+                addResults={addResults}
+                onPickAddResult={() => setAddQuery("")}
               />
             </div>
 
@@ -661,27 +699,6 @@ export default function FinancialIntelligencePage() {
                 }}
                 visibleColumnIds={visibleColumnIds}
                 sectorMedian={sectorMedian}
-              />
-            </div>
-
-            <div style={{ marginTop: 16, minWidth: 0 }}>
-              <PeerCompaniesCard
-                peers={peers}
-                targetFinancialYear={target.financial_year || null}
-                targetFyYeMonth={target.fy_ye_month || null}
-                excludedPeers={excludedPeers}
-                excludedIds={companyIdsExclude}
-                manuallyAddedIds={companyIdsInclude}
-                primarySectors={primarySectors}
-                secondarySectors={secondarySectors}
-                onExclude={excludePeer}
-                onRestorePeer={restorePeer}
-                onRestoreAll={restoreAllPeers}
-                onAddCompany={addPeerCompany}
-                addQuery={addQuery}
-                onAddQueryChange={setAddQuery}
-                addResults={addResults}
-                onPickAddResult={(item) => addPeerCompany(item.id)}
               />
             </div>
             </>
