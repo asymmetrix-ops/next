@@ -132,7 +132,6 @@ const Header = () => {
     "Insights & Analysis",
     "Financials",
     "Financial Metrics",
-    "Financial Intelligence",
     "Deal Radar",
     "My Portfolio",
     "Settings",
