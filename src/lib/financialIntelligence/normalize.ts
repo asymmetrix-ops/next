@@ -1,0 +1,224 @@
+import type { FiCompanyRow, FiPeersResponse } from "./types";
+import { parseSourceType } from "./sourceTypes";
+
+export function safeFiniteNumber(value: unknown): number | null {
+  if (value == null || value === "" || value === "$NaN" || value === "NaN") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function safeInt(value: unknown, fallback = 0): number {
+  const n = safeFiniteNumber(value);
+  return n != null ? Math.trunc(n) : fallback;
+}
+
+function normalizeFinancialYear(value: unknown): number {
+  return safeInt(value, 0);
+}
+
+const FY_YE_MONTH_NAMES: Record<string, number> = {
+  january: 1,
+  february: 2,
+  march: 3,
+  april: 4,
+  may: 5,
+  june: 6,
+  july: 7,
+  august: 8,
+  september: 9,
+  october: 10,
+  november: 11,
+  december: 12,
+};
+
+function normalizeFyYeMonth(value: unknown): number {
+  if (typeof value === "string") {
+    const named = FY_YE_MONTH_NAMES[value.trim().toLowerCase()];
+    if (named) return named;
+  }
+  return safeInt(value, 0);
+}
+
+function normalizeLogo(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  let trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  // FI APIs sometimes wrap base64 across lines (\r\n).
+  if (
+    !trimmed.startsWith("http://") &&
+    !trimmed.startsWith("https://") &&
+    !trimmed.startsWith("data:image")
+  ) {
+    trimmed = trimmed.replace(/\s+/g, "");
+  }
+  return trimmed;
+}
+
+export function normalizeCompanyRow(
+  raw: Record<string, unknown>,
+  fallbackCompanyId?: number
+): FiCompanyRow {
+  const company_id = safeInt(
+    raw.company_id ?? raw.id ?? raw.new_company_id ?? raw.target_company_id,
+    fallbackCompanyId ?? 0
+  );
+
+  return {
+    company_id,
+    company_name: String(raw.company_name ?? raw.name ?? ""),
+    company_logo: normalizeLogo(raw.company_logo ?? raw.linkedin_logo),
+    sectors_id: String(raw.sectors_id ?? ""),
+    location_country: String(raw.location_country ?? ""),
+    location_region: String(raw.location_region ?? ""),
+    financial_year: normalizeFinancialYear(raw.financial_year),
+    fy_ye_month: normalizeFyYeMonth(raw.fy_ye_month),
+    revenue_m_usd: safeFiniteNumber(raw.revenue_m_usd),
+    arr_m_usd: safeFiniteNumber(raw.arr_m_usd),
+    rev_growth_pc: safeFiniteNumber(raw.rev_growth_pc),
+    new_client_growth_pc: safeFiniteNumber(raw.new_client_growth_pc),
+    ebitda_margin: safeFiniteNumber(raw.ebitda_margin),
+    ebitda_m_usd: safeFiniteNumber(raw.ebitda_m_usd),
+    ebit_m_usd: safeFiniteNumber(raw.ebit_m_usd),
+    rule_of_40: safeFiniteNumber(raw.rule_of_40),
+    nrr: safeFiniteNumber(raw.nrr),
+    churn_pc: safeFiniteNumber(raw.churn_pc),
+    upsell_pc: safeFiniteNumber(raw.upsell_pc),
+    cross_sell_pc: safeFiniteNumber(raw.cross_sell_pc),
+    price_increase_pc: safeFiniteNumber(raw.price_increase_pc),
+    rev_expansion_pc: safeFiniteNumber(raw.rev_expansion_pc),
+    ev_usd: safeFiniteNumber(raw.ev_usd),
+    no_of_clients: safeFiniteNumber(raw.no_of_clients),
+    revenue_per_employee: safeFiniteNumber(raw.revenue_per_employee),
+    revenue_multiple: safeFiniteNumber(raw.revenue_multiple),
+    ev_revenue_x: safeFiniteNumber(raw.ev_revenue_x),
+    ev_ebitda_x: safeFiniteNumber(raw.ev_ebitda_x),
+    revenue_source_type: parseSourceType(raw.revenue_source_type),
+    arr_source_type: parseSourceType(raw.arr_source_type),
+    rev_growth_source_type: parseSourceType(raw.rev_growth_source_type),
+    new_client_growth_source_type: parseSourceType(raw.new_client_growth_source_type),
+    ebitda_source_type: parseSourceType(raw.ebitda_source_type),
+    ebit_source_type: parseSourceType(raw.ebit_source_type),
+    ev_source_type: parseSourceType(raw.ev_source_type),
+    no_of_clients_source_type: parseSourceType(raw.no_of_clients_source_type),
+    revenue_per_employee_source_type: parseSourceType(raw.revenue_per_employee_source_type),
+    rule_of_40_source_type: parseSourceType(raw.rule_of_40_source_type),
+    nrr_source_type: parseSourceType(raw.nrr_source_type),
+    churn_source_type: parseSourceType(raw.churn_source_type),
+    upsell_source_type: parseSourceType(raw.upsell_source_type),
+    cross_sell_source_type: parseSourceType(raw.cross_sell_source_type),
+    price_increase_source_type: parseSourceType(raw.price_increase_source_type),
+    rev_expansion_source_type: parseSourceType(raw.rev_expansion_source_type),
+    revenue_multiple_source_type: parseSourceType(raw.revenue_multiple_source_type),
+    url: normalizeLogo(raw.url),
+    is_manually_added: Boolean(
+      raw.is_manually_added ?? raw.manually_added ?? raw.is_added
+    ),
+  };
+}
+
+/** Mark peers the user added via company_ids_include (or API flag). */
+export function annotateManuallyAddedPeers(
+  peers: FiCompanyRow[],
+  manuallyAddedIds: number[]
+): FiCompanyRow[] {
+  const addedIds = new Set(
+    manuallyAddedIds.filter((id) => Number.isFinite(id) && id > 0)
+  );
+  if (addedIds.size === 0) return peers;
+
+  return peers.map((peer) => ({
+    ...peer,
+    is_manually_added: Boolean(peer.is_manually_added) || addedIds.has(peer.company_id),
+  }));
+}
+
+export function unwrapApiPayload(payload: unknown): Record<string, unknown> {
+  if (!payload || typeof payload !== "object") return {};
+  const obj = payload as Record<string, unknown>;
+  if (obj.data && typeof obj.data === "object" && !Array.isArray(obj.data)) {
+    return obj.data as Record<string, unknown>;
+  }
+  return obj;
+}
+
+/** Resolve target row from varying Xano response shapes. */
+export function extractTargetRow(
+  payload: unknown,
+  requestedCompanyId: number
+): Record<string, unknown> {
+  if (Array.isArray(payload) && payload.length > 0) {
+    return payload[0] as Record<string, unknown>;
+  }
+
+  const obj = unwrapApiPayload(payload);
+
+  if (obj.found === false) {
+    return { company_id: requestedCompanyId };
+  }
+
+  for (const key of ["target", "company", "result", "item", "record"] as const) {
+    const nested = obj[key];
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      return nested as Record<string, unknown>;
+    }
+  }
+
+  // Some target endpoints return the same envelope as peers
+  if (Array.isArray(obj.peers) && obj.peers.length > 0) {
+    const peers = obj.peers as Record<string, unknown>[];
+    const match = peers.find(
+      (peer) =>
+        safeInt(peer.company_id ?? peer.id ?? peer.new_company_id, 0) === requestedCompanyId
+    );
+    return match ?? peers[0];
+  }
+
+  if (
+    obj.company_id != null ||
+    obj.id != null ||
+    obj.company_name ||
+    obj.name ||
+    obj.revenue_m_usd != null
+  ) {
+    return obj;
+  }
+
+  return { company_id: requestedCompanyId };
+}
+
+export function normalizePeersResponse(payload: unknown): FiPeersResponse {
+  if (Array.isArray(payload)) {
+    const peers = payload.map((row) =>
+      normalizeCompanyRow(row as Record<string, unknown>)
+    );
+    return {
+      peers,
+      total_peers: peers.length,
+      is_default_mode: true,
+      target_logo: null,
+    };
+  }
+
+  const obj = unwrapApiPayload(payload);
+  const peerRows = Array.isArray(obj.peers)
+    ? obj.peers
+    : Array.isArray(obj.items)
+      ? obj.items
+      : [];
+
+  const peers = peerRows.map((row) =>
+    normalizeCompanyRow(row as Record<string, unknown>)
+  );
+
+  return {
+    peers,
+    total_peers: Number(obj.total_peers ?? peers.length),
+    is_default_mode: Boolean(obj.is_default_mode ?? false),
+    target_logo: normalizeLogo(obj.target_logo),
+  };
+}
+
+export async function readApiError(response: Response): Promise<string> {
+  const text = await response.text().catch(() => "");
+  return text ? `${response.status} ${response.statusText} — ${text}` : `${response.status} ${response.statusText}`;
+}
