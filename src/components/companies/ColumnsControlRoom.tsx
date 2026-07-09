@@ -306,6 +306,7 @@ export interface ColumnsControlRoomProps {
   title?: string;
   subtitle?: string;
   defaultVisibleColumnKeys?: readonly string[];
+  reorderHint?: string;
 }
 
 export function ColumnsControlRoom({
@@ -317,6 +318,7 @@ export function ColumnsControlRoom({
   categories = COMPANIES_COLUMN_CATEGORIES,
   title = "Columns",
   defaultVisibleColumnKeys = PROD_DEFAULT_COMPANY_COLUMN_KEYS,
+  reorderHint = "Drag rows to reorder. Logo and Name stay fixed as the first two columns. Filter-pinned columns are locked automatically.",
 }: ColumnsControlRoomProps) {
   const buildState = (mode?: "default") => {
     const out: Record<string, boolean> = {};
@@ -617,10 +619,7 @@ export function ColumnsControlRoom({
         ) : (
           /* ── Visible & order tab ── */
           <div>
-            <p style={panelStyles.reorderHint}>
-              Drag rows to reorder. Logo and Name stay fixed as the first two columns.
-              Filter-pinned columns are locked automatically.
-            </p>
+            <p style={panelStyles.reorderHint}>{reorderHint}</p>
 
             {/* Frozen rows */}
             {(lockedMeta.length > 0 || filterPinnedMeta.length > 0) && (

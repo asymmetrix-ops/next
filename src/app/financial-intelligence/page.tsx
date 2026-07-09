@@ -7,10 +7,14 @@ import Footer from "@/components/Footer";
 import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import type { FilterState } from "@/app/financials-tsx/types";
 import {
-  buildDefaultPeerColumnVisibility,
-  PeerTableColumnControl,
-  visiblePeerColumnIds,
-} from "./components/PeerTableColumnControl";
+  DEFAULT_FI_PEER_COLUMN_IDS,
+  columnIdsToVisibility,
+  FI_PEER_COLUMN_CATEGORIES,
+  FI_PEER_COLUMN_TOTAL,
+  resolvePeerColumnIdsFromModal,
+} from "@/lib/financialIntelligence/fiPeerColumnCategories";
+import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
+import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
 import { FinancialsTable } from "@/app/financials-tsx/financials-table";
 import "../financials-tsx/colors_and_type.css";
 import { fetchFiPeers, fetchFiTarget, searchFiCompanies, type FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
@@ -111,7 +115,10 @@ export default function FinancialIntelligencePage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [addQuery, setAddQuery] = useState("");
   const [addResults, setAddResults] = useState<FiCompanySearchHit[]>([]);
-  const [peerColumnVisibility, setPeerColumnVisibility] = useState(buildDefaultPeerColumnVisibility);
+  const [peerColumnIds, setPeerColumnIds] = useState<string[]>(() => [
+    ...DEFAULT_FI_PEER_COLUMN_IDS,
+  ]);
+  const [showPeerColumnsModal, setShowPeerColumnsModal] = useState(false);
 
   const filterLookups: FiFilterLookups = useMemo(
     () => ({
@@ -429,9 +436,19 @@ export default function FinancialIntelligencePage() {
 
   const sectorMedian = useMemo(() => buildPeerSectorMedian(peers), [peers]);
 
-  const visibleColumnIds = useMemo(
-    () => visiblePeerColumnIds(peerColumnVisibility),
-    [peerColumnVisibility]
+  const visibleColumnIds = peerColumnIds;
+
+  const peerColumnVisibilityInitial = useMemo(
+    () => columnIdsToVisibility(peerColumnIds),
+    [peerColumnIds]
+  );
+
+  const handleApplyPeerColumns = useCallback(
+    (visible: Record<string, boolean>, order?: string[]) => {
+      setPeerColumnIds(resolvePeerColumnIdsFromModal(visible, order));
+      setShowPeerColumnsModal(false);
+    },
+    []
   );
 
   const effectiveDefaultMode = isDefaultMode && isDefaultSourceTypes(allowedSources);
@@ -686,9 +703,11 @@ export default function FinancialIntelligencePage() {
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                  <PeerTableColumnControl
-                    visibility={peerColumnVisibility}
-                    onChange={setPeerColumnVisibility}
+                  <SearchColumnsButton
+                    active={showPeerColumnsModal}
+                    count={peerColumnIds.length}
+                    total={FI_PEER_COLUMN_TOTAL}
+                    onClick={() => setShowPeerColumnsModal((open) => !open)}
                   />
                   <Link
                     href={`/new_company/${target.company_id}`}
@@ -735,6 +754,30 @@ export default function FinancialIntelligencePage() {
         companyIds={selectedCompanyIdList}
       />
       <Footer />
+      {showPeerColumnsModal && (
+        <>
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 199,
+              cursor: "default",
+            }}
+            onClick={() => setShowPeerColumnsModal(false)}
+            aria-hidden
+          />
+          <ColumnsControlRoom
+            initial={peerColumnVisibilityInitial}
+            initialOrder={peerColumnIds}
+            onCancel={() => setShowPeerColumnsModal(false)}
+            onApply={handleApplyPeerColumns}
+            categories={FI_PEER_COLUMN_CATEGORIES}
+            title="Columns"
+            defaultVisibleColumnKeys={DEFAULT_FI_PEER_COLUMN_IDS}
+            reorderHint="Drag rows to reorder. Company stays fixed as the first column."
+          />
+        </>
+      )}
     </div>
   );
 }
