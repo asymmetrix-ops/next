@@ -29,6 +29,30 @@ export const SOURCE_TYPE_DESCRIPTIONS: Record<FiMetricSourceType, string> = {
   Estimate: "Modelled / estimated figures",
 };
 
+const METRIC_SOURCE_FIELD: Partial<
+  Record<FiMetricKey, keyof FiCompanyRow>
+> = {
+  revenue_m_usd: "revenue_source_type",
+  arr_m_usd: "arr_source_type",
+  ebitda_m_usd: "ebitda_source_type",
+  ebit_m_usd: "ebit_source_type",
+  ev_usd: "ev_source_type",
+  no_of_clients: "no_of_clients_source_type",
+  revenue_per_employee: "revenue_per_employee_source_type",
+  rev_growth_pc: "rev_growth_source_type",
+  new_client_growth_pc: "new_client_growth_source_type",
+  rule_of_40: "rule_of_40_source_type",
+  nrr: "nrr_source_type",
+  churn_pc: "churn_source_type",
+  upsell_pc: "upsell_source_type",
+  cross_sell_pc: "cross_sell_source_type",
+  price_increase_pc: "price_increase_source_type",
+  rev_expansion_pc: "rev_expansion_source_type",
+  ebitda_margin: "ebitda_source_type",
+  revenue_multiple: "revenue_multiple_source_type",
+  ev_ebitda_x: "ev_source_type",
+};
+
 export function parseSourceType(value: unknown): FiMetricSourceType | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
@@ -53,22 +77,19 @@ export function getMetricSourceType(
   row: FiCompanyRow,
   metricKey: FiMetricKey
 ): FiMetricSourceType | null {
-  switch (metricKey) {
-    case "rev_growth_pc":
-      return row.rev_growth_source_type ?? null;
-    case "rule_of_40":
-      return row.rev_growth_source_type ?? row.ebitda_source_type ?? null;
-    case "ebitda_margin":
-    case "ebit_margin":
-      return row.ebitda_source_type ?? null;
-    case "ev_revenue_x":
-    case "ev_ebitda_x":
-      return row.ev_source_type ?? null;
-    case "revenue_multiple":
-      return row.revenue_source_type ?? null;
-    default:
-      return null;
+  if (metricKey === "rule_of_40") {
+    return (
+      row.rule_of_40_source_type ??
+      row.rev_growth_source_type ??
+      row.ebitda_source_type ??
+      null
+    );
   }
+
+  const field = METRIC_SOURCE_FIELD[metricKey];
+  if (!field) return null;
+  const value = row[field];
+  return typeof value === "string" ? (value as FiMetricSourceType) : null;
 }
 
 function isSingleMetricSourceAllowed(

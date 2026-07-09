@@ -61,12 +61,22 @@ function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow 
     financial_year: 0,
     fy_ye_month: 0,
     revenue_m_usd: null,
+    arr_m_usd: null,
     rev_growth_pc: null,
+    new_client_growth_pc: null,
     ebitda_margin: null,
     ebitda_m_usd: null,
     ebit_m_usd: null,
     rule_of_40: null,
+    nrr: null,
+    churn_pc: null,
+    upsell_pc: null,
+    cross_sell_pc: null,
+    price_increase_pc: null,
+    rev_expansion_pc: null,
     ev_usd: null,
+    no_of_clients: null,
+    revenue_per_employee: null,
     revenue_multiple: null,
     ev_revenue_x: null,
     ev_ebitda_x: null,
@@ -198,7 +208,11 @@ export default function FinancialIntelligencePage() {
 
         setTarget((prev) => ({
           ...targetResult.data,
-          company_logo: targetResult.data.company_logo ?? prev?.company_logo ?? null,
+          company_logo:
+            targetResult.data.company_logo ??
+            peersResult.data.target_logo ??
+            prev?.company_logo ??
+            null,
         }));
         setFilters(filtersToUse);
         setPeers(annotateManuallyAddedPeers(peersResult.data.peers, include));
