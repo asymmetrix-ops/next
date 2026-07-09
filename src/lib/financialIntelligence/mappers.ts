@@ -115,8 +115,18 @@ export function mapCompanyToFinRow(
     ev_ebit: evEbit ?? 0,
     rev_multiple: row.revenue_multiple ?? row.ev_revenue_x ?? 0,
     trend: [],
-    rule_of_40: ruleOf40,
+    rule_of_40: ruleOf40 ?? undefined,
     financial_year: row.financial_year ? String(row.financial_year) : undefined,
+    arr: toMillions(row.arr_m_usd) ?? undefined,
+    churn: row.churn_pc ?? undefined,
+    nrr: row.nrr ?? undefined,
+    new_clients_rev: row.new_client_growth_pc ?? undefined,
+    upsell: row.upsell_pc ?? undefined,
+    cross_sell: row.cross_sell_pc ?? undefined,
+    price_increase: row.price_increase_pc ?? undefined,
+    revenue_expansion: row.rev_expansion_pc ?? undefined,
+    num_clients: row.no_of_clients ?? undefined,
+    rev_per_employee: row.revenue_per_employee ?? undefined,
   };
 }
 

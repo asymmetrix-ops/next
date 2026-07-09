@@ -490,6 +490,16 @@
 
   export function BenchmarkTable({ rows, targetName, target, peers }: BenchmarkTableProps) {
     const [openMetricKey, setOpenMetricKey] = useState<string | null>(null);
+    const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+    const toggleSection = (sectionId: string) => {
+      setCollapsedSections((prev) => {
+        const next = new Set(prev);
+        if (next.has(sectionId)) next.delete(sectionId);
+        else next.add(sectionId);
+        return next;
+      });
+    };
 
     const th: React.CSSProperties = {
       fontSize: 10.5,
@@ -685,10 +695,20 @@
               .filter((row): row is FiBenchmarkMetricRow => row != null);
             if (sectionRows.length === 0) return null;
             const isLastSection = sectionIndex === FI_BENCHMARK_SECTIONS.length - 1;
+            const isCollapsed = collapsedSections.has(section.id);
 
             return (
               <React.Fragment key={section.id}>
                 <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleSection(section.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleSection(section.id);
+                    }
+                  }}
                   style={{
                     padding: "8px 16px",
                     background: "var(--ax-gray-50)",
@@ -698,13 +718,41 @@
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
                     color: "var(--fg-3)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    userSelect: "none",
                   }}
                 >
-                  {section.label}
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      flexShrink: 0,
+                      transform: isCollapsed ? "rotate(0deg)" : "rotate(90deg)",
+                      transition: "transform 120ms",
+                      color: "var(--fg-4)",
+                    }}
+                  >
+                    ›
+                  </span>
+                  <span>{section.label}</span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 500,
+                      letterSpacing: "normal",
+                      textTransform: "none",
+                      color: "var(--fg-4)",
+                    }}
+                  >
+                    {sectionRows.length} metrics
+                  </span>
                 </div>
-                {sectionRows.map((row, index) =>
-                  renderMetricRow(row, index, sectionRows.length, isLastSection)
-                )}
+                {!isCollapsed &&
+                  sectionRows.map((row, index) =>
+                    renderMetricRow(row, index, sectionRows.length, isLastSection)
+                  )}
               </React.Fragment>
             );
           })}
