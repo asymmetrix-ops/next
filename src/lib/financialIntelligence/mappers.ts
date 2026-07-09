@@ -182,6 +182,7 @@ export function buildBenchmarkMetricRows(
       rankTotal: rankResult?.total ?? null,
       deltaVsMedian,
       higherIsBetter: metric.higherIsBetter,
+      directionHint: metric.directionHint,
       format: metric.format,
       targetSourceType: getMetricSourceType(target, metric.key),
     };

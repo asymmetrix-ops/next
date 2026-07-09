@@ -2,13 +2,53 @@ import type { FiCompanyRow, FiMetricDef, FiMetricKey, FiMetricSourceType } from 
 import { isMetricSourceAllowed } from "./sourceTypes";
 
 export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
+  { key: "revenue_m_usd", label: "Revenue", higherIsBetter: true, format: "currency" },
+  { key: "arr_m_usd", label: "ARR", higherIsBetter: true, format: "currency" },
+  { key: "ebitda_m_usd", label: "EBITDA", higherIsBetter: true, format: "currency" },
+  { key: "ebit_m_usd", label: "EBIT", higherIsBetter: true, format: "currency" },
+  { key: "ev_usd", label: "EV", higherIsBetter: true, format: "currency" },
+  { key: "no_of_clients", label: "Number of clients", higherIsBetter: true, format: "count" },
+  {
+    key: "revenue_per_employee",
+    label: "Revenue per employee",
+    higherIsBetter: true,
+    format: "currency_k",
+  },
   { key: "rev_growth_pc", label: "Revenue growth", higherIsBetter: true, format: "percent" },
+  {
+    key: "new_client_growth_pc",
+    label: "New client growth",
+    higherIsBetter: true,
+    format: "percent",
+  },
   { key: "rule_of_40", label: "Rule of 40", higherIsBetter: true, format: "percent" },
+  { key: "nrr", label: "NRR", higherIsBetter: true, format: "percent" },
+  {
+    key: "churn_pc",
+    label: "Churn",
+    higherIsBetter: false,
+    directionHint: "lower_better",
+    format: "percent",
+  },
+  { key: "upsell_pc", label: "Upsell", higherIsBetter: true, format: "percent" },
+  { key: "cross_sell_pc", label: "Cross-sell", higherIsBetter: true, format: "percent" },
+  { key: "price_increase_pc", label: "Price increase", higherIsBetter: true, format: "percent" },
+  { key: "rev_expansion_pc", label: "Revenue expansion", higherIsBetter: true, format: "percent" },
   { key: "ebitda_margin", label: "EBITDA margin", higherIsBetter: true, format: "percent" },
-  { key: "ebit_margin", label: "EBIT margin", higherIsBetter: true, format: "percent" },
-  { key: "ev_revenue_x", label: "EV / Revenue", higherIsBetter: false, format: "multiple" },
-  { key: "ev_ebitda_x", label: "EV / EBITDA", higherIsBetter: false, format: "multiple" },
-  { key: "revenue_multiple", label: "Revenue multiple", higherIsBetter: false, format: "multiple" },
+  {
+    key: "revenue_multiple",
+    label: "Revenue multiple",
+    higherIsBetter: false,
+    directionHint: "cheaper",
+    format: "multiple",
+  },
+  {
+    key: "ev_ebitda_x",
+    label: "EV / EBITDA",
+    higherIsBetter: false,
+    directionHint: "cheaper",
+    format: "multiple",
+  },
 ];
 
 export const FI_BENCHMARK_SECTIONS: Array<{
@@ -16,16 +56,45 @@ export const FI_BENCHMARK_SECTIONS: Array<{
   label: string;
   keys: FiMetricKey[];
 }> = [
-  { id: "growth", label: "Growth", keys: ["rev_growth_pc", "rule_of_40"] },
+  {
+    id: "scale",
+    label: "Scale",
+    keys: [
+      "revenue_m_usd",
+      "arr_m_usd",
+      "ebitda_m_usd",
+      "ebit_m_usd",
+      "ev_usd",
+      "no_of_clients",
+      "revenue_per_employee",
+    ],
+  },
+  {
+    id: "growth",
+    label: "Growth",
+    keys: ["rev_growth_pc", "new_client_growth_pc", "rule_of_40"],
+  },
+  {
+    id: "retention",
+    label: "Retention & Expansion",
+    keys: [
+      "nrr",
+      "churn_pc",
+      "upsell_pc",
+      "cross_sell_pc",
+      "price_increase_pc",
+      "rev_expansion_pc",
+    ],
+  },
   {
     id: "profitability",
     label: "Profitability",
-    keys: ["ebitda_margin", "ebit_margin"],
+    keys: ["ebitda_margin"],
   },
   {
     id: "valuation",
     label: "Valuation",
-    keys: ["ev_revenue_x", "ev_ebitda_x", "revenue_multiple"],
+    keys: ["revenue_multiple", "ev_ebitda_x"],
   },
 ];
 
@@ -37,28 +106,48 @@ export function toMillions(value: number | null | undefined): number | null {
 
 export function getMetricValue(row: FiCompanyRow, key: FiMetricKey): number | null {
   switch (key) {
+    case "revenue_m_usd":
+      return toMillions(row.revenue_m_usd);
+    case "arr_m_usd":
+      return toMillions(row.arr_m_usd);
+    case "ebitda_m_usd":
+      return toMillions(row.ebitda_m_usd);
+    case "ebit_m_usd":
+      return toMillions(row.ebit_m_usd);
+    case "ev_usd":
+      return toMillions(row.ev_usd);
+    case "no_of_clients":
+      return row.no_of_clients;
+    case "revenue_per_employee":
+      return row.revenue_per_employee;
     case "rev_growth_pc":
       return row.rev_growth_pc;
+    case "new_client_growth_pc":
+      return row.new_client_growth_pc;
     case "rule_of_40":
       if (row.rule_of_40 != null && Number.isFinite(row.rule_of_40)) return row.rule_of_40;
       if (row.rev_growth_pc != null && row.ebitda_margin != null) {
         return row.rev_growth_pc + row.ebitda_margin;
       }
       return null;
+    case "nrr":
+      return row.nrr;
+    case "churn_pc":
+      return row.churn_pc;
+    case "upsell_pc":
+      return row.upsell_pc;
+    case "cross_sell_pc":
+      return row.cross_sell_pc;
+    case "price_increase_pc":
+      return row.price_increase_pc;
+    case "rev_expansion_pc":
+      return row.rev_expansion_pc;
     case "ebitda_margin":
       return row.ebitda_margin;
-    case "ebit_margin": {
-      const revenue = toMillions(row.revenue_m_usd);
-      const ebit = toMillions(row.ebit_m_usd);
-      if (revenue == null || ebit == null || revenue === 0) return null;
-      return (ebit / revenue) * 100;
-    }
-    case "ev_revenue_x":
-      return row.ev_revenue_x;
-    case "ev_ebitda_x":
-      return row.ev_ebitda_x;
     case "revenue_multiple":
       return row.revenue_multiple;
+    case "ev_ebitda_x":
+      return row.ev_ebitda_x;
     default:
       return null;
   }

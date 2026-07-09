@@ -5,6 +5,8 @@
     FiBenchmarkMetricRow,
     FiCompanyRow,
     FiHeadlineMetric,
+    FiMetricDirectionHint,
+    FiMetricFormat,
     FiMetricKey,
   } from "@/lib/financialIntelligence/types";
   import { FI_BENCHMARK_SECTIONS, getMetricValue } from "@/lib/financialIntelligence/calculations";
@@ -28,7 +30,7 @@
     fontWeight,
   }: {
     value: number | null;
-    format: "percent" | "multiple" | "currency";
+    format: FiMetricFormat;
     sourceType?: FiMetricSourceType | null;
     fontWeight?: number;
   }) {
@@ -42,9 +44,18 @@
     );
   }
 
+  function metricDirectionLabel(
+    higherIsBetter: boolean,
+    directionHint?: FiMetricDirectionHint
+  ): string {
+    if (higherIsBetter) return "↑ better";
+    if (directionHint === "lower_better") return "↓ lower better";
+    return "↓ cheaper";
+  }
+
   function fmtDelta(
     delta: number | null,
-    format: "percent" | "multiple" | "currency",
+    format: FiMetricFormat,
     higherIsBetter: boolean
   ): { text: string; positive: boolean | null } {
     if (delta == null || !Number.isFinite(delta)) return { text: "—", positive: null };
@@ -52,17 +63,18 @@
     let text: string;
     if (format === "percent") text = `${sign}${delta.toFixed(1)}pts vs median`;
     else if (format === "currency") text = `${sign}$${Math.abs(delta).toFixed(0)}m vs median`;
+    else if (format === "currency_k") text = `${sign}$${Math.abs(Math.round(delta / 1000))}k vs median`;
+    else if (format === "count") text = `${sign}${Math.round(delta).toLocaleString()} vs median`;
     else text = `${sign}${delta.toFixed(1)}x vs median`;
     const positive = higherIsBetter ? delta >= 0 : delta <= 0;
     return { text, positive };
   }
 
-  function fmtSigned(
-    delta: number,
-    format: "percent" | "multiple" | "currency"
-  ): string {
+  function fmtSigned(delta: number, format: FiMetricFormat): string {
     const sign = delta > 0 ? "+" : "";
     if (format === "currency") return `${sign}$${Math.abs(delta).toFixed(0)}m`;
+    if (format === "currency_k") return `${sign}$${Math.abs(Math.round(delta / 1000))}k`;
+    if (format === "count") return `${sign}${Math.round(delta).toLocaleString()}`;
     if (format === "percent") return `${sign}${delta.toFixed(1)}%`;
     return `${sign}${delta.toFixed(1)}x`;
   }
@@ -557,7 +569,7 @@
                   {row.label}
                 </span>
                 <span style={{ fontSize: 10, color: "var(--fg-4)", fontWeight: 500, flexShrink: 0 }}>
-                  {row.higherIsBetter ? "↑ better" : "↓ cheaper"}
+                  {metricDirectionLabel(row.higherIsBetter, row.directionHint)}
                 </span>
               </div>
             </div>
@@ -642,7 +654,7 @@
           fontFamily: FONT,
         }}
       >
-        <div style={{ minWidth: 720 }}>
+        <div style={{ minWidth: 760 }}>
           {/* Header — single row, same nested grid as data rows */}
           <div
             style={{
@@ -713,6 +725,19 @@
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <span
               style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                background: "var(--ax-positive)",
+                border: "2px solid white",
+                boxShadow: "0 0 0 1px var(--ax-positive)",
+              }}
+            />
+            Target
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span
+              style={{
                 width: 28,
                 height: 8,
                 borderRadius: 4,
@@ -720,7 +745,11 @@
                   "linear-gradient(90deg, #EAF6F0 0%, #BEE4D2 28%, #79C9A5 56%, #2C9970 82%, #0E7A50 100%)",
               }}
             />
-            Percentile scale
+            0th → 100th percentile
+          </span>
+          <span style={{ flexBasis: "100%", fontSize: 11, color: "var(--fg-4)" }}>
+            Pure ranking read — higher is always better (multiples and churn inverted — lower =
+            better).
           </span>
           <span
             style={{

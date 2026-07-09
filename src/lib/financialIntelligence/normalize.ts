@@ -73,19 +73,42 @@ export function normalizeCompanyRow(
     financial_year: normalizeFinancialYear(raw.financial_year),
     fy_ye_month: normalizeFyYeMonth(raw.fy_ye_month),
     revenue_m_usd: safeFiniteNumber(raw.revenue_m_usd),
+    arr_m_usd: safeFiniteNumber(raw.arr_m_usd),
     rev_growth_pc: safeFiniteNumber(raw.rev_growth_pc),
+    new_client_growth_pc: safeFiniteNumber(raw.new_client_growth_pc),
     ebitda_margin: safeFiniteNumber(raw.ebitda_margin),
     ebitda_m_usd: safeFiniteNumber(raw.ebitda_m_usd),
     ebit_m_usd: safeFiniteNumber(raw.ebit_m_usd),
     rule_of_40: safeFiniteNumber(raw.rule_of_40),
+    nrr: safeFiniteNumber(raw.nrr),
+    churn_pc: safeFiniteNumber(raw.churn_pc),
+    upsell_pc: safeFiniteNumber(raw.upsell_pc),
+    cross_sell_pc: safeFiniteNumber(raw.cross_sell_pc),
+    price_increase_pc: safeFiniteNumber(raw.price_increase_pc),
+    rev_expansion_pc: safeFiniteNumber(raw.rev_expansion_pc),
     ev_usd: safeFiniteNumber(raw.ev_usd),
+    no_of_clients: safeFiniteNumber(raw.no_of_clients),
+    revenue_per_employee: safeFiniteNumber(raw.revenue_per_employee),
     revenue_multiple: safeFiniteNumber(raw.revenue_multiple),
     ev_revenue_x: safeFiniteNumber(raw.ev_revenue_x),
     ev_ebitda_x: safeFiniteNumber(raw.ev_ebitda_x),
     revenue_source_type: parseSourceType(raw.revenue_source_type),
+    arr_source_type: parseSourceType(raw.arr_source_type),
     rev_growth_source_type: parseSourceType(raw.rev_growth_source_type),
+    new_client_growth_source_type: parseSourceType(raw.new_client_growth_source_type),
     ebitda_source_type: parseSourceType(raw.ebitda_source_type),
+    ebit_source_type: parseSourceType(raw.ebit_source_type),
     ev_source_type: parseSourceType(raw.ev_source_type),
+    no_of_clients_source_type: parseSourceType(raw.no_of_clients_source_type),
+    revenue_per_employee_source_type: parseSourceType(raw.revenue_per_employee_source_type),
+    rule_of_40_source_type: parseSourceType(raw.rule_of_40_source_type),
+    nrr_source_type: parseSourceType(raw.nrr_source_type),
+    churn_source_type: parseSourceType(raw.churn_source_type),
+    upsell_source_type: parseSourceType(raw.upsell_source_type),
+    cross_sell_source_type: parseSourceType(raw.cross_sell_source_type),
+    price_increase_source_type: parseSourceType(raw.price_increase_source_type),
+    rev_expansion_source_type: parseSourceType(raw.rev_expansion_source_type),
+    revenue_multiple_source_type: parseSourceType(raw.revenue_multiple_source_type),
     url: normalizeLogo(raw.url),
     is_manually_added: Boolean(
       raw.is_manually_added ?? raw.manually_added ?? raw.is_added
@@ -172,6 +195,7 @@ export function normalizePeersResponse(payload: unknown): FiPeersResponse {
       peers,
       total_peers: peers.length,
       is_default_mode: true,
+      target_logo: null,
     };
   }
 
@@ -190,6 +214,7 @@ export function normalizePeersResponse(payload: unknown): FiPeersResponse {
     peers,
     total_peers: Number(obj.total_peers ?? peers.length),
     is_default_mode: Boolean(obj.is_default_mode ?? false),
+    target_logo: normalizeLogo(obj.target_logo),
   };
 }
 
