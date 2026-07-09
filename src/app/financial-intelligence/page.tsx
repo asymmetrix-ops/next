@@ -7,9 +7,10 @@ import Footer from "@/components/Footer";
 import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import type { FilterState } from "@/app/financials-tsx/types";
 import {
-  FIN_COLUMN_DEFAULT_VISIBILITY,
-  FIN_COLUMN_ORDER,
-} from "@/app/financials-tsx/financials-columns";
+  buildDefaultPeerColumnVisibility,
+  PeerTableColumnControl,
+  visiblePeerColumnIds,
+} from "./components/PeerTableColumnControl";
 import { FinancialsTable } from "@/app/financials-tsx/financials-table";
 import "../financials-tsx/colors_and_type.css";
 import { fetchFiPeers, fetchFiTarget, searchFiCompanies, type FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
@@ -110,6 +111,7 @@ export default function FinancialIntelligencePage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [addQuery, setAddQuery] = useState("");
   const [addResults, setAddResults] = useState<FiCompanySearchHit[]>([]);
+  const [peerColumnVisibility, setPeerColumnVisibility] = useState(buildDefaultPeerColumnVisibility);
 
   const filterLookups: FiFilterLookups = useMemo(
     () => ({
@@ -428,8 +430,8 @@ export default function FinancialIntelligencePage() {
   const sectorMedian = useMemo(() => buildPeerSectorMedian(peers), [peers]);
 
   const visibleColumnIds = useMemo(
-    () => FIN_COLUMN_ORDER.filter((id) => FIN_COLUMN_DEFAULT_VISIBILITY[id]),
-    []
+    () => visiblePeerColumnIds(peerColumnVisibility),
+    [peerColumnVisibility]
   );
 
   const effectiveDefaultMode = isDefaultMode && isDefaultSourceTypes(allowedSources);
@@ -683,12 +685,18 @@ export default function FinancialIntelligencePage() {
                     {companyIdsExclude.length > 0 ? ` · ${companyIdsExclude.length} dropped` : ""}
                   </div>
                 </div>
-                <Link
-                  href={`/new_company/${target.company_id}`}
-                  style={{ fontSize: 12, color: "var(--ax-cyan-700)", fontWeight: 600, flexShrink: 0 }}
-                >
-                  View target profile →
-                </Link>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                  <PeerTableColumnControl
+                    visibility={peerColumnVisibility}
+                    onChange={setPeerColumnVisibility}
+                  />
+                  <Link
+                    href={`/new_company/${target.company_id}`}
+                    style={{ fontSize: 12, color: "var(--ax-cyan-700)", fontWeight: 600, flexShrink: 0 }}
+                  >
+                    View target profile →
+                  </Link>
+                </div>
               </div>
 
               <FinancialsTable

@@ -198,6 +198,17 @@ export function Cell({ col, row, tweaks, currencySymbol, isMedian, sectorMedian 
       return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{v == null ? '—' : (v as number).toLocaleString()}</span>;
 
     case 'currency':
+      if (col.id === 'rev_per_employee') {
+        const n = v as number;
+        if (n == null || !Number.isFinite(n)) return <span style={{ color: 'var(--fg-4)' }}>—</span>;
+        if (Math.abs(n) >= 1_000_000) {
+          return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${(n / 1_000_000).toFixed(1)}m</span>;
+        }
+        if (Math.abs(n) >= 1000) {
+          return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${Math.round(n / 1000)}k</span>;
+        }
+        return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${Math.round(n).toLocaleString()}</span>;
+      }
       return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtCurrency(v as number, col.symbol ?? currencySymbol)}</span>;
 
     case 'percent': {
