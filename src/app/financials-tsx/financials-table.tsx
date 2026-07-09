@@ -278,10 +278,12 @@ export function FinancialsTable({
   footer,
 }: FinancialsTableProps) {
   const allColumns = buildColumns(currencySymbol);
-  const columns = useMemo(
-    () => allColumns.filter(c => visibleColumnIds.includes(c.id)),
-    [allColumns, visibleColumnIds]
-  );
+  const columns = useMemo(() => {
+    const byId = new Map(allColumns.map((column) => [column.id, column]));
+    return visibleColumnIds
+      .map((id) => byId.get(id))
+      .filter((column): column is ColumnDef => Boolean(column));
+  }, [allColumns, visibleColumnIds]);
   const showActions = Boolean(tweaks.showPeerActions && onExcludePeer);
   const tableMinWidth = useMemo(
     () =>
