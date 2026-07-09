@@ -133,7 +133,6 @@ type BuildSectionsInput = {
   revenuePlain: string;
   ebitdaPlain: string;
   evPlain: string;
-  currentEmployeeCount: number;
   currencyCode?: string;
   getSourceText: SourceResolver;
   formatPercent: (value?: number | string | null) => string;
@@ -159,7 +158,6 @@ export function buildFinancialMetricsSections({
   revenuePlain,
   ebitdaPlain,
   evPlain,
-  currentEmployeeCount,
   getSourceText,
   formatPercent,
   formatMultiple,
@@ -296,9 +294,7 @@ export function buildFinancialMetricsSections({
     ),
     row(
       "Number of employees:",
-      typeof fm?.No_Employees === "number"
-        ? fm.No_Employees.toLocaleString()
-        : currentEmployeeCount.toLocaleString(),
+      formatWholeNumber(fm?.No_Employees),
       src(fm?.No_Employees_source_label, fm?.No_Employees_source)
     ),
     row(

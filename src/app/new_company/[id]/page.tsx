@@ -1154,7 +1154,7 @@ const CompanyDetail = () => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
       if (!token) {
-        // Keep silent failure; UI will show existing values
+        setFinancialMetrics(null);
         return;
       }
       const headers: Record<string, string> = {
@@ -1194,7 +1194,10 @@ const CompanyDetail = () => {
         }
       }
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        setFinancialMetrics(null);
+        return;
+      }
       const data = await res.json();
       // API may return a single object or an array
       const payload: CompanyFinancialMetrics | null = Array.isArray(data)
@@ -1202,9 +1205,11 @@ const CompanyDetail = () => {
         : (data as CompanyFinancialMetrics);
       if (payload && typeof payload === "object") {
         setFinancialMetrics(payload);
+      } else {
+        setFinancialMetrics(null);
       }
     } catch {
-      // Non-fatal; keep defaults
+      setFinancialMetrics(null);
     }
   }, []);
 
@@ -1484,6 +1489,7 @@ const CompanyDetail = () => {
     };
 
     if (companyId) {
+      setFinancialMetrics(null);
       fetchCompanyData();
       fetchFinancialMetrics(companyId);
       fetchCompanyInvestors(companyId);
@@ -1960,6 +1966,7 @@ const CompanyDetail = () => {
     .join(", ");
 
   // Process financial data
+  // Use revenue currency if valid; otherwise fall back to EV currency (income statement only)
   const revenueCurrency =
     normalizeCurrency(
       company.revenues?.revenues_currency ||
@@ -1972,35 +1979,12 @@ const CompanyDetail = () => {
         company.ev_data?.currency?.Currency
     ) || undefined;
 
-  // Use revenue currency if valid; otherwise fall back to EV currency
-  const displayCurrency = revenueCurrency || evCurrency;
+  const revenuePlain = formatPlainNumber(financialMetrics?.Revenue_m);
+  const ebitdaPlain = formatPlainNumber(financialMetrics?.EBITDA_m);
+  const evPlain = formatPlainNumber(financialMetrics?.EV);
 
-  // Keep preformatted displays for legacy widgets only (not used in Financial Metrics rendering)
-
-  // Prefer values from `company_financial_metrics` when available for base figures (plain numbers, no currency)
-  const revenueFromMetrics =
-    getNumeric(financialMetrics?.Revenue_m) !== undefined
-      ? formatPlainNumber(financialMetrics?.Revenue_m)
-      : undefined;
-  const ebitdaFromMetrics =
-    getNumeric(financialMetrics?.EBITDA_m) !== undefined
-      ? formatPlainNumber(financialMetrics?.EBITDA_m)
-      : undefined;
-  const evFromMetrics =
-    getNumeric(financialMetrics?.EV) !== undefined
-      ? formatPlainNumber(financialMetrics?.EV)
-      : undefined;
-
-  // Plain fallbacks from company data (no currency, preserve decimals)
-  const revenuePlain =
-    revenueFromMetrics ?? formatPlainNumber(company.revenues?.revenues_m);
-  const ebitdaPlain =
-    ebitdaFromMetrics ?? formatPlainNumber(company.EBITDA?.EBITDA_m);
-  const evPlain = evFromMetrics ?? formatPlainNumber(company.ev_data?.ev_value);
-
-  // Currency suffix to show once in heading
+  // Currency suffix to show once in heading (from company_financial_metrics only)
   const metricsCurrencyCode =
-    // 1) Prefer explicit display strings from Xano metrics payload when present
     normalizeCurrency(
       (financialMetrics as unknown as { Revenue_currency_display?: string | null })
         ?.Revenue_currency_display
@@ -2017,16 +2001,14 @@ const CompanyDetail = () => {
       (financialMetrics as unknown as { EBIT_currency_display?: string | null })
         ?.EBIT_currency_display
     ) ||
-    // 2) Then fall back to structured currency objects
     normalizeCurrency(
       (financialMetrics as unknown as { _currency?: { Currency?: string } })
         ?._currency
     ) ||
-    // 3) Finally, consider legacy numeric/string codes and page-level fallbacks
     normalizeCurrency(financialMetrics?.Rev_Currency) ||
     normalizeCurrency(financialMetrics?.EBITDA_currency) ||
     normalizeCurrency(financialMetrics?.EV_currency) ||
-    displayCurrency;
+    undefined;
   const metricsCurrencySuffix = metricsCurrencyCode
     ? ` (${metricsCurrencyCode})`
     : "";
@@ -4189,9 +4171,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of employees:</span>
                 <span style={styles.value}>
-                  {typeof financialMetrics?.No_Employees === "number"
-                    ? financialMetrics.No_Employees.toLocaleString()
-                    : formatNumber(currentEmployeeCount)}
+                  {formatWholeNumber(financialMetrics?.No_Employees)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4718,9 +4698,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of employees:</span>
                 <span style={styles.value}>
-                  {typeof financialMetrics?.No_Employees === "number"
-                    ? financialMetrics.No_Employees.toLocaleString()
-                    : formatNumber(currentEmployeeCount)}
+                  {formatWholeNumber(financialMetrics?.No_Employees)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
