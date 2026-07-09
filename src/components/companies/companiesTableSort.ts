@@ -57,6 +57,7 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   no_employees: "number",
   rev_per_employee: "number",
   financial_year: "number",
+  has_mcp: "number",
 };
 
 export function getColumnSortKind(columnKey: string): ColumnSortKind | null {
@@ -130,6 +131,12 @@ export function getSortValueForColumn(
   const aliases = SORT_FIELD_ALIASES[columnKey] ?? getFieldAliasesForColumn(columnKey);
   const raw = readMergedField(row, aliases);
   const kind = getColumnSortKind(columnKey);
+
+  if (columnKey === "has_mcp") {
+    if (raw === true) return 1;
+    if (raw === false) return 0;
+    return null;
+  }
 
   if (kind === "number") {
     return parseSortNumber(raw);

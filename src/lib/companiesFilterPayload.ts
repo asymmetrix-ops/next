@@ -223,6 +223,15 @@ export function buildCompaniesSearchPayload(args: {
       });
       continue;
     }
+    if (item.id === "has_mcp" && v === true) {
+      pushClause({
+        id: item.key,
+        type: "has_mcp",
+        value: { value: 1 },
+        op,
+      });
+      continue;
+    }
     if (item.id === "business_focus" && typeof v === "string") {
       if (v === "Pure-play D&A" && hybridBusinessFocusIds.length > 0) {
         pushClause({

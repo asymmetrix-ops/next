@@ -286,6 +286,10 @@ export function buildCompaniesFilterDefs({
         ["25%+", 25, 100],
       ],
     },
+    has_mcp: {
+      label: "MCP implemented",
+      fullLabel: "MCP implemented",
+    },
   };
 
   const extras: FilterDef[] = EXTRA_FILTER_DEFS.map((extra) => ({

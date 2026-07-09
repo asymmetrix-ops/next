@@ -47,7 +47,8 @@ export type FilterType =
   | "rev_per_employee"
   | "years_since_investment"
   | "financial_year_range"
-  | "linkedin_growth_range";
+  | "linkedin_growth_range"
+  | "has_mcp";
 
 export type FilterValue =
   | { min?: number; max?: number }
@@ -225,6 +226,9 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
         if (ids.length === 0) return null;
         return `nc.primary_business_focus_id && ARRAY[${ids.join(",")}]::bigint[]`;
       }
+
+      case "has_mcp":
+        return `nc.has_mcp = true`;
 
       default:
         return null;

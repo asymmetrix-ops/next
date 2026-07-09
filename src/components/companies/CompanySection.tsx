@@ -645,6 +645,18 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
       makeTextColumn("created_at", "Date Added", "Overview", {
         minWidth: 120,
       }),
+      {
+        key: "has_mcp",
+        label: "MCP",
+        group: "Overview",
+        minWidth: 72,
+        render: (company) => {
+          const raw = readCompanyValue(company, [...getFieldAliasesForColumn("has_mcp")]);
+          if (raw === true) return "Yes";
+          if (raw === false) return "No";
+          return "-";
+        },
+      },
     ],
   },
   {
