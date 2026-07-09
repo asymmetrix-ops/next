@@ -80,6 +80,7 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   num_employees: "no_employees",
   rev_per_employee: "rev_per_employee",
   financial_year: "financial_year",
+  has_mcp: "has_mcp",
 };
 
 export const COLUMN_KEY_TO_FILTER_ID: Record<string, string> = Object.fromEntries(
@@ -206,6 +207,10 @@ function mapColumnTypeToFilter(
   };
 
   if (column.columnKey === "follow") {
+    return { type: "Aa", editor: "boolean" };
+  }
+
+  if (column.columnKey === "has_mcp") {
     return { type: "Aa", editor: "boolean" };
   }
 

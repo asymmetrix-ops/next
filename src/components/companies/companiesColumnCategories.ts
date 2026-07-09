@@ -7,7 +7,8 @@ export type CompanyColumnType =
   | "percent"
   | "date"
   | "logo"
-  | "follow";
+  | "follow"
+  | "boolean";
 
 export interface CompanyColumnMeta {
   /** Modal / persistence id */
@@ -214,6 +215,13 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         columnKey: "created_at",
         label: "Date Added",
         type: "date",
+        defaultVisible: false,
+      },
+      {
+        id: "has_mcp",
+        columnKey: "has_mcp",
+        label: "MCP",
+        type: "boolean",
         defaultVisible: false,
       },
     ],

@@ -376,6 +376,7 @@ function summarize(
   if (def.editor === "boolean") {
     if (value !== true) return "";
     if (def.id === "followed") return portfolioOnlyChipLabel;
+    if (def.id === "has_mcp") return "MCP implemented";
     return "On";
   }
   return "";

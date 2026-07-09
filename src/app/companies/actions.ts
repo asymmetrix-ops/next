@@ -61,6 +61,7 @@ export interface CompanyItem {
   no_employees?: number | null;
   rev_per_employee?: number | null;
   financial_year?: number | string | null;
+  has_mcp?: boolean | null;
   last_investment?: {
     display?: string | null;
     date?: string | null;
