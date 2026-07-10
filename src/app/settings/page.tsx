@@ -9,7 +9,11 @@ import { AlertCard } from "@/components/settings/AlertCard";
 import { EditAlertModal } from "@/components/settings/EditAlertModal";
 import Header from "@/components/Header";
 import { toast } from "react-hot-toast";
-import { authService } from "@/lib/auth";
+import {
+  authService,
+  PASSWORD_RESET_PERMISSION_DENIED_MESSAGE,
+  PASSWORD_RESET_SUPPORT_EMAIL,
+} from "@/lib/auth";
 
 type AuthMeResponse = {
   id: number;
@@ -38,6 +42,9 @@ export default function SettingsPage() {
   const [meLoading, setMeLoading] = useState(true);
   const [meError, setMeError] = useState<string | null>(null);
   const [isSendingResetLink, setIsSendingResetLink] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     if (!user?.id) {
@@ -214,11 +221,19 @@ export default function SettingsPage() {
     }
 
     setIsSendingResetLink(true);
+    setResetPasswordError(null);
     try {
       await authService.requestPasswordReset(email);
       toast.success("Password reset link sent. Check your email.");
-    } catch {
-      toast.error("Could not send reset link. Please try again.");
+    } catch (err) {
+      if (
+        err instanceof Error &&
+        err.message === PASSWORD_RESET_PERMISSION_DENIED_MESSAGE
+      ) {
+        setResetPasswordError(PASSWORD_RESET_PERMISSION_DENIED_MESSAGE);
+      } else {
+        toast.error("Could not send reset link. Please try again.");
+      }
     } finally {
       setIsSendingResetLink(false);
     }
@@ -294,6 +309,21 @@ export default function SettingsPage() {
               {isSendingResetLink ? "Sending…" : "Reset password"}
             </button>
           </div>
+          {resetPasswordError && (
+            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="font-medium text-amber-900">{resetPasswordError}</p>
+              <p className="mt-2 text-sm text-gray-600">
+                Please reach out to{" "}
+                <a
+                  href={`mailto:${PASSWORD_RESET_SUPPORT_EMAIL}`}
+                  className="font-medium text-blue-600 hover:text-blue-700"
+                >
+                  {PASSWORD_RESET_SUPPORT_EMAIL}
+                </a>
+                .
+              </p>
+            </div>
+          )}
         </div>
 
         {isLoading && <LoadingSpinner />}

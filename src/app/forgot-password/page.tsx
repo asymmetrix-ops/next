@@ -3,13 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
-import { authService } from "@/lib/auth";
+import {
+  authService,
+  PASSWORD_RESET_PERMISSION_DENIED_MESSAGE,
+  PASSWORD_RESET_SUPPORT_EMAIL,
+} from "@/lib/auth";
 import Image from "next/image";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,12 +24,20 @@ export default function ForgotPasswordPage() {
     }
 
     setIsLoading(true);
+    setPermissionDenied(false);
     try {
       await authService.requestPasswordReset(email);
       setIsSubmitted(true);
       toast.success("Check your email for instructions to reset your password.");
-    } catch {
-      toast.error("Something went wrong. Please try again.");
+    } catch (err) {
+      if (
+        err instanceof Error &&
+        err.message === PASSWORD_RESET_PERMISSION_DENIED_MESSAGE
+      ) {
+        setPermissionDenied(true);
+      } else {
+        toast.error("Something went wrong. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +81,31 @@ export default function ForgotPasswordPage() {
             </p>
           </div>
 
-          {isSubmitted ? (
+          {permissionDenied ? (
+            <div className="space-y-6">
+              <div className="p-4 text-center bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="font-medium text-amber-900">
+                  {PASSWORD_RESET_PERMISSION_DENIED_MESSAGE}
+                </p>
+                <p className="mt-2 text-gray-600">
+                  Please reach out to{" "}
+                  <a
+                    href={`mailto:${PASSWORD_RESET_SUPPORT_EMAIL}`}
+                    className="font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    {PASSWORD_RESET_SUPPORT_EMAIL}
+                  </a>
+                  .
+                </p>
+              </div>
+              <Link
+                href="/login"
+                className="block w-full py-3 text-center font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
+              >
+                ← Back to login
+              </Link>
+            </div>
+          ) : isSubmitted ? (
             <div className="space-y-6">
               <p className="text-center text-gray-600">
                 If an account exists for that email, you&apos;ll receive
