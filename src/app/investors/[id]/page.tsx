@@ -1,35 +1,41 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useParams } from "next/navigation";
 import Image from "next/image";
-import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
-import { useRightClick } from "@/hooks/useRightClick";
-import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
+import {
+  BellIcon,
+  ArrowUpTrayIcon,
+  PlusIcon,
+} from "@heroicons/react/24/outline";
+import { HeadcountCard } from "@/components/redesign/HeadcountCard";
+import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { LinkPanel, T } from "@/components/redesign/primitives";
+import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
-import IndividualCards from "@/components/shared/IndividualCards";
-import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
-import { trackEvent } from "@/lib/tracking";
+import { InvestorOverviewCard } from "@/components/investors/InvestorOverviewCard";
 import {
-  fetchCompanyLinkedIn,
-  mapLinkedInHistoryToTimeSeries,
-} from "@/lib/companyLinkedIn";
-import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
-import { isEmptyDisplayValue } from "@/lib/emptyDisplay";
-import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
-import { buildLogoSrc } from "@/lib/logoSrc";
+  InvestorPortfolioProfilePanel,
+  type InvestorPortfolioCompany,
+} from "@/components/investors/InvestorPortfolioProfilePanel";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+  InvestorFocusMixCard,
+  type InvestorMixRow,
+} from "@/components/investors/InvestorFocusMixCard";
+import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
+import { formatJobTitlesFromId } from "@/utils/individualHelpers";
+
+const INVESTOR_PROFILE_TABS = [
+  "Summary",
+  "Strategy",
+  "Portfolio",
+  "People",
+  "Deals",
+  "Market",
+] as const;
 
 // Types for API integration
 interface InvestorLocation {
@@ -74,9 +80,10 @@ interface FocusSector {
 
 interface TeamMember {
   Individual_text: string;
-  individuals_id?: number;
   job_titles_id: Array<{ job_title: string }>;
+  job_titles?: unknown;
   current_employer_url: string;
+  individuals_id?: number;
 }
 
 interface PortfolioCompany {
@@ -110,29 +117,14 @@ interface PortfolioCompany {
 }
 
 interface PortfolioResponse {
-  items?: PortfolioCompany[];
-  itemsReceived?: number;
-  curPage?: number;
-  nextPage?: number | null;
-  prevPage?: number | null;
-  offset?: number;
-  perPage?: number;
-  pageTotal?: number;
-}
-
-/** New API shape: current/past_portfolio arrays + result (current) or results (past) for pagination */
-interface PortfolioResultMeta {
-  itemsReceived?: number;
-  curPage?: number;
-  nextPage?: number | null;
-  prevPage?: number | null;
-  pageTotal?: number;
-}
-interface PortfolioApiResponse {
-  current_portfolio?: unknown[];
-  past_portfolio?: unknown[];
-  result?: PortfolioResultMeta;
-  results?: PortfolioResultMeta;
+  items: PortfolioCompany[];
+  itemsReceived: number;
+  curPage: number;
+  nextPage: number | null;
+  prevPage: number | null;
+  offset: number;
+  perPage: number;
+  pageTotal: number;
 }
 
 interface CorporateEvent {
@@ -253,102 +245,122 @@ interface InvestorData {
 
 const PDF_SERVICE_BASE_URL = "https://asymmetrix-pdf-service.fly.dev";
 
-// Utility functions
-const formatNumber = (num: number | undefined): string => {
-  if (num === undefined || num === null) return "0";
-  return num.toLocaleString();
-};
-
-
-const formatChartDate = (dateString: string): string => {
-  const [year, month] = dateString.split("-");
-  const date = new Date(parseInt(year), parseInt(month) - 1);
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "short" });
-};
-
-// LinkedIn History Chart Component
-const LinkedInHistoryChart = ({ data }: { data: LinkedInHistory[] }) => {
-  const chartData = data.map((item) => ({
-    date: formatChartDate(item.date),
-    count: item.employees_count,
-    fullDate: item.date,
-  }));
-
-  interface TooltipProps {
-    active?: boolean;
-    payload?: Array<{
-      value: number;
-      dataKey: string;
-    }>;
-    label?: string;
+function formatWebsiteDisplayLabel(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  try {
+    const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const url = new URL(withProto);
+    const host = url.hostname.replace(/^www\./i, "");
+    const path = url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
+    return path ? `${host}${path}` : host;
+  } catch {
+    return trimmed
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .replace(/\/$/, "");
   }
+}
 
-  const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
-    if (active && payload && payload.length) {
-      return (
-        <div
-          style={{
-            backgroundColor: "white",
-            border: "1px solid #ccc",
-            borderRadius: "4px",
-            padding: "10px",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-          }}
-        >
-          <p style={{ margin: 0, fontWeight: "bold" }}>{`${label}`}</p>
-          <p style={{ margin: 0, color: "#0075df" }}>
-            {`Employees: ${formatNumber(payload[0].value)}`}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  return (
-    <div style={{ width: "100%", height: "300px" }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="date"
-            tick={{ fontSize: 12 }}
-            angle={-45}
-            textAnchor="end"
-            height={60}
-          />
-          <YAxis tick={{ fontSize: 12 }} />
-          <Tooltip content={<CustomTooltip />} />
-          <Line
-            type="monotone"
-            dataKey="count"
-            stroke="#0075df"
-            strokeWidth={2}
-            dot={{ fill: "#0075df", strokeWidth: 2, r: 4 }}
-            activeDot={{ r: 6, fill: "#0075df" }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+function computeEmployeeYoYFromMonthly(data: LinkedInHistory[]): string | null {
+  if (!Array.isArray(data) || data.length < 2) return null;
+  const sorted = [...data].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
-};
+  const latest = sorted[sorted.length - 1];
+  const latestCount = latest?.employees_count;
+  if (typeof latestCount !== "number" || latestCount <= 0) return null;
+  const latestT = new Date(latest.date).getTime();
+  const yearMs = 365 * 86_400_000;
+  let best: LinkedInHistory | null = null;
+  let bestDiff = Infinity;
+  for (let i = sorted.length - 2; i >= 0; i--) {
+    const row = sorted[i];
+    const t = new Date(row.date).getTime();
+    const diff = latestT - t;
+    if (diff >= yearMs * 0.85 && diff <= yearMs * 1.15) {
+      const d = Math.abs(diff - yearMs);
+      if (d < bestDiff) {
+        bestDiff = d;
+        best = row;
+      }
+    }
+  }
+  if (!best || typeof best.employees_count !== "number" || best.employees_count <= 0) {
+    return null;
+  }
+  const pct = ((latestCount - best.employees_count) / best.employees_count) * 100;
+  const rounded = Math.round(pct * 10) / 10;
+  const sign = rounded > 0 ? "+" : "";
+  return `${sign}${rounded}% YoY`;
+}
 
-// Company Logo Component
+function resolveChartEmployeeCount(data: LinkedInHistory[]): number {
+  if (!Array.isArray(data) || data.length === 0) return 0;
+  const numericData = data.map((e) => e.employees_count);
+  const hasAnyNonZero = numericData.some((v) => v > 0);
+  const filtered = hasAnyNonZero ? numericData.filter((v) => v > 0) : numericData;
+  const lastNonZero = filtered.length > 0 ? filtered[filtered.length - 1]! : 0;
+  const last = numericData[numericData.length - 1] ?? 0;
+  return last > 0 ? last : lastNonZero;
+}
+
+interface PortfolioMixApiRow {
+  label: string;
+  company_count?: number;
+  percentage?: string | number;
+}
+
+interface PortfolioMixResponse {
+  investor_id?: number;
+  sector_mix?: PortfolioMixApiRow[];
+  stage_focus?: PortfolioMixApiRow[];
+  geography?: PortfolioMixApiRow[];
+}
+
+function mapPortfolioMixRows(rows: PortfolioMixApiRow[] | undefined): InvestorMixRow[] {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((row) => row?.label?.trim())
+    .map((row) => {
+      const pctRaw = row.percentage;
+      const pct =
+        typeof pctRaw === "number"
+          ? pctRaw
+          : Number.parseFloat(String(pctRaw ?? "").replace(/%/g, "").trim());
+      return {
+        label: row.label.trim(),
+        pct: Number.isFinite(pct) ? pct : 0,
+      };
+    });
+}
+
+function extractOptionalString(raw: unknown, keys: string[]): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (Array.isArray(value) && value.length > 0) {
+      const first = value[0];
+      if (typeof first === "string" && first.trim()) return first.trim();
+    }
+  }
+  return null;
+}
+
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
-  const logoSrc = buildLogoSrc(logo);
-  if (logoSrc) {
+  if (logo) {
     return (
       <Image
-        src={logoSrc}
+        src={`data:image/jpeg;base64,${logo}`}
         alt={`${name} logo`}
         width={40}
         height={40}
-        unoptimized
-        className="company-logo"
         style={{
           objectFit: "contain",
           borderRadius: "50%",
-          border: "1px solid #e2e8f0",
+          border: `1px solid ${T.divider}`,
         }}
       />
     );
@@ -357,17 +369,17 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   return (
     <div
       style={{
-        width: "40px",
-        height: "40px",
-        backgroundColor: "#f7fafc",
+        width: 40,
+        height: 40,
+        backgroundColor: T.inset,
         borderRadius: "50%",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: "12px",
-        fontWeight: "bold",
-        color: "#64748b",
-        border: "1px solid #e2e8f0",
+        fontSize: 12,
+        fontWeight: 600,
+        color: T.muted,
+        border: `1px solid ${T.divider}`,
       }}
     >
       {name.charAt(0).toUpperCase()}
@@ -377,13 +389,10 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
 
 const InvestorDetailPage = () => {
   const params = useParams();
-  const router = useRouter();
-  const { createClickableElement } = useRightClick();
   const investorId = params.id as string;
-  const {
-    display: timeSinceLastInvestment,
-    loading: timeSinceLastInvestmentLoading,
-  } = useTimeSinceLastInvestment(investorId);
+  const descriptionRef = useRef<HTMLDivElement>(null);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [activeProfileTab, setActiveProfileTab] = useState<string>("Summary");
 
   const [investorData, setInvestorData] = useState<InvestorData | null>(null);
   const [portfolioCompanies, setPortfolioCompanies] = useState<
@@ -413,14 +422,16 @@ const InvestorDetailPage = () => {
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
-  const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
   const [linkedinUrl, setLinkedinUrl] = useState<string | undefined>(undefined);
-  const [linkedInLogo, setLinkedInLogo] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [pastPortfolioLoading, setPastPortfolioLoading] = useState(false);
+  const [portfolioMix, setPortfolioMix] = useState<PortfolioMixResponse | null>(null);
+  const [portfolioMixLoading, setPortfolioMixLoading] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [exportingPortfolio, setExportingPortfolio] = useState(false);
+  const [resolvedIndividualIds, setResolvedIndividualIds] = useState<
+    Map<string, number>
+  >(new Map());
 
   const [error, setError] = useState<string | null>(null);
 
@@ -436,7 +447,7 @@ const InvestorDetailPage = () => {
       params.append("new_comp_id", investorId);
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_the_investor_new_company?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_the_investor_new_company?${params.toString()}`,
         {
           method: "GET",
           headers: {
@@ -616,7 +627,7 @@ const InvestorDetailPage = () => {
         params.append("per_page", "50");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_current_partfolio?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_investors_current_partfolio?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -635,21 +646,7 @@ const InvestorDetailPage = () => {
 
         const raw = await response.json();
 
-        const api = raw as PortfolioApiResponse;
-        if (Array.isArray(api.current_portfolio)) {
-          const items = api.current_portfolio.map(mapPortfolioItem);
-          const res = api.result ?? api.results;
-          setPortfolioCompanies(items);
-          setPortfolioPagination({
-            itemsReceived: res?.itemsReceived ?? items.length,
-            curPage: res?.curPage ?? page,
-            nextPage: res?.nextPage ?? null,
-            prevPage: res?.prevPage ?? null,
-            offset: 0,
-            perPage: 50,
-            pageTotal: res?.pageTotal ?? 0,
-          });
-        } else if (Array.isArray(raw)) {
+        if (Array.isArray(raw)) {
           const items = raw.map(mapPortfolioItem);
           const first = raw[0] ?? {};
           setPortfolioCompanies(items);
@@ -674,8 +671,8 @@ const InvestorDetailPage = () => {
           setPortfolioPagination({
             itemsReceived: data.itemsReceived || 0,
             curPage: data.curPage || 1,
-            nextPage: data.nextPage ?? null,
-            prevPage: data.prevPage ?? null,
+            nextPage: data.nextPage || null,
+            prevPage: data.prevPage || null,
             offset: data.offset || 0,
             perPage: data.perPage || 50,
             pageTotal: data.pageTotal || 0,
@@ -704,7 +701,7 @@ const InvestorDetailPage = () => {
         params.append("per_page", "50");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_past_portfolio?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_investors_past_portfolio?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -723,21 +720,7 @@ const InvestorDetailPage = () => {
 
         const raw = await response.json();
 
-        const api = raw as PortfolioApiResponse;
-        if (Array.isArray(api.past_portfolio)) {
-          const items = api.past_portfolio.map(mapPortfolioItem);
-          const res = api.result ?? api.results;
-          setPastPortfolioCompanies(items);
-          setPastPortfolioPagination({
-            itemsReceived: res?.itemsReceived ?? items.length,
-            curPage: res?.curPage ?? page,
-            nextPage: res?.nextPage ?? null,
-            prevPage: res?.prevPage ?? null,
-            offset: 0,
-            perPage: 50,
-            pageTotal: res?.pageTotal ?? 0,
-          });
-        } else if (Array.isArray(raw)) {
+        if (Array.isArray(raw)) {
           const items = raw.map(mapPortfolioItem);
           const first = raw[0] ?? {};
           setPastPortfolioCompanies(items);
@@ -762,8 +745,8 @@ const InvestorDetailPage = () => {
           setPastPortfolioPagination({
             itemsReceived: data.itemsReceived || 0,
             curPage: data.curPage || 1,
-            nextPage: data.nextPage ?? null,
-            prevPage: data.prevPage ?? null,
+            nextPage: data.nextPage || null,
+            prevPage: data.prevPage || null,
             offset: data.offset || 0,
             perPage: data.perPage || 50,
             pageTotal: data.pageTotal || 0,
@@ -779,165 +762,6 @@ const InvestorDetailPage = () => {
     [investorId, mapPortfolioItem]
   );
 
-  // Fetch all portfolio items: first request gets itemsReceived, then request with per_page=itemsReceived
-  const fetchAllPortfolioPages = useCallback(
-    async (
-      baseUrl: string,
-      token: string | null
-    ): Promise<PortfolioCompany[]> => {
-      const paramsFirst = new URLSearchParams();
-      paramsFirst.append("new_comp_id", investorId);
-      paramsFirst.append("page", "1");
-      paramsFirst.append("per_page", "50");
-
-      const response = await fetch(`${baseUrl}?${paramsFirst.toString()}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        credentials: "include",
-      });
-
-      if (!response.ok) throw new Error(`Portfolio request failed: ${response.statusText}`);
-
-      const raw = await response.json();
-
-      const api = raw as PortfolioApiResponse;
-      const result = api.result ?? api.results;
-      const total = Number(
-        result?.itemsReceived ??
-        (raw as PortfolioResponse & { itemsreceived?: number }).itemsReceived ??
-        (raw as PortfolioResponse & { itemsreceived?: number }).itemsreceived ??
-        0
-      );
-      const items =
-        Array.isArray(api.current_portfolio)
-          ? api.current_portfolio
-          : Array.isArray(api.past_portfolio)
-            ? api.past_portfolio
-            : Array.isArray(raw)
-              ? raw
-              : (raw as PortfolioResponse)?.items ?? [];
-
-      if (total <= 0) {
-        return items.map(mapPortfolioItem);
-      }
-
-      const paramsExport = new URLSearchParams();
-      paramsExport.append("new_comp_id", investorId);
-      paramsExport.append("page", "1");
-      paramsExport.append("per_page", String(total));
-
-      const responseAll = await fetch(`${baseUrl}?${paramsExport.toString()}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        credentials: "include",
-      });
-
-      if (!responseAll.ok) throw new Error(`Portfolio export request failed: ${responseAll.statusText}`);
-
-      const rawAll = await responseAll.json();
-      const apiAll = rawAll as PortfolioApiResponse;
-      const fullItems =
-        Array.isArray(apiAll.current_portfolio)
-          ? apiAll.current_portfolio
-          : Array.isArray(apiAll.past_portfolio)
-            ? apiAll.past_portfolio
-            : Array.isArray(rawAll)
-              ? rawAll
-              : (rawAll as PortfolioResponse)?.items ?? [];
-      return fullItems.map(mapPortfolioItem);
-    },
-    [investorId, mapPortfolioItem]
-  );
-
-  const escapeCsv = (value: unknown): string => {
-    const str = value === undefined || value === null ? "" : String(value);
-    return `"${str.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
-  };
-
-  const handleExportPortfolio = useCallback(async () => {
-    if (!investorId) return;
-    setExportingPortfolio(true);
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const currentUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_current_partfolio";
-      const pastUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_past_portfolio";
-
-      const [currentItems, pastItems] = await Promise.all([
-        fetchAllPortfolioPages(currentUrl, token),
-        fetchAllPortfolioPages(pastUrl, token),
-      ]);
-
-      const headers = [
-        "Portfolio Type",
-        "Name",
-        "Sectors",
-        "Year Invested",
-        "Year Exited",
-        "Related Individuals",
-        "LinkedIn Members",
-        "Country",
-        "Company Link",
-      ];
-
-      const row = (c: PortfolioCompany, type: "Current" | "Past") => {
-        const link =
-          typeof window !== "undefined"
-            ? `${window.location.origin}/company/${c.id}`
-            : `/company/${c.id}`;
-        const sectors = c.sectors_id.map((s) => s.sector_name).join(", ");
-        const individuals =
-          c.related_to_investor_individuals
-            ?.map((i) => i.name)
-            .filter(Boolean)
-            .join(", ") ?? "";
-        return [
-          type,
-          c.name,
-          sectors,
-          c.year_invested != null && String(c.year_invested).trim() !== "" ? String(c.year_invested) : "",
-          c.year_exited != null && String(c.year_exited).trim() !== "" ? String(c.year_exited) : "",
-          individuals,
-          String(c._linkedin_data_of_new_company?.linkedin_employee ?? 0),
-          c._locations?.Country ?? "",
-          link,
-        ];
-      };
-
-      const rows: string[][] = [
-        headers,
-        ...currentItems.map((c) => row(c, "Current")),
-        ...pastItems.map((c) => row(c, "Past")),
-      ];
-
-      const csvBody = rows.map((r) => r.map(escapeCsv).join(",")).join("\r\n");
-      const BOM = "\uFEFF";
-      const csv = BOM + csvBody;
-
-      const name = investorData?.Investor?.name;
-      const filename = `portfolio_${name ? name.replace(/[<>:"/\\|?*]/g, "") : investorId}_${new Date().toISOString().split("T")[0]}.csv`;
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Error exporting portfolio:", err);
-      alert("Failed to export portfolio. Please try again.");
-    } finally {
-      setExportingPortfolio(false);
-    }
-  }, [investorId, fetchAllPortfolioPages, investorData]);
-
   // Fetch corporate events
   const fetchCorporateEvents = useCallback(async () => {
     setCorporateEventsLoading(true);
@@ -948,7 +772,7 @@ const InvestorDetailPage = () => {
       params.append("new_company_id", investorId);
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/Get_investors_corporate_events?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/Get_investors_corporate_events?${params.toString()}`,
         {
           method: "GET",
           headers: {
@@ -1071,27 +895,79 @@ const InvestorDetailPage = () => {
     }
   }, [investorId]);
 
+  // Fetch LinkedIn history data using the same API pattern as company page
   const fetchLinkedInHistory = useCallback(async () => {
-    setLinkedInHistoryLoading(true);
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const data = await fetchCompanyLinkedIn(investorId, token);
 
-      setLinkedInHistory(
-        mapLinkedInHistoryToTimeSeries(data.employee_history).map((item) => ({
-          date: item.date,
-          employees_count: item.employees_count,
-        }))
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${investorId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          credentials: "include",
+        }
       );
 
-      const profileUrl = normalizeLinkedInProfileUrl(data.profile?.linkedin_url);
-      if (profileUrl) setLinkedinUrl(profileUrl);
+      if (!response.ok) {
+        throw new Error(
+          `LinkedIn History API request failed: ${response.statusText}`
+        );
+      }
 
-      if (data.profile?.logo) setLinkedInLogo(data.profile.logo);
+      const data = await response.json();
+      console.log("LinkedIn history API response", data);
+
+      const employeeData =
+        data.Company?._companies_employees_count_monthly || [];
+      const historyData = employeeData.map(
+        (item: { date?: string; employees_count?: number }) => ({
+          date: item.date || "",
+          employees_count: item.employees_count || 0,
+        })
+      );
+      setLinkedInHistory(historyData);
+
+      // Prefer URL from Company.linkedin_data if present
+      const historyLinkedinUrl: string | undefined =
+        data.Company?.linkedin_data?.LinkedIn_URL ||
+        data.Company?._linkedin_data_of_new_company?.LinkedIn_URL;
+      if (historyLinkedinUrl) setLinkedinUrl(historyLinkedinUrl);
     } catch (err) {
       console.error("Error fetching LinkedIn history:", err);
+    }
+  }, [investorId]);
+
+  const fetchPortfolioMix = useCallback(async () => {
+    setPortfolioMixLoading(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/investor_portfolio_mix/${encodeURIComponent(investorId)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Portfolio mix API request failed: ${response.statusText}`);
+      }
+
+      const data = (await response.json()) as PortfolioMixResponse;
+      setPortfolioMix(data);
+    } catch (err) {
+      console.error("Error fetching investor portfolio mix:", err);
+      setPortfolioMix(null);
     } finally {
-      setLinkedInHistoryLoading(false);
+      setPortfolioMixLoading(false);
     }
   }, [investorId]);
 
@@ -1102,6 +978,7 @@ const InvestorDetailPage = () => {
       fetchPastPortfolioCompanies(1);
       fetchCorporateEvents();
       fetchLinkedInHistory();
+      fetchPortfolioMix();
     }
   }, [
     fetchInvestorData,
@@ -1109,6 +986,7 @@ const InvestorDetailPage = () => {
     fetchPastPortfolioCompanies,
     fetchCorporateEvents,
     fetchLinkedInHistory,
+    fetchPortfolioMix,
     investorId,
   ]);
 
@@ -1129,111 +1007,18 @@ const InvestorDetailPage = () => {
     }`
   )}`;
 
-  // Removed: handleCompanyNameClick - no longer used, navigation goes directly to corporate-event/{event.id}
-
-  const handleAdvisorClick = async (advisorName: string) => {
-    console.log("Advisor clicked:", advisorName);
+  // Resolve individual id by name via API
+  const resolveIndividualIdByName = async (
+    individualName: string
+  ): Promise<number | null> => {
     try {
-      // Search for the advisor using the advisors API
       const token = localStorage.getItem("asymmetrix_auth_token");
-
       const params = new URLSearchParams();
-      params.append("search_query", advisorName);
-      params.append("page", "0");
-      params.append("per_page", "10");
-
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Advisor search results:", data);
-
-        // Find the matching advisor by name
-        const matchingAdvisor = data.Advisors_companies?.items?.find(
-          (advisor: { name: string; id: number }) =>
-            advisor.name === advisorName
-        );
-
-        if (matchingAdvisor && matchingAdvisor.id) {
-          console.log("Found matching advisor with ID:", matchingAdvisor.id);
-
-          // Verify the advisor exists using the get_the_advisor_new_company API
-          const advisorResponse = await fetch(
-            `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_the_advisor_new_company?new_comp_id=${matchingAdvisor.id}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                ...(token && { Authorization: `Bearer ${token}` }),
-              },
-            }
-          );
-
-          if (advisorResponse.ok) {
-            console.log(
-              "Advisor profile confirmed, navigating to:",
-              `/advisor/${matchingAdvisor.id}`
-            );
-            router.push(`/advisor/${matchingAdvisor.id}`);
-          } else {
-            console.error(
-              "Advisor profile not found:",
-              advisorResponse.statusText
-            );
-          }
-        } else {
-          console.log("No matching advisor found with ID - no navigation");
-        }
-      } else {
-        console.error("Failed to search for advisor:", response.statusText);
-      }
-    } catch (error) {
-      console.error("Error handling advisor click:", error);
-    }
-  };
-
-  const handleCorporateEventDescriptionClick = async (
-    eventId?: number,
-    eventDescription?: string
-  ) => {
-    console.log("Corporate event description clicked:", {
-      eventId,
-      eventDescription,
-    });
-
-    // If we have a direct ID, use it immediately
-    if (eventId) {
-      console.log("Using direct event ID:", eventId);
-      router.push(`/corporate-event/${eventId}`);
-      return;
-    }
-
-    // Fallback: search by description if no ID available
-    if (!eventDescription) {
-      console.error("No event ID or description provided");
-      return;
-    }
-
-    try {
-      // Try to find the event ID by searching the main corporate events API
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      const params = new URLSearchParams();
-      params.append("search_query", eventDescription);
-      params.append("Page", "0");
+      params.append("search_query", individualName);
+      params.append("Offset", "1");
       params.append("Per_page", "10");
-
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop/get_all_individuals?${params.toString()}`,
         {
           method: "GET",
           headers: {
@@ -1242,42 +1027,48 @@ const InvestorDetailPage = () => {
           },
         }
       );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Search results:", data);
-
-        // Find the matching event by description
-        const matchingEvent = data.items?.find(
-          (event: { description: string; id: number }) =>
-            event.description === eventDescription
-        );
-
-        if (matchingEvent && matchingEvent.id) {
-          console.log("Found matching event with ID:", matchingEvent.id);
-          router.push(`/corporate-event/${matchingEvent.id}`);
-        } else {
-          console.log("No matching event found with ID");
-          // Fallback: navigate to corporate events page with search
-          router.push(
-            `/corporate-events?search=${encodeURIComponent(eventDescription)}`
-          );
-        }
-      } else {
-        console.error("Failed to search for event:", response.statusText);
-        // Fallback: navigate to corporate events page with search
-        router.push(
-          `/corporate-events?search=${encodeURIComponent(eventDescription)}`
-        );
-      }
-    } catch (error) {
-      console.error("Error searching for event:", error);
-      // Fallback: navigate to corporate events page with search
-      router.push(
-        `/corporate-events?search=${encodeURIComponent(eventDescription)}`
+      if (!response.ok) return null;
+      const data = await response.json();
+      const normalizedName = individualName.trim().toLowerCase();
+      const match = data.Individuals_list?.items?.find(
+        (ind: { advisor_individuals: string; id: number }) =>
+          ind.advisor_individuals?.trim().toLowerCase() === normalizedName
       );
+      return match?.id ?? null;
+    } catch (error) {
+      console.error("Error resolving individual by name:", error);
+      return null;
     }
   };
+
+  // Resolve all individual IDs when investor data loads
+  useEffect(() => {
+    const resolveAllIds = async () => {
+      if (!investorData) return;
+
+      const allNames = new Set<string>();
+      investorData.Investment_Team_Roles_current.forEach((member) => {
+        allNames.add(member.Individual_text);
+      });
+      investorData.Investment_Team_Roles_past.forEach((member) => {
+        allNames.add(member.Individual_text);
+      });
+
+      const resolved = new Map<string, number>();
+      await Promise.all(
+        Array.from(allNames).map(async (name) => {
+          const id = await resolveIndividualIdByName(name);
+          if (id) {
+            resolved.set(name, id);
+          }
+        })
+      );
+
+      setResolvedIndividualIds(resolved);
+    };
+
+    resolveAllIds();
+  }, [investorData]);
 
   const handlePortfolioPageChange = (page: number) => {
     fetchPortfolioCompanies(page);
@@ -1351,9 +1142,6 @@ const InvestorDetailPage = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      void trackEvent({
-        eventType: "download_pdf",
-      });
     } catch (error) {
       console.error("Error exporting PDF:", error);
       alert("Failed to export PDF. Please try again.");
@@ -1374,20 +1162,10 @@ const InvestorDetailPage = () => {
 
   if (loading) {
     return (
-      <div
-        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
-      >
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
         <Header />
-        <div
-          style={{
-            flex: "1",
-            padding: "32px",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <div>Loading investor data...</div>
+        <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center", color: T.muted }}>
+          Loading investor data…
         </div>
         <Footer />
       </div>
@@ -1396,31 +1174,25 @@ const InvestorDetailPage = () => {
 
   if (error) {
     return (
-      <div
-        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
-      >
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
         <Header />
-        <div
-          style={{
-            flex: "1",
-            padding: "32px",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
+        <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center" }}>
           <div style={{ textAlign: "center" }}>
-            <h2>Error Loading Investor</h2>
-            <p>{error}</p>
+            <h2 style={{ color: T.ink, fontFamily: T.sans }}>Error Loading Investor</h2>
+            <p style={{ color: T.muted }}>{error}</p>
             <button
+              type="button"
               onClick={fetchInvestorData}
               style={{
                 padding: "8px 16px",
-                backgroundColor: "#3b82f6",
-                color: "white",
+                backgroundColor: T.azure,
+                color: "#fff",
                 border: "none",
-                borderRadius: "4px",
+                borderRadius: 6,
                 cursor: "pointer",
+                fontFamily: T.sans,
+                fontSize: 13,
+                fontWeight: 600,
               }}
             >
               Retry
@@ -1434,20 +1206,10 @@ const InvestorDetailPage = () => {
 
   if (!investorData) {
     return (
-      <div
-        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
-      >
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
         <Header />
-        <div
-          style={{
-            flex: "1",
-            padding: "32px",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <div>Investor not found</div>
+        <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center", color: T.muted }}>
+          Investor not found
         </div>
         <Footer />
       </div>
@@ -1457,10 +1219,21 @@ const InvestorDetailPage = () => {
   const {
     Investor,
     Focus,
-    Invested_DA_sectors,
     Investment_Team_Roles_current,
     Investment_Team_Roles_past,
   } = investorData;
+
+  const investorRaw = Investor as Investor & Record<string, unknown>;
+  const investorType =
+    extractOptionalString(investorRaw, ["investor_type", "type"]) ||
+    extractOptionalString(investorData as unknown, ["investor_type"]);
+  const investorOwnership =
+    extractOptionalString(investorRaw, ["ownership", "ownership_type"]) ||
+    (investorRaw._ownership_type && typeof investorRaw._ownership_type === "object"
+      ? extractOptionalString(investorRaw._ownership_type, ["ownership"])
+      : null);
+  const investorStatus =
+    extractOptionalString(investorRaw, ["status", "investor_status"]) || "Active";
 
   const hq = `${Investor._locations?.City || ""}, ${
     Investor._locations?.State__Province__County || ""
@@ -1468,1197 +1241,432 @@ const InvestorDetailPage = () => {
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
 
-  const style = `
-    .investor-detail-page {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+  const resolveTeamMemberIndividualId = (member: TeamMember): number | undefined => {
+    if (typeof member.individuals_id === "number" && member.individuals_id > 0) {
+      return member.individuals_id;
     }
-    .investor-content {
-      flex: 1;
-      padding: 32px;
+    return resolvedIndividualIds.get(member.Individual_text);
+  };
+
+  const mapTeamMember = (member: TeamMember): InvestorTeamMember => {
+    const roleTitle = formatJobTitlesFromId(member.job_titles_id, member.job_titles);
+    return {
+      name: member.Individual_text,
+      roleTitle: roleTitle || null,
+      individualId: resolveTeamMemberIndividualId(member),
+    };
+  };
+
+  const teamMembers: InvestorTeamMember[] = [
+    ...Investment_Team_Roles_current.map(mapTeamMember),
+    ...Investment_Team_Roles_past.map(mapTeamMember),
+  ];
+
+  const mapPortfolioCompany = (
+    company: PortfolioCompany,
+    variant: "current" | "past"
+  ): InvestorPortfolioCompany => ({
+    id: company.id,
+    name: company.name,
+    sectors: company.sectors_id.map((s) => s.sector_name).filter(Boolean),
+    yearLabel: variant === "past" ? company.year_exited : company.year_invested,
+    relatedIndividuals: company.related_to_investor_individuals,
+    country: company._locations?.Country,
+    logo: company._linkedin_data_of_new_company?.linkedin_logo,
+  });
+
+  const currentPortfolioRows = portfolioCompanies.map((c) =>
+    mapPortfolioCompany(c, "current")
+  );
+  const pastPortfolioRows = pastPortfolioCompanies.map((c) =>
+    mapPortfolioCompany(c, "past")
+  );
+
+  const currentHeadcount = resolveChartEmployeeCount(linkedInHistory);
+  const headcountYoY = computeEmployeeYoYFromMonthly(linkedInHistory);
+  const headcountHistoryMonths = linkedInHistory.filter((e) => e.employees_count > 0).length;
+
+  const sectorMix = mapPortfolioMixRows(portfolioMix?.sector_mix);
+  const stageFocus = mapPortfolioMixRows(portfolioMix?.stage_focus);
+  const geographyMix = mapPortfolioMixRows(portfolioMix?.geography);
+
+  const corporateEventPrimarySectors = Focus.filter((f) => f?.sector_name).map((f) => ({
+    id: f.id,
+    sector_name: f.sector_name,
+  }));
+
+  const styles = {
+    container: {
+      backgroundColor: T.paper,
+      fontFamily: T.sans,
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column" as const,
+    },
+    maxWidth: {
+      width: "100%",
+      maxWidth: "100%",
+      padding: "18px",
+      flex: 1,
+      display: "flex",
+      flexDirection: "column" as const,
+      overflow: "hidden",
+    },
+    responsiveGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+      gap: "12px",
+      flex: 1,
+      maxWidth: "100%",
+      overflow: "hidden",
+      alignItems: "stretch",
+    },
+  };
+
+  const responsiveCss = `
+    .investor-detail-page { overflow-x: hidden; }
+    .responsiveGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 100%;
+      align-items: stretch;
+    }
+    .responsiveGrid > * { min-width: 0; min-height: 0; }
+    .investor-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .investor-grid-description { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .investor-grid-focus-mix { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .investor-grid-portfolio { grid-column: 1 / span 2; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .investor-grid-people { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .investor-grid-corporate-events { grid-column: 1 / span 2; grid-row: 3; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .investor-grid-headcount { grid-column: 3; grid-row: 3; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .investor-grid-portfolio > *,
+    .investor-grid-corporate-events > *,
+    .investor-grid-people > *,
+    .investor-grid-headcount > * {
+      min-width: 0;
+      max-width: 100%;
       width: 100%;
     }
-    .investor-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 32px;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-    .investor-title-section {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex: 1;
-    }
-    .investor-title {
-      margin: 0;
-      font-size: 32px;
-      font-weight: bold;
-    }
-    .report-button {
-      padding: 8px 16px;
-      background-color: #16a34a;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .export-button {
-      padding: 8px 16px;
-      background-color: #0075df;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .export-button:disabled {
-      background-color: #9ca3af;
-      cursor: not-allowed;
-    }
-    .investor-layout {
-      display: flex;
-      gap: 32px;
-      flex-wrap: wrap;
-    }
-    .investor-left-column {
-      flex: 1;
-      min-width: 300px;
-    }
-    .investor-right-column {
-      flex: 2;
-      min-width: 600px;
-    }
-    .investor-section {
-      background-color: white;
-      padding: 24px;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      margin-bottom: 24px;
-    }
-    .section-title {
-      margin: 0 0 16px 0;
-      font-size: 20px;
-      font-weight: bold;
-    }
-    .section-subtitle {
-      margin: 0 0 8px 0;
-      font-size: 16px;
-      font-weight: bold;
-    }
-    .info-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .info-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .info-label {
-      font-weight: bold;
-      color: #374151;
-    }
-    .info-value {
-      color: #6b7280;
-    }
-
-    .portfolio-table-container {
-      overflow-x: auto;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-    }
-    .portfolio-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-    .portfolio-table thead {
-      background-color: #f8fafc;
-    }
-    .portfolio-table th,
-    .portfolio-table td {
-      padding: 12px;
-      text-align: left;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .portfolio-table th {
-      font-weight: 600;
-      color: #374151;
-    }
-    .portfolio-table td {
-      color: #6b7280;
-    }
-    .company-name {
-      color: #3b82f6;
-      text-decoration: none;
-      font-weight: 500;
-      cursor: pointer;
-    }
-    .company-name:hover {
-      text-decoration: underline;
-    }
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 8px;
-      margin-top: 16px;
-      padding: 16px;
-    }
-    .pagination-button {
-      padding: 8px 12px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .pagination-button:disabled {
-      background-color: #e2e8f0;
-      color: #64748b;
-      cursor: not-allowed;
-    }
-    .pagination-button:not(:disabled) {
-      background-color: #3b82f6;
-      color: white;
-    }
-    .pagination-info {
-      font-size: 14px;
-      color: #64748b;
-    }
-    .portfolio-cards {
-      display: none;
-    }
-    .portfolio-card {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 12px;
-    }
-    .portfolio-card-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    .portfolio-card-name {
-      font-size: 16px;
-      font-weight: 600;
-      color: #3b82f6;
-      cursor: pointer;
-    }
-    .portfolio-card-info {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      font-size: 14px;
-    }
-    .portfolio-card-info-item {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .portfolio-card-info-label {
-      font-weight: 600;
-      color: #374151;
-      font-size: 12px;
-    }
-    .portfolio-card-info-value {
-      color: #6b7280;
-      font-size: 12px;
-    }
-    .corporate-event-card {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 12px;
-    }
-    .corporate-event-card-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #3b82f6;
-      cursor: pointer;
-      margin-bottom: 12px;
-      line-height: 1.4;
-    }
-    .corporate-event-card-info {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      font-size: 14px;
-    }
-    .corporate-event-card-info-item {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .corporate-event-card-info-label {
-      font-weight: 600;
-      color: #374151;
-      font-size: 12px;
-    }
-    .corporate-event-card-info-value {
-      color: #6b7280;
-      font-size: 12px;
-    }
-    .loading {
-      text-align: center;
-      padding: 24px;
-      color: #6b7280;
-    }
-    .no-data {
-      text-align: center;
-      padding: 24px;
-      color: #64748b;
-    }
-    .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
-    .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
-    .pill-green { background-color: #dcfce7; color: #15803d; }
-    /* Management/Individual cards hover effects */
-    .management-card:hover {
-      background-color: #e6f0ff !important;
-      border-color: #0075df !important;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
-    }
-    /* Investment Team: make cards smaller and fit 2 per row on desktop */
-    .investor-detail-page .management-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-      gap: 10px !important;
-    }
-    .investor-detail-page .management-card {
-      padding: 8px !important;
-      border-radius: 6px !important;
-    }
-
     @media (max-width: 768px) {
-      .investor-content {
-        padding: 16px !important;
-      }
-      .investor-header {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 16px !important;
-      }
-      .investor-title-section {
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: 12px !important;
-      }
-      .investor-title {
-        font-size: 24px !important;
-      }
-      .report-button {
-        align-self: flex-start !important;
-        width: fit-content !important;
-      }
-      .export-button {
-        align-self: flex-start !important;
-        width: fit-content !important;
-      }
-      .investor-layout {
-        flex-direction: column !important;
-        gap: 16px !important;
-      }
-      .investor-left-column,
-      .investor-right-column {
-        flex: none !important;
-        min-width: auto !important;
-        width: 100% !important;
-      }
-      .investor-section {
-        padding: 16px !important;
-        margin-bottom: 16px !important;
-      }
-      .section-title {
-        font-size: 18px !important;
-        margin-bottom: 12px !important;
-      }
-
-      .portfolio-table-container {
-        display: none !important;
-      }
-      .portfolio-cards {
-        display: block !important;
-      }
-      .pagination {
-        flex-wrap: wrap !important;
-        gap: 8px !important;
-        padding: 12px 8px !important;
-      }
-      .pagination-button {
-        padding: 6px 10px !important;
-        font-size: 13px !important;
-        min-width: 70px !important;
-      }
-      .pagination-info {
-        font-size: 13px !important;
-        text-align: center !important;
-        width: 100% !important;
-        order: -1 !important;
-      }
-      .management-grid {
-        grid-template-columns: 1fr !important;
-      }
-    }
-
-    @media (min-width: 769px) {
-      .portfolio-cards {
-        display: none !important;
-      }
-      .portfolio-table-container {
-        display: block !important;
+      .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
+      .investor-grid-overview,
+      .investor-grid-description,
+      .investor-grid-focus-mix,
+      .investor-grid-portfolio,
+      .investor-grid-people,
+      .investor-grid-corporate-events,
+      .investor-grid-headcount {
+        grid-column: 1 / -1 !important;
+        grid-row: auto !important;
+        align-self: stretch !important;
       }
     }
   `;
 
   return (
-    <div className="investor-detail-page">
-      {Investor?.name && (
-        <Head>
-          <title>{`Asymmetrix – ${Investor.name}`}</title>
-        </Head>
-      )}
+    <div className="investor-detail-page" style={styles.container}>
       <Header />
 
-      <div className="investor-content">
-        {/* Page Header */}
-        <div className="investor-header">
-          <div className="investor-title-section">
+      <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+            padding: "22px 0",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flex: 1 }}>
             <CompanyLogo
-              logo={
-                linkedInLogo ||
-                Investor._linkedin_data_of_new_company?.linkedin_logo ||
-                ""
-              }
+              logo={Investor._linkedin_data_of_new_company?.linkedin_logo || ""}
               name={Investor.name}
             />
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <h1 className="investor-title" style={{ margin: 0 }}>
-                  {Investor.name}
-                </h1>
-              </div>
-            </div>
+            <span
+              style={{
+                fontSize: 24,
+                fontWeight: 600,
+                color: T.ink,
+                letterSpacing: "-0.4px",
+                lineHeight: 1.2,
+                fontFamily: T.sans,
+              }}
+            >
+              {Investor.name}
+            </span>
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {investorId && !Number.isNaN(Number(investorId)) && (
               <FollowButton
                 followKey="followed_investors"
                 entityId={Number(investorId)}
                 entityType="investor"
                 label="Investor"
-                className="export-button"
+                icon={<BellIcon width={15} height={15} strokeWidth={2} aria-hidden />}
               />
             )}
-            <NewFeatureCallout
-              featureKey="investor-profile-pdf-export"
-              launchedAt="2026-02-02T00:00:00.000Z"
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={exportingPdf || !investorData}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontFamily: T.sans,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "#fff",
+                backgroundColor: exportingPdf ? T.faint : "#475569",
+                border: "none",
+                borderRadius: 6,
+                padding: "8px 14px",
+                cursor: exportingPdf || !investorData ? "not-allowed" : "pointer",
+              }}
             >
-              <button
-                onClick={handleExportPdf}
-                disabled={exportingPdf || !investorData}
-                className="export-button"
-                type="button"
-              >
-                {exportingPdf ? "Exporting..." : "Export PDF"}
-              </button>
-            </NewFeatureCallout>
+              <ArrowUpTrayIcon width={15} height={15} strokeWidth={2} aria-hidden />
+              {exportingPdf ? "Exporting…" : "Export PDF"}
+            </button>
             <a
               href={reportMailTo}
-              className="report-button"
               target="_blank"
               rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontFamily: T.sans,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "#fff",
+                backgroundColor: T.emerald,
+                borderRadius: 6,
+                padding: "8px 14px",
+                textDecoration: "none",
+              }}
             >
+              <PlusIcon width={15} height={15} strokeWidth={2} aria-hidden />
               Contribute Data
             </a>
           </div>
         </div>
 
-        <div className="investor-layout">
-          {/* Left Column - Overview */}
-          <div className="investor-left-column">
-            {/* Overview Section */}
-            <div className="investor-section">
-              <h2 className="section-title">Overview</h2>
-              <div className="info-grid">
-                <div className="info-item">
-                  <span className="info-label">Focus:</span>
-                  <span className="info-value">
-                    {Focus.map((f) => f.sector_name).join(", ") ||
-                      "Not available"}
-                  </span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Year founded:</span>
-                  <span className="info-value">
-                    {Investor._years?.Year || "Not available"}
-                  </span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">HQ:</span>
-                  <span className="info-value">{hq || "Not available"}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Website:</span>
-                  <span className="info-value">
-                    {Investor.url ? (
-                      <a
-                        href={Investor.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {Investor.url}
-                      </a>
-                    ) : (
-                      "Not available"
-                    )}
-                  </span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">LinkedIn:</span>
-                  <span className="info-value">
-                    {linkedinUrl ||
-                    Investor._linkedin_data_of_new_company?.LinkedIn_URL ? (
-                      <a
-                        href={
-                          linkedinUrl ||
-                          Investor._linkedin_data_of_new_company?.LinkedIn_URL
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Open LinkedIn profile"
-                        style={{ display: "inline-flex", alignItems: "center" }}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 72 72"
-                          width="20"
-                          height="20"
-                          aria-hidden="true"
-                        >
-                          <g fill="none" fillRule="evenodd">
-                            <path
-                              d="M8,72 L64,72 C68.418278,72 72,68.418278 72,64 L72,8 C72,3.581722 68.418278,-8.11624501e-16 64,0 L8,0 C3.581722,8.11624501e-16 -5.41083001e-16,3.581722 0,8 L0,64 C5.41083001e-16,68.418278 3.581722,72 8,72 Z"
-                              fill="#007EBB"
-                            />
-                            <path
-                              d="M62,62 L51.315625,62 L51.315625,43.8021149 C51.315625,38.8127542 49.4197917,36.0245323 45.4707031,36.0245323 C41.1746094,36.0245323 38.9300781,38.9261103 38.9300781,43.8021149 L38.9300781,62 L28.6333333,62 L28.6333333,27.3333333 L38.9300781,27.3333333 L38.9300781,32.0029283 C38.9300781,32.0029283 42.0260417,26.2742151 49.3825521,26.2742151 C56.7356771,26.2742151 62,30.7644705 62,40.051212 L62,62 Z M16.349349,22.7940133 C12.8420573,22.7940133 10,19.9296567 10,16.3970067 C10,12.8643566 12.8420573,10 16.349349,10 C19.8566406,10 22.6970052,12.8643566 22.6970052,16.3970067 C22.6970052,19.9296567 19.8566406,22.7940133 16.349349,22.7940133 Z M11.0325521,62 L21.769401,62 L21.769401,27.3333333 L11.0325521,27.3333333 L11.0325521,62 Z"
-                              fill="#FFF"
-                            />
-                          </g>
-                        </svg>
-                      </a>
-                    ) : (
-                      "Not available"
-                    )}
-                  </span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Time since last investment:</span>
-                  <span className="info-value">
-                    {timeSinceLastInvestmentLoading
-                      ? "Loading…"
-                      : timeSinceLastInvestment &&
-                          !isEmptyDisplayValue(timeSinceLastInvestment)
-                        ? timeSinceLastInvestment
-                        : "Not available"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Historic LinkedIn Data Section */}
-            <div className="investor-section">
-              <h2 className="section-title">Historic LinkedIn Data</h2>
-              {linkedInHistoryLoading ? (
-                <div className="loading">Loading LinkedIn history...</div>
-              ) : linkedInHistory.length > 0 ? (
-                <LinkedInHistoryChart data={linkedInHistory} />
-              ) : (
-                <div className="no-data">
-                  No LinkedIn history data available
-                </div>
-              )}
-            </div>
-
-            {/* Invested D&A Sectors Section */}
-            <div className="investor-section">
-              <h2 className="section-title">Invested D&A sectors:</h2>
-              <div className="info-value">
-                {Invested_DA_sectors.length > 0
-                  ? Invested_DA_sectors.map((sector, index) => (
-                      <span key={sector.id}>
-                        <a href={`/sector/${sector.id}`}>
-                          {sector.sector_name}
-                        </a>
-                        {index < Invested_DA_sectors.length - 1 ? ", " : ""}
-                      </span>
-                    ))
-                  : "Not available"}
-              </div>
-            </div>
-
-            {/* Description Section */}
-            <div className="investor-section">
-              <h2 className="section-title">Description:</h2>
-              <div className="info-value" style={{ whiteSpace: "pre-wrap" }}>
-                {Investor.description || "Not available"}
-              </div>
-            </div>
-
-            {/* Investment Team Section */}
-            <div className="investor-section">
-              <h2 className="section-title">Investment Team</h2>
-
-              {/* Current Team */}
-              <div style={{ marginBottom: "20px" }}>
-                <IndividualCards
-                  title="Current:"
-                  individuals={Investment_Team_Roles_current.map((member) => ({
-                    id: member.individuals_id,
-                    name: member.Individual_text,
-                    jobTitles: member.job_titles_id.map((jt) => jt.job_title),
-                    individualId: member.individuals_id,
-                  }))}
-                  emptyMessage="Not available"
-                />
-              </div>
-
-              {/* Past Team - Only show if there are past team members */}
-              {Investment_Team_Roles_past && Investment_Team_Roles_past.length > 0 && (
-                <div>
-                  <IndividualCards
-                    title="Past:"
-                    individuals={Investment_Team_Roles_past.map((member) => ({
-                      id: member.individuals_id,
-                      name: member.Individual_text,
-                      jobTitles: member.job_titles_id.map((jt) => jt.job_title),
-                      individualId: member.individuals_id,
-                    }))}
-                    emptyMessage="Not available"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Column - Portfolio and Corporate Events */}
-          <div className="investor-right-column">
-            {/* Current Portfolio Section */}
-            <div className="investor-section">
-              <div
+        <div
+          style={{
+            display: "flex",
+            gap: "2px",
+            overflowX: "auto" as const,
+            scrollbarWidth: "none" as const,
+          }}
+        >
+          {INVESTOR_PROFILE_TABS.map((tab) => {
+            const active = tab === activeProfileTab;
+            const disabled = tab !== "Summary";
+            return (
+              <button
+                key={tab}
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  if (!disabled) setActiveProfileTab(tab);
+                }}
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 12,
-                  flexWrap: "wrap",
-                  marginBottom: 12,
+                  padding: "10px 14px",
+                  fontFamily: T.sans,
+                  fontSize: "13px",
+                  fontWeight: active ? 600 : 500,
+                  color: disabled ? T.faint : active ? T.ink : T.muted,
+                  borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
+                  marginBottom: "-1px",
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap" as const,
+                  transition: "color 120ms",
+                  background: "transparent",
+                  borderTop: "none",
+                  borderLeft: "none",
+                  borderRight: "none",
                 }}
               >
-                <h2 className="section-title" style={{ marginBottom: 0 }}>Current Portfolio</h2>
-                <button
-                  onClick={handleExportPortfolio}
-                  disabled={exportingPortfolio || !investorData}
-                  className="export-button"
-                  type="button"
-                  style={{ backgroundColor: "#22c55e" }}
-                >
-                  {exportingPortfolio ? "Exporting..." : "Export Portfolio"}
-                </button>
-              </div>
-              {portfolioLoading ? (
-                <div className="loading">
-                  Loading current portfolio companies...
-                </div>
-              ) : (
-                <>
-                  {/* Desktop Table View */}
-                  <div className="portfolio-table-container">
-                    <table className="portfolio-table">
-                      <thead>
-                        <tr>
-                          <th>Logo</th>
-                          <th>Name</th>
-                          <th>Sectors</th>
-                          <th>Year Invested</th>
-                          <th>Related Individuals</th>
-                          <th>LinkedIn Members</th>
-                          <th>Country</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {portfolioCompanies.length > 0 ? (
-                          portfolioCompanies.map((company) => (
-                            <tr key={company.id}>
-                              <td>
-                                <CompanyLogo
-                                  logo={
-                                    company._linkedin_data_of_new_company
-                                      ?.linkedin_logo || ""
-                                  }
-                                  name={company.name}
-                                />
-                              </td>
-                              <td>
-                                {createClickableElement(
-                                  `/company/${company.id}`,
-                                  company.name,
-                                  "company-name"
-                                )}
-                              </td>
-                              <td>
-                                <div style={{ fontSize: "12px" }}>
-                                  {company.sectors_id
-                                    .slice(0, 3)
-                                    .map((s) => s.sector_name)
-                                    .join(", ")}
-                                  {company.sectors_id.length > 3 && "..."}
-                                </div>
-                              </td>
-                              <td>
-                                {company.year_invested !== null &&
-                                company.year_invested !== undefined &&
-                                String(company.year_invested).trim().length > 0
-                                  ? String(company.year_invested)
-                                  : "Not available"}
-                              </td>
-                              <td>
-                                {company.related_to_investor_individuals &&
-                                company.related_to_investor_individuals.length >
-                                  0 ? (
-                                  <div style={{ fontSize: "12px" }}>
-                                    {company.related_to_investor_individuals
-                                      .slice(0, 3)
-                                      .map((individual, index) => (
-                                        <span key={individual.id}>
-                                          {createClickableElement(
-                                            `/individual/${individual.id}`,
-                                            individual.name,
-                                            undefined,
-                                            {
-                                              textDecoration: "none",
-                                              fontSize: "12px",
-                                            }
-                                          )}
-                                          {index <
-                                          Math.min(
-                                            company.related_to_investor_individuals!
-                                              .length,
-                                            3
-                                          ) -
-                                            1
-                                            ? ", "
-                                            : ""}
-                                        </span>
-                                      ))}
-                                    {company.related_to_investor_individuals
-                                      .length > 3 && "..."}
-                                  </div>
-                                ) : (
-                                  <span
-                                    style={{
-                                      color: "#64748b",
-                                      fontSize: "12px",
-                                    }}
-                                  >
-                                    Not available
-                                  </span>
-                                )}
-                              </td>
-                              <td>
-                                {formatNumber(
-                                  company._linkedin_data_of_new_company
-                                    ?.linkedin_employee
-                                )}
-                              </td>
-                              <td>
-                                {company._locations?.Country || "Not available"}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={7} className="no-data">
-                              No portfolio companies found
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Mobile Cards View */}
-                  <div className="portfolio-cards">
-                    {portfolioCompanies.length > 0 ? (
-                      portfolioCompanies.map((company) => (
-                        <div key={company.id} className="portfolio-card">
-                          <div className="portfolio-card-header">
-                            <CompanyLogo
-                              logo={
-                                company._linkedin_data_of_new_company
-                                  ?.linkedin_logo || ""
-                              }
-                              name={company.name}
-                            />
-                            {createClickableElement(
-                              `/company/${company.id}`,
-                              company.name,
-                              "portfolio-card-name"
-                            )}
-                          </div>
-                          <div className="portfolio-card-info">
-                            <div className="portfolio-card-info-item">
-                              <span className="portfolio-card-info-label">
-                                Sectors:
-                              </span>
-                              <span className="portfolio-card-info-value">
-                                {company.sectors_id
-                                  .slice(0, 3)
-                                  .map((s) => s.sector_name)
-                                  .join(", ")}
-                                {company.sectors_id.length > 3 && "..."}
-                              </span>
-                            </div>
-                            <div className="portfolio-card-info-item">
-                              <span className="portfolio-card-info-label">
-                                LinkedIn:
-                              </span>
-                              <span className="portfolio-card-info-value">
-                                {formatNumber(
-                                  company._linkedin_data_of_new_company
-                                    ?.linkedin_employee
-                                )}
-                              </span>
-                            </div>
-                            <div className="portfolio-card-info-item">
-                              <span className="portfolio-card-info-label">
-                                Year Invested:
-                              </span>
-                              <span className="portfolio-card-info-value">
-                                {company.year_invested !== null &&
-                                company.year_invested !== undefined &&
-                                String(company.year_invested).trim().length > 0
-                                  ? String(company.year_invested)
-                                  : "Not available"}
-                              </span>
-                            </div>
-                            <div className="portfolio-card-info-item">
-                              <span className="portfolio-card-info-label">
-                                Country:
-                              </span>
-                              <span className="portfolio-card-info-value">
-                                {company._locations?.Country || "Not available"}
-                              </span>
-                            </div>
-                            <div className="portfolio-card-info-item">
-                              <span className="portfolio-card-info-label">
-                                Individuals:
-                              </span>
-                              <span className="portfolio-card-info-value">
-                                {company.related_to_investor_individuals &&
-                                company.related_to_investor_individuals.length >
-                                  0 ? (
-                                  <>
-                                    {company.related_to_investor_individuals
-                                      .slice(0, 2)
-                                      .map((individual, index) => (
-                                        <span key={individual.id}>
-                                          {createClickableElement(
-                                            `/individual/${individual.id}`,
-                                            individual.name,
-                                            undefined,
-                                            {
-                                              textDecoration: "none",
-                                              fontSize: "12px",
-                                            }
-                                          )}
-                                          {index <
-                                          Math.min(
-                                            company.related_to_investor_individuals!
-                                              .length,
-                                            2
-                                          ) -
-                                            1
-                                            ? ", "
-                                            : ""}
-                                        </span>
-                                      ))}
-                                    {company.related_to_investor_individuals
-                                      .length > 2 && "..."}
-                                  </>
-                                ) : (
-                                  "Not available"
-                                )}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="no-data">
-                        No portfolio companies found
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Pagination */}
-                  {portfolioPagination.pageTotal > 1 && (
-                    <div className="pagination">
-                      <span className="pagination-info">
-                        Page {portfolioPagination.curPage} of{" "}
-                        {portfolioPagination.pageTotal}
-                      </span>
-                      <button
-                        onClick={() =>
-                          handlePortfolioPageChange(
-                            portfolioPagination.curPage - 1
-                          )
-                        }
-                        disabled={!portfolioPagination.prevPage}
-                        className="pagination-button"
-                      >
-                        Previous
-                      </button>
-                      <button
-                        onClick={() =>
-                          handlePortfolioPageChange(
-                            portfolioPagination.curPage + 1
-                          )
-                        }
-                        disabled={!portfolioPagination.nextPage}
-                        className="pagination-button"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Past Portfolio Section */}
-            <div className="investor-section" style={{ marginTop: "32px" }}>
-              <h2 className="section-title">Past Portfolio</h2>
-              {pastPortfolioLoading ? (
-                <div style={{ textAlign: "center", padding: "24px" }}>
-                  Loading past portfolio companies...
-                </div>
-              ) : (
-                <>
-                  <div
-                    style={{
-                      overflowX: "auto",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                    }}
-                  >
-                    <table
-                      style={{
-                        width: "100%",
-                        borderCollapse: "collapse",
-                        fontSize: "14px",
-                      }}
-                    >
-                      <thead>
-                        <tr style={{ backgroundColor: "#f8fafc" }}>
-                          <th
-                            style={{
-                              padding: "12px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            Logo
-                          </th>
-                          <th
-                            style={{
-                              padding: "12px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            Name
-                          </th>
-                          <th
-                            style={{
-                              padding: "12px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            Sectors
-                          </th>
-                          <th
-                            style={{
-                              padding: "12px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            Year Exited
-                          </th>
-                          <th
-                            style={{
-                              padding: "12px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            Related Individuals
-                          </th>
-                          <th
-                            style={{
-                              padding: "12px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            LinkedIn Members
-                          </th>
-                          <th
-                            style={{
-                              padding: "12px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            Country
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pastPortfolioCompanies.length > 0 ? (
-                          pastPortfolioCompanies.map((company) => (
-                            <tr
-                              key={company.id}
-                              style={{ borderBottom: "1px solid #e2e8f0" }}
-                            >
-                              <td style={{ padding: "12px" }}>
-                                <CompanyLogo
-                                  logo={
-                                    company._linkedin_data_of_new_company
-                                      ?.linkedin_logo || ""
-                                  }
-                                  name={company.name}
-                                />
-                              </td>
-                              <td style={{ padding: "12px" }}>
-                                {createClickableElement(
-                                  `/company/${company.id}`,
-                                  company.name,
-                                  undefined,
-                                  {
-                                    textDecoration: "none",
-                                    fontWeight: "500",
-                                  }
-                                )}
-                              </td>
-                              <td style={{ padding: "12px" }}>
-                                <div style={{ fontSize: "12px" }}>
-                                  {company.sectors_id
-                                    .slice(0, 3)
-                                    .map((s) => s.sector_name)
-                                    .join(", ")}
-                                  {company.sectors_id.length > 3 && "..."}
-                                </div>
-                              </td>
-                              <td
-                                style={{ padding: "12px" }}
-                              >
-                                {company.year_exited !== null &&
-                                company.year_exited !== undefined &&
-                                String(company.year_exited).trim().length > 0
-                                  ? String(company.year_exited)
-                                  : "Not available"}
-                              </td>
-                              <td style={{ padding: "12px" }}>
-                                {company.related_to_investor_individuals &&
-                                company.related_to_investor_individuals.length >
-                                  0 ? (
-                                  <div style={{ fontSize: "12px" }}>
-                                    {company.related_to_investor_individuals
-                                      .slice(0, 3)
-                                      .map((individual, index) => (
-                                        <span key={individual.id}>
-                                          {createClickableElement(
-                                            `/individual/${individual.id}`,
-                                            individual.name,
-                                            undefined,
-                                            {
-                                              textDecoration: "none",
-                                              fontSize: "12px",
-                                            }
-                                          )}
-                                          {index <
-                                          Math.min(
-                                            company.related_to_investor_individuals!
-                                              .length,
-                                            3
-                                          ) -
-                                            1
-                                            ? ", "
-                                            : ""}
-                                        </span>
-                                      ))}
-                                    {company.related_to_investor_individuals
-                                      .length > 3 && "..."}
-                                  </div>
-                                ) : (
-                                  <span
-                                    style={{
-                                      color: "#64748b",
-                                      fontSize: "12px",
-                                    }}
-                                  >
-                                    Not available
-                                  </span>
-                                )}
-                              </td>
-                              <td style={{ padding: "12px" }}>
-                                {formatNumber(
-                                  company._linkedin_data_of_new_company
-                                    ?.linkedin_employee
-                                )}
-                              </td>
-                              <td style={{ padding: "12px" }}>
-                                {company._locations?.Country || "Not available"}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td
-                              colSpan={7}
-                              style={{
-                                padding: "24px",
-                                textAlign: "center",
-                                color: "#64748b",
-                              }}
-                            >
-                              No past portfolio companies found
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Pagination */}
-                  {pastPortfolioPagination.pageTotal > 1 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        gap: "8px",
-                        marginTop: "16px",
-                        padding: "16px",
-                      }}
-                    >
-                      <button
-                        onClick={() =>
-                          handlePastPortfolioPageChange(
-                            pastPortfolioPagination.curPage - 1
-                          )
-                        }
-                        disabled={!pastPortfolioPagination.prevPage}
-                        style={{
-                          padding: "8px 12px",
-                          backgroundColor: pastPortfolioPagination.prevPage
-                            ? "#3b82f6"
-                            : "#e2e8f0",
-                          color: pastPortfolioPagination.prevPage
-                            ? "white"
-                            : "#64748b",
-                          border: "none",
-                          borderRadius: "4px",
-                          cursor: pastPortfolioPagination.prevPage
-                            ? "pointer"
-                            : "not-allowed",
-                          fontSize: "14px",
-                        }}
-                      >
-                        Previous
-                      </button>
-
-                      <span style={{ fontSize: "14px", color: "#64748b" }}>
-                        Page {pastPortfolioPagination.curPage} of{" "}
-                        {pastPortfolioPagination.pageTotal}
-                      </span>
-
-                      <button
-                        onClick={() =>
-                          handlePastPortfolioPageChange(
-                            pastPortfolioPagination.curPage + 1
-                          )
-                        }
-                        disabled={!pastPortfolioPagination.nextPage}
-                        style={{
-                          padding: "8px 12px",
-                          backgroundColor: pastPortfolioPagination.nextPage
-                            ? "#3b82f6"
-                            : "#e2e8f0",
-                          color: pastPortfolioPagination.nextPage
-                            ? "white"
-                            : "#64748b",
-                          border: "none",
-                          borderRadius: "4px",
-                          cursor: pastPortfolioPagination.nextPage
-                            ? "pointer"
-                            : "not-allowed",
-                          fontSize: "14px",
-                        }}
-                      >
-                        Next
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Corporate Events Section */}
-            <div className="investor-section" style={{ marginTop: "32px" }}>
-              <CorporateEventsSection
-                title="Corporate Events"
-                events={corporateEvents as unknown as CorporateEventsTableEvent[]}
-                loading={corporateEventsLoading}
-                onEventClick={handleCorporateEventDescriptionClick}
-                onAdvisorClick={(advisorId, advisorName) => {
-                  if (advisorId) {
-                    router.push(`/advisor/${advisorId}`);
-                  } else if (advisorName) {
-                    handleAdvisorClick(advisorName);
-                  }
-                }}
-                showSectors={false}
-                maxInitialEvents={3}
-                truncateDescriptionLength={180}
-              />
-            </div>
-          </div>
+                {tab}
+              </button>
+            );
+          })}
         </div>
       </div>
 
+      <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <div className="investor-detail-content" style={styles.maxWidth}>
+          {activeProfileTab === "Summary" ? (
+          <div style={styles.responsiveGrid} className="responsiveGrid">
+            <div className="investor-grid-overview">
+              <InvestorOverviewCard
+                fillGridCell
+                focusSectors={Focus.filter((f) => f?.sector_name).map((f) => ({
+                  name: f.sector_name,
+                  href: f.id ? `/sector/${f.id}` : undefined,
+                }))}
+                type={investorType}
+                yearFounded={Investor._years?.Year || Investor.year_founded || null}
+                website={Investor.url}
+                websiteLabel={
+                  Investor.url?.trim() ? formatWebsiteDisplayLabel(Investor.url) : undefined
+                }
+                hq={hq || undefined}
+                linkedinUrl={
+                  linkedinUrl ||
+                  Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
+                  undefined
+                }
+                ownership={investorOwnership}
+                status={investorStatus}
+                employees={currentHeadcount > 0 ? currentHeadcount : null}
+                employeesYoY={headcountYoY || undefined}
+              />
+            </div>
+
+            <div
+              className="investor-grid-description"
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignSelf: isDescriptionExpanded ? "start" : "stretch",
+                overflow: isDescriptionExpanded ? "visible" : "hidden",
+              }}
+            >
+              <DescriptionCard
+                text={Investor.description ?? ""}
+                expanded={isDescriptionExpanded}
+                onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
+                contentRef={descriptionRef}
+                fillGridCell={!isDescriptionExpanded}
+              />
+            </div>
+
+            <div className="investor-grid-focus-mix">
+              <InvestorFocusMixCard
+                fillGridCell
+                loading={portfolioMixLoading}
+                sectorMix={sectorMix}
+                stageFocus={stageFocus}
+                geography={geographyMix}
+              />
+            </div>
+
+            <div className="investor-grid-portfolio">
+              <InvestorPortfolioProfilePanel
+                fillGridCell
+                currentCompanies={currentPortfolioRows}
+                pastCompanies={pastPortfolioRows}
+                currentTotal={portfolioPagination.itemsReceived || undefined}
+                pastTotal={pastPortfolioPagination.itemsReceived || undefined}
+                loadingCurrent={portfolioLoading}
+                loadingPast={pastPortfolioLoading}
+                currentPagination={{
+                  curPage: portfolioPagination.curPage,
+                  pageTotal: portfolioPagination.pageTotal,
+                  itemsReceived: portfolioPagination.itemsReceived,
+                  perPage: portfolioPagination.perPage,
+                }}
+                pastPagination={{
+                  curPage: pastPortfolioPagination.curPage,
+                  pageTotal: pastPortfolioPagination.pageTotal,
+                  itemsReceived: pastPortfolioPagination.itemsReceived,
+                  perPage: pastPortfolioPagination.perPage,
+                }}
+                onCurrentPageChange={handlePortfolioPageChange}
+                onPastPageChange={handlePastPortfolioPageChange}
+                pageSize={4}
+              />
+            </div>
+
+            <div className="investor-grid-people">
+              <InvestorPeopleCard fillGridCell members={teamMembers} maxVisible={6} />
+            </div>
+
+            <div className="investor-grid-corporate-events">
+              <LinkPanel fillGridCell className="corporate-events-v3-card">
+                <CorporateEventsProfilePanel
+                  tokens={{
+                    paper: T.paper,
+                    hair: T.hair,
+                    ink: T.ink,
+                    body: T.body,
+                    muted: T.muted,
+                    inset: T.inset,
+                    azure: T.azure,
+                    azureSoft: T.azureSoft,
+                    coralSoft: T.coralSoft,
+                    down: T.down,
+                    sans: T.sans,
+                    mono: T.mono,
+                  }}
+                  events={corporateEvents as unknown as CorporateEventsTableEvent[]}
+                  loading={corporateEventsLoading}
+                  primarySectors={corporateEventPrimarySectors}
+                  maxInitialEvents={3}
+                />
+              </LinkPanel>
+            </div>
+
+            <div className="investor-grid-headcount">
+              <HeadcountCard
+                fillGridCell
+                data={linkedInHistory.map((e) => e.employees_count)}
+                dates={linkedInHistory.map((e) => e.date)}
+                count={currentHeadcount}
+                yoyLabel={headcountYoY || undefined}
+                asOf={(() => {
+                  const nonZero = linkedInHistory.filter((e) => e.employees_count > 0);
+                  const ref =
+                    nonZero.length > 0
+                      ? nonZero[nonZero.length - 1]
+                      : linkedInHistory[linkedInHistory.length - 1];
+                  if (!ref?.date) return undefined;
+                  try {
+                    return new Date(ref.date).toLocaleDateString("en-US", {
+                      month: "short",
+                      year: "numeric",
+                    });
+                  } catch {
+                    return undefined;
+                  }
+                })()}
+                historyLabel={
+                  headcountHistoryMonths > 0
+                    ? `${headcountHistoryMonths}-month history`
+                    : undefined
+                }
+                linkedinUrl={
+                  linkedinUrl ||
+                  Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
+                  undefined
+                }
+              />
+            </div>
+          </div>
+          ) : (
+            <div
+              style={{
+                padding: "48px 24px",
+                textAlign: "center",
+                color: T.muted,
+                fontFamily: T.sans,
+                fontSize: 14,
+              }}
+            >
+              {activeProfileTab} view coming soon.
+            </div>
+          )}
+        </div>
+        <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
+      </main>
+
       <Footer />
-      <style dangerouslySetInnerHTML={{ __html: style }} />
     </div>
   );
 };

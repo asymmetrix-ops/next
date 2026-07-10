@@ -10,6 +10,7 @@ import InvestorOverview from "@/components/investor/InvestorOverview";
 import InvestmentTeam from "@/components/investor/InvestmentTeam";
 import Pagination from "@/components/investor/Pagination";
 import { useInvestorData } from "@/hooks/useInvestorData";
+import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 import { usePortfolioData } from "@/hooks/usePortfolioData";
 import { useCorporateEventsData } from "@/hooks/useCorporateEventsData";
 import { formatNumber, formatDate } from "@/utils/investorHelpers";
@@ -28,6 +29,10 @@ const InvestorDetailPage = () => {
 
   // Data hooks
   const { investorData, loading, error, refetch } = useInvestorData(investorId);
+  const {
+    display: timeSinceLastInvestment,
+    loading: timeSinceLastInvestmentLoading,
+  } = useTimeSinceLastInvestment(investorId);
   const {
     portfolioCompanies,
     portfolioPagination,
@@ -80,7 +85,7 @@ const InvestorDetailPage = () => {
         params.append("per_page", "10");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_all_companies?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_all_companies?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -130,7 +135,7 @@ const InvestorDetailPage = () => {
         params.append("Per_page", "10");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -179,7 +184,7 @@ const InvestorDetailPage = () => {
         params.append("Per_page", "10");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop/get_all_individuals?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -208,17 +213,8 @@ const InvestorDetailPage = () => {
   );
 
   const handleReportIncorrectData = useCallback(() => {
-    const name = investorData?.Investor?.name ?? "";
-    const subject = `Contribute Investor Data – ${name} (ID ${investorId})`;
-    const body =
-      "Please describe the data you would like to contribute for this investor page.";
-    const mailto = `mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
-      subject
-    )}&body=${encodeURIComponent(body)}`;
-    if (typeof window !== "undefined") {
-      window.location.href = mailto;
-    }
-  }, [investorData?.Investor?.name, investorId]);
+    console.log("Report incorrect data clicked");
+  }, []);
 
   // Loading state
   if (loading) {
@@ -347,7 +343,7 @@ const InvestorDetailPage = () => {
             onClick={handleReportIncorrectData}
             style={{
               padding: "8px 16px",
-              backgroundColor: "#16a34a",
+              backgroundColor: "#dc2626",
               color: "white",
               border: "none",
               borderRadius: "4px",
@@ -355,13 +351,17 @@ const InvestorDetailPage = () => {
               fontSize: "14px",
             }}
           >
-            Contribute Data
+            Report Incorrect Data
           </button>
         </div>
 
         <div style={{ display: "flex", gap: "32px", flexWrap: "wrap" }}>
           {/* Left Column - Overview */}
-          <InvestorOverview investorData={investorData} />
+          <InvestorOverview
+            investorData={investorData}
+            timeSinceLastInvestment={timeSinceLastInvestment}
+            timeSinceLastInvestmentLoading={timeSinceLastInvestmentLoading}
+          />
 
           {/* Investment Team */}
           <InvestmentTeam
@@ -599,7 +599,7 @@ const PortfolioTable = React.memo<{
                     <CompanyDescription description={company.description} />
                   </td>
                   <td style={{ padding: "12px" }}>
-                    <span style={{ color: "#64748b" }}>Not available</span>
+                    <span style={{ color: "#64748b" }}>-</span>
                   </td>
                   <td style={{ padding: "12px" }}>
                     {formatNumber(
@@ -607,7 +607,7 @@ const PortfolioTable = React.memo<{
                     )}
                   </td>
                   <td style={{ padding: "12px" }}>
-                    {company._locations?.Country || "Not available"}
+                    {company._locations?.Country || "-"}
                   </td>
                 </tr>
               ))
@@ -753,13 +753,13 @@ const CorporateEventsTable = React.memo<{
                 <td style={{ padding: "12px" }}>
                   {event.announcement_date
                     ? formatDate(event.announcement_date)
-                    : "—"}
+                    : "-"}
                 </td>
-                <td style={{ padding: "12px" }}>{event.type || "—"}</td>
+                <td style={{ padding: "12px" }}>{event.type || "-"}</td>
                 <td style={{ padding: "12px" }}>{event.counterparty_status}</td>
                 <td style={{ padding: "12px" }}>
                   <div style={{ maxWidth: "150px", fontSize: "12px" }}>
-                    {event.other_counterparties !== "—"
+                    {event.other_counterparties !== "-"
                       ? event.other_counterparties
                           .split(", ")
                           .map((companyName: string, idx: number) => (
@@ -780,13 +780,13 @@ const CorporateEventsTable = React.memo<{
                                   1 && ", "}
                             </span>
                           ))
-                      : "—"}
+                      : "-"}
                   </div>
                 </td>
                 <td style={{ padding: "12px" }}>{event.enterprise_value}</td>
                 <td style={{ padding: "12px" }}>
                   <div style={{ maxWidth: "150px", fontSize: "12px" }}>
-                    {event.advisors !== "—"
+                    {event.advisors !== "-"
                       ? event.advisors
                           .split(", ")
                           .map((advisorName: string, idx: number) => (
@@ -806,7 +806,7 @@ const CorporateEventsTable = React.memo<{
                                 ", "}
                             </span>
                           ))
-                      : "—"}
+                      : "-"}
                   </div>
                 </td>
               </tr>

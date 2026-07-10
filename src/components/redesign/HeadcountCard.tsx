@@ -80,6 +80,8 @@ type Props = {
   count?: unknown;
   /** "As of" label shown under the headline. */
   asOf?: string;
+  /** e.g. "56-month history" */
+  historyLabel?: string;
   /** LinkedIn company URL for the footer icon. */
   linkedinUrl?: string;
   fillGridCell?: boolean;
@@ -91,6 +93,7 @@ export function HeadcountCard({
   yoyLabel,
   count,
   asOf,
+  historyLabel,
   linkedinUrl,
   fillGridCell = false,
 }: Props) {
@@ -159,28 +162,6 @@ export function HeadcountCard({
     .join(" ");
   const areaPath = `${linePath} L${cx(pts.length - 1)} ${padT + iH} L${padL} ${padT + iH} Z`;
 
-  const tooltipPlacement = (
-    index: number
-  ): Pick<React.CSSProperties, "left" | "right" | "transform"> => {
-    const xRatio = cx(index) / W;
-    if (xRatio >= 0.72) {
-      return {
-        right: `${((W - cx(index)) / W) * 100}%`,
-        transform: `translateY(calc(-100% - 10px))`,
-      };
-    }
-    if (xRatio <= 0.28) {
-      return {
-        left: `${xRatio * 100}%`,
-        transform: `translateY(calc(-100% - 10px))`,
-      };
-    }
-    return {
-      left: `${xRatio * 100}%`,
-      transform: `translate(-50%, calc(-100% - 10px))`,
-    };
-  };
-
   // X-axis: up to 5 ticks, placed at actual series indices (not fake even spacing)
   const xAxisTicks: { i: number; label: string }[] = (() => {
     if (!hasChart) return [];
@@ -234,10 +215,10 @@ export function HeadcountCard({
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH
         right={yoyLabel ? <Delta value={yoyLabel} /> : undefined}
-        showArrow={!yoyLabel}
+        showArrow
         leftSlot={linkedinIcon}
       >
-        LinkedIn Employee Count
+        LinkedIn employee count
       </LinkedH>
 
       <div
@@ -279,7 +260,8 @@ export function HeadcountCard({
               paddingTop: 1,
             }}
           >
-            Total full-time employees{asOf ? ` · ${asOf}` : ""}
+            Total employees{asOf ? ` · ${asOf}` : ""}
+            {historyLabel ? ` · ${historyLabel}` : ""}
           </div>
         </div>
 
@@ -421,8 +403,9 @@ export function HeadcountCard({
               <div
                 style={{
                   position: "absolute",
+                  left: `${(cx(hoveredIndex) / W) * 100}%`,
                   top: `${(cy(seriesPoints[hoveredIndex]!.value) / H) * 100}%`,
-                  ...tooltipPlacement(hoveredIndex),
+                  transform: "translate(-50%, calc(-100% - 10px))",
                   backgroundColor: "#ffffff",
                   border: "1px solid #ccc",
                   borderRadius: 4,
@@ -434,7 +417,6 @@ export function HeadcountCard({
                   lineHeight: 1.4,
                   whiteSpace: "nowrap",
                   boxShadow: "0 2px 8px rgba(15,17,21,0.08)",
-                  maxWidth: "calc(100% - 8px)",
                 }}
               >
                 <p style={{ margin: 0, color: T.body }}>

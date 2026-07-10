@@ -6,7 +6,7 @@ export const formatNumber = (num: number | undefined): string => {
 };
 
 export const formatDate = (dateString: string | null): string => {
-  if (!dateString) return "Not available";
+  if (!dateString) return "-";
   try {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -15,7 +15,7 @@ export const formatDate = (dateString: string | null): string => {
       day: "numeric",
     });
   } catch {
-    return "Not available";
+    return "-";
   }
 };
 

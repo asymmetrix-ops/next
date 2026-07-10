@@ -19,14 +19,6 @@ import {
   type PortfolioEntityType,
 } from "@/lib/portfolioEntity";
 import { toast } from "react-hot-toast";
-import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
-
-/** Matches secondary sector badge on company profiles. */
-const SECONDARY_SECTOR_BADGE = {
-  backgroundColor: "#f3e5f5",
-  color: "#7b1fa2",
-  border: "1px solid #e1bee7",
-} as const;
 
 type FollowButtonProps = {
   followKey: PortfolioFollowKey;
@@ -96,17 +88,19 @@ export function FollowButton({
         setMembershipLoading(false);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, entityId]);
+  }, [namedPortfolios, entityType, entityId]);
 
-  // Only fetch membership when the dropdown opens — avoids cascading
-  // AbortController cancellations when the portfolio store updates.
   useEffect(() => {
-    if (!dropdownOpen) return;
     void loadListMembership();
     return () => {
       membershipAbortRef.current?.abort();
     };
+  }, [loadListMembership]);
+
+  useEffect(() => {
+    if (dropdownOpen) {
+      void loadListMembership();
+    }
   }, [dropdownOpen, loadListMembership]);
 
   // Close dropdown on outside click
@@ -168,24 +162,18 @@ export function FollowButton({
             entityType,
             entityId,
           });
-          setMembershipMap((prev) => ({ ...prev, [portfolioId]: false }));
           toast.success(`Removed from "${portfolioLabel}"`);
         } else {
-          if (!isFollowed) {
-            await followPortfolioEntity({ followKey, entityId });
-            invalidateUserPortfolioRecordCache();
-          }
           await addEntityToPortfolioApi({
             portfolioId,
             entityType,
             entityId,
-            skipGlobalFollow: true,
           });
-          setMembershipMap((prev) => ({ ...prev, [portfolioId]: true }));
           toast.success(`Added to "${portfolioLabel}"`);
         }
 
         await fetchPortfolio();
+        await loadListMembership();
       } catch (e) {
         toast.error(
           e instanceof Error ? e.message : "Failed to update portfolio"
@@ -194,7 +182,7 @@ export function FollowButton({
         setTogglingListId(null);
       }
     },
-    [entityType, entityId, followKey, isFollowed, togglingListId, fetchPortfolio, loadListMembership]
+    [entityType, entityId, togglingListId, fetchPortfolio, loadListMembership]
   );
 
   const isLoading = loading || portfolioLoading;
@@ -214,6 +202,8 @@ export function FollowButton({
         }
         style={{
           padding: "8px 14px",
+          color: "white",
+          border: "none",
           borderRadius: "6px",
           cursor: isLoading ? "not-allowed" : "pointer",
           fontSize: "12.5px",
@@ -222,17 +212,7 @@ export function FollowButton({
           alignItems: "center",
           gap: "5px",
           ...style,
-          ...(isFollowed
-            ? {
-                color: "white",
-                border: "none",
-                backgroundColor: "#ef4444",
-              }
-            : {
-                color: SECONDARY_SECTOR_BADGE.color,
-                border: SECONDARY_SECTOR_BADGE.border,
-                backgroundColor: SECONDARY_SECTOR_BADGE.backgroundColor,
-              }),
+          backgroundColor: isFollowed ? "#ef4444" : "#7c3aed",
         }}
         className={className}
       >
@@ -246,44 +226,35 @@ export function FollowButton({
 
       {entityType && (
         <div ref={dropdownRef} style={{ position: "relative" }}>
-          <NewFeatureCallout
-            featureKey="portfolio-lists-button"
-            launchedAt="2026-06-01T00:00:00.000Z"
-            durationDays={30}
-            persistDismissal
-            side="bottom"
-            align="start"
+          <button
+            type="button"
+            onClick={() => {
+              setDropdownOpen((v) => !v);
+            }}
+            title="Add to portfolio"
+            style={{
+              padding: "8px 10px",
+              backgroundColor: "#f3f4f6",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "12px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              color: "#374151",
+              fontWeight: 500,
+            }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                setDropdownOpen((v) => !v);
-              }}
-              title="Add to portfolio"
-              style={{
-                padding: "8px 10px",
-                backgroundColor: "#f3f4f6",
-                border: "1px solid #d1d5db",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "12px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-                color: "#374151",
-                fontWeight: 500,
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 11l3 3L22 4" />
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-              </svg>
-              Lists
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
-          </NewFeatureCallout>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+            Lists
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
 
           {dropdownOpen && (
             <div
