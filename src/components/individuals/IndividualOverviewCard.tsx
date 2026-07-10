@@ -38,7 +38,7 @@ export function IndividualOverviewCard({
           rel="noopener noreferrer"
           style={{ color: T.azure, textDecoration: "none" }}
         >
-          View profile
+          LinkedIn
         </a>
       ) : (
         faintDash()

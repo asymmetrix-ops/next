@@ -20,6 +20,7 @@ import {
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
+import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import { AdvisorOverviewCard } from "@/components/advisors/AdvisorOverviewCard";
 import { AdvisorPeopleCard } from "@/components/advisors/AdvisorPeopleCard";
 import {
@@ -723,7 +724,7 @@ export default function AdvisorProfilePage() {
   })();
   const currentHeadcount = resolveChartEmployeeCount(linkedInHistory);
   const headcountYoY = computeEmployeeYoYFromMonthly(linkedInHistory);
-  const linkedinUrl = Advisor.linkedin_data?.LinkedIn_URL;
+  const linkedinUrl = normalizeLinkedInProfileUrl(Advisor.linkedin_data?.LinkedIn_URL);
 
   const WIDE_ROW_START = 2;
   const dealsGridRow = WIDE_ROW_START;
@@ -959,7 +960,6 @@ export default function AdvisorProfilePage() {
                   variant="summary"
                   events={safeEvents}
                   totalCount={safeEvents.length}
-                  pageSize={8}
                 />
               </LinkPanel>
             </div>

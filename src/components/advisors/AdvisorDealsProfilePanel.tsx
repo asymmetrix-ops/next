@@ -5,6 +5,8 @@ import Link from "next/link";
 import {
   profileTableColAlign,
   profileTableCellStyle,
+  PROFILE_EVENTS_ROW_GAP,
+  PROFILE_EVENTS_ROW_PAD,
   tableColHeaderBarStyle,
   tableColHeaderStyle,
   T,
@@ -12,7 +14,7 @@ import {
   LinkedH,
 } from "@/components/redesign/primitives";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import { formatCurrency, formatDate } from "@/utils/advisorHelpers";
+import { formatCurrency } from "@/utils/advisorHelpers";
 
 export type AdvisorDealEvent = {
   id: number;
@@ -63,30 +65,29 @@ type Props = {
 };
 
 const SUMMARY_ROW_GRID =
-  "minmax(0, 1.55fr) 122px 104px 116px minmax(0, 0.9fr) minmax(0, 1fr)";
+  "minmax(0, 1.35fr) minmax(88px, auto) minmax(108px, auto) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)";
 
 const FULL_ROW_GRID =
   "minmax(0, 1.1fr) minmax(80px, auto) minmax(92px, auto) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(80px, auto) minmax(0, 0.9fr)";
 
-const COL_GAP = 12;
-const SUMMARY_TABLE_X_PAD = 16;
+const COL_GAP = PROFILE_EVENTS_ROW_GAP;
 
 const SUMMARY_HEADERS = [
-  "Description",
-  "Deal Date",
+  "Name",
+  "Date",
   "Type",
-  "Counterparty",
+  "Side Advised",
   "Client",
   "Sector",
 ] as const;
 
 const FULL_HEADERS = [
-  "Description",
+  "Name",
   "Date",
   "Type",
-  "Counterparty",
+  "Side Advised",
   "Client",
-  "Sector(s)",
+  "Sector",
   "EV",
   "Advisor",
 ] as const;
@@ -106,37 +107,55 @@ function coerceArray<T>(raw: unknown): T[] {
   }
 }
 
-function dealTypeTone(dealType: string): "coral" | "azure" | "neutral" | "lavender" {
+function formatMonthYear(iso?: string | null): string {
+  if (!iso || iso === "1900-01-01") return "-";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "-";
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "-";
+  }
+}
+
+function formatSideAdvised(role: string): string {
+  const trimmed = role.trim();
+  if (!trimmed) return "-";
+  if (/^investor\s*\(unknown size\)/i.test(trimmed)) return "Investor";
+  return trimmed;
+}
+
+function dealTypePillTone(dealType: string): "acq" | "div" | "neu" {
   const d = dealType.toLowerCase();
-  if (d.includes("investment") || d.includes("funding")) return "azure";
-  if (d.includes("acquisition") || d.includes("merger")) return "lavender";
-  if (d.includes("divest")) return "coral";
-  return "neutral";
+  if (d.includes("acquisition") || d.includes("merger")) return "acq";
+  if (d.includes("divest")) return "div";
+  return "neu";
 }
 
-function counterpartyTone(role: string): "coral" | "azure" | "neutral" | "lavender" | "emerald" | "ghost" {
-  const r = role.toLowerCase();
-  if (r.includes("target") || r.includes("investor")) return "ghost";
-  if (r.includes("acquir")) return "emerald";
-  if (r.includes("divest") || r.includes("divestor") || r.includes("seller")) return "coral";
-  return "neutral";
+function dealTypePillStyle(dealType: string): React.CSSProperties {
+  const tone = dealTypePillTone(dealType);
+  if (tone === "acq") return { background: T.azureSoft, color: T.azure };
+  if (tone === "div") return { background: T.coralSoft, color: T.down };
+  return { background: T.inset, color: T.muted };
 }
 
-function summaryTextLinkStyle(): React.CSSProperties {
-  return {
-    color: T.ink,
-    fontWeight: 500,
-    textDecoration: "none",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    display: "block",
-    minWidth: 0,
-  };
+function sectorLabel(
+  sectors: Array<{ id: number; name: string; importance: string; isDerived: boolean }>
+): string {
+  if (sectors.length === 0) return "-";
+  return sectors
+    .slice(0, 3)
+    .map((s) => s.name)
+    .join(", ");
 }
 
-function summaryRowDivider(isLastRow: boolean): React.CSSProperties {
-  return isLastRow ? {} : { borderBottom: `1px solid ${T.hair}` };
+function headerRightLine(total: number, pageSize: number, showAll: boolean): string {
+  if (total === 0) return "";
+  if (showAll) return `${total} deal${total === 1 ? "" : "s"}`;
+  return `${Math.min(pageSize, total)} of ${total}`;
 }
 
 function formatEnterpriseValue(
@@ -178,120 +197,50 @@ function sortEventsByDateDesc(events: AdvisorDealEvent[]): AdvisorDealEvent[] {
   });
 }
 
-function SectorTagsCell({
-  sectors,
-  rowKey,
-}: {
-  sectors: ReturnType<typeof dedupeSectors>;
-  rowKey: string | number;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const maxVisible = 2;
-  const visible = expanded ? sectors : sectors.slice(0, maxVisible);
-  const hiddenCount = sectors.length - maxVisible;
-
-  if (sectors.length === 0) {
-    return <span style={{ color: T.muted }}>-</span>;
-  }
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "nowrap",
-        gap: 4,
-        alignItems: "center",
-        justifyContent: "flex-start",
-        minWidth: 0,
-        overflow: "hidden",
-      }}
-    >
-      {visible.map((s, i) => {
-        const isPrimary = s.importance.toLowerCase().includes("primary");
-        const href = isPrimary ? `/sector/${s.id}` : `/sub-sector/${s.id}`;
-        return (
-          <Link key={`${rowKey}-${s.id}-${i}`} href={href} prefetch={false} style={{ textDecoration: "none", flexShrink: 0 }}>
-            <Pill tone="coral">{s.name}</Pill>
-          </Link>
-        );
-      })}
-      {!expanded && hiddenCount > 0 ? (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            fontFamily: T.sans,
-          }}
-        >
-          <Pill tone="ghost">+ {hiddenCount}</Pill>
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function SummaryDealsTable({
-  events,
-  totalCount,
-}: {
-  events: AdvisorDealEvent[];
-  totalCount: number;
-}) {
+function SummaryDealsTable({ events }: { events: AdvisorDealEvent[] }) {
   if (events.length === 0) {
     return (
       <div
         style={{
-          padding: "20px 16px",
+          padding: "24px 16px",
           color: T.muted,
           fontSize: "12.5px",
           textAlign: "center",
+          fontFamily: T.sans,
         }}
       >
-        {totalCount > 0 ? "No deals match the selected filters." : "No deals advised available"}
+        No deals advised available
       </div>
     );
   }
 
+  const colAlign = (colIndex: number) => profileTableColAlign(colIndex);
+
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: SUMMARY_ROW_GRID,
-        columnGap: COL_GAP,
-        alignItems: "center",
-        padding: `0 ${SUMMARY_TABLE_X_PAD}px`,
-        fontSize: 12.5,
-        minWidth: 720,
-      }}
-    >
-      {SUMMARY_HEADERS.map((h) => (
-        <div
-          key={h}
-          style={{
-            ...tableColHeaderStyle,
-            textAlign: "left",
-            padding: "9px 0 8px",
-            borderBottom: `1px solid ${T.hair}`,
-          }}
-        >
-          {h}
-        </div>
-      ))}
+    <div style={{ width: "100%", minWidth: 0, ...profileTableCellStyle }}>
+      <div
+        style={{
+          ...tableColHeaderBarStyle,
+          gridTemplateColumns: SUMMARY_ROW_GRID,
+          gap: COL_GAP,
+          padding: PROFILE_EVENTS_ROW_PAD.header,
+        }}
+      >
+        {SUMMARY_HEADERS.map((h, colIndex) => (
+          <div
+            key={h}
+            style={{
+              ...tableColHeaderStyle,
+              textAlign: colAlign(colIndex),
+            }}
+          >
+            {h}
+          </div>
+        ))}
+      </div>
 
       {events.map((event, rowIndex) => {
         const isLastRow = rowIndex === events.length - 1;
-        const rowStyle = summaryRowDivider(isLastRow);
-        const cellStyle: React.CSSProperties = {
-          minWidth: 0,
-          padding: "11px 0",
-          textAlign: "left",
-          ...rowStyle,
-        };
-
         const companyAdvisedId = event.company_advised_id ?? null;
         const companyAdvisedName = (event.company_advised_name || "").trim() || "-";
         const companyAdvisedRoleRaw = String(event.company_advised_role || "").trim();
@@ -327,54 +276,95 @@ function SummaryDealsTable({
         const dealType = event.deal_type || "-";
 
         return (
-          <React.Fragment key={event.id ?? rowIndex}>
-            <div style={cellStyle}>
+          <div
+            key={event.id ?? rowIndex}
+            style={{
+              display: "grid",
+              gridTemplateColumns: SUMMARY_ROW_GRID,
+              gap: COL_GAP,
+              alignItems: "center",
+              padding: PROFILE_EVENTS_ROW_PAD.body,
+              borderBottom: isLastRow ? "none" : `1px solid ${T.hair}`,
+            }}
+          >
+            <div style={{ textAlign: colAlign(0), minWidth: 0 }}>
               <Link
                 href={`/corporate-event/${event.id}`}
                 prefetch={false}
                 title={event.description || undefined}
-                style={summaryTextLinkStyle()}
+                style={{
+                  color: T.azure,
+                  textDecoration: "underline",
+                  fontWeight: 500,
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  wordBreak: "break-word" as const,
+                }}
               >
                 {event.description || "-"}
               </Link>
             </div>
-            <div style={{ ...cellStyle, color: T.ink, fontWeight: 500, whiteSpace: "nowrap" }}>
-              {event.announcement_date ? formatDate(event.announcement_date) : "-"}
+            <div
+              style={{
+                textAlign: colAlign(1),
+                color: T.body,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {formatMonthYear(event.announcement_date)}
             </div>
-            <div style={cellStyle}>
-              <Pill tone={dealTypeTone(dealType)}>{dealType}</Pill>
+            <div style={{ textAlign: colAlign(2) }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "3px 9px",
+                  borderRadius: 999,
+                  fontSize: "11.5px",
+                  fontWeight: 600,
+                  ...dealTypePillStyle(dealType),
+                }}
+              >
+                {dealType}
+              </span>
             </div>
-            <div style={cellStyle}>
-              {companyAdvisedRoleRaw ? (
-                <Pill tone={counterpartyTone(companyAdvisedRoleRaw)}>{companyAdvisedRoleRaw}</Pill>
-              ) : (
-                <span style={{ color: T.muted }}>-</span>
-              )}
+            <div
+              style={{
+                textAlign: colAlign(3),
+                color: T.body,
+                minWidth: 0,
+              }}
+            >
+              {formatSideAdvised(companyAdvisedRoleRaw)}
             </div>
-            <div style={cellStyle}>
+            <div style={{ textAlign: colAlign(4), minWidth: 0 }}>
               {companyAdvisedHref ? (
-                <Link href={companyAdvisedHref} prefetch={false} style={summaryTextLinkStyle()}>
-                  {companyAdvisedName}
-                </Link>
-              ) : (
-                <span
+                <Link
+                  href={companyAdvisedHref}
+                  prefetch={false}
                   style={{
-                    color: T.ink,
+                    color: T.azure,
+                    textDecoration: "underline",
                     fontWeight: 500,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    display: "block",
                   }}
                 >
                   {companyAdvisedName}
-                </span>
+                </Link>
+              ) : (
+                companyAdvisedName
               )}
             </div>
-            <div style={cellStyle}>
-              <SectorTagsCell sectors={sectors} rowKey={event.id ?? rowIndex} />
+            <div
+              style={{
+                textAlign: colAlign(5),
+                minWidth: 0,
+              }}
+            >
+              {sectorLabel(sectors)}
             </div>
-          </React.Fragment>
+          </div>
         );
       })}
     </div>
@@ -398,7 +388,7 @@ export function AdvisorDealsProfilePanel({
   onClearFilters,
   onExportCsv,
   exportingDeals = false,
-  pageSize = 8,
+  pageSize = 3,
 }: Props) {
   const [showAll, setShowAll] = useState(false);
   const isSummary = variant === "summary";
@@ -406,23 +396,15 @@ export function AdvisorDealsProfilePanel({
   const sortedEvents = useMemo(() => sortEventsByDateDesc(events), [events]);
 
   const displayed = showAll ? sortedEvents : sortedEvents.slice(0, pageSize);
-  const visibleCount = displayed.length;
   const total = totalCount > 0 ? totalCount : sortedEvents.length;
 
-  const headerRight = useMemo(() => {
-    if (total === 0 || showAll) return "";
-    return `${Math.min(pageSize, visibleCount)} of ${total}`;
-  }, [pageSize, showAll, total, visibleCount]);
+  const headerRight = useMemo(
+    () => headerRightLine(total, pageSize, showAll),
+    [pageSize, showAll, total]
+  );
 
   const rowGrid = isSummary ? SUMMARY_ROW_GRID : FULL_ROW_GRID;
   const headers = isSummary ? SUMMARY_HEADERS : FULL_HEADERS;
-
-  const footerLeft =
-    total > 0
-      ? showAll
-        ? `Showing all ${total} advised deal${total === 1 ? "" : "s"}`
-        : `Showing 1–${Math.min(pageSize, total)} of ${total} advised deal${total === 1 ? "" : "s"}`
-      : "";
 
   return (
     <div
@@ -435,9 +417,34 @@ export function AdvisorDealsProfilePanel({
         height: "100%",
       }}
     >
-      <LinkedH showArrow right={headerRight || undefined}>
-        Deals Advised
-      </LinkedH>
+      {isSummary ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "14px 16px 12px",
+            borderBottom: `1px solid ${T.hair}`,
+          }}
+        >
+          <div
+            style={{
+              fontSize: "13.5px",
+              fontWeight: 600,
+              color: T.ink,
+            }}
+          >
+            Deals Advised
+          </div>
+          {headerRight ? (
+            <div style={{ fontSize: "11.5px", color: T.muted }}>{headerRight}</div>
+          ) : null}
+        </div>
+      ) : (
+        <LinkedH showArrow right={headerRight || undefined}>
+          Deals Advised
+        </LinkedH>
+      )}
 
       {!isSummary ? (
         <>
@@ -628,7 +635,7 @@ export function AdvisorDealsProfilePanel({
 
       <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, flex: 1, minHeight: 0 }}>
         {isSummary ? (
-          <SummaryDealsTable events={displayed} totalCount={totalCount} />
+          <SummaryDealsTable events={displayed} />
         ) : (
         <div
           style={{
@@ -736,13 +743,25 @@ export function AdvisorDealsProfilePanel({
                     </Link>
                   </div>
                   <div style={{ ...cellStyle, textAlign: colAlign(1), color: T.body, whiteSpace: "nowrap" }}>
-                    {event.announcement_date ? formatDate(event.announcement_date) : "-"}
+                    {formatMonthYear(event.announcement_date)}
                   </div>
                   <div style={{ ...cellStyle, textAlign: colAlign(2) }}>
-                    <Pill tone={dealTypeTone(dealType)}>{dealType}</Pill>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "3px 9px",
+                        borderRadius: 999,
+                        fontSize: "11.5px",
+                        fontWeight: 600,
+                        ...dealTypePillStyle(dealType),
+                      }}
+                    >
+                      {dealType}
+                    </span>
                   </div>
                   <div style={{ ...cellStyle, textAlign: colAlign(3), color: T.body }}>
-                    {companyAdvisedRoleRaw || "-"}
+                    {formatSideAdvised(companyAdvisedRoleRaw)}
                   </div>
                   <div style={{ ...cellStyle, textAlign: colAlign(4) }}>
                     {companyAdvisedHref ? (
@@ -758,26 +777,7 @@ export function AdvisorDealsProfilePanel({
                     )}
                   </div>
                   <div style={{ ...cellStyle, textAlign: colAlign(5), color: T.body }}>
-                    {sectors.length > 0 ? (
-                      sectors.map((s, i) => {
-                        const isPrimary = s.importance.toLowerCase().includes("primary");
-                        const href = isPrimary ? `/sector/${s.id}` : `/sub-sector/${s.id}`;
-                        return (
-                          <span key={`${s.id}-${i}`}>
-                            <Link
-                              href={href}
-                              prefetch={false}
-                              style={{ color: T.azure, textDecoration: "underline" }}
-                            >
-                              {s.name}
-                            </Link>
-                            {i < sectors.length - 1 ? ", " : ""}
-                          </span>
-                        );
-                      })
-                    ) : (
-                      "-"
-                    )}
+                    {sectorLabel(sectors)}
                   </div>
                   <div
                     style={{
@@ -824,54 +824,24 @@ export function AdvisorDealsProfilePanel({
         )}
       </div>
 
-      {isSummary && total > 0 ? (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            padding: "10px 16px 14px",
-            borderTop: `1px solid ${T.hair}`,
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.mono }}>{footerLeft}</div>
-          {total > pageSize && !showAll ? (
-            <button
-              type="button"
-              onClick={() => setShowAll(true)}
-              style={{
-                padding: 0,
-                border: "none",
-                background: "none",
-                color: T.azure,
-                fontSize: 12.5,
-                fontWeight: 500,
-                cursor: "pointer",
-                fontFamily: T.sans,
-              }}
-            >
-              View all {total} →
-            </button>
-          ) : showAll && total > pageSize ? (
-            <button
-              type="button"
-              onClick={() => setShowAll(false)}
-              style={{
-                padding: 0,
-                border: "none",
-                background: "none",
-                color: T.azure,
-                fontSize: 12.5,
-                fontWeight: 500,
-                cursor: "pointer",
-                fontFamily: T.sans,
-              }}
-            >
-              Show less
-            </button>
-          ) : null}
+      {isSummary && total > pageSize ? (
+        <div style={{ textAlign: "center", padding: "12px 0 16px" }}>
+          <button
+            type="button"
+            onClick={() => setShowAll(!showAll)}
+            style={{
+              background: "none",
+              border: "none",
+              color: T.azure,
+              textDecoration: "underline",
+              cursor: "pointer",
+              fontSize: "12.5px",
+              fontWeight: 500,
+              fontFamily: T.sans,
+            }}
+          >
+            {showAll ? "Show less" : "See more"}
+          </button>
         </div>
       ) : null}
 

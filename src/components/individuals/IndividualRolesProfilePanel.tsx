@@ -4,7 +4,10 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
+  profileTableColAlign,
   profileTableCellStyle,
+  PROFILE_EVENTS_ROW_GAP,
+  PROFILE_EVENTS_ROW_PAD,
   tableColHeaderBarStyle,
   tableColHeaderStyle,
   T,
@@ -19,10 +22,7 @@ type Props = {
 };
 
 const ROLES_ROW_GRID =
-  "minmax(0, 38%) minmax(0, 16%) minmax(0, 34%) minmax(0, 12%)";
-
-const COL_GAP = 2;
-const ROW_PAD = "6px 8px";
+  "minmax(0, 1.35fr) minmax(88px, auto) minmax(0, 1fr)";
 
 function RoleLogo({ logo, name }: { logo?: string; name: string }) {
   if (logo) {
@@ -72,6 +72,7 @@ export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
   }, [roles.length]);
 
   const displayed = showAll ? roles : roles.slice(0, maxInitial);
+  const colAlign = (colIndex: number) => profileTableColAlign(colIndex);
 
   return (
     <div style={{ fontFamily: T.sans, minWidth: 0, maxWidth: "100%" }}>
@@ -96,18 +97,16 @@ export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
             style={{
               ...tableColHeaderBarStyle,
               gridTemplateColumns: ROLES_ROW_GRID,
-              gap: COL_GAP,
-              padding: ROW_PAD,
+              gap: PROFILE_EVENTS_ROW_GAP,
+              padding: PROFILE_EVENTS_ROW_PAD.header,
             }}
           >
-            {(["Company", "Status", "Role", "Profile"] as const).map((h) => (
+            {(["Company", "Status", "Role"] as const).map((h, colIndex) => (
               <div
                 key={h}
                 style={{
                   ...tableColHeaderStyle,
-                  textAlign: "left",
-                  fontSize: 10,
-                  letterSpacing: 0.3,
+                  textAlign: colAlign(colIndex),
                 }}
               >
                 {h}
@@ -124,6 +123,11 @@ export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
                 role.new_company?.linkedin_data?.linkedin_logo ||
                 "";
               const isCurrent = role.Status === "Current";
+              const companyHref = role.new_company?._is_that_investor
+                ? `/investors/${role.new_company.id}`
+                : role.new_company?.id
+                  ? `/company/${role.new_company.id}`
+                  : undefined;
 
               return (
                 <div
@@ -131,31 +135,31 @@ export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
                   style={{
                     display: "grid",
                     gridTemplateColumns: ROLES_ROW_GRID,
-                    gap: COL_GAP,
+                    gap: PROFILE_EVENTS_ROW_GAP,
                     alignItems: "center",
-                    padding: ROW_PAD,
+                    padding: PROFILE_EVENTS_ROW_PAD.body,
                     borderBottom: last ? "none" : `1px solid ${T.hair}`,
                   }}
                 >
                   <div
                     style={{
+                      textAlign: colAlign(0),
                       minWidth: 0,
                       display: "flex",
                       alignItems: "center",
-                      gap: 4,
+                      gap: 6,
                       overflow: "hidden",
                     }}
                   >
                     <RoleLogo logo={logo} name={companyName} />
-                    {role.new_company?.id ? (
+                    {companyHref ? (
                       <Link
-                        href={`/company/${role.new_company.id}`}
+                        href={companyHref}
                         prefetch={false}
                         style={{
                           color: T.azure,
                           textDecoration: "underline",
                           fontWeight: 500,
-                          fontSize: 12,
                           minWidth: 0,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -171,44 +175,27 @@ export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
-                          fontSize: 12,
                         }}
                       >
                         {companyName}
                       </span>
                     )}
                   </div>
-                  <div style={{ minWidth: 0 }}>
-                    <Pill tone={isCurrent ? "emerald" : "neutral"} style={{ fontSize: 10, padding: "1px 5px" }}>
-                      {role.Status}
-                    </Pill>
+                  <div style={{ textAlign: colAlign(1), minWidth: 0 }}>
+                    <Pill tone={isCurrent ? "emerald" : "neutral"}>{role.Status}</Pill>
                   </div>
                   <div
                     style={{
+                      textAlign: colAlign(2),
                       color: T.body,
                       minWidth: 0,
-                      fontSize: 12,
-                      lineHeight: 1.35,
+                      lineHeight: 1.55,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {formatJobTitles(role.job_titles_id)}
-                  </div>
-                  <div style={{ minWidth: 0, textAlign: "left" }}>
-                    {role.current_employer_url ? (
-                      <a
-                        href={role.current_employer_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: T.azure, textDecoration: "underline", fontSize: 12 }}
-                      >
-                        View
-                      </a>
-                    ) : (
-                      "-"
-                    )}
+                    {formatJobTitles(role.job_titles_id) || "-"}
                   </div>
                 </div>
               );
@@ -216,10 +203,11 @@ export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
           ) : (
             <div
               style={{
-                padding: "20px 16px",
+                padding: "24px 16px",
                 color: T.muted,
                 fontSize: "12.5px",
                 textAlign: "center",
+                fontFamily: T.sans,
               }}
             >
               No roles available
@@ -228,23 +216,23 @@ export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
         </div>
       </div>
 
-      {roles.length > maxInitial && !showAll ? (
-        <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.hair}` }}>
+      {roles.length > maxInitial ? (
+        <div style={{ textAlign: "center", padding: "12px 0 16px" }}>
           <button
             type="button"
-            onClick={() => setShowAll(true)}
+            onClick={() => setShowAll(!showAll)}
             style={{
-              padding: 0,
-              border: "none",
               background: "none",
+              border: "none",
               color: T.azure,
-              fontSize: 12.5,
-              fontWeight: 500,
+              textDecoration: "underline",
               cursor: "pointer",
+              fontSize: "12.5px",
+              fontWeight: 500,
               fontFamily: T.sans,
             }}
           >
-            See all {roles.length} roles
+            {showAll ? "Show less" : "See more"}
           </button>
         </div>
       ) : null}
