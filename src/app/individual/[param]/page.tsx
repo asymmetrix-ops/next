@@ -1,20 +1,76 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
 import { PlusIcon, BellIcon } from "@heroicons/react/24/outline";
 import { useIndividualProfile } from "../../../hooks/useIndividualProfile";
 import { formatIndividualLocation } from "../../../utils/individualHelpers";
-import { individualService } from "../../../lib/individualService";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
+import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
+import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
+import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import { IndividualOverviewCard } from "@/components/individuals/IndividualOverviewCard";
 import { IndividualRolesProfilePanel } from "@/components/individuals/IndividualRolesProfilePanel";
-import { IndividualCorporateEventsProfilePanel } from "@/components/individuals/IndividualCorporateEventsProfilePanel";
 import { IndividualRelatedProfilePanel } from "@/components/individuals/IndividualRelatedProfilePanel";
+import type { CorporateEvent as IndividualCorporateEvent } from "@/types/individual";
+
+function mapIndividualEventsForProfile(
+  events: IndividualCorporateEvent[]
+): CorporateEventsTableEvent[] {
+  return events.map((event) => {
+    const target = event._target_counterparty_of_corporate_events;
+    const targetId = target?.new_company_counterparty || target?.id;
+    const advisors = event._related_advisor_to_corporate_events || [];
+
+    return {
+      id: event.id,
+      description: event.description,
+      announcement_date: event.announcement_date,
+      deal_type: event.deal_type,
+      ev_data: event.ev_data,
+      targets:
+        target && targetId
+          ? [
+              {
+                id: targetId,
+                name: target.name,
+                page_type: "company",
+                route: "company",
+              },
+            ]
+          : undefined,
+      target_counterparty: target
+        ? {
+            new_company_counterparty: target.new_company_counterparty,
+            new_company: { id: target.id, name: target.name },
+          }
+        : undefined,
+      other_counterparties: (event._other_counterparties_of_corporate_events || []).map(
+        (cp) => ({
+          id: cp.id,
+          name: cp.name,
+          page_type: cp._is_that_investor ? "investor" : "company",
+          _new_company: {
+            id: cp.new_company_counterparty || cp.id,
+            name: cp.name,
+            _is_that_investor: cp._is_that_investor,
+          },
+        })
+      ),
+      advisors: advisors.map((advisor) => ({
+        advisor_company: {
+          id: advisor._new_company?.id,
+          name: advisor._new_company?.name,
+        },
+        new_company_advised: advisor.new_company_advised,
+      })),
+    } as CorporateEventsTableEvent;
+  });
+}
 
 function PersonAvatar({ name }: { name: string }) {
   return (
@@ -44,9 +100,6 @@ export default function IndividualProfilePage() {
   const individualId = parseInt(params.param as string);
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [otherIndividualNames, setOtherIndividualNames] = useState<
-    Record<number, string>
-  >({});
 
   const { profileData, eventsData, individualName, loading, error } =
     useIndividualProfile({
@@ -62,46 +115,11 @@ export default function IndividualProfilePage() {
     }
   }, [displayName]);
 
-  useEffect(() => {
-    const events = eventsData?.events || [];
-    const ids = new Set<number>();
-    events.forEach((evt) => {
-      (evt._related_to_corporate_event_individuals || []).forEach((ind) => {
-        if (ind?.id && ind.id !== individualId) ids.add(ind.id);
-      });
-    });
-    const missing = Array.from(ids).filter(
-      (id) => otherIndividualNames[id] == null
-    );
-    if (missing.length === 0) return;
-
-    let cancelled = false;
-    (async () => {
-      const pairs = await Promise.all(
-        missing.map(async (id) => {
-          try {
-            const name = await individualService.getIndividualName(id);
-            return [id, String(name)] as const;
-          } catch {
-            return [id, `Individual ${id}`] as const;
-          }
-        })
-      );
-      if (!cancelled) {
-        setOtherIndividualNames((prev) => {
-          const next = { ...prev };
-          pairs.forEach(([id, name]) => {
-            next[id] = name;
-          });
-          return next;
-        });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [eventsData?.events, individualId, otherIndividualNames]);
+  const events = eventsData?.events || [];
+  const corporateEventsForProfile = useMemo(
+    () => mapIndividualEventsForProfile(events),
+    [events]
+  );
 
   if (loading) {
     return (
@@ -190,8 +208,8 @@ export default function IndividualProfilePage() {
 
   const { Individual, Roles } = profileData;
   const location = formatIndividualLocation(Individual._locations);
-  const events = eventsData?.events || [];
   const relatedIndividuals = eventsData?.all_related_individuals || [];
+  const linkedinUrl = normalizeLinkedInProfileUrl(Individual.linkedin_URL);
 
   const rolesGridRow = 2;
   const eventsGridRow = 2;
@@ -361,7 +379,7 @@ export default function IndividualProfilePage() {
               <IndividualOverviewCard
                 fillGridCell
                 location={location}
-                linkedinUrl={Individual.linkedin_URL}
+                linkedinUrl={linkedinUrl}
               />
             </div>
 
@@ -393,11 +411,23 @@ export default function IndividualProfilePage() {
 
             <div className="individual-grid-events">
               <LinkPanel fillGridCell className="individual-events-v3-card">
-                <IndividualCorporateEventsProfilePanel
-                  events={events}
-                  individualId={individualId}
-                  otherIndividualNames={otherIndividualNames}
-                  maxInitial={5}
+                <CorporateEventsProfilePanel
+                  tokens={{
+                    paper: T.paper,
+                    hair: T.hair,
+                    ink: T.ink,
+                    body: T.body,
+                    muted: T.muted,
+                    inset: T.inset,
+                    azure: T.azure,
+                    azureSoft: T.azureSoft,
+                    coralSoft: T.coralSoft,
+                    down: T.down,
+                    sans: T.sans,
+                    mono: T.mono,
+                  }}
+                  events={corporateEventsForProfile}
+                  maxInitialEvents={3}
                 />
               </LinkPanel>
             </div>

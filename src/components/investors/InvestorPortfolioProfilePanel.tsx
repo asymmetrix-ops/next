@@ -5,10 +5,12 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   LinkPanel,
-  LinkedH,
-  Pill,
   T,
+  profileTableColAlign,
   profileTableCellStyle,
+  PROFILE_EVENTS_ROW_GAP,
+  PROFILE_EVENTS_ROW_PAD,
+  tableColHeaderBarStyle,
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
 
@@ -45,12 +47,8 @@ type Props = {
 };
 
 const PORTFOLIO_ROW_GRID =
-  "minmax(0, 1.15fr) minmax(0, 1.45fr) minmax(88px, auto) minmax(64px, auto) minmax(108px, auto)";
-const COL_GAP = 8;
-const TABLE_X_PAD = 16;
+  "minmax(0, 1.35fr) minmax(0, 1.1fr) minmax(88px, auto) minmax(72px, auto) minmax(0, 1fr)";
 const HEADERS = ["Name", "Sectors", "Country", "Invested", "Deal Lead"] as const;
-/** Header + body alignment per column — keeps Deal Lead header over its values. */
-const COL_ALIGN: Array<"left" | "center"> = ["left", "left", "left", "center", "left"];
 
 type PortfolioTab = "current" | "past";
 
@@ -94,20 +92,9 @@ function CompanyLogo({ logo, name }: { logo?: string | null; name: string }) {
   );
 }
 
-function SectorTags({ sectors }: { sectors: string[] }) {
-  if (sectors.length === 0) {
-    return <span style={{ color: T.muted }}>-</span>;
-  }
-
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-      {sectors.map((sector) => (
-        <Pill key={sector} tone="coral">
-          {sector}
-        </Pill>
-      ))}
-    </div>
-  );
+function sectorLabel(sectors: string[]): string {
+  if (sectors.length === 0) return "-";
+  return sectors.slice(0, 3).join(", ");
 }
 
 function TabButton({
@@ -208,7 +195,18 @@ export function InvestorPortfolioProfilePanel({
   if (loading) {
     return (
       <LinkPanel fillGridCell={fillGridCell}>
-        <LinkedH showArrow>Portfolio</LinkedH>
+        <div
+          style={{
+            padding: "14px 16px 12px",
+            borderBottom: `1px solid ${T.hair}`,
+            fontSize: "13.5px",
+            fontWeight: 600,
+            color: T.ink,
+            fontFamily: T.sans,
+          }}
+        >
+          Portfolio
+        </div>
         <div
           style={{
             textAlign: "center",
@@ -233,6 +231,7 @@ export function InvestorPortfolioProfilePanel({
           gap: 16,
           padding: "12px 16px 0",
           borderBottom: `1px solid ${T.hair}`,
+          fontFamily: T.sans,
         }}
       >
         {tabs.map((item) => (
@@ -252,18 +251,21 @@ export function InvestorPortfolioProfilePanel({
         </div>
       </div>
 
-      <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, flex: fillGridCell ? 1 : undefined }}>
-        {displayed.length > 0 ? (
+      <div
+        style={{
+          overflowX: "auto",
+          maxWidth: "100%",
+          minWidth: 0,
+          flex: fillGridCell ? 1 : undefined,
+        }}
+      >
+        <div style={{ width: "100%", minWidth: 0, ...profileTableCellStyle }}>
           <div
             style={{
-              display: "grid",
+              ...tableColHeaderBarStyle,
               gridTemplateColumns: PORTFOLIO_ROW_GRID,
-              columnGap: COL_GAP,
-              alignItems: "center",
-              padding: `0 ${TABLE_X_PAD}px`,
-              fontSize: 12.5,
-              minWidth: 640,
-              ...profileTableCellStyle,
+              gap: PROFILE_EVENTS_ROW_GAP,
+              padding: PROFILE_EVENTS_ROW_PAD.header,
             }}
           >
             {HEADERS.map((h, colIndex) => (
@@ -271,21 +273,17 @@ export function InvestorPortfolioProfilePanel({
                 key={h}
                 style={{
                   ...tableColHeaderStyle,
-                  textAlign: COL_ALIGN[colIndex],
-                  padding: "9px 0 8px",
-                  borderBottom: `1px solid ${T.hair}`,
+                  textAlign: profileTableColAlign(colIndex),
                 }}
               >
                 {h === "Invested" ? yearHeader : h}
               </div>
             ))}
+          </div>
 
-            {displayed.map((company, rowIndex) => {
+          {displayed.length > 0 ? (
+            displayed.map((company, rowIndex) => {
               const isLastRow = rowIndex === displayed.length - 1;
-              const cellStyle: React.CSSProperties = {
-                minWidth: 0,
-                padding: "10px 0",
-              };
               const yearValue =
                 company.yearLabel !== null &&
                 company.yearLabel !== undefined &&
@@ -293,16 +291,27 @@ export function InvestorPortfolioProfilePanel({
                   ? String(company.yearLabel)
                   : "-";
               const dealLead = company.relatedIndividuals?.[0];
+              const colAlign = (colIndex: number) => profileTableColAlign(colIndex);
 
               return (
-                <React.Fragment key={company.id}>
+                <div
+                  key={company.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: PORTFOLIO_ROW_GRID,
+                    gap: PROFILE_EVENTS_ROW_GAP,
+                    alignItems: "center",
+                    padding: PROFILE_EVENTS_ROW_PAD.body,
+                    borderBottom: isLastRow ? "none" : `1px solid ${T.hair}`,
+                  }}
+                >
                   <div
                     style={{
-                      ...cellStyle,
+                      textAlign: colAlign(0),
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
-                      textAlign: COL_ALIGN[0],
+                      minWidth: 0,
                     }}
                   >
                     <CompanyLogo logo={company.logo} name={company.name} />
@@ -320,16 +329,34 @@ export function InvestorPortfolioProfilePanel({
                       {company.name}
                     </Link>
                   </div>
-                  <div style={{ ...cellStyle, textAlign: COL_ALIGN[1] }}>
-                    <SectorTags sectors={company.sectors} />
+                  <div
+                    style={{
+                      textAlign: colAlign(1),
+                      minWidth: 0,
+                    }}
+                  >
+                    {sectorLabel(company.sectors)}
                   </div>
-                  <div style={{ ...cellStyle, textAlign: COL_ALIGN[2], color: T.body, whiteSpace: "nowrap" }}>
+                  <div
+                    style={{
+                      textAlign: colAlign(2),
+                      color: T.body,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {company.country?.trim() || "-"}
                   </div>
-                  <div style={{ ...cellStyle, textAlign: COL_ALIGN[3], color: T.body, fontFamily: T.mono }}>
+                  <div
+                    style={{
+                      textAlign: colAlign(3),
+                      color: T.body,
+                      fontVariantNumeric: "tabular-nums",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {yearValue}
                   </div>
-                  <div style={{ ...cellStyle, textAlign: COL_ALIGN[4] }}>
+                  <div style={{ textAlign: colAlign(4), minWidth: 0 }}>
                     {dealLead ? (
                       <Link
                         href={`/individual/${dealLead.id}`}
@@ -337,6 +364,7 @@ export function InvestorPortfolioProfilePanel({
                         style={{
                           color: T.azure,
                           textDecoration: "underline",
+                          fontWeight: 500,
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -349,31 +377,23 @@ export function InvestorPortfolioProfilePanel({
                       <span style={{ color: T.muted }}>-</span>
                     )}
                   </div>
-                  {!isLastRow ? (
-                    <div
-                      style={{
-                        gridColumn: "1 / -1",
-                        borderBottom: `1px solid ${T.hair}`,
-                        height: 0,
-                      }}
-                    />
-                  ) : null}
-                </React.Fragment>
+                </div>
               );
-            })}
-          </div>
-        ) : (
-          <div
-            style={{
-              padding: "20px 16px",
-              color: T.muted,
-              fontSize: "12.5px",
-              textAlign: "center",
-            }}
-          >
-            No {isCurrent ? "current" : "past"} portfolio companies found
-          </div>
-        )}
+            })
+          ) : (
+            <div
+              style={{
+                padding: "24px 16px",
+                color: T.muted,
+                fontSize: "12.5px",
+                textAlign: "center",
+                fontFamily: T.sans,
+              }}
+            >
+              No {isCurrent ? "current" : "past"} portfolio companies found
+            </div>
+          )}
+        </div>
       </div>
 
       {total > 0 ? (

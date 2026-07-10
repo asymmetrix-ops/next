@@ -13,7 +13,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
-import { T } from "@/components/redesign/primitives";
+import { LinkPanel, T } from "@/components/redesign/primitives";
+import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
 import { InvestorOverviewCard } from "@/components/investors/InvestorOverviewCard";
 import {
@@ -26,7 +27,6 @@ import {
 } from "@/components/investors/InvestorFocusMixCard";
 import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
-import { InvestorCorporateEventsProfilePanel } from "@/components/investors/InvestorCorporateEventsProfilePanel";
 
 const INVESTOR_PROFILE_TABS = [
   "Summary",
@@ -1290,6 +1290,11 @@ const InvestorDetailPage = () => {
   const stageFocus = mapPortfolioMixRows(portfolioMix?.stage_focus);
   const geographyMix = mapPortfolioMixRows(portfolioMix?.geography);
 
+  const corporateEventPrimarySectors = Focus.filter((f) => f?.sector_name).map((f) => ({
+    id: f.id,
+    sector_name: f.sector_name,
+  }));
+
   const styles = {
     container: {
       backgroundColor: T.paper,
@@ -1584,12 +1589,28 @@ const InvestorDetailPage = () => {
             </div>
 
             <div className="investor-grid-corporate-events">
-              <InvestorCorporateEventsProfilePanel
-                fillGridCell
-                events={corporateEvents as unknown as CorporateEventsTableEvent[]}
-                loading={corporateEventsLoading}
-                maxInitialEvents={5}
-              />
+              <LinkPanel fillGridCell className="corporate-events-v3-card">
+                <CorporateEventsProfilePanel
+                  tokens={{
+                    paper: T.paper,
+                    hair: T.hair,
+                    ink: T.ink,
+                    body: T.body,
+                    muted: T.muted,
+                    inset: T.inset,
+                    azure: T.azure,
+                    azureSoft: T.azureSoft,
+                    coralSoft: T.coralSoft,
+                    down: T.down,
+                    sans: T.sans,
+                    mono: T.mono,
+                  }}
+                  events={corporateEvents as unknown as CorporateEventsTableEvent[]}
+                  loading={corporateEventsLoading}
+                  primarySectors={corporateEventPrimarySectors}
+                  maxInitialEvents={3}
+                />
+              </LinkPanel>
             </div>
 
             <div className="investor-grid-headcount">
