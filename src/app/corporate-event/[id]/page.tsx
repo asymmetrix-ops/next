@@ -1,28 +1,27 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { PlusIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { corporateEventsService } from "../../../lib/corporateEventsService";
 import {
   CorporateEventDetailResponse,
   CorporateEventAdvisor,
+  Target,
 } from "../../../types/corporateEvents";
-import { useRightClick } from "@/hooks/useRightClick";
 import { ContentArticle } from "@/types/insightsAnalysis";
-import TransactionHero from "@/components/transaction/TransactionHero";
-import DealMetrics from "@/components/transaction/DealMetrics";
-import InsightsSection from "@/components/transaction/InsightsSection";
-import CounterpartiesSection from "@/components/transaction/CounterpartiesSection";
-import AdvisorsSection from "@/components/transaction/AdvisorsSection";
-import RelatedTransactionsSection from "@/components/transaction/RelatedTransactionsSection";
-import PreviousCorporateEventsSection, {
-  PreviousCorporateEventRow,
-} from "@/components/transaction/PreviousCorporateEventsSection";
-import { Button } from "@/components/ui/button";
-import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
-import { trackEvent } from "@/lib/tracking";
+import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { LinkPanel, T } from "@/components/redesign/primitives";
+import { CorporateEventOverviewCard } from "@/components/corporate-events/CorporateEventOverviewCard";
+import { CorporateEventCounterpartiesPanel } from "@/components/corporate-events/CorporateEventCounterpartiesPanel";
+import { CorporateEventAdvisorsPanel } from "@/components/corporate-events/CorporateEventAdvisorsPanel";
+import {
+  CorporateEventTransactionsPanel,
+  type CorporateEventTransactionRow,
+} from "@/components/corporate-events/CorporateEventTransactionsPanel";
+import { CorporateEventInsightsPanel } from "@/components/corporate-events/CorporateEventInsightsPanel";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -64,7 +63,8 @@ const CorporateEventDetail = ({
 }: {
   data: CorporateEventDetailResponse;
 }) => {
-  const { createClickableElement } = useRightClick();
+  const descriptionRef = useRef<HTMLDivElement>(null);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   type FlatEventFields = {
     investment_amount_m?: string | number | null;
     investment_amount?: string | number | null;
@@ -77,7 +77,6 @@ const CorporateEventDetail = ({
     Array.isArray(data?.Event) && data.Event.length > 0
       ? data.Event[0]
       : undefined;
-  const corporateEventId = typeof event?.id === "number" ? event.id : undefined;
   const counterparties = React.useMemo(
     () =>
       Array.isArray(data?.Event_counterparties)
@@ -137,7 +136,7 @@ const CorporateEventDetail = ({
           uniqueIds.map(async (companyId) => {
             try {
               const resp = await fetch(
-                `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${companyId}`,
+                `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${companyId}`,
                 {
                   method: "GET",
                   headers: {
@@ -174,7 +173,7 @@ const CorporateEventDetail = ({
   }, [counterparties, logoMap]);
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "Not available";
+    if (!dateString) return "-";
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       year: "numeric",
@@ -233,47 +232,11 @@ const CorporateEventDetail = ({
   };
 
   const [eventArticles, setEventArticles] = useState<ContentArticle[]>([]);
-  const [relatedTransactions, setRelatedTransactions] = useState<
-    Array<{
-      id: number;
-      title: string;
-      date?: string;
-      dealType?: string;
-      target?: string | React.ReactNode;
-      investors?: string | React.ReactNode;
-    }>
-  >([]);
+  const [relatedTransactions, setRelatedTransactions] = useState<CorporateEventTransactionRow[]>([]);
   const [relatedInsights, setRelatedInsights] = useState<
     Array<{ id?: number; tag?: string; date?: string; title: string; content: string }>
   >([]);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-
-  // Derive the "target" company id for this event from counterparties.
-  // The API change requires `new_company_id`, which should be the `_new_company.id`
-  // for the counterparty whose status is "Target" (when available).
-  const targetNewCompanyId = useMemo(() => {
-    const cps = Array.isArray(counterparties) ? counterparties : [];
-
-    const statusOf = (cp: (typeof cps)[number]): string => {
-      const s =
-        cp?._counterpartys_type?.counterparty_status ||
-        cp?._counterparty_type?.counterparty_status ||
-        "";
-      return typeof s === "string" ? s : "";
-    };
-
-    const targetCp = cps.find((cp) => /target/i.test(statusOf(cp)));
-    const targetId = targetCp?._new_company?.id;
-    if (typeof targetId === "number") return targetId;
-
-    // Fallback: first non-investor company (often the target/investee), else first company id.
-    const nonInvestor = cps.find((cp) => !Boolean(cp?._new_company?._is_that_investor));
-    const nonInvestorId = nonInvestor?._new_company?.id;
-    if (typeof nonInvestorId === "number") return nonInvestorId;
-
-    const anyId = cps.find((cp) => typeof cp?._new_company?.id === "number")?._new_company?.id;
-    return typeof anyId === "number" ? anyId : undefined;
-  }, [counterparties]);
 
   useEffect(() => {
     const run = async () => {
@@ -283,15 +246,9 @@ const CorporateEventDetail = ({
         if (!evId) return;
         console.log("[Insights & Analysis] fetch start", {
           corporate_event_id: evId,
-          new_company_id: targetNewCompanyId,
         });
-        const qs = new URLSearchParams({
-          corporate_event_id: String(evId),
-          ...(typeof targetNewCompanyId === "number"
-            ? { new_company_id: String(targetNewCompanyId) }
-            : {}),
-        });
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/content?${qs.toString()}`;
+        const qs = new URLSearchParams({ corporate_event_id: String(evId) });
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/content?${qs.toString()}`;
         console.log("[Insights & Analysis] GET URL", url);
         const res = await fetch(url, {
           method: "GET",
@@ -320,15 +277,12 @@ const CorporateEventDetail = ({
     };
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event?.id, targetNewCompanyId]);
+  }, [event?.id]);
 
-  // Transform data for components
-  const transactionData = {
-    title: event?.description || "Corporate Event",
-    subtitle: event?.long_description || undefined,
-  };
 
   const sourceUrl = event?.investment_data?.investment_amount_source || event?.deal_terms_data?.deal_terms_source;
+
+  const corporateEventId = typeof event?.id === "number" ? event.id : undefined;
 
   // Get primary sectors with IDs
   const primarySectors = (() => {
@@ -381,6 +335,11 @@ const CorporateEventDetail = ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     id: (s as any)?.id || (s as any)?.sector_id || (s as any)?.sub_sector_id || undefined,
   }));
+
+  const primarySectorId =
+    primarySectors.find((s) => typeof s.id === "number")?.id ??
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ((data.Primary_sectors?.[0] as any)?.id as number | undefined);
 
   const metricsData = {
     sectors: primarySectors.length > 0 ? primarySectors : undefined,
@@ -481,14 +440,14 @@ const CorporateEventDetail = ({
   }, [primarySectors]);
 
   const counterpartiesData = counterparties.map((counterparty) => {
-                      const nc = counterparty._new_company;
-                      const isInvestor = Boolean(nc?._is_that_investor);
-                      const isDA = isDataAnalyticsCompany(nc);
-                      const href = isInvestor
-                        ? `/investors/${counterparty.new_company_counterparty}`
-                        : isDA
-                        ? `/company/${Number(nc?.id)}`
-                        : undefined;
+    const nc = counterparty._new_company;
+    const isInvestor = Boolean(nc?._is_that_investor);
+    const isDA = isDataAnalyticsCompany(nc);
+    const href = isInvestor
+      ? `/investors/${counterparty.new_company_counterparty}`
+      : isDA
+      ? `/company/${Number(nc?.id)}`
+      : undefined;
 
     const rawLogo =
       nc?._linkedin_data_of_new_company?.linkedin_logo ||
@@ -498,27 +457,22 @@ const CorporateEventDetail = ({
 
     const individuals =
       Array.isArray(counterparty.counterparty_individuals) &&
-                      counterparty.counterparty_individuals.length > 0
-        ? counterparty.counterparty_individuals.map((individual, idx) => (
-                              <span key={individual.id}>
-                                <a
-                                  href={`/individual/${individual.individuals_id}`}
-                className="text-blue-600 hover:underline"
-                                >
-                                  {individual.advisor_individuals}
-                                </a>
-              {idx < counterparty.counterparty_individuals.length - 1 && ", "}
-                              </span>
-          ))
-        : "Not available";
+      counterparty.counterparty_individuals.length > 0
+        ? counterparty.counterparty_individuals
+            .filter((individual) => typeof individual.individuals_id === "number")
+            .map((individual) => ({
+              id: individual.individuals_id,
+              name: individual.advisor_individuals,
+            }))
+        : [];
 
     return {
       id: counterparty.id,
-      name: nc?.name ?? "N/A",
+      name: nc?.name ?? "-",
       role:
         counterparty._counterpartys_type?.counterparty_status ||
-                        counterparty._counterparty_type?.counterparty_status ||
-        "N/A",
+        counterparty._counterparty_type?.counterparty_status ||
+        "-",
       logo,
       individuals,
       href,
@@ -526,8 +480,8 @@ const CorporateEventDetail = ({
   });
 
   const advisorsData = advisors.map((a) => {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const anyA = a as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyA = a as any;
     const rawLogo =
       anyA?._new_company?._linkedin_data_of_new_company?.linkedin_logo ||
       anyA?._new_company?.linkedin_data?.linkedin_logo;
@@ -535,71 +489,58 @@ const CorporateEventDetail = ({
 
     const advisedId: number | undefined = anyA?.counterparty_advised;
     const cp = advisedId ? counterpartiesById?.get?.(advisedId) : undefined;
-                        const nc = cp?._new_company;
-                        const isInvestor = Boolean(nc?._is_that_investor);
-                        const isDA = isDataAnalyticsCompany(nc);
-    const advisingHref = isInvestor
-                          ? `/investors/${cp?.new_company_counterparty}`
-                          : isDA
-                          ? `/company/${Number(nc?.id)}`
-                          : undefined;
+    const nc = cp?._new_company;
+    const isInvestor = Boolean(nc?._is_that_investor);
+    const isDA = isDataAnalyticsCompany(nc);
+    const advisedHref = isInvestor
+      ? `/investors/${cp?.new_company_counterparty}`
+      : isDA
+      ? `/company/${Number(nc?.id)}`
+      : undefined;
 
-    const advising = advisingHref
-      ? createClickableElement(
-          advisingHref,
-                            nc?.name || "N/A",
-          "text-blue-600 hover:underline"
-        )
-      : nc?.name || "N/A";
-
-                        const advisorList = Array.isArray(anyA?.individuals)
-                          ? (anyA.individuals as Array<{
-                              id: number;
-                              individuals_id?: number;
-                              advisor_individuals: string;
-                            }>)
-                          : undefined;
+    const advisorList = Array.isArray(anyA?.individuals)
+      ? (anyA.individuals as Array<{
+          id: number;
+          individuals_id?: number;
+          advisor_individuals: string;
+        }>)
+      : undefined;
 
     const individuals =
       Array.isArray(advisorList) && advisorList.length > 0
-        ? advisorList.map((ind, idx) => (
-                              <span key={ind.id}>
-                                {typeof ind.individuals_id === "number" ? (
-                                  <a
-                                    href={`/individual/${ind.individuals_id}`}
-                  className="text-blue-600 hover:underline"
-                                  >
-                                    {ind.advisor_individuals}
-                                  </a>
-                                ) : (
-                                  <span>{ind.advisor_individuals}</span>
-                                )}
-              {idx < advisorList.length - 1 && ", "}
-                              </span>
-                            ))
-                          : "Not available";
+        ? advisorList
+            .filter((ind) => typeof ind.individuals_id === "number")
+            .map((ind) => ({
+              id: ind.individuals_id as number,
+              name: ind.advisor_individuals,
+            }))
+        : [];
 
     return {
       id: a.id,
       name: a._new_company.name,
       logo,
       role: a._advisor_role?.counterparty_status || "Advisor",
-      advising,
+      advisedName: nc?.name || undefined,
+      advisedHref,
       individuals,
       href: `/advisor/${a._new_company.id}`,
     };
   });
 
-  const previousCorporateEventsData: PreviousCorporateEventRow[] =
+  const previousCorporateEventsData: CorporateEventTransactionRow[] =
     previousCorporateEventsRaw
       .filter((e) => e && typeof e.id === "number")
       .map((e) => {
+        const dealType = e.deal_type || undefined;
         const dateRaw = e.date || e.announcement_date || e.closed_date || undefined;
+
         const date = dateRaw ? formatDate(dateRaw) : undefined;
 
-        const dealType = e.deal_type || undefined;
-
-        const legacyCounterparties = Array.isArray(e.counterparties) ? e.counterparties : [];
+        // Target (new API: `target`, legacy fallback: infer from `counterparties` if possible)
+        const legacyCounterparties = Array.isArray(e.counterparties)
+          ? e.counterparties
+          : [];
         const legacyTarget =
           legacyCounterparties.find((c) =>
             String(c?.counterparty_status || "").toLowerCase().includes("target")
@@ -611,14 +552,15 @@ const CorporateEventDetail = ({
             : typeof legacyTarget?.company_id === "number"
               ? legacyTarget.company_id
               : undefined;
-
         const targetCompanyName: string | undefined =
-          (typeof e.target?.company_name === "string" && e.target.company_name.trim()) ||
-          (typeof legacyTarget?.company_name === "string" && legacyTarget.company_name.trim()) ||
-          undefined;
+          typeof e.target?.company_name === "string" && e.target.company_name
+            ? e.target.company_name
+            : typeof legacyTarget?.company_name === "string" && legacyTarget.company_name
+              ? legacyTarget.company_name
+              : undefined;
 
         const target =
-          typeof targetCompanyId === "number" && targetCompanyName ? (
+          targetCompanyId && targetCompanyName ? (
             <a
               href={`/company/${targetCompanyId}`}
               className="text-blue-600 hover:underline"
@@ -627,6 +569,7 @@ const CorporateEventDetail = ({
             </a>
           ) : undefined;
 
+        // Investors (new API: `investors`, legacy fallback: infer from `counterparties`)
         const investorsArr = Array.isArray(e.investors)
           ? e.investors
           : legacyCounterparties.filter((c) => {
@@ -638,15 +581,18 @@ const CorporateEventDetail = ({
           Array.isArray(investorsArr) && investorsArr.length > 0 ? (
             <>
               {investorsArr.map((inv, idx) => {
-                const name = String(inv?.company_name || "").trim();
-                const id = (inv as { company_id?: unknown })?.company_id;
+                const name = String(inv?.company_name || "");
+                const id = inv?.company_id;
                 const content =
                   typeof id === "number" && name ? (
-                    <a href={`/company/${id}`} className="text-blue-600 hover:underline">
+                    <a
+                      href={`/company/${id}`}
+                      className="text-blue-600 hover:underline"
+                    >
                       {name}
                     </a>
                   ) : (
-                    <span>{name || "N/A"}</span>
+                    <span>{name || "-"}</span>
                   );
                 return (
                   <span key={typeof id === "number" ? id : idx}>
@@ -673,147 +619,132 @@ const CorporateEventDetail = ({
   useEffect(() => {
     const run = async () => {
       try {
-        // Get all primary sector IDs
-        const primarySectorIds = primarySectors
-          .map((s) => s.id)
-          .filter((id): id is number => typeof id === "number");
-        
-        if (primarySectorIds.length === 0 || typeof corporateEventId !== "number") return;
+        if (!primarySectorId || typeof primarySectorId !== "number") return;
 
-        // Get auth token for both API calls
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        
-        if (!token) return;
-
-        // Related transactions using the new endpoint
-        try {
-          const params = new URLSearchParams();
-          params.append("event_id", String(corporateEventId));
-          params.append("Page", "0");
-          params.append("Per_page", "30");
-          // Add primary_sectors_ids as array parameters
-          primarySectorIds.forEach((id) => {
-            params.append("primary_sectors_ids[]", String(id));
-          });
-
-          const response = await fetch(
-            `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_resent_ce_transactions?${params.toString()}`,
-            {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-              },
-            }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            const items = Array.isArray(data?.items) ? data.items : [];
-            
-            const filtered = items.map((e: {
-              id: number;
-              description: string;
-              announcement_date?: string;
-              deal_type?: string;
-              targets?: Array<{ id: number; name: string; path: string }>;
-              buyers_investors?: Array<{ id: number; name: string; path: string }>;
-            }) => {
-              // Extract investors from buyers_investors array
-              const investors = Array.isArray(e?.buyers_investors) && e.buyers_investors.length > 0
-                ? (() => {
-                    const investorsList = e.buyers_investors.slice(0, 3);
-                    return (
-                      <>
-                        {investorsList.map((investor, idx) => {
-                          const investorName = investor?.name || "";
-                          const investorId = investor?.id;
-                          const investorPath = investor?.path;
-                          
-                          if (investorId && investorPath) {
-                            return (
-                              <span key={investorId || idx}>
-                                <a
-                                  href={investorPath}
-                                  className="text-blue-600 hover:underline"
-                                >
-                                  {investorName}
-                                </a>
-                                {idx < investorsList.length - 1 && ", "}
-                              </span>
+        // Related transactions in same primary sector, excluding current event id.
+        // Fetch more to allow for "Load More" functionality
+        const tx = await corporateEventsService.getCorporateEvents(1, 30, {
+          primary_sectors_ids: [primarySectorId],
+        });
+        const items = Array.isArray(tx?.items) ? tx.items : [];
+        const filtered = items
+          .filter((e) => (typeof corporateEventId === "number" ? e?.id !== corporateEventId : true))
+          .map((e) => {
+            const investors = Array.isArray(e?.other_counterparties)
+              ? (() => {
+                  const investorCounterparties = e.other_counterparties
+                    .filter((c) => {
+                      const nc = c?._new_company;
+                      return nc?.name && Boolean(nc?._is_that_investor);
+                    })
+                    .slice(0, 3);
+                  
+                  if (investorCounterparties.length === 0) {
+                    return undefined;
+                  }
+                  
+                  return (
+                    <>
+                      {investorCounterparties.map((c, idx) => {
+                        const nc = c._new_company;
+                        const investorName = nc?.name || "";
+                        const investorId = c?.new_company_counterparty;
+                        const investorsArray = investorCounterparties;
+                        
+                        if (investorId && typeof investorId === "number") {
+                          return (
+                            <span key={investorId || idx}>
+                              <a
+                                href={`/investors/${investorId}`}
+                                className="text-blue-600 hover:underline"
+                              >
+                                {investorName}
+                              </a>
+                              {idx < investorsArray.length - 1 && ", "}
+                      </span>
                             );
                           }
                           return (
-                            <span key={idx}>
-                              {investorName}
-                              {idx < investorsList.length - 1 && ", "}
+                          <span key={idx}>
+                            {investorName}
+                            {idx < investorsArray.length - 1 && ", "}
                             </span>
                           );
-                        })}
-                      </>
-                    );
+                      })}
+                    </>
+                  );
+                })()
+                            : undefined;
+            
+            // Extract targets from the targets array
+            const targets = Array.isArray(e?.targets) && e.targets.length > 0
+              ? e.targets.map((target: Target, idx: number) => {
+                  const targetName = target?.name || "";
+                  const targetId = target?.id;
+                  const targetPath = target?.path;
+                  const targetsArray = e.targets || [];
+                  
+                  if (targetId && targetPath) {
+                    return (
+                      <span key={targetId || idx}>
+                        <a
+                          href={targetPath}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {targetName}
+                        </a>
+                        {idx < targetsArray.length - 1 && ", "}
+                                </span>
+                            );
+                          }
+                          return (
+                    <span key={idx}>
+                      {targetName}
+                      {idx < targetsArray.length - 1 && ", "}
+                      </span>
+                          );
+                })
+              : e?.target_counterparty?.new_company?.name 
+                ? (() => {
+                    const targetName = e.target_counterparty.new_company.name;
+                    const targetId = e.target_counterparty.new_company.id;
+                    return targetId ? (
+                      <a
+                        href={`/company/${targetId}`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {targetName}
+                      </a>
+                    ) : targetName;
                   })()
                 : undefined;
-
-              // Extract targets from the targets array
-              const targets = Array.isArray(e?.targets) && e.targets.length > 0
-                ? e.targets.map((target, idx: number) => {
-                    const targetName = target?.name || "";
-                    const targetId = target?.id;
-                    const targetPath = target?.path;
-                    const targetsArray = e.targets || [];
-                    
-                    if (targetId && targetPath) {
-                      return (
-                        <span key={targetId || idx}>
-                          <a
-                            href={targetPath}
-                            className="text-blue-600 hover:underline"
-                          >
-                            {targetName}
-                          </a>
-                          {idx < targetsArray.length - 1 && ", "}
-                        </span>
-                      );
-                    }
-                    return (
-                      <span key={idx}>
-                        {targetName}
-                        {idx < targetsArray.length - 1 && ", "}
-                      </span>
-                    );
-                  })
-                : undefined;
-
-              return {
-                id: e.id,
-                title: e.description || "View event",
-                date: e.announcement_date ? formatDate(e.announcement_date) : undefined,
-                dealType: e.deal_type || undefined,
-                target: targets,
-                investors: investors || undefined,
-              };
-            });
             
-            setRelatedTransactions(filtered);
-          } else {
-            console.error("[Related Transactions] API error:", response.status);
-            setRelatedTransactions([]);
-          }
-        } catch (error) {
-          console.error("[Related Transactions] Fetch error:", error);
-          setRelatedTransactions([]);
-        }
+            return {
+              id: e.id,
+              title: e.description || "View event",
+              date: e.announcement_date ? formatDate(e.announcement_date) : undefined,
+              dealType: e.deal_type || undefined,
+              target: targets,
+              investors: investors || undefined,
+            };
+          });
+        setRelatedTransactions(filtered);
 
         // Sector Insights & Analysis (by primary sector), excluding any already shown above.
         // Uses api:Z3F6JUiu/articles_based_on_sectors to fetch 5 most recent articles
         // whose Primary Sector(s) match the corporate event's primary sector(s)
-        // Token is already available from above
 
-        // Reuse primarySectorIds computed above
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        if (!token) return;
+
+        // Get all primary sector IDs
+        const primarySectorIds = primarySectors
+          .map((s) => s.id)
+          .filter((id): id is number => typeof id === "number");
+
         if (primarySectorIds.length === 0) {
           setRelatedInsights([]);
           return;
@@ -851,7 +782,7 @@ const CorporateEventDetail = ({
         if (typeof corporateEventId === "number") {
           params.append("corporate_events_id", String(corporateEventId));
         }
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/articles_based_on_sectors?${params.toString()}`;
         const res = await fetch(url, {
           method: "GET",
           headers: {
@@ -906,12 +837,10 @@ const CorporateEventDetail = ({
         throw new Error("Authentication token not found. Please log in again.");
       }
 
-      const endpoint =
-        "https://asymmetrix-pdf-service.fly.dev/api/export-corporate-event-pdf";
-
-      // Prepare the full data payload (ported from develop)
+      const endpoint = "https://asymmetrix-pdf-service.fly.dev/api/export-corporate-event-pdf";
+      
+      // Prepare the full data payload
       const payload = {
-        corporate_event_id: corporateEventId,
         Event: data?.Event || [],
         Event_counterparties: data?.Event_counterparties || [],
         Event_advisors: data?.Event_advisors || [],
@@ -919,8 +848,6 @@ const CorporateEventDetail = ({
         "Sub-sectors": data?.["Sub-sectors"] || [],
         event_articles: eventArticles || [],
         related_transactions: relatedTransactions || [],
-        // Include prior events from the corporate_event_v2 payload (matches `Previous_Corporate_Events` shape)
-        previous_corporate_events: previousCorporateEventsRaw || [],
         related_insights: relatedInsights || [],
         xano_auth_token: token,
       };
@@ -930,7 +857,6 @@ const CorporateEventDetail = ({
         event_count: payload.Event.length,
         articles_count: payload.event_articles.length,
         transactions_count: payload.related_transactions.length,
-        previous_events_count: payload.previous_corporate_events.length,
         insights_count: payload.related_insights.length,
       });
 
@@ -957,99 +883,284 @@ const CorporateEventDetail = ({
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 3000);
-      void trackEvent({
-        eventType: "download_pdf",
-      });
     } catch (error) {
       console.error("[PDF Export] Error:", error);
       alert("Failed to export PDF. Please try again later.");
     } finally {
       setIsExportingPdf(false);
     }
-  }, [
-    corporateEventId,
-    event?.description,
-    data,
-    eventArticles,
-    relatedTransactions,
-    previousCorporateEventsRaw,
-    relatedInsights,
-  ]);
+  }, [corporateEventId, event?.description, data, eventArticles, relatedTransactions, relatedInsights]);
 
-  const reportButton = (
-    <div className="flex gap-2">
-      <NewFeatureCallout
-        featureKey="corporate-event-pdf-export"
-        launchedAt="2026-02-02T00:00:00.000Z"
-      >
-        <Button
-          onClick={handleExportPdf}
-          disabled={isExportingPdf || !corporateEventId}
-          size="sm"
-          className="shadow-md bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          {isExportingPdf ? "Exporting..." : "Export PDF"}
-        </Button>
-      </NewFeatureCallout>
-      <Button
-        asChild
-        size="sm"
-        className="shadow-md bg-emerald-600 hover:bg-emerald-700 text-white"
-      >
-        <a
-          href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
-            `Contribute Data - ${event?.description ?? "Unknown"}`
-          )}&body=${encodeURIComponent(
-            "Please share the data you'd like to contribute for this corporate event page."
-          )}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Contribute Data
-        </a>
-      </Button>
-    </div>
-  );
+  const eventTitle = event?.description || "Corporate Event";
+  const eventDescription = event?.long_description || "";
+
+  useEffect(() => {
+    if (eventTitle && typeof document !== "undefined") {
+      document.title = `Asymmetrix – ${eventTitle}`;
+    }
+  }, [eventTitle]);
+
+  const reportMailTo = `mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+    `Contribute Data - ${eventTitle}`
+  )}&body=${encodeURIComponent(
+    "Please share the data you'd like to contribute for this corporate event page."
+  )}`;
+
+  const hasCounterparties = counterpartiesData.length > 0;
+  const hasAdvisors = advisorsData.length > 0;
+  const hasPreviousEvents = previousCorporateEventsData.length > 0;
+  const hasRelatedTransactions = relatedTransactions.length > 0;
+  const hasEventInsights = insightsForEvent.length > 0;
+  const hasSectorInsights = relatedInsights.length > 0;
+  const hasInsights = hasEventInsights || hasSectorInsights;
+
+  let gridRow = 2;
+  const counterpartiesGridRow = hasCounterparties ? gridRow++ : 0;
+  const advisorsGridRow = hasAdvisors ? gridRow++ : 0;
+  const previousEventsGridRow = hasPreviousEvents ? gridRow++ : 0;
+  const relatedTransactionsGridRow = hasRelatedTransactions ? gridRow++ : 0;
+
+  const styles = {
+    container: {
+      backgroundColor: T.paper,
+      fontFamily: T.sans,
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column" as const,
+    },
+    maxWidth: {
+      width: "100%",
+      maxWidth: "100%",
+      padding: "18px",
+      flex: 1,
+      display: "flex",
+      flexDirection: "column" as const,
+      overflow: "hidden",
+    },
+  };
+
+  const wideColumnSpan = hasInsights ? "1 / span 2" : "1 / -1";
+
+  const responsiveCss = `
+    .corporate-event-detail-page { overflow-x: hidden; }
+    .responsiveGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 100%;
+      align-items: stretch;
+    }
+    .responsiveGrid > * { min-width: 0; min-height: 0; }
+    .ce-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-description { grid-column: 2 / span 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-counterparties { grid-column: ${wideColumnSpan}; grid-row: ${counterpartiesGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-advisors { grid-column: ${wideColumnSpan}; grid-row: ${advisorsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-previous { grid-column: ${wideColumnSpan}; grid-row: ${previousEventsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-related { grid-column: ${wideColumnSpan}; grid-row: ${relatedTransactionsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-insights { grid-column: 3; grid-row: 2 / ${gridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; gap: 12px; }
+    .ce-grid-counterparties > *,
+    .ce-grid-advisors > *,
+    .ce-grid-previous > *,
+    .ce-grid-related > *,
+    .ce-grid-insights > * {
+      min-width: 0;
+      max-width: 100%;
+      width: 100%;
+    }
+    @media (max-width: 768px) {
+      .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
+      .ce-grid-overview,
+      .ce-grid-description,
+      .ce-grid-counterparties,
+      .ce-grid-advisors,
+      .ce-grid-previous,
+      .ce-grid-related,
+      .ce-grid-insights {
+        grid-column: 1 / -1 !important;
+        grid-row: auto !important;
+        align-self: stretch !important;
+      }
+    }
+  `;
 
   return (
-    <div className="bg-slate-50 min-h-screen">
-      <TransactionHero transaction={transactionData} reportButton={reportButton} sourceUrl={sourceUrl} />
+    <div className="corporate-event-detail-page" style={styles.container}>
+      <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+            padding: "22px 0",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flex: 1 }}>
+            <span
+              style={{
+                fontSize: 24,
+                fontWeight: 600,
+                color: T.ink,
+                letterSpacing: "-0.4px",
+                lineHeight: 1.2,
+                fontFamily: T.sans,
+              }}
+            >
+              {eventTitle}
+            </span>
+          </div>
 
-      <DealMetrics metrics={metricsData} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={isExportingPdf || !corporateEventId}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontFamily: T.sans,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "#fff",
+                backgroundColor: isExportingPdf ? T.faint : "#475569",
+                border: "none",
+                borderRadius: 6,
+                padding: "8px 14px",
+                cursor: isExportingPdf || !corporateEventId ? "not-allowed" : "pointer",
+              }}
+            >
+              <ArrowUpTrayIcon width={15} height={15} strokeWidth={2} aria-hidden />
+              {isExportingPdf ? "Exporting…" : "Export PDF"}
+            </button>
+            <a
+              href={reportMailTo}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontFamily: T.sans,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "#fff",
+                backgroundColor: T.emerald,
+                borderRadius: 6,
+                padding: "8px 14px",
+                textDecoration: "none",
+              }}
+            >
+              <PlusIcon width={15} height={15} strokeWidth={2} aria-hidden />
+              Contribute Data
+            </a>
+          </div>
+        </div>
+      </div>
 
-      {insightsForEvent.length > 0 && (
-        <InsightsSection insights={insightsForEvent} title="Insights & Analysis" />
-      )}
+      <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={styles.maxWidth}>
+          <style>{responsiveCss}</style>
+          <div className="responsiveGrid">
+            <div className="ce-grid-overview">
+              <CorporateEventOverviewCard
+                fillGridCell
+                primarySectors={primarySectors}
+                subSectors={subSectorsWithIds}
+                dateAnnounced={metricsData.dateAnnounced}
+                dateClosed={metricsData.dateClosed}
+                dealType={metricsData.dealType}
+                dealStage={metricsData.dealStage}
+                investmentAmount={metricsData.investmentAmount}
+                investmentCurrency={metricsData.currency}
+                enterpriseValue={metricsData.enterpriseValue}
+                enterpriseValueCurrency={metricsData.enterpriseValueCurrency}
+                enterpriseValueSourceLabel={metricsData.enterpriseValueSourceLabel}
+                sourceUrl={sourceUrl}
+              />
+            </div>
 
-      {counterpartiesData.length > 0 && (
-        <CounterpartiesSection
-          counterparties={counterpartiesData}
-          createClickableElement={createClickableElement}
-        />
-      )}
+            <div
+              className="ce-grid-description"
+              ref={descriptionRef}
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignSelf: isDescriptionExpanded ? "start" : "stretch",
+                overflow: isDescriptionExpanded ? "visible" : "hidden",
+              }}
+            >
+              <DescriptionCard
+                text={eventDescription}
+                expanded={isDescriptionExpanded}
+                onToggleExpand={() => setIsDescriptionExpanded((prev) => !prev)}
+                contentRef={descriptionRef}
+                fillGridCell
+              />
+            </div>
 
-      {previousCorporateEventsData.length > 0 && (
-        <PreviousCorporateEventsSection events={previousCorporateEventsData} />
-      )}
+            {hasCounterparties ? (
+              <div className="ce-grid-counterparties">
+                <LinkPanel fillGridCell>
+                  <CorporateEventCounterpartiesPanel counterparties={counterpartiesData} />
+                </LinkPanel>
+              </div>
+            ) : null}
 
-      {advisorsData.length > 0 && (
-        <AdvisorsSection
-          advisors={advisorsData}
-          createClickableElement={createClickableElement}
-        />
-      )}
+            {hasAdvisors ? (
+              <div className="ce-grid-advisors">
+                <LinkPanel fillGridCell>
+                  <CorporateEventAdvisorsPanel advisors={advisorsData} />
+                </LinkPanel>
+              </div>
+            ) : null}
 
-      {relatedTransactions.length > 0 && (
-        <RelatedTransactionsSection transactions={relatedTransactions} />
-      )}
+            {hasPreviousEvents ? (
+              <div className="ce-grid-previous">
+                <LinkPanel fillGridCell>
+                  <CorporateEventTransactionsPanel
+                    title="Previous Corporate Events"
+                    rows={previousCorporateEventsData}
+                  />
+                </LinkPanel>
+              </div>
+            ) : null}
 
-      {relatedInsights.length > 0 && (
-        <InsightsSection
-          insights={relatedInsights}
-          title="Sector Insights & Analysis"
-          showIcon={false}
-        />
-      )}
+            {hasRelatedTransactions ? (
+              <div className="ce-grid-related">
+                <LinkPanel fillGridCell>
+                  <CorporateEventTransactionsPanel
+                    title="Recent Sector Transactions"
+                    rows={relatedTransactions}
+                  />
+                </LinkPanel>
+              </div>
+            ) : null}
+
+            {hasInsights ? (
+              <div className="ce-grid-insights">
+                {hasEventInsights ? (
+                  <CorporateEventInsightsPanel
+                    title="Insights & Analysis"
+                    insights={insightsForEvent}
+                    fillGridCell
+                  />
+                ) : null}
+                {hasSectorInsights ? (
+                  <CorporateEventInsightsPanel
+                    title="Sector Insights & Analysis"
+                    insights={relatedInsights}
+                    fillGridCell
+                  />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
@@ -1085,7 +1196,7 @@ const CorporateEventDetailPage = () => {
         errorMessage === "Authentication required" ||
         errorMessage.includes("Authentication token not found")
       ) {
-        // Login modal is handled globally — no redirect needed
+        router.push("/login");
         return;
       }
 
@@ -1103,14 +1214,26 @@ const CorporateEventDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen">
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: T.paper,
+          fontFamily: T.sans,
+        }}
+      >
         <Header />
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="text-lg text-slate-600">
-              Loading corporate event details...
-            </div>
-          </div>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            color: T.muted,
+          }}
+        >
+          Loading corporate event details…
         </div>
         <Footer />
       </div>
@@ -1119,12 +1242,26 @@ const CorporateEventDetailPage = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen">
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: T.paper,
+          fontFamily: T.sans,
+        }}
+      >
         <Header />
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <div className="text-red-800 font-medium">{error}</div>
-          </div>
+        <div
+          style={{
+            flex: 1,
+            padding: 32,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ textAlign: "center", color: T.down }}>{error}</div>
         </div>
         <Footer />
       </div>
@@ -1133,12 +1270,27 @@ const CorporateEventDetailPage = () => {
 
   if (!data) {
     return (
-      <div className="min-h-screen">
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: T.paper,
+          fontFamily: T.sans,
+        }}
+      >
         <Header />
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center">
-            <div className="text-slate-600">Corporate event not found</div>
-          </div>
+        <div
+          style={{
+            flex: 1,
+            padding: 32,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            color: T.muted,
+          }}
+        >
+          Corporate event not found
         </div>
         <Footer />
       </div>
@@ -1146,7 +1298,15 @@ const CorporateEventDetailPage = () => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: T.paper,
+        fontFamily: T.sans,
+      }}
+    >
       <Header />
       <CorporateEventDetail data={data} />
       <Footer />

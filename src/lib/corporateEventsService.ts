@@ -5,7 +5,7 @@ import {
   CorporateEventDetailResponse,
 } from "../types/corporateEvents";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
 
 class CorporateEventsService {
   private getAuthHeaders() {
@@ -49,20 +49,8 @@ class CorporateEventsService {
         queryParams.append("Secondary_sectors_ids[]", id.toString());
       }
     }
-    // Add deal types as array params (API expects bracketed keys)
     if (filters.deal_types && filters.deal_types.length > 0) {
-      for (const dealType of filters.deal_types) {
-        queryParams.append("deal_types[]", dealType);
-      }
-    }
-    if (
-      filters.Buyer_Investor_Types &&
-      filters.Buyer_Investor_Types.length > 0
-    ) {
-      queryParams.append(
-        "Buyer_Investor_Types",
-        filters.Buyer_Investor_Types.join(",")
-      );
+      queryParams.append("deal_types", filters.deal_types.join(","));
     }
     if (filters.Countries && filters.Countries.length > 0) {
       queryParams.append("Countries", filters.Countries.join(","));
@@ -76,11 +64,7 @@ class CorporateEventsService {
     if (filters.Deal_Status && filters.Deal_Status.length > 0) {
       queryParams.append("Deal_Status", filters.Deal_Status.join(","));
     }
-
-    // Funding stage filter - comma-separated list of stage labels
-    if (filters.Funding_stage && filters.Funding_stage.length > 0) {
-      queryParams.append("Funding_stage", filters.Funding_stage.join(","));
-    }
+    queryParams.append("portfolio_only", String(Boolean(filters.portfolio_only)));
 
     // Add date filters
     if (filters.Date_start) {
@@ -88,13 +72,6 @@ class CorporateEventsService {
     }
     if (filters.Date_end) {
       queryParams.append("Date_end", filters.Date_end);
-    }
-
-    if (filters.target_company_id && filters.target_company_id > 0) {
-      queryParams.append(
-        "target_company_id",
-        filters.target_company_id.toString()
-      );
     }
 
     const url = `${BASE_URL}/get_all_corporate_events?${queryParams.toString()}`;

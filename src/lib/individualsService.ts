@@ -51,9 +51,9 @@ class IndividualsService {
     if (filters.Cities.length > 0) {
       queryParams.append("Cities", filters.Cities.join(","));
     }
-    filters.job_titles_ids.forEach((id) => {
-      queryParams.append("job_titles_ids[]", String(id));
-    });
+    if (filters.job_titles_ids.length > 0) {
+      queryParams.append("job_titles_ids", filters.job_titles_ids.join(","));
+    }
     if (filters.statuses.length > 0) {
       queryParams.append("statuses", filters.statuses.join(","));
     }

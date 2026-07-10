@@ -14,18 +14,24 @@ export interface CorporateEventsFilters {
   // Optional geographic grouping filters (match Companies page UI)
   continentalRegions?: string[];
   subRegions?: string[];
-  // Buyer / Investor type filter: values sent as strings in query
-  Buyer_Investor_Types?: BuyerInvestorType[];
-  // Funding stage filter: array of funding stage labels from funding_stage_options API
-  Funding_stage?: string[];
   Date_start: string | null;
   Date_end: string | null;
   search_query: string;
   Page: number;
   Per_page: number;
   Deal_Status: string[];
-  /** Filter events where this company is the target (new_company id). */
-  target_company_id?: number | null;
+  Funding_stage?: string[];
+  Buyer_Investor_Types?: BuyerInvestorType[];
+  user_id?: number | null;
+  portfolio_only?: boolean;
+  followed_entity_types?: string[];
+  // New portfolio filter fields
+  show_followed?: boolean;
+  filter_advisor_ids?: number[];
+  filter_company_ids?: number[];
+  filter_investor_ids?: number[];
+  filter_sector_ids?: number[];
+  filter_individual_ids?: number[];
 }
 
 export interface CorporateEventsStats {
@@ -41,6 +47,8 @@ export interface Currency {
 export interface InvestmentData {
   investment_amount_m: string;
   currency: Currency;
+  // Optional funding stage for investment-type events. API currently uses
+  // `Funding_stage` (capital F) but we also accept a lowercase variant.
   Funding_stage?: string;
   funding_stage?: string;
 }
@@ -100,24 +108,12 @@ export interface OtherCounterparty {
 }
 
 export interface Advisor {
-  id: number;
-  new_company_advised: number;
   _new_company: {
-    id?: number;
+    id: number;
     name: string;
   };
 }
 
-// Target entity reference for the new targets array
-export interface TargetEntity {
-  id: number;
-  name: string;
-  path: string;
-  route: string;
-  entity_type: string;
-}
-
-// Target interface (used by corporate event page)
 export interface Target {
   id: number;
   name: string;
@@ -132,14 +128,11 @@ export interface CorporateEvent {
   announcement_date: string;
   deal_type: string;
   target_counterparty: TargetCounterparty;
+  targets?: Target[];
   investment_data: InvestmentData;
   ev_data: EnterpriseValueData;
   other_counterparties: OtherCounterparty[];
   advisors: Advisor[];
-  // New API fields for targets
-  targets?: TargetEntity[];
-  target_label?: string;
-  buyer_investor_label?: string | null;
 }
 
 export interface CorporateEventsResponse {
@@ -284,37 +277,25 @@ export interface PreviousCorporateEvent {
   description?: string;
   deal_type?: string;
   deal_status?: string;
-  /**
-   * Newer API field used by `Previous_Corporate_Events` payloads.
-   * Treat as the announced date for UI purposes.
-   */
-  date?: string;
   announcement_date?: string;
   closed_date?: string;
+  // New API shape (preferred)
+  date?: string;
+  target?: {
+    company_id: number;
+    company_name: string;
+    company_logo?: string;
+  };
+  investors?: PreviousCorporateEventCounterparty[] | null;
   investment_amount_m?: number | null;
   enterprise_value_m?: number | null;
   investment_currency?: string;
   enterprise_value_currency?: string;
-  /**
-   * Newer API shape (matches payloads returned in `Previous_Corporate_Events`)
-   */
-  target?: {
-    company_id: number;
-    company_name?: string;
-    company_logo?: string;
-    counterparty_type?: number;
-    counterparty_status?: string;
-  };
-  investors?: Array<{
-    company_id: number;
-    company_name: string;
-    company_logo?: string;
-    counterparty_status?: string;
-  }> | null;
   target_company_role?: {
     counterparty_status?: string;
     counterparty_type_id?: number;
   };
+  // Legacy shape
   counterparties?: PreviousCorporateEventCounterparty[];
 }
 
