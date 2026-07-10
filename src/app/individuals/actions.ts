@@ -43,6 +43,26 @@ type IndividualsApiListResponse = {
   founders?: number;
 };
 
+/**
+ * Xano returns several fields as serialised JSON strings rather than parsed
+ * objects / arrays.  This helper safely parses them; if the value is already
+ * an object/array it is returned as-is.
+ */
+function parseJsonStringField<T>(raw: unknown): T | null {
+  if (raw == null) return null;
+  if (typeof raw === "object") return raw as T;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed === "null") return null;
+    try {
+      return JSON.parse(trimmed) as T;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function normalizeIndividualRole(raw: Record<string, unknown>) {
   const employeeNewCompanyId = Number(raw.employee_new_company_id);
   const companyName = String(raw.company_name ?? "").trim();
@@ -75,8 +95,14 @@ function normalizeIndividualRole(raw: Record<string, unknown>) {
 }
 
 function normalizeIndividualFromApi(raw: Record<string, unknown>): Individual {
-  const currentRoles = Array.isArray(raw.current_roles)
-    ? raw.current_roles
+  // current_roles and roles are returned as JSON strings by Xano — parse them
+  const parsedCurrentRoles =
+    parseJsonStringField<unknown[]>(raw.current_roles) ?? [];
+  const parsedRoles =
+    parseJsonStringField<unknown[]>(raw.roles) ?? [];
+
+  const currentRoles = Array.isArray(parsedCurrentRoles)
+    ? parsedCurrentRoles
         .map((role, index) => {
           if (!role || typeof role !== "object") return null;
           const jobTitle = String(
@@ -91,11 +117,16 @@ function normalizeIndividualFromApi(raw: Record<string, unknown>): Individual {
         .filter((role): role is { id: number; job_title: string } => role != null)
     : [];
 
-  const roles = Array.isArray(raw.roles)
-    ? raw.roles
+  const roles = Array.isArray(parsedRoles)
+    ? parsedRoles
         .filter((role): role is Record<string, unknown> => !!role && typeof role === "object")
         .map(normalizeIndividualRole)
     : [];
+
+  // _locations_individual is also returned as a JSON string by Xano
+  const location = parseJsonStringField<Individual["_locations_individual"]>(
+    raw._locations_individual
+  );
 
   return {
     id: Number(raw.id),
@@ -105,8 +136,7 @@ function normalizeIndividualFromApi(raw: Record<string, unknown>): Individual {
         ? null
         : String(raw.current_company),
     current_roles: currentRoles,
-    _locations_individual:
-      (raw._locations_individual as Individual["_locations_individual"]) ?? null,
+    _locations_individual: location,
     roles,
     locations_id: Number(raw.locations_id ?? 0),
     current_company_location: Array.isArray(raw.current_company_location)
@@ -128,10 +158,19 @@ function mapIndividualsListResponse(
 
   const perPage = data.perPage || fallbackPerPage;
   const itemsTotal = data.totalItems ?? data.totalIndividuals ?? items.length;
-  const curPage = data.offset ?? data.currentPage ?? fallbackPage;
   const pageTotal =
     data.totalPages ??
     (perPage > 0 ? Math.max(1, Math.ceil(itemsTotal / perPage)) : 1);
+
+  // The API returns `offset` as an item index (1, 51, 101 …), not a page number.
+  // Convert it back to a 1-based page number for the FE.
+  const rawOffset = data.offset;
+  const curPage =
+    rawOffset != null && perPage > 0
+      ? Math.floor((rawOffset - 1) / perPage) + 1
+      : (data.currentPage ?? fallbackPage);
+
+  // nextOffset is null / absent on the last page
   const hasNext =
     data.nextOffset != null
       ? Number(data.nextOffset) > 0

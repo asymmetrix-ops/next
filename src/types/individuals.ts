@@ -12,6 +12,49 @@ export interface IndividualsResponse {
   founders: number;
 }
 
+/** Clean list item shape returned by Xano lambda (POST get_all_individuals). */
+export interface IndividualCompanyRef {
+  id: number;
+  name: string | null;
+  url: string | null;
+}
+
+export interface IndividualRoleApi {
+  roleId: number;
+  status: "Current" | "Past" | string | null;
+  jobTitles: string[];
+  company: IndividualCompanyRef | null;
+  employerUrl: string | null;
+}
+
+export interface IndividualLocationApi {
+  city: string | null;
+  state: string | null;
+  country: string | null;
+}
+
+export interface IndividualListItemApi {
+  id: number;
+  name: string;
+  location: IndividualLocationApi | null;
+  currentCompany: IndividualCompanyRef | null;
+  currentJobTitles: string[];
+  roles: IndividualRoleApi[];
+}
+
+export interface IndividualsPaginationApi {
+  offset: number;
+  perPage: number;
+  total: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+}
+
+export interface GetIndividualsApiResponse {
+  data: IndividualListItemApi[];
+  pagination: IndividualsPaginationApi;
+}
+
 // Individual Interface
 export interface Individual {
   id: number;

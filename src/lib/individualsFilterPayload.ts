@@ -234,9 +234,12 @@ export function individualsFiltersToRequestBody(
   const page = Math.max(1, filters.page || 1);
   const perPage = filters.per_page > 0 ? filters.per_page : 50;
 
+  // Xano expects an item-based offset (1, 51, 101 …), not a page number.
+  const itemOffset = (page - 1) * perPage + 1;
+
   return {
     search_query: filters.Search_Query || "",
-    Offset: String(page),
+    Offset: String(itemOffset),
     Per_page: String(perPage),
     Countries: toIndividualsApiArray(filters.Countries),
     Provinces: toIndividualsApiArray(filters.Provinces),
