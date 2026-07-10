@@ -6,6 +6,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { trackLogout } from "@/lib/tracking";
+import { MCP_GUEST_ALLOWED_PATH, MCP_GUEST_LOGIN_PATH } from "@/lib/mcpGuest";
 
 const ASYMMETRIX_BLUE = "hsl(228 85% 63%)";
 
@@ -109,19 +110,27 @@ const isNavItemActive = (pathname: string, item: string, href: string) => {
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
-  const { isTrialActive, user, logout } = useAuth();
+  const { isTrialActive, isMcpGuest, user, logout } = useAuth();
   const pathname = usePathname();
   const isAllowedTrialRoute = (href: string) =>
     href === "/home-user" || href === "/insights-analysis";
+  const isAllowedRoute = (href: string) => {
+    if (isMcpGuest) return href === MCP_GUEST_ALLOWED_PATH;
+    if (isTrialActive) return isAllowedTrialRoute(href);
+    return true;
+  };
 
   const handleLogout = () => {
     const userId = user?.id ? Number.parseInt(user.id, 10) : 0;
+    const redirectTo = isMcpGuest ? MCP_GUEST_LOGIN_PATH : "/login";
     trackLogout(Number.isFinite(userId) ? userId : 0);
     logout();
-    router.push("/login");
+    router.push(redirectTo);
   };
 
-  const navItems = [
+  const navItems = isMcpGuest
+    ? ["Companies"]
+    : [
     "Dashboard",
     "Companies",
     "Sectors",
@@ -302,6 +311,11 @@ const Header = () => {
               href="/"
               style={styles.logo}
               onClick={(e) => {
+                if (isMcpGuest) {
+                  e.preventDefault();
+                  router.push(MCP_GUEST_ALLOWED_PATH);
+                  return;
+                }
                 if (isTrialActive) {
                   e.preventDefault();
                   router.push("/home-user");
@@ -324,7 +338,7 @@ const Header = () => {
               {navItems.map((item) => {
                 const href = getNavHref(item);
                 const isActive = isNavItemActive(pathname, item, href);
-                const isDisabled = isTrialActive && !isAllowedTrialRoute(href);
+                const isDisabled = !isAllowedRoute(href);
 
                 return (
                   <Link
@@ -414,7 +428,7 @@ const Header = () => {
           {navItems.map((item) => {
             const href = getNavHref(item);
             const isActive = isNavItemActive(pathname, item, href);
-            const isDisabled = isTrialActive && !isAllowedTrialRoute(href);
+            const isDisabled = !isAllowedRoute(href);
 
             return (
               <Link

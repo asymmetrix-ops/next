@@ -290,6 +290,7 @@ const renderInvestorLinks = (investors: unknown[]): React.ReactNode => {
 type CompanyColumnRenderContext = {
   index: number;
   onCompanyClick: (companyId: number) => void;
+  readOnlyGuestMode?: boolean;
 };
 
 interface CompanyColumnDefinition {
@@ -458,7 +459,12 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         label: "Name",
         group: "Identity",
         minWidth: 160,
-        render: (company, { onCompanyClick }) => (
+        render: (company, { onCompanyClick, readOnlyGuestMode }) =>
+          readOnlyGuestMode ? (
+            <span className="company-name" style={{ color: "#111827" }}>
+              {company.name || "-"}
+            </span>
+          ) : (
           <a
             href={`/company/${company.id}`}
             className="company-name"
@@ -725,14 +731,17 @@ const getValidColumnKeys = (
 // Company Card Component for Mobile - Optimized with React state
 const CompanyCardBase = ({
   company,
+  readOnlyGuestMode = false,
 }: {
   company: Company;
   index: number;
+  readOnlyGuestMode?: boolean;
 }) => {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleCompanyClick = () => {
+    if (readOnlyGuestMode) return;
     router.push(`/company/${company.id}`);
   };
 
@@ -770,7 +779,9 @@ const CompanyCardBase = ({
         "span",
         {
           className: "company-card-name",
-          onClick: handleCompanyClick,
+          ...(readOnlyGuestMode
+            ? { style: { cursor: "default" } }
+            : { onClick: handleCompanyClick }),
         },
         company.name || "-"
       )
@@ -908,6 +919,7 @@ export const CompanySection = ({
   onClearSelection,
   isPortfolioOnlyFilter = false,
   embedded = false,
+  readOnlyGuestMode = false,
 }: {
   companies: Company[];
   loading: boolean;
@@ -937,6 +949,7 @@ export const CompanySection = ({
   onClearSelection: () => void;
   isPortfolioOnlyFilter?: boolean;
   embedded?: boolean;
+  readOnlyGuestMode?: boolean;
 }) => {
   const router = useRouter();
   const sectionRef = useRef<HTMLDivElement | null>(null);
@@ -1035,6 +1048,11 @@ export const CompanySection = ({
   }, [showPhantomScroll]);
 
   useEffect(() => {
+    if (readOnlyGuestMode) {
+      setSelectedColumnKeys([...PROD_DEFAULT_COMPANY_COLUMN_KEYS]);
+      setColumnPrefsLoaded(true);
+      return;
+    }
     try {
       const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
       if (saved) {
@@ -1050,10 +1068,10 @@ export const CompanySection = ({
     } finally {
       setColumnPrefsLoaded(true);
     }
-  }, []);
+  }, [readOnlyGuestMode]);
 
   useEffect(() => {
-    if (!columnPrefsLoaded) return;
+    if (readOnlyGuestMode || !columnPrefsLoaded) return;
     try {
       window.localStorage.setItem(
         COMPANIES_COLUMNS_STORAGE_KEY,
@@ -1062,7 +1080,7 @@ export const CompanySection = ({
     } catch (error) {
       console.warn("Unable to save company column preferences:", error);
     }
-  }, [columnPrefsLoaded, selectedColumnKeys]);
+  }, [readOnlyGuestMode, columnPrefsLoaded, selectedColumnKeys]);
 
   useEffect(() => {
     if (!columnPrefsLoaded) return;
@@ -1558,15 +1576,17 @@ export const CompanySection = ({
 
   // Register export function with parent so header Export CSV button works
   useEffect(() => {
+    if (readOnlyGuestMode) return;
     onRegisterExportCSV?.(handleExportCSV);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleExportCSV]);
+  }, [handleExportCSV, readOnlyGuestMode]);
 
   const handleCompanyClick = useCallback(
     (companyId: number) => {
+      if (readOnlyGuestMode) return;
       router.push(`/company/${companyId}`);
     },
-    [router]
+    [router, readOnlyGuestMode]
   );
 
   const handlePageChange = useCallback(
@@ -1628,6 +1648,7 @@ export const CompanySection = ({
                 background: isRowSelected ? "#EFF6FF" : "#fff",
               }}
             >
+              {!readOnlyGuestMode && (
               <input
                 type="checkbox"
                 checked={isRowSelected}
@@ -1635,6 +1656,7 @@ export const CompanySection = ({
                 onClick={(e) => e.stopPropagation()}
                 aria-label={`Select ${company.name || "company"}`}
               />
+              )}
             </td>
             {selectedColumns.map((column) => (
               <td
@@ -1660,6 +1682,7 @@ export const CompanySection = ({
                   column.render(displayCompany, {
                     index,
                     onCompanyClick: handleCompanyClick,
+                    readOnlyGuestMode,
                   })
                 )}
               </td>
@@ -1693,13 +1716,15 @@ export const CompanySection = ({
       loadingColumnKeys,
       getStickyColumnStyle,
       getTableColumnClassName,
+      readOnlyGuestMode,
     ]
   );
 
   const style = SEARCH_TABLE_STYLES;
 
   const columnsModalLayer = [
-    showColumnsModal &&
+    !readOnlyGuestMode &&
+      showColumnsModal &&
       React.createElement("div", {
         key: "columns-backdrop",
         style: {
@@ -1711,7 +1736,8 @@ export const CompanySection = ({
         onClick: () => setShowColumnsModal(false),
         "aria-hidden": true,
       }),
-    showColumnsModal &&
+    !readOnlyGuestMode &&
+      showColumnsModal &&
       React.createElement(ColumnsControlRoom, {
         key: "columns-panel",
         initial: columnVisibilityInitial,
@@ -2072,7 +2098,8 @@ export const CompanySection = ({
       )
     ),
     ...columnsModalLayer,
-    selectedCompanyIds.size > 0 &&
+    !readOnlyGuestMode &&
+      selectedCompanyIds.size > 0 &&
       React.createElement(
         "div",
         {
@@ -2121,6 +2148,7 @@ export const CompanySection = ({
           key: company.id || index,
           company: company,
           index: index,
+          readOnlyGuestMode,
         })
       )
     ),
@@ -2143,7 +2171,8 @@ export const CompanySection = ({
                 className: "company-table-select-cell",
                 style: { minWidth: 44, width: 44, textAlign: "center" },
               },
-              React.createElement("input", {
+              !readOnlyGuestMode
+                ? React.createElement("input", {
                 type: "checkbox",
                 checked: pageSelectionState.allSelected,
                 ref: (el: HTMLInputElement | null) => {
@@ -2154,11 +2183,13 @@ export const CompanySection = ({
                 onChange: () => onTogglePageSelection(pageCompanyIds),
                 "aria-label": "Select all companies on this page",
               })
+                : null
             ),
             ...selectedColumns.map((column) => {
               const sortKind = getColumnSortKind(column.key);
               const isActive = sortState?.key === column.key;
-              const isDraggable = !isFrozenColumnKey(column.key);
+              const isDraggable =
+                !readOnlyGuestMode && !isFrozenColumnKey(column.key);
               const isDragging = headerDragKey === column.key;
               const isDragOver =
                 headerDragOverKey === column.key && headerDragKey !== column.key;

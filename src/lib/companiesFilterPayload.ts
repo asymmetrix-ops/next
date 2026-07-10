@@ -664,4 +664,46 @@ export function companyCountsPayloadToSearchParams(
   return params;
 }
 
+/** Locked MCP = Yes filters for MCP Guest browse-only company list. */
+export function buildMcpGuestCompaniesFilters(): CompanySearchPayload {
+  return buildCompaniesSearchPayload({
+    state: {
+      filters: [
+        {
+          id: "has_mcp",
+          key: "mcp-guest-locked",
+          value: { yes: true, no: false },
+        },
+      ],
+      viewId: null,
+      searchText: "",
+      filterLogic: "and",
+    },
+    primarySectors: [],
+    secondarySectors: [],
+    ownershipTypes: [],
+  });
+}
+
+/** Same MCP lock for companies_counts (no ownership tab filter). */
+export function buildMcpGuestCompaniesCountsFilters(): CompanySearchPayload {
+  return buildCompaniesCountsSearchPayload({
+    state: {
+      filters: [
+        {
+          id: "has_mcp",
+          key: "mcp-guest-locked",
+          value: { yes: true, no: false },
+        },
+      ],
+      viewId: null,
+      searchText: "",
+      filterLogic: "and",
+    },
+    primarySectors: [],
+    secondarySectors: [],
+    ownershipTypes: [],
+  });
+}
+
 export type { CompanySearchPayload, FilterClause };

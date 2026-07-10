@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { authService } from "@/lib/auth";
 import { getTrialInfo, TrialInfo } from "@/lib/trial";
+import { isMcpGuestSession } from "@/lib/mcpGuest";
 
 interface AuthUser {
   id: string;
@@ -18,12 +19,14 @@ interface AuthContextType {
   isAuthenticated: boolean;
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<void>;
+  loginMcpGuest: (email: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
   // Trial info derived from token + user
   isTrial: boolean;
   isTrialActive: boolean;
   isTrialExpired: boolean;
+  isMcpGuest: boolean;
   trialExpiresAt?: Date;
   trialDaysLeft?: number;
 }
@@ -39,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isTrialActive: false,
     isTrialExpired: false,
   });
+  const [isMcpGuest, setIsMcpGuest] = useState(false);
 
   useEffect(() => {
     // Check authentication status on mount
@@ -53,11 +57,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(userData || { id: "user", email: "user@example.com" });
           const t = getTrialInfo(token, userData);
           setTrial(t);
+          setIsMcpGuest(isMcpGuestSession(token, userData));
 
           // If Status missing, refresh from /auth/me then recompute
           const hasStatus = !!(
             userData &&
-            (userData.Status || userData.status)
+            (userData.Status || userData.status || userData.role)
           );
           if (!hasStatus) {
             const refreshed = await authService.fetchMe();
@@ -65,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser(refreshed);
               const t2 = getTrialInfo(token, refreshed);
               setTrial(t2);
+              setIsMcpGuest(isMcpGuestSession(token, refreshed));
             }
           }
         } else {
@@ -75,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isTrialActive: false,
             isTrialExpired: false,
           });
+          setIsMcpGuest(false);
         }
       } catch (error) {
         console.error("AuthProvider - Error checking auth:", error);
@@ -85,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isTrialActive: false,
           isTrialExpired: false,
         });
+        setIsMcpGuest(false);
       } finally {
         setLoading(false);
       }
@@ -101,8 +109,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const token = authService.getToken();
       const t = getTrialInfo(token, response.user);
       setTrial(t);
+      setIsMcpGuest(isMcpGuestSession(token, response.user));
     } catch (error) {
       console.error("AuthProvider - Login failed:", error);
+      throw error;
+    }
+  };
+
+  const loginMcpGuest = async (email: string) => {
+    try {
+      const response = await authService.signupMcpGuest(email);
+      setIsAuthenticated(true);
+      setUser(response.user);
+      const token = authService.getToken();
+      setTrial({
+        isTrial: false,
+        isTrialActive: false,
+        isTrialExpired: false,
+      });
+      setIsMcpGuest(isMcpGuestSession(token, response.user));
+    } catch (error) {
+      console.error("AuthProvider - MCP Guest login failed:", error);
       throw error;
     }
   };
@@ -112,17 +139,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(false);
     setUser(null);
     setTrial({ isTrial: false, isTrialActive: false, isTrialExpired: false });
+    setIsMcpGuest(false);
   };
 
   const value = {
     isAuthenticated,
     user,
     login,
+    loginMcpGuest,
     logout,
     loading,
     isTrial: trial.isTrial,
     isTrialActive: trial.isTrialActive,
     isTrialExpired: trial.isTrialExpired,
+    isMcpGuest,
     trialExpiresAt: trial.trialExpiresAt,
     trialDaysLeft: trial.daysLeft,
   };
