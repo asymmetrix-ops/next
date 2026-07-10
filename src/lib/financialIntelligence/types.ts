@@ -121,6 +121,7 @@ export type FiMetricKey =
   | "rev_expansion_pc"
   | "ebitda_margin"
   | "revenue_multiple"
+  | "ev_revenue_x"
   | "ev_ebitda_x";
 
 export interface FiMetricDef {
