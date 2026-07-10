@@ -100,10 +100,34 @@ const COLUMN_MAP = new Map(
   ALL_CORPORATE_EVENT_COLUMNS.map((column) => [column.key, column])
 );
 
-function getValidColumnKeys(keys: string[]): string[] {
-  return enforceCorporateEventColumnKeyOrder(
-    keys.filter((key) => CANONICAL_CORPORATE_EVENT_COLUMN_KEYS.includes(key))
+function getValidColumnKeys(
+  keys: string[],
+  filterPinnedKeys: string[] = []
+): string[] {
+  const valid = keys.filter((key) =>
+    CANONICAL_CORPORATE_EVENT_COLUMN_KEYS.includes(key)
   );
+  const seed =
+    valid.length > 0 ? valid : [...PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS];
+  return enforceCorporateEventColumnKeyOrder(seed, filterPinnedKeys);
+}
+
+function loadSavedColumnKeys(): string[] {
+  if (typeof window === "undefined") {
+    return [...DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS];
+  }
+  try {
+    const saved = window.localStorage.getItem(CORPORATE_EVENTS_COLUMNS_STORAGE_KEY);
+    if (!saved) return [...DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS];
+    const parsed = JSON.parse(saved) as unknown;
+    if (!Array.isArray(parsed)) return [...DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS];
+    const valid = getValidColumnKeys(
+      parsed.filter((key): key is string => typeof key === "string")
+    );
+    return valid.length > 0 ? valid : [...DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS];
+  } catch {
+    return [...DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS];
+  }
 }
 
 export const CorporateEventsSearchSection = ({
@@ -167,9 +191,9 @@ export const CorporateEventsSearchSection = ({
       : internalShowColumnsModal;
   const setShowColumnsModal =
     externalSetShowColumnsModal ?? setInternalShowColumnsModal;
-  const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
+  const [columnPrefsLoaded] = useState(() => typeof window !== "undefined");
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
-    DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS
+    loadSavedColumnKeys
   );
   const [sortState, setSortState] = useState<{
     key: string;
@@ -190,33 +214,20 @@ export const CorporateEventsSearchSection = ({
 
   useEffect(() => {
     if (filterPinnedColumnKeys.length === 0) return;
-    setSelectedColumnKeys((current) =>
-      enforceCorporateEventColumnKeyOrder(
+    setSelectedColumnKeys((current) => {
+      const merged = enforceCorporateEventColumnKeyOrder(
         Array.from(new Set([...current, ...filterPinnedColumnKeys])),
         filterPinnedColumnKeys
-      )
-    );
-  }, [filterPinnedColumnKeys]);
-
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(CORPORATE_EVENTS_COLUMNS_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSelectedColumnKeys(
-            getValidColumnKeys(
-              parsed.filter((key): key is string => typeof key === "string")
-            )
-          );
-        }
+      );
+      if (
+        merged.length === current.length &&
+        merged.every((key, index) => key === current[index])
+      ) {
+        return current;
       }
-    } catch (storageError) {
-      console.warn("Unable to load corporate event column preferences:", storageError);
-    } finally {
-      setColumnPrefsLoaded(true);
-    }
-  }, []);
+      return merged;
+    });
+  }, [filterPinnedColumnKeys]);
 
   useEffect(() => {
     if (!columnPrefsLoaded) return;
@@ -729,7 +740,7 @@ export const CorporateEventsSearchSection = ({
               order ?? selectedColumnKeys
             );
             setSelectedColumnKeys(
-              enforceCorporateEventColumnKeyOrder(nextKeys, filterPinnedColumnKeys)
+              getValidColumnKeys(nextKeys, filterPinnedColumnKeys)
             );
             setShowColumnsModal(false);
           }}

@@ -26,6 +26,7 @@ import {
   fetchAdvisorsCountsServer,
 } from "./actions";
 import { getAdvisorServerSortColumn } from "@/components/advisors/advisorsTableSort";
+import { authService } from "@/lib/auth";
 
 const useAdvisorsAPI = () => {
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -53,7 +54,7 @@ const useAdvisorsAPI = () => {
     if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
     countsTimeoutRef.current = setTimeout(() => {
       const countsRequestId = ++lastCountsRequestIdRef.current;
-      void fetchAdvisorsCountsServer(countsFilters)
+      void fetchAdvisorsCountsServer(countsFilters, authService.getToken())
         .then((countsData) => {
           if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
             return;
@@ -105,10 +106,17 @@ const useAdvisorsAPI = () => {
           scheduleCountsFetch(countsFiltersToUse);
         }
 
-        const data = await fetchAdvisorsServer({ ...filtersToUse, page });
+        const data = await fetchAdvisorsServer(
+          { ...filtersToUse, page },
+          authService.getToken()
+        );
 
         if (!data) {
-          throw new Error("Failed to fetch advisors - authentication required");
+          throw new Error(
+            authService.getToken()
+              ? "Failed to fetch advisors"
+              : "Failed to fetch advisors - authentication required"
+          );
         }
 
         if (requestId === lastRequestIdRef.current) {
@@ -149,6 +157,14 @@ const useAdvisorsAPI = () => {
   );
 
   useEffect(() => {
+    authService.ensureAuthCookie();
+    const token = authService.getToken();
+    if (!token) {
+      setLoading(false);
+      setError("Authentication required");
+      return;
+    }
+
     fetchAdvisors(1, createDefaultAdvisorFilters());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

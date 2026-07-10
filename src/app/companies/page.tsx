@@ -726,7 +726,6 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
                 followKey="followed_companies"
                 entityId={id}
                 label={String(company.name || "")}
-                icon="star"
               />
             </div>
           );

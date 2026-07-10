@@ -217,13 +217,6 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         type: "date",
         defaultVisible: false,
       },
-      {
-        id: "has_mcp",
-        columnKey: "has_mcp",
-        label: "MCP",
-        type: "boolean",
-        defaultVisible: false,
-      },
     ],
   },
   {

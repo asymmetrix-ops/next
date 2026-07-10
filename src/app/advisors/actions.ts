@@ -35,7 +35,15 @@ export interface AdvisorsListResponse {
 }
 
 const ADVISORS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
+
+async function resolveAuthToken(authToken?: string | null): Promise<string | null> {
+  const explicit = authToken?.trim();
+  if (explicit) return explicit;
+
+  const cookieStore = await cookies();
+  return cookieStore.get("asymmetrix_auth_token")?.value ?? null;
+}
 
 function normalizeAdvisorsListResponse(
   raw: Record<string, unknown>,
@@ -118,12 +126,15 @@ function normalizeAdvisorsListResponse(
 }
 
 export async function fetchAdvisorsServer(
-  filters: AdvisorsSearchFilters = createDefaultAdvisorFilters()
+  filters: AdvisorsSearchFilters = createDefaultAdvisorFilters(),
+  authToken?: string | null
 ): Promise<AdvisorsListResponse | null> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("asymmetrix_auth_token")?.value;
-    if (!token) return null;
+    const token = await resolveAuthToken(authToken);
+    if (!token) {
+      console.error("fetchAdvisorsServer: no auth token (cookie or client)");
+      return null;
+    }
 
     const payload = {
       ...filters,
@@ -170,11 +181,11 @@ export async function fetchAdvisorsServer(
 }
 
 export async function fetchAdvisorsCountsServer(
-  filters: AdvisorsSearchFilters = createDefaultAdvisorFilters()
+  filters: AdvisorsSearchFilters = createDefaultAdvisorFilters(),
+  authToken?: string | null
 ): Promise<ReturnType<typeof mapCountsToAdvisorsRoleCounts> | null> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("asymmetrix_auth_token")?.value;
+    const token = await resolveAuthToken(authToken);
     if (!token) return null;
 
     const params = advisorsCountsFiltersToSearchParams(filters);

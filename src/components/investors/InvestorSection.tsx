@@ -194,7 +194,6 @@ function renderInvestorCell(
             followKey="followed_investors"
             entityId={id}
             label={investor.company_name || ""}
-            icon="star"
           />
         </div>
       );

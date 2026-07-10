@@ -533,18 +533,30 @@ class LocationsService {
     }
 
     const data = (await response.json()) as unknown;
-    const rows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
+    const rows = Array.isArray(data) ? data : [];
 
     const mapped: ContinentalRegion[] = [];
     for (const row of rows) {
-      const id = Number(row.id ?? row.locations_id ?? 0);
+      if (typeof row === "string") {
+        const name = row.trim();
+        if (name) mapped.push({ id: mapped.length + 1, name });
+        continue;
+      }
+      if (!row || typeof row !== "object") continue;
+
+      const record = row as Record<string, unknown>;
       const name = String(
-        row.Locations_Continental_Region1 ??
-          row.locations_continental_region1 ??
-          row.locations_Continental_Region1 ??
+        record.Locations_Continental_Region1 ??
+          record.locations_continental_region1 ??
+          record.locations_Continental_Region1 ??
+          record.name ??
           ""
       ).trim();
-      if (!Number.isFinite(id) || id <= 0 || !name) continue;
+      if (!name) continue;
+
+      const parsedId = Number(record.id ?? record.locations_id ?? 0);
+      const id =
+        Number.isFinite(parsedId) && parsedId > 0 ? parsedId : mapped.length + 1;
       mapped.push({ id, name });
     }
 

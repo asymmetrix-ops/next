@@ -271,7 +271,7 @@ export const AdvisorSection = ({
         page: 1,
         per_page: itemsTotal,
       });
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list?${params.toString()}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
