@@ -14,6 +14,10 @@ interface LoginResponse {
   user: AuthUser;
 }
 
+export const PASSWORD_RESET_PERMISSION_DENIED_MESSAGE = "Permission Denied";
+
+export const PASSWORD_RESET_SUPPORT_EMAIL = "asymmetrix@asymmetrixintelligence.com";
+
 class AuthService {
   private tokenKey = "asymmetrix_auth_token";
   private userKey = "asymmetrix_user";
@@ -189,6 +193,24 @@ class AuthService {
       },
       body: JSON.stringify({ email: (email || "").trim().toLowerCase() }),
     });
+
+    let data: unknown = null;
+    try {
+      data = await response.json();
+    } catch {
+      // Non-JSON response; fall through to status handling below.
+    }
+
+    const message =
+      typeof data === "string"
+        ? data
+        : data && typeof data === "object" && "message" in data
+          ? String((data as { message?: unknown }).message ?? "")
+          : "";
+
+    if (message.toLowerCase().includes("permission denied")) {
+      throw new Error(PASSWORD_RESET_PERMISSION_DENIED_MESSAGE);
+    }
 
     if (!response.ok) {
       throw new Error("Request failed");
