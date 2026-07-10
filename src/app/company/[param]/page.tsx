@@ -21,6 +21,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import {
+  formatCompanyMcpDisplay,
+  isCompanyMcpPopulated,
+  readCompanyMcpStatus,
+} from "@/lib/companyMcp";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
@@ -451,6 +456,7 @@ interface Company {
   new_sectors_data?: Array<{
     sectors_payload?: string | unknown;
   }>;
+  has_mcp?: boolean;
 }
 
 interface CompanyResponse {
@@ -459,6 +465,7 @@ interface CompanyResponse {
   Product_Type?: CompanyProductTypeItem[] | string;
   Data_Collection_Method?: CompanyDataCollectionMethodItem[] | string;
   Revenue_Model_?: CompanyRevenueModelItem[] | string;
+  has_mcp?: boolean;
   last_investment?: LastInvestment | null;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
@@ -1344,6 +1351,8 @@ const CompanyDetail = () => {
 
         // Removed additional verbose logging
 
+        const mcpStatus = readCompanyMcpStatus(data.Company, data);
+
         // Use actual investor data from API
         const enrichedCompany = {
           ...data.Company,
@@ -1424,6 +1433,7 @@ const CompanyDetail = () => {
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
               .Lifecycle_stage ||
             undefined,
+          ...(isCompanyMcpPopulated(mcpStatus) ? { has_mcp: mcpStatus } : {}),
         };
 
         // Parse optional ebitda_data with display strings
@@ -2148,8 +2158,18 @@ const CompanyDetail = () => {
         getNumeric(item?.pc_of_revenues) !== undefined
           ? `${Math.round(getNumeric(item?.pc_of_revenues) || 0)}%`
           : "",
+      highlight: false,
     }))
     .filter((item) => item.label);
+
+  const companyMcpStatus = readCompanyMcpStatus(company);
+  if (isCompanyMcpPopulated(companyMcpStatus)) {
+    productTypeRows.push({
+      label: "MCP",
+      value: formatCompanyMcpDisplay(companyMcpStatus),
+      highlight: companyMcpStatus,
+    });
+  }
 
   const dataCollectionMethodRows =
     parseStructuredArray<CompanyDataCollectionMethodItem>(
@@ -2158,6 +2178,7 @@ const CompanyDetail = () => {
       .map((item) => ({
         label: String(item?.Data_Collection_Method || "").trim(),
         value: String(item?.Predominance || "").trim(),
+        highlight: false as const,
       }))
       .filter((item) => item.label);
 
@@ -2170,6 +2191,7 @@ const CompanyDetail = () => {
       label: String(item?.Revenue_Model_ || "").trim(),
       // Leave cell empty when predominance is missing (no "-")
       value: String(item?.Predominance || "").trim(),
+      highlight: false as const,
     }))
     .filter((item) => item.label);
 
@@ -3428,10 +3450,17 @@ const CompanyDetail = () => {
                               >
                                 <tbody>
                                   {section.rows.map((row) => (
-                                    <tr key={`${section.title}-${row.label}`}>
+                                    <tr
+                                      key={`${section.title}-${row.label}`}
+                                      style={
+                                        row.highlight
+                                          ? { backgroundColor: "oklch(96% 0.035 258)" }
+                                          : undefined
+                                      }
+                                    >
                                       <td
                                         style={{
-                                          padding: "7px 0",
+                                          padding: "7px 10px",
                                           borderBottom: "1px solid #f1f5f9",
                                           color: "#1e293b",
                                         }}
@@ -3440,10 +3469,11 @@ const CompanyDetail = () => {
                                       </td>
                                       <td
                                         style={{
-                                          padding: "7px 0",
+                                          padding: "7px 10px",
                                           borderBottom: "1px solid #f1f5f9",
                                           textAlign: "right",
-                                          color: "#475569",
+                                          color: row.highlight ? "oklch(54% 0.22 258)" : "#475569",
+                                          fontWeight: row.highlight ? 600 : 400,
                                           whiteSpace: "nowrap",
                                         }}
                                       >

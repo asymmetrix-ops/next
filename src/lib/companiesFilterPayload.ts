@@ -4,6 +4,10 @@ import type {
   FilterItem,
 } from "@/components/companies/CompaniesFilterBar";
 import {
+  isRestrictiveYesNoDualFilter,
+  normalizeYesNoDualFilterValue,
+} from "@/lib/yesNoDualFilter";
+import {
   buildFiltersSql,
   deriveBackendSignals,
   type CompanySearchPayload,
@@ -223,11 +227,15 @@ export function buildCompaniesSearchPayload(args: {
       });
       continue;
     }
-    if (item.id === "has_mcp" && v === true) {
+    if (item.id === "has_mcp") {
+      const mcpValue = normalizeYesNoDualFilterValue(v);
+      if (!isRestrictiveYesNoDualFilter(mcpValue)) {
+        continue;
+      }
       pushClause({
         id: item.key,
         type: "has_mcp",
-        value: { value: 1 },
+        value: { value: mcpValue.yes ? 1 : 0 },
         op,
       });
       continue;

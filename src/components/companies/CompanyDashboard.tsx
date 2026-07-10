@@ -48,7 +48,7 @@ import {
 export type CompanyDashboardProps = {
   onSearch?: (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => void;
   onFilterColumnsChange?: (payload: {
-    filterIds: string[];
+    filters: Array<{ id: string; value: unknown }>;
     ownershipTabActive: boolean;
   }) => void;
   initialSearch?: string;
@@ -211,7 +211,10 @@ export const CompanyDashboard = ({
 
   useEffect(() => {
     onFilterColumnsChangeRef.current?.({
-      filterIds: filterBarState.filters.map((filter) => filter.id),
+      filters: filterBarState.filters.map((filter) => ({
+        id: filter.id,
+        value: filter.value,
+      })),
       ownershipTabActive: activeOwnershipTab !== "all",
     });
   }, [filterBarState.filters, activeOwnershipTab]);

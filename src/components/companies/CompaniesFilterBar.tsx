@@ -8,6 +8,12 @@ import React, {
   useLayoutEffect,
   useCallback,
 } from "react";
+import {
+  DEFAULT_YES_NO_DUAL_VALUE,
+  normalizeYesNoDualFilterValue,
+  summarizeYesNoDualFilter,
+  type YesNoDualFilterValue,
+} from "@/lib/yesNoDualFilter";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -16,7 +22,13 @@ export interface FilterCategory {
   name: string;
 }
 
-export type FilterEditorType = "enum" | "range" | "date_range" | "segmented" | "boolean";
+export type FilterEditorType =
+  | "enum"
+  | "range"
+  | "date_range"
+  | "segmented"
+  | "boolean"
+  | "yes_no_dual";
 export type FilterTypeIcon = "Aa" | "#" | "$" | "%" | "date";
 
 export interface FilterDef {
@@ -79,6 +91,10 @@ function isEmptyFilterValue(def: FilterDef, value: unknown): boolean {
   if (def.editor === "boolean") {
     return value !== true;
   }
+  if (def.editor === "yes_no_dual") {
+    const v = normalizeYesNoDualFilterValue(value);
+    return !v.yes && !v.no;
+  }
   return false;
 }
 
@@ -99,7 +115,7 @@ function getValuesReservedBySiblingFilters(
 }
 
 function filterDefHasAvailableOptions(def: FilterDef, filters: FilterItem[]): boolean {
-  if (def.editor === "boolean") {
+  if (def.editor === "boolean" || def.editor === "yes_no_dual") {
     return !filters.some((filter) => filter.id === def.id);
   }
 
@@ -376,8 +392,10 @@ function summarize(
   if (def.editor === "boolean") {
     if (value !== true) return "";
     if (def.id === "followed") return portfolioOnlyChipLabel;
-    if (def.id === "has_mcp") return "MCP implemented";
     return "On";
+  }
+  if (def.editor === "yes_no_dual") {
+    return summarizeYesNoDualFilter(value);
   }
   return "";
 }
@@ -526,7 +544,9 @@ function PickerRow({ def, onPick }: PickerRowProps) {
             ? "choice"
             : def.editor === "boolean"
               ? "toggle"
-              : "";
+              : def.editor === "yes_no_dual"
+                ? "Yes / No"
+                : "";
   return (
     <li>
       <button
@@ -617,6 +637,7 @@ function getInitialFilterValue(def: FilterDef): unknown {
   }
   if (def.editor === "segmented") return def.options?.[0] ?? null;
   if (def.editor === "boolean") return true;
+  if (def.editor === "yes_no_dual") return DEFAULT_YES_NO_DUAL_VALUE;
   return null;
 }
 
@@ -1978,6 +1999,107 @@ function BooleanEditor({
   );
 }
 
+// Yes / No dual-checkbox editor (at least one must remain checked)
+
+interface YesNoDualEditorProps {
+  def: FilterDef;
+  value: unknown;
+  onChange: (v: YesNoDualFilterValue) => void;
+  onRemove?: () => void;
+  onBack?: () => void;
+  onDismiss?: () => void;
+  onClose: () => void;
+}
+
+function YesNoDualEditor({
+  def,
+  value,
+  onChange,
+  onRemove,
+  onBack,
+  onDismiss,
+  onClose,
+}: YesNoDualEditorProps) {
+  const initial = normalizeYesNoDualFilterValue(value);
+  const [yes, setYes] = useState(initial.yes);
+  const [no, setNo] = useState(initial.no);
+
+  const toggleYes = (checked: boolean) => {
+    if (!checked && !no) return;
+    setYes(checked);
+  };
+
+  const toggleNo = (checked: boolean) => {
+    if (!checked && !yes) return;
+    setNo(checked);
+  };
+
+  const handleApply = () => {
+    onChange({ yes, no });
+    onClose();
+  };
+
+  const checkboxRow = (label: string, checked: boolean, onToggle: (next: boolean) => void) => (
+    <label
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 10,
+        padding: "8px 10px",
+        borderRadius: "var(--r-md)",
+        background: "var(--ax-gray-25)",
+        border: "1px solid var(--border-1)",
+        cursor: "pointer",
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onToggle(e.target.checked)}
+        style={{
+          width: 16,
+          height: 16,
+          marginTop: 2,
+          accentColor: "var(--ax-cyan-700)",
+        }}
+      />
+      <span style={{ fontSize: "var(--fs-13)", color: "var(--fg-1)", lineHeight: 1.45 }}>
+        {label}
+      </span>
+    </label>
+  );
+
+  return (
+    <EditorShell
+      title={def.fullLabel}
+      onDismiss={onDismiss}
+      footer={
+        <EditorFooter
+          onRemove={onRemove}
+          onBack={onBack}
+          onApply={handleApply}
+        />
+      }
+      width={300}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {checkboxRow("Yes", yes, toggleYes)}
+        {checkboxRow("No", no, toggleNo)}
+      </div>
+      <p
+        style={{
+          margin: "8px 0 0",
+          fontSize: "var(--fs-12)",
+          color: "var(--fg-4)",
+          lineHeight: 1.45,
+        }}
+      >
+        Select both to show all companies. At least one option must stay checked.
+      </p>
+    </EditorShell>
+  );
+}
+
 // FilterEditor router
 
 interface FilterEditorProps {
@@ -2064,6 +2186,18 @@ function FilterEditor({
         onDismiss={onDismiss}
         onClose={onClose}
         portfolioBooleanDescription={portfolioBooleanDescription}
+      />
+    );
+  if (def.editor === "yes_no_dual")
+    return (
+      <YesNoDualEditor
+        def={def}
+        value={value}
+        onChange={onChange}
+        onRemove={onRemove}
+        onBack={onBack}
+        onDismiss={onDismiss}
+        onClose={onClose}
       />
     );
   return null;

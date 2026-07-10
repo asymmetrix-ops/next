@@ -287,8 +287,8 @@ export function buildCompaniesFilterDefs({
       ],
     },
     has_mcp: {
-      label: "MCP implemented",
-      fullLabel: "MCP implemented",
+      label: "MCP",
+      fullLabel: "MCP",
     },
   };
 

@@ -1,5 +1,8 @@
 import type { FilterDef, FilterTypeIcon } from "./CompaniesFilterBar";
 import {
+  isRestrictiveYesNoDualFilter,
+} from "@/lib/yesNoDualFilter";
+import {
   ALL_COMPANIES_COLUMN_META,
   type CompanyColumnMeta,
   type CompanyColumnType,
@@ -113,12 +116,15 @@ const CANONICAL_FILTER_COLUMN_KEYS = ALL_COMPANIES_COLUMN_META.map(
 );
 
 export function getColumnKeysForActiveFilters(
-  filterIds: string[],
+  filters: Array<{ id: string; value?: unknown }>,
   ownershipTabActive = false
 ): string[] {
   const keys = new Set<string>();
-  for (const filterId of filterIds) {
-    const columnKey = getColumnKeyForFilterId(filterId);
+  for (const filter of filters) {
+    if (filter.id === "has_mcp" && !isRestrictiveYesNoDualFilter(filter.value)) {
+      continue;
+    }
+    const columnKey = getColumnKeyForFilterId(filter.id);
     if (columnKey) keys.add(columnKey);
   }
   if (ownershipTabActive) {
@@ -211,7 +217,7 @@ function mapColumnTypeToFilter(
   }
 
   if (column.columnKey === "has_mcp") {
-    return { type: "Aa", editor: "boolean" };
+    return { type: "Aa", editor: "yes_no_dual" };
   }
 
   if (column.columnKey === "years_since_last_investment") {

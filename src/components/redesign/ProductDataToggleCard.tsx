@@ -10,6 +10,7 @@ import {
   T,
   descriptionBodyStyle,
 } from "./primitives";
+import { formatCompanyMcpDisplay } from "@/lib/companyMcp";
 
 export type ProductMixTab = "product_type" | "data_collection";
 
@@ -33,10 +34,20 @@ type Props = {
   onTabChange?: (t: ProductMixTab) => void;
   productRows: ProductBarRow[];
   dataRows: DataMixRow[];
+  /** When boolean, MCP row is appended as the last Product Type row. */
+  mcpStatus?: boolean | null;
   fillGridCell?: boolean;
 };
 
-function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
+function ProductTypeBody({
+  productRows,
+  mcpStatus,
+}: {
+  productRows: ProductBarRow[];
+  mcpStatus?: boolean | null;
+}) {
+  const showMcp = typeof mcpStatus === "boolean";
+
   return (
     <div style={{ padding: "8px 16px 14px", flex: 1, minHeight: 0 }}>
       {productRows.map((p, i) => (
@@ -45,7 +56,9 @@ function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
           style={{
             padding: "9px 0",
             borderBottom:
-              i === productRows.length - 1 ? "none" : `1px solid ${T.hair}`,
+              i === productRows.length - 1 && !showMcp
+                ? "none"
+                : `1px solid ${T.hair}`,
           }}
         >
           <div
@@ -73,6 +86,32 @@ function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
           </div>
         </div>
       ))}
+      {showMcp ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginTop: productRows.length > 0 ? 2 : 0,
+            padding: "9px 10px",
+            borderRadius: T.r,
+            background: mcpStatus ? T.azureSoft : "transparent",
+          }}
+        >
+          <span style={{ ...descriptionBodyStyle, fontWeight: 500 }}>MCP</span>
+          <span
+            style={{
+              ...descriptionBodyStyle,
+              fontWeight: mcpStatus ? 600 : 500,
+              color: mcpStatus ? T.azure : T.body,
+              flexShrink: 0,
+            }}
+          >
+            {formatCompanyMcpDisplay(mcpStatus)}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -114,13 +153,14 @@ export function ProductDataToggleCard({
   onTabChange,
   productRows,
   dataRows,
+  mcpStatus = null,
   fillGridCell = true,
 }: Props) {
   if (variant === "product_type") {
     return (
       <LinkPanel fillGridCell={fillGridCell}>
         <LinkedH>Product Type</LinkedH>
-        <ProductTypeBody productRows={productRows} />
+        <ProductTypeBody productRows={productRows} mcpStatus={mcpStatus} />
       </LinkPanel>
     );
   }
@@ -190,7 +230,7 @@ export function ProductDataToggleCard({
       </div>
 
       {activeTab === "product_type" ? (
-        <ProductTypeBody productRows={productRows} />
+        <ProductTypeBody productRows={productRows} mcpStatus={mcpStatus} />
       ) : (
         <DataCollectionBody dataRows={dataRows} />
       )}
