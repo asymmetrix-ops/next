@@ -116,6 +116,67 @@ export const formatDate = (dateString: string): string => {
   });
 };
 
+/** Coerce API job title fields (array, single object, or string) into a uniform list. */
+export function normalizeJobTitlesId(
+  value: unknown,
+  fallback?: unknown
+): Array<{ job_title: string }> {
+  const normalized = toJobTitleRecords(value);
+  if (normalized.length > 0) return normalized;
+  return toJobTitleRecords(fallback);
+}
+
+function toJobTitleRecords(value: unknown): Array<{ job_title: string }> {
+  if (value == null) return [];
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string" && item.trim()) {
+          return { job_title: item.trim() };
+        }
+        if (item && typeof item === "object" && "job_title" in item) {
+          const title = (item as { job_title?: unknown }).job_title;
+          return typeof title === "string" && title.trim()
+            ? { job_title: title.trim() }
+            : null;
+        }
+        return null;
+      })
+      .filter((item): item is { job_title: string } => item != null);
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return [{ job_title: value.trim() }];
+  }
+
+  if (typeof value === "object" && value !== null && "job_title" in value) {
+    const title = (value as { job_title?: unknown }).job_title;
+    return typeof title === "string" && title.trim()
+      ? [{ job_title: title.trim() }]
+      : [];
+  }
+
+  return [];
+}
+
+export function getJobTitleStringsFromId(
+  jobTitlesId: unknown,
+  fallback?: unknown
+): string[] {
+  return normalizeJobTitlesId(jobTitlesId, fallback)
+    .map((item) => item.job_title)
+    .filter(Boolean);
+}
+
+export function formatJobTitlesFromId(
+  jobTitlesId: unknown,
+  fallback?: unknown
+): string {
+  const titles = getJobTitleStringsFromId(jobTitlesId, fallback);
+  return titles.length > 0 ? titles.join(", ") : "";
+}
+
 export const getManagementRoleDisplayName = (role: ManagementRoleLike): string =>
   String(role.advisor_individuals || role.Individual_text || "").trim();
 

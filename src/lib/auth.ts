@@ -2,6 +2,7 @@ import {
   CONTRIBUTOR_ACCESS_MESSAGE,
   isContributorUser,
 } from "@/lib/userStatus";
+import { MCP_GUEST_ROLE } from "@/lib/mcpGuest";
 
 interface AuthUser {
   id: string;
@@ -126,6 +127,57 @@ class AuthService {
     } catch (error) {
       console.error("AuthService - Error fetching user data:", error);
       user = { id: "user", email: "user@example.com" };
+    }
+
+    this.setAuth(token, user);
+    return { token, user };
+  }
+
+  // MCP Guest signup/login — email only, no password
+  async signupMcpGuest(email: string): Promise<LoginResponse> {
+    const normalizedEmail = (email || "").trim().toLowerCase();
+    const apiUrl =
+      process.env.NEXT_PUBLIC_XANO_API_URL ||
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+
+    const response = await fetch(`${apiUrl}/auth/signup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "",
+        email: normalizedEmail,
+        password: "",
+        role: MCP_GUEST_ROLE,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("MCP Guest sign in failed");
+    }
+
+    const data = await response.json();
+    const token = data.authToken || data.token;
+
+    let user: AuthUser;
+    try {
+      const userResponse = await fetch(`${apiUrl}/auth/me`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (userResponse.ok) {
+        user = await userResponse.json();
+      } else {
+        user = { id: "user", email: normalizedEmail, role: MCP_GUEST_ROLE };
+      }
+    } catch (error) {
+      console.error("AuthService - Error fetching MCP Guest user data:", error);
+      user = { id: "user", email: normalizedEmail, role: MCP_GUEST_ROLE };
     }
 
     this.setAuth(token, user);
