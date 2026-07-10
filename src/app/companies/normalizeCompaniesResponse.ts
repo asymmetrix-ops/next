@@ -22,6 +22,7 @@ export function normalizeCompaniesResponse(raw: unknown): CompaniesResponse {
     offset: 0,
     perPage: 20,
     pageTotal: 1,
+    totalCount: 0,
   };
 
   if (!raw || typeof raw !== "object") {
@@ -72,6 +73,15 @@ export function normalizeCompaniesResponse(raw: unknown): CompaniesResponse {
     pageTotal = 1;
   }
 
+  const totalCount = readNumber(
+    payload.total_count ??
+      payload.totalCount ??
+      payload.total_count_all ??
+      root.total_count ??
+      root.totalCount,
+    0
+  );
+
   return {
     result1: {
       items,
@@ -85,6 +95,7 @@ export function normalizeCompaniesResponse(raw: unknown): CompaniesResponse {
       offset: readNumber(payload.offset ?? root.offset, 0),
       perPage,
       pageTotal,
+      totalCount: totalCount > 0 ? totalCount : undefined,
       ownershipCounts: (payload.ownershipCounts ?? root.ownershipCounts) as
         | CompaniesResultPayload["ownershipCounts"]
         | undefined,

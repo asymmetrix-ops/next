@@ -78,6 +78,8 @@ export interface CompaniesResultPayload {
   offset: number;
   perPage: number;
   pageTotal: number;
+  /** Total matching companies across all pages (Get_new_companies `total_count`). */
+  totalCount?: number;
   ownershipCounts?: {
     publicCompanies: number;
     peOwnedCompanies: number;

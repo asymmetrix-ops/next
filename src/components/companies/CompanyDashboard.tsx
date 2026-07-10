@@ -67,6 +67,7 @@ export type CompanyDashboardProps = {
   scopedSecondarySectorIds?: number[];
   fixedOwnershipTypeIds?: number[];
   embedded?: boolean;
+  guestMode?: boolean;
 };
 
 export const CompanyDashboard = ({
@@ -88,6 +89,7 @@ export const CompanyDashboard = ({
   scopedSecondarySectorIds = [],
   fixedOwnershipTypeIds,
   embedded = false,
+  guestMode = false,
 }: CompanyDashboardProps) => {
   // Unified filter bar state — replaces all the individual selected-* state vars
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
@@ -411,9 +413,11 @@ export const CompanyDashboard = ({
         >
           {!hidePageHeader && (
           <div>
-            <div style={SEARCH_DASHBOARD_EYEBROW}>Companies</div>
+            <div style={SEARCH_DASHBOARD_EYEBROW}>
+              {guestMode ? "MCP Guest" : "Companies"}
+            </div>
             <h1 style={SEARCH_DASHBOARD_TITLE}>
-              Company search
+              {guestMode ? "MCP companies" : "Company search"}
               <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
                 {matchCount.toLocaleString()} matches
               </span>
@@ -422,6 +426,7 @@ export const CompanyDashboard = ({
           )}
 
           {/* Action buttons */}
+          {!guestMode && (
           <div
             style={{
               ...SEARCH_DASHBOARD_ACTIONS,
@@ -477,10 +482,11 @@ export const CompanyDashboard = ({
               {selectedCount > 0 ? ` (${selectedCount.toLocaleString()})` : ""}
             </button>
           </div>
+          )}
         </div>
 
         {/* ── Ownership quick-filter tabs ── */}
-        {!hideOwnershipTabs && !fixedOwnershipTypeIds && (
+        {!guestMode && !hideOwnershipTabs && !fixedOwnershipTypeIds && (
         <SearchListTabs
           tabs={ownershipTabs}
           activeTabId={activeOwnershipTab}
@@ -504,7 +510,29 @@ export const CompanyDashboard = ({
         )}
       </div>
 
-      {/* ── Filter bar card ── */}
+      {guestMode ? (
+        <div
+          style={{
+            background: "#fff",
+            borderTop: "1px solid #e2e8f0",
+            borderBottom: "1px solid #e2e8f0",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              padding: `12px ${horizontalPad} 14px`,
+              fontSize: 13,
+              color: "#64748b",
+            }}
+          >
+            Showing companies with{" "}
+            <strong style={{ color: "#0f172a" }}>MCP = Yes</strong> only. Filters,
+            exports, and company profiles are not available in guest view.
+          </div>
+        </div>
+      ) : (
+      /* ── Filter bar card ── */
       <div
         style={{
           background: "#fff",
@@ -522,6 +550,7 @@ export const CompanyDashboard = ({
           />
         </div>
       </div>
+      )}
     </div>
   );
 };

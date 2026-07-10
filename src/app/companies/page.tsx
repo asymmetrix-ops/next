@@ -9,6 +9,8 @@ import React, {
 } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { buildMcpGuestCompaniesFilters, buildMcpGuestCompaniesCountsFilters } from "@/lib/companiesFilterPayload";
 import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import { CompanyDashboard } from "@/components/companies/CompanyDashboard";
 import {
@@ -30,7 +32,7 @@ import {
 } from "./actions";
 import { CompaniesEditContext } from "./CompaniesEditContext";
 
-const useCompaniesAPI = () => {
+const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +52,7 @@ const useCompaniesAPI = () => {
     offset: 0,
     perPage: 20,
     pageTotal: 0,
+    totalCount: 0,
   });
   const [ownershipCounts, setOwnershipCounts] =
     useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
@@ -100,12 +103,16 @@ const useCompaniesAPI = () => {
         currentCountsFiltersRef.current = countsFilters;
       }
 
-      const filtersToUse =
-        filters !== undefined ? filters : currentFiltersRef.current ?? createDefaultFilters();
-      const countsFiltersToUse =
-        countsFilters ??
-        currentCountsFiltersRef.current ??
-        filtersToUse;
+      const filtersToUse = isMcpGuest
+        ? buildMcpGuestCompaniesFilters()
+        : filters !== undefined
+          ? filters
+          : currentFiltersRef.current ?? createDefaultFilters();
+      const countsFiltersToUse = isMcpGuest
+        ? buildMcpGuestCompaniesCountsFilters()
+        : countsFilters ??
+          currentCountsFiltersRef.current ??
+          filtersToUse;
 
       try {
         const serverFilters: ServerFilters = {
@@ -129,6 +136,7 @@ const useCompaniesAPI = () => {
 
         if (requestId === lastRequestIdRef.current) {
           setCompanies((data.result1?.items || []) as Company[]);
+          const totalCount = data.result1?.totalCount ?? 0;
           setPagination({
             itemsReceived: data.result1?.itemsReceived || 0,
             curPage: data.result1?.curPage || 1,
@@ -137,7 +145,14 @@ const useCompaniesAPI = () => {
             offset: data.result1?.offset || 0,
             perPage: data.result1?.perPage || 20,
             pageTotal: data.result1?.pageTotal || 0,
+            totalCount,
           });
+          if (isMcpGuest && totalCount > 0) {
+            setOwnershipCounts((prev) => ({
+              ...prev,
+              totalCount,
+            }));
+          }
         }
       } catch (err) {
         if (requestId === lastRequestIdRef.current) {
@@ -152,13 +167,17 @@ const useCompaniesAPI = () => {
         }
       }
     },
-    [scheduleCountsFetch]
+    [scheduleCountsFetch, isMcpGuest]
   );
 
   useEffect(() => {
-    fetchCompanies(1, createDefaultFilters());
+    if (authLoading) return;
+    const initialFilters = isMcpGuest
+      ? buildMcpGuestCompaniesFilters()
+      : createDefaultFilters();
+    fetchCompanies(1, initialFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isMcpGuest, authLoading]);
 
   return {
     companies,
@@ -173,6 +192,7 @@ const useCompaniesAPI = () => {
 };
 
 function CompaniesPageInner() {
+  const { isMcpGuest, loading: authLoading } = useAuth();
   const {
     companies,
     loading,
@@ -182,16 +202,17 @@ function CompaniesPageInner() {
     fetchCompanies,
     setRequestColumns,
     currentFilters,
-  } = useCompaniesAPI();
+  } = useCompaniesAPI(isMcpGuest, authLoading);
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
 
   const handleSearch = useCallback(
     (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
+      if (isMcpGuest) return;
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
       fetchCompanies(1, listFilters, countsFilters);
     },
-    [fetchCompanies]
+    [fetchCompanies, isMcpGuest]
   );
 
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
@@ -283,12 +304,24 @@ function CompaniesPageInner() {
         onFilterColumnsChange={handleFilterColumnsChange}
         initialSearch={initialSearch}
         ownershipCounts={ownershipCounts}
-        onColumnsClick={() => setShowColumnsModal((v) => !v)}
-        onExportCSVClick={() => exportCSVRef.current?.()}
-        onAddToPortfolioClick={() => setShowBulkAddModal(true)}
+        onColumnsClick={
+          isMcpGuest ? undefined : () => setShowColumnsModal((v) => !v)
+        }
+        onExportCSVClick={
+          isMcpGuest ? undefined : () => exportCSVRef.current?.()
+        }
+        onAddToPortfolioClick={
+          isMcpGuest ? undefined : () => setShowBulkAddModal(true)
+        }
         selectedCount={selectedCompanyIds.size}
         columnsCount={columnsCount}
         columnsActive={showColumnsModal}
+        guestMode={isMcpGuest}
+        matchCountOverride={
+          isMcpGuest
+            ? pagination.totalCount || ownershipCounts.totalCount
+            : undefined
+        }
       />
       <CompanySection
         companies={companies}
@@ -301,24 +334,33 @@ function CompaniesPageInner() {
         currentFilters={currentFilters}
         filterPinnedColumnKeys={filterPinnedColumnKeys}
         onEditCompany={React.useContext(CompaniesEditContext)}
-        externalShowColumnsModal={showColumnsModal}
-        externalSetShowColumnsModal={setShowColumnsModal}
+        externalShowColumnsModal={isMcpGuest ? false : showColumnsModal}
+        externalSetShowColumnsModal={
+          isMcpGuest ? undefined : setShowColumnsModal
+        }
         onColumnsCountChange={setColumnsCount}
-        onRegisterExportCSV={(fn) => {
-          exportCSVRef.current = fn;
-        }}
+        onRegisterExportCSV={
+          isMcpGuest
+            ? undefined
+            : (fn) => {
+                exportCSVRef.current = fn;
+              }
+        }
         selectedCompanyIds={selectedCompanyIds}
         onToggleCompanySelection={toggleCompanySelection}
         onTogglePageSelection={togglePageSelection}
         onClearSelection={clearSelection}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
+        readOnlyGuestMode={isMcpGuest}
       />
+      {!isMcpGuest && (
       <BulkAddToPortfolioModal
         isOpen={showBulkAddModal}
         onClose={() => setShowBulkAddModal(false)}
         companyIds={selectedCompanyIdList}
         onComplete={clearSelection}
       />
+      )}
       <Footer />
     </div>
   );
