@@ -48,7 +48,8 @@ export function resolveIndividualCompanyHref(ind: Individual): string | null {
 }
 
 export function formatIndividualRoles(individual: Individual): string {
-  return (
-    individual.current_roles?.map((role) => role.job_title).join(", ") || "-"
-  );
+  const titles = individual.current_roles
+    ?.map((role) => role.job_title)
+    .filter((title): title is string => Boolean(title && String(title).trim()));
+  return titles && titles.length > 0 ? titles.join(", ") : "-";
 }

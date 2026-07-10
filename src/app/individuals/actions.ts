@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import type { Individual, IndividualsResponse } from "@/types/individuals";
+import type { Individual } from "@/types/individuals";
 import {
   createDefaultIndividualFilters,
   individualsFiltersToSearchParams,
@@ -24,6 +24,140 @@ export interface IndividualsListResponse {
   pageTotal: number;
   itemsTotal: number;
   summaryCounts: ReturnType<typeof mapResponseToIndividualsSummaryCounts>;
+}
+
+type IndividualsApiListResponse = {
+  items?: unknown[];
+  individuals?: unknown[];
+  offset?: number;
+  currentPage?: number;
+  perPage?: number;
+  totalItems?: number;
+  totalIndividuals?: number;
+  totalPages?: number;
+  nextOffset?: number | null;
+  currentRoles?: number;
+  pastRoles?: number;
+  ceos?: number;
+  chairs?: number;
+  founders?: number;
+};
+
+function normalizeIndividualRole(raw: Record<string, unknown>) {
+  const employeeNewCompanyId = Number(raw.employee_new_company_id);
+  const companyName = String(raw.company_name ?? "").trim();
+  const roleId = Number(raw.role_id ?? raw.id ?? 0);
+
+  return {
+    id: Number.isFinite(roleId) ? roleId : 0,
+    individuals_id: Number(raw.individuals_id ?? 0),
+    employee_new_company_id: Number.isFinite(employeeNewCompanyId)
+      ? employeeNewCompanyId
+      : 0,
+    current_employer_url: String(
+      raw.current_employer_url ?? raw.company_url ?? ""
+    ),
+    Status: String(raw.Status ?? ""),
+    job_titles_id: Array.isArray(raw.job_titles_id)
+      ? raw.job_titles_id.map((id, index) => ({
+          id: Number(id),
+          job_title: String(raw.job_title ?? `Role ${index + 1}`),
+        }))
+      : [],
+    new_company: {
+      id: Number.isFinite(employeeNewCompanyId) ? employeeNewCompanyId : undefined,
+      name: companyName,
+      locations_id: 0,
+      sectors_id: [],
+      _locations: null,
+    },
+  };
+}
+
+function normalizeIndividualFromApi(raw: Record<string, unknown>): Individual {
+  const currentRoles = Array.isArray(raw.current_roles)
+    ? raw.current_roles
+        .map((role, index) => {
+          if (!role || typeof role !== "object") return null;
+          const jobTitle = String(
+            (role as { job_title?: unknown }).job_title ?? ""
+          ).trim();
+          if (!jobTitle) return null;
+          return {
+            id: index + 1,
+            job_title: jobTitle,
+          };
+        })
+        .filter((role): role is { id: number; job_title: string } => role != null)
+    : [];
+
+  const roles = Array.isArray(raw.roles)
+    ? raw.roles
+        .filter((role): role is Record<string, unknown> => !!role && typeof role === "object")
+        .map(normalizeIndividualRole)
+    : [];
+
+  return {
+    id: Number(raw.id),
+    advisor_individuals: String(raw.advisor_individuals ?? "").trim(),
+    current_company:
+      raw.current_company == null || String(raw.current_company).trim() === ""
+        ? null
+        : String(raw.current_company),
+    current_roles: currentRoles,
+    _locations_individual:
+      (raw._locations_individual as Individual["_locations_individual"]) ?? null,
+    roles,
+    locations_id: Number(raw.locations_id ?? 0),
+    current_company_location: Array.isArray(raw.current_company_location)
+      ? (raw.current_company_location as Individual["current_company_location"])
+      : [],
+  };
+}
+
+function mapIndividualsListResponse(
+  data: IndividualsApiListResponse,
+  fallbackPage: number,
+  fallbackPerPage: number
+): IndividualsListResponse {
+  const rawItems = data.items ?? data.individuals ?? [];
+  const items = rawItems
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
+    .map(normalizeIndividualFromApi)
+    .filter((item) => Number.isFinite(item.id));
+
+  const perPage = data.perPage || fallbackPerPage;
+  const itemsTotal = data.totalItems ?? data.totalIndividuals ?? items.length;
+  const curPage = data.offset ?? data.currentPage ?? fallbackPage;
+  const pageTotal =
+    data.totalPages ??
+    (perPage > 0 ? Math.max(1, Math.ceil(itemsTotal / perPage)) : 1);
+  const hasNext =
+    data.nextOffset != null
+      ? Number(data.nextOffset) > 0
+      : curPage < pageTotal;
+
+  return {
+    items,
+    curPage,
+    nextPage: hasNext ? curPage + 1 : null,
+    prevPage: curPage > 1 ? curPage - 1 : null,
+    perPage,
+    pageTotal,
+    itemsTotal,
+    summaryCounts: mapResponseToIndividualsSummaryCounts({
+      individuals: items,
+      totalIndividuals: itemsTotal,
+      currentPage: curPage,
+      perPage,
+      totalPages: pageTotal,
+      currentRoles: data.currentRoles ?? 0,
+      pastRoles: data.pastRoles ?? 0,
+      ceos: data.ceos ?? 0,
+      chairs: data.chairs ?? 0,
+      founders: data.founders ?? 0,
+    }),
+  };
 }
 
 // List lives on the main branch; counts endpoint is only on :develop.
@@ -64,20 +198,8 @@ export async function fetchIndividualsServer(
       return null;
     }
 
-    const data = (await response.json()) as IndividualsResponse;
-    const currentPage = data.currentPage || payload.page;
-    const totalPages = data.totalPages || 1;
-
-    return {
-      items: data.individuals || [],
-      curPage: currentPage,
-      nextPage: currentPage < totalPages ? currentPage + 1 : null,
-      prevPage: currentPage > 1 ? currentPage - 1 : null,
-      perPage: data.perPage || payload.per_page,
-      pageTotal: totalPages,
-      itemsTotal: data.totalIndividuals || data.individuals?.length || 0,
-      summaryCounts: mapResponseToIndividualsSummaryCounts(data),
-    };
+    const data = (await response.json()) as IndividualsApiListResponse;
+    return mapIndividualsListResponse(data, payload.page, payload.per_page);
   } catch (error) {
     console.error("fetchIndividualsServer error:", error);
     return null;
