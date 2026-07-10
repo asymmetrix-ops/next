@@ -50,6 +50,7 @@ const METRIC_SOURCE_FIELD: Partial<
   rev_expansion_pc: "rev_expansion_source_type",
   ebitda_margin: "ebitda_source_type",
   revenue_multiple: "revenue_multiple_source_type",
+  ev_revenue_x: "ev_source_type",
   ev_ebitda_x: "ev_source_type",
 };
 
