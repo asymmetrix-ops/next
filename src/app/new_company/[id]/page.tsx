@@ -44,6 +44,10 @@ import {
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
 import { buildBenchmarkPeersData } from "@/lib/buildBenchmarkPeersData";
 import { EMPTY_DISPLAY, isEmptyDisplayValue } from "@/lib/emptyDisplay";
+import {
+  isCompanyMcpPopulated,
+  readCompanyMcpStatus,
+} from "@/lib/companyMcp";
 import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 import {
   buildSubsidiaryAcquisitionYearMap,
@@ -510,6 +514,7 @@ interface Company {
   product_users?: string[] | string | null;
   /** Optional: structured Product & users segments (accordion); merged from API root or Company */
   product_and_users?: ProductAndUsersEntry[];
+  has_mcp?: boolean;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -525,6 +530,7 @@ interface CompanyResponse {
   Product_Type?: CompanyProductTypeItem[] | string;
   Data_Collection_Method?: CompanyDataCollectionMethodItem[] | string;
   Revenue_Model_?: CompanyRevenueModelItem[] | string;
+  has_mcp?: boolean;
   last_investment?: LastInvestment | null;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
@@ -1727,6 +1733,8 @@ const CompanyDetail = () => {
 
         // Removed additional verbose logging
 
+        const mcpStatus = readCompanyMcpStatus(data.Company, data);
+
         // Use actual investor data from API
         const enrichedCompany = {
           ...data.Company,
@@ -1825,6 +1833,7 @@ const CompanyDetail = () => {
               }
             )?.product_and_users
           ) as Company["product_and_users"],
+          ...(isCompanyMcpPopulated(mcpStatus) ? { has_mcp: mcpStatus } : {}),
         };
 
         // Parse optional ebitda_data with display strings
@@ -3178,6 +3187,9 @@ const CompanyDetail = () => {
     productServicesData
   );
 
+  const companyMcpStatus = readCompanyMcpStatus(company);
+  const showCompanyMcp = isCompanyMcpPopulated(companyMcpStatus);
+
   const productTypeBarRows = productTypeRows.map((row, i) => {
           const rawPct = parsePercentToken(row.value);
           const pct = Math.min(100, Math.max(0, rawPct ?? 0));
@@ -3199,7 +3211,7 @@ const CompanyDetail = () => {
 
   /** Dynamic grid rows — cards pack upward when optional sections are hidden */
   const PRODUCT_ROW_START = 3;
-  const showProductType = productTypeRows.length > 0;
+  const showProductType = productTypeRows.length > 0 || showCompanyMcp;
   const showRevenueModel = revenueModelRows.length > 0;
   const showCoreProducts = coreProductsSections.length > 0;
   const showDataCollection = dataCollectionMethodRows.length > 0;
@@ -4206,12 +4218,13 @@ const CompanyDetail = () => {
             </div>{/* end insights-summary-card */}
 
             {/* Rows 3–4: Product type + Revenue | Users + Data collection | AI Exposure Index (tall) */}
-            {productTypeRows.length > 0 && (
+            {(productTypeRows.length > 0 || showCompanyMcp) && (
               <div className="company-grid-product-mix">
                 <ProductDataToggleCard
                   variant="product_type"
                   productRows={productTypeBarRows}
                   dataRows={productDataToggleDataRows}
+                  mcpStatus={companyMcpStatus}
                   fillGridCell
                 />
               </div>

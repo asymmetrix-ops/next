@@ -200,14 +200,14 @@ function CompaniesPageInner() {
 
   const handleFilterColumnsChange = useCallback(
     ({
-      filterIds,
+      filters,
       ownershipTabActive,
     }: {
-      filterIds: string[];
+      filters: Array<{ id: string; value: unknown }>;
       ownershipTabActive: boolean;
     }) => {
       setFilterPinnedColumnKeys(
-        getColumnKeysForActiveFilters(filterIds, ownershipTabActive)
+        getColumnKeysForActiveFilters(filters, ownershipTabActive)
       );
     },
     []

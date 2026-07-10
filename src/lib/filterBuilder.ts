@@ -228,7 +228,7 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
       }
 
       case "has_mcp":
-        return `nc.has_mcp = true`;
+        return Number(val) === 0 ? `nc.has_mcp = false` : `nc.has_mcp = true`;
 
       default:
         return null;
