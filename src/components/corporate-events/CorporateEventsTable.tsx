@@ -3,12 +3,9 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CorporateEventDealMetrics } from "./CorporateEventDealMetrics";
-import {
-  CorporateEventPartyLink,
-  CorporateEventTargetLink,
-} from "./CorporateEventPartyLink";
+import { normalizeEntityHref } from "@/lib/corporateEventEntityHref";
+import { CorporateEventTargetLink } from "./CorporateEventPartyLink";
 
-// Types compatible with both company and investor pages
 interface LegacyCorporateEvent {
   id?: number;
   description: string;
@@ -103,7 +100,10 @@ interface NewTargetEntity {
   name: string;
   page_type?: string;
   route?: string;
+  path?: string;
   entity_type?: string;
+  is_investor?: boolean;
+  counterparty_announcement_url?: string;
   hq_country_iso2?: string | null;
 }
 
@@ -111,12 +111,20 @@ interface NewCounterpartyMinimal {
   id: number;
   name: string;
   page_type?: string;
+  route?: string;
+  path?: string;
+  entity_type?: string;
+  is_investor?: boolean;
 }
 
 interface NewOtherCounterparty {
   id?: number;
   name?: string;
   page_type?: string;
+  route?: string;
+  path?: string;
+  entity_type?: string;
+  is_investor?: boolean;
   counterparty_id?: number;
   counterparty_status?: string;
   _new_company?: {
@@ -137,10 +145,18 @@ interface NewCorporateEvent {
   description?: string;
   announcement_date?: string;
   deal_type?: string;
+  // New API field (present in Get_new_company.new_counterparties items)
+  target_hq_country?: string | null;
+  // Some endpoints / exports may use this legacy-ish naming
+  target_hq?: string | null;
   target_company?: {
     id?: number;
     name?: string;
     page_type?: string;
+    route?: string;
+    path?: string;
+    entity_type?: string;
+    is_investor?: boolean;
   };
   targets?: NewTargetEntity[];
   target_label?: string;
@@ -160,7 +176,6 @@ interface NewCorporateEvent {
   buyer_investor_label?: string | null;
   buyers?: NewCounterpartyMinimal[];
   sellers?: NewCounterpartyMinimal[];
-  sales?: NewCounterpartyMinimal[];
   investors?: NewCounterpartyMinimal[];
   buyers_investors?: NewCounterpartyMinimal[];
   other_counterparties?: NewOtherCounterparty[];
@@ -217,58 +232,10 @@ interface CorporateEventsTableProps {
   secondarySectors?: Sector[];
   maxInitialEvents?: number;
   truncateDescriptionLength?: number;
-  /** Match company profile V3 panel (Geist tokens, hairline borders) */
-  variant?: "legacy" | "v3";
 }
 
-type CePaletteKey = "legacy" | "v3";
-
-const CE_PALETTE: Record<
-  CePaletteKey,
-  {
-    wrapBorder: string;
-    wrapRadius: number | string;
-    cellBorder: string;
-    theadBg: string;
-    link: string;
-    muted: string;
-    tableFont: string;
-    thExtra: React.CSSProperties;
-    expandBtn: string;
-  }
-> = {
-  legacy: {
-    wrapBorder: "1px solid #e2e8f0",
-    wrapRadius: "8px",
-    cellBorder: "#e2e8f0",
-    theadBg: "#f8fafc",
-    link: "#3b82f6",
-    muted: "#64748b",
-    tableFont: "14px",
-    thExtra: {},
-    expandBtn: "#0075df",
-  },
-  v3: {
-    wrapBorder: "none",
-    wrapRadius: 0,
-    cellBorder: "rgba(15,17,21,0.06)",
-    theadBg: "#F4F3EE",
-    link: "oklch(54% 0.22 258)",
-    muted: "#6B6E76",
-    tableFont: "12.5px",
-    thExtra: {
-      fontSize: "11.5px",
-      fontWeight: 600,
-      textTransform: "uppercase",
-      letterSpacing: "0.05em",
-      color: "#6B6E76",
-    },
-    expandBtn: "oklch(54% 0.22 258)",
-  },
-};
-
 const formatDate = (dateString: string | null | undefined): string => {
-  if (!dateString) return "-";
+  if (!dateString) return "Not available";
   try {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -277,7 +244,7 @@ const formatDate = (dateString: string | null | undefined): string => {
       day: "numeric",
     });
   } catch {
-    return "-";
+    return "Not available";
   }
 };
 
@@ -285,7 +252,7 @@ const truncateDescription = (
   description: string,
   maxLength: number = 150
 ): { text: string; isLong: boolean } => {
-  if (!description) return { text: "-", isLong: false };
+  if (!description) return { text: "Not available", isLong: false };
   const isLong = description.length > maxLength;
   const truncated = isLong
     ? description.substring(0, maxLength) + "..."
@@ -314,11 +281,9 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
   secondarySectors = [],
   maxInitialEvents = 3,
   truncateDescriptionLength = 180,
-  variant = "legacy",
 }) => {
   const router = useRouter();
   const [showAllEvents, setShowAllEvents] = useState(false);
-  const pal = CE_PALETTE[variant === "v3" ? "v3" : "legacy"];
 
   const handleEventClick = (eventId: number | undefined, description?: string) => {
     if (eventId && onEventClick) {
@@ -338,14 +303,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
 
   if (loading) {
     return (
-      <div
-        style={{
-          textAlign: "center",
-          padding: variant === "v3" ? "20px 16px" : "24px",
-          color: pal.muted,
-          fontSize: variant === "v3" ? "12.5px" : "14px",
-        }}
-      >
+      <div style={{ textAlign: "center", padding: "24px" }}>
         Loading corporate events...
       </div>
     );
@@ -360,8 +318,8 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
       <div
         style={{
           overflowX: "auto",
-          border: pal.wrapBorder,
-          borderRadius: pal.wrapRadius,
+          border: "1px solid #e2e8f0",
+          borderRadius: "8px",
         }}
       >
         <table
@@ -369,47 +327,43 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
             width: "100%",
             minWidth: showSectors ? "1200px" : "900px",
             borderCollapse: "collapse",
-            fontSize: pal.tableFont,
+            fontSize: "14px",
           }}
         >
           <thead>
-            <tr style={{ backgroundColor: pal.theadBg }}>
+            <tr style={{ backgroundColor: "#f8fafc" }}>
               <th
                 style={{
-                  padding: variant === "v3" ? "10px 12px" : "12px",
+                  padding: "12px",
                   textAlign: "left",
-                  borderBottom: `1px solid ${pal.cellBorder}`,
-                  ...pal.thExtra,
+                  borderBottom: "1px solid #e2e8f0",
                 }}
               >
                 Event Details
               </th>
               <th
                 style={{
-                  padding: variant === "v3" ? "10px 12px" : "12px",
+                  padding: "12px",
                   textAlign: "left",
-                  borderBottom: `1px solid ${pal.cellBorder}`,
-                  ...pal.thExtra,
+                  borderBottom: "1px solid #e2e8f0",
                 }}
               >
                 Parties
               </th>
               <th
                 style={{
-                  padding: variant === "v3" ? "10px 12px" : "12px",
+                  padding: "12px",
                   textAlign: "left",
-                  borderBottom: `1px solid ${pal.cellBorder}`,
-                  ...pal.thExtra,
+                  borderBottom: "1px solid #e2e8f0",
                 }}
               >
                 Deal Details
               </th>
               <th
                 style={{
-                  padding: variant === "v3" ? "10px 12px" : "12px",
+                  padding: "12px",
                   textAlign: "left",
-                  borderBottom: `1px solid ${pal.cellBorder}`,
-                  ...pal.thExtra,
+                  borderBottom: "1px solid #e2e8f0",
                 }}
               >
                 Advisor(s)
@@ -417,10 +371,9 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
               {showSectors && (
                 <th
                   style={{
-                    padding: variant === "v3" ? "10px 12px" : "12px",
+                    padding: "12px",
                     textAlign: "left",
-                    borderBottom: `1px solid ${pal.cellBorder}`,
-                    ...pal.thExtra,
+                    borderBottom: "1px solid #e2e8f0",
                   }}
                 >
                   Sectors
@@ -445,7 +398,12 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                 const legacyTargetId =
                   newEvent.target_counterparty?.new_company_counterparty;
                 const targetCountry =
-                  legacyTarget?._location?.Country || "-";
+                  (typeof newEvent.target_hq_country === "string" &&
+                    newEvent.target_hq_country.trim()) ||
+                  (typeof newEvent.target_hq === "string" &&
+                    newEvent.target_hq.trim()) ||
+                  legacyTarget?._location?.Country ||
+                  "Not Available";
 
                 // Get advisors
                 const newAdvisors = newEvent.advisors || [];
@@ -539,7 +497,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                 return (
                   <tr
                     key={event.id || index}
-                    style={{ borderBottom: `1px solid ${pal.cellBorder}` }}
+                    style={{ borderBottom: "1px solid #e2e8f0" }}
                   >
                     {/* Event Details */}
                     <td
@@ -554,7 +512,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                             event.id ? `/corporate-event/${event.id}` : "#"
                           }
                           style={{
-                            color: pal.link,
+                            color: "#3b82f6",
                             textDecoration: "underline",
                             fontWeight: "500",
                             cursor: "pointer",
@@ -571,7 +529,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                       <div
                         style={{
                           fontSize: "12px",
-                          color: pal.muted,
+                          color: "#64748b",
                           marginTop: "4px",
                         }}
                       >
@@ -584,7 +542,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                       <div
                         style={{
                           fontSize: "12px",
-                          color: pal.muted,
+                          color: "#64748b",
                         }}
                       >
                         Target HQ: {targetCountry}
@@ -613,14 +571,15 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               ? targets
                               : targets.slice(0, 1);
                             return displayTargets.map((tgt, i, arr) => {
-                              const pageType =
-                                tgt.page_type === "investor"
-                                  ? "investors"
-                                  : tgt.route === "investor" ||
-                                    tgt.route === "investors"
-                                  ? "investors"
-                                  : "company";
-                              const href = `/${pageType}/${tgt.id}`;
+                              const href =
+                                normalizeEntityHref({
+                                  id: tgt.id,
+                                  route: tgt.route,
+                                  page_type: tgt.page_type,
+                                  path: tgt.path,
+                                  entity_type: tgt.entity_type,
+                                  is_investor: tgt.is_investor,
+                                }) ?? "#";
                               return (
                                 <span key={`tgt-${tgt.id}-${i}`}>
                                   <CorporateEventTargetLink
@@ -628,7 +587,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                     href={href}
                                     entity={tgt as unknown as Record<string, unknown>}
                                     linkStyle={{
-                                      color: pal.link,
+                                      color: "#3b82f6",
                                       textDecoration: "underline",
                                     }}
                                   />
@@ -643,7 +602,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               <a
                                 href={`/company/${legacyTargetId}`}
                                 style={{
-                                  color: pal.link,
+                                  color: "#3b82f6",
                                   textDecoration: "underline",
                                 }}
                               >
@@ -653,19 +612,20 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                           }
                           // Fallback to target_company
                           if (newEvent.target_company?.name) {
-                            const pageType =
-                              newEvent.target_company.page_type === "investor"
-                                ? "investors"
-                                : "company";
-                            const href = newEvent.target_company.id
-                              ? `/${pageType}/${newEvent.target_company.id}`
-                              : undefined;
+                            const href = normalizeEntityHref({
+                              id: newEvent.target_company.id,
+                              route: newEvent.target_company.route,
+                              page_type: newEvent.target_company.page_type,
+                              path: newEvent.target_company.path,
+                              entity_type: newEvent.target_company.entity_type,
+                              is_investor: newEvent.target_company.is_investor,
+                            });
                             if (href) {
                               return (
                                 <a
                                   href={href}
                                   style={{
-                                    color: pal.link,
+                                    color: "#3b82f6",
                                     textDecoration: "underline",
                                   }}
                                 >
@@ -675,18 +635,14 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                             }
                             return <span>{newEvent.target_company.name}</span>;
                           }
-                          return "-";
+                          return "Not Available";
                         })()}
                       </div>
 
                       {/* Buyers (skip for partnerships) */}
                       {!isPartnership && (() => {
                         // Extract buyers separately
-                        const buyers: Array<{
-                          id?: number;
-                          name: string;
-                          href: string | null;
-                        }> = [];
+                        const buyers: Array<{ id?: number; name: string; href: string | null }> = [];
                         const dealTypeLower = String(newEvent.deal_type ?? legacyEvent.deal_type ?? "").toLowerCase();
                         const isInvestmentDeal = dealTypeLower.includes("investment");
                         
@@ -701,11 +657,17 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               // Only buyers/acquirers, not investors
                               if (status.includes("acquirer") || status.includes("buyer")) {
                                 if ("id" in cp && "name" in cp && cp.id && cp.name) {
-                                  const pageType = cp.page_type === "investor" ? "investors" : "company";
                                   buyers.push({
                                     id: cp.id,
                                     name: cp.name,
-                                    href: `/${pageType}/${cp.id}`,
+                                    href: normalizeEntityHref({
+                                      id: cp.id,
+                                      route: cp.route,
+                                      page_type: cp.page_type,
+                                      path: cp.path,
+                                      entity_type: cp.entity_type,
+                                      is_investor: cp.is_investor,
+                                    }),
                                   });
                                 } else if ("_new_company" in cp && cp._new_company?.name && !cp._new_company?._is_that_investor) {
                                   const href = cp._new_company.id
@@ -726,14 +688,15 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         if (buyers.length === 0 && Array.isArray(newEvent.buyers) && newEvent.buyers.length > 0) {
                           newEvent.buyers.forEach((c) => {
                             if (c && typeof c.id === "number" && c.name) {
-                              const href = c.page_type === "investor"
-                                ? `/investors/${c.id}`
-                                : `/company/${c.id}`;
-                              buyers.push({
+                              const href = normalizeEntityHref({
                                 id: c.id,
-                                name: c.name,
-                                href,
+                                route: c.route,
+                                page_type: c.page_type,
+                                path: c.path,
+                                entity_type: c.entity_type,
+                                is_investor: c.is_investor,
                               });
+                              buyers.push({ id: c.id, name: c.name, href });
                             }
                           });
                         }
@@ -779,18 +742,21 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                             <strong>Buyer(s):</strong>{" "}
                             {buyers.map((b, idx) => (
                               <span key={`buyer-${b.id ?? idx}-${idx}`}>
-                                <CorporateEventPartyLink
-                                  name={b.name}
-                                  href={b.href}
-
-
-                                  linkStyle={{
-                                    color: pal.link,
-                                    textDecoration: "underline",
-                                  }}
-                                />
+                                {b.href ? (
+                                  <a
+                                    href={b.href}
+                                            style={{
+                                              color: "#3b82f6",
+                                              textDecoration: "underline",
+                                            }}
+                                          >
+                                    {b.name}
+                                          </a>
+                                        ) : (
+                                  <span>{b.name}</span>
+                                        )}
                                 {idx < buyers.length - 1 && ", "}
-                              </span>
+                                      </span>
                             ))}
                           </div>
                         );
@@ -799,11 +765,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                       {/* Investors (skip for partnerships) */}
                       {!isPartnership && (() => {
                         // Extract investors separately
-                        const investors: Array<{
-                          id?: number;
-                          name: string;
-                          href: string | null;
-                        }> = [];
+                        const investors: Array<{ id?: number; name: string; href: string | null }> = [];
                         const dealTypeLower = String(newEvent.deal_type ?? legacyEvent.deal_type ?? "").toLowerCase();
                         const isInvestmentDeal = dealTypeLower.includes("investment");
                         
@@ -821,7 +783,16 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                   investors.push({
                                     id: cp.id,
                                     name: cp.name,
-                                    href: `/investors/${cp.id}`,
+                                    href: normalizeEntityHref({
+                                      id: cp.id,
+                                      route: cp.route,
+                                      page_type: cp.page_type,
+                                      path: cp.path,
+                                      entity_type: cp.entity_type,
+                                      is_investor:
+                                        cp.is_investor ?? true,
+                                      isInvestorHint: true,
+                                    }),
                                   });
                                 } else if ("_new_company" in cp && cp._new_company?.name && cp._new_company?._is_that_investor) {
                                   const href = cp._new_company.id
@@ -845,7 +816,16 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               investors.push({
                                 id: c.id,
                                 name: c.name,
-                                href: `/investors/${c.id}`,
+                                href:
+                                  normalizeEntityHref({
+                                    id: c.id,
+                                    route: c.route,
+                                    page_type: c.page_type,
+                                    path: c.path,
+                                    entity_type: c.entity_type,
+                                    is_investor: c.is_investor,
+                                    isInvestorHint: true,
+                                  }) ?? null,
                               });
                             }
                           });
@@ -864,7 +844,16 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               investors.push({
                                 id: c.id,
                                 name: c.name,
-                                href: `/investors/${c.id}`,
+                                href:
+                                  normalizeEntityHref({
+                                    id: c.id,
+                                    route: c.route,
+                                    page_type: c.page_type,
+                                    path: c.path,
+                                    entity_type: c.entity_type,
+                                    is_investor: c.is_investor,
+                                    isInvestorHint: true,
+                                  }) ?? null,
                               });
                             }
                           });
@@ -892,18 +881,21 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                             <strong>Investor(s):</strong>{" "}
                             {investors.map((inv, idx) => (
                               <span key={`investor-${inv.id ?? idx}-${idx}`}>
-                                <CorporateEventPartyLink
-                                  name={inv.name}
-                                  href={inv.href}
-
-
-                                  linkStyle={{
-                                    color: pal.link,
-                                    textDecoration: "underline",
-                                  }}
-                                />
+                                {inv.href ? (
+                                  <a
+                                    href={inv.href}
+                                        style={{
+                                          color: "#3b82f6",
+                                          textDecoration: "underline",
+                                        }}
+                                      >
+                                    {inv.name}
+                                      </a>
+                                    ) : (
+                                  <span>{inv.name}</span>
+                                    )}
                                 {idx < investors.length - 1 && ", "}
-                              </span>
+                                  </span>
                             ))}
                           </div>
                                 );
@@ -911,23 +903,20 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
 
                       {/* Sellers (skip for partnerships) */}
                       {!isPartnership && (() => {
-                        const sellers: Array<{
-                          id?: number;
-                          name: string;
-                          href: string | null;
-                        }> = [];
-
-                        const sellerSources = [
-                          ...(Array.isArray(newEvent.sellers) ? newEvent.sellers : []),
-                          ...(Array.isArray(newEvent.sales) ? newEvent.sales : []),
-                        ];
-
-                        if (sellerSources.length > 0) {
-                          sellerSources.forEach((seller) => {
+                        const sellers: Array<{ id?: number; name: string; href: string | null }> = [];
+                        
+                            // First, check for sellers array (new API format)
+                        if (Array.isArray(newEvent.sellers) && newEvent.sellers.length > 0) {
+                          newEvent.sellers.forEach((seller) => {
                             if (seller && typeof seller.id === "number" && seller.name) {
-                              const href = seller.page_type === "investor"
-                                    ? `/investors/${seller.id}`
-                                    : `/company/${seller.id}`;
+                              const href = normalizeEntityHref({
+                                id: seller.id,
+                                route: seller.route,
+                                page_type: seller.page_type,
+                                path: seller.path,
+                                entity_type: seller.entity_type,
+                                is_investor: seller.is_investor,
+                              });
                               sellers.push({
                                 id: seller.id,
                                 name: seller.name,
@@ -947,11 +936,17 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               const status = cp.counterparty_status.toLowerCase();
                               if (status.includes("divestor") || status.includes("seller")) {
                                 if ("id" in cp && "name" in cp && cp.id && cp.name) {
-                                  const pageType = cp.page_type === "investor" ? "investors" : "company";
                                   sellers.push({
                                     id: cp.id,
                                     name: cp.name,
-                                    href: `/${pageType}/${cp.id}`,
+                                    href: normalizeEntityHref({
+                                      id: cp.id,
+                                      route: cp.route,
+                                      page_type: cp.page_type,
+                                      path: cp.path,
+                                      entity_type: cp.entity_type,
+                                      is_investor: cp.is_investor,
+                                    }),
                                   });
                                 } else if ("_new_company" in cp && cp._new_company?.name) {
                                   const id = cp._new_company.id;
@@ -978,16 +973,19 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                             <strong>Seller(s):</strong>{" "}
                             {sellers.map((s, idx) => (
                               <span key={`seller-${s.id ?? idx}-${idx}`}>
-                                <CorporateEventPartyLink
-                                  name={s.name}
-                                  href={s.href}
-
-
-                                  linkStyle={{
-                                    color: pal.link,
-                                    textDecoration: "underline",
-                                  }}
-                                />
+                                {s.href ? (
+                                  <a
+                                    href={s.href}
+                                        style={{
+                                          color: "#3b82f6",
+                                          textDecoration: "underline",
+                                        }}
+                                      >
+                                    {s.name}
+                                      </a>
+                                ) : (
+                                  <span>{s.name}</span>
+                                )}
                                 {idx < sellers.length - 1 && ", "}
                                     </span>
                             ))}
@@ -1033,7 +1031,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               <span key={advisor.id ?? `${advisor.name}-${idx}`}>
                                 <span
                                   style={{
-                                    color: pal.link,
+                                    color: "#3b82f6",
                                     cursor: "pointer",
                                   }}
                                   onClick={() => {
@@ -1045,7 +1043,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 {idx < advisorList.length - 1 && ", "}
                               </span>
                             ))
-                          : "-"}
+                          : "Not Available"}
                       </div>
                     </td>
 
@@ -1073,7 +1071,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                       <a
                                         href={`/sector/${id}`}
                                         style={{
-                                          color: pal.link,
+                                          color: "#3b82f6",
                                           textDecoration: "underline",
                                         }}
                                       >
@@ -1106,7 +1104,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                       <a
                                         href={`/sub-sector/${id}`}
                                         style={{
-                                          color: pal.link,
+                                          color: "#3b82f6",
                                           textDecoration: "underline",
                                         }}
                                       >
@@ -1126,7 +1124,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         )}
                         {primarySectors.length === 0 && secondarySectors.length === 0 && (
                         <div className="muted-row">
-                          <span>-</span>
+                          <span>Not available</span>
                         </div>
                         )}
                       </td>
@@ -1141,7 +1139,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   style={{
                     padding: "24px",
                     textAlign: "center",
-                    color: pal.muted,
+                    color: "#64748b",
                   }}
                 >
                   No corporate events found
@@ -1159,11 +1157,10 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
             style={{
               background: "none",
               border: "none",
-              color: pal.expandBtn,
+              color: "#0075df",
               textDecoration: "underline",
               cursor: "pointer",
-              fontSize: variant === "v3" ? "12.5px" : "14px",
-              fontWeight: variant === "v3" ? 500 : 400,
+              fontSize: "14px",
               padding: "8px 0",
             }}
           >
