@@ -72,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userData = authService.getUser();
 
         if (token) {
+          authService.ensureAuthCookie();
           const contributor = isContributorSession(token, userData);
           setIsContributor(contributor);
           setIsAuthenticated(true);

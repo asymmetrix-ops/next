@@ -4,8 +4,8 @@ import { cookies } from "next/headers";
 import type { Individual } from "@/types/individuals";
 import {
   createDefaultIndividualFilters,
-  individualsFiltersToSearchParams,
   individualsCountsFiltersToSearchParams,
+  individualsFiltersToRequestBody,
   type IndividualsSearchFilters,
 } from "@/lib/individualsFilterPayload";
 import {
@@ -166,27 +166,39 @@ const INDIVIDUALS_LIST_API_BASE =
 const INDIVIDUALS_COUNTS_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
 
+async function resolveAuthToken(authToken?: string | null): Promise<string | null> {
+  const explicit = authToken?.trim();
+  if (explicit) return explicit;
+
+  const cookieStore = await cookies();
+  return cookieStore.get("asymmetrix_auth_token")?.value ?? null;
+}
+
 export async function fetchIndividualsServer(
-  filters: IndividualsSearchFilters = createDefaultIndividualFilters()
+  filters: IndividualsSearchFilters = createDefaultIndividualFilters(),
+  authToken?: string | null
 ): Promise<IndividualsListResponse | null> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("asymmetrix_auth_token")?.value;
-    if (!token) return null;
+    const token = await resolveAuthToken(authToken);
+    if (!token) {
+      console.error("fetchIndividualsServer: no auth token (cookie or client)");
+      return null;
+    }
 
     const payload = {
       ...filters,
       page: Math.max(1, filters.page || 1),
       per_page: filters.per_page > 0 ? filters.per_page : 50,
     };
-    const params = individualsFiltersToSearchParams(payload);
-    const url = `${INDIVIDUALS_LIST_API_BASE}/get_all_individuals?${params.toString()}`;
+    const url = `${INDIVIDUALS_LIST_API_BASE}/get_all_individuals`;
 
     const response = await fetch(url, {
-      method: "GET",
+      method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify(individualsFiltersToRequestBody(payload)),
       cache: "no-store",
     });
 
@@ -207,11 +219,11 @@ export async function fetchIndividualsServer(
 }
 
 export async function fetchIndividualsCountsServer(
-  filters: IndividualsSearchFilters = createDefaultIndividualFilters()
+  filters: IndividualsSearchFilters = createDefaultIndividualFilters(),
+  authToken?: string | null
 ): Promise<ReturnType<typeof mapIndividualsCountsResponse> | null> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("asymmetrix_auth_token")?.value;
+    const token = await resolveAuthToken(authToken);
     if (!token) return null;
 
     const params = individualsCountsFiltersToSearchParams(filters);
@@ -241,12 +253,11 @@ export async function fetchIndividualsCountsServer(
   }
 }
 
-export async function fetchJobTitlesServer(): Promise<
-  Array<{ id: number; job_title: string }>
-> {
+export async function fetchJobTitlesServer(
+  authToken?: string | null
+): Promise<Array<{ id: number; job_title: string }>> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("asymmetrix_auth_token")?.value;
+    const token = await resolveAuthToken(authToken);
     if (!token) return [];
 
     const response = await fetch(

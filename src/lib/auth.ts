@@ -42,14 +42,24 @@ class AuthService {
     try {
       localStorage.setItem(this.tokenKey, token);
       localStorage.setItem(this.userKey, JSON.stringify(user));
-
-      // Also store in cookie for SSR access
-      document.cookie = `${this.tokenKey}=${token}; path=/; max-age=${
-        7 * 24 * 60 * 60
-      }; SameSite=Lax`; // 7 days
+      this.writeAuthCookie(token);
     } catch (error) {
       console.error("Error storing auth data:", error);
     }
+  }
+
+  /** Keep the SSR cookie aligned with localStorage for server actions. */
+  ensureAuthCookie(): void {
+    if (typeof window === "undefined") return;
+    const token = this.getToken();
+    if (!token) return;
+    this.writeAuthCookie(token);
+  }
+
+  private writeAuthCookie(token: string): void {
+    document.cookie = `${this.tokenKey}=${token}; path=/; max-age=${
+      7 * 24 * 60 * 60
+    }; SameSite=Lax`;
   }
 
   // Update only the stored user

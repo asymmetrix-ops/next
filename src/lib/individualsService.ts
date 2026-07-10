@@ -1,4 +1,6 @@
 import { IndividualsResponse, IndividualsFilters } from "../types/individuals";
+import { individualsFiltersToRequestBody } from "./individualsFilterPayload";
+import type { IndividualsSearchFilters } from "./individualsFilterPayload";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
 
@@ -14,57 +16,34 @@ class IndividualsService {
   /**
    * API Call: Get All Individuals
    * Endpoint: https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals
-   * Method: GET
+   * Method: POST
    * Auth: Required
    */
   async getAllIndividuals(
     filters: IndividualsFilters
   ): Promise<IndividualsResponse> {
-    const queryParams = new URLSearchParams();
+    const payload: IndividualsSearchFilters = {
+      Search_Query: filters.search_query ?? "",
+      page: filters.Offset ?? 1,
+      per_page: filters.Per_page ?? 50,
+      Countries: filters.Countries ?? [],
+      Provinces: filters.Provinces ?? [],
+      Cities: filters.Cities ?? [],
+      Continental_Region: [],
+      geographical_sub_region: [],
+      Primary_Sectors: filters.primary_sectors_ids ?? [],
+      Secondary_Sectors: filters.Secondary_sectors_ids ?? [],
+      Job_Titles: filters.job_titles_ids ?? [],
+      Statuses: filters.statuses ?? [],
+      portfolio_only: false,
+    };
 
-    // Add filter parameters to query string
-    if (filters.search_query)
-      queryParams.append("search_query", filters.search_query);
-    if (filters.Offset) queryParams.append("Offset", filters.Offset.toString());
-    if (filters.Per_page)
-      queryParams.append("Per_page", filters.Per_page.toString());
-
-    // Add arrays as comma-separated values
-    if (filters.primary_sectors_ids.length > 0) {
-      queryParams.append(
-        "primary_sectors_ids",
-        filters.primary_sectors_ids.join(",")
-      );
-    }
-    if (filters.Secondary_sectors_ids.length > 0) {
-      queryParams.append(
-        "Secondary_sectors_ids",
-        filters.Secondary_sectors_ids.join(",")
-      );
-    }
-    if (filters.Countries.length > 0) {
-      queryParams.append("Countries", filters.Countries.join(","));
-    }
-    if (filters.Provinces.length > 0) {
-      queryParams.append("Provinces", filters.Provinces.join(","));
-    }
-    if (filters.Cities.length > 0) {
-      queryParams.append("Cities", filters.Cities.join(","));
-    }
-    if (filters.job_titles_ids.length > 0) {
-      queryParams.append("job_titles_ids", filters.job_titles_ids.join(","));
-    }
-    if (filters.statuses.length > 0) {
-      queryParams.append("statuses", filters.statuses.join(","));
-    }
-
-    const url = `${BASE_URL}/get_all_individuals?${queryParams.toString()}`;
-
-    const response = await fetch(url, {
-      method: "GET",
+    const response = await fetch(`${BASE_URL}/get_all_individuals`, {
+      method: "POST",
       headers: {
         ...this.getAuthHeaders(),
       },
+      body: JSON.stringify(individualsFiltersToRequestBody(payload)),
     });
 
     if (!response.ok) {

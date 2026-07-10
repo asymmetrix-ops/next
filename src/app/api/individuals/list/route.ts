@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { Redis } from '@upstash/redis';
+import {
+  createDefaultIndividualFilters,
+  individualsFiltersToRequestBody,
+} from '@/lib/individualsFilterPayload';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -63,13 +67,36 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const url = `${XANO_URL}?${sp.toString()}`;
-  const resp = await fetch(url, {
-    method: 'GET',
+  const filters = {
+    ...createDefaultIndividualFilters(),
+    page: Number(sp.get('Offset') ?? '1'),
+    per_page: Number(sp.get('Per_page') ?? '50'),
+    Search_Query: sp.get('search_query') ?? '',
+    Countries: sp.get('Countries')?.split(',').filter(Boolean) ?? [],
+    Provinces: sp.get('Provinces')?.split(',').filter(Boolean) ?? [],
+    Cities: sp.get('Cities')?.split(',').filter(Boolean) ?? [],
+    Continental_Region:
+      sp.get('Continental_Region')?.split(',').filter(Boolean) ?? [],
+    geographical_sub_region:
+      sp.get('geographical_sub_region')?.split(',').filter(Boolean) ?? [],
+    Primary_Sectors:
+      sp.get('primary_sectors_ids')?.split(',').filter(Boolean).map(Number) ?? [],
+    Secondary_Sectors:
+      sp.get('Secondary_sectors_ids')?.split(',').filter(Boolean).map(Number) ??
+      [],
+    Job_Titles:
+      sp.get('job_titles_ids')?.split(',').filter(Boolean).map(Number) ?? [],
+    Statuses: sp.get('statuses')?.split(',').filter(Boolean) ?? [],
+    portfolio_only: sp.get('portfolio_only') === 'true',
+  };
+
+  const resp = await fetch(XANO_URL, {
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
+    body: JSON.stringify(individualsFiltersToRequestBody(filters)),
     cache: 'no-store',
   });
 

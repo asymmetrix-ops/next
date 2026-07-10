@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import {
+  createDefaultIndividualFilters,
+  individualsFiltersToRequestBody,
+} from '@/lib/individualsFilterPayload';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -126,16 +130,19 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const params = new URLSearchParams();
-  params.append('Offset', String(offset));
-  params.append('Per_page', String(perPage));
+  const filters = {
+    ...createDefaultIndividualFilters(),
+    page: offset,
+    per_page: perPage,
+  };
 
-  const resp = await fetch(`${XANO_URL}?${params.toString()}`, {
-    method: 'GET',
+  const resp = await fetch(XANO_URL, {
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
+    body: JSON.stringify(individualsFiltersToRequestBody(filters)),
     cache: 'no-store',
   });
 
