@@ -123,9 +123,26 @@ export const SEARCH_TABLE_STYLES = `
     .company-table thead .company-table-select-cell {
       z-index: 6;
     }
-    .company-table td.company-table-sticky-frozen,
-    .company-table td.company-table-sticky-logo {
+    .company-table td.company-table-sticky-frozen {
       background: #fff;
+    }
+    .company-table-entity-name-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .company-table-entity-name-text {
+      min-width: 0;
+      overflow: hidden;
+    }
+    .company-table-entity-name {
+      font-weight: 600;
+      font-size: 12.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: block;
     }
     .edit-company-btn {
       padding: 4px 10px;
@@ -144,9 +161,9 @@ export const SEARCH_TABLE_STYLES = `
     }
     .company-table th,
     .company-table td {
-      padding: 8px 12px;
+      padding: 7px 12px;
       text-align: left;
-      vertical-align: top;
+      vertical-align: middle;
       border-bottom: 1px solid #e2e8f0;
       word-wrap: break-word;
       overflow-wrap: break-word;
@@ -155,7 +172,7 @@ export const SEARCH_TABLE_STYLES = `
     .company-table th {
       font-weight: 600;
       color: #1a202c;
-      font-size: 14px;
+      font-size: 12px;
       background: #f9fafb;
       border-bottom: 2px solid #e2e8f0;
       position: sticky;
@@ -195,31 +212,6 @@ export const SEARCH_TABLE_STYLES = `
       color: #94a3b8;
       vertical-align: middle;
     }
-    .company-table-sticky-logo {
-      min-width: 88px;
-      max-width: 88px;
-      width: 88px;
-      text-align: left;
-      vertical-align: top;
-    }
-    .company-table td.company-table-sticky-logo .company-logo-cell {
-      width: 60px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-    }
-    .company-table td.company-table-sticky-logo .company-logo-placeholder {
-      width: 60px;
-      height: 40px;
-      background-color: #f7fafc;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      color: #718096;
-    }
     .company-table th.company-table-col-follow,
     .company-table td.company-table-col-follow {
       text-align: left;
@@ -246,19 +238,17 @@ export const SEARCH_TABLE_STYLES = `
       background: #EFF6FF;
     }
     .company-table tr.company-table-row-selected > td.company-table-sticky-frozen,
-    .company-table tr.company-table-row-selected > td.company-table-sticky-logo,
     .company-table tr.company-table-row-selected > td.company-table-select-cell {
       background: #EFF6FF;
     }
-    .company-table thead th.company-table-sticky-frozen,
-    .company-table thead th.company-table-sticky-logo {
+    .company-table thead th.company-table-sticky-frozen {
       z-index: 7;
       background: #f9fafb;
     }
     .company-table td {
-      font-size: 14px;
+      font-size: 12px;
       color: #000;
-      line-height: 1.5;
+      line-height: 1.4;
     }
     .company-logo {
       width: 60px;

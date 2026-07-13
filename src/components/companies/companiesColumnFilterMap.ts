@@ -18,7 +18,6 @@ export const FILTER_PINNED_TOOLTIP =
  * Location-flavored text columns (hq) are covered by city/state/country filters.
  */
 export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
-  "logo",
   "name",
   "description",
   // Portfolio filter is provided via EXTRA_FILTER_DEFS (id: followed)

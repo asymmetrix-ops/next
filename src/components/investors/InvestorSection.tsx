@@ -31,7 +31,7 @@ import {
   getInvestorServerSortColumn,
 } from "@/components/investors/investorsTableSort";
 import { SearchEntityDescription } from "@/components/search/SearchEntityDescription";
-import { SearchEntityLogo } from "@/components/search/SearchEntityLogo";
+import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import {
   buildStickyColumnOffsets,
@@ -95,8 +95,7 @@ const formatTimeSinceLastInvestment = (investor: Investor): string => {
 };
 
 const ALL_INVESTOR_COLUMNS: InvestorColumnDefinition[] = [
-  { key: "logo", label: "Logo", minWidth: 88 },
-  { key: "name", label: "Name", minWidth: 160 },
+  { key: "name", label: "Name", minWidth: 200 },
   { key: "type", label: "Type", minWidth: 140 },
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "portfolio_companies", label: "Current D&A Portfolio Companies", minWidth: 160 },
@@ -130,22 +129,14 @@ function renderInvestorCell(
   onInvestorClick: (id: number) => void
 ): React.ReactNode {
   switch (columnKey) {
-    case "logo":
-      return (
-        <SearchEntityLogo
-          logo={String(investor.linkedin_logo || "")}
-          name={String(investor.company_name || "")}
-        />
-      );
     case "name": {
       const id = investor.original_new_company_id;
       const name = investor.company_name || "-";
-      if (!id) return name;
       return (
-        <a
-          href={`/investors/${id}`}
-          className="company-name"
-          style={{ textDecoration: "none", color: "#3b82f6" }}
+        <SearchEntityIdentityCell
+          name={name}
+          logo={investor.linkedin_logo}
+          href={id ? `/investors/${id}` : undefined}
           onClick={(e) => {
             if (
               e.defaultPrevented ||
@@ -158,11 +149,9 @@ function renderInvestorCell(
               return;
             }
             e.preventDefault();
-            onInvestorClick(id);
+            onInvestorClick(id!);
           }}
-        >
-          {name}
-        </a>
+        />
       );
     }
     case "type":

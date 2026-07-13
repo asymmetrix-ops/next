@@ -37,6 +37,7 @@ import {
   getIndividualSortValueForColumn,
 } from "@/components/individuals/individualsTableSort";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
+import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import {
   buildStickyColumnOffsets,
   getSearchTableColumnClassName,
@@ -56,7 +57,7 @@ interface IndividualColumnDefinition {
 }
 
 const ALL_INDIVIDUAL_COLUMNS: IndividualColumnDefinition[] = [
-  { key: "name", label: "Name", minWidth: 180 },
+  { key: "name", label: "Name", minWidth: 200 },
   { key: "current_company", label: "Current Companies", minWidth: 180 },
   { key: "current_roles", label: "Current Roles", wrap: true, minWidth: 180 },
   { key: "location", label: "Location", wrap: true, minWidth: 200 },
@@ -266,12 +267,10 @@ export const IndividualSection = ({
       case "name": {
         const id = individual.id;
         const name = individual.advisor_individuals || "-";
-        if (!id) return name;
         return (
-          <a
-            href={`/individual/${id}`}
-            className="company-name"
-            style={{ textDecoration: "none", color: "#3b82f6", fontWeight: 500 }}
+          <SearchEntityIdentityCell
+            name={name}
+            href={id ? `/individual/${id}` : undefined}
             onClick={(e) => {
               if (
                 e.defaultPrevented ||
@@ -284,11 +283,9 @@ export const IndividualSection = ({
                 return;
               }
               e.preventDefault();
-              handleIndividualClick(id);
+              handleIndividualClick(id!);
             }}
-          >
-            {name}
-          </a>
+          />
         );
       }
       case "current_company": {

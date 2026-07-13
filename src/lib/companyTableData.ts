@@ -11,7 +11,6 @@ export const COMPANY_TABLE_DATA_URL =
 
 /** Columns rendered from Companies Search results only (no table-data fetch). */
 export const SEARCH_ONLY_COLUMN_KEYS = new Set([
-  "logo",
   "name",
   "description",
   "primary_sectors",

@@ -6,7 +6,6 @@ export type CompanyColumnType =
   | "currency"
   | "percent"
   | "date"
-  | "logo"
   | "follow"
   | "boolean";
 
@@ -34,14 +33,6 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
     id: "identity",
     name: "Identity",
     columns: [
-      {
-        id: "logo",
-        columnKey: "logo",
-        label: "Logo",
-        type: "logo",
-        locked: true,
-        defaultVisible: true,
-      },
       {
         id: "name",
         columnKey: "name",
@@ -417,7 +408,6 @@ export const CANONICAL_COMPANY_COLUMN_KEYS = ALL_COMPANIES_COLUMN_META.map(
 
 /** Current PROD default visible columns (reset in customise modal). */
 export const PROD_DEFAULT_COMPANY_COLUMN_KEYS = [
-  "logo",
   "name",
   "description",
   "primary_sectors",
@@ -427,8 +417,8 @@ export const PROD_DEFAULT_COMPANY_COLUMN_KEYS = [
   "hq",
 ] as const;
 
-/** Always visible, frozen in table — first columns, not hideable. */
-export const FROZEN_COLUMN_KEYS = ["logo", "name"] as const;
+/** Always visible, frozen in table — first column, not hideable. */
+export const FROZEN_COLUMN_KEYS = ["name"] as const;
 
 export const DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS: string[] = [
   ...PROD_DEFAULT_COMPANY_COLUMN_KEYS,
@@ -452,6 +442,7 @@ export function enforceColumnKeyOrder(
   keys: string[],
   filterPinnedKeys: string[] = []
 ): string[] {
+  const normalizedKeys = keys.filter((key) => key !== "logo");
   const frozenKeys = getEffectiveFrozenColumnKeys(filterPinnedKeys);
   const frozenSet = new Set(frozenKeys);
   const seen = new Set<string>();
@@ -464,7 +455,7 @@ export function enforceColumnKeyOrder(
     }
   }
 
-  for (const key of keys) {
+  for (const key of normalizedKeys) {
     if (
       CANONICAL_COMPANY_COLUMN_KEYS.includes(key) &&
       !seen.has(key) &&
@@ -519,7 +510,7 @@ export const visibilityToColumnKeys = (
   return enforceColumnKeyOrder(base);
 };
 
-/** Move one column before another; logo/name and filter-pinned columns cannot be dragged. */
+/** Move one column before another; Name and filter-pinned columns cannot be dragged. */
 export function reorderColumnKeys(
   keys: string[],
   dragKey: string,
