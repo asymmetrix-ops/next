@@ -19,7 +19,12 @@ interface AuthContextType {
   isAuthenticated: boolean;
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<void>;
-  loginMcpGuest: (email: string) => Promise<void>;
+  loginMcpGuest: (
+    email: string,
+    name: string,
+    companyId: number,
+    companyName: string
+  ) => Promise<void>;
   logout: () => void;
   loading: boolean;
   // Trial info derived from token + user
@@ -116,9 +121,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const loginMcpGuest = async (email: string) => {
+  const loginMcpGuest = async (
+    email: string,
+    name: string,
+    companyId: number,
+    companyName: string
+  ) => {
     try {
-      const response = await authService.signupMcpGuest(email);
+      const response = await authService.signupMcpGuest(
+        email,
+        name,
+        companyId,
+        companyName
+      );
       setIsAuthenticated(true);
       setUser(response.user);
       const token = authService.getToken();
