@@ -35,7 +35,8 @@ export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "sectors", name: "Sectors" },
   { id: "company", name: "Company details" },
   { id: "financial", name: "Financial metrics" },
-  { id: "subscription", name: "Subscription metrics" },
+  { id: "subscription", name: "Subscription revenue" },
+  { id: "arr", name: "ARR" },
   { id: "other", name: "Other metrics" },
 ];
 
@@ -205,7 +206,7 @@ export function buildCompaniesFilterDefs({
         ["60%+", 60, 150],
       ],
     },
-    arr: {
+    subscription_revenue_m: {
       unit: "$m",
       min: 0,
       max: 5000,
@@ -217,15 +218,27 @@ export function buildCompaniesFilterDefs({
         ["$500m+", 500, 5000],
       ],
     },
-    arr_growth: {
+    subscription_revenue_pc: {
       unit: "%",
-      min: -20,
-      max: 200,
+      min: 0,
+      max: 100,
       presets: [
-        ["<0%", -20, -1],
-        ["0–19%", 0, 19],
-        ["20–39%", 20, 39],
-        ["40%+", 40, 200],
+        ["<50%", 0, 49],
+        ["50–79%", 50, 79],
+        ["80–94%", 80, 94],
+        ["95%+", 95, 100],
+      ],
+    },
+    arr_m: {
+      unit: "$m",
+      min: 0,
+      max: 5000,
+      presets: [
+        ["<$10m", 0, 9],
+        ["$10–49m", 10, 49],
+        ["$50–99m", 50, 99],
+        ["$100–499m", 100, 499],
+        ["$500m+", 500, 5000],
       ],
     },
     churn: {

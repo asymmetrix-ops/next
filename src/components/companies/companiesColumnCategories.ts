@@ -276,19 +276,19 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
   },
   {
     id: "subscription",
-    name: "Subscription metrics",
+    name: "Subscription revenue",
     columns: [
       {
-        id: "recurring_revenue",
-        columnKey: "arr_pc",
-        label: "Recurring Revenue",
-        type: "currency",
+        id: "subscription_revenue_pc",
+        columnKey: "subscription_revenue_pc",
+        label: "Subscription Revenue %",
+        type: "percent",
         defaultVisible: false,
       },
       {
-        id: "arr",
-        columnKey: "arr_m",
-        label: "ARR (m)",
+        id: "subscription_revenue_m",
+        columnKey: "subscription_revenue_m",
+        label: "Subscription Revenue (m)",
         type: "currency",
         defaultVisible: false,
       },
@@ -346,6 +346,19 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         columnKey: "rev_expansion_pc",
         label: "Revenue Expansion",
         type: "percent",
+        defaultVisible: false,
+      },
+    ],
+  },
+  {
+    id: "arr",
+    name: "ARR",
+    columns: [
+      {
+        id: "arr_m",
+        columnKey: "arr_m",
+        label: "ARR (m)",
+        type: "currency",
         defaultVisible: false,
       },
     ],

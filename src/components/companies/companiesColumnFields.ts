@@ -49,7 +49,16 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
   revenue_growth: ["revenue_growth", "rev_growth_pc", "Rev_Growth_PC"],
   ebitda_margin: ["ebitda_margin", "EBITDA_margin"],
   rule_of_40: ["rule_of_40", "Rule_of_40"],
-  arr_pc: ["arr_pc", "ARR_pc"],
+  subscription_revenue_pc: [
+    "subscription_revenue_pc",
+    "Subscription_revenue_pc",
+    "arr_pc",
+    "ARR_pc",
+  ],
+  subscription_revenue_m: [
+    "subscription_revenue_m",
+    "Subscription_revenue_m",
+  ],
   arr_m: ["arr_m", "ARR_m"],
   churn_pc: ["churn", "churn_pc", "Churn_pc"],
   grr_pc: ["grr", "grr_pc", "GRR_pc"],

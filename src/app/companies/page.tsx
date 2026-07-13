@@ -853,7 +853,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
   {
     group: "Subscription Metrics",
     cols: [
-      makeTextColumn("arr_pc", "Recurring Revenue", "Subscription Metrics"),
+      makeTextColumn("subscription_revenue_pc", "Subscription Revenue %", "Subscription Metrics"),
+      makeTextColumn("subscription_revenue_m", "Subscription Revenue (m)", "Subscription Metrics"),
       makeTextColumn("arr_m", "ARR (m)", "Subscription Metrics"),
       makeTextColumn("churn_pc", "Churn", "Subscription Metrics"),
       makeTextColumn("grr_pc", "GRR", "Subscription Metrics"),

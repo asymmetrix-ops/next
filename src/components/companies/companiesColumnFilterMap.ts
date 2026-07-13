@@ -58,8 +58,9 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   ebitda_margin: "ebitda_margin",
   rev_multiple: "revenue_multiple",
   rule_40: "rule_of_40",
-  arr: "arr_m",
-  arr_growth: "arr_pc",
+  subscription_revenue_pc: "subscription_revenue_pc",
+  subscription_revenue_m: "subscription_revenue_m",
+  arr_m: "arr_m",
   churn: "churn_pc",
   nrr: "nrr",
   grr: "grr_pc",
@@ -164,8 +165,8 @@ function mapColumnCategoryToFilterCategory(
   }
   if (
     [
-      "arr_pc",
-      "arr_m",
+      "subscription_revenue_pc",
+      "subscription_revenue_m",
       "churn_pc",
       "grr_pc",
       "nrr",
@@ -177,6 +178,9 @@ function mapColumnCategoryToFilterCategory(
     ].includes(column.columnKey)
   ) {
     return "subscription";
+  }
+  if (column.columnKey === "arr_m") {
+    return "arr";
   }
   if (
     [

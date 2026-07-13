@@ -402,15 +402,44 @@ export function buildCompaniesSearchPayload(args: {
     }
 
     // ── SUBSCRIPTION METRICS ───────────────────────────────────────────────
-    if (item.id === "arr_growth" && hasRangeValue(v)) {
+    if (item.id === "subscription_revenue_pc" && hasRangeValue(v)) {
       pushClause({
         id: item.key,
-        type: "arr_pc",
+        type: "subscription_revenue_pc",
         value: { min: v.min, max: v.max },
         op,
       });
       continue;
     }
+    // Legacy filter id (pre schema split)
+    if (item.id === "arr_growth" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "subscription_revenue_pc",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "subscription_revenue_m" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "subscription_revenue_m",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "arr_m" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "arr_m",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    // Legacy filter id (pre schema split)
     if (item.id === "arr" && hasRangeValue(v)) {
       pushClause({
         id: item.key,

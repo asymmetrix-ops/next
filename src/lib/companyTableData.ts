@@ -178,7 +178,7 @@ export function formatYearValue(value: unknown): string {
 const PERCENT_COLUMN_KEYS = new Set([
   "revenue_growth",
   "ebitda_margin",
-  "arr_pc",
+  "subscription_revenue_pc",
   "churn_pc",
   "grr_pc",
   "nrr",
@@ -234,6 +234,7 @@ export function formatCompanyColumnDisplay(
     columnKey === "ebitda_m" ||
     columnKey === "enterprise_value" ||
     columnKey === "arr_m" ||
+    columnKey === "subscription_revenue_m" ||
     columnKey === "ebit_m"
   ) {
     return formatMetricMillions(raw);
@@ -344,12 +345,15 @@ export function mapCompanyTableApiRow(
     li_growth_pc: formatLinkedInGrowthPercentValue(row.linkedin_growth_1y_pct),
     linkedin_growth: formatLinkedInGrowthPercentValue(row.linkedin_growth_1y_pct),
     revenue_m: formatPlainNumber(row.Revenue_m),
-    arr_m: formatPlainNumber(row.ARR_m),
     ebitda_m: formatPlainNumber(row.EBITDA_m),
     ebit_m: formatPlainNumber(row.EBIT_m),
     ev: formatPlainNumber(row.EV),
     enterprise_value: formatPlainNumber(row.EV),
-    arr_pc: formatPercentValue(row.ARR_pc),
+    subscription_revenue_pc: formatPercentValue(
+      row.Subscription_revenue_pc ?? row.ARR_pc
+    ),
+    subscription_revenue_m: formatPlainNumber(row.Subscription_revenue_m),
+    arr_m: formatPlainNumber(row.ARR_m),
     churn_pc: formatPercentValue(row.Churn_pc),
     grr_pc: formatPercentValue(row.GRR_pc),
     nrr: formatPercentValue(row.NRR),
