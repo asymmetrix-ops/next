@@ -130,8 +130,13 @@ class AuthService {
     return { token, user };
   }
 
-  // MCP Guest signup/login — email only, no password
-  async signupMcpGuest(email: string): Promise<LoginResponse> {
+  // MCP Guest signup/login — name, email, and company; no password
+  async signupMcpGuest(
+    email: string,
+    name: string,
+    companyId: number,
+    companyName: string
+  ): Promise<LoginResponse> {
     const normalizedEmail = (email || "").trim().toLowerCase();
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
@@ -143,10 +148,12 @@ class AuthService {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: "",
+        name: (name || "").trim(),
         email: normalizedEmail,
         password: "",
         role: MCP_GUEST_ROLE,
+        company_id: companyId,
+        company_name: (companyName || "").trim(),
       }),
     });
 
