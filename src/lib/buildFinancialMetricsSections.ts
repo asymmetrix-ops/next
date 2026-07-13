@@ -20,12 +20,15 @@ type FinancialMetricsPayload = {
   Rule_of_40?: number | string | null;
   Rule_of_40_source_label?: string | null;
   Rule_of_40_source?: number | string | null;
+  Subscription_revenue_pc?: number | null;
   Subscription_revenue_m?: number | null;
   Subscription_revenue_source_label?: string | null;
   Subscription_revenue_source?: number | string | null;
+  Subscription_revenue_currency_display?: string | null;
   ARR_m?: number | null;
   ARR_source_label?: string | null;
   ARR_source?: number | string | null;
+  ARR_currency_display?: string | null;
   Churn_pc?: number | null;
   Churn_source_label?: string | null;
   Churn_Source?: number | string | null;
@@ -172,6 +175,10 @@ export function buildFinancialMetricsSections({
   const fm = financialMetrics;
   const src = getSourceText;
   const money = (formatted: string) => appendMetricCurrency(formatted, currencyCode);
+  const subscriptionMoney = (formatted: string) =>
+    appendMetricCurrency(formatted, fm?.Subscription_revenue_currency_display ?? currencyCode);
+  const arrMoney = (formatted: string) =>
+    appendMetricCurrency(formatted, fm?.ARR_currency_display ?? currencyCode);
 
   const mainRows: FinancialMetricRow[] = [];
 
@@ -225,8 +232,16 @@ export function buildFinancialMetricsSections({
 
   const subscriptionRows: FinancialMetricRow[] = [
     row(
-      "Recurring Revenue:",
-      money(formatPlainNumber(fm?.Subscription_revenue_m)),
+      "Subscription revenue (m):",
+      subscriptionMoney(formatPlainNumber(fm?.Subscription_revenue_m)),
+      src(
+        fm?.Subscription_revenue_source_label,
+        fm?.Subscription_revenue_source
+      )
+    ),
+    row(
+      "Subscription revenue %:",
+      formatPercent(fm?.Subscription_revenue_pc),
       src(
         fm?.Subscription_revenue_source_label,
         fm?.Subscription_revenue_source
@@ -234,7 +249,7 @@ export function buildFinancialMetricsSections({
     ),
     row(
       "ARR (m):",
-      money(formatPlainNumber(fm?.ARR_m)),
+      arrMoney(formatPlainNumber(fm?.ARR_m)),
       src(fm?.ARR_source_label, fm?.ARR_source)
     ),
     row(

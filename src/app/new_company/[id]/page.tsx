@@ -31,6 +31,7 @@ import {
   resolveLinkedInDisplayEmployeeCount,
   type CompanyLinkedInResponse,
 } from "@/lib/companyLinkedIn";
+import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 
 type ManagementRole = ManagementRoleLike & {
   id: number;
@@ -102,13 +103,16 @@ interface CompanyFinancialMetrics {
   Revenue_m?: number | null;
   Revenue_source_label?: string | null;
   Rev_source?: number | string | null;
+  Subscription_revenue_pc?: number | null;
   Subscription_revenue_m?: number | null;
   Subscription_revenue_source_label?: string | null;
   Subscription_revenue_source?: number | string | null;
+  Subscription_revenue_currency_display?: string | null;
   ARR_m?: number | null;
   ARR_source_label?: string | null;
   ARR_source?: number | string | null;
   ARR_currency?: unknown;
+  ARR_currency_display?: string | null;
   Churn_pc?: number | null;
   Churn_source_label?: string | null;
   Churn_Source?: number | string | null;
@@ -2014,6 +2018,17 @@ const CompanyDetail = () => {
   const metricsCurrencySuffix = metricsCurrencyCode
     ? ` (${metricsCurrencyCode})`
     : "";
+  const subscriptionMoney = (formatted: string) =>
+    appendMetricCurrency(
+      formatted,
+      normalizeCurrency(financialMetrics?.Subscription_revenue_currency_display) ??
+        metricsCurrencyCode
+    );
+  const arrMoney = (formatted: string) =>
+    appendMetricCurrency(
+      formatted,
+      normalizeCurrency(financialMetrics?.ARR_currency_display) ?? metricsCurrencyCode
+    );
 
   const financialMetricsPeriodDisplay = formatFinancialMetricsPeriod(financialMetrics);
 
@@ -4003,9 +4018,23 @@ const CompanyDetail = () => {
                 Subscription Metrics
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Recurring Revenue:</span>
+                <span style={styles.label}>Subscription revenue (m):</span>
                 <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.Subscription_revenue_m)}
+                  {subscriptionMoney(
+                    formatPlainNumber(financialMetrics?.Subscription_revenue_m)
+                  )}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Subscription_revenue_source_label,
+                    financialMetrics?.Subscription_revenue_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Subscription revenue %:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Subscription_revenue_pc)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4017,7 +4046,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>ARR (m):</span>
                 <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.ARR_m)}
+                  {arrMoney(formatPlainNumber(financialMetrics?.ARR_m))}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4530,9 +4559,23 @@ const CompanyDetail = () => {
                 Subscription Metrics
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Recurring Revenue:</span>
+                <span style={styles.label}>Subscription revenue (m):</span>
                 <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.Subscription_revenue_m)}
+                  {subscriptionMoney(
+                    formatPlainNumber(financialMetrics?.Subscription_revenue_m)
+                  )}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Subscription_revenue_source_label,
+                    financialMetrics?.Subscription_revenue_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Subscription revenue %:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Subscription_revenue_pc)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4544,7 +4587,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>ARR (m):</span>
                 <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.ARR_m)}
+                  {arrMoney(formatPlainNumber(financialMetrics?.ARR_m))}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
