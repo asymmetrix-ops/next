@@ -196,11 +196,6 @@ export function buildFinancialMetricsSections({
         currencyCode
       )
     );
-  const arrMoney = (formatted: string) =>
-    appendMetricCurrency(
-      formatted,
-      resolveMetricCurrencyDisplay(fm?.ARR_currency_display, currencyCode)
-    );
 
   const mainRows: FinancialMetricRow[] = [];
 
@@ -268,11 +263,6 @@ export function buildFinancialMetricsSections({
         fm?.Subscription_revenue_source_label,
         fm?.Subscription_revenue_source
       )
-    ),
-    row(
-      "ARR (m):",
-      arrMoney(formatPlainNumber(fm?.ARR_m)),
-      src(fm?.ARR_source_label, fm?.ARR_source)
     ),
     row(
       "Churn:",

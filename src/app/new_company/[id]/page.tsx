@@ -2024,11 +2024,6 @@ const CompanyDetail = () => {
       normalizeCurrency(financialMetrics?.Subscription_revenue_currency_display) ??
         metricsCurrencyCode
     );
-  const arrMoney = (formatted: string) =>
-    appendMetricCurrency(
-      formatted,
-      normalizeCurrency(financialMetrics?.ARR_currency_display) ?? metricsCurrencyCode
-    );
 
   const financialMetricsPeriodDisplay = formatFinancialMetricsPeriod(financialMetrics);
 
@@ -4044,18 +4039,6 @@ const CompanyDetail = () => {
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>ARR (m):</span>
-                <span style={styles.value}>
-                  {arrMoney(formatPlainNumber(financialMetrics?.ARR_m))}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
                 <span style={styles.label}>Churn:</span>
                 <span style={styles.value}>
                   {formatPercent(financialMetrics?.Churn_pc)}
@@ -4581,18 +4564,6 @@ const CompanyDetail = () => {
                   {getSourceText(
                     financialMetrics?.Subscription_revenue_source_label,
                     financialMetrics?.Subscription_revenue_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>ARR (m):</span>
-                <span style={styles.value}>
-                  {arrMoney(formatPlainNumber(financialMetrics?.ARR_m))}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
                   )}
                 </span>
               </div>
