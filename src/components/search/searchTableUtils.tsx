@@ -8,7 +8,6 @@ export function getSearchTableColumnClassName(
   const classes = [
     column.wrap ? "company-table-cell-wrap" : undefined,
     frozenKeys.includes(column.key) ? "company-table-sticky-frozen" : undefined,
-    column.key === "logo" ? "company-table-sticky-logo" : undefined,
     column.key === "follow" ? "company-table-col-follow" : undefined,
     ...extraClasses,
   ].filter(Boolean);
@@ -27,7 +26,7 @@ export function buildStickyColumnOffsets(
   for (const key of frozenKeys) {
     offsets.set(key, left);
     const col = columns.find((item) => item.key === key);
-    left += col?.minWidth ?? (key === "logo" ? 88 : 120);
+    left += col?.minWidth ?? 120;
   }
 
   return offsets;

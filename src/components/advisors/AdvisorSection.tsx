@@ -33,7 +33,7 @@ import {
   getAdvisorServerSortColumn,
 } from "@/components/advisors/advisorsTableSort";
 import { SearchEntityDescription } from "@/components/search/SearchEntityDescription";
-import { SearchEntityLogo } from "@/components/search/SearchEntityLogo";
+import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import {
   buildStickyColumnOffsets,
@@ -55,8 +55,7 @@ interface AdvisorColumnDefinition {
 }
 
 const ALL_ADVISOR_COLUMNS: AdvisorColumnDefinition[] = [
-  { key: "logo", label: "Logo", minWidth: 88 },
-  { key: "name", label: "Advisor", minWidth: 160 },
+  { key: "name", label: "Advisor", minWidth: 200 },
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "events_advised", label: "# Corporate Events Advised", minWidth: 150 },
   { key: "sectors", label: "Advised D&A Sectors", wrap: true, minWidth: 180 },
@@ -340,22 +339,14 @@ export const AdvisorSection = ({
     index: number
   ): React.ReactNode => {
     switch (columnKey) {
-      case "logo":
-        return (
-          <SearchEntityLogo
-            logo={String(advisor.linkedin_logo || "")}
-            name={String(advisor.name || "")}
-          />
-        );
       case "name": {
         const id = advisor.id;
         const name = advisor.name || "-";
-        if (!id) return name;
         return (
-          <a
-            href={`/advisor/${id}`}
-            className="company-name"
-            style={{ textDecoration: "none", color: "#3b82f6" }}
+          <SearchEntityIdentityCell
+            name={name}
+            logo={advisor.linkedin_logo}
+            href={id ? `/advisor/${id}` : undefined}
             onClick={(e) => {
               if (
                 e.defaultPrevented ||
@@ -368,11 +359,9 @@ export const AdvisorSection = ({
                 return;
               }
               e.preventDefault();
-              handleAdvisorClick(id);
+              handleAdvisorClick(id!);
             }}
-          >
-            {name}
-          </a>
+          />
         );
       }
       case "description":

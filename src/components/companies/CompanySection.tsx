@@ -50,7 +50,7 @@ import {
 } from "@/components/companies/companiesColumnFields";
 import type { CompaniesOwnershipCounts } from "@/components/companies/companiesFilterConfig";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
-import { SearchEntityLogo } from "@/components/search/SearchEntityLogo";
+import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { SearchEntityDescription } from "@/components/search/SearchEntityDescription";
 import CompactPagination from "@/components/ui/CompactPagination";
 
@@ -149,12 +149,6 @@ const isExportCompanyJson = (value: unknown): value is ExportCompanyJson => {
     typeof obj.country === "string"
   );
 };
-
-// Company Logo Component — shared with Investors Search
-const CompanyLogo = SearchEntityLogo;
-
-// Helper to get sector info from API response
-
 
 const getSectorInfo = (sector: unknown): { name: string; id?: number } => {
   if (typeof sector === "string") return { name: sector };
@@ -446,29 +440,16 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
     group: "Identity",
     cols: [
       {
-        key: "logo",
-        label: "Logo",
-        group: "Identity",
-        minWidth: 88,
-        render: (company) => (
-          <CompanyLogo logo={String(company.linkedin_logo || "")} name={company.name} />
-        ),
-      },
-      {
         key: "name",
         label: "Name",
         group: "Identity",
-        minWidth: 160,
-        render: (company, { onCompanyClick, readOnlyGuestMode }) =>
-          readOnlyGuestMode ? (
-            <span className="company-name" style={{ color: "#111827" }}>
-              {company.name || "-"}
-            </span>
-          ) : (
-          <a
-            href={`/company/${company.id}`}
-            className="company-name"
-            style={{ textDecoration: "none", color: "#3b82f6" }}
+        minWidth: 200,
+        render: (company, { onCompanyClick, readOnlyGuestMode }) => (
+          <SearchEntityIdentityCell
+            name={company.name || "-"}
+            logo={company.linkedin_logo}
+            href={readOnlyGuestMode ? undefined : `/company/${company.id}`}
+            readOnly={readOnlyGuestMode}
             onClick={(e) => {
               if (
                 e.defaultPrevented ||
@@ -483,9 +464,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
               e.preventDefault();
               onCompanyClick(company.id);
             }}
-          >
-            {company.name || "-"}
-          </a>
+          />
         ),
       },
       {
@@ -1095,7 +1074,7 @@ export const CompanySection = ({
       const prevKeys = new Set(prevSelectedColumnKeysRef.current);
       const addedKeys = selectedColumnKeys.filter(
         (key) =>
-          !prevKeys.has(key) && key !== "logo" && key !== "name"
+          !prevKeys.has(key) && key !== "name"
       );
       if (addedKeys.length > 0) {
         setLoadingColumnKeys(new Set(addedKeys));
@@ -1220,7 +1199,7 @@ export const CompanySection = ({
     for (const key of frozenColumnKeys) {
       offsets.set(key, left);
       const col = ALL_COMPANY_COLUMNS.find((c) => c.key === key);
-      left += col?.minWidth ?? (key === "logo" ? 88 : 120);
+      left += col?.minWidth ?? 120;
     }
     return offsets;
   }, [frozenColumnKeys]);
@@ -1261,7 +1240,6 @@ export const CompanySection = ({
       ...extras,
       column.wrap ? "company-table-cell-wrap" : undefined,
       isFrozenColumnKey(column.key) ? "company-table-sticky-frozen" : undefined,
-      column.key === "logo" ? "company-table-sticky-logo" : undefined,
       column.key === "follow" ? "company-table-col-follow" : undefined,
     ].filter(Boolean);
     return classes.length > 0 ? classes.join(" ") : undefined;
@@ -1758,18 +1736,18 @@ export const CompanySection = ({
         React.createElement(
           "td",
           null,
-          React.createElement("div", {
-            className: "loading-skeleton",
-            style: { width: "48px", height: "36px" },
-          })
-        ),
-        React.createElement(
-          "td",
-          null,
-          React.createElement("div", {
-            className: "loading-skeleton",
-            style: { width: "90%", height: "18px" },
-          })
+          React.createElement(
+            "div",
+            { style: { display: "flex", alignItems: "center", gap: 10 } },
+            React.createElement("div", {
+              className: "loading-skeleton",
+              style: { width: "22px", height: "22px", borderRadius: 5, flexShrink: 0 },
+            }),
+            React.createElement("div", {
+              className: "loading-skeleton",
+              style: { width: "70%", height: "14px" },
+            })
+          )
         ),
         React.createElement(
           "td",
@@ -1865,7 +1843,6 @@ export const CompanySection = ({
           React.createElement(
             "tr",
             null,
-            React.createElement("th", null, "Logo"),
             React.createElement("th", null, "Name"),
             React.createElement("th", null, "Description"),
             React.createElement("th", null, "Primary Sectors"),

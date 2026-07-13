@@ -58,7 +58,7 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
 };
 
 /** Frozen identity columns — API always returns these; omit from `columns[]`. */
-const IDENTITY_COLUMN_KEYS = new Set(["logo", "name"]);
+const IDENTITY_COLUMN_KEYS = new Set(["name"]);
 
 /**
  * All visible optional/default columns to request from Get_new_companies.
