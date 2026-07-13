@@ -109,6 +109,19 @@ function normalizeCurrencyCode(raw: string): string {
   return trimmed.toUpperCase();
 }
 
+/** Ignore API placeholders like "0" or bare numeric currency ids. */
+function resolveMetricCurrencyDisplay(
+  display?: string | null,
+  fallback?: string
+): string | undefined {
+  if (!display) return fallback;
+  const trimmed = display.trim();
+  if (!trimmed || trimmed === "0" || /^\d+$/.test(trimmed)) {
+    return fallback;
+  }
+  return normalizeCurrencyCode(trimmed);
+}
+
 /** Strip legacy "US$" prefixes from API/display strings. */
 function stripLegacyUsPrefix(value: string): string {
   return value.replace(/US\$\s*/gi, "$");
@@ -176,9 +189,18 @@ export function buildFinancialMetricsSections({
   const src = getSourceText;
   const money = (formatted: string) => appendMetricCurrency(formatted, currencyCode);
   const subscriptionMoney = (formatted: string) =>
-    appendMetricCurrency(formatted, fm?.Subscription_revenue_currency_display ?? currencyCode);
+    appendMetricCurrency(
+      formatted,
+      resolveMetricCurrencyDisplay(
+        fm?.Subscription_revenue_currency_display,
+        currencyCode
+      )
+    );
   const arrMoney = (formatted: string) =>
-    appendMetricCurrency(formatted, fm?.ARR_currency_display ?? currencyCode);
+    appendMetricCurrency(
+      formatted,
+      resolveMetricCurrencyDisplay(fm?.ARR_currency_display, currencyCode)
+    );
 
   const mainRows: FinancialMetricRow[] = [];
 
