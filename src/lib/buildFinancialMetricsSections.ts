@@ -20,7 +20,9 @@ type FinancialMetricsPayload = {
   Rule_of_40?: number | string | null;
   Rule_of_40_source_label?: string | null;
   Rule_of_40_source?: number | string | null;
-  ARR_pc?: number | null;
+  Subscription_revenue_m?: number | null;
+  Subscription_revenue_source_label?: string | null;
+  Subscription_revenue_source?: number | string | null;
   ARR_m?: number | null;
   ARR_source_label?: string | null;
   ARR_source?: number | string | null;
@@ -224,8 +226,11 @@ export function buildFinancialMetricsSections({
   const subscriptionRows: FinancialMetricRow[] = [
     row(
       "Recurring Revenue:",
-      formatPercent(fm?.ARR_pc),
-      src(fm?.ARR_source_label, fm?.ARR_source)
+      money(formatPlainNumber(fm?.Subscription_revenue_m)),
+      src(
+        fm?.Subscription_revenue_source_label,
+        fm?.Subscription_revenue_source
+      )
     ),
     row(
       "ARR (m):",

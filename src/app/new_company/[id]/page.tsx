@@ -102,11 +102,13 @@ interface CompanyFinancialMetrics {
   Revenue_m?: number | null;
   Revenue_source_label?: string | null;
   Rev_source?: number | string | null;
-  ARR_pc?: number | null;
-  ARR_currency?: unknown;
+  Subscription_revenue_m?: number | null;
+  Subscription_revenue_source_label?: string | null;
+  Subscription_revenue_source?: number | string | null;
   ARR_m?: number | null;
   ARR_source_label?: string | null;
   ARR_source?: number | string | null;
+  ARR_currency?: unknown;
   Churn_pc?: number | null;
   Churn_source_label?: string | null;
   Churn_Source?: number | string | null;
@@ -4003,12 +4005,12 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Recurring Revenue:</span>
                 <span style={styles.value}>
-                  {formatPercent(financialMetrics?.ARR_pc)}
+                  {formatPlainNumber(financialMetrics?.Subscription_revenue_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
+                    financialMetrics?.Subscription_revenue_source_label,
+                    financialMetrics?.Subscription_revenue_source
                   )}
                 </span>
               </div>
@@ -4530,12 +4532,12 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Recurring Revenue:</span>
                 <span style={styles.value}>
-                  {formatPercent(financialMetrics?.ARR_pc)}
+                  {formatPlainNumber(financialMetrics?.Subscription_revenue_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
+                    financialMetrics?.Subscription_revenue_source_label,
+                    financialMetrics?.Subscription_revenue_source
                   )}
                 </span>
               </div>
