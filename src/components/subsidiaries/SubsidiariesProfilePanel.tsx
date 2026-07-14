@@ -1,5 +1,7 @@
 "use client";
 
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
+
 import React, { useMemo, useState } from "react";
 import type { CorporateEventsProfileTokens } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import {
@@ -120,11 +122,7 @@ function LogoLetter({
   T: SubsidiariesProfileTokens;
 }) {
   const letter = (name.trim()[0] || "?").toUpperCase();
-  const src = logo
-    ? logo.startsWith("data:") || logo.startsWith("http")
-      ? logo
-      : `data:image/jpeg;base64,${logo}`
-    : null;
+  const src = resolveCompanyLogoSrc(logo);
 
   return (
     <div

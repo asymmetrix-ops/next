@@ -1,6 +1,6 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { cookies } from "next/headers";
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
+import { readEntityLogo } from "@/lib/companyLogo";
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -29,9 +29,7 @@ async function fetchInvestorMeta(
     return {
       name: investor?.name as string | undefined,
       description: investor?.description as string | undefined,
-      logo: investor?._linkedin_data_of_new_company?.linkedin_logo as
-        | string
-        | undefined,
+      logo: readEntityLogo(investor) ?? undefined,
     };
   } catch {
     return null;
@@ -55,8 +53,7 @@ export async function generateMetadata(
       ? `${name} investor profile on Asymmetrix.`
       : "Investor profile on Asymmetrix.");
 
-  const imageUrl =
-    resolveCompanyLogoSrc(meta?.logo) ?? `${base.origin}/og-image.jpg`;
+  const imageUrl = meta?.logo ?? `${base.origin}/og-image.jpg`;
   const url = new URL(`/investors/${id}`, base).toString();
 
   return {

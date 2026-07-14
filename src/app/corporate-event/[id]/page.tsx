@@ -22,6 +22,7 @@ import {
   type CorporateEventTransactionRow,
 } from "@/components/corporate-events/CorporateEventTransactionsPanel";
 import { CorporateEventInsightsPanel } from "@/components/corporate-events/CorporateEventInsightsPanel";
+import { resolveCompanyLogoSrcBlockingLinkedIn } from "@/lib/companyLogo";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -33,29 +34,8 @@ const isDataAnalyticsCompany = (candidate: unknown): boolean => {
 };
 
 // Helper function to process logo URLs
-  const buildLogoSrc = (raw?: string): string | undefined => {
-    if (!raw) return undefined;
-    const value = String(raw).trim();
-    const compact = value.replace(/\s+/g, "");
-    if (!value) return undefined;
-    if (/^data:/i.test(value)) return value;
-    if (/^https?:\/\//i.test(value)) {
-      try {
-        const u = new URL(value);
-        const host = u.hostname.toLowerCase();
-        if (host.endsWith("licdn.com") || host.endsWith("linkedin.com")) {
-          return undefined;
-        }
-        return value;
-      } catch {
-        return undefined;
-      }
-    }
-    if (/^[A-Za-z0-9+/=]+$/.test(compact)) {
-      return `data:image/jpeg;base64,${compact}`;
-    }
-    return undefined;
-};
+  const buildLogoSrc = (raw?: string): string | undefined =>
+    resolveCompanyLogoSrcBlockingLinkedIn(raw) ?? undefined;
 
 // Corporate Event Detail Component
 const CorporateEventDetail = ({

@@ -38,6 +38,7 @@ import {
   getSortValueForColumn,
 } from "@/components/companies/companiesTableSort";
 import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
+import { readLogoFromRecord } from "@/lib/companyLogo";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
 import {
@@ -438,7 +439,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
           return (
             <SearchEntityIdentityCell
               name={company.name || "-"}
-              logo={company.linkedin_logo}
+              logo={readLogoFromRecord(company, getFieldAliasesForColumn("logo"))}
               subtitle={subtitle}
               href={readOnlyGuestMode ? undefined : `/company/${company.id}`}
               readOnly={readOnlyGuestMode}
@@ -727,21 +728,24 @@ const CompanyCardBase = ({
     React.createElement(
       "div",
       { className: "company-card-header" },
-      company.linkedin_logo
-        ? React.createElement("img", {
-            src: `data:image/jpeg;base64,${company.linkedin_logo}`,
-            alt: `${company.name} logo`,
-            className: "company-card-logo",
-            loading: "lazy",
-            onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            },
-          })
-        : React.createElement(
-            "div",
-            { className: "company-card-logo-placeholder" },
-            "No Logo"
-          ),
+      (() => {
+        const logoSrc = readLogoFromRecord(company, getFieldAliasesForColumn("logo"));
+        return logoSrc
+          ? React.createElement("img", {
+              src: logoSrc,
+              alt: `${company.name} logo`,
+              className: "company-card-logo",
+              loading: "lazy",
+              onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              },
+            })
+          : React.createElement(
+              "div",
+              { className: "company-card-logo-placeholder" },
+              "No Logo"
+            );
+      })(),
       React.createElement(
         readOnlyGuestMode ? "span" : "a",
         {

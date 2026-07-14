@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CompanyLogo from "@/components/investor/CompanyLogo";
+import { readEntityLogo } from "@/lib/companyLogo";
 import CompanyDescription from "@/components/investor/CompanyDescription";
 import InvestorOverview from "@/components/investor/InvestorOverview";
 import InvestmentTeam from "@/components/investor/InvestmentTeam";
@@ -330,7 +331,7 @@ const InvestorDetailPage = () => {
             }}
           >
             <CompanyLogo
-              logo={Investor._linkedin_data_of_new_company?.linkedin_logo || ""}
+              logo={readEntityLogo(Investor) || ""}
               name={Investor.name}
             />
             <div>
@@ -566,10 +567,7 @@ const PortfolioTable = React.memo<{
                 >
                   <td style={{ padding: "12px" }}>
                     <CompanyLogo
-                      logo={
-                        company._linkedin_data_of_new_company?.linkedin_logo ||
-                        ""
-                      }
+                      logo={readEntityLogo(company) || ""}
                       name={company.name}
                     />
                   </td>

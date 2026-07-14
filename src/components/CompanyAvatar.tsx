@@ -19,7 +19,7 @@ export function CompanyAvatar({
 
   useEffect(() => {
     setFailed(false);
-  }, [logo]);
+  }, [src]);
 
   if (src && !failed) {
     return (

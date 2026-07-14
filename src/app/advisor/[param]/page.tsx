@@ -2,7 +2,6 @@
 
 import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
-import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
@@ -21,6 +20,8 @@ import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
+import CompanyLogo from "@/components/investor/CompanyLogo";
+import { readEntityLogo } from "@/lib/companyLogo";
 import { AdvisorOverviewCard } from "@/components/advisors/AdvisorOverviewCard";
 import { AdvisorPeopleCard } from "@/components/advisors/AdvisorPeopleCard";
 import {
@@ -93,44 +94,6 @@ function resolveChartEmployeeCount(data: LinkedInHistory[]): number {
   const last = numericData[numericData.length - 1] ?? 0;
   return last > 0 ? last : lastNonZero;
 }
-
-const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
-  if (logo) {
-    return (
-      <Image
-        src={`data:image/jpeg;base64,${logo}`}
-        alt={`${name} logo`}
-        width={40}
-        height={40}
-        style={{
-          objectFit: "contain",
-          borderRadius: "50%",
-          border: `1px solid ${T.divider}`,
-        }}
-      />
-    );
-  }
-
-  return (
-    <div
-      style={{
-        width: 40,
-        height: 40,
-        backgroundColor: T.inset,
-        borderRadius: "50%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 12,
-        fontWeight: 600,
-        color: T.muted,
-        border: `1px solid ${T.divider}`,
-      }}
-    >
-      {name.charAt(0).toUpperCase()}
-    </div>
-  );
-};
 
 export default function AdvisorProfilePage() {
   const params = useParams();
@@ -811,7 +774,7 @@ export default function AdvisorProfilePage() {
         >
           <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flex: 1 }}>
             <CompanyLogo
-              logo={Advisor._linkedin_data_of_new_company?.linkedin_logo || ""}
+              logo={readEntityLogo(Advisor) || ""}
               name={Advisor.name}
             />
             <span

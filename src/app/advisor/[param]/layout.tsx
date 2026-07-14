@@ -1,5 +1,6 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { cookies } from "next/headers";
+import { readEntityLogo } from "@/lib/companyLogo";
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -27,9 +28,7 @@ async function fetchAdvisorMeta(
     return {
       name: advisor?.name as string | undefined,
       description: advisor?.description as string | undefined,
-      logo: advisor?._linkedin_data_of_new_company?.linkedin_logo as
-        | string
-        | undefined,
+      logo: readEntityLogo(advisor) ?? undefined,
     };
   } catch {
     return null;
@@ -53,9 +52,7 @@ export async function generateMetadata(
       ? `${name} advisor profile on Asymmetrix.`
       : "Advisor profile on Asymmetrix.");
 
-  const imageUrl = meta?.logo
-    ? `data:image/jpeg;base64,${meta.logo}`
-    : `${base.origin}/og-image.jpg`;
+  const imageUrl = meta?.logo ?? `${base.origin}/og-image.jpg`;
   const url = new URL(`/advisor/${id}`, base).toString();
 
   return {

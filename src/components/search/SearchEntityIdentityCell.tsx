@@ -1,7 +1,6 @@
 "use client";
 
-import React from "react";
-import Image from "next/image";
+import React, { useEffect, useState } from "react";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
 type SearchEntityIdentityCellProps = {
@@ -13,43 +12,61 @@ type SearchEntityIdentityCellProps = {
   readOnly?: boolean;
 };
 
-function EntityLogo({ logo }: { logo?: string | null }) {
+function EntityLogo({
+  logo,
+  name,
+}: {
+  logo?: string | null;
+  name: string;
+}) {
+  const [failed, setFailed] = useState(false);
   const src = resolveCompanyLogoSrc(logo);
 
-  if (src) {
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (src && !failed) {
     return (
-      <Image
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
         src={src}
         alt=""
-        width={40}
-        height={40}
+        onError={() => setFailed(true)}
         style={{
+          width: 40,
+          height: 40,
           objectFit: "contain",
           borderRadius: 4,
+          background: "var(--ax-gray-25, #f8fafc)",
+          border: "1px solid var(--border-1, #e2e8f0)",
           flexShrink: 0,
         }}
       />
     );
   }
 
+  const initial = name.trim()[0]?.toUpperCase() ?? "?";
+
   return (
-    <div
+    <span
       style={{
         width: 40,
         height: 40,
         borderRadius: 4,
-        background: "#f1f5f9",
-        display: "flex",
+        background: "var(--ax-cyan-700, #0e7490)",
+        color: "white",
+        display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: 10,
-        color: "#94a3b8",
+        fontSize: 14,
+        fontWeight: 700,
         flexShrink: 0,
       }}
       aria-hidden
     >
-      —
-    </div>
+      {initial}
+    </span>
   );
 }
 
@@ -79,7 +96,7 @@ export function SearchEntityIdentityCell({
 
   return (
     <div className="company-table-entity-name-cell">
-      <EntityLogo logo={logo} />
+      <EntityLogo logo={logo} name={displayName} />
       <div className="company-table-entity-name-text">
         {nameContent}
         {subtitleText ? (
