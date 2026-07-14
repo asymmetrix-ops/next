@@ -2,7 +2,6 @@ export type AdvisorColumnType =
   | "text"
   | "paragraph"
   | "number"
-  | "logo"
   | "follow";
 
 export interface AdvisorColumnMeta {
@@ -25,14 +24,6 @@ export const ADVISORS_COLUMN_CATEGORIES: AdvisorColumnCategory[] = [
     id: "identity",
     name: "Identity",
     columns: [
-      {
-        id: "logo",
-        columnKey: "logo",
-        label: "Logo",
-        type: "logo",
-        locked: true,
-        defaultVisible: true,
-      },
       {
         id: "name",
         columnKey: "name",
@@ -108,7 +99,6 @@ export const CANONICAL_ADVISOR_COLUMN_KEYS = ALL_ADVISORS_COLUMN_META.map(
 );
 
 export const PROD_DEFAULT_ADVISOR_COLUMN_KEYS = [
-  "logo",
   "name",
   "description",
   "events_advised",
@@ -117,7 +107,7 @@ export const PROD_DEFAULT_ADVISOR_COLUMN_KEYS = [
   "country",
 ] as const;
 
-export const FROZEN_ADVISOR_COLUMN_KEYS = ["logo", "name"] as const;
+export const FROZEN_ADVISOR_COLUMN_KEYS = ["name"] as const;
 
 export const DEFAULT_VISIBLE_ADVISOR_COLUMN_KEYS: string[] = [
   ...PROD_DEFAULT_ADVISOR_COLUMN_KEYS,
@@ -141,6 +131,7 @@ export function enforceAdvisorColumnKeyOrder(
   keys: string[],
   filterPinnedKeys: string[] = []
 ): string[] {
+  const normalizedKeys = keys.filter((key) => key !== "logo");
   const frozenKeys = getEffectiveFrozenAdvisorColumnKeys(filterPinnedKeys);
   const frozenSet = new Set(frozenKeys);
   const seen = new Set<string>();
@@ -153,7 +144,7 @@ export function enforceAdvisorColumnKeyOrder(
     }
   }
 
-  for (const key of keys) {
+  for (const key of normalizedKeys) {
     if (
       CANONICAL_ADVISOR_COLUMN_KEYS.includes(key) &&
       !seen.has(key) &&

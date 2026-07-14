@@ -318,7 +318,7 @@ export function ColumnsControlRoom({
   categories = COMPANIES_COLUMN_CATEGORIES,
   title = "Columns",
   defaultVisibleColumnKeys = PROD_DEFAULT_COMPANY_COLUMN_KEYS,
-  reorderHint = "Drag rows to reorder. Logo and Name stay fixed as the first two columns. Filter-pinned columns are locked automatically.",
+  reorderHint = "Drag rows to reorder. Name stays fixed as the first column. Filter-pinned columns are locked automatically.",
 }: ColumnsControlRoomProps) {
   const buildState = (mode?: "default") => {
     const out: Record<string, boolean> = {};

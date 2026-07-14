@@ -28,7 +28,6 @@ import {
 import { FILTER_PINNED_TOOLTIP } from "@/components/individuals/individualsColumnFilterMap";
 import {
   formatIndividualLocation,
-  formatIndividualRoles,
   resolveIndividualCompanyHref,
 } from "@/components/individuals/individualsColumnFields";
 import {
@@ -36,7 +35,20 @@ import {
   getIndividualColumnSortKind,
   getIndividualSortValueForColumn,
 } from "@/components/individuals/individualsTableSort";
+import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
+import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
+import { namesToMultiValueItems } from "@/components/search/searchMultiValueUtils";
+import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
+import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
+import {
+  isSearchTableSelectionEnabled,
+  SEARCH_TABLE_SELECT_COLUMN_WIDTH,
+  SearchTableSelectCell,
+  SearchTableSelectHeader,
+  type SearchTableSelectionProps,
+} from "@/components/search/searchTableSelection";
+import { usePageSelectionState } from "@/components/search/useEntitySelection";
 import {
   buildStickyColumnOffsets,
   getSearchTableColumnClassName,
@@ -56,7 +68,7 @@ interface IndividualColumnDefinition {
 }
 
 const ALL_INDIVIDUAL_COLUMNS: IndividualColumnDefinition[] = [
-  { key: "name", label: "Name", minWidth: 180 },
+  { key: "name", label: "Name", minWidth: 220 },
   { key: "current_company", label: "Current Companies", minWidth: 180 },
   { key: "current_roles", label: "Current Roles", wrap: true, minWidth: 180 },
   { key: "location", label: "Location", wrap: true, minWidth: 200 },
@@ -85,6 +97,10 @@ export const IndividualSection = ({
   externalSetShowColumnsModal,
   onColumnsCountChange,
   isPortfolioOnlyFilter = false,
+  selectedEntityIds,
+  onToggleEntitySelection,
+  onTogglePageSelection,
+  onClearSelection,
 }: {
   individuals: Individual[];
   loading: boolean;
@@ -103,6 +119,8 @@ export const IndividualSection = ({
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
   isPortfolioOnlyFilter?: boolean;
+} & SearchTableSelectionProps & {
+  onClearSelection?: () => void;
 }) => {
   const router = useRouter();
   const headerDidDragRef = useRef(false);
@@ -123,6 +141,29 @@ export const IndividualSection = ({
   } | null>(null);
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
+  const selectionEnabled = isSearchTableSelectionEnabled({
+    selectedEntityIds,
+    onToggleEntitySelection,
+    onTogglePageSelection,
+  });
+
+  const pageEntityIds = useMemo(
+    () =>
+      individuals
+        .map((individual) => individual.id)
+        .filter((id): id is number => typeof id === "number" && id > 0),
+    [individuals]
+  );
+
+  const pageSelectionState = usePageSelectionState(
+    pageEntityIds,
+    selectedEntityIds ?? new Set()
+  );
+
+  const selectedIdList = useMemo(
+    () => (selectedEntityIds ? Array.from(selectedEntityIds) : []),
+    [selectedEntityIds]
+  );
 
   const frozenColumnKeys = useMemo(
     () => getEffectiveFrozenIndividualColumnKeys(filterPinnedColumnKeys),
@@ -130,8 +171,13 @@ export const IndividualSection = ({
   );
 
   const stickyColumnOffsets = useMemo(
-    () => buildStickyColumnOffsets(frozenColumnKeys, ALL_INDIVIDUAL_COLUMNS),
-    [frozenColumnKeys]
+    () =>
+      buildStickyColumnOffsets(
+        frozenColumnKeys,
+        ALL_INDIVIDUAL_COLUMNS,
+        selectionEnabled ? SEARCH_TABLE_SELECT_COLUMN_WIDTH : 0
+      ),
+    [frozenColumnKeys, selectionEnabled]
   );
 
   useEffect(() => {
@@ -266,12 +312,13 @@ export const IndividualSection = ({
       case "name": {
         const id = individual.id;
         const name = individual.advisor_individuals || "-";
-        if (!id) return name;
+        const location = formatIndividualLocation(individual._locations_individual);
+        const subtitle = location !== "-" ? location : undefined;
         return (
-          <a
-            href={`/individual/${id}`}
-            className="company-name"
-            style={{ textDecoration: "none", color: "#3b82f6", fontWeight: 500 }}
+          <SearchEntityIdentityCell
+            name={name}
+            subtitle={subtitle}
+            href={id ? `/individual/${id}` : undefined}
             onClick={(e) => {
               if (
                 e.defaultPrevented ||
@@ -284,11 +331,9 @@ export const IndividualSection = ({
                 return;
               }
               e.preventDefault();
-              handleIndividualClick(id);
+              handleIndividualClick(id!);
             }}
-          >
-            {name}
-          </a>
+          />
         );
       }
       case "current_company": {
@@ -321,9 +366,20 @@ export const IndividualSection = ({
         );
       }
       case "current_roles":
-        return formatIndividualRoles(individual);
+        return (
+          <SearchEntityMultiValueCell
+            items={namesToMultiValueItems(
+              individual.current_roles?.map((role) => role.job_title) ?? [],
+              "role"
+            )}
+          />
+        );
       case "location":
-        return formatIndividualLocation(individual._locations_individual);
+        return (
+          <SearchEntityLongText
+            text={formatIndividualLocation(individual._locations_individual)}
+          />
+        );
       case "follow":
         if (!individual.id) return null;
         return (
@@ -512,10 +568,25 @@ export const IndividualSection = ({
 
   return (
     <div className="company-section">
+      {selectionEnabled && selectedEntityIds!.size > 0 && onClearSelection && (
+        <BulkPortfolioActionToolbar
+          entityType="individual"
+          entityIds={selectedIdList}
+          onClearSelection={onClearSelection}
+        />
+      )}
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>
             <tr>
+              {selectionEnabled && onTogglePageSelection && (
+                <SearchTableSelectHeader
+                  pageIds={pageEntityIds}
+                  pageSelectionState={pageSelectionState}
+                  onTogglePageSelection={onTogglePageSelection}
+                  ariaLabel="Select all individuals on this page"
+                />
+              )}
               {selectedColumns.map((column) => {
                 const sortKind = getIndividualColumnSortKind(column.key);
                 const isActive = sortState?.key === column.key;
@@ -620,11 +691,41 @@ export const IndividualSection = ({
           <tbody>
             {sortedIndividuals.length === 0 ? (
               <tr>
-                <td colSpan={selectedColumns.length}>No individuals found.</td>
+                <td colSpan={selectedColumns.length + (selectionEnabled ? 1 : 0)}>
+                  No individuals found.
+                </td>
               </tr>
             ) : (
-              sortedIndividuals.map((individual, index) => (
-                <tr key={`${individual.id ?? index}`}>
+              sortedIndividuals.map((individual, index) => {
+                const entityId = individual.id;
+                const isRowSelected =
+                  typeof entityId === "number" && selectedEntityIds?.has(entityId);
+                return (
+                <tr
+                  key={`${individual.id ?? index}`}
+                  className={isRowSelected ? "company-table-row-selected" : undefined}
+                >
+                  {selectionEnabled &&
+                    onToggleEntitySelection &&
+                    typeof entityId === "number" &&
+                    entityId > 0 && (
+                      <SearchTableSelectCell
+                        entityId={entityId}
+                        selected={Boolean(isRowSelected)}
+                        onToggle={onToggleEntitySelection}
+                        ariaLabel={`Select ${individual.advisor_individuals || "individual"}`}
+                      />
+                    )}
+                  {selectionEnabled &&
+                    (typeof entityId !== "number" || entityId <= 0) && (
+                      <td
+                        className="company-table-select-cell"
+                        style={{
+                          minWidth: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
+                          width: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
+                        }}
+                      />
+                    )}
                   {selectedColumns.map((column) => (
                     <td
                       key={`${column.key}-${index}`}
@@ -634,7 +735,9 @@ export const IndividualSection = ({
                         ...getStickyColumnStyle(
                           column.key,
                           stickyColumnOffsets,
-                          column.minWidth
+                          column.minWidth,
+                          false,
+                          Boolean(isRowSelected)
                         ),
                       }}
                     >
@@ -642,7 +745,8 @@ export const IndividualSection = ({
                     </td>
                   ))}
                 </tr>
-              ))
+              );
+              })
             )}
           </tbody>
         </table>

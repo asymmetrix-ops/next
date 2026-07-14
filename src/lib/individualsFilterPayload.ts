@@ -223,6 +223,16 @@ export function individualsFiltersToSearchParams(
   return params;
 }
 
+export function individualsCountsFiltersToSearchParams(
+  filters: IndividualsSearchFilters
+): URLSearchParams {
+  const params = new URLSearchParams();
+  params.append("Offset", "0");
+  params.append("Per_page", "0");
+  appendIndividualsFilterParams(params, filters);
+  return params;
+}
+
 function toIndividualsApiArray<T>(values: T[]): T[] | null {
   return values.length > 0 ? values : null;
 }
@@ -234,7 +244,6 @@ export function individualsFiltersToRequestBody(
   const page = Math.max(1, filters.page || 1);
   const perPage = filters.per_page > 0 ? filters.per_page : 50;
 
-  // Xano expects an item-based offset (1, 51, 101 …), not a page number.
   const itemOffset = (page - 1) * perPage + 1;
 
   return {
@@ -254,14 +263,4 @@ export function individualsFiltersToRequestBody(
     statuses: toIndividualsApiArray(filters.Statuses),
     portfolio_only: filters.portfolio_only ? true : null,
   };
-}
-
-export function individualsCountsFiltersToSearchParams(
-  filters: IndividualsSearchFilters
-): URLSearchParams {
-  const params = new URLSearchParams();
-  params.append("Offset", "0");
-  params.append("Per_page", "0");
-  appendIndividualsFilterParams(params, filters);
-  return params;
 }

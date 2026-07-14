@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
+
+const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
 
 const VALID_ENTITY_TYPES = new Set([
   "company",
@@ -102,7 +103,7 @@ export async function POST(
     }
 
     const upstream = await fetchWithAuth(
-      `${XANO_USER_PORTFOLIO_BASE}/lists/${portfolioId}/entities`,
+      `${XANO_PORTFOLIO_BASE}/lists/${portfolioId}/entities`,
       token,
       {
         method: "POST",

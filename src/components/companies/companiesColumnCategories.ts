@@ -1,5 +1,3 @@
-import { filterArrFromCategories } from "@/lib/platformVisibility";
-
 export type CompanyColumnType =
   | "text"
   | "paragraph"
@@ -8,7 +6,6 @@ export type CompanyColumnType =
   | "currency"
   | "percent"
   | "date"
-  | "logo"
   | "follow"
   | "boolean";
 
@@ -31,19 +28,11 @@ export interface CompanyColumnCategory {
   columns: CompanyColumnMeta[];
 }
 
-const COMPANIES_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
+export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
   {
     id: "identity",
     name: "Identity",
     columns: [
-      {
-        id: "logo",
-        columnKey: "logo",
-        label: "Logo",
-        type: "logo",
-        locked: true,
-        defaultVisible: true,
-      },
       {
         id: "name",
         columnKey: "name",
@@ -213,6 +202,13 @@ const COMPANIES_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
         defaultVisible: false,
       },
       {
+        id: "has_mcp",
+        columnKey: "has_mcp",
+        label: "MCP",
+        type: "boolean",
+        defaultVisible: false,
+      },
+      {
         id: "created_at",
         columnKey: "created_at",
         label: "Date Added",
@@ -278,19 +274,19 @@ const COMPANIES_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
   },
   {
     id: "subscription",
-    name: "Subscription revenue",
+    name: "Subscription metrics",
     columns: [
       {
-        id: "subscription_revenue_pc",
-        columnKey: "subscription_revenue_pc",
-        label: "Subscription Revenue %",
-        type: "percent",
+        id: "recurring_revenue",
+        columnKey: "arr_pc",
+        label: "Recurring Revenue",
+        type: "currency",
         defaultVisible: false,
       },
       {
-        id: "subscription_revenue_m",
-        columnKey: "subscription_revenue_m",
-        label: "Subscription Revenue (m)",
+        id: "arr",
+        columnKey: "arr_m",
+        label: "ARR (m)",
         type: "currency",
         defaultVisible: false,
       },
@@ -353,19 +349,6 @@ const COMPANIES_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
     ],
   },
   {
-    id: "arr",
-    name: "ARR",
-    columns: [
-      {
-        id: "arr_m",
-        columnKey: "arr_m",
-        label: "ARR (m)",
-        type: "currency",
-        defaultVisible: false,
-      },
-    ],
-  },
-  {
     id: "other",
     name: "Other metrics",
     columns: [
@@ -415,10 +398,6 @@ const COMPANIES_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
   },
 ];
 
-export const COMPANIES_COLUMN_CATEGORIES = filterArrFromCategories(
-  COMPANIES_COLUMN_CATEGORIES_RAW
-);
-
 export const ALL_COMPANIES_COLUMN_META = COMPANIES_COLUMN_CATEGORIES.flatMap(
   (category) => category.columns
 );
@@ -429,7 +408,6 @@ export const CANONICAL_COMPANY_COLUMN_KEYS = ALL_COMPANIES_COLUMN_META.map(
 
 /** Current PROD default visible columns (reset in customise modal). */
 export const PROD_DEFAULT_COMPANY_COLUMN_KEYS = [
-  "logo",
   "name",
   "description",
   "primary_sectors",
@@ -439,8 +417,8 @@ export const PROD_DEFAULT_COMPANY_COLUMN_KEYS = [
   "hq",
 ] as const;
 
-/** Always visible, frozen in table — first columns, not hideable. */
-export const FROZEN_COLUMN_KEYS = ["logo", "name"] as const;
+/** Always visible, frozen in table — first column, not hideable. */
+export const FROZEN_COLUMN_KEYS = ["name"] as const;
 
 export const DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS: string[] = [
   ...PROD_DEFAULT_COMPANY_COLUMN_KEYS,
@@ -464,6 +442,7 @@ export function enforceColumnKeyOrder(
   keys: string[],
   filterPinnedKeys: string[] = []
 ): string[] {
+  const normalizedKeys = keys.filter((key) => key !== "logo");
   const frozenKeys = getEffectiveFrozenColumnKeys(filterPinnedKeys);
   const frozenSet = new Set(frozenKeys);
   const seen = new Set<string>();
@@ -476,7 +455,7 @@ export function enforceColumnKeyOrder(
     }
   }
 
-  for (const key of keys) {
+  for (const key of normalizedKeys) {
     if (
       CANONICAL_COMPANY_COLUMN_KEYS.includes(key) &&
       !seen.has(key) &&
@@ -531,7 +510,7 @@ export const visibilityToColumnKeys = (
   return enforceColumnKeyOrder(base);
 };
 
-/** Move one column before another; logo/name and filter-pinned columns cannot be dragged. */
+/** Move one column before another; Name and filter-pinned columns cannot be dragged. */
 export function reorderColumnKeys(
   keys: string[],
   dragKey: string,

@@ -53,13 +53,14 @@ export const checkExportLimit = async (): Promise<{
         0
     );
 
-    // Admin users get unlimited exports
+    // Check if user is admin - admins get unlimited exports
     const userStatus = (anyData["Status"] as string | undefined) ?? "";
     const isAdmin = userStatus.toLowerCase().includes("admin");
+
     if (isAdmin) {
       return {
         canExport: true,
-        exportsLeft: EXPORT_LIMIT, // display purposes
+        exportsLeft: EXPORT_LIMIT, // Show full limit for display purposes
         exportedFiles,
       };
     }

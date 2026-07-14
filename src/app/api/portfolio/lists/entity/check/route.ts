@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
+
+const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
 
 const VALID_ENTITY_TYPES = new Set([
   "company",
@@ -15,6 +16,7 @@ async function fetchWithAuth(
   init: Omit<RequestInit, "headers"> & { headers?: Record<string, string> } = {}
 ) {
   const baseHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
     Accept: "application/json",
     ...(init.headers || {}),
   };
@@ -86,13 +88,26 @@ export async function GET(req: Request) {
       );
     }
 
+    const payload = JSON.stringify({
+      entity_type: entityType,
+      entity_id: entityId,
+    });
+
     const query = `entity_type=${encodeURIComponent(entityType)}&entity_id=${encodeURIComponent(String(entityId))}`;
 
-    const upstream = await fetchWithAuth(
-      `${XANO_USER_PORTFOLIO_BASE}/lists/entity/check?${query}`,
+    let upstream = await fetchWithAuth(
+      `${XANO_PORTFOLIO_BASE}/lists/entity/check?${query}`,
       token,
       { method: "GET" }
     );
+
+    if (!upstream.ok && (upstream.status === 404 || upstream.status === 405)) {
+      upstream = await fetchWithAuth(
+        `${XANO_PORTFOLIO_BASE}/lists/entity/check`,
+        token,
+        { method: "POST", body: payload }
+      );
+    }
 
     const text = await upstream.text().catch(() => "");
     let data: unknown = null;

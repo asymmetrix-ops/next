@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import {
-  buildCreateUserListPayload,
-  XANO_USER_PORTFOLIO_BASE,
-} from "@/lib/portfolioApi";
+
+const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
+const XANO_AUTH_BASE =
+  process.env.NEXT_PUBLIC_XANO_API_URL ||
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
 
 async function fetchWithAuth(
   url: string,
@@ -31,6 +32,22 @@ async function fetchWithAuth(
   return resp;
 }
 
+async function getUserId(token: string): Promise<number | null> {
+  const resp = await fetchWithAuth(`${XANO_AUTH_BASE}/auth/me`, token, {
+    method: "GET",
+  });
+  if (!resp.ok) return null;
+  const data = (await resp.json().catch(() => null)) as { id?: unknown } | null;
+  const raw = data?.id;
+  const id =
+    typeof raw === "number"
+      ? raw
+      : typeof raw === "string"
+      ? Number.parseInt(raw, 10)
+      : null;
+  return id != null && Number.isFinite(id) ? id : null;
+}
+
 function extractToken(req: Request, cookieHeader: string | null, tokenHeader: string | null, authHeader: string | null) {
   void req;
   const fromAuth = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
@@ -53,8 +70,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing auth token" }, { status: 401 });
     }
 
+    const userId = await getUserId(token);
+    if (userId == null) {
+      return NextResponse.json({ error: "Auth failed" }, { status: 401 });
+    }
+
     const upstream = await fetchWithAuth(
-      `${XANO_USER_PORTFOLIO_BASE}/get_users_lists`,
+      `${XANO_PORTFOLIO_BASE}/get_users_lists?user_id=${encodeURIComponent(String(userId))}`,
       token,
       { method: "GET" }
     );
@@ -99,6 +121,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing auth token" }, { status: 401 });
     }
 
+    const userId = await getUserId(token);
+    if (userId == null) {
+      return NextResponse.json({ error: "Auth failed" }, { status: 401 });
+    }
+
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
     const listName =
       (body && typeof body.label === "string" ? body.label.trim() : "") ||
@@ -114,31 +141,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Resolve user ID from auth/me
-    const authApiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
-    let userId = 0;
-    try {
-      const meResp = await fetchWithAuth(`${authApiUrl}/auth/me`, token, {
-        method: "GET",
-      });
-      if (meResp.ok) {
-        const me = (await meResp.json().catch(() => null)) as Record<string, unknown> | null;
-        const rawId = me?.id;
-        if (typeof rawId === "number" && Number.isFinite(rawId)) userId = rawId;
-        else if (typeof rawId === "string") userId = Number.parseInt(rawId, 10) || 0;
-      }
-    } catch {
-      // proceed with userId 0 if auth/me fails
-    }
-
     const upstream = await fetchWithAuth(
-      `${XANO_USER_PORTFOLIO_BASE}/user_lists`,
+      `${XANO_PORTFOLIO_BASE}/user_lists`,
       token,
       {
         method: "POST",
-        body: JSON.stringify(buildCreateUserListPayload(listName, userId)),
+        body: JSON.stringify({
+          user_id: userId,
+          portfolio_label: listName,
+          list_name: listName,
+        }),
       }
     );
 

@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
-import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 import type {
   CorporateEventListItem,
   CorporateEventsSearchFilters,
@@ -58,6 +57,8 @@ import {
 } from "@/components/corporate-events/corporateEventsPartyLinks";
 import { locationsService } from "@/lib/locationsService";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
+import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
+import { entityLinksToMultiValueItems } from "@/components/search/searchMultiValueUtils";
 import {
   buildStickyColumnOffsets,
   getSearchTableColumnClassName,
@@ -101,34 +102,10 @@ const COLUMN_MAP = new Map(
   ALL_CORPORATE_EVENT_COLUMNS.map((column) => [column.key, column])
 );
 
-function getValidColumnKeys(
-  keys: string[],
-  filterPinnedKeys: string[] = []
-): string[] {
-  const valid = keys.filter((key) =>
-    CANONICAL_CORPORATE_EVENT_COLUMN_KEYS.includes(key)
+function getValidColumnKeys(keys: string[]): string[] {
+  return enforceCorporateEventColumnKeyOrder(
+    keys.filter((key) => CANONICAL_CORPORATE_EVENT_COLUMN_KEYS.includes(key))
   );
-  const seed =
-    valid.length > 0 ? valid : [...PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS];
-  return enforceCorporateEventColumnKeyOrder(seed, filterPinnedKeys);
-}
-
-function loadSavedColumnKeys(): string[] {
-  if (typeof window === "undefined") {
-    return [...DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS];
-  }
-  try {
-    const saved = window.localStorage.getItem(CORPORATE_EVENTS_COLUMNS_STORAGE_KEY);
-    if (!saved) return [...DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS];
-    const parsed = JSON.parse(saved) as unknown;
-    if (!Array.isArray(parsed)) return [...DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS];
-    const valid = getValidColumnKeys(
-      parsed.filter((key): key is string => typeof key === "string")
-    );
-    return valid.length > 0 ? valid : [...DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS];
-  } catch {
-    return [...DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS];
-  }
 }
 
 export const CorporateEventsSearchSection = ({
@@ -192,9 +169,9 @@ export const CorporateEventsSearchSection = ({
       : internalShowColumnsModal;
   const setShowColumnsModal =
     externalSetShowColumnsModal ?? setInternalShowColumnsModal;
-  const [columnPrefsLoaded] = useState(() => typeof window !== "undefined");
+  const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
-    loadSavedColumnKeys
+    DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS
   );
   const [sortState, setSortState] = useState<{
     key: string;
@@ -215,20 +192,33 @@ export const CorporateEventsSearchSection = ({
 
   useEffect(() => {
     if (filterPinnedColumnKeys.length === 0) return;
-    setSelectedColumnKeys((current) => {
-      const merged = enforceCorporateEventColumnKeyOrder(
+    setSelectedColumnKeys((current) =>
+      enforceCorporateEventColumnKeyOrder(
         Array.from(new Set([...current, ...filterPinnedColumnKeys])),
         filterPinnedColumnKeys
-      );
-      if (
-        merged.length === current.length &&
-        merged.every((key, index) => key === current[index])
-      ) {
-        return current;
-      }
-      return merged;
-    });
+      )
+    );
   }, [filterPinnedColumnKeys]);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(CORPORATE_EVENTS_COLUMNS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setSelectedColumnKeys(
+            getValidColumnKeys(
+              parsed.filter((key): key is string => typeof key === "string")
+            )
+          );
+        }
+      }
+    } catch (storageError) {
+      console.warn("Unable to load corporate event column preferences:", storageError);
+    } finally {
+      setColumnPrefsLoaded(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (!columnPrefsLoaded) return;
@@ -428,24 +418,25 @@ export const CorporateEventsSearchSection = ({
   const renderEntityLinks = (
     links: EntityLink[],
     keyPrefix: string
+  ): React.ReactNode => (
+    <SearchEntityMultiValueCell
+      items={entityLinksToMultiValueItems(links, keyPrefix)}
+    />
+  );
+
+  const renderSectorCell = (
+    text: string,
+    nameToId: Record<string, number>,
+    hrefPrefix: "/sector" | "/sub-sector"
   ): React.ReactNode => {
-    if (links.length === 0) return null;
-    return links.map((link, index) => (
-      <span key={`${keyPrefix}-${link.id ?? link.name}-${index}`}>
-        {link.href ? (
-          <a
-            href={link.href}
-            className="link-blue"
-            style={SEARCH_ENTITY_LINK_STYLE}
-          >
-            {link.name}
-          </a>
-        ) : (
-          <span>{link.name}</span>
-        )}
-        {index < links.length - 1 && ", "}
-      </span>
-    ));
+    const links = renderSectorLinks(text, nameToId);
+    const items = links.map((entry, index) => ({
+      name: entry.name,
+      href:
+        typeof entry.id === "number" ? `${hrefPrefix}/${entry.id}` : undefined,
+      key: `${hrefPrefix}-${entry.id ?? entry.name}-${index}`,
+    }));
+    return <SearchEntityMultiValueCell items={items} />;
   };
 
   const renderPartiesCell = (event: CorporateEventItem) => {
@@ -488,31 +479,6 @@ export const CorporateEventsSearchSection = ({
         )}
       </div>
     );
-  };
-
-  const renderSectorCell = (
-    text: string,
-    nameToId: Record<string, number>,
-    hrefPrefix: "/sector" | "/sub-sector"
-  ): React.ReactNode => {
-    const links = renderSectorLinks(text, nameToId);
-    if (links.length === 0) return "-";
-    return links.map((entry, index) => (
-      <span key={`${entry.name}-${index}`}>
-        {typeof entry.id === "number" ? (
-          <a
-            href={`${hrefPrefix}/${entry.id}`}
-            className="link-blue"
-            style={SEARCH_ENTITY_LINK_STYLE}
-          >
-            {entry.name}
-          </a>
-        ) : (
-          entry.name
-        )}
-        {index < links.length - 1 && ", "}
-      </span>
-    ));
   };
 
   const renderEventCell = (
@@ -563,11 +529,7 @@ export const CorporateEventsSearchSection = ({
       case "parties":
         return renderPartiesCell(event);
       case "deal_type":
-        return event.deal_type?.trim() ? (
-          <DealTypeBadge dealType={event.deal_type.trim()} />
-        ) : (
-          "-"
-        );
+        return event.deal_type || "-";
       case "funding_stage":
         return fundingStage || "-";
       case "investment_amount":
@@ -745,7 +707,7 @@ export const CorporateEventsSearchSection = ({
               order ?? selectedColumnKeys
             );
             setSelectedColumnKeys(
-              getValidColumnKeys(nextKeys, filterPinnedColumnKeys)
+              enforceCorporateEventColumnKeyOrder(nextKeys, filterPinnedColumnKeys)
             );
             setShowColumnsModal(false);
           }}

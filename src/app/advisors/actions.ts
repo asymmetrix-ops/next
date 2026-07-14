@@ -8,6 +8,8 @@ import {
   type AdvisorsSearchFilters,
 } from "@/lib/advisorsFilterPayload";
 import { mapCountsToAdvisorsRoleCounts } from "@/components/advisors/advisorsFilterConfig";
+import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
+import { readLogoFromRecord } from "@/lib/companyLogo";
 
 export type { AdvisorsSearchFilters };
 
@@ -35,14 +37,11 @@ export interface AdvisorsListResponse {
 }
 
 const ADVISORS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop";
 
-async function resolveAuthToken(authToken?: string | null): Promise<string | null> {
-  const explicit = authToken?.trim();
-  if (explicit) return explicit;
-
-  const cookieStore = await cookies();
-  return cookieStore.get("asymmetrix_auth_token")?.value ?? null;
+function normalizeAdvisorListItem(item: AdvisorListItem): AdvisorListItem {
+  const logo = readLogoFromRecord(item, getAdvisorFieldAliasesForColumn("logo"));
+  return logo ? { ...item, linkedin_logo: logo } : item;
 }
 
 function normalizeAdvisorsListResponse(
@@ -82,7 +81,7 @@ function normalizeAdvisorsListResponse(
 
   const listRoot =
     r.items ?? r.result1?.items ?? r.Advisors_companies?.items ?? [];
-  const items = Array.isArray(listRoot) ? listRoot : [];
+  const items = (Array.isArray(listRoot) ? listRoot : []).map(normalizeAdvisorListItem);
   const itemsTotal =
     r.itemsTotal ??
     r.result1?.itemsTotal ??
@@ -126,15 +125,12 @@ function normalizeAdvisorsListResponse(
 }
 
 export async function fetchAdvisorsServer(
-  filters: AdvisorsSearchFilters = createDefaultAdvisorFilters(),
-  authToken?: string | null
+  filters: AdvisorsSearchFilters = createDefaultAdvisorFilters()
 ): Promise<AdvisorsListResponse | null> {
   try {
-    const token = await resolveAuthToken(authToken);
-    if (!token) {
-      console.error("fetchAdvisorsServer: no auth token (cookie or client)");
-      return null;
-    }
+    const cookieStore = await cookies();
+    const token = cookieStore.get("asymmetrix_auth_token")?.value;
+    if (!token) return null;
 
     const payload = {
       ...filters,
@@ -181,11 +177,11 @@ export async function fetchAdvisorsServer(
 }
 
 export async function fetchAdvisorsCountsServer(
-  filters: AdvisorsSearchFilters = createDefaultAdvisorFilters(),
-  authToken?: string | null
+  filters: AdvisorsSearchFilters = createDefaultAdvisorFilters()
 ): Promise<ReturnType<typeof mapCountsToAdvisorsRoleCounts> | null> {
   try {
-    const token = await resolveAuthToken(authToken);
+    const cookieStore = await cookies();
+    const token = cookieStore.get("asymmetrix_auth_token")?.value;
     if (!token) return null;
 
     const params = advisorsCountsFiltersToSearchParams(filters);

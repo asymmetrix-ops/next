@@ -11,7 +11,6 @@ export const COMPANY_TABLE_DATA_URL =
 
 /** Columns rendered from Companies Search results only (no table-data fetch). */
 export const SEARCH_ONLY_COLUMN_KEYS = new Set([
-  "logo",
   "name",
   "description",
   "primary_sectors",
@@ -92,19 +91,6 @@ export const formatPercentValue = (value: unknown): string => {
   return `${pct.toFixed(decimals)}%`;
 };
 
-/** LinkedIn YoY growth is stored as percent points (0.7 = 0.7%), not a decimal fraction. */
-export const formatLinkedInGrowthPercentValue = (value: unknown): string => {
-  if (value == null || value === "") return EMPTY_DISPLAY;
-  const num =
-    typeof value === "number"
-      ? value
-      : Number(String(value).replace(/[^0-9.-]/g, ""));
-  if (!Number.isFinite(num)) return toPlainText(value);
-  const rounded = Math.round(num * 10) / 10;
-  const decimals = Math.abs(rounded) % 1 === 0 ? 0 : 1;
-  return `${rounded.toFixed(decimals)}%`;
-};
-
 export const formatMultipleValue = (value: unknown): string => {
   if (value == null || value === "") return EMPTY_DISPLAY;
   const num =
@@ -176,9 +162,10 @@ export function formatYearValue(value: unknown): string {
 }
 
 const PERCENT_COLUMN_KEYS = new Set([
+  "linkedin_growth",
   "revenue_growth",
   "ebitda_margin",
-  "subscription_revenue_pc",
+  "arr_pc",
   "churn_pc",
   "grr_pc",
   "nrr",
@@ -205,9 +192,6 @@ export function formatCompanyColumnDisplay(
   }
 
   if (columnKey === "nrr") return formatNrrValue(raw);
-  if (columnKey === "linkedin_growth") {
-    return formatLinkedInGrowthPercentValue(raw);
-  }
   if (columnKey === "years_since_last_investment") return toPlainText(raw);
   if (columnKey === "created_at") {
     if (isEmptyMetricValue(raw)) return EMPTY_DISPLAY;
@@ -234,7 +218,6 @@ export function formatCompanyColumnDisplay(
     columnKey === "ebitda_m" ||
     columnKey === "enterprise_value" ||
     columnKey === "arr_m" ||
-    columnKey === "subscription_revenue_m" ||
     columnKey === "ebit_m"
   ) {
     return formatMetricMillions(raw);
@@ -342,18 +325,15 @@ export function mapCompanyTableApiRow(
     ownership_type: toPlainText(row.ownership_type ?? row.ownership_status),
     linkedin_members: formatPlainNumber(row.linkedin_employee),
     li_emp: formatPlainNumber(row.linkedin_employee),
-    li_growth_pc: formatLinkedInGrowthPercentValue(row.linkedin_growth_1y_pct),
-    linkedin_growth: formatLinkedInGrowthPercentValue(row.linkedin_growth_1y_pct),
+    li_growth_pc: formatPercentValue(row.linkedin_growth_1y_pct),
+    linkedin_growth: formatPercentValue(row.linkedin_growth_1y_pct),
     revenue_m: formatPlainNumber(row.Revenue_m),
+    arr_m: formatPlainNumber(row.ARR_m),
     ebitda_m: formatPlainNumber(row.EBITDA_m),
     ebit_m: formatPlainNumber(row.EBIT_m),
     ev: formatPlainNumber(row.EV),
     enterprise_value: formatPlainNumber(row.EV),
-    subscription_revenue_pc: formatPercentValue(
-      row.Subscription_revenue_pc ?? row.ARR_pc
-    ),
-    subscription_revenue_m: formatPlainNumber(row.Subscription_revenue_m),
-    arr_m: formatPlainNumber(row.ARR_m),
+    arr_pc: formatPercentValue(row.ARR_pc),
     churn_pc: formatPercentValue(row.Churn_pc),
     grr_pc: formatPercentValue(row.GRR_pc),
     nrr: formatPercentValue(row.NRR),

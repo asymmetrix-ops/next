@@ -1,7 +1,9 @@
 import { addEntityToPortfolioApi } from "@/lib/portfolioEntity";
+import type { PortfolioEntityType } from "@/lib/portfolioEntity";
 import {
   followPortfolioEntities,
   invalidateUserPortfolioRecordCache,
+  ENTITY_TYPE_TO_FOLLOW_KEY,
 } from "@/lib/portfolioFollow";
 import { createUserListInXano } from "@/lib/userLists";
 
@@ -69,15 +71,18 @@ function parseCreatedListId(raw: unknown): number | null {
   return null;
 }
 
-export async function bulkAddCompaniesToPortfolio(
-  companyIds: number[],
+export async function bulkAddEntitiesToPortfolio(
+  entityType: PortfolioEntityType,
+  entityIds: number[],
   action: BulkPortfolioAction,
   onProgress?: (progress: BulkProgress) => void
 ): Promise<{ success: number; failed: number; listIds: number[] }> {
-  const ids = companyIds.filter((id) => Number.isFinite(id) && id > 0);
+  const ids = entityIds.filter((id) => Number.isFinite(id) && id > 0);
   if (ids.length === 0) {
     return { success: 0, failed: 0, listIds: [] };
   }
+
+  const followKey = ENTITY_TYPE_TO_FOLLOW_KEY[entityType];
 
   let listIds: number[] = [];
   if (action.mode === "new_list") {
@@ -98,7 +103,7 @@ export async function bulkAddCompaniesToPortfolio(
     onProgress?.({ total: ids.length, done: 0, success: 0, failed: 0 });
     try {
       await followPortfolioEntities({
-        followKey: "followed_companies",
+        followKey,
         entityIds: ids,
       });
       invalidateUserPortfolioRecordCache();
@@ -120,16 +125,16 @@ export async function bulkAddCompaniesToPortfolio(
     }
   }
 
-  type Task = { companyId: number; listId: number };
+  type Task = { entityId: number; listId: number };
   const tasks: Task[] = listIds.flatMap((listId) =>
-    ids.map((companyId) => ({ companyId, listId }))
+    ids.map((entityId) => ({ entityId, listId }))
   );
 
   onProgress?.({ total: tasks.length, done: 0, success: 0, failed: 0 });
 
   try {
     await followPortfolioEntities({
-      followKey: "followed_companies",
+      followKey,
       entityIds: ids,
     });
     invalidateUserPortfolioRecordCache();
@@ -149,8 +154,8 @@ export async function bulkAddCompaniesToPortfolio(
     async (task) => {
       await addEntityToPortfolioApi({
         portfolioId: task.listId,
-        entityType: "company",
-        entityId: task.companyId,
+        entityType,
+        entityId: task.entityId,
         skipGlobalFollow: true,
       });
       return true;
@@ -159,4 +164,12 @@ export async function bulkAddCompaniesToPortfolio(
   );
 
   return { success: result.success, failed: result.failed, listIds };
+}
+
+export async function bulkAddCompaniesToPortfolio(
+  companyIds: number[],
+  action: BulkPortfolioAction,
+  onProgress?: (progress: BulkProgress) => void
+): Promise<{ success: number; failed: number; listIds: number[] }> {
+  return bulkAddEntitiesToPortfolio("company", companyIds, action, onProgress);
 }

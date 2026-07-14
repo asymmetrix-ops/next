@@ -38,8 +38,7 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   revenue_growth: "revenue_growth",
   ebitda_margin: "ebitda_margin",
   rule_of_40: "rule_of_40",
-  subscription_revenue_pc: "arr_pc",
-  subscription_revenue_m: "subscription_revenue_m",
+  arr_pc: "arr_pc",
   arr_m: "arr_m",
   churn_pc: "churn",
   grr_pc: "grr",
@@ -55,10 +54,11 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   no_employees: "no_employees",
   rev_per_employee: "rev_per_employee",
   financial_year: "financial_year",
+  has_mcp: "has_mcp",
 };
 
 /** Frozen identity columns — API always returns these; omit from `columns[]`. */
-const IDENTITY_COLUMN_KEYS = new Set(["logo", "name"]);
+const IDENTITY_COLUMN_KEYS = new Set(["name"]);
 
 /**
  * All visible optional/default columns to request from Get_new_companies.
