@@ -140,7 +140,6 @@ const Header = () => {
     "Corporate Events",
     "Insights & Analysis",
     "Financials",
-    "Financial Metrics",
     "Financial Intelligence",
     "Deal Radar",
     "My Portfolio",
@@ -153,6 +152,8 @@ const Header = () => {
       borderBottom: "1px solid #e5e7eb",
       padding: "16.5px 0px",
       position: "relative" as const,
+      overflowX: "hidden" as const,
+      maxWidth: "100%",
     },
     container: {
       display: "flex",
@@ -160,11 +161,16 @@ const Header = () => {
       justifyContent: "space-between",
       padding: "0px 32px",
       width: "100%",
+      maxWidth: "100%",
+      minWidth: 0,
     },
     leftSection: {
       display: "flex",
       alignItems: "center",
       gap: "0px",
+      minWidth: 0,
+      flex: 1,
+      overflow: "hidden",
     },
     logo: {
       width: "48px",
@@ -184,6 +190,9 @@ const Header = () => {
     navDesktop: {
       display: "flex",
       gap: "4px",
+      minWidth: 0,
+      overflowX: "auto" as const,
+      overflowY: "hidden" as const,
     },
     navMobile: {
       display: "none",

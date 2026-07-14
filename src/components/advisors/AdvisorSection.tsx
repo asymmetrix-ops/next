@@ -32,9 +32,25 @@ import {
   getAdvisorColumnSortKind,
   getAdvisorServerSortColumn,
 } from "@/components/advisors/advisorsTableSort";
-import { SearchEntityDescription } from "@/components/search/SearchEntityDescription";
+import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
+import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
+import { buildNamedSectorItems } from "@/components/search/searchEntityLinkUtils";
+import {
+  splitCommaSeparatedValues,
+} from "@/components/search/searchMultiValueUtils";
+import { useSectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
+import type { SectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
+import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
+import {
+  isSearchTableSelectionEnabled,
+  SEARCH_TABLE_SELECT_COLUMN_WIDTH,
+  SearchTableSelectCell,
+  SearchTableSelectHeader,
+  type SearchTableSelectionProps,
+} from "@/components/search/searchTableSelection";
+import { usePageSelectionState } from "@/components/search/useEntitySelection";
 import {
   buildStickyColumnOffsets,
   getSearchTableColumnClassName,
@@ -55,7 +71,7 @@ interface AdvisorColumnDefinition {
 }
 
 const ALL_ADVISOR_COLUMNS: AdvisorColumnDefinition[] = [
-  { key: "name", label: "Advisor", minWidth: 200 },
+  { key: "name", label: "Advisor", minWidth: 220 },
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "events_advised", label: "# Corporate Events Advised", minWidth: 150 },
   { key: "sectors", label: "Advised D&A Sectors", wrap: true, minWidth: 180 },
@@ -103,6 +119,10 @@ export const AdvisorSection = ({
   sortDirection = "desc",
   onSortColumn,
   onSortClear,
+  selectedEntityIds,
+  onToggleEntitySelection,
+  onTogglePageSelection,
+  onClearSelection,
 }: {
   advisors: Advisor[];
   loading: boolean;
@@ -130,11 +150,12 @@ export const AdvisorSection = ({
   sortDirection?: "asc" | "desc";
   onSortColumn?: (columnKey: string) => void;
   onSortClear?: () => void;
+} & SearchTableSelectionProps & {
+  onClearSelection?: () => void;
 }) => {
   const router = useRouter();
   const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
-  const [expandedSectors, setExpandedSectors] = useState<Record<number, boolean>>({});
   const showColumnsModal =
     externalShowColumnsModal !== undefined
       ? externalShowColumnsModal
@@ -147,6 +168,30 @@ export const AdvisorSection = ({
   );
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
+  const sectorMaps = useSectorNameIdMaps();
+  const selectionEnabled = isSearchTableSelectionEnabled({
+    selectedEntityIds,
+    onToggleEntitySelection,
+    onTogglePageSelection,
+  });
+
+  const pageEntityIds = useMemo(
+    () =>
+      advisors
+        .map((advisor) => advisor.id)
+        .filter((id): id is number => typeof id === "number" && id > 0),
+    [advisors]
+  );
+
+  const pageSelectionState = usePageSelectionState(
+    pageEntityIds,
+    selectedEntityIds ?? new Set()
+  );
+
+  const selectedIdList = useMemo(
+    () => (selectedEntityIds ? Array.from(selectedEntityIds) : []),
+    [selectedEntityIds]
+  );
 
   const frozenColumnKeys = useMemo(
     () => getEffectiveFrozenAdvisorColumnKeys(filterPinnedColumnKeys),
@@ -154,8 +199,13 @@ export const AdvisorSection = ({
   );
 
   const stickyColumnOffsets = useMemo(
-    () => buildStickyColumnOffsets(frozenColumnKeys, ALL_ADVISOR_COLUMNS),
-    [frozenColumnKeys]
+    () =>
+      buildStickyColumnOffsets(
+        frozenColumnKeys,
+        ALL_ADVISOR_COLUMNS,
+        selectionEnabled ? SEARCH_TABLE_SELECT_COLUMN_WIDTH : 0
+      ),
+    [frozenColumnKeys, selectionEnabled]
   );
 
   useEffect(() => {
@@ -336,7 +386,7 @@ export const AdvisorSection = ({
   const renderAdvisorCell = (
     columnKey: string,
     advisor: Advisor,
-    index: number
+    sectorMaps?: SectorNameIdMaps
   ): React.ReactNode => {
     switch (columnKey) {
       case "name": {
@@ -346,6 +396,7 @@ export const AdvisorSection = ({
           <SearchEntityIdentityCell
             name={name}
             logo={advisor.linkedin_logo}
+            subtitle={advisor.country?.trim() || undefined}
             href={id ? `/advisor/${id}` : undefined}
             onClick={(e) => {
               if (
@@ -365,44 +416,19 @@ export const AdvisorSection = ({
         );
       }
       case "description":
-        return <SearchEntityDescription description={advisor.description || "-"} />;
+        return <SearchEntityLongText text={advisor.description || "-"} />;
       case "events_advised":
         return formatNumber(advisor.events_advised);
-      case "sectors": {
-        const sectorsText = advisor.sectors || "-";
-        const sectorsIsLong = sectorsText.length > 100;
-        const isExpanded = !!expandedSectors[index];
+      case "sectors":
         return (
-          <div>
-            <div className={isExpanded ? "sectors-full" : "sectors-truncated"}>
-              {sectorsText}
-            </div>
-            {sectorsIsLong && (
-              <button
-                type="button"
-                className="expand-sectors"
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  color: "#0075df",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
-                onClick={() =>
-                  setExpandedSectors((prev) => ({
-                    ...prev,
-                    [index]: !prev[index],
-                  }))
-                }
-              >
-                {isExpanded ? "Show less" : "Show more"}
-              </button>
+          <SearchEntityMultiValueCell
+            items={buildNamedSectorItems(
+              splitCommaSeparatedValues(advisor.sectors || ""),
+              "sector",
+              sectorMaps
             )}
-          </div>
+          />
         );
-      }
       case "linkedin_members":
         return formatNumber(advisor.linkedin_members);
       case "country":
@@ -599,10 +625,25 @@ export const AdvisorSection = ({
 
   return (
     <div className="company-section">
+      {selectionEnabled && selectedEntityIds!.size > 0 && onClearSelection && (
+        <BulkPortfolioActionToolbar
+          entityType="advisor"
+          entityIds={selectedIdList}
+          onClearSelection={onClearSelection}
+        />
+      )}
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>
             <tr>
+              {selectionEnabled && onTogglePageSelection && (
+                <SearchTableSelectHeader
+                  pageIds={pageEntityIds}
+                  pageSelectionState={pageSelectionState}
+                  onTogglePageSelection={onTogglePageSelection}
+                  ariaLabel="Select all advisors on this page"
+                />
+              )}
               {selectedColumns.map((column) => {
                 const sortKind = getAdvisorColumnSortKind(column.key);
                 const isActive = sortColumnKey === column.key;
@@ -707,11 +748,41 @@ export const AdvisorSection = ({
           <tbody>
             {advisors.length === 0 ? (
               <tr>
-                <td colSpan={selectedColumns.length}>No advisors found.</td>
+                <td colSpan={selectedColumns.length + (selectionEnabled ? 1 : 0)}>
+                  No advisors found.
+                </td>
               </tr>
             ) : (
-              advisors.map((advisor, index) => (
-                <tr key={`${advisor.id ?? index}`}>
+              advisors.map((advisor, index) => {
+                const entityId = advisor.id;
+                const isRowSelected =
+                  typeof entityId === "number" && selectedEntityIds?.has(entityId);
+                return (
+                <tr
+                  key={`${advisor.id ?? index}`}
+                  className={isRowSelected ? "company-table-row-selected" : undefined}
+                >
+                  {selectionEnabled &&
+                    onToggleEntitySelection &&
+                    typeof entityId === "number" &&
+                    entityId > 0 && (
+                      <SearchTableSelectCell
+                        entityId={entityId}
+                        selected={Boolean(isRowSelected)}
+                        onToggle={onToggleEntitySelection}
+                        ariaLabel={`Select ${advisor.name || "advisor"}`}
+                      />
+                    )}
+                  {selectionEnabled &&
+                    (typeof entityId !== "number" || entityId <= 0) && (
+                      <td
+                        className="company-table-select-cell"
+                        style={{
+                          minWidth: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
+                          width: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
+                        }}
+                      />
+                    )}
                   {selectedColumns.map((column) => (
                     <td
                       key={`${column.key}-${index}`}
@@ -721,15 +792,18 @@ export const AdvisorSection = ({
                         ...getStickyColumnStyle(
                           column.key,
                           stickyColumnOffsets,
-                          column.minWidth
+                          column.minWidth,
+                          false,
+                          Boolean(isRowSelected)
                         ),
                       }}
                     >
-                      {renderAdvisorCell(column.key, advisor, index)}
+                      {renderAdvisorCell(column.key, advisor, sectorMaps)}
                     </td>
                   ))}
                 </tr>
-              ))
+              );
+              })
             )}
           </tbody>
         </table>

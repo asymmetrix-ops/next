@@ -57,6 +57,8 @@ import {
 } from "@/components/corporate-events/corporateEventsPartyLinks";
 import { locationsService } from "@/lib/locationsService";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
+import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
+import { entityLinksToMultiValueItems } from "@/components/search/searchMultiValueUtils";
 import {
   buildStickyColumnOffsets,
   getSearchTableColumnClassName,
@@ -416,24 +418,25 @@ export const CorporateEventsSearchSection = ({
   const renderEntityLinks = (
     links: EntityLink[],
     keyPrefix: string
+  ): React.ReactNode => (
+    <SearchEntityMultiValueCell
+      items={entityLinksToMultiValueItems(links, keyPrefix)}
+    />
+  );
+
+  const renderSectorCell = (
+    text: string,
+    nameToId: Record<string, number>,
+    hrefPrefix: "/sector" | "/sub-sector"
   ): React.ReactNode => {
-    if (links.length === 0) return null;
-    return links.map((link, index) => (
-      <span key={`${keyPrefix}-${link.id ?? link.name}-${index}`}>
-        {link.href ? (
-          <a
-            href={link.href}
-            className="link-blue"
-            style={SEARCH_ENTITY_LINK_STYLE}
-          >
-            {link.name}
-          </a>
-        ) : (
-          <span>{link.name}</span>
-        )}
-        {index < links.length - 1 && ", "}
-      </span>
-    ));
+    const links = renderSectorLinks(text, nameToId);
+    const items = links.map((entry, index) => ({
+      name: entry.name,
+      href:
+        typeof entry.id === "number" ? `${hrefPrefix}/${entry.id}` : undefined,
+      key: `${hrefPrefix}-${entry.id ?? entry.name}-${index}`,
+    }));
+    return <SearchEntityMultiValueCell items={items} />;
   };
 
   const renderPartiesCell = (event: CorporateEventItem) => {
@@ -476,31 +479,6 @@ export const CorporateEventsSearchSection = ({
         )}
       </div>
     );
-  };
-
-  const renderSectorCell = (
-    text: string,
-    nameToId: Record<string, number>,
-    hrefPrefix: "/sector" | "/sub-sector"
-  ): React.ReactNode => {
-    const links = renderSectorLinks(text, nameToId);
-    if (links.length === 0) return "-";
-    return links.map((entry, index) => (
-      <span key={`${entry.name}-${index}`}>
-        {typeof entry.id === "number" ? (
-          <a
-            href={`${hrefPrefix}/${entry.id}`}
-            className="link-blue"
-            style={SEARCH_ENTITY_LINK_STYLE}
-          >
-            {entry.name}
-          </a>
-        ) : (
-          entry.name
-        )}
-        {index < links.length - 1 && ", "}
-      </span>
-    ));
   };
 
   const renderEventCell = (

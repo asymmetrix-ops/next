@@ -2,61 +2,34 @@
 
 import React, { useCallback, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
-import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import type { SearchMultiValueItem } from "@/components/search/searchMultiValueUtils";
 
 const DEFAULT_MAX_VISIBLE = 10;
-const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
 type SearchEntityMultiValueCellProps = {
   items: SearchMultiValueItem[];
   maxVisible?: number;
-  onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
-function renderEntityLabel(item: SearchMultiValueItem) {
-  const flagEl = item.hqIso2 ? (
-    <CountryFlagImg iso2={item.hqIso2} size={ENTITY_FLAG_SIZE_PX} />
-  ) : null;
-
-  return (
-    <span className="search-multi-value-label">
-      {item.name}
-      {flagEl}
-    </span>
-  );
-}
-
-function renderInlineValue(
-  item: SearchMultiValueItem,
-  onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void
-) {
+function renderInlineValue(item: SearchMultiValueItem) {
   if (item.href) {
     return (
       <a
         href={item.href}
         className="search-multi-value-link"
-        onClick={(event) => {
-          event.stopPropagation();
-          if (onLinkClick) {
-            event.preventDefault();
-            onLinkClick(event);
-          }
-        }}
+        onClick={(event) => event.stopPropagation()}
       >
-        {renderEntityLabel(item)}
+        {item.name}
       </a>
     );
   }
 
-  return renderEntityLabel(item);
+  return <span>{item.name}</span>;
 }
 
 export function SearchEntityMultiValueCell({
   items,
   maxVisible = DEFAULT_MAX_VISIBLE,
-  onLinkClick,
 }: SearchEntityMultiValueCellProps) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -116,7 +89,7 @@ export function SearchEntityMultiValueCell({
         {visibleItems.map((item, index) => (
           <React.Fragment key={item.key ?? `visible-${item.name}-${index}`}>
             {index > 0 ? ", " : null}
-            {renderInlineValue(item, onLinkClick)}
+            {renderInlineValue(item)}
           </React.Fragment>
         ))}
         {hiddenCount > 0 ? (
@@ -154,7 +127,7 @@ export function SearchEntityMultiValueCell({
                     key={item.key ?? `popover-${item.name}-${index}`}
                     className="search-multi-value-popover-item"
                   >
-                    {renderInlineValue(item, onLinkClick)}
+                    {renderInlineValue(item)}
                   </div>
                 ))}
               </div>
@@ -180,12 +153,6 @@ export const SEARCH_MULTI_VALUE_STYLES = `
     text-decoration: underline;
     font-weight: 500;
     cursor: pointer;
-  }
-  .search-multi-value-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    vertical-align: middle;
   }
   .search-multi-value-link:hover {
     color: #005bb5;

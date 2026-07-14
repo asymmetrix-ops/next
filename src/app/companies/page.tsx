@@ -11,7 +11,6 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { buildMcpGuestCompaniesFilters, buildMcpGuestCompaniesCountsFilters } from "@/lib/companiesFilterPayload";
-import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import { CompanyDashboard } from "@/components/companies/CompanyDashboard";
 import {
   CompanySection,
@@ -31,6 +30,7 @@ import {
   CompaniesFilters as ServerFilters,
 } from "./actions";
 import { CompaniesEditContext } from "./CompaniesEditContext";
+import { useEntitySelection } from "@/components/search/useEntitySelection";
 
 const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -251,50 +251,16 @@ function CompaniesPageInner() {
     DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS.length
   );
   const exportCSVRef = useRef<(() => void) | null>(null);
-  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<number>>(
-    () => new Set()
-  );
-  const [showBulkAddModal, setShowBulkAddModal] = useState(false);
-
   const filtersKey = useMemo(
     () => JSON.stringify(currentFilters ?? {}),
     [currentFilters]
   );
-
-  useEffect(() => {
-    setSelectedCompanyIds(new Set());
-  }, [filtersKey]);
-
-  const toggleCompanySelection = useCallback((id: number) => {
-    setSelectedCompanyIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const togglePageSelection = useCallback((ids: number[]) => {
-    setSelectedCompanyIds((prev) => {
-      const next = new Set(prev);
-      const allSelected = ids.length > 0 && ids.every((id) => next.has(id));
-      if (allSelected) {
-        ids.forEach((id) => next.delete(id));
-      } else {
-        ids.forEach((id) => next.add(id));
-      }
-      return next;
-    });
-  }, []);
-
-  const clearSelection = useCallback(() => {
-    setSelectedCompanyIds(new Set());
-  }, []);
-
-  const selectedCompanyIdList = useMemo(
-    () => Array.from(selectedCompanyIds),
-    [selectedCompanyIds]
-  );
+  const {
+    selectedIds: selectedCompanyIds,
+    toggleSelection: toggleCompanySelection,
+    togglePageSelection,
+    clearSelection,
+  } = useEntitySelection(filtersKey);
 
   return (
     <div className="min-h-screen">
@@ -310,10 +276,6 @@ function CompaniesPageInner() {
         onExportCSVClick={
           isMcpGuest ? undefined : () => exportCSVRef.current?.()
         }
-        onAddToPortfolioClick={
-          isMcpGuest ? undefined : () => setShowBulkAddModal(true)
-        }
-        selectedCount={selectedCompanyIds.size}
         columnsCount={columnsCount}
         columnsActive={showColumnsModal}
         guestMode={isMcpGuest}
@@ -353,14 +315,6 @@ function CompaniesPageInner() {
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
         readOnlyGuestMode={isMcpGuest}
       />
-      {!isMcpGuest && (
-      <BulkAddToPortfolioModal
-        isOpen={showBulkAddModal}
-        onClose={() => setShowBulkAddModal(false)}
-        companyIds={selectedCompanyIdList}
-        onComplete={clearSelection}
-      />
-      )}
       <Footer />
     </div>
   );

@@ -6,8 +6,6 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import type { CompanyColumnCategory } from "@/components/companies/companiesColumnCategories";
@@ -26,6 +24,9 @@ import {
   getColumnSortKind,
   getSortValueForColumn,
 } from "./financialScreenerTableSort";
+import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
+import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
+import { SEARCH_MULTI_VALUE_STYLES } from "@/components/search/SearchEntityMultiValueCell";
 import {
   getScreenerCellValue,
   getOwnershipPillStyle,
@@ -38,6 +39,8 @@ import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { fetchFinancialScreenerServer } from "@/app/financials/actions";
 import { applyClientFilters } from "./financialScreenerFilterPayload";
+import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
+import { SEARCH_BULK_TOOLBAR_STYLES } from "@/components/search/searchTableStyles";
 
 const COLUMN_STORAGE_KEY = "financial-screener-column-keys-v2";
 const SELECT_COLUMN_WIDTH = 44;
@@ -124,39 +127,8 @@ export interface FinancialScreenerSectionProps {
   selectedCompanyIds?: Set<number>;
   onToggleCompanySelection?: (id: number) => void;
   onTogglePageSelection?: (ids: number[]) => void;
+  onClearSelection?: () => void;
 }
-
-const CompanyLogo = ({ logo, name }: { logo?: string; name: string }) => (
-  <div className="company-logo-cell">
-    {logo ? (
-      <Image
-        src={`data:image/jpeg;base64,${logo}`}
-        alt={`${name} logo`}
-        width={40}
-        height={40}
-        className="company-logo"
-        style={{ objectFit: "contain", borderRadius: 4 }}
-      />
-    ) : (
-      <div
-        className="company-logo-placeholder"
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 4,
-          background: "#f1f5f9",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 10,
-          color: "#94a3b8",
-        }}
-      >
-        —
-      </div>
-    )}
-  </div>
-);
 
 export const FinancialScreenerSection = ({
   items,
@@ -173,6 +145,7 @@ export const FinancialScreenerSection = ({
   selectedCompanyIds = new Set(),
   onToggleCompanySelection,
   onTogglePageSelection,
+  onClearSelection,
 }: FinancialScreenerSectionProps) => {
   const router = useRouter();
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
@@ -316,44 +289,62 @@ export const FinancialScreenerSection = ({
 
   const renderCell = (item: FinancialScreenerItem, columnKey: string) => {
     if (columnKey === "company") {
+      const hqRaw = formatScreenerHq(item);
+      const subtitle = hqRaw && hqRaw !== "—" ? hqRaw : undefined;
       return (
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <CompanyLogo logo={item.logo} name={item.name} />
-          <div>
-            <Link
-              href={`/new_company/${item.id}`}
-              style={{
-                fontWeight: 600,
-                color: "#0f172a",
-                textDecoration: "none",
-                fontSize: 14,
-              }}
-            >
-              {item.name}
-            </Link>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
-              {formatScreenerHq(item)}
-            </div>
-          </div>
-        </div>
+        <SearchEntityIdentityCell
+          name={item.name}
+          logo={item.logo}
+          subtitle={subtitle}
+          href={`/company/${item.id}`}
+          onClick={(e) => {
+            if (
+              e.defaultPrevented ||
+              e.button !== 0 ||
+              e.metaKey ||
+              e.ctrlKey ||
+              e.shiftKey ||
+              e.altKey
+            ) {
+              return;
+            }
+            e.preventDefault();
+            router.push(`/company/${item.id}`);
+          }}
+        />
       );
     }
 
     if (columnKey === "sector") {
-      const primary = item.primary_sectors?.[0]?.sector_name;
-      const secondary = item.secondary_sectors?.[0]?.sector_name;
-      return (
-        <div>
-          <div style={{ fontWeight: 500, color: "#0f172a" }}>
-            {primary || "—"}
-          </div>
-          {secondary ? (
-            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
-              {secondary}
-            </div>
-          ) : null}
-        </div>
-      );
+      const items = (item.primary_sectors ?? [])
+        .map((sector, index) => {
+          const name = sector.sector_name?.trim();
+          if (!name) return null;
+          return {
+            name,
+            href: `/sector/${sector.id}`,
+            key: `sector-${sector.id}-${index}`,
+          };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry != null);
+
+      return <SearchEntityMultiValueCell items={items} />;
+    }
+
+    if (columnKey === "sub_sector") {
+      const items = (item.secondary_sectors ?? [])
+        .map((sector, index) => {
+          const name = sector.sector_name?.trim();
+          if (!name) return null;
+          return {
+            name,
+            href: `/sub-sector/${sector.id}`,
+            key: `sub-sector-${sector.id}-${index}`,
+          };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry != null);
+
+      return <SearchEntityMultiValueCell items={items} />;
     }
 
     if (columnKey === "ownership") {
@@ -450,6 +441,21 @@ export const FinancialScreenerSection = ({
           width: 44px;
           min-width: 44px;
         }
+        .financial-screener-table tbody .financial-screener-table-select-cell input[type="checkbox"] {
+          opacity: 0;
+          transition: opacity 0.15s ease;
+          cursor: pointer;
+        }
+        .financial-screener-table tbody tr:hover .financial-screener-table-select-cell input[type="checkbox"],
+        .financial-screener-table tbody tr.financial-screener-table-row-selected .financial-screener-table-select-cell input[type="checkbox"],
+        .financial-screener-table tbody .financial-screener-table-select-cell input[type="checkbox"]:focus-visible {
+          opacity: 1;
+        }
+        ${SEARCH_BULK_TOOLBAR_STYLES}
+        ${SEARCH_MULTI_VALUE_STYLES}
+        .financial-screener-table td:has(.search-multi-value-cell) {
+          white-space: normal !important;
+        }
       `}</style>
 
       {showColumnsModal && (
@@ -471,6 +477,14 @@ export const FinancialScreenerSection = ({
         {error ? (
           <div style={{ padding: "24px 0", color: "#dc2626" }}>{error}</div>
         ) : null}
+
+        {selectedCompanyIds.size > 0 && onClearSelection && (
+          <BulkPortfolioActionToolbar
+            entityType="company"
+            entityIds={Array.from(selectedCompanyIds)}
+            onClearSelection={onClearSelection}
+          />
+        )}
 
         <div className="financial-screener-table-scroll">
           <table className="financial-screener-table">
