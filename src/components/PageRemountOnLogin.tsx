@@ -25,6 +25,8 @@ const PUBLIC_PATHS = [
  *    understands what they're about to unlock, and avoids firing API calls
  *    before a valid token exists.
  *
+ *    Prospect users get the same skeleton preview behind the Calendly overlay.
+ *
  * 2. After a successful login, bump `loginVersion` causes React to treat the
  *    inner div as a new element (changed key), fully remounting the page and
  *    re-running all useEffect API calls with the now-valid auth token.
@@ -49,7 +51,12 @@ export default function PageRemountOnLogin({
   }
 
   if (isProspect && !isPublicPath) {
-    return <ProspectConversionCard email={prospectEmail} />;
+    return (
+      <>
+        <PageSkeleton pathname={pathname ?? "/"} />
+        <ProspectConversionCard email={prospectEmail} />
+      </>
+    );
   }
 
   if (showLoginModal) {

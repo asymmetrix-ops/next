@@ -452,6 +452,7 @@ function resolveVariant(pathname: string) {
     pathname.startsWith("/advisor/") ||
     pathname.startsWith("/investors/") ||
     pathname.startsWith("/company/") ||
+    pathname.startsWith("/new_company/") ||
     pathname.startsWith("/individual/")
   )
     return "detail";
