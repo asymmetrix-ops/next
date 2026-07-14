@@ -78,6 +78,7 @@ import {
   getApiColumnsForSelectedKeys,
   getApiColumnsSignature,
 } from "@/components/companies/companiesApiColumns";
+import { SHOW_ARR } from "@/lib/platformVisibility";
 import {
   getFieldAliasesForColumn,
   LIST_JSON_COLUMN_KEYS,
@@ -855,7 +856,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
     cols: [
       makeTextColumn("subscription_revenue_pc", "Subscription Revenue %", "Subscription Metrics"),
       makeTextColumn("subscription_revenue_m", "Subscription Revenue (m)", "Subscription Metrics"),
-      makeTextColumn("arr_m", "ARR (m)", "Subscription Metrics"),
+      ...(SHOW_ARR ? [makeTextColumn("arr_m", "ARR (m)", "Subscription Metrics")] : []),
       makeTextColumn("churn_pc", "Churn", "Subscription Metrics"),
       makeTextColumn("grr_pc", "GRR", "Subscription Metrics"),
       makeTextColumn("nrr", "NRR", "Subscription Metrics"),
@@ -1727,8 +1728,12 @@ const CompanySection = ({
                 ? String(it.Rule_of_40)
                 : "-",
             // Subscription Metrics - exact field names from API
-            "Recurring Revenue": CompaniesCSVExporter.formatPercent(arrPc),
-            ARR: it.ARR_m != null && it.ARR_m !== "" ? `${it.ARR_m}M` : "-",
+            ...(SHOW_ARR
+              ? {
+                  "Recurring Revenue": CompaniesCSVExporter.formatPercent(arrPc),
+                  ARR: it.ARR_m != null && it.ARR_m !== "" ? `${it.ARR_m}M` : "-",
+                }
+              : {}),
             Churn:
               it.Churn_pc != null && it.Churn_pc !== ""
                 ? `${it.Churn_pc}%`

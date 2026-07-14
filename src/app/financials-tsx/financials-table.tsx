@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import type { FinRow, ColumnDef, Tweaks, SectorMedian } from './types';
 import { FIN_SECTOR_MEDIAN } from './financials-data';
 import { CompanyAvatar } from '@/components/CompanyAvatar';
+import { filterArrSubscriptionRows } from '@/lib/platformVisibility';
 
 // ── Number formatting ────────────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ function OwnershipTag({ kind }: { kind: string }) {
 // ── Column definitions ───────────────────────────────────────────────────────
 
 export function buildColumns(currencySymbol: string): ColumnDef[] {
-  return [
+  return filterArrSubscriptionRows([
     { id: 'company',       label: 'Company',           kind: 'company',  align: 'left',  sticky: true, minWidth: 170 },
     { id: 'sector',        label: 'Sector',            kind: 'sector',   align: 'left',  minWidth: 150 },
     { id: 'hq',            label: 'HQ',                kind: 'text',     align: 'left',  minWidth: 70 },
@@ -126,7 +127,7 @@ export function buildColumns(currencySymbol: string): ColumnDef[] {
     { id: 'rev_per_employee', label: 'Revenue / employee',   kind: 'currency', align: 'right', symbol: currencySymbol },
     { id: 'financial_year',   label: 'FY end',               kind: 'text',     align: 'left',  minWidth: 90 },
     { id: 'trend',            label: '5y trend',             kind: 'spark',    align: 'right', noSort: true, minWidth: 70 },
-  ];
+  ]);
 }
 
 // ── Cell renderer ────────────────────────────────────────────────────────────

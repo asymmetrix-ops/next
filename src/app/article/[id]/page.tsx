@@ -17,6 +17,7 @@ import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { canUserViewArticle } from "@/lib/articleVisibility";
 import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
+import { SHOW_ARR, isArrColumnKey } from "@/lib/platformVisibility";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -176,6 +177,9 @@ interface ColumnDefinition {
   label: string;
 }
 
+const filterVisibleTableColumns = (cols: ColumnDefinition[]) =>
+  SHOW_ARR ? cols : cols.filter((column) => !isArrColumnKey(column.key));
+
 const COL_GROUPS: Array<{ group: string; cols: ColumnDefinition[] }> = [
   {
     group: "Overview",
@@ -230,7 +234,12 @@ const COL_GROUPS: Array<{ group: string; cols: ColumnDefinition[] }> = [
   },
 ];
 
-const ALL_TABLE_COLUMNS: ColumnDefinition[] = COL_GROUPS.flatMap((g) => g.cols);
+const VISIBLE_COL_GROUPS = COL_GROUPS.map((group) => ({
+  ...group,
+  cols: filterVisibleTableColumns(group.cols),
+}));
+
+const ALL_TABLE_COLUMNS: ColumnDefinition[] = VISIBLE_COL_GROUPS.flatMap((g) => g.cols);
 const WRAP_COLS = new Set([
   "primary_sectors",
   "secondary_sectors",
@@ -2390,6 +2399,7 @@ const ArticleDetailPage = () => {
                             {revenueDisplay}
                           </span>
                         </div>
+                        {SHOW_ARR ? (
                         <div style={styles.infoRow}>
                           <span style={styles.label}>ARR (m)</span>
                           <span
@@ -2401,6 +2411,7 @@ const ArticleDetailPage = () => {
                             {arrDisplay}
                           </span>
                         </div>
+                        ) : null}
                         <div style={styles.infoRow}>
                           <span style={styles.label}>EBITDA (m)</span>
                           <span
@@ -3160,7 +3171,7 @@ const ArticleDetailPage = () => {
                   </button>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {COL_GROUPS.map((group) => (
+                  {VISIBLE_COL_GROUPS.map((group) => (
                     <div key={group.group}>
                       <p
                         style={{

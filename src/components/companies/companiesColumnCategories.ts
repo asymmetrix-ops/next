@@ -1,3 +1,5 @@
+import { filterArrFromCategories } from "@/lib/platformVisibility";
+
 export type CompanyColumnType =
   | "text"
   | "paragraph"
@@ -29,7 +31,7 @@ export interface CompanyColumnCategory {
   columns: CompanyColumnMeta[];
 }
 
-export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
+const COMPANIES_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
   {
     id: "identity",
     name: "Identity",
@@ -412,6 +414,10 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
     ],
   },
 ];
+
+export const COMPANIES_COLUMN_CATEGORIES = filterArrFromCategories(
+  COMPANIES_COLUMN_CATEGORIES_RAW
+);
 
 export const ALL_COMPANIES_COLUMN_META = COMPANIES_COLUMN_CATEGORIES.flatMap(
   (category) => category.columns

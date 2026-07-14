@@ -6,6 +6,7 @@ import {
   buildColumnLinkedFilterDefs,
   EXTRA_FILTER_DEFS,
 } from "@/components/companies/companiesColumnFilterMap";
+import { SHOW_ARR } from "@/lib/platformVisibility";
 
 export type CompaniesOwnershipCounts = {
   totalCount: number;
@@ -29,7 +30,7 @@ export const EMPTY_OWNERSHIP_COUNTS: CompaniesOwnershipCounts = {
   otherCompanies: 0,
 };
 
-export const FILTER_CATEGORIES: FilterCategory[] = [
+const FILTER_CATEGORIES_ALL: FilterCategory[] = [
   { id: "lists", name: "Lists" },
   { id: "location", name: "Location" },
   { id: "sectors", name: "Sectors" },
@@ -39,6 +40,10 @@ export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "arr", name: "ARR" },
   { id: "other", name: "Other metrics" },
 ];
+
+export const FILTER_CATEGORIES: FilterCategory[] = SHOW_ARR
+  ? FILTER_CATEGORIES_ALL
+  : FILTER_CATEGORIES_ALL.filter((category) => category.id !== "arr");
 
 type Country = { locations_Country: string };
 type Province = { State__Province__County: string };

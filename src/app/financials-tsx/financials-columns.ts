@@ -1,6 +1,7 @@
 import type { ColumnCategory } from './types';
+import { filterArrFromCategories } from '@/lib/platformVisibility';
 
-export const FIN_COLUMN_CATEGORIES: ColumnCategory[] = [
+const FIN_COLUMN_CATEGORIES_RAW: ColumnCategory[] = [
   {
     id: 'company_info',
     name: 'Company Info',
@@ -56,6 +57,10 @@ export const FIN_COLUMN_CATEGORIES: ColumnCategory[] = [
     ],
   },
 ];
+
+export const FIN_COLUMN_CATEGORIES = filterArrFromCategories(
+  FIN_COLUMN_CATEGORIES_RAW
+);
 
 // ── Derived helpers ──────────────────────────────────────────────────────────
 

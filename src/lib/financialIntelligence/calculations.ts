@@ -1,7 +1,8 @@
 import type { FiCompanyRow, FiMetricDef, FiMetricKey, FiMetricSourceType } from "./types";
 import { isMetricSourceAllowed } from "./sourceTypes";
+import { SHOW_ARR } from "@/lib/platformVisibility";
 
-export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
+const FI_BENCHMARK_METRICS_ALL: FiMetricDef[] = [
   { key: "revenue_m_usd", label: "Revenue", higherIsBetter: true, format: "currency" },
   { key: "arr_m_usd", label: "ARR", higherIsBetter: true, format: "currency" },
   { key: "ev_usd", label: "EV", higherIsBetter: true, format: "currency" },
@@ -47,6 +48,10 @@ export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
   },
 ];
 
+export const FI_BENCHMARK_METRICS: FiMetricDef[] = SHOW_ARR
+  ? FI_BENCHMARK_METRICS_ALL
+  : FI_BENCHMARK_METRICS_ALL.filter((metric) => metric.key !== "arr_m_usd");
+
 export const FI_BENCHMARK_SECTIONS: Array<{
   id: string;
   label: string;
@@ -57,7 +62,7 @@ export const FI_BENCHMARK_SECTIONS: Array<{
     label: "Scale",
     keys: [
       "revenue_m_usd",
-      "arr_m_usd",
+      ...(SHOW_ARR ? (["arr_m_usd"] as FiMetricKey[]) : []),
       "ev_usd",
       "no_of_clients",
       "revenue_per_employee",

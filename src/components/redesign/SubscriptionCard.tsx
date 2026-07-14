@@ -5,6 +5,7 @@
  */
 import React from "react";
 import { LinkPanel, LinkedH, MiniKV, Delta, T, overviewBodyPadding } from "./primitives";
+import { filterArrSubscriptionRows } from "@/lib/platformVisibility";
 
 export type SubscriptionMetrics = {
   recurringRev?: string;
@@ -32,7 +33,7 @@ export function SubscriptionCard({
   revExpansion,
   fillGridCell = false,
 }: SubscriptionMetrics & { fillGridCell?: boolean }) {
-  const rows: { k: string; v: React.ReactNode; mono?: boolean }[] = [
+  const rows = filterArrSubscriptionRows([
     {
       k: "Recurring rev",
       v: recurringRev || <span style={{ color: T.faint }}>—</span>,
@@ -86,7 +87,7 @@ export function SubscriptionCard({
       v: revExpansion || <span style={{ color: T.faint }}>—</span>,
       mono: true,
     },
-  ];
+  ]);
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
