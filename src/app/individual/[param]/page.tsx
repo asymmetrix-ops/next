@@ -17,6 +17,7 @@ import { IndividualOverviewCard } from "@/components/individuals/IndividualOverv
 import { IndividualRolesProfilePanel } from "@/components/individuals/IndividualRolesProfilePanel";
 import { IndividualRelatedProfilePanel } from "@/components/individuals/IndividualRelatedProfilePanel";
 import type { CorporateEvent as IndividualCorporateEvent } from "@/types/individual";
+import { getEntityInitials } from "@/utils/entityInitials";
 
 function mapIndividualEventsForProfile(
   events: IndividualCorporateEvent[]
@@ -90,7 +91,7 @@ function PersonAvatar({ name }: { name: string }) {
         flexShrink: 0,
       }}
     >
-      {name.charAt(0).toUpperCase()}
+      {getEntityInitials(name)}
     </div>
   );
 }

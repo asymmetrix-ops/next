@@ -28,6 +28,7 @@ import {
   fetchIndividualsCountsServer,
   fetchJobTitlesServer,
 } from "./actions";
+import { authService } from "@/lib/auth";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
 
 const useIndividualsAPI = () => {
@@ -58,7 +59,10 @@ const useIndividualsAPI = () => {
     if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
     countsTimeoutRef.current = setTimeout(() => {
       const countsRequestId = ++lastCountsRequestIdRef.current;
-      void fetchIndividualsCountsServer(countsFilters)
+      void fetchIndividualsCountsServer(
+        countsFilters,
+        authService.getToken()
+      )
         .then((countsData) => {
           if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
             return;
@@ -99,10 +103,17 @@ const useIndividualsAPI = () => {
           scheduleCountsFetch(countsFiltersToUse);
         }
 
-        const data = await fetchIndividualsServer({ ...filtersToUse, page });
+        const data = await fetchIndividualsServer(
+          { ...filtersToUse, page },
+          authService.getToken()
+        );
 
         if (!data) {
-          throw new Error("Failed to fetch individuals - authentication required");
+          throw new Error(
+            authService.getToken()
+              ? "Failed to fetch individuals"
+              : "Authentication required"
+          );
         }
 
         if (requestId === lastRequestIdRef.current) {
@@ -132,7 +143,15 @@ const useIndividualsAPI = () => {
   );
 
   useEffect(() => {
-    void fetchJobTitlesServer().then(setJobTitles).catch(console.error);
+    authService.ensureAuthCookie();
+    const token = authService.getToken();
+    if (!token) {
+      setLoading(false);
+      setError("Authentication required");
+      return;
+    }
+
+    void fetchJobTitlesServer(token).then(setJobTitles).catch(console.error);
     const defaults = createDefaultIndividualFilters();
     fetchIndividuals(1, defaults, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
