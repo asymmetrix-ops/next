@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
@@ -391,7 +391,11 @@ const InvestorDetailPage = () => {
   const params = useParams();
   const investorId = params.id as string;
   const descriptionRef = useRef<HTMLDivElement>(null);
+  const overviewGridRef = useRef<HTMLDivElement | null>(null);
+  const descriptionGridRef = useRef<HTMLDivElement | null>(null);
+  const focusMixGridRef = useRef<HTMLDivElement | null>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [rowOneCardHeight, setRowOneCardHeight] = useState(0);
   const [activeProfileTab, setActiveProfileTab] = useState<string>("Summary");
 
   const [investorData, setInvestorData] = useState<InvestorData | null>(null);
@@ -1160,6 +1164,66 @@ const InvestorDetailPage = () => {
     portfolioPagination,
   ]);
 
+  const rowOneHeightStyle = useMemo((): React.CSSProperties => {
+    if (rowOneCardHeight <= 0) return {};
+    return {
+      height: rowOneCardHeight,
+      minHeight: rowOneCardHeight,
+      maxHeight: rowOneCardHeight,
+    };
+  }, [rowOneCardHeight]);
+
+  useEffect(() => {
+    setIsDescriptionExpanded(false);
+  }, [investorData?.Investor?.description]);
+
+  useEffect(() => {
+    setRowOneCardHeight(0);
+  }, [
+    investorId,
+    investorData?.Investor?.id,
+    portfolioMixLoading,
+    portfolioMix,
+  ]);
+
+  useEffect(() => {
+    if (!isDescriptionExpanded) {
+      setRowOneCardHeight(0);
+    }
+  }, [isDescriptionExpanded]);
+
+  useLayoutEffect(() => {
+    if (isDescriptionExpanded || rowOneCardHeight !== 0) return;
+
+    const overviewEl = overviewGridRef.current;
+    const focusMixEl = focusMixGridRef.current;
+    const descEl = descriptionGridRef.current;
+    if (!overviewEl || !focusMixEl || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const measure = () => {
+      const prevDisplay = descEl?.style.display ?? "";
+      if (descEl) descEl.style.display = "none";
+      const max = Math.max(overviewEl.offsetHeight, focusMixEl.offsetHeight);
+      if (descEl) descEl.style.display = prevDisplay;
+      if (max > 0) setRowOneCardHeight(max);
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(overviewEl);
+    ro.observe(focusMixEl);
+    return () => ro.disconnect();
+  }, [
+    rowOneCardHeight,
+    isDescriptionExpanded,
+    investorId,
+    investorData?.Investor?.id,
+    portfolioMixLoading,
+    portfolioMix,
+  ]);
+
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
@@ -1501,7 +1565,18 @@ const InvestorDetailPage = () => {
         <div className="investor-detail-content" style={styles.maxWidth}>
           {activeProfileTab === "Summary" ? (
           <div style={styles.responsiveGrid} className="responsiveGrid">
-            <div className="investor-grid-overview">
+            <div
+              ref={overviewGridRef}
+              className="investor-grid-overview"
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                width: "100%",
+                ...rowOneHeightStyle,
+              }}
+            >
               <InvestorOverviewCard
                 fillGridCell
                 focusSectors={Focus.filter((f) => f?.sector_name).map((f) => ({
@@ -1528,14 +1603,17 @@ const InvestorDetailPage = () => {
             </div>
 
             <div
+              ref={descriptionGridRef}
               className="investor-grid-description"
               style={{
                 minWidth: 0,
                 minHeight: 0,
                 display: "flex",
                 flexDirection: "column",
+                width: "100%",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
+                ...(!isDescriptionExpanded ? rowOneHeightStyle : {}),
               }}
             >
               <DescriptionCard
@@ -1547,7 +1625,18 @@ const InvestorDetailPage = () => {
               />
             </div>
 
-            <div className="investor-grid-focus-mix">
+            <div
+              ref={focusMixGridRef}
+              className="investor-grid-focus-mix"
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                width: "100%",
+                ...rowOneHeightStyle,
+              }}
+            >
               <InvestorFocusMixCard
                 fillGridCell
                 loading={portfolioMixLoading}

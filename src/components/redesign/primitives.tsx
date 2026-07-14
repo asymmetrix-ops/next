@@ -93,6 +93,19 @@ export const descriptionBodyStyle: React.CSSProperties = {
   fontWeight: 400,
 };
 
+/** Monospace data values — Menlo / SF Mono (not system-ui sans). */
+export const numericValueStyle: React.CSSProperties = {
+  fontFamily: 'ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace',
+  fontVariantNumeric: "tabular-nums",
+};
+
+/** Percentage column in profile mix bars (Product type, Sector mix, etc.). */
+export const numericPctValueStyle: React.CSSProperties = {
+  ...numericValueStyle,
+  fontSize: 12,
+  color: T.ink,
+};
+
 /** Shared horizontal padding for card body content (Overview, Financials). */
 export const CARD_BODY_X_PAD = 14;
 export const overviewBodyPadding = "2px 14px 8px";

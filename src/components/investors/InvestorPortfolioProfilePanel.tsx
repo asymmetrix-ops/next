@@ -4,7 +4,10 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
+  CARD_TITLE_STYLE,
+  FIN_METRICS_TAB_BAR_STYLE,
   LinkPanel,
+  numericValueStyle,
   T,
   profileTableColAlign,
   profileTableCellStyle,
@@ -113,20 +116,75 @@ function TabButton({
       type="button"
       onClick={onClick}
       style={{
+        display: "flex",
+        alignItems: "center",
         background: "transparent",
         border: "none",
-        padding: "0 0 2px",
+        padding: 0,
         cursor: "pointer",
-        fontFamily: T.sans,
-        fontSize: 13,
-        fontWeight: active ? 600 : 500,
-        color: active ? T.ink : T.muted,
         borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
-        whiteSpace: "nowrap",
+        flexShrink: 0,
+        transition: "color 120ms, border-color 120ms",
       }}
     >
-      {label} {count.toLocaleString("en-US")}
+      <span
+        style={{
+          ...CARD_TITLE_STYLE,
+          fontWeight: active ? 600 : 500,
+          color: active ? T.ink : T.muted,
+        }}
+      >
+        {label} {count.toLocaleString("en-US")}
+      </span>
     </button>
+  );
+}
+
+function PortfolioTabHeader({
+  tabs,
+  tab,
+  onSelectTab,
+}: {
+  tabs: Array<{ id: PortfolioTab; label: string; count: number }>;
+  tab: PortfolioTab;
+  onSelectTab: (next: PortfolioTab) => void;
+}) {
+  return (
+    <div style={FIN_METRICS_TAB_BAR_STYLE}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          flexWrap: "nowrap",
+          minWidth: 0,
+          flex: 1,
+          overflow: "hidden",
+        }}
+      >
+        {tabs.map((item) => (
+          <TabButton
+            key={item.id}
+            active={tab === item.id}
+            label={item.label}
+            count={item.count}
+            onClick={() => onSelectTab(item.id)}
+          />
+        ))}
+      </div>
+      <div
+        style={{
+          fontSize: 14,
+          color: T.azure,
+          fontWeight: 500,
+          lineHeight: 1,
+          padding: "2px 4px",
+          flexShrink: 0,
+        }}
+      >
+        →
+      </div>
+    </div>
   );
 }
 
@@ -195,18 +253,7 @@ export function InvestorPortfolioProfilePanel({
   if (loading) {
     return (
       <LinkPanel fillGridCell={fillGridCell}>
-        <div
-          style={{
-            padding: "14px 16px 12px",
-            borderBottom: `1px solid ${T.hair}`,
-            fontSize: "13.5px",
-            fontWeight: 600,
-            color: T.ink,
-            fontFamily: T.sans,
-          }}
-        >
-          Portfolio
-        </div>
+        <PortfolioTabHeader tabs={tabs} tab="current" onSelectTab={() => {}} />
         <div
           style={{
             textAlign: "center",
@@ -224,32 +271,14 @@ export function InvestorPortfolioProfilePanel({
 
   return (
     <LinkPanel fillGridCell={fillGridCell} className="investor-portfolio-v3-card">
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          padding: "12px 16px 0",
-          borderBottom: `1px solid ${T.hair}`,
-          fontFamily: T.sans,
+      <PortfolioTabHeader
+        tabs={tabs}
+        tab={tab}
+        onSelectTab={(next) => {
+          setTab(next);
+          setShowAll(false);
         }}
-      >
-        {tabs.map((item) => (
-          <TabButton
-            key={item.id}
-            active={tab === item.id}
-            label={item.label}
-            count={item.count}
-            onClick={() => {
-              setTab(item.id);
-              setShowAll(false);
-            }}
-          />
-        ))}
-        <div style={{ marginLeft: "auto", fontSize: 14, color: T.azure, fontWeight: 500, paddingBottom: 2 }}>
-          →
-        </div>
-      </div>
+      />
 
       <div
         style={{
@@ -350,8 +379,8 @@ export function InvestorPortfolioProfilePanel({
                     style={{
                       textAlign: colAlign(3),
                       color: T.body,
-                      fontVariantNumeric: "tabular-nums",
                       whiteSpace: "nowrap",
+                      ...numericValueStyle,
                     }}
                   >
                     {yearValue}
@@ -408,7 +437,7 @@ export function InvestorPortfolioProfilePanel({
             flexWrap: "wrap",
           }}
         >
-          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.mono }}>{footerLeft}</div>
+          <div style={{ fontSize: 12, color: T.muted, ...numericValueStyle }}>{footerLeft}</div>
           {total > pageSize && !showAll ? (
             <button
               type="button"
