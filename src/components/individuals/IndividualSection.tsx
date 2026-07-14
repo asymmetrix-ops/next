@@ -318,6 +318,7 @@ export const IndividualSection = ({
           <SearchEntityIdentityCell
             name={name}
             subtitle={subtitle}
+            hideAvatar
             href={id ? `/individual/${id}` : undefined}
             onClick={(e) => {
               if (

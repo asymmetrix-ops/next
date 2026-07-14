@@ -11,6 +11,7 @@ type SearchEntityIdentityCellProps = {
   href?: string;
   onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
   readOnly?: boolean;
+  hideAvatar?: boolean;
 };
 
 function EntityLogo({
@@ -78,6 +79,7 @@ export function SearchEntityIdentityCell({
   href,
   onClick,
   readOnly = false,
+  hideAvatar = false,
 }: SearchEntityIdentityCellProps) {
   const displayName = name || "-";
   const subtitleText = subtitle?.trim();
@@ -97,7 +99,7 @@ export function SearchEntityIdentityCell({
 
   return (
     <div className="company-table-entity-name-cell">
-      <EntityLogo logo={logo} name={displayName} />
+      {!hideAvatar ? <EntityLogo logo={logo} name={displayName} /> : null}
       <div className="company-table-entity-name-text">
         {nameContent}
         {subtitleText ? (
