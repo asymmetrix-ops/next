@@ -1,5 +1,8 @@
 import type { FilterDef, FilterTypeIcon } from "./CompaniesFilterBar";
 import {
+  isRestrictiveYesNoDualFilter,
+} from "@/lib/yesNoDualFilter";
+import {
   ALL_COMPANIES_COLUMN_META,
   type CompanyColumnMeta,
   type CompanyColumnType,
@@ -15,7 +18,6 @@ export const FILTER_PINNED_TOOLTIP =
  * Location-flavored text columns (hq) are covered by city/state/country filters.
  */
 export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
-  "logo",
   "name",
   "description",
   // Portfolio filter is provided via EXTRA_FILTER_DEFS (id: followed)
@@ -37,8 +39,6 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
  * Filter ids match buildFiltersFromState switch cases where API-backed.
  */
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
-  region: "hq",
-  sub_region: "hq",
   country: "hq",
   state: "state",
   city: "city",
@@ -58,9 +58,8 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   ebitda_margin: "ebitda_margin",
   rev_multiple: "revenue_multiple",
   rule_40: "rule_of_40",
-  subscription_revenue_pc: "subscription_revenue_pc",
-  subscription_revenue_m: "subscription_revenue_m",
-  arr_m: "arr_m",
+  arr: "arr_m",
+  arr_growth: "arr_pc",
   churn: "churn_pc",
   nrr: "nrr",
   grr: "grr_pc",
@@ -83,6 +82,7 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   num_employees: "no_employees",
   rev_per_employee: "rev_per_employee",
   financial_year: "financial_year",
+  has_mcp: "has_mcp",
 };
 
 export const COLUMN_KEY_TO_FILTER_ID: Record<string, string> = Object.fromEntries(
@@ -115,12 +115,15 @@ const CANONICAL_FILTER_COLUMN_KEYS = ALL_COMPANIES_COLUMN_META.map(
 );
 
 export function getColumnKeysForActiveFilters(
-  filterIds: string[],
+  filters: Array<{ id: string; value?: unknown }>,
   ownershipTabActive = false
 ): string[] {
   const keys = new Set<string>();
-  for (const filterId of filterIds) {
-    const columnKey = getColumnKeyForFilterId(filterId);
+  for (const filter of filters) {
+    if (filter.id === "has_mcp" && !isRestrictiveYesNoDualFilter(filter.value)) {
+      continue;
+    }
+    const columnKey = getColumnKeyForFilterId(filter.id);
     if (columnKey) keys.add(columnKey);
   }
   if (ownershipTabActive) {
@@ -165,8 +168,8 @@ function mapColumnCategoryToFilterCategory(
   }
   if (
     [
-      "subscription_revenue_pc",
-      "subscription_revenue_m",
+      "arr_pc",
+      "arr_m",
       "churn_pc",
       "grr_pc",
       "nrr",
@@ -178,9 +181,6 @@ function mapColumnCategoryToFilterCategory(
     ].includes(column.columnKey)
   ) {
     return "subscription";
-  }
-  if (column.columnKey === "arr_m") {
-    return "arr";
   }
   if (
     [
@@ -213,6 +213,10 @@ function mapColumnTypeToFilter(
 
   if (column.columnKey === "follow") {
     return { type: "Aa", editor: "boolean" };
+  }
+
+  if (column.columnKey === "has_mcp") {
+    return { type: "Aa", editor: "yes_no_dual" };
   }
 
   if (column.columnKey === "years_since_last_investment") {

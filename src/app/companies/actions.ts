@@ -3,7 +3,6 @@
 import { cookies } from "next/headers";
 import type { CompanySearchPayload } from "@/lib/filterBuilder";
 import {
-  COMPANIES_API_BASE,
   companyCountsPayloadToSearchParams,
   companySearchPayloadToSearchParams,
   normalizeCompanySearchPayload,
@@ -62,6 +61,7 @@ export interface CompanyItem {
   no_employees?: number | null;
   rev_per_employee?: number | null;
   financial_year?: number | string | null;
+  has_mcp?: boolean | null;
   last_investment?: {
     display?: string | null;
     date?: string | null;
@@ -78,6 +78,8 @@ export interface CompaniesResultPayload {
   offset: number;
   perPage: number;
   pageTotal: number;
+  /** Total matching companies across all pages (Get_new_companies `total_count`). */
+  totalCount?: number;
   ownershipCounts?: {
     publicCompanies: number;
     peOwnedCompanies: number;
@@ -101,6 +103,9 @@ export interface CompaniesCountsResponse {
   acquiredCompanies: number;
   otherCompanies: number;
 }
+
+const COMPANIES_API_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
 
 export async function fetchCompaniesCountsServer(
   filters: CompaniesFilters = {}

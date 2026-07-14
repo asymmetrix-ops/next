@@ -1,6 +1,4 @@
 // Types for companies data
-import { SHOW_ARR } from "@/lib/platformVisibility";
-
 interface Company {
   id: number;
   name: string;
@@ -204,11 +202,7 @@ export class CompaniesCSVExporter {
         HQ: company.country || "-",
         "Company Link": companyLink,
         "Company URL": "",
-        ...(SHOW_ARR
-          ? {
-              "Recurring Revenue": this.formatPercent(this.getARRPercent(company)),
-            }
-          : {}),
+        "Recurring Revenue": this.formatPercent(this.getARRPercent(company)),
       };
     });
   }

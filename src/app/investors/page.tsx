@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
 } from "react";
 import Header from "@/components/Header";
@@ -30,6 +31,7 @@ import {
   getInvestorServerSortColumn,
   getInvestorServerSortDefaultDirection,
 } from "@/components/investors/investorsTableSort";
+import { useEntitySelection } from "@/components/search/useEntitySelection";
 
 const useInvestorsAPI = () => {
   const [investors, setInvestors] = useState<Investor[]>([]);
@@ -262,6 +264,17 @@ function InvestorsPageInner() {
     []
   );
 
+  const filtersKey = useMemo(
+    () => JSON.stringify(currentFilters ?? {}),
+    [currentFilters]
+  );
+  const {
+    selectedIds: selectedEntityIds,
+    toggleSelection: toggleEntitySelection,
+    togglePageSelection,
+    clearSelection,
+  } = useEntitySelection(filtersKey);
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -292,6 +305,10 @@ function InvestorsPageInner() {
         sortDirection={sortDirection}
         onSortColumn={handleSortColumn}
         onSortClear={handleSortClear}
+        selectedEntityIds={selectedEntityIds}
+        onToggleEntitySelection={toggleEntitySelection}
+        onTogglePageSelection={togglePageSelection}
+        onClearSelection={clearSelection}
       />
       <Footer />
     </div>

@@ -255,7 +255,7 @@ export function CompaniesSearchDashboard({
       ownershipTypes,
       portfolioCompanyIds,
       hybridBusinessFocusIds,
-      forcedPrimarySectorIds: lockedSectorIds,
+      scopedPrimarySectorIds: lockedSectorIds,
     });
   }, [
     filterBarState,
@@ -279,7 +279,7 @@ export function CompaniesSearchDashboard({
           : undefined,
       portfolioCompanyIds,
       hybridBusinessFocusIds,
-      forcedPrimarySectorIds: lockedSectorIds,
+      scopedPrimarySectorIds: lockedSectorIds,
     });
   }, [
     filterBarState,

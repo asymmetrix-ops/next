@@ -162,8 +162,6 @@ export function enforceCorporateEventColumnKeyOrder(
   keys: string[],
   filterPinnedKeys: string[] = []
 ): string[] {
-  const seedKeys =
-    keys.length > 0 ? keys : [...PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS];
   const frozenKeys = getEffectiveFrozenCorporateEventColumnKeys(filterPinnedKeys);
   const frozenSet = new Set(frozenKeys);
   const seen = new Set<string>();
@@ -176,7 +174,7 @@ export function enforceCorporateEventColumnKeyOrder(
     }
   }
 
-  for (const key of seedKeys) {
+  for (const key of keys) {
     if (
       CANONICAL_CORPORATE_EVENT_COLUMN_KEYS.includes(key) &&
       !seen.has(key) &&
@@ -187,15 +185,9 @@ export function enforceCorporateEventColumnKeyOrder(
     }
   }
 
-  const hasUnfrozenColumn = ordered.some((key) => !frozenSet.has(key));
-  if (!hasUnfrozenColumn) {
-    return enforceCorporateEventColumnKeyOrder(
-      [...PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS],
-      filterPinnedKeys
-    );
-  }
-
-  return ordered;
+  return ordered.length > 0
+    ? ordered
+    : [...PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS];
 }
 
 export const corporateEventColumnKeysToVisibility = (

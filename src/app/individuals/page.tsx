@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
 } from "react";
 import Header from "@/components/Header";
@@ -28,6 +29,7 @@ import {
   fetchJobTitlesServer,
 } from "./actions";
 import { authService } from "@/lib/auth";
+import { useEntitySelection } from "@/components/search/useEntitySelection";
 
 const useIndividualsAPI = () => {
   const [individuals, setIndividuals] = useState<Individual[]>([]);
@@ -212,6 +214,17 @@ function IndividualsPageInner() {
     []
   );
 
+  const filtersKey = useMemo(
+    () => JSON.stringify(currentFilters ?? {}),
+    [currentFilters]
+  );
+  const {
+    selectedIds: selectedEntityIds,
+    toggleSelection: toggleEntitySelection,
+    togglePageSelection,
+    clearSelection,
+  } = useEntitySelection(filtersKey);
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -237,6 +250,10 @@ function IndividualsPageInner() {
         externalSetShowColumnsModal={setShowColumnsModal}
         onColumnsCountChange={setColumnsCount}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
+        selectedEntityIds={selectedEntityIds}
+        onToggleEntitySelection={toggleEntitySelection}
+        onTogglePageSelection={togglePageSelection}
+        onClearSelection={clearSelection}
       />
       <Footer />
     </div>

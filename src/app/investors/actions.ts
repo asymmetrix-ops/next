@@ -7,6 +7,8 @@ import {
   type InvestorsSearchFilters,
 } from "@/lib/investorsFilterPayload";
 import { mapSummaryToInvestorTypeCounts } from "@/components/investors/investorsFilterConfig";
+import { getInvestorFieldAliasesForColumn } from "@/components/investors/investorsColumnFields";
+import { readLogoFromRecord } from "@/lib/companyLogo";
 
 export type { InvestorsSearchFilters };
 
@@ -52,6 +54,11 @@ export interface InvestorsListResponse {
 const INVESTORS_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop";
 
+function normalizeInvestorListItem(item: InvestorListItem): InvestorListItem {
+  const logo = readLogoFromRecord(item, getInvestorFieldAliasesForColumn("logo"));
+  return logo ? { ...item, linkedin_logo: logo } : item;
+}
+
 export async function fetchInvestorsServer(
   filters: InvestorsSearchFilters = createDefaultInvestorFilters()
 ): Promise<InvestorsListResponse | null> {
@@ -88,7 +95,9 @@ export async function fetchInvestorsServer(
 
     const raw = await response.json();
     const investors = raw?.investors ?? raw;
-    const items = Array.isArray(investors?.items) ? investors.items : [];
+    const items = (Array.isArray(investors?.items) ? investors.items : []).map(
+      normalizeInvestorListItem
+    );
     const summary = investors?.summary_by_company_focus as
       | Record<string, unknown>
       | undefined;

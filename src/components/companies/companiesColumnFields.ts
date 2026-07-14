@@ -6,6 +6,8 @@
  * Item read aliases below match the live API shape (see Get_new_companies sample).
  */
 
+import { LOGO_FIELD_ALIASES } from "@/lib/companyLogo";
+
 /** Fields returned on every item without `columns[]`. */
 export const IDENTITY_ITEM_FIELDS = ["id", "name", "linkedin_logo"] as const;
 
@@ -14,7 +16,7 @@ export const IDENTITY_ITEM_FIELDS = ["id", "name", "linkedin_logo"] as const;
  * Primary alias matches the Get_new_companies response key.
  */
 export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
-  logo: ["linkedin_logo"],
+  logo: LOGO_FIELD_ALIASES,
   name: ["name"],
   website: ["website", "url", "Website"],
   description: ["description"],
@@ -49,16 +51,7 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
   revenue_growth: ["revenue_growth", "rev_growth_pc", "Rev_Growth_PC"],
   ebitda_margin: ["ebitda_margin", "EBITDA_margin"],
   rule_of_40: ["rule_of_40", "Rule_of_40"],
-  subscription_revenue_pc: [
-    "subscription_revenue_pc",
-    "Subscription_revenue_pc",
-    "arr_pc",
-    "ARR_pc",
-  ],
-  subscription_revenue_m: [
-    "subscription_revenue_m",
-    "Subscription_revenue_m",
-  ],
+  arr_pc: ["arr_pc", "ARR_pc"],
   arr_m: ["arr_m", "ARR_m"],
   churn_pc: ["churn", "churn_pc", "Churn_pc"],
   grr_pc: ["grr", "grr_pc", "GRR_pc"],
@@ -78,6 +71,7 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
   no_employees: ["no_employees", "No_Employees"],
   rev_per_employee: ["rev_per_employee", "Revenue_per_employee"],
   financial_year: ["financial_year", "Financial_Year"],
+  has_mcp: ["has_mcp"],
 };
 
 /** Columns whose API values may arrive as JSON strings or arrays. */

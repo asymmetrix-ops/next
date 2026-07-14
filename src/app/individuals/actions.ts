@@ -95,7 +95,6 @@ function normalizeIndividualRole(raw: Record<string, unknown>) {
 }
 
 function normalizeIndividualFromApi(raw: Record<string, unknown>): Individual {
-  // current_roles and roles are returned as JSON strings by Xano — parse them
   const parsedCurrentRoles =
     parseJsonStringField<unknown[]>(raw.current_roles) ?? [];
   const parsedRoles =
@@ -123,7 +122,6 @@ function normalizeIndividualFromApi(raw: Record<string, unknown>): Individual {
         .map(normalizeIndividualRole)
     : [];
 
-  // _locations_individual is also returned as a JSON string by Xano
   const location = parseJsonStringField<Individual["_locations_individual"]>(
     raw._locations_individual
   );
@@ -162,15 +160,12 @@ function mapIndividualsListResponse(
     data.totalPages ??
     (perPage > 0 ? Math.max(1, Math.ceil(itemsTotal / perPage)) : 1);
 
-  // The API returns `offset` as an item index (1, 51, 101 …), not a page number.
-  // Convert it back to a 1-based page number for the FE.
   const rawOffset = data.offset;
   const curPage =
     rawOffset != null && perPage > 0
       ? Math.floor((rawOffset - 1) / perPage) + 1
       : (data.currentPage ?? fallbackPage);
 
-  // nextOffset is null / absent on the last page
   const hasNext =
     data.nextOffset != null
       ? Number(data.nextOffset) > 0
@@ -199,10 +194,7 @@ function mapIndividualsListResponse(
   };
 }
 
-// List lives on the main branch; counts endpoint is only on :develop.
-const INDIVIDUALS_LIST_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
-const INDIVIDUALS_COUNTS_API_BASE =
+const INDIVIDUALS_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
 
 async function resolveAuthToken(authToken?: string | null): Promise<string | null> {
@@ -229,7 +221,7 @@ export async function fetchIndividualsServer(
       page: Math.max(1, filters.page || 1),
       per_page: filters.per_page > 0 ? filters.per_page : 50,
     };
-    const url = `${INDIVIDUALS_LIST_API_BASE}/get_all_individuals`;
+    const url = `${INDIVIDUALS_API_BASE}/get_all_individuals`;
 
     const response = await fetch(url, {
       method: "POST",
@@ -266,7 +258,7 @@ export async function fetchIndividualsCountsServer(
     if (!token) return null;
 
     const params = individualsCountsFiltersToSearchParams(filters);
-    const url = `${INDIVIDUALS_COUNTS_API_BASE}/get_individuals_counts?${params.toString()}`;
+    const url = `${INDIVIDUALS_API_BASE}/get_individuals_counts?${params.toString()}`;
 
     const response = await fetch(url, {
       method: "GET",

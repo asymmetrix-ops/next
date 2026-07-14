@@ -8,7 +8,6 @@ export const FILTER_PINNED_TOOLTIP =
   "Pinned automatically — a filter is active on this column.";
 
 export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
-  "logo",
   "name",
   "description",
   "follow",

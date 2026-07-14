@@ -31,8 +31,7 @@ export type FilterType =
   | "ebitda_margin"
   | "rule_of_40"
   | "arr_m"
-  | "subscription_revenue_pc"
-  | "subscription_revenue_m"
+  | "arr_pc"
   | "churn"
   | "grr"
   | "nrr"
@@ -48,7 +47,8 @@ export type FilterType =
   | "rev_per_employee"
   | "years_since_investment"
   | "financial_year_range"
-  | "linkedin_growth_range";
+  | "linkedin_growth_range"
+  | "has_mcp";
 
 export type FilterValue =
   | { min?: number; max?: number }
@@ -72,8 +72,7 @@ const FINANCIAL_FIELD_MAP: Record<string, string> = {
   ebitda_margin: '"EBITDA_margin"',
   rule_of_40: '"Rule_of_40"',
   arr_m: '"ARR_m"',
-  subscription_revenue_pc: '"Subscription_revenue_pc"',
-  subscription_revenue_m: '"Subscription_revenue_m"',
+  arr_pc: '"ARR_pc"',
   churn: '"Churn_pc"',
   grr: '"GRR_pc"',
   nrr: '"NRR"',
@@ -98,20 +97,6 @@ const esc = (s: string) => `'${String(s).replace(/'/g, "''")}'`;
 
 const inList = (values: string[] | number[]) =>
   (values as string[]).map((v) => esc(String(v))).join(",");
-
-function buildTransactionStatusFilter(statuses: string[]): string {
-  if (!statuses.length) return "";
-  const escapedList = statuses
-    .map((s) => `'${s.replace(/'/g, "''").toLowerCase()}'`)
-    .join(", ");
-  return `EXISTS (
-    SELECT 1
-    FROM jsonb_array_elements(nc.transaction_status_history::jsonb) AS elem
-    JOIN x2_133 tsl ON tsl.id = (elem->>'transaction_status_id')::int
-    WHERE (elem->>'active')::boolean = true
-      AND LOWER(tsl.label) IN (${escapedList})
-  )`;
-}
 
 function buildRangeSql(field: string, min?: number, max?: number): string | null {
   const hasMin = min != null && !Number.isNaN(min);
@@ -204,13 +189,8 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
         return Array.isArray(val)
           ? `nc.ownership_type_id IN (${(val as number[]).join(",")})`
           : `nc.ownership_type_id = ${Number(val)}`;
-      case "transaction_status": {
-        const statuses = Array.isArray(val)
-          ? (val as string[])
-          : [String(val)];
-        const sql = buildTransactionStatusFilter(statuses);
-        return sql || null;
-      }
+      case "transaction_status":
+        return `LOWER(nc."Transaction_status") = LOWER(${esc(String(val))})`;
 
       case "portfolio_companies": {
         const ids = Array.isArray(val) ? (val as number[]) : [];
@@ -246,6 +226,9 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
         if (ids.length === 0) return null;
         return `nc.primary_business_focus_id && ARRAY[${ids.join(",")}]::bigint[]`;
       }
+
+      case "has_mcp":
+        return Number(val) === 0 ? `nc.has_mcp = false` : `nc.has_mcp = true`;
 
       default:
         return null;
