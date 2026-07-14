@@ -46,6 +46,7 @@ import {
   type CompanyRow,
 } from "@/components/companies/companyColumnDefinitions";
 import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 
 // Types for API integration
 interface SectorData {
@@ -1250,21 +1251,6 @@ function RecentTransactionsCard({
 }) {
   const hasItems = Array.isArray(transactions) && transactions.length > 0;
 
-  const getDealTypeBadge = (dealType?: string) => {
-    const colors: Record<string, string> = {
-      acquisition: "bg-red-50 text-red-700 border-red-200",
-      merger: "bg-blue-50 text-blue-700 border-blue-200",
-      ipo: "bg-green-50 text-green-700 border-green-200",
-      funding_round: "bg-purple-50 text-purple-700 border-purple-200",
-      lbo: "bg-orange-50 text-orange-700 border-orange-200",
-      recapitalization: "bg-pink-50 text-pink-700 border-pink-200",
-    };
-    return (
-      colors[(dealType || "").toLowerCase().replace(/\s+/g, "_")] ||
-      "bg-gray-50 text-gray-700 border-gray-200"
-    );
-  };
-
   const getStatusBadge = (status?: string) => {
     const colors: Record<string, string> = {
       completed: "bg-green-50 text-green-700 border-green-200",
@@ -1389,13 +1375,7 @@ function RecentTransactionsCard({
                     {(t.type || t.seller) && (
                       <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap gap-1">
                         {t.type && (
-                          <span
-                            className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
-                              t.type
-                            )}`}
-                          >
-                            {t.type.replace(/_/g, " ")}
-                          </span>
+                          <DealTypeBadge dealType={t.type.replace(/_/g, " ")} />
                         )}
                         {t.seller && (
                           <span
@@ -1544,13 +1524,7 @@ function RecentTransactionsCard({
                         <td className="py-3">
                           <div className="space-y-1">
                             {t.type && (
-                              <span
-                                className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
-                                  t.type
-                                )}`}
-                              >
-                                {t.type.replace(/_/g, " ")}
-                              </span>
+                              <DealTypeBadge dealType={t.type.replace(/_/g, " ")} />
                             )}
                             {t.seller && (
                               <span

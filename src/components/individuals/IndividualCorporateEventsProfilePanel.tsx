@@ -8,8 +8,8 @@ import {
   tableColHeaderBarStyle,
   tableColHeaderStyle,
   T,
-  Pill,
 } from "@/components/redesign/primitives";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 import { formatCurrency, formatDate } from "@/utils/individualHelpers";
 import type { CorporateEvent } from "@/types/individual";
 
@@ -24,13 +24,6 @@ const EVENTS_ROW_GRID =
   "minmax(0, 1.1fr) minmax(80px, auto) minmax(92px, auto) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(80px, auto) minmax(0, 0.9fr) minmax(0, 0.9fr)";
 
 const COL_GAP = 8;
-
-function dealTypeTone(dealType: string): "coral" | "azure" | "neutral" {
-  const d = dealType.toLowerCase();
-  if (d.includes("acquisition") || d.includes("merger")) return "azure";
-  if (d.includes("divest")) return "coral";
-  return "neutral";
-}
 
 export function IndividualCorporateEventsProfilePanel({
   events,
@@ -153,7 +146,11 @@ export function IndividualCorporateEventsProfilePanel({
                     {formatDate(event.announcement_date)}
                   </div>
                   <div style={{ textAlign: colAlign(2) }}>
-                    <Pill tone={dealTypeTone(dealType)}>{dealType}</Pill>
+                    {dealType && dealType !== "-" ? (
+                      <DealTypeBadge dealType={dealType} />
+                    ) : (
+                      "-"
+                    )}
                   </div>
                   <div style={{ textAlign: colAlign(3), color: T.body, minWidth: 0 }}>
                     {target?.name || "-"}

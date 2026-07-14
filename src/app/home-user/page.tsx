@@ -17,6 +17,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
 import {
   appendDealRadarItems,
@@ -2715,7 +2716,11 @@ export default function HomeUserPage() {
 
                                 const dealType =
                                   details?.Type || ev.deal_type || ev.type;
-                                return dealType || "Not Available";
+                                return dealType ? (
+                                  <DealTypeBadge dealType={dealType} />
+                                ) : (
+                                  "Not Available"
+                                );
                               })()}
                             </div>
                             <div>
@@ -3480,7 +3485,8 @@ export default function HomeUserPage() {
                                     <div className="space-y-1">
                                       {dealType && (
                                         <div className="text-xs text-gray-500">
-                                          <strong>Type:</strong> {dealType}
+                                          <strong>Type:</strong>{" "}
+                                          <DealTypeBadge dealType={dealType} />
                                         </div>
                                       )}
                                       {fundingStage && (

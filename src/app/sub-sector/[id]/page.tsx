@@ -21,6 +21,8 @@ import {
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
+import { fundingStageBadgeStyle } from "@/lib/corporateEventDealTypeBadge";
 
 const TABS = [
   { id: "all", name: "All Companies" },
@@ -1698,13 +1700,9 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                         <strong>Deal Type:</strong>{" "}
                         {event.deal_type ? (
                           <span className="inline-flex flex-wrap gap-1 align-middle">
-                            <span className="inline-block px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded">
-                              {event.deal_type}
-                            </span>
+                            <DealTypeBadge dealType={event.deal_type} />
                             {fundingStage && (
-                              <span className="inline-block px-2 py-1 text-xs text-green-700 bg-green-50 rounded">
-                                {fundingStage}
-                              </span>
+                              <span style={fundingStageBadgeStyle()}>{fundingStage}</span>
                             )}
                           </span>
                         ) : (

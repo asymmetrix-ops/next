@@ -13,6 +13,13 @@ import {
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
 import { useRightClick } from "@/hooks/useRightClick";
+import {
+  enrichSectorEntries,
+  extractSectorId,
+  getSectorHref,
+  type SectorLinkEntry,
+  type SectorNameLookup,
+} from "@/lib/sectorLinks";
 
 export type SubsidiariesProfileTokens = CorporateEventsProfileTokens & {
   up: string;
@@ -21,7 +28,12 @@ export type SubsidiariesProfileTokens = CorporateEventsProfileTokens & {
 export type SubsidiaryProfileRecord = {
   id: number;
   name: string;
-  sectors_id?: Array<{ sector_name?: string; Sector_importance?: string }>;
+  sectors_id?: Array<{
+    sector_name?: string;
+    Sector_importance?: string;
+    sector_id?: number;
+    id?: number;
+  }>;
   _locations?: { Country?: string };
   _linkedin_data_of_new_company?: {
     linkedin_employee?: number | null;
@@ -91,6 +103,8 @@ type SubsidiariesProfilePanelProps = {
   maxInitial?: number;
   /** `narrow` = single grid column; fits Revenue-model width */
   layout?: "default" | "narrow";
+  /** Fallback name → id lookup when subsidiary sector refs omit ids. */
+  sectorNameToId?: SectorNameLookup;
 };
 
 const HEADERS = [
@@ -100,12 +114,59 @@ const HEADERS = [
   "Year Acquired",
 ] as const;
 
-function sectorLabel(s: SubsidiaryProfileRecord): string {
-  const raw = s.sectors_id
-    ?.filter((x) => x && typeof x.sector_name === "string")
-    .map((x) => x.sector_name as string);
-  if (!raw?.length) return "-";
-  return raw.slice(0, 3).join(", ");
+function subsidiarySectorEntries(
+  subsidiary: SubsidiaryProfileRecord
+): SectorLinkEntry[] {
+  return (
+    subsidiary.sectors_id
+      ?.filter((x) => x && typeof x.sector_name === "string")
+      .slice(0, 3)
+      .map((sector) => ({
+        name: sector.sector_name!.trim(),
+        id: extractSectorId(sector),
+        importance: sector.Sector_importance ?? "Primary",
+      })) ?? []
+  );
+}
+
+function SubsidiarySectorLinks({
+  subsidiary,
+  sectorNameToId,
+  linkColor,
+  createClickableElement,
+}: {
+  subsidiary: SubsidiaryProfileRecord;
+  sectorNameToId?: SectorNameLookup;
+  linkColor: string;
+  createClickableElement: ReturnType<
+    typeof useRightClick
+  >["createClickableElement"];
+}) {
+  const sectors = enrichSectorEntries(
+    subsidiarySectorEntries(subsidiary),
+    sectorNameToId
+  );
+  if (sectors.length === 0) return <>-</>;
+
+  return (
+    <>
+      {sectors.map((sector, idx) => {
+        const href = getSectorHref(sector);
+        return (
+          <span key={`${sector.name}-${sector.id ?? idx}`}>
+            {href
+              ? createClickableElement(href, sector.name, undefined, {
+                  color: linkColor,
+                  fontWeight: 500,
+                  textDecoration: "underline",
+                })
+              : sector.name}
+            {idx < sectors.length - 1 ? ", " : ""}
+          </span>
+        );
+      })}
+    </>
+  );
 }
 
 function LogoLetter({
@@ -159,6 +220,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
     acquisitionYearByCompanyId = {},
     maxInitial = 3,
     layout = "default",
+    sectorNameToId,
   }) => {
     const narrow = layout === "narrow";
     const headers = narrow
@@ -296,7 +358,12 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     whiteSpace: narrow ? "nowrap" : undefined,
                   }}
                 >
-                  {sectorLabel(subsidiary)}
+                  <SubsidiarySectorLinks
+                    subsidiary={subsidiary}
+                    sectorNameToId={sectorNameToId}
+                    linkColor={T.azure}
+                    createClickableElement={createClickableElement}
+                  />
                 </div>
                 <div
                   style={{

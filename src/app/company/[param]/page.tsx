@@ -64,6 +64,8 @@ import {
   type SubsidiaryAcquisitionEvent,
 } from "@/lib/subsidiaryAcquisitionYears";
 import { fetchCompanyCorporateEvents } from "@/lib/companyCorporateEvents";
+import { buildSectorNameLookup } from "@/lib/sectorLinks";
+import { useGlobalSectorNameLookup } from "@/hooks/useGlobalSectorNameLookup";
 import {
   normalizeExternalProfileUrl,
   normalizeLinkedInProfileUrl,
@@ -462,6 +464,10 @@ interface NewCorporateEvent {
   investment_display?: string;
   this_company_status?: string;
   other_counterparties?: NewOtherCounterparty[];
+  sectors?: {
+    Primary?: Array<{ id: number; name: string }>;
+    Secondary?: Array<{ id: number; name: string }>;
+  };
 }
 
 type CompanyCorporateEvent = LegacyCorporateEvent | NewCorporateEvent;
@@ -1236,6 +1242,7 @@ const CompanyDetail = () => {
     display: timeSinceLastInvestment,
     loading: timeSinceLastInvestmentLoading,
   } = useTimeSinceLastInvestment(companyId);
+  const globalSectorNameToId = useGlobalSectorNameLookup();
 
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
@@ -2537,34 +2544,56 @@ const CompanyDetail = () => {
   // Use API-provided primary sectors only
   const augmentedPrimarySectors = primarySectors;
 
-  const corporateEventPrimarySectorsByCompanyId: Record<number, string[]> =
+  const corporateEventPrimarySectorsByCompanyId: Record<number, CompanySector[]> =
     (() => {
-      const map: Record<number, string[]> = {};
-      if (company?.id) {
-        map[company.id] = augmentedPrimarySectors
-          .map((s) => s.sector_name?.trim())
-          .filter((name): name is string => Boolean(name));
+      const map: Record<number, CompanySector[]> = {};
+      if (company?.id && augmentedPrimarySectors.length > 0) {
+        map[company.id] = augmentedPrimarySectors;
       }
       const subsidiaries =
         company?.have_subsidiaries_companies?.Subsidiaries_companies ?? [];
       for (const sub of subsidiaries) {
         if (!sub?.id || !Array.isArray(sub.sectors_id)) continue;
-        const names = (
+        const primaries = (
           sub.sectors_id as Array<{
             sector_name?: string;
             Sector_importance?: string;
+            sector_id?: number;
+            id?: number;
           }>
         )
           .filter((s) => {
             const importance = String(s?.Sector_importance ?? "Primary").trim();
-            return importance === "Primary";
+            return importance === "Primary" && Boolean(s?.sector_name);
           })
-          .map((s) => String(s?.sector_name ?? "").trim())
-          .filter(Boolean);
-        if (names.length > 0) map[sub.id] = names;
+          .map((s) => ({
+            sector_name: String(s.sector_name).trim(),
+            Sector_importance: "Primary" as const,
+            sector_id: getSectorId(s) ?? 0,
+          }))
+          .filter((s) => Boolean(s.sector_name));
+        if (primaries.length > 0) map[sub.id] = primaries;
       }
       return map;
     })();
+
+  const sectorNameToId = (() => {
+    const lookup = { ...globalSectorNameToId };
+    Object.assign(
+      lookup,
+      buildSectorNameLookup([
+        ...augmentedPrimarySectors,
+        ...secondarySectors,
+      ])
+    );
+    const subsidiaries =
+      company?.have_subsidiaries_companies?.Subsidiaries_companies ?? [];
+    for (const sub of subsidiaries) {
+      if (!Array.isArray(sub.sectors_id)) continue;
+      Object.assign(lookup, buildSectorNameLookup(sub.sectors_id));
+    }
+    return lookup;
+  })();
 
   // Process location
   const location = company._locations;
@@ -4446,6 +4475,7 @@ const CompanyDetail = () => {
                     loading={corporateEventsLoading}
                     primarySectors={augmentedPrimarySectors}
                     primarySectorsByCompanyId={corporateEventPrimarySectorsByCompanyId}
+                    sectorNameToId={sectorNameToId}
                     totalCount={ceTotal}
                     rangeStart={ceShowingFrom}
                     rangeEnd={ceShowingTo}
@@ -4513,6 +4543,7 @@ const CompanyDetail = () => {
                         ?.Subsidiaries_companies ?? []
                     }
                     acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
+                    sectorNameToId={sectorNameToId}
                     maxInitial={3}
                   />
                   </LinkPanel>

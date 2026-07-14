@@ -16,6 +16,7 @@ import VideoTheatre from "@/components/article/VideoTheatre";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { canUserViewArticle } from "@/lib/articleVisibility";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -2887,18 +2888,7 @@ const ArticleDetailPage = () => {
                             <div style={styles.infoRow}>
                               <span style={styles.label}>Deal Type</span>
                               <span style={styles.value}>
-                                <span
-                                  style={{
-                                    backgroundColor: "#e3f2fd",
-                                    color: "#1976d2",
-                                    padding: "4px 8px",
-                                    borderRadius: "4px",
-                                    fontSize: "13px",
-                                    fontWeight: "500",
-                                  }}
-                                >
-                                  {dealType}
-                                </span>
+                                <DealTypeBadge dealType={dealType} />
                               </span>
                             </div>
                           )}

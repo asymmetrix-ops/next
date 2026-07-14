@@ -5,6 +5,7 @@ import {
   getCounterpartyRole,
   getOtherAdvisorsText,
 } from "../../utils/advisorHelpers";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 
 interface CorporateEventsTableProps {
   events: CorporateEvent[];
@@ -60,7 +61,11 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                 {formatDate(event.announcement_date)}
               </td>
               <td className="px-4 py-2 border border-gray-300">
-                {event.deal_type || "Not available"}
+                {event.deal_type?.trim() ? (
+                  <DealTypeBadge dealType={event.deal_type.trim()} />
+                ) : (
+                  "Not available"
+                )}
               </td>
               <td className="px-4 py-2 border border-gray-300">
                 {getCounterpartyRole(event)}

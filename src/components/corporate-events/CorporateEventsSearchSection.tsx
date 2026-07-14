@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 import type {
   CorporateEventListItem,
   CorporateEventsSearchFilters,
@@ -562,7 +563,11 @@ export const CorporateEventsSearchSection = ({
       case "parties":
         return renderPartiesCell(event);
       case "deal_type":
-        return event.deal_type || "-";
+        return event.deal_type?.trim() ? (
+          <DealTypeBadge dealType={event.deal_type.trim()} />
+        ) : (
+          "-"
+        );
       case "funding_stage":
         return fundingStage || "-";
       case "investment_amount":

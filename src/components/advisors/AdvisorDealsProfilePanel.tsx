@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 import {
   profileTableColAlign,
   profileTableCellStyle,
@@ -126,20 +127,6 @@ function formatSideAdvised(role: string): string {
   if (!trimmed) return "-";
   if (/^investor\s*\(unknown size\)/i.test(trimmed)) return "Investor";
   return trimmed;
-}
-
-function dealTypePillTone(dealType: string): "acq" | "div" | "neu" {
-  const d = dealType.toLowerCase();
-  if (d.includes("acquisition") || d.includes("merger")) return "acq";
-  if (d.includes("divest")) return "div";
-  return "neu";
-}
-
-function dealTypePillStyle(dealType: string): React.CSSProperties {
-  const tone = dealTypePillTone(dealType);
-  if (tone === "acq") return { background: T.azureSoft, color: T.azure };
-  if (tone === "div") return { background: T.coralSoft, color: T.down };
-  return { background: T.inset, color: T.muted };
 }
 
 function sectorLabel(
@@ -316,19 +303,7 @@ function SummaryDealsTable({ events }: { events: AdvisorDealEvent[] }) {
               {formatMonthYear(event.announcement_date)}
             </div>
             <div style={{ textAlign: colAlign(2) }}>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  padding: "3px 9px",
-                  borderRadius: 999,
-                  fontSize: "11.5px",
-                  fontWeight: 600,
-                  ...dealTypePillStyle(dealType),
-                }}
-              >
-                {dealType}
-              </span>
+              <DealTypeBadge dealType={dealType} />
             </div>
             <div
               style={{
@@ -746,19 +721,7 @@ export function AdvisorDealsProfilePanel({
                     {formatMonthYear(event.announcement_date)}
                   </div>
                   <div style={{ ...cellStyle, textAlign: colAlign(2) }}>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        padding: "3px 9px",
-                        borderRadius: 999,
-                        fontSize: "11.5px",
-                        fontWeight: 600,
-                        ...dealTypePillStyle(dealType),
-                      }}
-                    >
-                      {dealType}
-                    </span>
+                    <DealTypeBadge dealType={dealType} />
                   </div>
                   <div style={{ ...cellStyle, textAlign: colAlign(3), color: T.body }}>
                     {formatSideAdvised(companyAdvisedRoleRaw)}

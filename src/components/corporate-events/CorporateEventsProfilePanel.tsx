@@ -17,7 +17,15 @@ import {
   CorporateEventDetailsColumn,
   CorporateEventPartiesColumn,
 } from "./CorporateEventProfileColumns";
-import { isNonEmptyDisplayString as isNonEmptyString } from "@/lib/emptyDisplay";
+import {
+  coerceSectorNameList,
+  enrichSectorEntries,
+  getSectorHref,
+  resolveEventSectorEntries,
+  type SectorLinkEntry,
+  type SectorNameLookup,
+} from "@/lib/sectorLinks";
+import { getTargetCompany } from "./corporateEventsTableUtils";
 
 export type CorporateEventsProfileTokens = {
   paper: string;
@@ -41,8 +49,10 @@ type CorporateEventsProfilePanelProps = {
   primarySectors?: Sector[];
   /** @deprecated Secondary sectors are not shown in the profile events table. */
   secondarySectors?: Sector[];
-  /** Target company id → primary sector names (e.g. from subsidiaries on the company payload). */
-  primarySectorsByCompanyId?: Record<number, string[]>;
+  /** Target company id → primary sectors (e.g. from subsidiaries on the company payload). */
+  primarySectorsByCompanyId?: Record<number, Sector[]>;
+  /** Fallback name → id lookup when sector refs omit ids. */
+  sectorNameToId?: SectorNameLookup;
   /** @deprecated Use server pagination instead. */
   maxInitialEvents?: number;
   totalCount?: number;
@@ -127,26 +137,15 @@ function headerRightLine(
   return `${n} event${n === 1 ? "" : "s"} · Last ${span} yrs`;
 }
 
-function formatPrimarySectorNames(primary: Sector[]): string {
-  const names = primary.map((s) => s.sector_name).filter(Boolean) as string[];
-  if (names.length === 0) return "-";
-  return names.slice(0, 3).join(", ");
-}
-
-function coercePrimarySectorNames(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((item) => {
-      if (typeof item === "string") return item.trim();
-      if (item && typeof item === "object") {
-        const name =
-          (item as { sector_name?: string; name?: string }).sector_name ??
-          (item as { name?: string }).name;
-        return typeof name === "string" ? name.trim() : "";
-      }
-      return "";
-    })
-    .filter((name) => isNonEmptyString(name));
+function sectorsToLinkEntries(sectors: Sector[]): SectorLinkEntry[] {
+  return sectors
+    .filter((s) => s?.sector_name)
+    .slice(0, 3)
+    .map((s) => ({
+      name: s.sector_name!,
+      id: s.sector_id,
+      importance: s.Sector_importance ?? "Primary",
+    }));
 }
 
 function resolveTargetCompanyId(event: CorporateEvent): number | undefined {
@@ -166,23 +165,94 @@ function resolveTargetCompanyId(event: CorporateEvent): number | undefined {
   return undefined;
 }
 
-/** Primary sectors only — event API → target company lookup → profile company primary. */
-function eventPrimarySectorLabel(
+/** Primary sectors — prefer event.sectors.Primary (with ids) → target company → profile fallback. */
+function resolveEventPrimarySectors(
   event: CorporateEvent,
   fallbackPrimary: Sector[],
-  primarySectorsByCompanyId?: Record<number, string[]>
-): string {
-  const ne = event as { sectors?: { Primary?: unknown[] } };
+  primarySectorsByCompanyId?: Record<number, Sector[]>
+): SectorLinkEntry[] {
+  const ne = event as {
+    primary?: unknown;
+    sectors?: unknown;
+  };
 
-  const fromEvent = coercePrimarySectorNames(ne.sectors?.Primary);
-  if (fromEvent.length > 0) return fromEvent.slice(0, 3).join(", ");
+  const fromEventSectors = resolveEventSectorEntries(ne.sectors, ne.primary, "Primary");
+  if (fromEventSectors.length > 0) return fromEventSectors.slice(0, 3);
+
+  const target = getTargetCompany(event as Parameters<typeof getTargetCompany>[0]);
+  if (target) {
+    const fromTargetSectors = resolveEventSectorEntries(
+      target.sectors,
+      target.primary,
+      "Primary"
+    );
+    if (fromTargetSectors.length > 0) return fromTargetSectors.slice(0, 3);
+
+    const fromTargetLegacy = coerceSectorNameList(
+      target.primary_sectors ?? target._sectors_primary
+    );
+    if (fromTargetLegacy.length > 0) return fromTargetLegacy.slice(0, 3);
+  }
 
   const targetId = resolveTargetCompanyId(event);
   if (targetId != null && primarySectorsByCompanyId?.[targetId]?.length) {
-    return primarySectorsByCompanyId[targetId].slice(0, 3).join(", ");
+    return sectorsToLinkEntries(primarySectorsByCompanyId[targetId]);
   }
 
-  return formatPrimarySectorNames(fallbackPrimary);
+  return sectorsToLinkEntries(fallbackPrimary);
+}
+
+function EventSectorLinks({
+  event,
+  fallbackPrimary,
+  primarySectorsByCompanyId,
+  sectorNameToId,
+  linkColor,
+}: {
+  event: CorporateEvent;
+  fallbackPrimary: Sector[];
+  primarySectorsByCompanyId?: Record<number, Sector[]>;
+  sectorNameToId?: SectorNameLookup;
+  linkColor: string;
+}) {
+  const sectors = enrichSectorEntries(
+    resolveEventPrimarySectors(
+      event,
+      fallbackPrimary,
+      primarySectorsByCompanyId
+    ),
+    sectorNameToId
+  );
+
+  if (sectors.length === 0) return <>-</>;
+
+  return (
+    <>
+      {sectors.map((sector, idx) => {
+        const href = getSectorHref(sector);
+        return (
+          <span key={`${sector.name}-${sector.id ?? idx}`}>
+            {href ? (
+              <Link
+                href={href}
+                prefetch={false}
+                style={{
+                  color: linkColor,
+                  textDecoration: "underline",
+                  fontWeight: 500,
+                }}
+              >
+                {sector.name}
+              </Link>
+            ) : (
+              sector.name
+            )}
+            {idx < sectors.length - 1 ? ", " : ""}
+          </span>
+        );
+      })}
+    </>
+  );
 }
 
 type AdvisorEntry = { id?: number; name: string };
@@ -245,6 +315,7 @@ export const CorporateEventsProfilePanel: React.FC<
   loading = false,
   primarySectors = [],
   primarySectorsByCompanyId,
+  sectorNameToId,
   maxInitialEvents = 3,
   totalCount,
   rangeStart = 0,
@@ -457,11 +528,13 @@ export const CorporateEventsProfilePanel: React.FC<
                           minWidth: 0,
                         }}
                       >
-                        {eventPrimarySectorLabel(
-                          event,
-                          primarySectors,
-                          primarySectorsByCompanyId
-                        )}
+                        <EventSectorLinks
+                          event={event}
+                          fallbackPrimary={primarySectors}
+                          primarySectorsByCompanyId={primarySectorsByCompanyId}
+                          sectorNameToId={sectorNameToId}
+                          linkColor={T.azure}
+                        />
                       </div>
                     </>
                   )}

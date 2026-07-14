@@ -13,6 +13,7 @@ import {
 import { CorporateEventTargetLink } from "@/components/corporate-events/CorporateEventPartyLink";
 import { isNonEmptyDisplayString as isNonEmptyString } from "@/lib/emptyDisplay";
 import type { CorporateEvent } from "@/components/corporate-events/CorporateEventsTable";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 
 type Props = {
   events: CorporateEvent[];
@@ -112,12 +113,6 @@ function formatAmountCell(event: CorporateEvent): string {
 
   if (isNonEmptyString(ne.ev_data?.ev_band)) return ne.ev_data!.ev_band!;
   return "-";
-}
-
-function dealTypeTone(dealType: string): "coral" | "lavender" {
-  const d = dealType.toLowerCase();
-  if (d.includes("divest")) return "coral";
-  return "lavender";
 }
 
 type Coinvestor = { id?: number; name: string; href?: string };
@@ -437,7 +432,6 @@ export function InvestorCorporateEventsProfilePanel({
             {displayed.map((event, rowIndex) => {
               const ne = event as { announcement_date?: string; deal_type?: string };
               const dealTypeStr = ne.deal_type || "-";
-              const tone = dealTypeTone(dealTypeStr);
               const coinvestors = collectCoinvestors(event);
               const advisors = collectAdvisors(event);
               const isLastRow = rowIndex === displayed.length - 1;
@@ -453,7 +447,11 @@ export function InvestorCorporateEventsProfilePanel({
                   </div>
                   <div style={{ ...cellStyle, textAlign: COL_ALIGN[1] }}>{renderTargetCell(event)}</div>
                   <div style={{ ...cellStyle, textAlign: COL_ALIGN[2] }}>
-                    <Pill tone={tone}>{dealTypeStr}</Pill>
+                    {dealTypeStr && dealTypeStr !== "-" ? (
+                      <DealTypeBadge dealType={dealTypeStr} />
+                    ) : (
+                      "-"
+                    )}
                   </div>
                   <div style={{ ...cellStyle, textAlign: COL_ALIGN[3] }}>
                     <CoinvestorChips coinvestors={coinvestors} />

@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { LinkPanel, LinkedH, KV, T, Pill } from "@/components/redesign/primitives";
 import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+import { DealTypeBadge } from "./DealTypeBadge";
 
 export type CorporateEventSector = {
   id?: number;
@@ -103,7 +104,7 @@ export function CorporateEventOverviewCard({
     { k: "Date closed", v: displayText(dateClosed) },
     {
       k: "Deal type",
-      v: dealType?.trim() ? <Pill tone="azure">{dealType}</Pill> : faintDash(),
+      v: dealType?.trim() ? <DealTypeBadge dealType={dealType.trim()} /> : faintDash(),
     },
     {
       k: "Deal stage",
