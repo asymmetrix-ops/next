@@ -93,9 +93,9 @@ export const descriptionBodyStyle: React.CSSProperties = {
   fontWeight: 400,
 };
 
-/** Monospace data values — Menlo / SF Mono (not system-ui sans). */
+/** Numeric data values — system sans with tabular figures for alignment. */
 export const numericValueStyle: React.CSSProperties = {
-  fontFamily: 'ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace',
+  fontFamily: T.sans,
   fontVariantNumeric: "tabular-nums",
 };
 

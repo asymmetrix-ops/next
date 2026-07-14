@@ -132,7 +132,7 @@ export function InvestorOverviewCard({
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           {employees != null && employees > 0 ? (
             <>
-              <span style={{ fontFamily: T.mono }}>{employees.toLocaleString("en-US")}</span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>{employees.toLocaleString("en-US")}</span>
               {employeesYoY ? <Delta value={employeesYoY} /> : null}
             </>
           ) : (
