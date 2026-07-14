@@ -10,7 +10,8 @@ import React, {
 import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
-import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
+import { fundingStageBadgeStyle } from "@/lib/corporateEventDealTypeBadge";
 import type {
   CorporateEventListItem,
   CorporateEventsSearchFilters,
@@ -21,15 +22,16 @@ import {
 } from "@/lib/corporateEventsFilterPayload";
 import {
   CORPORATE_EVENTS_COLUMN_CATEGORIES,
-  CANONICAL_CORPORATE_EVENT_COLUMN_KEYS,
   DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS,
   PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS,
   corporateEventColumnKeysToVisibility,
   corporateEventVisibilityToColumnKeys,
   enforceCorporateEventColumnKeyOrder,
   getEffectiveFrozenCorporateEventColumnKeys,
+  migrateCorporateEventColumnKeys,
   reorderCorporateEventColumnKeys,
 } from "@/components/corporate-events/corporateEventsColumnCategories";
+import { CORPORATE_EVENTS_LIST_TABLE_STYLES } from "@/components/corporate-events/corporateEventsListTableStyles";
 import { FILTER_PINNED_TOOLTIP } from "@/components/corporate-events/corporateEventsColumnFilterMap";
 import {
   compareCorporateEventSortValues,
@@ -38,7 +40,6 @@ import {
 } from "@/components/corporate-events/corporateEventsTableSort";
 import {
   derivePrimaryFromCompany,
-  deriveSecondaryFromCompany,
   formatCorporateEventDate,
   getFundingStage,
   getTargetCompany,
@@ -65,6 +66,7 @@ import {
   getStickyColumnStyle,
   SearchTablePinIndicator,
 } from "@/components/search/searchTableUtils";
+import CompactPagination from "@/components/ui/CompactPagination";
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
@@ -74,7 +76,7 @@ export type CorporateEventItem = CorporateEventListItem;
 export type Filters = CorporateEventsSearchFilters;
 
 const CORPORATE_EVENTS_COLUMNS_STORAGE_KEY =
-  "corporate-events-search-column-keys-v1";
+  "corporate-events-search-column-keys-v2";
 
 interface CorporateEventColumnDefinition {
   key: string;
@@ -84,18 +86,13 @@ interface CorporateEventColumnDefinition {
 }
 
 const ALL_CORPORATE_EVENT_COLUMNS: CorporateEventColumnDefinition[] = [
-  { key: "description", label: "Event", minWidth: 220 },
-  { key: "announcement_date", label: "Date", minWidth: 130 },
-  { key: "target", label: "Target", minWidth: 160 },
-  { key: "target_hq", label: "Target HQ", minWidth: 120 },
-  { key: "parties", label: "Parties", wrap: true, minWidth: 220 },
-  { key: "deal_type", label: "Deal Type", minWidth: 130 },
-  { key: "funding_stage", label: "Funding Stage", minWidth: 130 },
-  { key: "investment_amount", label: "Amount (m)", minWidth: 120 },
-  { key: "enterprise_value", label: "EV (m)", minWidth: 120 },
-  { key: "advisors", label: "Advisors", wrap: true, minWidth: 180 },
-  { key: "primary_sectors", label: "Primary Sectors", wrap: true, minWidth: 180 },
-  { key: "secondary_sectors", label: "Secondary Sectors", wrap: true, minWidth: 180 },
+  { key: "description", label: "Event", wrap: true, minWidth: 140 },
+  { key: "announcement_date", label: "Date", minWidth: 100 },
+  { key: "target", label: "Target", wrap: true, minWidth: 120 },
+  { key: "parties", label: "Parties", wrap: true, minWidth: 150 },
+  { key: "details", label: "Details", wrap: true, minWidth: 140 },
+  { key: "advisors", label: "Advisors", wrap: true, minWidth: 120 },
+  { key: "primary_sectors", label: "Primary Sectors", wrap: true, minWidth: 130 },
 ];
 
 const COLUMN_MAP = new Map(
@@ -103,8 +100,8 @@ const COLUMN_MAP = new Map(
 );
 
 function getValidColumnKeys(keys: string[]): string[] {
-  return enforceCorporateEventColumnKeyOrder(
-    keys.filter((key) => CANONICAL_CORPORATE_EVENT_COLUMN_KEYS.includes(key))
+  return migrateCorporateEventColumnKeys(
+    keys.filter((key) => typeof key === "string")
   );
 }
 
@@ -149,6 +146,7 @@ export const CorporateEventsSearchSection = ({
   isPortfolioOnlyFilter?: boolean;
 }) => {
   const router = useRouter();
+  const sectionRef = useRef<HTMLDivElement>(null);
   const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
@@ -159,9 +157,6 @@ export const CorporateEventsSearchSection = ({
   const [primaryNameToId, setPrimaryNameToId] = useState<Record<string, number>>(
     {}
   );
-  const [secondaryNameToId, setSecondaryNameToId] = useState<
-    Record<string, number>
-  >({});
 
   const showColumnsModal =
     externalShowColumnsModal !== undefined
@@ -202,7 +197,9 @@ export const CorporateEventsSearchSection = ({
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(CORPORATE_EVENTS_COLUMNS_STORAGE_KEY);
+      const saved =
+        window.localStorage.getItem(CORPORATE_EVENTS_COLUMNS_STORAGE_KEY) ??
+        window.localStorage.getItem("corporate-events-search-column-keys-v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -260,7 +257,6 @@ export const CorporateEventsSearchSection = ({
             }
           }
           setSecondaryToPrimaryMap(map);
-          setSecondaryNameToId(secIdMap);
           setPrimaryNameToId((prev) => ({ ...prev, ...primIdMap }));
         }
         const primaries = await locationsService.getPrimarySectors();
@@ -330,12 +326,23 @@ export const CorporateEventsSearchSection = ({
     [router]
   );
 
+  const pageTotal =
+    pagination.pageTotal ||
+    (pagination.nextPage != null
+      ? Math.max(pagination.nextPage, pagination.curPage + 1)
+      : 1);
+
   const handlePageChange = useCallback(
     (page: number) => {
+      if (loading || page < 1 || page > pageTotal || page === pagination.curPage) {
+        return;
+      }
+
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       const filters = currentFilters ?? createDefaultCorporateEventFilters();
       void fetchCorporateEvents(page, { ...filters, Page: page });
     },
-    [currentFilters, fetchCorporateEvents]
+    [currentFilters, fetchCorporateEvents, loading, pageTotal, pagination.curPage]
   );
 
   const handleSortColumn = useCallback((columnKey: string) => {
@@ -481,13 +488,62 @@ export const CorporateEventsSearchSection = ({
     );
   };
 
+  const formatAmountMillions = (
+    amount: number | string | null | undefined,
+    currency: string | null | undefined
+  ): string => {
+    if (amount == null || !currency) return "-";
+    const value = Number(amount);
+    if (!Number.isFinite(value)) return "-";
+    return `${currency}${value.toLocaleString(undefined, { maximumFractionDigits: 3 })}`;
+  };
+
+  const renderDetailsCell = (event: CorporateEventItem): React.ReactNode => {
+    const fundingStage = getFundingStage(event);
+    const dealType = event.deal_type?.trim() || "";
+    const isPartnership = /partnership/i.test(dealType);
+    const amount = formatAmountMillions(
+      event.investment_data?.investment_amount_m,
+      event.investment_data?.currency?.Currency
+    );
+    const ev = formatAmountMillions(
+      event.ev_data?.enterprise_value_m,
+      event.ev_data?.currency?.Currency
+    );
+
+    return (
+      <div>
+        <div className="muted-row">
+          <strong>Deal Type:</strong>{" "}
+          {dealType ? <DealTypeBadge dealType={dealType} /> : "-"}
+        </div>
+        <div className="muted-row">
+          <strong>Funding Stage:</strong>{" "}
+          {fundingStage ? (
+            <span style={fundingStageBadgeStyle()}>{fundingStage}</span>
+          ) : (
+            "-"
+          )}
+        </div>
+        {!isPartnership && (
+          <>
+            <div className="muted-row">
+              <strong>Amount (m):</strong> {amount}
+            </div>
+            <div className="muted-row">
+              <strong>EV (m):</strong> {ev}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   const renderEventCell = (
     columnKey: string,
     event: CorporateEventItem
   ): React.ReactNode => {
     const target = getTargetCompany(event);
-    const fundingStage = getFundingStage(event);
-    const isPartnership = /partnership/i.test(event.deal_type || "");
 
     switch (columnKey) {
       case "description": {
@@ -495,52 +551,49 @@ export const CorporateEventsSearchSection = ({
         const description = event.description || "-";
         if (!id) return description;
         return (
-          <a
-            href={`/corporate-event/${id}`}
-            className="company-name link-blue"
-            style={SEARCH_ENTITY_LINK_STYLE}
-            onClick={(e) => {
-              if (
-                e.defaultPrevented ||
-                e.button !== 0 ||
-                e.metaKey ||
-                e.ctrlKey ||
-                e.shiftKey ||
-                e.altKey
-              ) {
-                return;
-              }
-              e.preventDefault();
-              handleEventClick(id);
-            }}
-          >
-            {description}
-          </a>
+          <div className="company-table-event-cell">
+            <a
+              href={`/corporate-event/${id}`}
+              className="company-name link-blue"
+              style={SEARCH_ENTITY_LINK_STYLE}
+              onClick={(e) => {
+                if (
+                  e.defaultPrevented ||
+                  e.button !== 0 ||
+                  e.metaKey ||
+                  e.ctrlKey ||
+                  e.shiftKey ||
+                  e.altKey
+                ) {
+                  return;
+                }
+                e.preventDefault();
+                handleEventClick(id);
+              }}
+            >
+              {description}
+            </a>
+          </div>
         );
       }
       case "announcement_date":
         return formatCorporateEventDate(event.announcement_date);
-      case "target":
+      case "target": {
+        const targetLinks = renderEntityLinks(extractTargetLinks(event), "target-col");
+        const hq = getTargetCountry(event);
         return (
-          renderEntityLinks(extractTargetLinks(event), "target-col") || "-"
+          <div className="company-table-target-cell">
+            {targetLinks || "-"}
+            {hq && hq !== "-" ? (
+              <div className="company-table-entity-subtitle">{hq}</div>
+            ) : null}
+          </div>
         );
-      case "target_hq":
-        return getTargetCountry(event);
+      }
       case "parties":
         return renderPartiesCell(event);
-      case "deal_type":
-        return event.deal_type || "-";
-      case "funding_stage":
-        return fundingStage || "-";
-      case "investment_amount":
-        return event.investment_data?.investment_amount_m &&
-          event.investment_data?.currency?.Currency
-          ? `${event.investment_data.currency.Currency}${Number(event.investment_data.investment_amount_m).toLocaleString(undefined, { maximumFractionDigits: 3 })}`
-          : "-";
-      case "enterprise_value":
-        return event.ev_data?.enterprise_value_m && event.ev_data?.currency?.Currency
-          ? `${event.ev_data.currency.Currency}${Number(event.ev_data.enterprise_value_m).toLocaleString(undefined, { maximumFractionDigits: 3 })}`
-          : "-";
+      case "details":
+        return renderDetailsCell(event);
       case "advisors":
         return (
           renderEntityLinks(extractAdvisorLinks(event), "advisor") || "-"
@@ -551,132 +604,9 @@ export const CorporateEventsSearchSection = ({
           primaryNameToId,
           "/sector"
         );
-      case "secondary_sectors":
-        return renderSectorCell(
-          deriveSecondaryFromCompany(target),
-          secondaryNameToId,
-          "/sub-sector"
-        );
       default:
-        if (columnKey === "deal_metrics") {
-          return (
-            <CorporateEventDealMetrics
-              dealType={event.deal_type}
-              fundingStage={fundingStage || undefined}
-              isPartnership={isPartnership}
-              amountMillions={event.investment_data?.investment_amount_m}
-              amountCurrency={event.investment_data?.currency?.Currency}
-              evMillions={event.ev_data?.enterprise_value_m}
-              evCurrency={event.ev_data?.currency?.Currency}
-            />
-          );
-        }
         return "-";
     }
-  };
-
-  const generatePaginationButtons = () => {
-    const buttons: React.ReactNode[] = [];
-    const maxVisible = 7;
-    const totalPages =
-      pagination.pageTotal ||
-      (pagination.nextPage != null
-        ? Math.max(pagination.nextPage, pagination.curPage + 1)
-        : 0);
-    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
-    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
-
-    if (totalPages <= 1) return buttons;
-
-    buttons.push(
-      <button
-        key="previous"
-        type="button"
-        className="pagination-button pagination-nav"
-        onClick={() => handlePageChange(prevPage)}
-        disabled={pagination.curPage <= 1}
-      >
-        Previous
-      </button>
-    );
-
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
-            onClick={() => handlePageChange(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-    } else {
-      buttons.push(
-        <button
-          key={1}
-          type="button"
-          className={`pagination-button ${pagination.curPage === 1 ? "active" : ""}`}
-          onClick={() => handlePageChange(1)}
-        >
-          1
-        </button>
-      );
-      if (pagination.curPage > 3) {
-        buttons.push(
-          <span key="ellipsis1" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-      const start = Math.max(2, pagination.curPage - 1);
-      const end = Math.min(totalPages - 1, pagination.curPage + 1);
-      for (let i = start; i <= end; i++) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
-            onClick={() => handlePageChange(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-      if (pagination.curPage < totalPages - 2) {
-        buttons.push(
-          <span key="ellipsis2" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-      buttons.push(
-        <button
-          key={totalPages}
-          type="button"
-          className={`pagination-button ${totalPages === pagination.curPage ? "active" : ""}`}
-          onClick={() => handlePageChange(totalPages)}
-        >
-          {totalPages}
-        </button>
-      );
-    }
-
-    buttons.push(
-      <button
-        key="next"
-        type="button"
-        className="pagination-button pagination-nav"
-        onClick={() => handlePageChange(nextPage)}
-        disabled={pagination.curPage >= totalPages}
-      >
-        Next
-      </button>
-    );
-
-    return buttons;
   };
 
   const columnsModalLayer =
@@ -746,7 +676,7 @@ export const CorporateEventsSearchSection = ({
   }
 
   return (
-    <div className="company-section">
+    <div className="company-section corporate-events-list-section" ref={sectionRef}>
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>
@@ -874,7 +804,14 @@ export const CorporateEventsSearchSection = ({
         </table>
       </div>
 
-      <div className="pagination">{generatePaginationButtons()}</div>
+      <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+        <CompactPagination
+          curPage={pagination.curPage}
+          pageTotal={pageTotal}
+          onPageChange={handlePageChange}
+          disabled={loading}
+        />
+      </div>
       <ExportLimitModal
         isOpen={showExportLimitModal}
         onClose={() => setShowExportLimitModal(false)}
@@ -882,7 +819,11 @@ export const CorporateEventsSearchSection = ({
         totalExports={EXPORT_LIMIT}
       />
       {columnsModalLayer}
-      <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `${SEARCH_TABLE_STYLES}${CORPORATE_EVENTS_LIST_TABLE_STYLES}`,
+        }}
+      />
     </div>
   );
 };

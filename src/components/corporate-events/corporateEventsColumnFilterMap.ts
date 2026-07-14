@@ -11,19 +11,20 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "description",
   "parties",
   "advisors",
+  "details",
 ]);
 
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
-  country: "target_hq",
+  country: "target",
   primary_sector: "primary_sectors",
-  secondary_sector: "secondary_sectors",
-  deal_type: "deal_type",
-  deal_status: "deal_type",
-  funding_stage: "funding_stage",
+  secondary_sector: "primary_sectors",
+  deal_type: "details",
+  deal_status: "details",
+  funding_stage: "details",
   buyer_investor_type: "parties",
   announcement_date: "announcement_date",
-  investment_amount: "investment_amount",
-  enterprise_value: "enterprise_value",
+  investment_amount: "details",
+  enterprise_value: "details",
 };
 
 export const COLUMN_KEY_TO_FILTER_ID: Record<string, string> = Object.fromEntries(
@@ -56,10 +57,9 @@ export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
     if (columnKey) keys.add(columnKey);
     if (filterId === "primary_sector" || filterId === "secondary_sector") {
       keys.add("primary_sectors");
-      keys.add("secondary_sectors");
     }
     if (locationFilterIds.has(filterId)) {
-      keys.add("target_hq");
+      keys.add("target");
     }
   }
 
@@ -71,23 +71,9 @@ export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
 function mapColumnCategoryToFilterCategory(
   column: CorporateEventColumnMeta
 ): string {
-  if (column.columnKey === "deal_type" || column.columnKey === "funding_stage") {
-    return "event";
-  }
-  if (
-    column.columnKey === "primary_sectors" ||
-    column.columnKey === "secondary_sectors"
-  ) {
-    return "sectors";
-  }
-  if (column.columnKey === "target_hq") return "location";
+  if (column.columnKey === "details") return "event";
+  if (column.columnKey === "primary_sectors") return "sectors";
   if (column.columnKey === "announcement_date") return "event";
-  if (
-    column.columnKey === "investment_amount" ||
-    column.columnKey === "enterprise_value"
-  ) {
-    return "event";
-  }
   return "event";
 }
 
@@ -175,6 +161,24 @@ export const EXTRA_FILTER_DEFS: Pick<
     category: "event",
     type: "Aa",
     editor: "enum",
+    options: [],
+  },
+  {
+    id: "investment_amount",
+    label: "Amount (m)",
+    fullLabel: "Amount (m)",
+    category: "event",
+    type: "#",
+    editor: "range",
+    options: [],
+  },
+  {
+    id: "enterprise_value",
+    label: "EV (m)",
+    fullLabel: "EV (m)",
+    category: "event",
+    type: "#",
+    editor: "range",
     options: [],
   },
   {

@@ -54,13 +54,6 @@ export const CORPORATE_EVENTS_COLUMN_CATEGORIES: CorporateEventColumnCategory[] 
           defaultVisible: true,
         },
         {
-          id: "target_hq",
-          columnKey: "target_hq",
-          label: "Target HQ",
-          type: "text",
-          defaultVisible: false,
-        },
-        {
           id: "parties",
           columnKey: "parties",
           label: "Parties",
@@ -68,32 +61,11 @@ export const CORPORATE_EVENTS_COLUMN_CATEGORIES: CorporateEventColumnCategory[] 
           defaultVisible: true,
         },
         {
-          id: "deal_type",
-          columnKey: "deal_type",
-          label: "Deal Type",
-          type: "text",
+          id: "details",
+          columnKey: "details",
+          label: "Details",
+          type: "paragraph",
           defaultVisible: true,
-        },
-        {
-          id: "funding_stage",
-          columnKey: "funding_stage",
-          label: "Funding Stage",
-          type: "text",
-          defaultVisible: false,
-        },
-        {
-          id: "investment_amount",
-          columnKey: "investment_amount",
-          label: "Amount (m)",
-          type: "number",
-          defaultVisible: true,
-        },
-        {
-          id: "enterprise_value",
-          columnKey: "enterprise_value",
-          label: "EV (m)",
-          type: "number",
-          defaultVisible: false,
         },
         {
           id: "advisors",
@@ -109,13 +81,6 @@ export const CORPORATE_EVENTS_COLUMN_CATEGORIES: CorporateEventColumnCategory[] 
           type: "paragraph",
           defaultVisible: true,
         },
-        {
-          id: "secondary_sectors",
-          columnKey: "secondary_sectors",
-          label: "Secondary Sectors",
-          type: "paragraph",
-          defaultVisible: true,
-        },
       ],
     },
   ];
@@ -126,16 +91,24 @@ export const ALL_CORPORATE_EVENTS_COLUMN_META =
 export const CANONICAL_CORPORATE_EVENT_COLUMN_KEYS =
   ALL_CORPORATE_EVENTS_COLUMN_META.map((column) => column.columnKey);
 
+/** Maps removed column keys from older layouts to the consolidated list keys. */
+const LEGACY_COLUMN_KEY_TO_CANONICAL: Record<string, string | null> = {
+  target_hq: "target",
+  deal_type: "details",
+  funding_stage: "details",
+  investment_amount: "details",
+  enterprise_value: "details",
+  secondary_sectors: null,
+};
+
 export const PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS = [
   "description",
   "announcement_date",
   "target",
   "parties",
-  "deal_type",
-  "investment_amount",
+  "details",
   "advisors",
   "primary_sectors",
-  "secondary_sectors",
 ] as const;
 
 export const FROZEN_CORPORATE_EVENT_COLUMN_KEYS = ["description"] as const;
@@ -143,6 +116,28 @@ export const FROZEN_CORPORATE_EVENT_COLUMN_KEYS = ["description"] as const;
 export const DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS: string[] = [
   ...PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS,
 ];
+
+export function migrateCorporateEventColumnKeys(keys: string[]): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+
+  for (const key of keys) {
+    let canonical = key;
+    if (!CANONICAL_CORPORATE_EVENT_COLUMN_KEYS.includes(key)) {
+      const mapped = LEGACY_COLUMN_KEY_TO_CANONICAL[key];
+      if (mapped == null) continue;
+      canonical = mapped;
+    }
+    if (!seen.has(canonical)) {
+      seen.add(canonical);
+      ordered.push(canonical);
+    }
+  }
+
+  return enforceCorporateEventColumnKeyOrder(
+    ordered.length > 0 ? ordered : [...PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS]
+  );
+}
 
 export function getEffectiveFrozenCorporateEventColumnKeys(
   filterPinnedKeys: string[] = []

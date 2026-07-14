@@ -587,6 +587,84 @@ const InsightsAnalysisPageContent = () => {
       border-radius: 6px;
       margin-bottom: 16px;
     }
+    .search-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      margin-bottom: 0;
+    }
+    .search-bar-input {
+      flex: 1 1 280px;
+      min-width: 220px;
+      max-width: 420px;
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #4a5568;
+      outline: none;
+      background: #fff;
+      box-sizing: border-box;
+      min-height: 44px;
+    }
+    .search-bar-input:focus {
+      border-color: #0075df;
+      box-shadow: 0 0 0 2px rgba(0, 117, 223, 0.12);
+    }
+    .search-bar-button {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border-radius: 6px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: 44px;
+      white-space: nowrap;
+      box-sizing: border-box;
+      transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .search-bar-button.filters-button {
+      background-color: #0075df;
+      color: #fff;
+    }
+    .search-bar-button.filters-button:hover {
+      background-color: #005bb5;
+    }
+    .search-bar-button:not(.filters-button):hover {
+      background-color: #f8fafc;
+    }
+    .filters-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: flex-end;
+      width: 100%;
+    }
+    .filters-input,
+    .filters-select {
+      width: 100%;
+      max-width: 280px;
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #4a5568;
+      outline: none;
+      background-color: #fff;
+      box-sizing: border-box;
+      min-height: 44px;
+    }
+    .filters-input:focus,
+    .filters-select:focus {
+      border-color: #0075df;
+      box-shadow: 0 0 0 2px rgba(0, 117, 223, 0.12);
+    }
     .pagination {
       display: flex;
       justify-content: center;
@@ -732,14 +810,14 @@ const InsightsAnalysisPageContent = () => {
               ) : null}
 
               {/* Search row – input, Search, Show Filters (same height, global styles) */}
-              <div className="search-bar" style={{ flexWrap: "wrap", gap: "12px", marginBottom: "0" }}>
+              <div className="search-bar">
                 <input
                   type="text"
                   placeholder="Enter search term here"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="search-bar-input search-bar-input-wide filters-input"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 />
                 <button
                   type="button"
@@ -795,7 +873,7 @@ const InsightsAnalysisPageContent = () => {
 
               {/* Expandable filters */}
               {showFilters && (
-                <div className="filters-grid" style={{ ...styles.grid, marginTop: "12px" }}>
+                <div className="filters-grid" style={{ marginTop: "16px" }}>
                   <div style={styles.gridItem}>
                     <span style={styles.label}>Content Type</span>
                     <select
@@ -811,7 +889,7 @@ const InsightsAnalysisPageContent = () => {
                         void fetchInsightsAnalysis(updated);
                       }}
                       style={styles.select}
-                      className="filters-input"
+                      className="filters-select"
                     >
                       <option value="">All Content Types</option>
                       {contentTypes.map((ct) => (
@@ -839,7 +917,7 @@ const InsightsAnalysisPageContent = () => {
                         void fetchInsightsAnalysis(updated);
                       }}
                       style={styles.select}
-                      className="filters-input"
+                      className="filters-select"
                     >
                       <option value="">All Primary Sectors</option>
                       {primarySectors.map((sector) => (
@@ -869,7 +947,7 @@ const InsightsAnalysisPageContent = () => {
                         void fetchInsightsAnalysis(updated);
                       }}
                       style={styles.select}
-                      className="filters-input"
+                      className="filters-select"
                     >
                       <option value="">All Transaction Statuses</option>
                       {transactionStatuses.map((status) => (
