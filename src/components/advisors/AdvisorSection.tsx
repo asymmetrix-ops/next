@@ -41,6 +41,8 @@ import {
 import { useSectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import type { SectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
+import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
+import { readLogoFromRecord } from "@/lib/companyLogo";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import {
@@ -395,7 +397,7 @@ export const AdvisorSection = ({
         return (
           <SearchEntityIdentityCell
             name={name}
-            logo={advisor.linkedin_logo}
+            logo={readLogoFromRecord(advisor, getAdvisorFieldAliasesForColumn("logo"))}
             subtitle={advisor.country?.trim() || undefined}
             href={id ? `/advisor/${id}` : undefined}
             onClick={(e) => {

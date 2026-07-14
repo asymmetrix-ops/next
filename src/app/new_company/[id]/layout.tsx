@@ -1,4 +1,5 @@
 import type { Metadata, ResolvingMetadata } from "next";
+import { readEntityLogo } from "@/lib/companyLogo";
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -19,9 +20,7 @@ async function fetchCompanyMeta(
     return {
       name: company?.name as string | undefined,
       description: (company?.description as string | undefined) ?? undefined,
-      logo: company?._linkedin_data_of_new_company?.linkedin_logo as
-        | string
-        | undefined,
+      logo: readEntityLogo(company) ?? undefined,
     };
   } catch {
     return null;
@@ -41,9 +40,7 @@ export async function generateMetadata(
   const title = meta?.name ? `Asymmetrix – ${meta.name}` : fallbackTitle;
   const description = meta?.description || "Company profile on Asymmetrix.";
 
-  const imageUrl = meta?.logo
-    ? `data:image/jpeg;base64,${meta.logo}`
-    : `${base.origin}/og-image.jpg`;
+  const imageUrl = meta?.logo ?? `${base.origin}/og-image.jpg`;
 
   const url = new URL(`/new_company/${id}`, base).toString();
 

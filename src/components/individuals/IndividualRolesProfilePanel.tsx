@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import CompanyLogo from "@/components/investor/CompanyLogo";
 import {
   profileTableColAlign,
   profileTableCellStyle,
@@ -23,45 +23,6 @@ type Props = {
 
 const ROLES_ROW_GRID =
   "minmax(0, 1.35fr) minmax(88px, auto) minmax(0, 1fr)";
-
-function RoleLogo({ logo, name }: { logo?: string; name: string }) {
-  if (logo) {
-    return (
-      <Image
-        src={`data:image/jpeg;base64,${logo}`}
-        alt={`${name} logo`}
-        width={18}
-        height={18}
-        style={{
-          objectFit: "contain",
-          borderRadius: "50%",
-          border: `1px solid ${T.divider}`,
-          flexShrink: 0,
-        }}
-      />
-    );
-  }
-  return (
-    <div
-      style={{
-        width: 18,
-        height: 18,
-        backgroundColor: T.inset,
-        borderRadius: "50%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 10,
-        fontWeight: 600,
-        color: T.muted,
-        border: `1px solid ${T.divider}`,
-        flexShrink: 0,
-      }}
-    >
-      {name.charAt(0).toUpperCase()}
-    </div>
-  );
-}
 
 export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
   const [showAll, setShowAll] = useState(false);
@@ -151,7 +112,7 @@ export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
                       overflow: "hidden",
                     }}
                   >
-                    <RoleLogo logo={logo} name={companyName} />
+                    <CompanyLogo logo={logo} name={companyName} size={18} />
                     {companyHref ? (
                       <Link
                         href={companyHref}

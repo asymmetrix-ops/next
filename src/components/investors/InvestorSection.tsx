@@ -26,6 +26,7 @@ import {
 } from "@/components/investors/investorsColumnCategories";
 import { FILTER_PINNED_TOOLTIP } from "@/components/investors/investorsColumnFilterMap";
 import { getInvestorFieldAliasesForColumn } from "@/components/investors/investorsColumnFields";
+import { readLogoFromRecord } from "@/lib/companyLogo";
 import {
   getInvestorColumnSortKind,
   getInvestorServerSortColumn,
@@ -150,7 +151,7 @@ function renderInvestorCell(
       return (
         <SearchEntityIdentityCell
           name={name}
-          logo={investor.linkedin_logo}
+          logo={readLogoFromRecord(investor, getInvestorFieldAliasesForColumn("logo"))}
           subtitle={investor.country?.trim() || undefined}
           href={id ? `/investors/${id}` : undefined}
           onClick={(e) => {

@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import Link from "next/link";
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import {
   profileTableCellStyle,
   tableColHeaderBarStyle,
@@ -27,11 +28,12 @@ const COL_GAP = 2;
 const ROW_PAD = "6px 10px";
 
 function PartyLogo({ logo, name }: { logo?: string; name: string }) {
-  if (logo) {
+  const src = resolveCompanyLogoSrc(logo);
+  if (src) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={logo}
+        src={src}
         alt={`${name} logo`}
         width={18}
         height={18}

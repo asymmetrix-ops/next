@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import CompanyLogo from "@/components/investor/CompanyLogo";
 import {
   profileTableColAlign,
   profileTableCellStyle,
@@ -23,45 +23,6 @@ type Props = {
 
 const RELATED_ROW_GRID =
   "minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr) minmax(72px, auto) 40px";
-
-function CompanyLogo({ logo, name }: { logo?: string; name: string }) {
-  if (logo) {
-    return (
-      <Image
-        src={`data:image/jpeg;base64,${logo}`}
-        alt={`${name} logo`}
-        width={22}
-        height={22}
-        style={{
-          objectFit: "contain",
-          borderRadius: "50%",
-          border: `1px solid ${T.divider}`,
-          flexShrink: 0,
-        }}
-      />
-    );
-  }
-  return (
-    <div
-      style={{
-        width: 22,
-        height: 22,
-        backgroundColor: T.inset,
-        borderRadius: "50%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 10,
-        fontWeight: 600,
-        color: T.muted,
-        border: `1px solid ${T.divider}`,
-        flexShrink: 0,
-      }}
-    >
-      {name.charAt(0).toUpperCase()}
-    </div>
-  );
-}
 
 export function IndividualRelatedProfilePanel({
   individuals,
@@ -175,7 +136,7 @@ export function IndividualRelatedProfilePanel({
                       gap: 8,
                     }}
                   >
-                    <CompanyLogo logo={logo} name={companyName} />
+                    <CompanyLogo logo={logo} name={companyName} size={22} />
                     {companyHref ? (
                       <Link
                         href={companyHref}

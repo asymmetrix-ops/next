@@ -1,5 +1,6 @@
 import type { FiCompanyRow, FiPeersResponse } from "./types";
 import { parseSourceType } from "./sourceTypes";
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
 export function safeFiniteNumber(value: unknown): number | null {
   if (value == null || value === "" || value === "$NaN" || value === "NaN") return null;
@@ -40,18 +41,7 @@ function normalizeFyYeMonth(value: unknown): number {
 }
 
 function normalizeLogo(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  let trimmed = value.trim();
-  if (trimmed.length === 0) return null;
-  // FI APIs sometimes wrap base64 across lines (\r\n).
-  if (
-    !trimmed.startsWith("http://") &&
-    !trimmed.startsWith("https://") &&
-    !trimmed.startsWith("data:image")
-  ) {
-    trimmed = trimmed.replace(/\s+/g, "");
-  }
-  return trimmed;
+  return resolveCompanyLogoSrc(typeof value === "string" ? value : null);
 }
 
 export function normalizeCompanyRow(

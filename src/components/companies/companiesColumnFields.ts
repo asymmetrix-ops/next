@@ -6,6 +6,8 @@
  * Item read aliases below match the live API shape (see Get_new_companies sample).
  */
 
+import { LOGO_FIELD_ALIASES } from "@/lib/companyLogo";
+
 /** Fields returned on every item without `columns[]`. */
 export const IDENTITY_ITEM_FIELDS = ["id", "name", "linkedin_logo"] as const;
 
@@ -14,7 +16,7 @@ export const IDENTITY_ITEM_FIELDS = ["id", "name", "linkedin_logo"] as const;
  * Primary alias matches the Get_new_companies response key.
  */
 export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
-  logo: ["linkedin_logo"],
+  logo: LOGO_FIELD_ALIASES,
   name: ["name"],
   website: ["website", "url", "Website"],
   description: ["description"],

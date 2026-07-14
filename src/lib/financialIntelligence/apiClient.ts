@@ -1,4 +1,5 @@
 import { authService } from "@/lib/auth";
+import { readEntityLogo } from "@/lib/companyLogo";
 import {
   companySearchPayloadToSearchParams,
   normalizeCompanySearchPayload,
@@ -139,10 +140,7 @@ export async function searchFiCompanies(
       .map((item) => ({
         id: Number(item.id ?? 0),
         name: String(item.name ?? ""),
-        logo:
-          typeof item.linkedin_logo === "string" && item.linkedin_logo.trim()
-            ? item.linkedin_logo
-            : null,
+        logo: readEntityLogo(item),
       }))
       .filter((item) => item.id > 0 && item.name);
   } catch {

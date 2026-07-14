@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import CompanyLogo from "@/components/investor/CompanyLogo";
 import {
   LinkPanel,
   T,
@@ -51,46 +51,6 @@ const PORTFOLIO_ROW_GRID =
 const HEADERS = ["Name", "Sectors", "Country", "Invested", "Deal Lead"] as const;
 
 type PortfolioTab = "current" | "past";
-
-function CompanyLogo({ logo, name }: { logo?: string | null; name: string }) {
-  if (logo) {
-    return (
-      <Image
-        src={`data:image/jpeg;base64,${logo}`}
-        alt={`${name} logo`}
-        width={24}
-        height={24}
-        style={{
-          objectFit: "contain",
-          borderRadius: "50%",
-          border: `1px solid ${T.divider}`,
-          flexShrink: 0,
-        }}
-      />
-    );
-  }
-
-  return (
-    <div
-      style={{
-        width: 24,
-        height: 24,
-        backgroundColor: T.inset,
-        borderRadius: "50%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 10,
-        fontWeight: 600,
-        color: T.muted,
-        border: `1px solid ${T.divider}`,
-        flexShrink: 0,
-      }}
-    >
-      {name.charAt(0).toUpperCase()}
-    </div>
-  );
-}
 
 function sectorLabel(sectors: string[]): string {
   if (sectors.length === 0) return "-";
@@ -314,7 +274,7 @@ export function InvestorPortfolioProfilePanel({
                       minWidth: 0,
                     }}
                   >
-                    <CompanyLogo logo={company.logo} name={company.name} />
+                    <CompanyLogo logo={company.logo} name={company.name} size={24} />
                     <Link
                       href={`/company/${company.id}`}
                       prefetch={false}

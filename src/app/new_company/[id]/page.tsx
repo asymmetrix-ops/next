@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
@@ -48,6 +47,8 @@ import {
   isCompanyMcpPopulated,
   readCompanyMcpStatus,
 } from "@/lib/companyMcp";
+import CompanyLogo from "@/components/investor/CompanyLogo";
+import { readEntityLogo } from "@/lib/companyLogo";
 import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 import {
   buildSubsidiaryAcquisitionYearMap,
@@ -1152,41 +1153,6 @@ const getYearFoundedDisplay = (company: Company): string => {
   }
 
   return EMPTY_DISPLAY;
-};
-
-// Company Logo Component
-const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
-  const logoStyle = {
-    objectFit: "contain" as const,
-    borderRadius: "8px",
-  };
-
-  const placeholderStyle = {
-    width: "80px",
-    height: "60px",
-    backgroundColor: "#f7fafc",
-    borderRadius: "8px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "12px",
-    color: "#718096",
-  };
-
-  if (logo) {
-    return (
-      <Image
-        src={`data:image/jpeg;base64,${logo}`}
-        alt={`${name} logo`}
-        width={80}
-        height={60}
-        className="company-logo"
-        style={logoStyle}
-      />
-    );
-  }
-
-  return <div style={placeholderStyle}>No Logo</div>;
 };
 
 // Main Company Detail Component
@@ -3604,8 +3570,12 @@ const CompanyDetail = () => {
           {/* Left: logo + name */}
           <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0, flex: 1 }}>
                   <CompanyLogo
-                    logo={company._linkedin_data_of_new_company?.linkedin_logo}
+                    logo={readEntityLogo(company)}
                     name={company.name}
+                    width={80}
+                    height={60}
+                    borderRadius={8}
+                    fallback="label"
                   />
                   <span style={{
                     fontSize: "24px", fontWeight: 600, color: T.ink,

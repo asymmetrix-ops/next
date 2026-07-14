@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
@@ -26,6 +25,8 @@ import {
   isCompanyMcpPopulated,
   readCompanyMcpStatus,
 } from "@/lib/companyMcp";
+import CompanyLogo from "@/components/investor/CompanyLogo";
+import { readEntityLogo, resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
@@ -804,41 +805,6 @@ const getYearFoundedDisplay = (company: Company): string => {
   }
 
   return "-";
-};
-
-// Company Logo Component
-const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
-  const logoStyle = {
-    objectFit: "contain" as const,
-    borderRadius: "8px",
-  };
-
-  const placeholderStyle = {
-    width: "80px",
-    height: "60px",
-    backgroundColor: "#f7fafc",
-    borderRadius: "8px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "12px",
-    color: "#718096",
-  };
-
-  if (logo) {
-    return (
-      <Image
-        src={`data:image/jpeg;base64,${logo}`}
-        alt={`${name} logo`}
-        width={80}
-        height={60}
-        className="company-logo"
-        style={logoStyle}
-      />
-    );
-  }
-
-  return <div style={placeholderStyle}>No Logo</div>;
 };
 
 // Employee Chart Component
@@ -2679,8 +2645,12 @@ const CompanyDetail = () => {
                   }}
                 >
                   <CompanyLogo
-                    logo={company._linkedin_data_of_new_company?.linkedin_logo}
+                    logo={readEntityLogo(company)}
                     name={company.name}
+                    width={80}
+                    height={60}
+                    borderRadius={8}
+                    fallback="label"
                   />
                   <div style={{ minWidth: 0 }}>
                     <div
@@ -3818,11 +3788,12 @@ const CompanyDetail = () => {
                                   borderBottom: "1px solid #e2e8f0",
                                 }}
                               >
-                                {subsidiary._linkedin_data_of_new_company
-                                  ?.linkedin_logo ? (
+                                {(() => {
+                                  const logoSrc = readEntityLogo(subsidiary);
+                                  return logoSrc ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
-                                    src={`data:image/jpeg;base64,${subsidiary._linkedin_data_of_new_company.linkedin_logo}`}
+                                    src={logoSrc}
                                     alt={`${subsidiary.name} logo`}
                                     style={{
                                       width: "40px",
@@ -3846,7 +3817,8 @@ const CompanyDetail = () => {
                                   >
                                     N/A
                                   </div>
-                                )}
+                                );
+                                })()}
                               </td>
                               <td
                                 style={{
@@ -4096,10 +4068,14 @@ const CompanyDetail = () => {
                                                 minWidth: 0,
                                               }}
                                             >
-                                              {comp.linkedin_logo ? (
+                                              {(() => {
+                                                const logoSrc = resolveCompanyLogoSrc(
+                                                  comp.linkedin_logo
+                                                );
+                                                return logoSrc ? (
                                                 // eslint-disable-next-line @next/next/no-img-element
                                                 <img
-                                                  src={`data:image/jpeg;base64,${comp.linkedin_logo}`}
+                                                  src={logoSrc}
                                                   alt=""
                                                   style={{
                                                     width: "18px",
@@ -4109,7 +4085,8 @@ const CompanyDetail = () => {
                                                     flexShrink: 0,
                                                   }}
                                                 />
-                                              ) : null}
+                                              ) : null;
+                                              })()}
                                               <Link
                                                 href={`/company/${comp.id}`}
                                                 prefetch={false}

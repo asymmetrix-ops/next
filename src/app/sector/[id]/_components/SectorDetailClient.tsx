@@ -18,6 +18,7 @@ import {
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import {
   ContentArticle,
   InsightsAnalysisResponse,
@@ -383,12 +384,7 @@ function mapRecentTransactions(raw: unknown): TransactionRecord[] {
           "targetLogo",
         ]) || ""
       );
-      const targetLogoUrl = rawTargetLogo
-        ? rawTargetLogo.startsWith("http") ||
-          rawTargetLogo.startsWith("data:image")
-          ? rawTargetLogo
-          : `data:image/jpeg;base64,${rawTargetLogo}`
-        : "";
+      const targetLogoUrl = resolveCompanyLogoSrc(rawTargetLogo) ?? "";
       if (!buyer && !target) return null;
       return {
         date,
@@ -484,11 +480,7 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
           "logoUrl",
         ]) || ""
       );
-      const logoUrl = rawLogo
-        ? rawLogo.startsWith("http") || rawLogo.startsWith("data:image")
-          ? rawLogo
-          : `data:image/jpeg;base64,${rawLogo}`
-        : "";
+      const logoUrl = resolveCompanyLogoSrc(rawLogo) ?? "";
       const count = typeof countRaw === "number" ? countRaw : 0;
       if (!name) return null;
       return {
@@ -1706,11 +1698,7 @@ function mapAdvisorEntities(raw: unknown): AdvisorEntity[] {
       const rawLogo = toStringSafe(
         getFirstMatchingValue(obj, ["linkedin_logo", "Linkedin_Logo", "logo_url"]) || ""
       );
-      const logoUrl = rawLogo
-        ? rawLogo.startsWith("http") || rawLogo.startsWith("data:image")
-          ? rawLogo
-          : `data:image/jpeg;base64,${rawLogo}`
-        : "";
+      const logoUrl = resolveCompanyLogoSrc(rawLogo) ?? "";
 
       const sectorsValue = getFirstMatchingValue(obj, [
         "sectors",
@@ -2556,9 +2544,7 @@ function MarketMapGrid({
     return {
       id: c.id,
       name: c.name,
-      logo_url: c.linkedin_logo
-        ? `data:image/jpeg;base64,${c.linkedin_logo}`
-        : "",
+      logo_url: resolveCompanyLogoSrc(c.linkedin_logo) ?? "",
       sub_sector:
         Array.isArray(c.primary_sectors) && c.primary_sectors.length > 0
           ? getSectorLabel(c.primary_sectors[0] as SectorLinkItem)
