@@ -7,6 +7,7 @@ import {
   MCP_GUEST_ALLOWED_PATH,
   MCP_GUEST_LOGIN_PATH,
 } from "@/lib/mcpGuest";
+import { GET_ACCESS_PATH } from "@/lib/prospect";
 
 export default function TrialRouteGuard() {
   const { isTrialActive, isTrialExpired, isTrial, isMcpGuest, loading } =
@@ -28,7 +29,7 @@ export default function TrialRouteGuard() {
         /^\/company\//.test(pathname) || /^\/new_company\//.test(pathname);
 
       if (!isAllowedPath || isCompanyDetailPath) {
-        router.replace(MCP_GUEST_ALLOWED_PATH);
+        router.replace(GET_ACCESS_PATH);
       }
       return;
     }

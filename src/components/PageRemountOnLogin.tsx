@@ -3,6 +3,19 @@
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import PageSkeleton from "@/components/PageSkeleton";
+import ProspectConversionCard from "@/components/ProspectConversionCard";
+import { GET_ACCESS_PATH } from "@/lib/prospect";
+
+const PUBLIC_PATHS = [
+  "/",
+  "/about-us",
+  "/login",
+  "/trial-expired",
+  "/forgot-password",
+  "/reset-password",
+  GET_ACCESS_PATH,
+  "/mcp-guest/login",
+];
 
 /**
  * Two responsibilities:
@@ -23,8 +36,21 @@ export default function PageRemountOnLogin({
 }: {
   children: React.ReactNode;
 }) {
-  const { loginVersion, showLoginModal } = useAuth();
+  const { loginVersion, showLoginModal, isProspect, prospectEmail, loading } =
+    useAuth();
   const pathname = usePathname();
+
+  const isPublicPath = PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname?.startsWith(p + "/")
+  );
+
+  if (loading && !isPublicPath) {
+    return <PageSkeleton pathname={pathname ?? "/"} />;
+  }
+
+  if (isProspect && !isPublicPath) {
+    return <ProspectConversionCard email={prospectEmail} />;
+  }
 
   if (showLoginModal) {
     return <PageSkeleton pathname={pathname ?? "/"} />;

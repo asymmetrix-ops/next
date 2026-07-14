@@ -32,6 +32,7 @@ const titleMap: Array<{
   },
   { pattern: /^\/about-us(\/)?$/, title: () => "Asymmetrix – About" },
   { pattern: /^\/login(\/)?$/, title: () => "Asymmetrix – Login" },
+  { pattern: /^\/get-access(\/)?$/, title: () => "Asymmetrix – Book a Demo" },
 ];
 
 export default function TitleUpdater() {

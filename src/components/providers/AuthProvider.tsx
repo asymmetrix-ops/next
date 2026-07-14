@@ -42,6 +42,9 @@ interface AuthContextType {
   isMcpGuest: boolean;
   trialExpiresAt?: Date;
   trialDaysLeft?: number;
+  // Prospect session (from ?ref= middleware cookies)
+  isProspect: boolean;
+  prospectEmail: string | null;
   // Login modal safeguard
   showLoginModal: boolean;
   setShowLoginModal: (v: boolean) => void;
@@ -64,10 +67,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loginVersion, setLoginVersion] = useState(0);
   const [isContributor, setIsContributor] = useState(false);
   const [isMcpGuest, setIsMcpGuest] = useState(false);
+  const [isProspect, setIsProspect] = useState(false);
+  const [prospectEmail, setProspectEmail] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        const prospectResp = await fetch("/api/prospect-session", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (prospectResp.ok) {
+          const prospectData = (await prospectResp.json()) as {
+            isProspect?: boolean;
+            email?: string | null;
+          };
+          setIsProspect(!!prospectData.isProspect);
+          setProspectEmail(prospectData.email ?? null);
+        }
+
         const token = authService.getToken();
         const userData = authService.getUser();
 
@@ -118,6 +136,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setIsContributor(false);
         setIsMcpGuest(false);
+        setIsProspect(false);
+        setProspectEmail(null);
         setTrial({
           isTrial: false,
           isTrialActive: false,
@@ -244,6 +264,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isTrialActive: trial.isTrialActive,
     isTrialExpired: trial.isTrialExpired,
     isMcpGuest,
+    isProspect,
+    prospectEmail,
     trialExpiresAt: trial.trialExpiresAt,
     trialDaysLeft: trial.daysLeft,
     showLoginModal,

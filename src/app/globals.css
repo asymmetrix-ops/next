@@ -152,3 +152,12 @@ All colors MUST be HSL.
     @apply px-3 py-2 w-full rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent;
   }
 }
+
+/* Calendly inline embed */
+.calendly-embed {
+  width: 100%;
+}
+
+.calendly-embed iframe {
+  width: 100% !important;
+}

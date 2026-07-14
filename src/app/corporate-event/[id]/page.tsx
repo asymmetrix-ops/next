@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { PlusIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
@@ -1168,7 +1168,6 @@ const CorporateEventDetail = ({
 // Main Page Component
 const CorporateEventDetailPage = () => {
   const params = useParams();
-  const router = useRouter();
   const [data, setData] = useState<CorporateEventDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1196,7 +1195,8 @@ const CorporateEventDetailPage = () => {
         errorMessage === "Authentication required" ||
         errorMessage.includes("Authentication token not found")
       ) {
-        router.push("/login");
+        // AuthRouteGuard / PageRemountOnLogin handle login modal and prospect gate.
+        setError(null);
         return;
       }
 
@@ -1204,7 +1204,7 @@ const CorporateEventDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [params.id, router]);
+  }, [params.id]);
 
   useEffect(() => {
     if (params.id) {
