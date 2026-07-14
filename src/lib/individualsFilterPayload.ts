@@ -232,3 +232,35 @@ export function individualsCountsFiltersToSearchParams(
   appendIndividualsFilterParams(params, filters);
   return params;
 }
+
+function toIndividualsApiArray<T>(values: T[]): T[] | null {
+  return values.length > 0 ? values : null;
+}
+
+/** Xano `get_all_individuals` expects POST with string pagination and null filters. */
+export function individualsFiltersToRequestBody(
+  filters: IndividualsSearchFilters
+): Record<string, unknown> {
+  const page = Math.max(1, filters.page || 1);
+  const perPage = filters.per_page > 0 ? filters.per_page : 50;
+
+  const itemOffset = (page - 1) * perPage + 1;
+
+  return {
+    search_query: filters.Search_Query || "",
+    Offset: String(itemOffset),
+    Per_page: String(perPage),
+    Countries: toIndividualsApiArray(filters.Countries),
+    Provinces: toIndividualsApiArray(filters.Provinces),
+    Cities: toIndividualsApiArray(filters.Cities),
+    Continental_Region: toIndividualsApiArray(filters.Continental_Region),
+    geographical_sub_region: toIndividualsApiArray(
+      filters.geographical_sub_region
+    ),
+    primary_sectors_ids: toIndividualsApiArray(filters.Primary_Sectors),
+    Secondary_sectors_ids: toIndividualsApiArray(filters.Secondary_Sectors),
+    job_titles_ids: toIndividualsApiArray(filters.Job_Titles),
+    statuses: toIndividualsApiArray(filters.Statuses),
+    portfolio_only: filters.portfolio_only ? true : null,
+  };
+}

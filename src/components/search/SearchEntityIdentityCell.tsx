@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
+import { getEntityInitials } from "@/utils/entityInitials";
 
 type SearchEntityIdentityCellProps = {
   name: string;
@@ -46,7 +47,7 @@ function EntityLogo({
     );
   }
 
-  const initial = name.trim()[0]?.toUpperCase() ?? "?";
+  const initial = getEntityInitials(name);
 
   return (
     <span
