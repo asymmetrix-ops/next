@@ -47,7 +47,7 @@ export function getStickyColumnStyle(
     left,
     zIndex: header ? 7 : 3,
     minWidth,
-    background: header ? "#f9fafb" : selected ? "#EFF6FF" : "#fff",
+    background: header ? "#f8fafc" : selected ? "#EFF6FF" : "#fff",
     boxShadow: "1px 0 0 #e2e8f0",
   };
 }

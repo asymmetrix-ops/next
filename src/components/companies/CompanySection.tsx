@@ -51,7 +51,13 @@ import {
 import type { CompaniesOwnershipCounts } from "@/components/companies/companiesFilterConfig";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
-import { SearchEntityDescription } from "@/components/search/SearchEntityDescription";
+import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
+import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
+import type { SearchMultiValueItem } from "@/components/search/searchMultiValueUtils";
+import { buildSectorItemsFromUnknown } from "@/components/search/searchEntityLinkUtils";
+import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
+import { useSectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
+import type { SectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import CompactPagination from "@/components/ui/CompactPagination";
 
 interface CompanyCSVRow extends BaseCompanyCSVRow {
@@ -163,44 +169,20 @@ const getSectorInfo = (sector: unknown): { name: string; id?: number } => {
   return { name: String(nameRaw), id };
 };
 
+const buildSectorItems = (
+  sectors: unknown[] | undefined,
+  kind: "primary" | "secondary",
+  sectorMaps?: SectorNameIdMaps
+): SearchMultiValueItem[] =>
+  buildSectorItemsFromUnknown(sectors, kind, sectorMaps);
+
 const renderSectorLinks = (
   sectors: unknown[] | undefined,
-  kind: "primary" | "secondary"
-): React.ReactNode => {
-  if (!Array.isArray(sectors) || sectors.length === 0) return "-";
-
-  const nodes: React.ReactNode[] = [];
-  sectors.forEach((s, index) => {
-    const { name, id } = getSectorInfo(s);
-    const label = String(name ?? "").trim();
-    if (!label) return;
-
-    const href =
-      id != null
-        ? kind === "primary"
-          ? `/sector/${id}`
-          : `/sub-sector/${id}`
-        : undefined;
-
-    nodes.push(
-      href ? (
-        <a
-          key={`${kind}-${id}-${label}-${index}`}
-          href={href}
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          {label}
-        </a>
-      ) : (
-        <span key={`${kind}-${label}-${index}`}>{label}</span>
-      )
-    );
-
-    if (index < sectors.length - 1) nodes.push(<span key={`sep-${kind}-${index}`}>, </span>);
-  });
-
-  return nodes.length > 0 ? nodes : "-";
-};
+  kind: "primary" | "secondary",
+  sectorMaps?: SectorNameIdMaps
+): React.ReactNode => (
+  <SearchEntityMultiValueCell items={buildSectorItems(sectors, kind, sectorMaps)} />
+);
 
 const getInvestorInfo = (investor: unknown): { name: string; id?: number } => {
   if (typeof investor === "string" || typeof investor === "number") {
@@ -249,42 +231,28 @@ const readInvestorsFromCompany = (company: Company): unknown[] => {
   return parseListField(rec.investor_names);
 };
 
-const renderInvestorLinks = (investors: unknown[]): React.ReactNode => {
-  if (!Array.isArray(investors) || investors.length === 0) return "-";
-
-  const nodes: React.ReactNode[] = [];
-  investors.forEach((investor, index) => {
+const buildInvestorItems = (investors: unknown[]): SearchMultiValueItem[] =>
+  investors.flatMap((investor, index) => {
     const { name, id } = getInvestorInfo(investor);
-    if (!name) return;
-
-    const href = id != null ? `/investors/${id}` : undefined;
-    nodes.push(
-      href ? (
-        <a
-          key={`investor-${id}-${name}-${index}`}
-          href={href}
-          className="text-blue-600 underline hover:text-blue-800"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {name}
-        </a>
-      ) : (
-        <span key={`investor-${name}-${index}`}>{name}</span>
-      )
-    );
-
-    if (index < investors.length - 1) {
-      nodes.push(<span key={`investor-sep-${index}`}>, </span>);
-    }
+    if (!name) return [];
+    return [
+      {
+        name,
+        href: id != null ? `/investors/${id}` : undefined,
+        key: `investor-${id ?? name}-${index}`,
+      },
+    ];
   });
 
-  return nodes.length > 0 ? nodes : "-";
-};
+const renderInvestorLinks = (investors: unknown[]): React.ReactNode => (
+  <SearchEntityMultiValueCell items={buildInvestorItems(investors)} />
+);
 
 type CompanyColumnRenderContext = {
   index: number;
   onCompanyClick: (companyId: number) => void;
   readOnlyGuestMode?: boolean;
+  sectorMaps?: SectorNameIdMaps;
 };
 
 interface CompanyColumnDefinition {
@@ -424,11 +392,25 @@ const makeTextColumn = (
     }
     const raw = readCompanyValue(company, [...getFieldAliasesForColumn(key)]);
     if (LIST_JSON_COLUMN_KEYS.has(key)) {
-      const items = parseListField(raw);
-      return toPlainText(items.length > 0 ? items : raw);
+      const parsed = parseListField(raw);
+      if (parsed.length === 0) return toPlainText(raw);
+
+      const multiItems = parsed.flatMap((item, index) => {
+        const name = toPlainText(item);
+        if (!name || name === "-") return [];
+        return [{ name, key: `${key}-${index}-${name}` }];
+      });
+
+      if (multiItems.length > 0) {
+        return <SearchEntityMultiValueCell items={multiItems} />;
+      }
+      return toPlainText(raw);
     }
     const columnType = COLUMN_TYPE_BY_KEY.get(key) ?? "text";
-    if (columnType === "text" || columnType === "paragraph" || columnType === "url") {
+    if (columnType === "paragraph") {
+      return <SearchEntityLongText text={toPlainText(raw)} />;
+    }
+    if (columnType === "text" || columnType === "url") {
       return toPlainText(raw);
     }
     return formatCompanyColumnDisplay(key, columnType, raw);
@@ -443,29 +425,40 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         key: "name",
         label: "Name",
         group: "Identity",
-        minWidth: 200,
-        render: (company, { onCompanyClick, readOnlyGuestMode }) => (
-          <SearchEntityIdentityCell
-            name={company.name || "-"}
-            logo={company.linkedin_logo}
-            href={readOnlyGuestMode ? undefined : `/company/${company.id}`}
-            readOnly={readOnlyGuestMode}
-            onClick={(e) => {
-              if (
-                e.defaultPrevented ||
-                e.button !== 0 ||
-                e.metaKey ||
-                e.ctrlKey ||
-                e.shiftKey ||
-                e.altKey
-              ) {
-                return;
-              }
-              e.preventDefault();
-              onCompanyClick(company.id);
-            }}
-          />
-        ),
+        minWidth: 220,
+        render: (company, { onCompanyClick, readOnlyGuestMode }) => {
+          const hqRaw = readCompanyValue(company, [
+            ...getFieldAliasesForColumn("hq"),
+          ]);
+          const subtitle =
+            hqRaw != null && String(hqRaw).trim() && String(hqRaw).trim() !== "-"
+              ? String(hqRaw).trim()
+              : undefined;
+
+          return (
+            <SearchEntityIdentityCell
+              name={company.name || "-"}
+              logo={company.linkedin_logo}
+              subtitle={subtitle}
+              href={readOnlyGuestMode ? undefined : `/company/${company.id}`}
+              readOnly={readOnlyGuestMode}
+              onClick={(e) => {
+                if (
+                  e.defaultPrevented ||
+                  e.button !== 0 ||
+                  e.metaKey ||
+                  e.ctrlKey ||
+                  e.shiftKey ||
+                  e.altKey
+                ) {
+                  return;
+                }
+                e.preventDefault();
+                onCompanyClick(company.id);
+              }}
+            />
+          );
+        },
       },
       {
         key: "website",
@@ -536,8 +529,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Default",
         wrap: true,
         minWidth: 280,
-        render: (company, { index }) => (
-          <CompanyDescription description={company.description || "-"} index={index} />
+        render: (company) => (
+          <SearchEntityLongText text={company.description || "-"} />
         ),
       },
       {
@@ -546,8 +539,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Default",
         wrap: true,
         minWidth: 190,
-        render: (company) =>
-          renderSectorLinks(parseListField(company.primary_sectors), "primary"),
+        render: (company, { sectorMaps }) =>
+          renderSectorLinks(parseListField(company.primary_sectors), "primary", sectorMaps),
       },
       {
         key: "secondary_sectors",
@@ -555,8 +548,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Default",
         wrap: true,
         minWidth: 190,
-        render: (company) =>
-          renderSectorLinks(parseListField(company.secondary_sectors), "secondary"),
+        render: (company, { sectorMaps }) =>
+          renderSectorLinks(parseListField(company.secondary_sectors), "secondary", sectorMaps),
       },
       makeTextColumn("ownership", "Ownership", "Default"),
       makeTextColumn("linkedin_members", "LinkedIn Members", "Default", {
@@ -711,21 +704,16 @@ const getValidColumnKeys = (
 const CompanyCardBase = ({
   company,
   readOnlyGuestMode = false,
+  sectorMaps,
 }: {
   company: Company;
   index: number;
   readOnlyGuestMode?: boolean;
+  sectorMaps?: SectorNameIdMaps;
 }) => {
   const router = useRouter();
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  const handleCompanyClick = () => {
-    if (readOnlyGuestMode) return;
-    router.push(`/company/${company.id}`);
-  };
 
   const description = company.description || "-";
-  const isLong = description.length > 250;
 
   // Just use the primary sectors from the API - no derivation needed
   const computedPrimarySectors = React.useMemo(
@@ -755,12 +743,29 @@ const CompanyCardBase = ({
             "No Logo"
           ),
       React.createElement(
-        "span",
+        readOnlyGuestMode ? "span" : "a",
         {
           className: "company-card-name",
           ...(readOnlyGuestMode
             ? { style: { cursor: "default" } }
-            : { onClick: handleCompanyClick }),
+            : {
+                href: `/company/${company.id}`,
+                style: { textDecoration: "none", color: "#0075df" },
+                onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
+                  if (
+                    e.defaultPrevented ||
+                    e.button !== 0 ||
+                    e.metaKey ||
+                    e.ctrlKey ||
+                    e.shiftKey ||
+                    e.altKey
+                  ) {
+                    return;
+                  }
+                  e.preventDefault();
+                  router.push(`/company/${company.id}`);
+                },
+              }),
         },
         company.name || "-"
       )
@@ -780,7 +785,7 @@ const CompanyCardBase = ({
           "span",
           { className: "company-card-value" },
           computedPrimarySectors.length > 0
-            ? renderSectorLinks(computedPrimarySectors as unknown[], "primary")
+            ? renderSectorLinks(computedPrimarySectors as unknown[], "primary", sectorMaps)
             : "-"
         )
       ),
@@ -796,7 +801,7 @@ const CompanyCardBase = ({
           "span",
           { className: "company-card-value" },
           parseListField(company.secondary_sectors).length > 0
-            ? renderSectorLinks(parseListField(company.secondary_sectors), "secondary")
+            ? renderSectorLinks(parseListField(company.secondary_sectors), "secondary", sectorMaps)
             : "-"
         )
       ),
@@ -847,35 +852,13 @@ const CompanyCardBase = ({
       React.createElement(
         "div",
         { className: "company-card-description" },
-        React.createElement(
-          "div",
-          {
-            className: isExpanded ? "" : "company-card-description-truncated",
-          },
-          isExpanded || !isLong ? description : `${description.substring(0, 250)}...`
-        ),
-        isLong &&
-          React.createElement(
-            "span",
-            {
-              className: "company-card-expand",
-              onClick: () => setIsExpanded(!isExpanded),
-            },
-            isExpanded ? "Show less" : "Show more"
-          )
+        React.createElement(SearchEntityLongText, { text: description })
       )
     )
   );
 };
 const CompanyCard = React.memo(CompanyCardBase);
 CompanyCard.displayName = "CompanyCard";
-
-const CompanyDescription = ({
-  description,
-}: {
-  description: string;
-  index: number;
-}) => <SearchEntityDescription description={description} />;
 
 export const CompanySection = ({
   companies,
@@ -968,6 +951,7 @@ export const CompanySection = ({
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
   const headerDidDragRef = useRef(false);
+  const sectorMaps = useSectorNameIdMaps();
 
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const phantomScrollRef = useRef<HTMLDivElement | null>(null);
@@ -1218,7 +1202,7 @@ export const CompanySection = ({
         left,
         zIndex: header ? 7 : 3,
         minWidth,
-        background: header ? "#f9fafb" : selected ? "#EFF6FF" : "#fff",
+        background: header ? "#f8fafc" : selected ? "#EFF6FF" : "#fff",
         boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
       };
     },
@@ -1661,6 +1645,7 @@ export const CompanySection = ({
                     index,
                     onCompanyClick: handleCompanyClick,
                     readOnlyGuestMode,
+                    sectorMaps,
                   })
                 )}
               </td>
@@ -1695,6 +1680,7 @@ export const CompanySection = ({
       getStickyColumnStyle,
       getTableColumnClassName,
       readOnlyGuestMode,
+      sectorMaps,
     ]
   );
 
@@ -1741,7 +1727,7 @@ export const CompanySection = ({
             { style: { display: "flex", alignItems: "center", gap: 10 } },
             React.createElement("div", {
               className: "loading-skeleton",
-              style: { width: "22px", height: "22px", borderRadius: 5, flexShrink: 0 },
+              style: { width: "40px", height: "40px", borderRadius: 4, flexShrink: 0 },
             }),
             React.createElement("div", {
               className: "loading-skeleton",
@@ -1835,30 +1821,34 @@ export const CompanySection = ({
         ...[...Array(6)].map((_, i) => skeletonCard(i))
       ),
       React.createElement(
-        "table",
-        { className: "company-table" },
+        "div",
+        { className: "company-table-scroll" },
         React.createElement(
-          "thead",
-          null,
+          "table",
+          { className: "company-table" },
           React.createElement(
-            "tr",
+            "thead",
             null,
-            React.createElement("th", null, "Name"),
-            React.createElement("th", null, "Description"),
-            React.createElement("th", null, "Primary Sectors"),
-            React.createElement("th", null, "Secondary Sectors"),
-            React.createElement("th", null, "Ownership"),
-            React.createElement("th", null, "LinkedIn"),
-            React.createElement("th", null, "HQ"),
-            ...(onEditCompany
-              ? [React.createElement("th", { key: "edit" }, "")]
-              : [])
+            React.createElement(
+              "tr",
+              null,
+              React.createElement("th", null, "Name"),
+              React.createElement("th", null, "Description"),
+              React.createElement("th", null, "Primary Sectors"),
+              React.createElement("th", null, "Secondary Sectors"),
+              React.createElement("th", null, "Ownership"),
+              React.createElement("th", null, "LinkedIn"),
+              React.createElement("th", null, "HQ"),
+              ...(onEditCompany
+                ? [React.createElement("th", { key: "edit" }, "")]
+                : [])
+            )
+          ),
+          React.createElement(
+            "tbody",
+            null,
+            ...[...Array(10)].map((_, i) => skeletonRow(i))
           )
-        ),
-        React.createElement(
-          "tbody",
-          null,
-          ...[...Array(10)].map((_, i) => skeletonRow(i))
         )
       ),
       ...columnsModalLayer,
@@ -2077,46 +2067,11 @@ export const CompanySection = ({
     ...columnsModalLayer,
     !readOnlyGuestMode &&
       selectedCompanyIds.size > 0 &&
-      React.createElement(
-        "div",
-        {
-          style: {
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            flexWrap: "wrap",
-            marginBottom: 10,
-            padding: "10px 14px",
-            background: "#eff6ff",
-            border: "1px solid #bfdbfe",
-            borderRadius: 8,
-            fontSize: 13,
-            color: "#1e3a8a",
-          },
-        },
-        React.createElement(
-          "span",
-          { style: { fontWeight: 600 } },
-          `${selectedCompanyIds.size.toLocaleString()} selected`
-        ),
-        React.createElement(
-          "button",
-          {
-            type: "button",
-            onClick: onClearSelection,
-            style: {
-              background: "transparent",
-              border: "none",
-              color: "#2563eb",
-              fontWeight: 600,
-              cursor: "pointer",
-              fontSize: 13,
-            },
-          },
-          "Clear selection"
-        )
-      ),
+      React.createElement(BulkPortfolioActionToolbar, {
+        entityType: "company",
+        entityIds: Array.from(selectedCompanyIds),
+        onClearSelection,
+      }),
     React.createElement(
       "div",
       { className: "company-cards" },
@@ -2126,6 +2081,7 @@ export const CompanySection = ({
           company: company,
           index: index,
           readOnlyGuestMode,
+          sectorMaps,
         })
       )
     ),

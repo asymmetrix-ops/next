@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
 } from "react";
 import Header from "@/components/Header";
@@ -26,6 +27,7 @@ import {
   fetchAdvisorsCountsServer,
 } from "./actions";
 import { getAdvisorServerSortColumn } from "@/components/advisors/advisorsTableSort";
+import { useEntitySelection } from "@/components/search/useEntitySelection";
 
 const useAdvisorsAPI = () => {
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -271,6 +273,17 @@ function AdvisorsPageInner() {
     []
   );
 
+  const filtersKey = useMemo(
+    () => JSON.stringify(currentFilters ?? {}),
+    [currentFilters]
+  );
+  const {
+    selectedIds: selectedEntityIds,
+    toggleSelection: toggleEntitySelection,
+    togglePageSelection,
+    clearSelection,
+  } = useEntitySelection(filtersKey);
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -303,6 +316,10 @@ function AdvisorsPageInner() {
         sortDirection={sortDirection}
         onSortColumn={handleSortColumn}
         onSortClear={handleSortClear}
+        selectedEntityIds={selectedEntityIds}
+        onToggleEntitySelection={toggleEntitySelection}
+        onTogglePageSelection={togglePageSelection}
+        onClearSelection={clearSelection}
       />
       <Footer />
     </div>

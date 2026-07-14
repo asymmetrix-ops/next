@@ -6,8 +6,8 @@ import {
   fetchCompaniesServer,
   type CompaniesFilters,
 } from "@/app/companies/actions";
-import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import { CompanyDashboard } from "@/components/companies/CompanyDashboard";
+import { useEntitySelection } from "@/components/search/useEntitySelection";
 import {
   CompanySection,
   createDefaultFilters,
@@ -242,50 +242,16 @@ export function ScopedCompaniesPanel({
     DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS.length
   );
   const exportCSVRef = useRef<(() => void) | null>(null);
-  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<number>>(
-    () => new Set()
-  );
-  const [showBulkAddModal, setShowBulkAddModal] = useState(false);
-
   const filtersKey = useMemo(
     () => JSON.stringify(currentFilters ?? {}),
     [currentFilters]
   );
-
-  useEffect(() => {
-    setSelectedCompanyIds(new Set());
-  }, [filtersKey]);
-
-  const toggleCompanySelection = useCallback((id: number) => {
-    setSelectedCompanyIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const togglePageSelection = useCallback((ids: number[]) => {
-    setSelectedCompanyIds((prev) => {
-      const next = new Set(prev);
-      const allSelected = ids.length > 0 && ids.every((id) => next.has(id));
-      if (allSelected) {
-        ids.forEach((id) => next.delete(id));
-      } else {
-        ids.forEach((id) => next.add(id));
-      }
-      return next;
-    });
-  }, []);
-
-  const clearSelection = useCallback(() => {
-    setSelectedCompanyIds(new Set());
-  }, []);
-
-  const selectedCompanyIdList = useMemo(
-    () => Array.from(selectedCompanyIds),
-    [selectedCompanyIds]
-  );
+  const {
+    selectedIds: selectedCompanyIds,
+    toggleSelection: toggleCompanySelection,
+    togglePageSelection,
+    clearSelection,
+  } = useEntitySelection(filtersKey);
 
   const matchCountOverride =
     fixedOwnershipTypeIds != null ? pagination.itemsReceived : undefined;
@@ -347,8 +313,6 @@ export function ScopedCompaniesPanel({
         ownershipCounts={ownershipCounts}
         onColumnsClick={() => setShowColumnsModal((v) => !v)}
         onExportCSVClick={() => exportCSVRef.current?.()}
-        onAddToPortfolioClick={() => setShowBulkAddModal(true)}
-        selectedCount={selectedCompanyIds.size}
         columnsCount={columnsCount}
         columnsActive={showColumnsModal}
         hidePageHeader={embedded}
@@ -382,12 +346,6 @@ export function ScopedCompaniesPanel({
         onClearSelection={clearSelection}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
         embedded={embedded}
-      />
-      <BulkAddToPortfolioModal
-        isOpen={showBulkAddModal}
-        onClose={() => setShowBulkAddModal(false)}
-        companyIds={selectedCompanyIdList}
-        onComplete={clearSelection}
       />
     </div>
   );

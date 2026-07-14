@@ -9,7 +9,6 @@ import React, {
 } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import { FinancialScreenerDashboard } from "@/components/financial-screener/FinancialScreenerDashboard";
 import {
   FinancialScreenerSection,
@@ -30,6 +29,7 @@ import {
   fetchFinancialScreenerServer,
   type FinancialScreenerItem,
 } from "./actions";
+import { useEntitySelection } from "@/components/search/useEntitySelection";
 
 const PER_PAGE = 25;
 
@@ -198,10 +198,16 @@ export default function FinancialsPage() {
     getDefaultFinancialScreenerColumnCount()
   );
   const exportCSVRef = useRef<(() => void) | null>(null);
-  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<number>>(
-    () => new Set()
+  const filtersKey = useMemo(
+    () => JSON.stringify(currentFilters ?? {}),
+    [currentFilters]
   );
-  const [showBulkAddModal, setShowBulkAddModal] = useState(false);
+  const {
+    selectedIds: selectedCompanyIds,
+    toggleSelection: toggleCompanySelection,
+    togglePageSelection,
+    clearSelection,
+  } = useEntitySelection(filtersKey);
 
   const handleSearch = useCallback(
     (filters: FinancialScreenerFilters) => {
@@ -225,43 +231,6 @@ export default function FinancialsPage() {
     []
   );
 
-  const filtersKey = useMemo(
-    () => JSON.stringify(currentFilters ?? {}),
-    [currentFilters]
-  );
-
-  useEffect(() => {
-    setSelectedCompanyIds(new Set());
-  }, [filtersKey]);
-
-  const toggleCompanySelection = useCallback((id: number) => {
-    setSelectedCompanyIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const togglePageSelection = useCallback((ids: number[]) => {
-    setSelectedCompanyIds((prev) => {
-      const next = new Set(prev);
-      const allSelected = ids.length > 0 && ids.every((id) => next.has(id));
-      if (allSelected) ids.forEach((id) => next.delete(id));
-      else ids.forEach((id) => next.add(id));
-      return next;
-    });
-  }, []);
-
-  const clearSelection = useCallback(() => {
-    setSelectedCompanyIds(new Set());
-  }, []);
-
-  const selectedCompanyIdList = useMemo(
-    () => Array.from(selectedCompanyIds),
-    [selectedCompanyIds]
-  );
-
   return (
     <div className="min-h-screen">
       <Header />
@@ -273,8 +242,6 @@ export default function FinancialsPage() {
         totalUniverseCount={totalUniverseCount}
         onColumnsClick={() => setShowColumnsModal((v) => !v)}
         onExportCSVClick={() => exportCSVRef.current?.()}
-        onAddToPortfolioClick={() => setShowBulkAddModal(true)}
-        selectedCount={selectedCompanyIds.size}
         columnsCount={columnsCount}
         columnsActive={showColumnsModal}
       />
@@ -295,12 +262,7 @@ export default function FinancialsPage() {
         selectedCompanyIds={selectedCompanyIds}
         onToggleCompanySelection={toggleCompanySelection}
         onTogglePageSelection={togglePageSelection}
-      />
-      <BulkAddToPortfolioModal
-        isOpen={showBulkAddModal}
-        onClose={() => setShowBulkAddModal(false)}
-        companyIds={selectedCompanyIdList}
-        onComplete={clearSelection}
+        onClearSelection={clearSelection}
       />
       <Footer />
     </div>
