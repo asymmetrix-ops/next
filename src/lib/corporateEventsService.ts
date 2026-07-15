@@ -5,7 +5,7 @@ import {
   CorporateEventDetailResponse,
 } from "../types/corporateEvents";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
 
 class CorporateEventsService {
   private getAuthHeaders() {
@@ -73,6 +73,8 @@ class CorporateEventsService {
     if (filters.Date_end) {
       queryParams.append("Date_end", filters.Date_end);
     }
+    queryParams.append("EV_min", filters.EV_min ?? "0");
+    queryParams.append("EV_max", filters.EV_max ?? "0");
 
     const url = `${BASE_URL}/get_all_corporate_events?${queryParams.toString()}`;
 

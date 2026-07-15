@@ -392,7 +392,7 @@ export const CorporateEventsSearchSection = ({
         Page: 1,
         Per_page: pagination.itemTotal || events.length,
       });
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {

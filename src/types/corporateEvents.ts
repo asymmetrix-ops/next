@@ -32,6 +32,8 @@ export interface CorporateEventsFilters {
   filter_investor_ids?: number[];
   filter_sector_ids?: number[];
   filter_individual_ids?: number[];
+  EV_min?: string;
+  EV_max?: string;
 }
 
 export interface CorporateEventsStats {

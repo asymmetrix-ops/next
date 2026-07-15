@@ -30,6 +30,19 @@ function hasDateRangeValue(
   return Boolean(rv.from || rv.to);
 }
 
+function hasRangeValue(
+  value: unknown
+): value is { min?: number; max?: number } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const rv = value as { min?: number; max?: number };
+  return rv.min !== undefined || rv.max !== undefined;
+}
+
+function toSentinel(value: number | undefined): string {
+  if (value == null || !Number.isFinite(value) || value <= 0) return "0";
+  return String(value);
+}
+
 function resolveSectorIds(names: string[], sectors: SectorRef[]): number[] {
   const ids = names
     .map((name) => sectors.find((sector) => sector.sector_name === name)?.id)
@@ -107,6 +120,8 @@ function buildFiltersFromFilterBar(args: {
     filter_investor_ids: [],
     filter_sector_ids: [],
     filter_individual_ids: [],
+    EV_min: "0",
+    EV_max: "0",
   };
 
   let hasPriorClause = false;
@@ -169,6 +184,11 @@ function buildFiltersFromFilterBar(args: {
       filters.Date_end = v.to || null;
       continue;
     }
+    if (item.id === "enterprise_value" && hasRangeValue(v)) {
+      filters.EV_min = toSentinel(v.min);
+      filters.EV_max = toSentinel(v.max);
+      continue;
+    }
     if (item.id === "followed" && v === true) {
       filters.show_followed = true;
       continue;
@@ -207,6 +227,8 @@ export const createDefaultCorporateEventFilters =
     filter_investor_ids: [],
     filter_sector_ids: [],
     filter_individual_ids: [],
+    EV_min: "0",
+    EV_max: "0",
   });
 
 export function buildCorporateEventsSearchPayload(args: {
@@ -330,6 +352,9 @@ function appendSharedCorporateEventFilterParams(
   if (filters.Date_end) {
     params.append("Date_end", filters.Date_end);
   }
+
+  params.append("EV_min", filters.EV_min ?? "0");
+  params.append("EV_max", filters.EV_max ?? "0");
 }
 
 export function corporateEventsCountsFiltersToSearchParams(
