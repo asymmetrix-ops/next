@@ -293,12 +293,14 @@ export function buildCompaniesFilterDefs({
     },
   };
 
+  const columnLinked = buildColumnLinkedFilterDefs(overrides);
+  const columnLinkedIds = new Set(columnLinked.map((def) => def.id));
   const extras: FilterDef[] = EXTRA_FILTER_DEFS.map((extra) => ({
     ...extra,
     ...overrides[extra.id],
-  }));
+  })).filter((def) => !columnLinkedIds.has(def.id));
 
-  return [...extras, ...buildColumnLinkedFilterDefs(overrides)];
+  return [...extras, ...columnLinked];
 }
 
 export const OTHER_OWNERSHIP_TYPES = [

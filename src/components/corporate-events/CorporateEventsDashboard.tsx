@@ -26,9 +26,6 @@ import {
   CORPORATE_EVENT_DEAL_TAB_ORDER,
   type CorporateEventDealTab,
   type CorporateEventsSummaryStats,
-  type Country,
-  type Province,
-  type City,
   type PrimarySector,
   type SecondarySector,
 } from "@/components/corporate-events/corporateEventsFilterConfig";
@@ -51,6 +48,7 @@ import {
   SEARCH_DASHBOARD_TITLE,
   SearchListTabs,
 } from "@/components/search/searchDashboardLayout";
+import { useLocationFilterOptions } from "@/components/search/useLocationFilterOptions";
 
 export type CorporateEventsDashboardProps = {
   onSearch?: (
@@ -87,30 +85,18 @@ export const CorporateEventsDashboard = ({
     filterLogic: "and",
   });
 
-  const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
+  const { countries, provinces, cities } = useLocationFilterOptions(filterBarState);
   const [fundingStages, setFundingStages] = useState<string[]>([]);
   const [portfolioEntityOptions, setPortfolioEntityOptions] = useState<string[]>(
     []
   );
   const [activeDealTab, setActiveDealTab] = useState<CorporateEventDealTab>("all");
-
-  const selectedCountries = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
-  const selectedProvinces = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "state");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
 
   const selectedPrimaryNames = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "primary_sector");
@@ -127,7 +113,6 @@ export const CorporateEventsDashboard = ({
   }, [initialSearch]);
 
   useEffect(() => {
-    locationsService.getCountries().then(setCountries).catch(console.error);
     locationsService.getContinentalRegions().then(setContinentalRegions).catch(console.error);
     locationsService.getSubRegions().then(setSubRegions).catch(console.error);
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
@@ -169,25 +154,6 @@ export const CorporateEventsDashboard = ({
       })
       .catch(console.error);
   }, []);
-
-  useEffect(() => {
-    if (selectedCountries.length === 0) {
-      setProvinces([]);
-      return;
-    }
-    locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
-  }, [selectedCountries]);
-
-  useEffect(() => {
-    if (selectedCountries.length === 0) {
-      setCities([]);
-      return;
-    }
-    locationsService
-      .getCities(selectedCountries, selectedProvinces)
-      .then(setCities)
-      .catch(console.error);
-  }, [selectedCountries, selectedProvinces]);
 
   useEffect(() => {
     if (selectedPrimaryNames.length === 0) return;

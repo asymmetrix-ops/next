@@ -29,13 +29,11 @@ import {
   type CompaniesOwnershipCounts,
   type OwnershipTab,
 } from "@/lib/companiesSearchFilterConfig";
+import { useLocationFilterOptions } from "@/components/search/useLocationFilterOptions";
 
 export type { CompaniesOwnershipCounts, OwnershipTab };
 export { EMPTY_OWNERSHIP_COUNTS };
 
-type Country = { locations_Country: string };
-type Province = { State__Province__County: string };
-type City = { City: string };
 type PrimarySector = { id: number; sector_name: string };
 type SecondarySector = { id: number; sector_name: string };
 type OwnershipType = { id: number; ownership: string };
@@ -98,16 +96,14 @@ export function CompaniesSearchDashboard({
     initialOwnershipTab ?? "all"
   );
 
-  const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
+  const { countries, provinces, cities } = useLocationFilterOptions(filterBarState);
   const storeUserPortfolio = usePortfolioStore((s) => s.userPortfolio);
   const portfolioCompanyIds = useMemo(
     () =>
@@ -122,23 +118,12 @@ export function CompaniesSearchDashboard({
     number[]
   >([]);
 
-  const selectedCountries = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
-  const selectedProvinces = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "state");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
   const selectedPrimaryNames = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "primary_sector");
     return Array.isArray(item?.value) ? (item.value as string[]) : [];
   }, [filterBarState.filters]);
 
   useEffect(() => {
-    locationsService.getCountries().then(setCountries).catch(console.error);
     locationsService
       .getContinentalRegions()
       .then(setContinentalRegions)
@@ -173,28 +158,6 @@ export function CompaniesSearchDashboard({
         .catch(console.error);
     }
   }, [lockedSectorIds]);
-
-  useEffect(() => {
-    if (selectedCountries.length === 0) {
-      setProvinces([]);
-      return;
-    }
-    locationsService
-      .getProvinces(selectedCountries)
-      .then(setProvinces)
-      .catch(console.error);
-  }, [selectedCountries]);
-
-  useEffect(() => {
-    if (selectedCountries.length === 0) {
-      setCities([]);
-      return;
-    }
-    locationsService
-      .getCities(selectedCountries, selectedProvinces)
-      .then(setCities)
-      .catch(console.error);
-  }, [selectedCountries, selectedProvinces]);
 
   useEffect(() => {
     if (lockedSectorIds.length > 0) return;

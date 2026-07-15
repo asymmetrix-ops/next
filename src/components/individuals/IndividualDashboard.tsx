@@ -22,9 +22,6 @@ import {
   INDIVIDUAL_ROLE_TAB_ORDER,
   type IndividualRoleTab,
   type IndividualsSummaryCounts,
-  type Country,
-  type Province,
-  type City,
   type PrimarySector,
   type SecondarySector,
   type JobTitleOption,
@@ -45,6 +42,7 @@ import {
   SEARCH_DASHBOARD_TITLE,
   SearchListTabs,
 } from "@/components/search/searchDashboardLayout";
+import { useLocationFilterOptions } from "@/components/search/useLocationFilterOptions";
 
 export type IndividualDashboardProps = {
   onSearch?: (
@@ -83,25 +81,13 @@ export const IndividualDashboard = ({
 
   const [activeRoleTab, setActiveRoleTab] = useState<IndividualRoleTab>("all");
 
-  const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
-
-  const selectedCountries = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
-  const selectedProvinces = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "state");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
+  const { countries, provinces, cities } = useLocationFilterOptions(filterBarState);
 
   const selectedPrimaryNames = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "primary_sector");
@@ -118,7 +104,6 @@ export const IndividualDashboard = ({
   }, [initialSearch]);
 
   useEffect(() => {
-    locationsService.getCountries().then(setCountries).catch(console.error);
     locationsService.getContinentalRegions().then(setContinentalRegions).catch(console.error);
     locationsService.getSubRegions().then(setSubRegions).catch(console.error);
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
@@ -129,25 +114,6 @@ export const IndividualDashboard = ({
       )
       .catch(console.error);
   }, []);
-
-  useEffect(() => {
-    if (selectedCountries.length === 0) {
-      setProvinces([]);
-      return;
-    }
-    locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
-  }, [selectedCountries]);
-
-  useEffect(() => {
-    if (selectedCountries.length === 0) {
-      setCities([]);
-      return;
-    }
-    locationsService
-      .getCities(selectedCountries, selectedProvinces)
-      .then(setCities)
-      .catch(console.error);
-  }, [selectedCountries, selectedProvinces]);
 
   useEffect(() => {
     if (selectedPrimaryNames.length === 0) return;

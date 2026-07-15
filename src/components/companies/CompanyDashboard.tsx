@@ -27,9 +27,6 @@ import {
   OWNERSHIP_TAB_CONFIG,
   EMPTY_OWNERSHIP_COUNTS,
   type CompaniesOwnershipCounts,
-  type Country,
-  type Province,
-  type City,
   type PrimarySector,
   type SecondarySector,
   type OwnershipType,
@@ -44,6 +41,7 @@ import {
   SEARCH_DASHBOARD_TITLE,
   SearchListTabs,
 } from "@/components/search/searchDashboardLayout";
+import { useLocationFilterOptions } from "@/components/search/useLocationFilterOptions";
 
 export type CompanyDashboardProps = {
   onSearch?: (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => void;
@@ -103,27 +101,15 @@ export const CompanyDashboard = ({
   const [activeOwnershipTab, setActiveOwnershipTab] = useState<OwnershipTab>("all");
 
   // Option data (fetched from API)
-  const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
   const [portfolioCompanyIds, setPortfolioCompanyIds] = useState<number[]>([]);
   const [hybridBusinessFocusIds, setHybridBusinessFocusIds] = useState<number[]>([]);
 
-  // ── Derived selected values for dependent fetches ───────────────────────
-  const selectedCountries = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
-  const selectedProvinces = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "state");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
+  const { countries, provinces, cities } = useLocationFilterOptions(filterBarState);
 
   const selectedPrimaryNames = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "primary_sector");
@@ -132,7 +118,6 @@ export const CompanyDashboard = ({
 
   // ── Reference data fetching ───────────────────────────────────────────
   useEffect(() => {
-    locationsService.getCountries().then(setCountries).catch(console.error);
     locationsService.getContinentalRegions().then(setContinentalRegions).catch(console.error);
     locationsService.getSubRegions().then(setSubRegions).catch(console.error);
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
@@ -156,18 +141,6 @@ export const CompanyDashboard = ({
       })
       .catch(console.error);
   }, []);
-
-  // Provinces depend on selected countries
-  useEffect(() => {
-    if (selectedCountries.length === 0) { setProvinces([]); return; }
-    locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
-  }, [selectedCountries]);
-
-  // Cities depend on selected countries + provinces
-  useEffect(() => {
-    if (selectedCountries.length === 0) { setCities([]); return; }
-    locationsService.getCities(selectedCountries, selectedProvinces).then(setCities).catch(console.error);
-  }, [selectedCountries, selectedProvinces]);
 
   // When specific primary sectors are selected, narrow the secondary sector list.
   // When none are selected we keep the full list loaded on mount.

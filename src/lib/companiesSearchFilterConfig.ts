@@ -292,12 +292,14 @@ export function buildCompaniesFilterDefs({
     },
   };
 
+  const columnLinked = buildColumnLinkedFilterDefs(overrides);
+  const columnLinkedIds = new Set(columnLinked.map((def) => def.id));
   const extras: FilterDef[] = EXTRA_FILTER_DEFS.map((extra) => ({
     ...extra,
     ...overrides[extra.id],
-  }));
+  })).filter((def) => !columnLinkedIds.has(def.id));
 
-  const defs = [...extras, ...buildColumnLinkedFilterDefs(overrides)];
+  const defs = [...extras, ...columnLinked];
   if (excludeFilterIds.length === 0) return defs;
   const excluded = new Set(excludeFilterIds);
   return defs.filter((def) => !excluded.has(def.id));
