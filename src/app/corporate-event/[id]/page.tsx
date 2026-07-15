@@ -22,6 +22,13 @@ import {
   type CorporateEventTransactionRow,
 } from "@/components/corporate-events/CorporateEventTransactionsPanel";
 import { CorporateEventInsightsPanel } from "@/components/corporate-events/CorporateEventInsightsPanel";
+import { InsightsCard } from "@/components/redesign/InsightsCard";
+import {
+  fetchSectorInsightsArticles,
+  INSIGHTS_PAGE_SIZE,
+  buildSectorInsightsBrowseAllHref,
+  mapArticlesForPdfExport,
+} from "@/lib/sectorInsightsArticles";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -233,9 +240,14 @@ const CorporateEventDetail = ({
 
   const [eventArticles, setEventArticles] = useState<ContentArticle[]>([]);
   const [relatedTransactions, setRelatedTransactions] = useState<CorporateEventTransactionRow[]>([]);
-  const [relatedInsights, setRelatedInsights] = useState<
-    Array<{ id?: number; tag?: string; date?: string; title: string; content: string }>
-  >([]);
+  const [sectorArticles, setSectorArticles] = useState<ContentArticle[]>([]);
+  const [sectorArticlesLoading, setSectorArticlesLoading] = useState(false);
+  const [sectorInsightsPage, setSectorInsightsPage] = useState(1);
+  const [sectorInsightsTotal, setSectorInsightsTotal] = useState(0);
+  const [sectorInsightsShowingFrom, setSectorInsightsShowingFrom] = useState(0);
+  const [sectorInsightsShowingTo, setSectorInsightsShowingTo] = useState(0);
+  const [sectorInsightsHasNext, setSectorInsightsHasNext] = useState(false);
+  const [sectorInsightsHasPrev, setSectorInsightsHasPrev] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   useEffect(() => {
@@ -431,13 +443,17 @@ const CorporateEventDetail = ({
   }));
 
   // Memoize primary sector IDs string to prevent infinite loops
+  const primarySectorIds = useMemo(
+    () =>
+      primarySectors
+        .map((s) => s.id)
+        .filter((id): id is number => typeof id === "number"),
+    [primarySectors]
+  );
+
   const primarySectorIdsString = useMemo(() => {
-    return primarySectors
-      .map((s) => s.id)
-      .filter((id): id is number => typeof id === "number")
-      .sort((a, b) => a - b)
-      .join(",");
-  }, [primarySectors]);
+    return [...primarySectorIds].sort((a, b) => a - b).join(",");
+  }, [primarySectorIds]);
 
   const counterpartiesData = counterparties.map((counterparty) => {
     const nc = counterparty._new_company;
@@ -729,96 +745,85 @@ const CorporateEventDetail = ({
             };
           });
         setRelatedTransactions(filtered);
-
-        // Sector Insights & Analysis (by primary sector), excluding any already shown above.
-        // Uses api:Z3F6JUiu/articles_based_on_sectors to fetch 5 most recent articles
-        // whose Primary Sector(s) match the corporate event's primary sector(s)
-
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token) return;
-
-        // Get all primary sector IDs
-        const primarySectorIds = primarySectors
-          .map((s) => s.id)
-          .filter((id): id is number => typeof id === "number");
-
-        if (primarySectorIds.length === 0) {
-          setRelatedInsights([]);
-          return;
-        }
-
-        // Compute IDs of articles already shown in "Insights & Analysis" section
-        const eventArticleIds = new Set(
-          eventArticles
-            .filter((article) => {
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const relatedEvents = (article as any)?.Related_Corporate_Event || [];
-              if (!Array.isArray(relatedEvents) || typeof corporateEventId !== "number") {
-                return false;
-              }
-              return relatedEvents.some((ev: number | { id?: number } | undefined) => {
-                if (typeof ev === "number") {
-                  return ev === corporateEventId;
-                }
-                if (ev && typeof ev === "object" && "id" in ev) {
-                  return ev.id === corporateEventId;
-                }
-                return false;
-              });
-            })
-            .map((a) => a?.id)
-            .filter((id): id is number => typeof id === "number")
-        );
-
-        const params = new URLSearchParams();
-        // Add primary_sectors_ids as array parameters
-        primarySectorIds.forEach((id) => {
-          params.append("primary_sectors_ids[]", String(id));
-        });
-        // Add corporate_events_id
-        if (typeof corporateEventId === "number") {
-          params.append("corporate_events_id", String(corporateEventId));
-        }
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/articles_based_on_sectors?${params.toString()}`;
-        const res = await fetch(url, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        });
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          console.error("[Sector Insights] API error:", res.status, errorData);
-          setRelatedInsights([]);
-          return;
-        }
-        const json = (await res.json()) as ContentArticle[] | { items?: ContentArticle[] };
-        // Handle both array response and object with items property
-        const itemsIA = Array.isArray(json) ? json : (Array.isArray(json?.items) ? json.items : []);
-        const filteredIA = itemsIA.filter(
-          (article) => !(typeof article?.id === "number" && eventArticleIds.has(article.id))
-        );
-        const mapped = filteredIA.slice(0, 5).map((article) => ({
-          id: article.id,
-          tag: (article.Content_Type || "Article").trim() || "Article",
-          date: article.Publication_Date
-            ? new Date(article.Publication_Date).toLocaleDateString()
-            : undefined,
-          title: article.Headline || "Untitled",
-          content: article.Strapline || "",
-        }));
-        setRelatedInsights(mapped);
       } catch {
         // ignore
       }
     };
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primarySectorIdsString, corporateEventId, eventArticles.length]);
+  }, [primarySectorId, corporateEventId]);
+
+  const fetchSectorArticles = useCallback(
+    async (page = 1) => {
+      const requestPage = Math.max(1, page);
+      const sectorIds = primarySectorIdsString
+        .split(",")
+        .filter(Boolean)
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id));
+
+      if (sectorIds.length === 0 || typeof corporateEventId !== "number") {
+        setSectorArticles([]);
+        setSectorInsightsTotal(0);
+        setSectorInsightsShowingFrom(0);
+        setSectorInsightsShowingTo(0);
+        setSectorInsightsPage(1);
+        setSectorInsightsHasNext(false);
+        setSectorInsightsHasPrev(false);
+        setSectorArticlesLoading(false);
+        return;
+      }
+
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("asymmetrix_auth_token")
+          : null;
+      if (!token) {
+        setSectorArticles([]);
+        setSectorInsightsTotal(0);
+        setSectorInsightsShowingFrom(0);
+        setSectorInsightsShowingTo(0);
+        setSectorInsightsPage(1);
+        setSectorInsightsHasNext(false);
+        setSectorInsightsHasPrev(false);
+        setSectorArticlesLoading(false);
+        return;
+      }
+
+      setSectorArticlesLoading(true);
+      try {
+        const result = await fetchSectorInsightsArticles({
+          primarySectorIds: sectorIds,
+          corporateEventId,
+          page: requestPage,
+          token,
+        });
+        setSectorArticles(result.articles);
+        setSectorInsightsTotal(result.total);
+        setSectorInsightsShowingFrom(result.showingFrom);
+        setSectorInsightsShowingTo(result.showingTo);
+        setSectorInsightsPage(result.page);
+        setSectorInsightsHasNext(result.hasNext);
+        setSectorInsightsHasPrev(result.hasPrev);
+      } catch (error) {
+        console.error("[Sector Insights] fetch error:", error);
+        setSectorArticles([]);
+        setSectorInsightsTotal(0);
+        setSectorInsightsShowingFrom(0);
+        setSectorInsightsShowingTo(0);
+        setSectorInsightsPage(1);
+        setSectorInsightsHasNext(false);
+        setSectorInsightsHasPrev(false);
+      } finally {
+        setSectorArticlesLoading(false);
+      }
+    },
+    [corporateEventId, primarySectorIdsString]
+  );
+
+  useEffect(() => {
+    void fetchSectorArticles(1);
+  }, [fetchSectorArticles]);
 
   const handleExportPdf = useCallback(async () => {
     if (!corporateEventId || typeof corporateEventId !== "number") {
@@ -848,7 +853,7 @@ const CorporateEventDetail = ({
         "Sub-sectors": data?.["Sub-sectors"] || [],
         event_articles: eventArticles || [],
         related_transactions: relatedTransactions || [],
-        related_insights: relatedInsights || [],
+        related_insights: mapArticlesForPdfExport(sectorArticles),
         xano_auth_token: token,
       };
 
@@ -889,7 +894,7 @@ const CorporateEventDetail = ({
     } finally {
       setIsExportingPdf(false);
     }
-  }, [corporateEventId, event?.description, data, eventArticles, relatedTransactions, relatedInsights]);
+  }, [corporateEventId, event?.description, data, eventArticles, relatedTransactions, sectorArticles]);
 
   const eventTitle = event?.description || "Corporate Event";
   const eventDescription = event?.long_description || "";
@@ -911,13 +916,29 @@ const CorporateEventDetail = ({
   const hasPreviousEvents = previousCorporateEventsData.length > 0;
   const hasRelatedTransactions = relatedTransactions.length > 0;
   const hasEventInsights = insightsForEvent.length > 0;
-  const hasSectorInsights = relatedInsights.length > 0;
+  const showSectorInsights = sectorInsightsTotal > 0;
+  const canSectorInsightPrev = sectorInsightsHasPrev;
+  const canSectorInsightNext = sectorInsightsHasNext;
+  const sectorInsightsBrowseAllHref =
+    typeof corporateEventId === "number" && primarySectorIds.length > 0
+      ? buildSectorInsightsBrowseAllHref({
+          corporateEventId,
+          primarySectorIds,
+          dealName: eventTitle,
+        })
+      : "/insights-analysis";
 
-  let gridRow = 2;
-  const counterpartiesGridRow = hasCounterparties ? gridRow++ : 0;
-  const advisorsGridRow = hasAdvisors ? gridRow++ : 0;
+  let gridRow = 4;
   const previousEventsGridRow = hasPreviousEvents ? gridRow++ : 0;
-  const relatedTransactionsGridRow = hasRelatedTransactions ? gridRow++ : 0;
+  const eventInsightsGridRow = hasEventInsights ? gridRow++ : 0;
+
+  const sectorInsightsColumnSpan =
+    showSectorInsights && hasAdvisors ? "1 / span 2" : "1 / -1";
+  const advisorsColumnSpan = hasAdvisors
+    ? showSectorInsights
+      ? "3"
+      : "1 / -1"
+    : "auto";
 
   const styles = {
     container: {
@@ -938,8 +959,6 @@ const CorporateEventDetail = ({
     },
   };
 
-  const wideColumnSpan = hasEventInsights ? "1 / span 2" : "1 / -1";
-
   const responsiveCss = `
     .corporate-event-detail-page { overflow-x: hidden; }
     .responsiveGrid {
@@ -952,12 +971,12 @@ const CorporateEventDetail = ({
     .responsiveGrid > * { min-width: 0; min-height: 0; }
     .ce-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .ce-grid-description { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .ce-grid-sector-insights { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .ce-grid-counterparties { grid-column: ${wideColumnSpan}; grid-row: ${counterpartiesGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .ce-grid-advisors { grid-column: ${wideColumnSpan}; grid-row: ${advisorsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .ce-grid-previous { grid-column: ${wideColumnSpan}; grid-row: ${previousEventsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .ce-grid-related { grid-column: ${wideColumnSpan}; grid-row: ${relatedTransactionsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .ce-grid-event-insights { grid-column: 3; grid-row: 2 / ${gridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-counterparties { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-sector-insights { grid-column: ${sectorInsightsColumnSpan}; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-advisors { grid-column: ${advisorsColumnSpan}; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-related { grid-column: 1 / -1; grid-row: 3; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-previous { grid-column: 1 / -1; grid-row: ${previousEventsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-event-insights { grid-column: 1 / -1; grid-row: ${eventInsightsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .ce-grid-counterparties > *,
     .ce-grid-advisors > *,
     .ce-grid-previous > *,
@@ -1104,21 +1123,40 @@ const CorporateEventDetail = ({
               />
             </div>
 
-            {hasSectorInsights ? (
-              <div className="ce-grid-sector-insights">
-                <CorporateEventInsightsPanel
-                  title="Sector Insights & Analysis"
-                  insights={relatedInsights}
-                  fillGridCell
-                />
-              </div>
-            ) : null}
-
             {hasCounterparties ? (
               <div className="ce-grid-counterparties">
                 <LinkPanel fillGridCell>
                   <CorporateEventCounterpartiesPanel counterparties={counterpartiesData} />
                 </LinkPanel>
+              </div>
+            ) : null}
+
+            {(showSectorInsights || sectorArticlesLoading) ? (
+              <div className="ce-grid-sector-insights">
+                <InsightsCard
+                  fillGridCell
+                  title="Sector Insights & Analysis"
+                  previewCount={INSIGHTS_PAGE_SIZE}
+                  articles={sectorArticles}
+                  loading={sectorArticlesLoading}
+                  totalCount={sectorInsightsTotal}
+                  rangeStart={sectorInsightsShowingFrom}
+                  rangeEnd={sectorInsightsShowingTo}
+                  canPrev={canSectorInsightPrev}
+                  canNext={canSectorInsightNext}
+                  onPrev={() => {
+                    if (canSectorInsightPrev) {
+                      void fetchSectorArticles(sectorInsightsPage - 1);
+                    }
+                  }}
+                  onNext={() => {
+                    if (canSectorInsightNext) {
+                      void fetchSectorArticles(sectorInsightsPage + 1);
+                    }
+                  }}
+                  browseAllHref={sectorInsightsBrowseAllHref}
+                  emptyMessage="No sector insights available for this deal."
+                />
               </div>
             ) : null}
 
@@ -1130,23 +1168,23 @@ const CorporateEventDetail = ({
               </div>
             ) : null}
 
-            {hasPreviousEvents ? (
-              <div className="ce-grid-previous">
-                <LinkPanel fillGridCell>
-                  <CorporateEventTransactionsPanel
-                    title="Previous Corporate Events"
-                    rows={previousCorporateEventsData}
-                  />
-                </LinkPanel>
-              </div>
-            ) : null}
-
             {hasRelatedTransactions ? (
               <div className="ce-grid-related">
                 <LinkPanel fillGridCell>
                   <CorporateEventTransactionsPanel
                     title="Recent Sector Transactions"
                     rows={relatedTransactions}
+                  />
+                </LinkPanel>
+              </div>
+            ) : null}
+
+            {hasPreviousEvents ? (
+              <div className="ce-grid-previous">
+                <LinkPanel fillGridCell>
+                  <CorporateEventTransactionsPanel
+                    title="Previous Corporate Events"
+                    rows={previousCorporateEventsData}
                   />
                 </LinkPanel>
               </div>

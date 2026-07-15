@@ -16,6 +16,11 @@ import {
   fetchAllContentArticles,
   parseCompanyIdFromSearch,
 } from "@/lib/fetchAllContentArticles";
+import {
+  fetchSectorInsightsArticles,
+  parseCorporateEventIdFromSearch,
+  parsePrimarySectorIdsFromSearch,
+} from "@/lib/sectorInsightsArticles";
 import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 
 // Shared styles object
@@ -195,6 +200,21 @@ const InsightsAnalysisPageContent = () => {
     [searchParams]
   );
 
+  const corporateEventIdFromUrl = useMemo(
+    () => parseCorporateEventIdFromSearch(searchParams),
+    [searchParams]
+  );
+
+  const primarySectorIdsFromUrl = useMemo(
+    () => parsePrimarySectorIdsFromSearch(searchParams),
+    [searchParams]
+  );
+
+  const dealNameFromUrl = searchParams.get("deal_name")?.trim() || "";
+  const isSectorDealBrowseAll =
+    typeof corporateEventIdFromUrl === "number" &&
+    primarySectorIdsFromUrl.length > 0;
+
   const applyCompanyFilter = useCallback(
     (next: InsightsAnalysisFilters): InsightsAnalysisFilters => ({
       ...next,
@@ -247,7 +267,7 @@ const InsightsAnalysisPageContent = () => {
           return;
         }
 
-        if (isTrialActive && !activeFilters.company_id) {
+        if (isTrialActive && !activeFilters.company_id && !isSectorDealBrowseAll) {
         // Trial: show all Hot Takes, plus 3 most recent Company Analysis and 3 most recent Deal Analysis
         const fetchByType = async (contentType: string, perPage = 100) => {
           const p = new URLSearchParams();
@@ -298,6 +318,27 @@ const InsightsAnalysisPageContent = () => {
         return;
       }
 
+        if (isSectorDealBrowseAll && corporateEventIdFromUrl) {
+          const result = await fetchSectorInsightsArticles({
+            primarySectorIds: primarySectorIdsFromUrl,
+            corporateEventId: corporateEventIdFromUrl,
+            page: activeFilters.Offset,
+            token,
+          });
+
+          setArticles(result.articles);
+          setPagination({
+            itemsReceived: result.total,
+            curPage: result.page,
+            nextPage: result.hasNext ? result.page + 1 : null,
+            prevPage: result.hasPrev ? result.page - 1 : null,
+            offset: result.showingFrom > 0 ? result.showingFrom - 1 : 0,
+            perPage: result.perPage,
+            pageTotal: result.totalPages,
+          });
+          return;
+        }
+
         const data = await fetchAllContentArticles(
           activeFilters,
           token,
@@ -325,7 +366,7 @@ const InsightsAnalysisPageContent = () => {
         setLoading(false);
       }
     },
-    [applyCompanyFilter, isTrialActive, searchParams]
+    [applyCompanyFilter, corporateEventIdFromUrl, isSectorDealBrowseAll, isTrialActive, primarySectorIdsFromUrl, searchParams]
   );
 
   // Initial data fetch (respect company_id from URL when opened from company profile)
@@ -340,7 +381,7 @@ const InsightsAnalysisPageContent = () => {
 
     setFilters(initialFilters);
     void fetchInsightsAnalysis(initialFilters);
-  }, [companyIdFromUrl, searchParams, applyCompanyFilter, fetchInsightsAnalysis]);
+  }, [companyIdFromUrl, corporateEventIdFromUrl, primarySectorIdsFromUrl, searchParams, applyCompanyFilter, fetchInsightsAnalysis]);
 
   // Fetch content type options and primary sectors (cached via locationsService)
   useEffect(() => {
@@ -793,7 +834,21 @@ const InsightsAnalysisPageContent = () => {
               >
                 Insights & Analysis
               </h2>
-              {activeCompanyId ? (
+              {isSectorDealBrowseAll ? (
+                <p
+                  style={{
+                    margin: "0 0 16px",
+                    fontSize: "14px",
+                    color: "#4a5568",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Showing sector insights for{" "}
+                  <strong style={{ color: "#1a202c" }}>
+                    {dealNameFromUrl || `Deal #${corporateEventIdFromUrl}`}
+                  </strong>
+                </p>
+              ) : activeCompanyId ? (
                 <p
                   style={{
                     margin: "0 0 16px",

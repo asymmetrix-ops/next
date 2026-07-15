@@ -499,6 +499,11 @@ type Props = {
   /** When set, "Browse all" links to I&A pre-filtered by this company */
   companyId?: number | null;
   companyName?: string;
+  title?: string;
+  browseAllHref?: string;
+  emptyMessage?: string;
+  /** Number of article rows rendered (API page size). */
+  previewCount?: number;
 };
 
 export function InsightsCard({
@@ -514,6 +519,10 @@ export function InsightsCard({
   fillGridCell = false,
   companyId,
   companyName,
+  title = "Recent Insights & Analysis",
+  browseAllHref,
+  emptyMessage = "No insights available for this company.",
+  previewCount = 2,
 }: Props) {
   const isEmpty = !loading && totalCount === 0;
   const rangeLabel =
@@ -523,14 +532,15 @@ export function InsightsCard({
   const handleViewSummary = useCallback((a: ContentArticle) => setSummaryArticle(a), []);
   const handleCloseModal = useCallback(() => setSummaryArticle(null), []);
 
-  const browseAllHref =
-    companyId != null && companyId > 0
+  const resolvedBrowseAllHref =
+    browseAllHref ??
+    (companyId != null && companyId > 0
       ? `/insights-analysis?company_id=${companyId}${
           companyName?.trim()
             ? `&company_name=${encodeURIComponent(companyName.trim())}`
             : ""
         }`
-      : "/insights-analysis";
+      : "/insights-analysis");
 
   return (
     <>
@@ -538,7 +548,7 @@ export function InsightsCard({
       <SummaryModal article={summaryArticle} onClose={handleCloseModal} />
     )}
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH>Recent Insights &amp; Analysis</LinkedH>
+      <LinkedH>{title}</LinkedH>
 
       <div
         style={{
@@ -568,13 +578,13 @@ export function InsightsCard({
               textAlign: "center",
             }}
           >
-            No insights available for this company.
+            {emptyMessage}
           </div>
         ) : (
           <>
-            {Array.from({ length: 2 }).map((_, slotIndex) => {
+            {Array.from({ length: previewCount }).map((_, slotIndex) => {
               const article = articles[slotIndex];
-              const isLastSlot = slotIndex === 1;
+              const isLastSlot = slotIndex === previewCount - 1;
               if (article) {
                 return (
                   <ArticleRow
@@ -617,7 +627,7 @@ export function InsightsCard({
           </span>
         </div>
         <Link
-          href={browseAllHref}
+          href={resolvedBrowseAllHref}
           prefetch={false}
           style={{ color: T.azure, fontWeight: 500, textDecoration: "none" }}
         >
