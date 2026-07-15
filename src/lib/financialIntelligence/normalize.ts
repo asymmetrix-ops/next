@@ -17,6 +17,16 @@ function normalizeFinancialYear(value: unknown): number {
   return safeInt(value, 0);
 }
 
+function normalizeFinancialYearValue(raw: Record<string, unknown>): number {
+  const explicit = safeInt(raw.financial_year_value, 0);
+  if (explicit >= 1900 && explicit <= 2100) return explicit;
+
+  const legacy = safeInt(raw.financial_year, 0);
+  if (legacy >= 1900 && legacy <= 2100) return legacy;
+
+  return 0;
+}
+
 const FY_YE_MONTH_NAMES: Record<string, number> = {
   january: 1,
   february: 2,
@@ -56,11 +66,14 @@ export function normalizeCompanyRow(
   return {
     company_id,
     company_name: String(raw.company_name ?? raw.name ?? ""),
-    company_logo: readEntityLogo(raw),
+    company_logo:
+      readEntityLogo(raw) ??
+      normalizeLogo(raw.company_logo ?? raw.linkedin_logo),
     sectors_id: String(raw.sectors_id ?? ""),
     location_country: String(raw.location_country ?? ""),
     location_region: String(raw.location_region ?? ""),
     financial_year: normalizeFinancialYear(raw.financial_year),
+    financial_year_value: normalizeFinancialYearValue(raw),
     fy_ye_month: normalizeFyYeMonth(raw.fy_ye_month),
     revenue_m_usd: safeFiniteNumber(raw.revenue_m_usd),
     arr_m_usd: safeFiniteNumber(raw.arr_m_usd),
@@ -99,7 +112,12 @@ export function normalizeCompanyRow(
     price_increase_source_type: parseSourceType(raw.price_increase_source_type),
     rev_expansion_source_type: parseSourceType(raw.rev_expansion_source_type),
     revenue_multiple_source_type: parseSourceType(raw.revenue_multiple_source_type),
-    url: normalizeLogo(raw.url),
+    url:
+      typeof raw.url === "string" && raw.url.trim()
+        ? raw.url.trim()
+        : typeof raw.website === "string" && raw.website.trim()
+          ? raw.website.trim()
+          : null,
     is_manually_added: Boolean(
       raw.is_manually_added ?? raw.manually_added ?? raw.is_added
     ),

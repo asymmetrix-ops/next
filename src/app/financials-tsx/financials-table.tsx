@@ -292,8 +292,11 @@ export function FinancialsTable({
     [columns, showActions]
   );
 
+  const aggregateRowLabel =
+    tweaks.peerAggregateMode === "mean" ? "Sector mean" : "Sector median";
+
   const medianRow: FinRow = useMemo(() => ({
-    name: 'Sector median',
+    name: aggregateRowLabel,
     primary: '— Comparable group —',
     secondary: `${rows.length} companies`,
     country: '', hq: '', ownership: 'Public', color: 'var(--ax-cyan-700)',
@@ -309,7 +312,7 @@ export function FinancialsTable({
     ev_ebit: sectorMedian.ev_ebit,
     rev_multiple: sectorMedian.rev_multiple,
     trend: [],
-  }), [rows.length, sectorMedian]);
+  }), [rows.length, sectorMedian, aggregateRowLabel]);
 
   const sortedRows = useMemo(() => {
     if (!sortId) return rows;

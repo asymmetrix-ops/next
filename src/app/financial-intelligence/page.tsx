@@ -17,9 +17,8 @@ import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
 import { FinancialsTable } from "@/app/financials-tsx/financials-table";
 import "../financials-tsx/colors_and_type.css";
-import { fetchFiPeers, fetchFiTarget, searchFiCompanies, type FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
+import { fetchFiPeers, fetchFiTarget, searchFiCompanies, fetchFiCompanyLogosByIds, applyFiCompanyLogos, type FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
 import { FiControlBar, type FiIdOption } from "./components/FiControlBar";
-import { FiModeTabs, FiSectorComingSoon, type FiBenchmarkMode } from "./components/FiModeTabs";
 import {
   FiBenchmarkRefreshing,
   FiBenchmarkSkeleton,
@@ -53,7 +52,7 @@ import {
   isDefaultSourceTypes,
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
-import type { FiCompanyRow, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
+import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
 
 function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow {
   return {
@@ -64,6 +63,7 @@ function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow 
     location_country: "",
     location_region: "",
     financial_year: 0,
+    financial_year_value: 0,
     fy_ye_month: 0,
     revenue_m_usd: null,
     arr_m_usd: null,
@@ -108,8 +108,8 @@ export default function FinancialIntelligencePage() {
   const [allowedSources, setAllowedSources] = useState<FiMetricSourceType[]>([
     ...DEFAULT_FI_SOURCE_TYPES,
   ]);
-  const [benchmarkMode, setBenchmarkMode] = useState<FiBenchmarkMode>("company");
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
+  const [peerAggregateMode, setPeerAggregateMode] = useState<FiPeerAggregateMode>("median");
 
   const [sortId, setSortId] = useState("revenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -215,16 +215,26 @@ export default function FinancialIntelligencePage() {
           throw new Error(peersResult.error);
         }
 
+        const missingLogoIds = [
+          ...(targetResult.data.company_logo ? [] : [targetResult.data.company_id]),
+          ...peersResult.data.peers
+            .filter((peer) => !peer.company_logo)
+            .map((peer) => peer.company_id),
+        ];
+        const logoMap = await fetchFiCompanyLogosByIds(missingLogoIds);
+        const enrichedTarget = applyFiCompanyLogos([targetResult.data], logoMap)[0];
+        const enrichedPeers = applyFiCompanyLogos(peersResult.data.peers, logoMap);
+
         setTarget((prev) => ({
-          ...targetResult.data,
+          ...enrichedTarget,
           company_logo:
-            targetResult.data.company_logo ??
+            enrichedTarget.company_logo ??
             peersResult.data.target_logo ??
             prev?.company_logo ??
             null,
         }));
         setFilters(filtersToUse);
-        setPeers(annotateManuallyAddedPeers(peersResult.data.peers, include));
+        setPeers(annotateManuallyAddedPeers(enrichedPeers, include));
         setTotalPeers(peersResult.data.total_peers);
         setIsDefaultMode(peersResult.data.is_default_mode);
       } catch (err) {
@@ -405,13 +415,13 @@ export default function FinancialIntelligencePage() {
 
   const headlineMetrics = useMemo(() => {
     if (!target) return [];
-    return buildHeadlineMetrics(target, peers, allowedSources);
-  }, [target, peers, allowedSources]);
+    return buildHeadlineMetrics(target, peers, allowedSources, peerAggregateMode);
+  }, [target, peers, allowedSources, peerAggregateMode]);
 
   const benchmarkRows = useMemo(() => {
     if (!target) return [];
-    return buildBenchmarkMetricRows(target, peers, allowedSources);
-  }, [target, peers, allowedSources]);
+    return buildBenchmarkMetricRows(target, peers, allowedSources, peerAggregateMode);
+  }, [target, peers, allowedSources, peerAggregateMode]);
 
   const compositePercentile = useMemo(() => {
     if (!target) return null;
@@ -426,15 +436,19 @@ export default function FinancialIntelligencePage() {
       benchmarkRows,
       headlineMetrics,
       compositePercentile,
+      peerAggregateMode,
     });
-  }, [target, peers, benchmarkRows, headlineMetrics, compositePercentile]);
+  }, [target, peers, benchmarkRows, headlineMetrics, compositePercentile, peerAggregateMode]);
 
   const peerFinRows = useMemo(
     () => peers.map((peer) => mapCompanyToFinRow(peer, primarySectors, secondarySectors)),
     [peers, primarySectors, secondarySectors]
   );
 
-  const sectorMedian = useMemo(() => buildPeerSectorMedian(peers), [peers]);
+  const sectorMedian = useMemo(
+    () => buildPeerSectorMedian(peers, peerAggregateMode),
+    [peers, peerAggregateMode]
+  );
 
   const visibleColumnIds = peerColumnIds;
 
@@ -564,12 +578,6 @@ export default function FinancialIntelligencePage() {
           )}
         </div>
 
-        <FiModeTabs mode={benchmarkMode} onModeChange={setBenchmarkMode} />
-
-        {benchmarkMode === "sector" ? (
-          <FiSectorComingSoon />
-        ) : (
-          <>
         <FiControlBar
           targetId={target?.company_id ?? null}
           targetName={target?.company_name ?? null}
@@ -598,6 +606,8 @@ export default function FinancialIntelligencePage() {
           onAddQueryChange={setAddQuery}
           addResults={addResults}
           onAddCompany={addPeerCompany}
+          peerAggregateMode={peerAggregateMode}
+          onPeerAggregateModeChange={setPeerAggregateMode}
         />
 
         {showBenchmarkSkeleton && <FiBenchmarkSkeleton />}
@@ -648,7 +658,7 @@ export default function FinancialIntelligencePage() {
                 targetName={target.company_name}
                 peerCount={peers.length}
               />
-              <HeadlineMetricCards metrics={headlineMetrics} />
+              <HeadlineMetricCards metrics={headlineMetrics} peerAggregateMode={peerAggregateMode} />
             </div>
 
             <div
@@ -666,11 +676,11 @@ export default function FinancialIntelligencePage() {
                 targetName={target.company_name}
                 target={target}
                 peers={peers}
+                peerAggregateMode={peerAggregateMode}
               />
               <PeerCompaniesCard
                 peers={peers}
-                targetFinancialYear={target.financial_year || null}
-                targetFyYeMonth={target.fy_ye_month || null}
+                target={target}
                 excludedPeers={excludedPeers}
                 excludedIds={companyIdsExclude}
                 manuallyAddedIds={companyIdsInclude}
@@ -728,6 +738,7 @@ export default function FinancialIntelligencePage() {
                   chipIcon: true,
                   density: "comfortable",
                   hideCompanyAvatars: false,
+                  peerAggregateMode,
                 }}
                 sortId={sortId}
                 sortDir={sortDir}
@@ -744,8 +755,6 @@ export default function FinancialIntelligencePage() {
             </div>
             </>
           </FiBenchmarkRefreshing>
-        )}
-          </>
         )}
       </main>
       <BulkAddToPortfolioModal
@@ -772,7 +781,7 @@ export default function FinancialIntelligencePage() {
             onCancel={() => setShowPeerColumnsModal(false)}
             onApply={handleApplyPeerColumns}
             categories={FI_PEER_COLUMN_CATEGORIES}
-            title="Columns"
+            title="Column Control Room"
             defaultVisibleColumnKeys={DEFAULT_FI_PEER_COLUMN_IDS}
             reorderHint="Drag rows to reorder. Company stays fixed as the first column."
           />

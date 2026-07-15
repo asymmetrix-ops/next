@@ -4,6 +4,8 @@ const PLACEHOLDER_LOGOS = new Set(["-", "null", "undefined", "n/a", "none"]);
 
 /** Canonical API field paths for entity logos (first match wins). */
 export const LOGO_FIELD_ALIASES = [
+  "company_logo",
+  "Company_logo",
   "linkedin_logo",
   "Linkedin_Logo",
   "logo_url",
@@ -14,6 +16,10 @@ export const LOGO_FIELD_ALIASES = [
   "_linkedin_data_of_new_company.linkedin_logo",
   "linkedin_data.linkedin_logo",
   "linkedin_data.Linkedin_Logo",
+  "_new_company.linkedin_logo",
+  "_new_company._linkedin_data_of_new_company.linkedin_logo",
+  "company._linkedin_data_of_new_company.linkedin_logo",
+  "Company._linkedin_data_of_new_company.linkedin_logo",
 ] as const;
 
 function isPlaceholderLogo(value: string): boolean {

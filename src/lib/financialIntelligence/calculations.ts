@@ -1,4 +1,4 @@
-import type { FiCompanyRow, FiMetricDef, FiMetricKey, FiMetricSourceType } from "./types";
+import type { FiCompanyRow, FiMetricDef, FiMetricKey, FiMetricSourceType, FiPeerAggregateMode } from "./types";
 import { isMetricSourceAllowed } from "./sourceTypes";
 import { SHOW_ARR } from "@/lib/platformVisibility";
 
@@ -28,22 +28,19 @@ const FI_BENCHMARK_METRICS_ALL: FiMetricDef[] = [
   {
     key: "revenue_multiple",
     label: "Revenue multiple",
-    higherIsBetter: false,
-    directionHint: "cheaper",
+    higherIsBetter: true,
     format: "multiple",
   },
   {
     key: "ev_revenue_x",
     label: "EV / Revenue",
-    higherIsBetter: false,
-    directionHint: "cheaper",
+    higherIsBetter: true,
     format: "multiple",
   },
   {
     key: "ev_ebitda_x",
     label: "EV / EBITDA",
-    higherIsBetter: false,
-    directionHint: "cheaper",
+    higherIsBetter: true,
     format: "multiple",
   },
 ];
@@ -58,30 +55,33 @@ export const FI_BENCHMARK_SECTIONS: Array<{
   keys: FiMetricKey[];
 }> = [
   {
-    id: "scale",
-    label: "Scale",
+    id: "financial_metrics",
+    label: "Financial Metrics",
     keys: [
       "revenue_m_usd",
-      ...(SHOW_ARR ? (["arr_m_usd"] as FiMetricKey[]) : []),
+      "ebitda_m_usd",
       "ev_usd",
-      "no_of_clients",
-      "revenue_per_employee",
+      "revenue_multiple",
+      "rev_growth_pc",
+      "ebitda_margin",
+      "rule_of_40",
+      "ev_revenue_x",
+      "ev_ebitda_x",
     ],
   },
   {
-    id: "profitability",
-    label: "Profitability",
-    keys: ["ebitda_m_usd", "ebit_m_usd", "ebitda_margin"],
+    id: "subscription_metrics",
+    label: "Subscription Metrics",
+    keys: [
+      ...(SHOW_ARR ? (["arr_m_usd"] as FiMetricKey[]) : []),
+      "nrr",
+      "new_client_growth_pc",
+    ],
   },
   {
-    id: "growth",
-    label: "Growth & Expansion",
-    keys: ["rev_growth_pc", "new_client_growth_pc", "rule_of_40", "nrr"],
-  },
-  {
-    id: "valuation",
-    label: "Valuation",
-    keys: ["revenue_multiple", "ev_revenue_x", "ev_ebitda_x"],
+    id: "other_metrics",
+    label: "Other Metrics",
+    keys: ["ebit_m_usd", "no_of_clients", "revenue_per_employee"],
   },
 ];
 
@@ -194,6 +194,30 @@ export function peerMedian(values: number[]): number | null {
     return (sorted[mid - 1] + sorted[mid]) / 2;
   }
   return sorted[mid];
+}
+
+export function peerMean(values: number[]): number | null {
+  const nums = values.filter((v) => Number.isFinite(v));
+  if (nums.length === 0) return null;
+  return nums.reduce((sum, value) => sum + value, 0) / nums.length;
+}
+
+export function peerAggregate(
+  values: number[],
+  mode: FiPeerAggregateMode = "median"
+): number | null {
+  return mode === "mean" ? peerMean(values) : peerMedian(values);
+}
+
+export function peerAggregateLabels(mode: FiPeerAggregateMode) {
+  const noun = mode === "mean" ? "mean" : "median";
+  return {
+    noun,
+    title: mode === "mean" ? "Mean" : "Median",
+    peerColumn: `Peer ${noun}`,
+    sectorRow: `Sector ${noun}`,
+    vsPeer: `vs ${noun}`,
+  };
 }
 
 export function computePercentile(

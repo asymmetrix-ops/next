@@ -104,6 +104,53 @@ export async function fetchFiPeers(
   }
 }
 
+/** Fetch logos from Get_new_company for benchmark rows missing company_logo. */
+export async function fetchFiCompanyLogosByIds(
+  companyIds: number[]
+): Promise<Map<number, string>> {
+  const headers = getAuthHeaders();
+  if (!headers || companyIds.length === 0) return new Map();
+
+  const uniqueIds = Array.from(new Set(companyIds.filter((id) => id > 0)));
+  const logoMap = new Map<number, string>();
+
+  await Promise.all(
+    uniqueIds.map(async (companyId) => {
+      try {
+        const response = await fetch(
+          `${COMPANIES_API_BASE}/Get_new_company/${companyId}`,
+          { method: "GET", headers, cache: "no-store" }
+        );
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const record =
+          data && typeof data === "object" && "Company" in (data as object)
+            ? (data as Record<string, unknown>).Company
+            : data;
+        const logo = readEntityLogo(record);
+        if (logo) logoMap.set(companyId, logo);
+      } catch {
+        // ignore individual fetch failures
+      }
+    })
+  );
+
+  return logoMap;
+}
+
+export function applyFiCompanyLogos(
+  rows: FiCompanyRow[],
+  logoMap: Map<number, string>
+): FiCompanyRow[] {
+  if (logoMap.size === 0) return rows;
+  return rows.map((row) => {
+    if (row.company_logo) return row;
+    const logo = logoMap.get(row.company_id);
+    return logo ? { ...row, company_logo: logo } : row;
+  });
+}
+
 export async function searchFiCompanies(
   query: string
 ): Promise<FiCompanySearchHit[]> {

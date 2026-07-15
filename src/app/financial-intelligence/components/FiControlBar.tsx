@@ -22,7 +22,7 @@ import { SourceTypeDot } from "./SourceTypeValue";
 import { FiFilterPicker } from "./FiFilterPicker";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 import { resolveSectorFilterChipLabel } from "@/lib/financialIntelligence/sectorFilters";
-import type { FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
+import type { FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
 
 export interface FiIdOption {
   id: number;
@@ -460,6 +460,8 @@ export interface FiControlBarProps {
   onAddQueryChange: (query: string) => void;
   addResults: FiCompanySearchHit[];
   onAddCompany: (companyId: number) => void;
+  peerAggregateMode: FiPeerAggregateMode;
+  onPeerAggregateModeChange: (mode: FiPeerAggregateMode) => void;
 }
 
 export function FiControlBar({
@@ -490,6 +492,8 @@ export function FiControlBar({
   onAddQueryChange,
   addResults,
   onAddCompany,
+  peerAggregateMode,
+  onPeerAggregateModeChange,
 }: FiControlBarProps) {
   const [targetPickerOpen, setTargetPickerOpen] = useState(false);
   const [targetSearchQuery, setTargetSearchQuery] = useState("");
@@ -922,6 +926,47 @@ export function FiControlBar({
                   />
                 </Pop>
               )}
+
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: 2,
+                  background: "var(--ax-gray-50)",
+                  border: "1px solid var(--border-1)",
+                  borderRadius: "var(--r-md)",
+                  height: 30,
+                  flexShrink: 0,
+                }}
+                title="Compare target against peer median or peer mean"
+              >
+                {(["median", "mean"] as const).map((mode) => {
+                  const active = peerAggregateMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      disabled={loading || !targetId}
+                      onClick={() => onPeerAggregateModeChange(mode)}
+                      style={{
+                        border: "none",
+                        background: active ? "white" : "transparent",
+                        color: active ? "var(--fg-1)" : "var(--fg-3)",
+                        fontSize: "var(--fs-12)",
+                        fontWeight: active ? 700 : 600,
+                        padding: "3px 10px",
+                        borderRadius: 5,
+                        cursor: loading || !targetId ? "default" : "pointer",
+                        fontFamily: "var(--font-sans)",
+                        boxShadow: active ? "var(--shadow-xs)" : "none",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {mode}
+                    </button>
+                  );
+                })}
+              </div>
 
               <div
                 style={{

@@ -6,6 +6,8 @@ export type FiMetricFormat = "percent" | "multiple" | "currency" | "count" | "cu
 
 export type FiMetricDirectionHint = "cheaper" | "lower_better";
 
+export type FiPeerAggregateMode = "median" | "mean";
+
 export interface FiCompanyRow {
   company_id: number;
   company_name: string;
@@ -14,6 +16,8 @@ export interface FiCompanyRow {
   location_country: string;
   location_region: string;
   financial_year: number;
+  /** Calendar year from API (`financial_year_value`), when available. */
+  financial_year_value: number;
   fy_ye_month: number;
   revenue_m_usd: number | null;
   arr_m_usd: number | null;

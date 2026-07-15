@@ -124,6 +124,8 @@ export interface Tweaks {
   hideCompanyAvatars?: boolean;
   /** Show remove control per peer row (Financial Intelligence). */
   showPeerActions?: boolean;
+  /** Peer-set aggregate row uses median or mean (Financial Intelligence). */
+  peerAggregateMode?: "median" | "mean";
 }
 
 export interface SectorMedian {
