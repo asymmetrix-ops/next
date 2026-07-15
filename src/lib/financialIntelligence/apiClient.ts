@@ -1,6 +1,7 @@
 import { authService } from "@/lib/auth";
 import { readEntityLogo } from "@/lib/companyLogo";
 import {
+  COMPANIES_API_BASE,
   companySearchPayloadToSearchParams,
   normalizeCompanySearchPayload,
 } from "@/lib/companiesFilterPayload";
@@ -20,9 +21,6 @@ import type {
 
 const FI_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:26OHS3YC:develop";
-
-const COMPANIES_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
 
 export interface FiCompanySearchHit {
   id: number;

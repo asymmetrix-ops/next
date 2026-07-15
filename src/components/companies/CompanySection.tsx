@@ -17,7 +17,7 @@ import {
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import type { CompaniesFilters } from "@/app/companies/actions";
-import { companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
+import { COMPANIES_API_BASE, companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import {
   CANONICAL_COMPANY_COLUMN_KEYS,
@@ -1257,7 +1257,7 @@ export const CompanySection = ({
       baseParams.append("Offset", "1");
       baseParams.append("Per_page", "25");
       
-      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${baseParams.toString()}`;
+      const firstPageUrl = `${COMPANIES_API_BASE}/Export_new_companies_csv?${baseParams.toString()}`;
       
       const firstResp = await fetch(firstPageUrl, {
         method: "GET",
@@ -1338,7 +1338,7 @@ export const CompanySection = ({
           pageParams.append("Offset", page.toString());
           pageParams.append("Per_page", "25");
           
-          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${pageParams.toString()}`;
+          const pageUrl = `${COMPANIES_API_BASE}/Export_new_companies_csv?${pageParams.toString()}`;
           
           const pageResp = await fetch(pageUrl, {
             method: "GET",
