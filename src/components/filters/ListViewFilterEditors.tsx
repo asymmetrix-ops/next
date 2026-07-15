@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import type { FilterDef } from "@/app/financials-tsx/types";
+import { FILTER_POPOVER_SCROLL_STYLE } from "@/components/filters/AnchoredPopover";
 
 export interface IdFilterOption {
   id: number;
@@ -496,7 +497,7 @@ export function ListViewEnumEditor({
           }}
         />
       </div>
-      <div style={{ maxHeight: 240, overflowY: "auto", margin: "0 -4px" }}>
+      <div style={{ maxHeight: 240, overflowY: "auto", margin: "0 -4px", ...FILTER_POPOVER_SCROLL_STYLE }}>
         {opts.length === 0 && (
           <div
             style={{
@@ -660,7 +661,7 @@ export function ListViewIdEnumEditor({
           }}
         />
       </div>
-      <div style={{ maxHeight: 240, overflowY: "auto", margin: "0 -4px" }}>
+      <div style={{ maxHeight: 240, overflowY: "auto", margin: "0 -4px", ...FILTER_POPOVER_SCROLL_STYLE }}>
         {opts.map((option) => {
           const on = picked.includes(option.id);
           return (

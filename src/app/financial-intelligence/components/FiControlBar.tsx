@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { FilterDef, FilterState } from "@/app/financials-tsx/types";
 import { FIN_FILTER_DEFS } from "@/app/financials-tsx/financials-data";
 import {
@@ -18,6 +18,7 @@ import {
   ListViewIdEnumEditor,
   ListViewRangeEditor,
 } from "@/components/filters/ListViewFilterEditors";
+import { AnchoredPopover } from "@/components/filters/AnchoredPopover";
 import { SourceTypeDot } from "./SourceTypeValue";
 import { FiFilterPicker } from "./FiFilterPicker";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
@@ -105,80 +106,6 @@ function summarize(
     return formatRangeValue(value as { min?: number; max?: number }, def.unit);
   }
   return String(value);
-}
-
-function Pop({
-  anchorRef,
-  onDismiss,
-  children,
-  width = 260,
-  bare = false,
-}: {
-  anchorRef: React.RefObject<HTMLElement | null>;
-  onDismiss: () => void;
-  children: React.ReactNode;
-  width?: number;
-  bare?: boolean;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  useLayoutEffect(() => {
-    function place() {
-      if (!anchorRef.current || !ref.current) return;
-      const a = anchorRef.current.getBoundingClientRect();
-      let left = a.left;
-      const vw = window.innerWidth;
-      if (left + width > vw - 10) left = vw - width - 10;
-      setPos({ top: a.bottom + 6, left });
-    }
-    place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [anchorRef, width]);
-
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (ref.current?.contains(e.target as Node)) return;
-      if (anchorRef.current?.contains(e.target as Node)) return;
-      onDismiss();
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onDismiss();
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [onDismiss, anchorRef]);
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        position: "fixed",
-        top: pos?.top ?? 0,
-        left: pos?.left ?? 0,
-        width: bare ? undefined : width,
-        visibility: pos ? "visible" : "hidden",
-        zIndex: 9999,
-        background: bare ? "transparent" : "white",
-        border: bare ? "none" : "1px solid var(--border-1)",
-        borderRadius: bare ? 0 : "var(--r-lg)",
-        boxShadow: bare ? "none" : "var(--shadow-popover)",
-        padding: bare ? 0 : 10,
-        fontFamily: "var(--font-sans)",
-      }}
-    >
-      {children}
-    </div>
-  );
 }
 
 function FilterChip({
@@ -724,10 +651,18 @@ export function FiControlBar({
           </button>
 
           {targetPickerOpen && (
-            <Pop
+            <AnchoredPopover
               anchorRef={targetPickerRef}
               onDismiss={() => setTargetPickerOpen(false)}
               width={300}
+              offset={6}
+              style={{
+                background: "white",
+                border: "1px solid var(--border-1)",
+                borderRadius: "var(--r-lg)",
+                boxShadow: "var(--shadow-popover)",
+                padding: 10,
+              }}
             >
               <CompanySearchPanel
                 inputRef={targetSearchInputRef}
@@ -745,7 +680,7 @@ export function FiControlBar({
                   setTargetPickerOpen(false);
                 }}
               />
-            </Pop>
+            </AnchoredPopover>
           )}
 
           {targetId && (
@@ -789,10 +724,11 @@ export function FiControlBar({
               })}
 
               {editingFilterId && editingFilter && editingDef && (
-                <Pop
+                <AnchoredPopover
                   anchorRef={editingAnchorRef}
                   onDismiss={() => setEditingFilterId(null)}
                   bare
+                  offset={6}
                 >
                   {renderFilterEditor(
                     editingDef,
@@ -809,7 +745,7 @@ export function FiControlBar({
                       onDismiss: () => setEditingFilterId(null),
                     }
                   )}
-                </Pop>
+                </AnchoredPopover>
               )}
 
               <button
@@ -912,7 +848,19 @@ export function FiControlBar({
               </button>
 
               {addCompanyOpen && (
-                <Pop anchorRef={addCompanyRef} onDismiss={() => setAddCompanyOpen(false)} width={300}>
+                <AnchoredPopover
+                  anchorRef={addCompanyRef}
+                  onDismiss={() => setAddCompanyOpen(false)}
+                  width={300}
+                  offset={6}
+                  style={{
+                    background: "white",
+                    border: "1px solid var(--border-1)",
+                    borderRadius: "var(--r-lg)",
+                    boxShadow: "var(--shadow-popover)",
+                    padding: 10,
+                  }}
+                >
                   <CompanySearchPanel
                     inputRef={addCompanyInputRef}
                     query={addQuery}
@@ -924,7 +872,7 @@ export function FiControlBar({
                       onAddQueryChange("");
                     }}
                   />
-                </Pop>
+                </AnchoredPopover>
               )}
 
               <div

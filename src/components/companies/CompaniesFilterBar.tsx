@@ -4,7 +4,6 @@ import React, {
   useState,
   useMemo,
   useRef,
-  useEffect,
   useLayoutEffect,
   useCallback,
 } from "react";
@@ -14,6 +13,10 @@ import {
   summarizeYesNoDualFilter,
   type YesNoDualFilterValue,
 } from "@/lib/yesNoDualFilter";
+import {
+  AnchoredPopover,
+  FILTER_POPOVER_SCROLL_STYLE,
+} from "@/components/filters/AnchoredPopover";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -233,88 +236,6 @@ const FILTER_BAR_CSS = `
   }
   .cfb-root .ax-numeric { font-variant-numeric: tabular-nums; }
 `;
-
-// ── Pop (floating anchored popover) ────────────────────────────────────────
-
-interface PopProps {
-  anchorRef: React.RefObject<HTMLElement | null>;
-  onDismiss: () => void;
-  children: React.ReactNode;
-  offset?: number;
-  align?: "start" | "end";
-  /** Clicks inside this node won't dismiss the popover. */
-  boundaryRef?: React.RefObject<HTMLElement | null>;
-}
-
-function Pop({
-  anchorRef,
-  onDismiss,
-  children,
-  offset = 8,
-  align = "start",
-  boundaryRef,
-}: PopProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  useLayoutEffect(() => {
-    function place() {
-      if (!anchorRef.current || !ref.current) return;
-      const a = anchorRef.current.getBoundingClientRect();
-      const p = ref.current.getBoundingClientRect();
-      let left = align === "end" ? a.right - p.width : a.left;
-      const vw = window.innerWidth;
-      if (left + p.width > vw - 8) left = vw - p.width - 8;
-      if (left < 8) left = 8;
-      setPos({ top: a.bottom + offset, left });
-    }
-    place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [anchorRef, align, offset]);
-
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (!ref.current) return;
-      if (ref.current.contains(e.target as Node)) return;
-      if (
-        anchorRef.current &&
-        anchorRef.current.contains(e.target as Node)
-      )
-        return;
-      if (boundaryRef?.current?.contains(e.target as Node)) return;
-      onDismiss();
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onDismiss();
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [onDismiss, anchorRef, boundaryRef]);
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        position: "fixed",
-        top: pos?.top ?? 0,
-        left: pos?.left ?? 0,
-        visibility: pos ? "visible" : "hidden",
-        zIndex: 9999,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
 
 // ── Summarize filter value ──────────────────────────────────────────────────
 
@@ -647,6 +568,8 @@ interface AddFilterPickerProps {
   filters: FilterItem[];
   onApply: (def: FilterDef, value: unknown) => void;
   onClose: () => void;
+  onContentLayout?: () => void;
+  focusToken?: number;
 }
 
 function FilterPanelCloseButton({
@@ -702,14 +625,27 @@ function AddFilterPicker({
   filters,
   onApply,
   onClose,
+  onContentLayout,
+  focusToken = 0,
 }: AddFilterPickerProps) {
   const [activeDef, setActiveDef] = useState<FilterDef | null>(null);
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!activeDef) inputRef.current?.focus();
+  const focusSearchInput = useCallback(() => {
+    if (activeDef) return;
+    requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true });
+    });
   }, [activeDef]);
+
+  useLayoutEffect(() => {
+    if (focusToken > 0) focusSearchInput();
+  }, [focusToken, focusSearchInput]);
+
+  useLayoutEffect(() => {
+    onContentLayout?.();
+  }, [activeDef, onContentLayout]);
 
   const activeReservedValues = useMemo(() => {
     if (!activeDef) return new Set<string>();
@@ -905,7 +841,14 @@ function AddFilterPicker({
       </div>
 
       {/* List */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "6px 6px 8px" }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "6px 6px 8px",
+          ...FILTER_POPOVER_SCROLL_STYLE,
+        }}
+      >
         {categories.map((cat) => {
           const defs = byCat[cat.id];
           if (!defs || defs.length === 0) return null;
@@ -998,7 +941,12 @@ function AddFilterButton({
   boundaryRef,
 }: AddFilterButtonProps) {
   const [open, setOpen] = useState(false);
+  const [layoutKey, setLayoutKey] = useState(0);
+  const [focusToken, setFocusToken] = useState(0);
   const anchor = useRef<HTMLButtonElement>(null);
+  const notifyContentLayout = useCallback(() => {
+    setLayoutKey((k) => k + 1);
+  }, []);
 
   return (
     <>
@@ -1035,10 +983,13 @@ function AddFilterButton({
         Add filter
       </button>
       {open && (
-        <Pop
+        <AnchoredPopover
           anchorRef={anchor}
           boundaryRef={boundaryRef}
+          layoutKey={layoutKey}
+          width={380}
           onDismiss={() => setOpen(false)}
+          onPositioned={() => setFocusToken((t) => t + 1)}
         >
           <AddFilterPicker
             availableDefs={availableDefs}
@@ -1046,8 +997,10 @@ function AddFilterButton({
             filters={filters}
             onApply={onApply}
             onClose={() => setOpen(false)}
+            onContentLayout={notifyContentLayout}
+            focusToken={focusToken}
           />
-        </Pop>
+        </AnchoredPopover>
       )}
     </>
   );
@@ -1336,7 +1289,7 @@ function EnumEditor({
           }}
         />
       </div>
-      <div style={{ maxHeight: 240, overflowY: "auto", margin: "0 -4px" }}>
+      <div style={{ maxHeight: 240, overflowY: "auto", margin: "0 -4px", ...FILTER_POPOVER_SCROLL_STYLE }}>
         {opts.length === 0 && (
           <div
             style={{
@@ -2719,11 +2672,12 @@ export function CompaniesFilterBar({
           editingDef &&
           editingFilter &&
           chipRefs.current[editing]?.current && (
-            <Pop
+            <AnchoredPopover
               anchorRef={
                 chipRefs.current[editing] as React.RefObject<HTMLElement>
               }
               boundaryRef={filterBarRef}
+              width={380}
               onDismiss={() => setEditing(null)}
             >
               <FilterEditor
@@ -2736,7 +2690,7 @@ export function CompaniesFilterBar({
                 onClose={() => setEditing(null)}
                 portfolioBooleanDescription={portfolioBooleanDescription}
               />
-            </Pop>
+            </AnchoredPopover>
           )}
       </div>
     </div>
