@@ -3,7 +3,8 @@
  * DescriptionCard — Row 1, column 2.
  * When collapsed, stretches to the overview row height; expand → shows full text.
  */
-import React from "react";
+import React, { useCallback, useRef } from "react";
+import { useTextTruncation } from "@/hooks/useTextTruncation";
 import { LinkPanel, LinkedH, T, descriptionBodyStyle } from "./primitives";
 
 const EM = "-";
@@ -25,36 +26,51 @@ export function DescriptionCard({
   fillGridCell = false,
 }: Props) {
   const body = text?.trim() || EM;
-  const isLong = body !== EM && body.length > 120;
+  const internalRef = useRef<HTMLDivElement | null>(null);
+  const setContentRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      internalRef.current = node;
+      if (typeof contentRef === "function") {
+        contentRef(node);
+      } else if (contentRef) {
+        (contentRef as React.MutableRefObject<HTMLDivElement | null>).current =
+          node;
+      }
+    },
+    [contentRef]
+  );
+
+  const collapsed = !expanded;
+  const isTruncated = useTextTruncation(internalRef, collapsed, [body, fillGridCell]);
+  const constrainHeight = fillGridCell && collapsed;
 
   return (
-    <LinkPanel fillGridCell={fillGridCell || expanded}>
+    <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH showArrow>Description</LinkedH>
       <div
         style={{
           padding: "10px 16px 12px",
-          flex: fillGridCell || expanded ? 1 : undefined,
+          flex: constrainHeight ? 1 : undefined,
           minHeight: 0,
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
+          overflow: collapsed ? "hidden" : "visible",
         }}
       >
         <div
-          ref={contentRef}
+          ref={setContentRef}
           style={{
             ...descriptionBodyStyle,
             textAlign: "justify" as const,
-            flex: fillGridCell || expanded ? 1 : undefined,
+            flex: constrainHeight ? 1 : undefined,
             minHeight: 0,
-            overflow: "hidden",
+            overflow: collapsed ? "hidden" : "visible",
           }}
         >
           {body}
         </div>
 
-        {/* Show less — visible only when expanded */}
-        {expanded && isLong && (
+        {expanded && isTruncated ? (
           <button
             type="button"
             onClick={onToggleExpand}
@@ -74,11 +90,10 @@ export function DescriptionCard({
           >
             Show less
           </button>
-        )}
+        ) : null}
       </div>
 
-      {/* Gradient fade + Expand button — visible only when collapsed */}
-      {!expanded && isLong && (
+      {collapsed && isTruncated ? (
         <div
           aria-hidden={false}
           style={{
@@ -113,7 +128,7 @@ export function DescriptionCard({
             Expand →
           </button>
         </div>
-      )}
+      ) : null}
     </LinkPanel>
   );
 }

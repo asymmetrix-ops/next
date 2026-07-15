@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+import { useTextTruncation } from "@/hooks/useTextTruncation";
 import Image from "next/image";
 import { ALL_COMPANIES_COLUMN_META } from "./companiesColumnCategories";
 import { SHOW_ARR } from "@/lib/platformVisibility";
@@ -335,25 +336,27 @@ const CompanyDescriptionBase = ({
   index: number;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const isLong = description.length > 250;
+  const contentRef = useRef<HTMLDivElement>(null);
+  const isTruncated = useTextTruncation(contentRef, !isExpanded, [description]);
 
   return (
     <div className="company-description">
       <div
+        ref={contentRef}
         className={
           isExpanded ? "company-description-full" : "company-description-truncated"
         }
       >
-        {isExpanded || !isLong ? description : `${description.substring(0, 250)}...`}
+        {description}
       </div>
-      {isLong && (
+      {isTruncated ? (
         <span
           className="expand-description"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           {isExpanded ? "Collapse" : "Expand"}
         </span>
-      )}
+      ) : null}
     </div>
   );
 };

@@ -32,6 +32,7 @@ import {
   type CompanyLinkedInResponse,
 } from "@/lib/companyLinkedIn";
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import { ExpandableText } from "@/components/common/ExpandableText";
 
 type ManagementRole = ManagementRoleLike & {
   id: number;
@@ -1582,29 +1583,34 @@ const CompanyDetail = () => {
     if (typeof window === "undefined") return;
 
     const checkDescriptionOverflow = () => {
+      if (isDescriptionExpanded) return;
+
       const element = descriptionRef.current;
       if (!element) {
         setIsDescriptionExpandable(false);
         return;
       }
 
-      const computedStyle = window.getComputedStyle(element);
-      const lineHeight = parseFloat(computedStyle.lineHeight || "0");
-      if (!lineHeight) {
-        setIsDescriptionExpandable(false);
-        return;
-      }
-
-      // Allow more of the description to be visible before collapsing
-      const collapsedHeight = lineHeight * 5;
-      setIsDescriptionExpandable(element.scrollHeight > collapsedHeight + 1);
+      setIsDescriptionExpandable(
+        element.scrollHeight > element.clientHeight + 1
+      );
     };
 
     checkDescriptionOverflow();
     window.addEventListener("resize", checkDescriptionOverflow);
 
-    return () => window.removeEventListener("resize", checkDescriptionOverflow);
-  }, [company?.description, isMobile]);
+    let observer: ResizeObserver | undefined;
+    const element = descriptionRef.current;
+    if (element && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(checkDescriptionOverflow);
+      observer.observe(element);
+    }
+
+    return () => {
+      window.removeEventListener("resize", checkDescriptionOverflow);
+      observer?.disconnect();
+    };
+  }, [company?.description, isMobile, isDescriptionExpanded]);
 
   // Update page title when company data is loaded
   useEffect(() => {
@@ -3214,7 +3220,7 @@ const CompanyDetail = () => {
                         display: isDescriptionExpanded ? "block" : "-webkit-box",
                         WebkitBoxOrient: "vertical",
                         // Show more lines in the collapsed state to improve readability
-                        WebkitLineClamp: isDescriptionExpanded ? "unset" : 5,
+                        WebkitLineClamp: isDescriptionExpanded ? undefined : 5,
                       }}
                     >
                       {company.description || "No description available"}
@@ -3690,36 +3696,17 @@ const CompanyDetail = () => {
                                 }}
                               >
                                 {subsidiary.description ? (
-                                  <div>
-                                    {expandedDescriptions.has(subsidiary.id) ||
-                                    subsidiary.description.length <= 100
-                                      ? subsidiary.description
-                                      : `${subsidiary.description.substring(
-                                          0,
-                                          100
-                                        )}...`}
-                                    {subsidiary.description.length > 100 && (
-                                      <button
-                                        onClick={() =>
-                                          toggleDescription(subsidiary.id)
-                                        }
-                                        style={{
-                                          background: "none",
-                                          border: "none",
-                                          color: "#0075df",
-                                          cursor: "pointer",
-                                          fontSize: "12px",
-                                          textDecoration: "underline",
-                                          marginLeft: "4px",
-                                          padding: "0",
-                                        }}
-                                      >
-                                        {expandedDescriptions.has(subsidiary.id)
-                                          ? "Show less"
-                                          : "Expand description"}
-                                      </button>
+                                  <ExpandableText
+                                    text={subsidiary.description}
+                                    expanded={expandedDescriptions.has(
+                                      subsidiary.id
                                     )}
-                                  </div>
+                                    onToggle={() =>
+                                      toggleDescription(subsidiary.id)
+                                    }
+                                    expandLabel="Expand description"
+                                    clampLines={3}
+                                  />
                                 ) : (
                                   "N/A"
                                 )}

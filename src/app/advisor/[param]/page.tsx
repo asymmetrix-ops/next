@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -12,6 +12,7 @@ import {
   PlusIcon,
 } from "@heroicons/react/24/outline";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
+import { normalizeAdvisorDealEvent } from "@/lib/normalizeAdvisorDealEvent";
 import {
   formatCurrency,
   formatDate,
@@ -200,7 +201,7 @@ export default function AdvisorProfilePage() {
 
   const buildAdvisorPageSnapshot = () => {
     const safeEvents: AdvisorDealEvent[] = Array.isArray(corporateEvents)
-      ? (corporateEvents as unknown as AdvisorDealEvent[])
+      ? corporateEvents.map((event) => normalizeAdvisorDealEvent(event))
       : [];
 
     const baseUrl =
@@ -574,6 +575,14 @@ export default function AdvisorProfilePage() {
     }
   }, [advisorData?.Advisor?.name]);
 
+  const safeEvents: AdvisorDealEvent[] = useMemo(
+    () =>
+      Array.isArray(corporateEvents)
+        ? corporateEvents.map((event) => normalizeAdvisorDealEvent(event))
+        : [],
+    [corporateEvents]
+  );
+
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
@@ -668,10 +677,6 @@ export default function AdvisorProfilePage() {
   }, ${Advisor._locations?.Country || ""}`
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
-
-  const safeEvents: AdvisorDealEvent[] = Array.isArray(corporateEvents)
-    ? (corporateEvents as unknown as AdvisorDealEvent[])
-    : [];
 
   const peopleCurrent = (() => {
     if (rolesCurrent.length > 0) {

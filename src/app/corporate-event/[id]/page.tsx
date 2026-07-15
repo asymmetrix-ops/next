@@ -1098,7 +1098,7 @@ const CorporateEventDetail = ({
                 expanded={isDescriptionExpanded}
                 onToggleExpand={() => setIsDescriptionExpanded((prev) => !prev)}
                 contentRef={descriptionRef}
-                fillGridCell
+                fillGridCell={!isDescriptionExpanded}
               />
             </div>
 

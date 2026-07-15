@@ -174,10 +174,14 @@ function resolveEventPrimarySectors(
   const ne = event as {
     primary?: unknown;
     sectors?: unknown;
+    primary_sectors?: unknown;
   };
 
   const fromEventSectors = resolveEventSectorEntries(ne.sectors, ne.primary, "Primary");
   if (fromEventSectors.length > 0) return fromEventSectors.slice(0, 3);
+
+  const fromEventPrimarySectors = coerceSectorNameList(ne.primary_sectors);
+  if (fromEventPrimarySectors.length > 0) return fromEventPrimarySectors.slice(0, 3);
 
   const target = getTargetCompany(event as Parameters<typeof getTargetCompany>[0]);
   if (target) {

@@ -104,8 +104,11 @@ type AdvisorCorporateEventBase =
       company_advised_role?: string | null;
       company_advised_id?: number | null;
       company_advised_name?: string | null;
+      target_companies?: Array<{ id: number; name: string }> | null;
       enterprise_value_m?: string | number | null;
+      currency_id?: number | null;
       currency_name?: string | null;
+      ev_source?: string | null;
       advisor_individuals?: Array<{ id?: number; name?: string }> | null;
       other_advisors?: Array<{
         id?: number;

@@ -16,6 +16,14 @@ import {
 } from "@/components/redesign/primitives";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { formatCurrency } from "@/utils/advisorHelpers";
+import { useGlobalSectorNameLookup } from "@/hooks/useGlobalSectorNameLookup";
+import {
+  enrichSectorEntries,
+  getAdvisorDealSectorHref,
+  type SectorLinkEntry,
+  type SectorNameLookup,
+} from "@/lib/sectorLinks";
+import { getAdvisorDealRowKey } from "@/lib/normalizeAdvisorDealEvent";
 
 export type AdvisorDealEvent = {
   id: number;
@@ -25,8 +33,10 @@ export type AdvisorDealEvent = {
   company_advised_id?: number | null;
   company_advised_name?: string | null;
   company_advised_role?: string | null;
+  target_companies?: Array<{ id: number; name: string }> | null;
   enterprise_value_m?: string | number | null;
   currency_name?: string | null;
+  ev_source?: string | null;
   advisor_individuals?: Array<{ id?: number; name?: string }> | null;
   other_advisors?: Array<{
     id?: number;
@@ -129,14 +139,74 @@ function formatSideAdvised(role: string): string {
   return trimmed;
 }
 
-function sectorLabel(
-  sectors: Array<{ id: number; name: string; importance: string; isDerived: boolean }>
-): string {
-  if (sectors.length === 0) return "-";
-  return sectors
-    .slice(0, 3)
-    .map((s) => s.name)
-    .join(", ");
+function parseEventSectors(
+  raw: unknown
+): Array<{ id: number; name: string; importance: string; isDerived: boolean }> {
+  return dedupeSectors(
+    coerceArray<{
+      id?: number;
+      is_derived?: boolean;
+      sector_name?: string;
+      sector_importance?: string;
+    }>(raw)
+      .filter((s) => s && String(s.sector_name || "").trim().length > 0)
+      .map((s) => ({
+        id: typeof s.id === "number" && s.id > 0 ? s.id : 0,
+        name: String(s.sector_name).trim(),
+        importance: String(s.sector_importance || "Primary").trim() || "Primary",
+        isDerived: Boolean(s.is_derived),
+      }))
+  );
+}
+
+function DealSectorLinks({
+  sectors,
+  sectorNameToId,
+}: {
+  sectors: Array<{ id: number; name: string; importance: string; isDerived: boolean }>;
+  sectorNameToId?: SectorNameLookup;
+}) {
+  const entries: SectorLinkEntry[] = sectors.slice(0, 4).map((sector) => ({
+    name: sector.name,
+    id: sector.id > 0 ? sector.id : undefined,
+    importance: sector.importance,
+  }));
+  const linked = enrichSectorEntries(entries, sectorNameToId);
+
+  if (linked.length === 0) return <>-</>;
+
+  return (
+    <>
+      {linked.map((sector, idx) => {
+        const source = sectors[idx];
+        const href = getAdvisorDealSectorHref({
+          id: sector.id,
+          importance: sector.importance,
+          isDerived: source?.isDerived,
+        });
+        return (
+          <span key={`${sector.name}-${sector.id ?? idx}`}>
+            {href ? (
+              <Link
+                href={href}
+                prefetch={false}
+                style={{
+                  color: T.azure,
+                  textDecoration: "underline",
+                  fontWeight: 500,
+                }}
+              >
+                {sector.name}
+              </Link>
+            ) : (
+              sector.name
+            )}
+            {idx < linked.length - 1 ? ", " : ""}
+          </span>
+        );
+      })}
+    </>
+  );
 }
 
 function headerRightLine(total: number, pageSize: number, showAll: boolean): string {
@@ -170,7 +240,10 @@ function dedupeSectors(
   });
   const m = new Map<string, (typeof sorted)[number]>();
   for (const s of sorted) {
-    const key = `${s.id}:${s.importance.toLowerCase()}`;
+    const key =
+      s.id > 0
+        ? `${s.id}:${s.importance.toLowerCase()}:${s.isDerived ? "d" : "p"}`
+        : `${s.name.toLowerCase()}:${s.importance.toLowerCase()}:${s.isDerived ? "d" : "p"}`;
     if (!m.has(key)) m.set(key, s);
   }
   return Array.from(m.values());
@@ -184,7 +257,13 @@ function sortEventsByDateDesc(events: AdvisorDealEvent[]): AdvisorDealEvent[] {
   });
 }
 
-function SummaryDealsTable({ events }: { events: AdvisorDealEvent[] }) {
+function SummaryDealsTable({
+  events,
+  sectorNameToId,
+}: {
+  events: AdvisorDealEvent[];
+  sectorNameToId?: SectorNameLookup;
+}) {
   if (events.length === 0) {
     return (
       <div
@@ -239,32 +318,13 @@ function SummaryDealsTable({ events }: { events: AdvisorDealEvent[] }) {
               : `/company/${companyAdvisedId}`
             : undefined;
 
-        const sectors = dedupeSectors(
-          coerceArray<{
-            id?: number;
-            is_derived?: boolean;
-            sector_name?: string;
-            sector_importance?: string;
-          }>(event.primary_sectors)
-            .filter(
-              (s) =>
-                s &&
-                typeof s.id === "number" &&
-                String(s.sector_name || "").trim().length > 0
-            )
-            .map((s) => ({
-              id: s.id as number,
-              name: String(s.sector_name).trim(),
-              importance: String(s.sector_importance || "").trim(),
-              isDerived: Boolean(s.is_derived),
-            }))
-        );
+        const sectors = parseEventSectors(event.primary_sectors);
 
         const dealType = event.deal_type || "-";
 
         return (
           <div
-            key={event.id ?? rowIndex}
+            key={getAdvisorDealRowKey(event, rowIndex)}
             style={{
               display: "grid",
               gridTemplateColumns: SUMMARY_ROW_GRID,
@@ -275,23 +335,29 @@ function SummaryDealsTable({ events }: { events: AdvisorDealEvent[] }) {
             }}
           >
             <div style={{ textAlign: colAlign(0), minWidth: 0 }}>
-              <Link
-                href={`/corporate-event/${event.id}`}
-                prefetch={false}
-                title={event.description || undefined}
-                style={{
-                  color: T.azure,
-                  textDecoration: "underline",
-                  fontWeight: 500,
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                  wordBreak: "break-word" as const,
-                }}
-              >
-                {event.description || "-"}
-              </Link>
+              {event.id > 0 ? (
+                <Link
+                  href={`/corporate-event/${event.id}`}
+                  prefetch={false}
+                  title={event.description || undefined}
+                  style={{
+                    color: T.azure,
+                    textDecoration: "underline",
+                    fontWeight: 500,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    wordBreak: "break-word" as const,
+                  }}
+                >
+                  {event.description || "-"}
+                </Link>
+              ) : (
+                <span style={{ color: T.body, wordBreak: "break-word" as const }}>
+                  {event.description || "-"}
+                </span>
+              )}
             </div>
             <div
               style={{
@@ -337,7 +403,10 @@ function SummaryDealsTable({ events }: { events: AdvisorDealEvent[] }) {
                 minWidth: 0,
               }}
             >
-              {sectorLabel(sectors)}
+              <DealSectorLinks
+                sectors={sectors}
+                sectorNameToId={sectorNameToId}
+              />
             </div>
           </div>
         );
@@ -367,6 +436,7 @@ export function AdvisorDealsProfilePanel({
 }: Props) {
   const [showAll, setShowAll] = useState(false);
   const isSummary = variant === "summary";
+  const sectorNameToId = useGlobalSectorNameLookup();
 
   const sortedEvents = useMemo(() => sortEventsByDateDesc(events), [events]);
 
@@ -610,7 +680,10 @@ export function AdvisorDealsProfilePanel({
 
       <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, flex: 1, minHeight: 0 }}>
         {isSummary ? (
-          <SummaryDealsTable events={displayed} />
+          <SummaryDealsTable
+            events={displayed}
+            sectorNameToId={sectorNameToId}
+          />
         ) : (
         <div
           style={{
@@ -657,26 +730,7 @@ export function AdvisorDealsProfilePanel({
                     : `/company/${companyAdvisedId}`
                   : undefined;
 
-              const sectors = dedupeSectors(
-                coerceArray<{
-                  id?: number;
-                  is_derived?: boolean;
-                  sector_name?: string;
-                  sector_importance?: string;
-                }>(event.primary_sectors)
-                  .filter(
-                    (s) =>
-                      s &&
-                      typeof s.id === "number" &&
-                      String(s.sector_name || "").trim().length > 0
-                  )
-                  .map((s) => ({
-                    id: s.id as number,
-                    name: String(s.sector_name).trim(),
-                    importance: String(s.sector_importance || "").trim(),
-                    isDerived: Boolean(s.is_derived),
-                  }))
-              );
+              const sectors = parseEventSectors(event.primary_sectors);
 
               const dealType = event.deal_type || "-";
               const individuals = coerceArray<{ id?: number; name?: string }>(
@@ -687,7 +741,7 @@ export function AdvisorDealsProfilePanel({
 
               return (
                 <div
-                  key={event.id ?? index}
+                  key={getAdvisorDealRowKey(event, index)}
                   style={{
                     display: "grid",
                     gridTemplateColumns: rowGrid,
@@ -699,23 +753,29 @@ export function AdvisorDealsProfilePanel({
                   }}
                 >
                   <div style={{ ...cellStyle, textAlign: colAlign(0) }}>
-                    <Link
-                      href={`/corporate-event/${event.id}`}
-                      prefetch={false}
-                      title={event.description || undefined}
-                      style={{
-                        color: T.azure,
-                        textDecoration: "underline",
-                        fontWeight: 500,
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                        wordBreak: "break-word" as const,
-                      }}
-                    >
-                      {event.description || "-"}
-                    </Link>
+                    {event.id > 0 ? (
+                      <Link
+                        href={`/corporate-event/${event.id}`}
+                        prefetch={false}
+                        title={event.description || undefined}
+                        style={{
+                          color: T.azure,
+                          textDecoration: "underline",
+                          fontWeight: 500,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          wordBreak: "break-word" as const,
+                        }}
+                      >
+                        {event.description || "-"}
+                      </Link>
+                    ) : (
+                      <span style={{ color: T.body, wordBreak: "break-word" as const }}>
+                        {event.description || "-"}
+                      </span>
+                    )}
                   </div>
                   <div style={{ ...cellStyle, textAlign: colAlign(1), color: T.body, whiteSpace: "nowrap" }}>
                     {formatMonthYear(event.announcement_date)}
@@ -740,7 +800,10 @@ export function AdvisorDealsProfilePanel({
                     )}
                   </div>
                   <div style={{ ...cellStyle, textAlign: colAlign(5), color: T.body }}>
-                    {sectorLabel(sectors)}
+                    <DealSectorLinks
+                sectors={sectors}
+                sectorNameToId={sectorNameToId}
+              />
                   </div>
                   <div
                     style={{

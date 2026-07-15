@@ -34,6 +34,21 @@ export function getSectorHref(entry: SectorLinkEntry): string | undefined {
     : `/sub-sector/${id}`;
 }
 
+/** Sector links on advisor deals — derived tags route to sub-sector pages. */
+export function getAdvisorDealSectorHref(entry: {
+  id?: number;
+  importance?: string;
+  isDerived?: boolean;
+}): string | undefined {
+  const id = entry.id;
+  if (typeof id !== "number" || id <= 0) return undefined;
+  const importance = String(entry.importance ?? "Primary").trim().toLowerCase();
+  if (importance === "secondary" || entry.isDerived) {
+    return `/sub-sector/${id}`;
+  }
+  return `/sector/${id}`;
+}
+
 export function parseSectorRefArray(value: unknown): SectorLinkEntry[] {
   if (!Array.isArray(value)) return [];
   return value
