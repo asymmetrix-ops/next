@@ -249,16 +249,16 @@ export function buildFinancialMetricsSections({
 
   const subscriptionRows: FinancialMetricRow[] = [
     row(
-      "Subscription revenue (m):",
-      subscriptionMoney(formatPlainNumber(fm?.Subscription_revenue_m)),
+      "Subscription revenue %:",
+      formatPercent(fm?.Subscription_revenue_pc),
       src(
         fm?.Subscription_revenue_source_label,
         fm?.Subscription_revenue_source
       )
     ),
     row(
-      "Subscription revenue %:",
-      formatPercent(fm?.Subscription_revenue_pc),
+      "Subscription revenue (m):",
+      subscriptionMoney(formatPlainNumber(fm?.Subscription_revenue_m)),
       src(
         fm?.Subscription_revenue_source_label,
         fm?.Subscription_revenue_source
