@@ -239,7 +239,9 @@ export const SEARCH_TABLE_STYLES = `
       max-width: 320px;
     }
     .company-table th.company-table-col-name,
-    .company-table td.company-table-col-name {
+    .company-table td.company-table-col-name,
+    th.company-table-col-name,
+    td.company-table-col-name {
       max-width: 280px;
       width: 280px;
     }
@@ -391,7 +393,7 @@ export const SEARCH_TABLE_STYLES = `
     }
     .company-table th.company-table-col-follow,
     .company-table td.company-table-col-follow {
-      text-align: left;
+      text-align: center;
       min-width: 120px;
       max-width: 140px;
     }
@@ -406,8 +408,8 @@ export const SEARCH_TABLE_STYLES = `
     .company-follow-cell {
       display: flex;
       align-items: center;
-      justify-content: flex-start;
-      text-align: left;
+      justify-content: center;
+      text-align: center;
       position: relative;
       z-index: 0;
     }

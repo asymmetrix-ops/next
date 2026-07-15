@@ -37,6 +37,7 @@ import {
   getColumnSortKind,
   getSortValueForColumn,
 } from "./companiesTableSort";
+import { SEARCH_IDENTITY_COLUMN_KEYS } from "@/components/search/searchTableUtils";
 
 const ColumnsControlRoom = dynamic(
   () =>
@@ -372,6 +373,7 @@ export function CompaniesDataTable({
       column.wrap ? "company-table-cell-wrap" : undefined,
       isFrozenColumnKey(column.key) ? "company-table-sticky-frozen" : undefined,
       column.key === "logo" ? "company-table-sticky-logo" : undefined,
+      SEARCH_IDENTITY_COLUMN_KEYS.has(column.key) ? "company-table-col-name" : undefined,
       column.key === "follow" ? "company-table-col-follow" : undefined,
     ].filter(Boolean);
     return classes.length > 0 ? classes.join(" ") : undefined;

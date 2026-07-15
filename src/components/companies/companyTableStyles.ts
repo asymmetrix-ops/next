@@ -106,5 +106,28 @@ export const COMPANY_TABLE_STYLES = `
   }
   .company-table-col-follow {
     min-width: 120px;
+    text-align: center;
+  }
+  .company-table th.company-table-col-follow,
+  .company-table td.company-table-col-follow {
+    text-align: center;
+  }
+  .company-follow-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .company-table th.company-table-col-name,
+  .company-table td.company-table-col-name {
+    max-width: 280px;
+    width: 280px;
+  }
+  .company-table-col-name .company-table-entity-name,
+  .company-table-col-name .company-name {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    word-break: normal;
+    overflow-wrap: anywhere;
   }
 `;

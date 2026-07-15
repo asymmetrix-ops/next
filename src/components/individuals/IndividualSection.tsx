@@ -69,7 +69,7 @@ interface IndividualColumnDefinition {
 }
 
 const ALL_INDIVIDUAL_COLUMNS: IndividualColumnDefinition[] = [
-  { key: "name", label: "Name", minWidth: 220 },
+  { key: "name", label: "Name", wrap: true, minWidth: 280 },
   { key: "current_company", label: "Current Companies", minWidth: 180 },
   { key: "current_roles", label: "Current Roles", wrap: true, minWidth: 180 },
   { key: "location", label: "Location", wrap: true, minWidth: 200 },

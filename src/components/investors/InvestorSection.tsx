@@ -111,7 +111,7 @@ const formatTimeSinceLastInvestment = (investor: Investor): string => {
 };
 
 const ALL_INVESTOR_COLUMNS: InvestorColumnDefinition[] = [
-  { key: "name", label: "Name", minWidth: 220 },
+  { key: "name", label: "Name", wrap: true, minWidth: 280 },
   { key: "type", label: "Type", minWidth: 140 },
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "portfolio_companies", label: "Current D&A Portfolio Companies", minWidth: 160 },

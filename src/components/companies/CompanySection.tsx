@@ -51,6 +51,7 @@ import {
 } from "@/components/companies/companiesColumnFields";
 import type { CompaniesOwnershipCounts } from "@/components/companies/companiesFilterConfig";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
+import { SEARCH_IDENTITY_COLUMN_KEYS } from "@/components/search/searchTableUtils";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
 import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
@@ -1228,7 +1229,7 @@ export const CompanySection = ({
       ...extras,
       column.wrap ? "company-table-cell-wrap" : undefined,
       isFrozenColumnKey(column.key) ? "company-table-sticky-frozen" : undefined,
-      column.key === "name" ? "company-table-col-name" : undefined,
+      SEARCH_IDENTITY_COLUMN_KEYS.has(column.key) ? "company-table-col-name" : undefined,
       column.key === "follow" ? "company-table-col-follow" : undefined,
     ].filter(Boolean);
     return classes.length > 0 ? classes.join(" ") : undefined;

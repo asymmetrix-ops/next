@@ -46,7 +46,7 @@ const COLUMN_STORAGE_KEY = "financial-screener-column-keys-v2";
 const SELECT_COLUMN_WIDTH = 44;
 
 const COLUMN_MIN_WIDTHS: Partial<Record<string, number>> = {
-  company: 220,
+  company: 280,
   sector: 140,
   ownership: 110,
   fte: 80,
@@ -453,7 +453,48 @@ export const FinancialScreenerSection = ({
         }
         ${SEARCH_BULK_TOOLBAR_STYLES}
         ${SEARCH_MULTI_VALUE_STYLES}
+        .company-table-entity-name-cell {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+        .company-table-entity-name-text {
+          min-width: 0;
+          overflow: hidden;
+        }
+        .company-table-entity-name {
+          font-weight: 600;
+          font-size: 14px;
+          color: #0f172a;
+          display: block;
+          text-decoration: none;
+        }
+        .company-table-entity-name-link {
+          cursor: pointer;
+        }
+        .company-table-entity-subtitle {
+          font-size: 12px;
+          color: #94a3b8;
+          margin-top: 2px;
+        }
+        th.company-table-col-name,
+        td.company-table-col-name {
+          max-width: 280px;
+          width: 280px;
+        }
+        .company-table-col-name .company-table-entity-name {
+          white-space: normal;
+          overflow: visible;
+          text-overflow: unset;
+          word-break: normal;
+          overflow-wrap: anywhere;
+        }
         .financial-screener-table td:has(.search-multi-value-cell) {
+          white-space: normal !important;
+        }
+        .financial-screener-table th.company-table-col-name,
+        .financial-screener-table td.company-table-col-name {
           white-space: normal !important;
         }
       `}</style>
@@ -515,6 +556,7 @@ export const FinancialScreenerSection = ({
                       className={[
                         sortable ? "financial-screener-table-th-sortable" : undefined,
                         column.align === "center" ? "align-center" : undefined,
+                        column.key === "company" ? "company-table-col-name" : undefined,
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -584,9 +626,12 @@ export const FinancialScreenerSection = ({
                       {activeColumns.map((column) => (
                         <td
                           key={column.key}
-                          className={
-                            column.align === "center" ? "align-center" : undefined
-                          }
+                          className={[
+                            column.align === "center" ? "align-center" : undefined,
+                            column.key === "company" ? "company-table-col-name" : undefined,
+                          ]
+                            .filter(Boolean)
+                            .join(" ") || undefined}
                         >
                           {renderCell(item, column.key)}
                         </td>

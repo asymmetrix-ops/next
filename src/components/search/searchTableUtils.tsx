@@ -1,5 +1,7 @@
 import type React from "react";
 
+export const SEARCH_IDENTITY_COLUMN_KEYS = new Set(["name", "company"]);
+
 export function getSearchTableColumnClassName(
   column: { key: string; wrap?: boolean },
   frozenKeys: readonly string[],
@@ -8,6 +10,7 @@ export function getSearchTableColumnClassName(
   const classes = [
     column.wrap ? "company-table-cell-wrap" : undefined,
     frozenKeys.includes(column.key) ? "company-table-sticky-frozen" : undefined,
+    SEARCH_IDENTITY_COLUMN_KEYS.has(column.key) ? "company-table-col-name" : undefined,
     column.key === "follow" ? "company-table-col-follow" : undefined,
     ...extraClasses,
   ].filter(Boolean);

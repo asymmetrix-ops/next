@@ -74,7 +74,7 @@ interface AdvisorColumnDefinition {
 }
 
 const ALL_ADVISOR_COLUMNS: AdvisorColumnDefinition[] = [
-  { key: "name", label: "Advisor", minWidth: 220 },
+  { key: "name", label: "Advisor", wrap: true, minWidth: 280 },
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "events_advised", label: "# Corporate Events Advised", minWidth: 150 },
   { key: "sectors", label: "Advised D&A Sectors", wrap: true, minWidth: 180 },

@@ -380,7 +380,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         key: "name",
         label: "Name",
         group: "Identity",
-        minWidth: 160,
+        wrap: true,
+        minWidth: 280,
         render: (company, { onCompanyClick }) => (
           <a
             href={`/company/${company.id}`}
