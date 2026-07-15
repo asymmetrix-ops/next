@@ -22,6 +22,28 @@ interface City {
   City: string;
 }
 
+export const CITY_FILTER_PAGE_SIZE = 100;
+
+export type CitySearchResult = {
+  cities: City[];
+  page: number;
+  hasMore: boolean;
+  total: number;
+  pageTotal: number;
+};
+
+type CitySearchResponse = {
+  items?: City[];
+  itemsReceived?: number;
+  itemsTotal?: number;
+  curPage?: number;
+  nextPage?: number | null;
+  prevPage?: number | null;
+  offset?: number;
+  pageTotal?: number;
+  perPage?: number;
+};
+
 interface PrimarySector {
   id: number;
   sector_name: string;
@@ -174,17 +196,29 @@ class LocationsService {
     return await response.json();
   }
 
-  async getCities(countries: string[], provinces: string[]): Promise<City[]> {
+  async searchCities(args: {
+    countries?: string[];
+    provinces?: string[];
+    query?: string;
+    page?: number;
+    perPage?: number;
+  }): Promise<CitySearchResult> {
+    const page = Math.max(1, args.page ?? 1);
+    const perPage = Math.max(1, args.perPage ?? CITY_FILTER_PAGE_SIZE);
     const queryParams = new URLSearchParams();
-    countries.forEach((country) => {
-      queryParams.append("countries[]", country);
+
+    (args.countries ?? []).forEach((country) => {
+      queryParams.append("countries", country);
     });
-    provinces.forEach((province) => {
-      queryParams.append("provinces[]", province);
+    (args.provinces ?? []).forEach((province) => {
+      queryParams.append("Provinces", province);
     });
+
+    queryParams.append("query", (args.query ?? "").trim());
+    queryParams.append("page", String(page));
+    queryParams.append("per_page", String(perPage));
 
     const url = `${BASE_URL}/locations_get_city?${queryParams.toString()}`;
-
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -202,7 +236,46 @@ class LocationsService {
       );
     }
 
-    return await response.json();
+    const data = (await response.json()) as CitySearchResponse;
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const responsePage =
+      typeof data?.curPage === "number" ? data.curPage : page;
+    const total =
+      typeof data?.itemsTotal === "number"
+        ? data.itemsTotal
+        : typeof data?.itemsReceived === "number"
+          ? data.itemsReceived
+          : items.length;
+    const pageTotal =
+      typeof data?.pageTotal === "number" && data.pageTotal > 0
+        ? data.pageTotal
+        : total > 0
+          ? Math.ceil(total / perPage)
+          : 0;
+    const hasMore =
+      typeof data?.nextPage === "number"
+        ? true
+        : pageTotal > 0
+          ? responsePage < pageTotal
+          : false;
+
+    return {
+      cities: items,
+      page: responsePage,
+      hasMore,
+      total,
+      pageTotal,
+    };
+  }
+
+  async getCities(countries: string[], provinces: string[]): Promise<City[]> {
+    const result = await this.searchCities({
+      countries,
+      provinces,
+      page: 1,
+      perPage: CITY_FILTER_PAGE_SIZE,
+    });
+    return result.cities;
   }
 
   /**

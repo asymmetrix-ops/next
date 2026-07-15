@@ -17,6 +17,7 @@ import {
   AnchoredPopover,
   FILTER_POPOVER_SCROLL_STYLE,
 } from "@/components/filters/AnchoredPopover";
+import { ListViewCityEnumEditor } from "@/components/filters/ListViewFilterEditors";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,22 @@ function getFilterEnumValues(value: unknown): string[] {
   }
   if (typeof value === "string" && value.trim()) return [value];
   return [];
+}
+
+function getLocationScopeFromFilters(filters: FilterItem[]) {
+  const countries: string[] = [];
+  const provinces: string[] = [];
+
+  for (const filter of filters) {
+    if (filter.id === "country") {
+      countries.push(...getFilterEnumValues(filter.value));
+    }
+    if (filter.id === "state") {
+      provinces.push(...getFilterEnumValues(filter.value));
+    }
+  }
+
+  return { countries, provinces };
 }
 
 function isEmptyFilterValue(def: FilterDef, value: unknown): boolean {
@@ -690,6 +707,7 @@ function AddFilterPicker({
         def={activeDef}
         value={activeInitialValue}
         reservedValues={activeReservedValues}
+        filters={filters}
         onChange={(value) => onApply(activeDef, value)}
         onClose={() => setActiveDef(null)}
         onBack={() => setActiveDef(null)}
@@ -2059,6 +2077,7 @@ interface FilterEditorProps {
   def: FilterDef;
   value: unknown;
   reservedValues?: Set<string>;
+  filters: FilterItem[];
   onChange: (v: unknown) => void;
   onClose: () => void;
   onRemove?: () => void;
@@ -2071,6 +2090,7 @@ function FilterEditor({
   def,
   value,
   reservedValues,
+  filters,
   onChange,
   onRemove,
   onBack,
@@ -2078,6 +2098,35 @@ function FilterEditor({
   onClose,
   portfolioBooleanDescription,
 }: FilterEditorProps) {
+  const locationScope = useMemo(
+    () => getLocationScopeFromFilters(filters),
+    [filters]
+  );
+
+  if (def.id === "city" && def.editor === "enum") {
+    const initial = Array.isArray(value)
+      ? (value as string[])
+      : value
+        ? [String(value)]
+        : [];
+    return (
+      <ListViewCityEnumEditor
+        def={def}
+        countries={locationScope.countries}
+        provinces={locationScope.provinces}
+        value={initial}
+        reservedValues={reservedValues}
+        onApply={(picked) => {
+          onChange(picked);
+          onClose();
+        }}
+        onRemove={onRemove}
+        onBack={onBack}
+        onDismiss={onDismiss}
+      />
+    );
+  }
+
   if (def.editor === "enum")
     return (
       <EnumEditor
@@ -2685,6 +2734,7 @@ export function CompaniesFilterBar({
                 def={editingDef}
                 value={editingFilter.value}
                 reservedValues={editingReservedValues}
+                filters={filters}
                 onChange={(v) => updateFilter(editing, v)}
                 onRemove={() => removeFilter(editing)}
                 onClose={() => setEditing(null)}

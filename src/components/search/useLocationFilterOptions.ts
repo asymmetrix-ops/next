@@ -17,14 +17,12 @@ function getFilterEnumValues(
 }
 
 /**
- * Loads country / state / city filter options for search dashboards.
- * When no country filter is active, provinces and cities are loaded for all countries
- * so the City dropdown is usable without selecting Country first.
+ * Loads country / state filter options for search dashboards.
+ * City options are fetched on demand inside the city filter editor (paginated API).
  */
 export function useLocationFilterOptions(filterBarState: FilterBarState) {
   const [countries, setCountries] = useState<LocationCountry[]>([]);
   const [provinces, setProvinces] = useState<LocationProvince[]>([]);
-  const [cities, setCities] = useState<LocationCity[]>([]);
 
   const selectedCountries = useMemo(
     () => getFilterEnumValues(filterBarState.filters, "country"),
@@ -72,29 +70,10 @@ export function useLocationFilterOptions(filterBarState: FilterBarState) {
     };
   }, [countriesForFetch]);
 
-  useEffect(() => {
-    if (countriesForFetch.length === 0) {
-      setCities([]);
-      return;
-    }
-
-    let cancelled = false;
-    locationsService
-      .getCities(countriesForFetch, selectedProvinces)
-      .then((data) => {
-        if (!cancelled) setCities(data);
-      })
-      .catch(console.error);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [countriesForFetch, selectedProvinces]);
-
   return {
     countries,
     provinces,
-    cities,
+    cities: [] as LocationCity[],
     selectedCountries,
     selectedProvinces,
   };

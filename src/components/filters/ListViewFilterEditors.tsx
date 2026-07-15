@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FilterDef } from "@/app/financials-tsx/types";
 import { FILTER_POPOVER_SCROLL_STYLE } from "@/components/filters/AnchoredPopover";
+import {
+  CITY_FILTER_PAGE_SIZE,
+  locationsService,
+} from "@/lib/locationsService";
 
 export interface IdFilterOption {
   id: number;
@@ -723,6 +727,298 @@ export function ListViewIdEnumEditor({
             </button>
           );
         })}
+      </div>
+    </EditorShell>
+  );
+}
+
+export interface ListViewCityEnumEditorProps {
+  def: Pick<FilterDef, "label" | "fullLabel">;
+  countries: string[];
+  provinces: string[];
+  value?: string[];
+  reservedValues?: Set<string>;
+  onApply: (values: string[]) => void;
+  onBack?: () => void;
+  onRemove?: () => void;
+  onDismiss?: () => void;
+}
+
+export function ListViewCityEnumEditor({
+  def,
+  countries,
+  provinces,
+  value = [],
+  reservedValues,
+  onApply,
+  onBack,
+  onRemove,
+  onDismiss,
+}: ListViewCityEnumEditorProps) {
+  const [picked, setPicked] = useState<string[]>(value);
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const [options, setOptions] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQ(q.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [q]);
+
+  const fetchPage = useCallback(
+    async (nextPage: number, query: string, append: boolean) => {
+      const requestId = ++requestIdRef.current;
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      try {
+        const result = await locationsService.searchCities({
+          countries,
+          provinces,
+          query,
+          page: nextPage,
+          perPage: CITY_FILTER_PAGE_SIZE,
+        });
+
+        if (requestId !== requestIdRef.current) return;
+
+        const names = result.cities
+          .map((city) => city.City)
+          .filter((name): name is string => Boolean(name?.trim()));
+
+        setOptions((prev) => {
+          if (!append) return names;
+          const seen = new Set(prev);
+          return [...prev, ...names.filter((name) => !seen.has(name))];
+        });
+        setPage(result.page);
+        setHasMore(result.hasMore);
+      } catch (err) {
+        if (requestId !== requestIdRef.current) return;
+        console.error("[City filter] fetch error:", err);
+        if (!append) setOptions([]);
+        setHasMore(false);
+        setError("Failed to load cities");
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      }
+    },
+    [countries, provinces]
+  );
+
+  useEffect(() => {
+    void fetchPage(1, debouncedQ, false);
+  }, [debouncedQ, fetchPage]);
+
+  const displayOptions = useMemo(() => {
+    const merged = [...picked];
+    for (const option of options) {
+      if (!merged.includes(option)) merged.push(option);
+    }
+    return merged;
+  }, [options, picked]);
+
+  const toggle = (o: string) => {
+    const reserved = reservedValues?.has(o) && !picked.includes(o);
+    if (reserved) return;
+    setPicked((p) => (p.includes(o) ? p.filter((x) => x !== o) : [...p, o]));
+  };
+
+  return (
+    <EditorShell
+      title={def.fullLabel}
+      hint={`${picked.length} selected`}
+      onDismiss={onDismiss}
+      footer={
+        <EditorFooter
+          onClear={picked.length ? () => setPicked([]) : null}
+          onRemove={onRemove}
+          onBack={onBack}
+          onApply={() => onApply(picked)}
+          applyDisabled={picked.length === 0}
+        />
+      }
+      width={300}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 8px",
+          marginBottom: 8,
+          background: "var(--ax-gray-25)",
+          border: "1px solid var(--border-1)",
+          borderRadius: "var(--r-md)",
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ color: "var(--fg-4)" }}>
+          <circle cx="7" cy="7" r="4.75" stroke="currentColor" strokeWidth="1.4" />
+          <path
+            d="M10.5 10.5L13.5 13.5"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+        </svg>
+        <input
+          autoFocus
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={`Search ${def.label.toLowerCase()}…`}
+          style={{
+            flex: 1,
+            background: "transparent",
+            border: "none",
+            outline: "none",
+            fontFamily: "inherit",
+            fontSize: "var(--fs-13)",
+            color: "var(--fg-1)",
+          }}
+        />
+      </div>
+      <div style={{ maxHeight: 240, overflowY: "auto", margin: "0 -4px", ...FILTER_POPOVER_SCROLL_STYLE }}>
+        {loading && displayOptions.length === 0 && (
+          <div
+            style={{
+              padding: 16,
+              textAlign: "center",
+              color: "var(--fg-4)",
+              fontSize: "var(--fs-13)",
+            }}
+          >
+            Loading cities…
+          </div>
+        )}
+        {!loading && error && displayOptions.length === 0 && (
+          <div
+            style={{
+              padding: 16,
+              textAlign: "center",
+              color: "var(--fg-4)",
+              fontSize: "var(--fs-13)",
+            }}
+          >
+            {error}
+          </div>
+        )}
+        {!loading && !error && displayOptions.length === 0 && (
+          <div
+            style={{
+              padding: 16,
+              textAlign: "center",
+              color: "var(--fg-4)",
+              fontSize: "var(--fs-13)",
+            }}
+          >
+            No matches
+          </div>
+        )}
+        {displayOptions.map((o) => {
+          const on = picked.includes(o);
+          const reserved = Boolean(reservedValues?.has(o) && !on);
+          return (
+            <button
+              key={o}
+              type="button"
+              onClick={() => toggle(o)}
+              disabled={reserved}
+              title={
+                reserved
+                  ? "Already used in another filter of this type"
+                  : undefined
+              }
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "6px 8px",
+                borderRadius: "var(--r-sm)",
+                background: "transparent",
+                border: "none",
+                cursor: reserved ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+                fontSize: "var(--fs-13)",
+                color: "var(--fg-1)",
+                textAlign: "left",
+                opacity: reserved ? 0.55 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!reserved) e.currentTarget.style.background = "var(--ax-gray-25)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <span
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: 4,
+                  flexShrink: 0,
+                  background: on ? "var(--ax-cyan-700)" : "transparent",
+                  border: on
+                    ? "1px solid var(--ax-cyan-700)"
+                    : "1px solid var(--ax-gray-300)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                }}
+              >
+                {on && (
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                    <path
+                      d="M1.5 5L4 7.5L8.5 2.5"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </span>
+              <span style={{ flex: 1 }}>{o}</span>
+            </button>
+          );
+        })}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => void fetchPage(page + 1, debouncedQ, true)}
+            disabled={loadingMore}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 8px",
+              border: "none",
+              borderRadius: "var(--r-sm)",
+              background: "transparent",
+              color: "var(--ax-cyan-700)",
+              fontFamily: "inherit",
+              fontSize: "var(--fs-13)",
+              fontWeight: 600,
+              cursor: loadingMore ? "default" : "pointer",
+              opacity: loadingMore ? 0.6 : 1,
+            }}
+          >
+            {loadingMore ? "Loading…" : `Load ${CITY_FILTER_PAGE_SIZE} more`}
+          </button>
+        )}
       </div>
     </EditorShell>
   );
