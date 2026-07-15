@@ -426,7 +426,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         key: "name",
         label: "Name",
         group: "Identity",
-        minWidth: 220,
+        wrap: true,
+        minWidth: 280,
         render: (company, { onCompanyClick, readOnlyGuestMode }) => {
           const hqRaw = readCompanyValue(company, [
             ...getFieldAliasesForColumn("hq"),
@@ -1227,6 +1228,7 @@ export const CompanySection = ({
       ...extras,
       column.wrap ? "company-table-cell-wrap" : undefined,
       isFrozenColumnKey(column.key) ? "company-table-sticky-frozen" : undefined,
+      column.key === "name" ? "company-table-col-name" : undefined,
       column.key === "follow" ? "company-table-col-follow" : undefined,
     ].filter(Boolean);
     return classes.length > 0 ? classes.join(" ") : undefined;

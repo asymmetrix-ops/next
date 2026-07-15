@@ -238,6 +238,18 @@ export const SEARCH_TABLE_STYLES = `
       overflow-wrap: break-word;
       max-width: 320px;
     }
+    .company-table th.company-table-col-name,
+    .company-table td.company-table-col-name {
+      max-width: 280px;
+      width: 280px;
+    }
+    .company-table-col-name .company-table-entity-name {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+      word-break: normal;
+      overflow-wrap: anywhere;
+    }
     .company-table-select-cell {
       position: sticky;
       left: 0;
