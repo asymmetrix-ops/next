@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 
+import { INVESTORS_API_BASE } from '@/lib/investorsApiBase';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const maxDuration = 300;
 
-const XANO_URL = 'https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/investors_with_d_a_list';
+const XANO_URL = `${INVESTORS_API_BASE}/investors_with_d_a_list`;
 const XANO_AUTH_URL = 'https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/login';
 
 const CRON_AUTH_EMAIL = process.env.CRON_AUTH_EMAIL;

@@ -16,6 +16,7 @@ import {
   createDefaultAdvisorFilters,
   advisorsFiltersToSearchParams,
 } from "@/lib/advisorsFilterPayload";
+import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
 import {
   ADVISORS_COLUMN_CATEGORIES,
   CANONICAL_ADVISOR_COLUMN_KEYS,
@@ -335,7 +336,7 @@ export const AdvisorSection = ({
         page: 1,
         per_page: itemsTotal,
       });
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
+      const url = `${ADVISORS_API_BASE}/get_all_advisors_list?${params.toString()}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {

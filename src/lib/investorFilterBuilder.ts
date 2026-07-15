@@ -4,12 +4,19 @@ export type InvestorFilterType =
   | "name_search"
   | "investor_type_ids"
   | "portfolio_companies_count"
+  | "total_investments_count"
+  | "linkedin_members_count"
   | "years_since_investment"
-  | "country"
-  | "province"
-  | "city"
-  | "continental_region"
-  | "sub_region";
+  | "investor_continental_region"
+  | "investor_country"
+  | "investor_province"
+  | "investor_city"
+  | "investor_sub_region"
+  | "portfolio_continental_region"
+  | "portfolio_sub_region"
+  | "portfolio_country"
+  | "portfolio_province"
+  | "portfolio_city";
 
 export interface InvestorFilterClause {
   id: string;
@@ -32,33 +39,110 @@ export interface InvestorSearchPayload {
   sort_direction?: InvestorSortDirection;
 }
 
-const GEO_FILTER_TYPES = new Set<InvestorFilterType>([
-  "country",
-  "province",
-  "city",
-  "continental_region",
-  "sub_region",
+const PORTFOLIO_GEO_FILTER_TYPES = new Set<InvestorFilterType>([
+  "portfolio_country",
+  "portfolio_province",
+  "portfolio_city",
+  "portfolio_continental_region",
+  "portfolio_sub_region",
 ]);
 
 const esc = (s: string) => `'${String(s).replace(/'/g, "''")}'`;
 
+const arrToPgBigint = (ids: number[]) =>
+  ids.length ? `{${ids.join(",")}}` : "";
+
 const inList = (values: string[] | number[]) =>
   (values as string[]).map((v) => esc(String(v))).join(",");
 
+const LINKEDIN_MEMBERS_EXPR = `COALESCE(
+  ld.linkedin_employee,
+  (nc.linkedin_data ->> 'LinkedIn_Employee')::int
+)`;
+
+const DAYS_SINCE_EXPR = `(SELECT days_since FROM x2_139
+  WHERE new_company_id = inv.original_new_company_id LIMIT 1)`;
+
+const TOTAL_INVESTMENTS_EXPR = `(
+  cardinality(inv."Active_DA_Portfolio_Companies_id")
+  + cardinality(inv."Past_DA_Portfolio_Companies_id")
+)`;
+
 function buildRangeSql(field: string, min?: number, max?: number): string | null {
+  const parts: string[] = [];
   const hasMin = min != null && !Number.isNaN(min);
   const hasMax = max != null && !Number.isNaN(max);
-  if (hasMin && hasMax) {
-    return `(${field} IS NOT NULL AND ${field} BETWEEN ${min} AND ${max})`;
-  }
-  if (hasMin) return `(${field} IS NOT NULL AND ${field} >= ${min})`;
-  if (hasMax) return `(${field} IS NOT NULL AND ${field} <= ${max})`;
-  return null;
+  if (hasMin) parts.push(`${field} >= ${min}`);
+  if (hasMax) parts.push(`${field} <= ${max}`);
+  if (!parts.length) return null;
+  return parts.length === 1 ? parts[0] : `(${parts.join(" AND ")})`;
 }
 
-export function buildInvestorFilterClauseSql(
-  clause: InvestorFilterClause
-): string | null {
+function buildPortfolioGeoClauseSql(clause: InvestorFilterClause): string | null {
+  const { type, value } = clause;
+  if (!("value" in value)) return null;
+
+  const val = (value as { value: string | number | string[] | number[] }).value;
+
+  switch (type) {
+    case "portfolio_country":
+      return Array.isArray(val)
+        ? `l."Country" IN (${inList(val as string[])})`
+        : `l."Country" = ${esc(String(val))}`;
+    case "portfolio_province":
+      return Array.isArray(val)
+        ? `l."State__Province__County" IN (${inList(val as string[])})`
+        : `l."State__Province__County" = ${esc(String(val))}`;
+    case "portfolio_city":
+      return Array.isArray(val)
+        ? `l."City" IN (${inList(val as string[])})`
+        : `l."City" = ${esc(String(val))}`;
+    case "portfolio_continental_region":
+      return Array.isArray(val)
+        ? `l."Continental_Region" IN (${inList(val as string[])})`
+        : `l."Continental_Region" = ${esc(String(val))}`;
+    case "portfolio_sub_region":
+      return Array.isArray(val)
+        ? `TRIM(l."geographical_sub_region") IN (${inList(val as string[])})`
+        : `TRIM(l."geographical_sub_region") = ${esc(String(val))}`;
+    default:
+      return null;
+  }
+}
+
+function buildInvestorGeoClauseSql(clause: InvestorFilterClause): string | null {
+  const { type, value } = clause;
+  if (!("value" in value)) return null;
+
+  const val = (value as { value: string | number | string[] | number[] }).value;
+
+  switch (type) {
+    case "investor_country":
+      return Array.isArray(val)
+        ? `loc."Country" IN (${inList(val as string[])})`
+        : `loc."Country" = ${esc(String(val))}`;
+    case "investor_province":
+      return Array.isArray(val)
+        ? `loc."State__Province__County" IN (${inList(val as string[])})`
+        : `loc."State__Province__County" = ${esc(String(val))}`;
+    case "investor_city":
+      return Array.isArray(val)
+        ? `loc."City" IN (${inList(val as string[])})`
+        : `loc."City" = ${esc(String(val))}`;
+    case "investor_continental_region":
+      return Array.isArray(val)
+        ? `loc."Continental_Region" IN (${inList(val as string[])})`
+        : `loc."Continental_Region" = ${esc(String(val))}`;
+    case "investor_sub_region":
+      return Array.isArray(val)
+        ? `TRIM(loc."geographical_sub_region") IN (${inList(val as string[])})`
+        : `TRIM(loc."geographical_sub_region") = ${esc(String(val))}`;
+    default:
+      return null;
+  }
+}
+
+function buildMainFilterClauseSql(clause: InvestorFilterClause): string | null {
   const { type, value } = clause;
 
   if ("min" in value || "max" in value) {
@@ -66,18 +150,15 @@ export function buildInvestorFilterClauseSql(
 
     switch (type) {
       case "portfolio_companies_count":
-        return buildRangeSql("nc.number_of_active_investments", min, max);
+        return buildRangeSql("pcs.active_pc_count", min, max);
+      case "total_investments_count":
+        return buildRangeSql(TOTAL_INVESTMENTS_EXPR, min, max);
+      case "linkedin_members_count":
+        return buildRangeSql(LINKEDIN_MEMBERS_EXPR, min, max);
       case "years_since_investment": {
-        const minDays = min != null ? min * 365 : undefined;
-        const maxDays = max != null ? max * 365 : undefined;
-        const hasMin = minDays != null && !Number.isNaN(minDays);
-        const hasMax = maxDays != null && !Number.isNaN(maxDays);
-        if (hasMin && hasMax) {
-          return `(ysli.days_since BETWEEN ${minDays} AND ${maxDays})`;
-        }
-        if (hasMin) return `(ysli.days_since >= ${minDays})`;
-        if (hasMax) return `(ysli.days_since <= ${maxDays})`;
-        return null;
+        const minDays = min != null ? Math.round(min * 365) : undefined;
+        const maxDays = max != null ? Math.round(max * 365) : undefined;
+        return buildRangeSql(DAYS_SINCE_EXPR, minDays, maxDays);
       }
       default:
         return null;
@@ -89,34 +170,18 @@ export function buildInvestorFilterClauseSql(
 
     switch (type) {
       case "name_search": {
-        const safe = String(val).replace(/'/g, "''");
-        return `nc.name ILIKE '%${safe}%'`;
+        const safe = String(val).trim().replace(/'/g, "''").toLowerCase();
+        if (!safe) return null;
+        return `LOWER(nc.name) ILIKE '%${safe}%'`;
       }
       case "investor_type_ids": {
-        const ids = Array.isArray(val) ? (val as number[]) : [Number(val)];
-        if (ids.length === 0) return null;
-        return `nc.investor_type_id && ARRAY[${ids.join(",")}]::bigint[]`;
+        const ids = (Array.isArray(val) ? val : [Number(val)])
+          .map((id) => Number(id))
+          .filter((id) => Number.isInteger(id) && id > 0);
+        if (!ids.length) return null;
+        if (ids.length === 1) return `${ids[0]} = ANY(inv.sectors_id)`;
+        return `(${ids.map((id) => `${id} = ANY(inv.sectors_id)`).join(" OR ")})`;
       }
-      case "country":
-        return Array.isArray(val)
-          ? `loc."Country" IN (${inList(val as string[])})`
-          : `loc."Country" = ${esc(String(val))}`;
-      case "province":
-        return Array.isArray(val)
-          ? `loc."State__Province__County" IN (${inList(val as string[])})`
-          : `loc."State__Province__County" = ${esc(String(val))}`;
-      case "city":
-        return Array.isArray(val)
-          ? `loc."City" IN (${inList(val as string[])})`
-          : `loc."City" = ${esc(String(val))}`;
-      case "continental_region":
-        return Array.isArray(val)
-          ? `loc."Continental_Region" IN (${inList(val as string[])})`
-          : `loc."Continental_Region" = ${esc(String(val))}`;
-      case "sub_region":
-        return Array.isArray(val)
-          ? `loc."geographical_sub_region" IN (${inList(val as string[])})`
-          : `loc."geographical_sub_region" = ${esc(String(val))}`;
       default:
         return null;
     }
@@ -125,30 +190,64 @@ export function buildInvestorFilterClauseSql(
   return null;
 }
 
-export function buildInvestorFiltersSql(clauses: InvestorFilterClause[]): string {
+function combineFilterParts(parts: { sql: string; op: FilterOperator }[]): string {
   let result = "";
 
-  for (const clause of clauses) {
-    const sql = buildInvestorFilterClauseSql(clause);
-    if (!sql) continue;
-
+  for (const part of parts) {
     if (!result) {
-      result = sql;
+      result = part.sql;
       continue;
     }
 
-    if (clause.op === "OR") {
-      result = `(${result} OR ${sql})`;
+    if (part.op === "OR") {
+      result = `(${result} OR ${part.sql})`;
     } else {
-      result = `${result} AND ${sql}`;
+      result = `${result} AND ${part.sql}`;
     }
   }
 
   return result;
 }
 
+function buildPortfolioGeoFilterSql(geoClauses: InvestorFilterClause[]): string {
+  return geoClauses
+    .map((clause) => buildPortfolioGeoClauseSql(clause))
+    .filter((sql): sql is string => Boolean(sql))
+    .join(" AND ");
+}
+
+function buildFiltersSqlFromClauses(clauses: InvestorFilterClause[]): string {
+  const filterParts: { sql: string; op: FilterOperator }[] = [];
+
+  for (const clause of clauses) {
+    if (PORTFOLIO_GEO_FILTER_TYPES.has(clause.type)) continue;
+
+    const sql =
+      buildMainFilterClauseSql(clause) ?? buildInvestorGeoClauseSql(clause);
+    if (sql) {
+      filterParts.push({ sql, op: clause.op });
+    }
+  }
+
+  return combineFilterParts(filterParts);
+}
+
+/** @deprecated Use portfolio vs investor filter types instead. */
 export function isGeoInvestorFilterType(type: InvestorFilterType): boolean {
-  return GEO_FILTER_TYPES.has(type);
+  return PORTFOLIO_GEO_FILTER_TYPES.has(type);
+}
+
+export function buildInvestorFilterClauseSql(
+  clause: InvestorFilterClause
+): string | null {
+  if (PORTFOLIO_GEO_FILTER_TYPES.has(clause.type)) {
+    return buildPortfolioGeoClauseSql(clause);
+  }
+  return buildMainFilterClauseSql(clause) ?? buildInvestorGeoClauseSql(clause);
+}
+
+export function buildInvestorFiltersSql(clauses: InvestorFilterClause[]): string {
+  return buildFiltersSqlFromClauses(clauses);
 }
 
 export function buildInvestorSearchPayloadFromClauses(
@@ -163,14 +262,15 @@ export function buildInvestorSearchPayloadFromClauses(
 ): InvestorSearchPayload {
   const page = Math.max(1, options.page ?? 1);
   const perPage = options.perPage && options.perPage > 0 ? options.perPage : 50;
-  const mainClauses = clauses.filter((clause) => !GEO_FILTER_TYPES.has(clause.type));
-  const geoClauses = clauses.filter((clause) => GEO_FILTER_TYPES.has(clause.type));
+  const geoClauses = clauses.filter((clause) =>
+    PORTFOLIO_GEO_FILTER_TYPES.has(clause.type)
+  );
 
   return {
-    filters_sql: buildInvestorFiltersSql(mainClauses),
-    geo_filter_sql: buildInvestorFiltersSql(geoClauses),
-    PC_Primary_ids_str: (options.primarySectorIds ?? []).join(","),
-    PC_Secondary_ids_str: (options.secondarySectorIds ?? []).join(","),
+    filters_sql: buildFiltersSqlFromClauses(clauses),
+    geo_filter_sql: buildPortfolioGeoFilterSql(geoClauses),
+    PC_Primary_ids_str: arrToPgBigint(options.primarySectorIds ?? []),
+    PC_Secondary_ids_str: arrToPgBigint(options.secondarySectorIds ?? []),
     page,
     per_page: perPage,
     portfolio_only: Boolean(options.portfolioOnly),

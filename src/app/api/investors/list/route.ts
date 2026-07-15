@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { Redis } from '@upstash/redis';
 
+import { INVESTORS_API_BASE } from '@/lib/investorsApiBase';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const XANO_URL = 'https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/investors_with_d_a_list';
+const XANO_URL = `${INVESTORS_API_BASE}/investors_with_d_a_list`;
 
 function getRedisClient(): Redis | null {
   if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {

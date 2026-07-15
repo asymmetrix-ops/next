@@ -9,6 +9,7 @@ import {
 import { mapSummaryToInvestorTypeCounts } from "@/components/investors/investorsFilterConfig";
 import { getInvestorFieldAliasesForColumn } from "@/components/investors/investorsColumnFields";
 import { readLogoFromRecord } from "@/lib/companyLogo";
+import { INVESTORS_API_BASE } from "@/lib/investorsApiBase";
 
 export type { InvestorsSearchFilters };
 
@@ -50,9 +51,6 @@ export interface InvestorsListResponse {
   pageTotal: number;
   typeCounts: ReturnType<typeof mapSummaryToInvestorTypeCounts>;
 }
-
-const INVESTORS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop";
 
 function normalizeInvestorListItem(item: InvestorListItem): InvestorListItem {
   const logo = readLogoFromRecord(item, getInvestorFieldAliasesForColumn("logo"));

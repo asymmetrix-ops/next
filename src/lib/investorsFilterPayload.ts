@@ -116,7 +116,7 @@ export function buildInvestorsSearchPayload(args: {
     if (item.id === "region" && Array.isArray(v) && v.length > 0) {
       pushClause({
         id: item.key,
-        type: "continental_region",
+        type: "portfolio_continental_region",
         value: { value: v as string[] },
         op,
       });
@@ -125,7 +125,7 @@ export function buildInvestorsSearchPayload(args: {
     if (item.id === "sub_region" && Array.isArray(v) && v.length > 0) {
       pushClause({
         id: item.key,
-        type: "sub_region",
+        type: "portfolio_sub_region",
         value: { value: v as string[] },
         op,
       });
@@ -134,7 +134,7 @@ export function buildInvestorsSearchPayload(args: {
     if (item.id === "country" && Array.isArray(v) && v.length > 0) {
       pushClause({
         id: item.key,
-        type: "country",
+        type: "portfolio_country",
         value: { value: v as string[] },
         op,
       });
@@ -143,7 +143,7 @@ export function buildInvestorsSearchPayload(args: {
     if (item.id === "state" && Array.isArray(v) && v.length > 0) {
       pushClause({
         id: item.key,
-        type: "province",
+        type: "portfolio_province",
         value: { value: v as string[] },
         op,
       });
@@ -152,7 +152,7 @@ export function buildInvestorsSearchPayload(args: {
     if (item.id === "city" && Array.isArray(v) && v.length > 0) {
       pushClause({
         id: item.key,
-        type: "city",
+        type: "portfolio_city",
         value: { value: v as string[] },
         op,
       });
@@ -182,6 +182,24 @@ export function buildInvestorsSearchPayload(args: {
       pushClause({
         id: item.key,
         type: "portfolio_companies_count",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "total_investments" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "total_investments_count",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "linkedin_members" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "linkedin_members_count",
         value: { min: v.min, max: v.max },
         op,
       });
