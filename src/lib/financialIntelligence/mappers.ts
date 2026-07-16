@@ -118,7 +118,10 @@ export function mapCompanyToFinRow(
     trend: [],
     rule_of_40: ruleOf40 ?? undefined,
     financial_year: row.financial_year ? String(row.financial_year) : undefined,
+    recurring_revenue: row.subscription_revenue_pc ?? undefined,
+    arr_m: toMillions(row.subscription_revenue_m) ?? undefined,
     churn: row.churn_pc ?? undefined,
+    grr: row.grr_pc ?? undefined,
     nrr: row.nrr ?? undefined,
     new_clients_rev: row.new_client_growth_pc ?? undefined,
     upsell: row.upsell_pc ?? undefined,
@@ -126,6 +129,8 @@ export function mapCompanyToFinRow(
     price_increase: row.price_increase_pc ?? undefined,
     revenue_expansion: row.rev_expansion_pc ?? undefined,
     num_clients: row.no_of_clients ?? undefined,
+    rev_per_client: row.revenue_per_client ?? undefined,
+    num_employees: row.no_employees ?? undefined,
     rev_per_employee: row.revenue_per_employee ?? undefined,
   };
 }

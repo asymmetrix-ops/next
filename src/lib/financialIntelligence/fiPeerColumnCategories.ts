@@ -22,8 +22,16 @@ const FI_PEER_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
     name: "Subscription Metrics",
     description: "Subscription and expansion metrics.",
     columns: [
+      { id: "recurring_revenue", columnKey: "recurring_revenue", label: "Recurring Revenue", type: "percent", defaultVisible: false },
+      { id: "arr_m", columnKey: "arr_m", label: "ARR (m)", type: "currency", defaultVisible: false },
+      { id: "churn", columnKey: "churn", label: "Churn", type: "percent", defaultVisible: false },
+      { id: "grr", columnKey: "grr", label: "GRR", type: "percent", defaultVisible: false },
       { id: "nrr", columnKey: "nrr", label: "NRR", type: "percent", defaultVisible: false },
-      { id: "new_clients_rev", columnKey: "new_clients_rev", label: "New client growth", type: "percent", defaultVisible: false },
+      { id: "new_clients_rev", columnKey: "new_clients_rev", label: "New Clients Revenue Growth", type: "percent", defaultVisible: false },
+      { id: "upsell", columnKey: "upsell", label: "Upsell", type: "percent", defaultVisible: false },
+      { id: "cross_sell", columnKey: "cross_sell", label: "Cross-sell", type: "percent", defaultVisible: false },
+      { id: "price_increase", columnKey: "price_increase", label: "Price Increase", type: "percent", defaultVisible: false },
+      { id: "revenue_expansion", columnKey: "revenue_expansion", label: "Revenue Expansion", type: "percent", defaultVisible: false },
     ],
   },
   {
@@ -31,9 +39,11 @@ const FI_PEER_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
     name: "Other Metrics",
     description: "Additional operating metrics.",
     columns: [
-      { id: "ebit", columnKey: "ebit", label: "EBIT", type: "currency", defaultVisible: true },
-      { id: "num_clients", columnKey: "num_clients", label: "Number of clients", type: "number", defaultVisible: false },
-      { id: "rev_per_employee", columnKey: "rev_per_employee", label: "Revenue per employee", type: "currency", defaultVisible: false },
+      { id: "ebit", columnKey: "ebit", label: "EBIT (m)", type: "currency", defaultVisible: true },
+      { id: "num_clients", columnKey: "num_clients", label: "Number of Clients", type: "number", defaultVisible: false },
+      { id: "rev_per_client", columnKey: "rev_per_client", label: "Revenue per Client", type: "currency", defaultVisible: false },
+      { id: "num_employees", columnKey: "num_employees", label: "Number of Employees", type: "number", defaultVisible: false },
+      { id: "rev_per_employee", columnKey: "rev_per_employee", label: "Revenue per Employee", type: "currency", defaultVisible: false },
     ],
   },
   {

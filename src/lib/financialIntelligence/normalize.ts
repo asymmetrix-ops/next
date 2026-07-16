@@ -63,6 +63,32 @@ export function normalizeCompanyRow(
     fallbackCompanyId ?? 0
   );
 
+  const revenue_m_usd = safeFiniteNumber(raw.revenue_m_usd);
+  const no_of_clients = safeFiniteNumber(raw.no_of_clients ?? raw.no_clients);
+  const revenue_per_employee = safeFiniteNumber(raw.revenue_per_employee);
+
+  let revenue_per_client = safeFiniteNumber(
+    raw.revenue_per_client ?? raw.rev_per_client ?? raw.Rev_per_client
+  );
+  if (
+    revenue_per_client == null &&
+    revenue_m_usd != null &&
+    no_of_clients != null &&
+    no_of_clients > 0
+  ) {
+    revenue_per_client = (revenue_m_usd * 1_000_000) / no_of_clients;
+  }
+
+  let no_employees = safeFiniteNumber(raw.no_employees ?? raw.No_Employees);
+  if (
+    no_employees == null &&
+    revenue_m_usd != null &&
+    revenue_per_employee != null &&
+    revenue_per_employee > 0
+  ) {
+    no_employees = Math.round((revenue_m_usd * 1_000_000) / revenue_per_employee);
+  }
+
   return {
     company_id,
     company_name: String(raw.company_name ?? raw.name ?? ""),
@@ -75,22 +101,34 @@ export function normalizeCompanyRow(
     financial_year: normalizeFinancialYear(raw.financial_year),
     financial_year_value: normalizeFinancialYearValue(raw),
     fy_ye_month: normalizeFyYeMonth(raw.fy_ye_month),
-    revenue_m_usd: safeFiniteNumber(raw.revenue_m_usd),
+    revenue_m_usd,
     rev_growth_pc: safeFiniteNumber(raw.rev_growth_pc),
     new_client_growth_pc: safeFiniteNumber(raw.new_client_growth_pc),
     ebitda_margin: safeFiniteNumber(raw.ebitda_margin),
     ebitda_m_usd: safeFiniteNumber(raw.ebitda_m_usd),
     ebit_m_usd: safeFiniteNumber(raw.ebit_m_usd),
     rule_of_40: safeFiniteNumber(raw.rule_of_40),
+    subscription_revenue_pc: safeFiniteNumber(
+      raw.subscription_revenue_pc ?? raw.Subscription_revenue_pc ?? raw.arr_pc
+    ),
+    subscription_revenue_m: safeFiniteNumber(
+      raw.subscription_revenue_m ??
+        raw.Subscription_revenue_m ??
+        raw.arr_m ??
+        raw.arr_m_usd
+    ),
     nrr: safeFiniteNumber(raw.nrr),
-    churn_pc: safeFiniteNumber(raw.churn_pc),
+    churn_pc: safeFiniteNumber(raw.churn_pc ?? raw.churn),
+    grr_pc: safeFiniteNumber(raw.grr_pc ?? raw.grr ?? raw.GRR_pc),
     upsell_pc: safeFiniteNumber(raw.upsell_pc),
     cross_sell_pc: safeFiniteNumber(raw.cross_sell_pc),
     price_increase_pc: safeFiniteNumber(raw.price_increase_pc),
     rev_expansion_pc: safeFiniteNumber(raw.rev_expansion_pc),
     ev_usd: safeFiniteNumber(raw.ev_usd),
-    no_of_clients: safeFiniteNumber(raw.no_of_clients),
-    revenue_per_employee: safeFiniteNumber(raw.revenue_per_employee),
+    no_of_clients,
+    revenue_per_client,
+    no_employees,
+    revenue_per_employee,
     revenue_multiple: safeFiniteNumber(raw.revenue_multiple),
     ev_revenue_x: safeFiniteNumber(raw.ev_revenue_x),
     ev_ebitda_x: safeFiniteNumber(raw.ev_ebitda_x),
@@ -101,10 +139,25 @@ export function normalizeCompanyRow(
     ebit_source_type: parseSourceType(raw.ebit_source_type),
     ev_source_type: parseSourceType(raw.ev_source_type),
     no_of_clients_source_type: parseSourceType(raw.no_of_clients_source_type),
+    revenue_per_client_source_type: parseSourceType(
+      raw.revenue_per_client_source_type ?? raw.Rev_per_client_source_type
+    ),
+    no_employees_source_type: parseSourceType(
+      raw.no_employees_source_type ?? raw.No_Employees_source_type
+    ),
     revenue_per_employee_source_type: parseSourceType(raw.revenue_per_employee_source_type),
     rule_of_40_source_type: parseSourceType(raw.rule_of_40_source_type),
+    subscription_revenue_pc_source_type: parseSourceType(
+      raw.subscription_revenue_pc_source_type ?? raw.Subscription_revenue_source_type
+    ),
+    subscription_revenue_m_source_type: parseSourceType(
+      raw.subscription_revenue_m_source_type ??
+        raw.Subscription_revenue_source_type ??
+        raw.arr_source_type
+    ),
     nrr_source_type: parseSourceType(raw.nrr_source_type),
     churn_source_type: parseSourceType(raw.churn_source_type),
+    grr_source_type: parseSourceType(raw.grr_source_type ?? raw.GRR_source_type),
     upsell_source_type: parseSourceType(raw.upsell_source_type),
     cross_sell_source_type: parseSourceType(raw.cross_sell_source_type),
     price_increase_source_type: parseSourceType(raw.price_increase_source_type),

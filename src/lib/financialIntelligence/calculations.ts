@@ -4,25 +4,55 @@ import { isMetricSourceAllowed } from "./sourceTypes";
 export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
   { key: "revenue_m_usd", label: "Revenue", higherIsBetter: true, format: "currency" },
   { key: "ev_usd", label: "EV", higherIsBetter: true, format: "currency" },
-  { key: "no_of_clients", label: "Number of clients", higherIsBetter: true, format: "count" },
-  {
-    key: "revenue_per_employee",
-    label: "Revenue per employee",
-    higherIsBetter: true,
-    format: "currency_k",
-  },
   { key: "ebitda_m_usd", label: "EBITDA", higherIsBetter: true, format: "currency" },
-  { key: "ebit_m_usd", label: "EBIT", higherIsBetter: true, format: "currency" },
+  { key: "ebit_m_usd", label: "EBIT (m)", higherIsBetter: true, format: "currency" },
   { key: "ebitda_margin", label: "EBITDA margin", higherIsBetter: true, format: "percent" },
   { key: "rev_growth_pc", label: "Revenue growth", higherIsBetter: true, format: "percent" },
+  { key: "rule_of_40", label: "Rule of 40", higherIsBetter: true, format: "percent" },
   {
-    key: "new_client_growth_pc",
-    label: "New client growth",
+    key: "subscription_revenue_pc",
+    label: "Recurring Revenue",
     higherIsBetter: true,
     format: "percent",
   },
-  { key: "rule_of_40", label: "Rule of 40", higherIsBetter: true, format: "percent" },
+  {
+    key: "subscription_revenue_m",
+    label: "ARR (m)",
+    higherIsBetter: true,
+    format: "currency",
+  },
+  { key: "churn_pc", label: "Churn", higherIsBetter: false, format: "percent" },
+  { key: "grr_pc", label: "GRR", higherIsBetter: true, format: "percent" },
   { key: "nrr", label: "NRR", higherIsBetter: true, format: "percent" },
+  {
+    key: "new_client_growth_pc",
+    label: "New Clients Revenue Growth",
+    higherIsBetter: true,
+    format: "percent",
+  },
+  { key: "upsell_pc", label: "Upsell", higherIsBetter: true, format: "percent" },
+  { key: "cross_sell_pc", label: "Cross-sell", higherIsBetter: true, format: "percent" },
+  { key: "price_increase_pc", label: "Price Increase", higherIsBetter: true, format: "percent" },
+  {
+    key: "rev_expansion_pc",
+    label: "Revenue Expansion",
+    higherIsBetter: true,
+    format: "percent",
+  },
+  { key: "no_of_clients", label: "Number of Clients", higherIsBetter: true, format: "count" },
+  {
+    key: "revenue_per_client",
+    label: "Revenue per Client",
+    higherIsBetter: true,
+    format: "currency_k",
+  },
+  { key: "no_employees", label: "Number of Employees", higherIsBetter: true, format: "count" },
+  {
+    key: "revenue_per_employee",
+    label: "Revenue per Employee",
+    higherIsBetter: true,
+    format: "currency_k",
+  },
   {
     key: "revenue_multiple",
     label: "Revenue multiple",
@@ -67,14 +97,28 @@ export const FI_BENCHMARK_SECTIONS: Array<{
     id: "subscription_metrics",
     label: "Subscription Metrics",
     keys: [
+      "subscription_revenue_pc",
+      "subscription_revenue_m",
+      "churn_pc",
+      "grr_pc",
       "nrr",
       "new_client_growth_pc",
+      "upsell_pc",
+      "cross_sell_pc",
+      "price_increase_pc",
+      "rev_expansion_pc",
     ],
   },
   {
     id: "other_metrics",
     label: "Other Metrics",
-    keys: ["ebit_m_usd", "no_of_clients", "revenue_per_employee"],
+    keys: [
+      "ebit_m_usd",
+      "no_of_clients",
+      "revenue_per_client",
+      "no_employees",
+      "revenue_per_employee",
+    ],
   },
 ];
 
@@ -96,8 +140,18 @@ export function getMetricValue(row: FiCompanyRow, key: FiMetricKey): number | nu
       return toMillions(row.ev_usd);
     case "no_of_clients":
       return row.no_of_clients;
+    case "revenue_per_client":
+      return row.revenue_per_client;
+    case "no_employees":
+      return row.no_employees;
     case "revenue_per_employee":
       return row.revenue_per_employee;
+    case "subscription_revenue_pc":
+      return row.subscription_revenue_pc;
+    case "subscription_revenue_m":
+      return toMillions(row.subscription_revenue_m);
+    case "grr_pc":
+      return row.grr_pc;
     case "rev_growth_pc":
       return row.rev_growth_pc;
     case "new_client_growth_pc":

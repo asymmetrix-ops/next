@@ -26,14 +26,19 @@ export interface FiCompanyRow {
   ebitda_m_usd: number | null;
   ebit_m_usd: number | null;
   rule_of_40: number | null;
+  subscription_revenue_pc: number | null;
+  subscription_revenue_m: number | null;
   nrr: number | null;
   churn_pc: number | null;
+  grr_pc: number | null;
   upsell_pc: number | null;
   cross_sell_pc: number | null;
   price_increase_pc: number | null;
   rev_expansion_pc: number | null;
   ev_usd: number | null;
   no_of_clients: number | null;
+  revenue_per_client: number | null;
+  no_employees: number | null;
   revenue_per_employee: number | null;
   revenue_multiple: number | null;
   ev_revenue_x: number | null;
@@ -45,10 +50,15 @@ export interface FiCompanyRow {
   ebit_source_type?: FiMetricSourceType | null;
   ev_source_type?: FiMetricSourceType | null;
   no_of_clients_source_type?: FiMetricSourceType | null;
+  revenue_per_client_source_type?: FiMetricSourceType | null;
+  no_employees_source_type?: FiMetricSourceType | null;
   revenue_per_employee_source_type?: FiMetricSourceType | null;
   rule_of_40_source_type?: FiMetricSourceType | null;
+  subscription_revenue_pc_source_type?: FiMetricSourceType | null;
+  subscription_revenue_m_source_type?: FiMetricSourceType | null;
   nrr_source_type?: FiMetricSourceType | null;
   churn_source_type?: FiMetricSourceType | null;
+  grr_source_type?: FiMetricSourceType | null;
   upsell_source_type?: FiMetricSourceType | null;
   cross_sell_source_type?: FiMetricSourceType | null;
   price_increase_source_type?: FiMetricSourceType | null;
@@ -110,12 +120,17 @@ export type FiMetricKey =
   | "ebit_m_usd"
   | "ev_usd"
   | "no_of_clients"
+  | "revenue_per_client"
+  | "no_employees"
   | "revenue_per_employee"
   | "rev_growth_pc"
   | "new_client_growth_pc"
   | "rule_of_40"
+  | "subscription_revenue_pc"
+  | "subscription_revenue_m"
   | "nrr"
   | "churn_pc"
+  | "grr_pc"
   | "upsell_pc"
   | "cross_sell_pc"
   | "price_increase_pc"

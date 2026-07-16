@@ -108,20 +108,22 @@ export function buildColumns(currencySymbol: string): ColumnDef[] {
     { id: 'rule_of_40',    label: 'Rule of 40',        kind: 'count',    align: 'right' },
     { id: 'ev_revenue',    label: 'EV / Revenue',      kind: 'multiple', align: 'right', median: 'ev_revenue' },
     { id: 'ev_ebitda',     label: 'EV / EBITDA',       kind: 'multiple', align: 'right', median: 'ev_ebitda' },
+    { id: 'recurring_revenue', label: 'Recurring Revenue', kind: 'percent', align: 'right' },
+    { id: 'arr_m',             label: 'ARR (m)',           kind: 'currency', align: 'right', symbol: currencySymbol },
     { id: 'churn',             label: 'Churn',         kind: 'percent',  align: 'right' },
     { id: 'grr',               label: 'GRR',           kind: 'percent',  align: 'right' },
     { id: 'nrr',               label: 'NRR',           kind: 'percent',  align: 'right' },
-    { id: 'new_clients_rev',   label: 'New clients rev growth', kind: 'percent', align: 'right' },
+    { id: 'new_clients_rev',   label: 'New Clients Revenue Growth', kind: 'percent', align: 'right' },
     { id: 'upsell',            label: 'Upsell',        kind: 'percent',  align: 'right' },
     { id: 'cross_sell',        label: 'Cross-sell',    kind: 'percent',  align: 'right' },
     { id: 'price_increase',    label: 'Price increase',kind: 'percent',  align: 'right' },
     { id: 'revenue_expansion', label: 'Revenue expansion', kind: 'percent', align: 'right' },
     { id: 'ebit',             label: 'EBIT',                 kind: 'currency', align: 'right', symbol: currencySymbol },
     { id: 'ev_ebit',          label: 'EV / EBIT',            kind: 'multiple', align: 'right', median: 'ev_ebit' },
-    { id: 'num_clients',      label: 'Clients',              kind: 'count',    align: 'right' },
-    { id: 'rev_per_client',   label: 'Revenue / client',     kind: 'currency', align: 'right', symbol: currencySymbol },
-    { id: 'num_employees',    label: 'Employees',            kind: 'count',    align: 'right' },
-    { id: 'rev_per_employee', label: 'Revenue / employee',   kind: 'currency', align: 'right', symbol: currencySymbol },
+    { id: 'num_clients',      label: 'Number of Clients',    kind: 'count',    align: 'right' },
+    { id: 'rev_per_client',   label: 'Revenue per Client',   kind: 'currency', align: 'right', symbol: currencySymbol },
+    { id: 'num_employees',    label: 'Number of Employees',  kind: 'count',    align: 'right' },
+    { id: 'rev_per_employee', label: 'Revenue per Employee', kind: 'currency', align: 'right', symbol: currencySymbol },
     { id: 'financial_year',   label: 'FY end',               kind: 'text',     align: 'left',  minWidth: 90 },
     { id: 'trend',            label: '5y trend',             kind: 'spark',    align: 'right', noSort: true, minWidth: 70 },
   ];
@@ -196,7 +198,7 @@ export function Cell({ col, row, tweaks, currencySymbol, isMedian, sectorMedian 
       return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{v == null ? '—' : (v as number).toLocaleString()}</span>;
 
     case 'currency':
-      if (col.id === 'rev_per_employee') {
+      if (col.id === 'rev_per_employee' || col.id === 'rev_per_client') {
         const n = v as number;
         if (n == null || !Number.isFinite(n)) return <span style={{ color: 'var(--fg-4)' }}>—</span>;
         if (Math.abs(n) >= 1_000_000) {
