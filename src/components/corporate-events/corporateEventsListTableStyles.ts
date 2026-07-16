@@ -26,4 +26,17 @@ export const CORPORATE_EVENTS_LIST_TABLE_STYLES = `
     white-space: normal;
     word-break: break-word;
   }
+  .corporate-events-list-section .company-table-parties-cell .muted-row,
+  .corporate-events-list-section .company-table-advisors-cell {
+    font-size: 13px;
+    line-height: 1.4;
+    color: #0f172a;
+  }
+  .corporate-events-list-section .company-table-parties-cell .muted-row {
+    margin: 2px 0;
+  }
+  .corporate-events-list-section .company-table-parties-cell .muted-row strong,
+  .corporate-events-list-section .company-table-advisors-cell .search-multi-value-cell {
+    font-size: inherit;
+  }
 `;

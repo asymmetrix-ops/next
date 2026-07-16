@@ -184,7 +184,10 @@ function buildFiltersFromFilterBar(args: {
       filters.Date_end = v.to || null;
       continue;
     }
-    if (item.id === "enterprise_value" && hasRangeValue(v)) {
+    if (
+      (item.id === "investment_amount" || item.id === "enterprise_value") &&
+      hasRangeValue(v)
+    ) {
       filters.EV_min = toSentinel(v.min);
       filters.EV_max = toSentinel(v.max);
       continue;
@@ -338,12 +341,13 @@ function appendSharedCorporateEventFilterParams(
     params.append("Deal_Status", filters.Deal_Status.join(","));
   }
   if (filters.Funding_stage && filters.Funding_stage.length > 0) {
-    params.append("Funding_stage", filters.Funding_stage.join(","));
+    filters.Funding_stage.forEach((stage) =>
+      params.append("Funding_stage[]", stage)
+    );
   }
   if (filters.Buyer_Investor_Types && filters.Buyer_Investor_Types.length > 0) {
-    params.append(
-      "Buyer_Investor_Types",
-      filters.Buyer_Investor_Types.join(",")
+    filters.Buyer_Investor_Types.forEach((type) =>
+      params.append("Buyer_Investor_Types[]", type)
     );
   }
   if (filters.Date_start) {
@@ -381,7 +385,9 @@ export function corporateEventsFiltersToSearchParams(
   appendSharedCorporateEventFilterParams(params, filters);
 
   if (filters.deal_types.length > 0) {
-    params.append("deal_types", filters.deal_types.join(","));
+    filters.deal_types.forEach((dealType) =>
+      params.append("deal_types[]", dealType)
+    );
   }
 
   return params;

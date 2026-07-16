@@ -410,56 +410,92 @@ export function extractSellerLinks(event: CorporateEvent): EntityLink[] {
   return sellers;
 }
 
+function resolveAdvisorProfileId(
+  advisor: Record<string, unknown>
+): number | undefined {
+  const advisorCompany = advisor.advisor_company as
+    | { id?: number }
+    | undefined;
+  const newCompany = advisor._new_company as { id?: number } | undefined;
+  const candidates = [
+    advisor.id,
+    advisorCompany?.id,
+    advisor.advisor_company_id,
+    advisor.new_company_advised,
+    newCompany?.id,
+    advisor.counterparty_advised,
+  ];
+
+  for (const value of candidates) {
+    const id = Number(value);
+    if (Number.isInteger(id) && id > 0) return id;
+  }
+
+  return undefined;
+}
+
+function resolveAdvisorName(advisor: Record<string, unknown>): string {
+  const advisorCompany = advisor.advisor_company as
+    | { name?: string }
+    | undefined;
+  const newCompany = advisor._new_company as { name?: string } | undefined;
+
+  return String(
+    advisorCompany?.name ||
+      advisor.advisor_company_name ||
+      newCompany?.name ||
+      advisor.name ||
+      ""
+  ).trim();
+}
+
+function resolveAdvisorHref(
+  advisor: Record<string, unknown>,
+  id?: number
+): string | null {
+  if (typeof id === "number" && id > 0) {
+    return `/advisor/${id}`;
+  }
+
+  const url = advisor._url;
+  if (typeof url === "string" && url.trim()) {
+    return url.replace(/\/(?:advisor)\//, "/advisor/");
+  }
+
+  return null;
+}
+
+function pushAdvisorLink(
+  advisors: EntityLink[],
+  seen: Set<string>,
+  advisor: Record<string, unknown>
+) {
+  const name = resolveAdvisorName(advisor);
+  if (!name) return;
+
+  const id = resolveAdvisorProfileId(advisor);
+  pushUniqueParty(advisors, seen, {
+    id,
+    name,
+    href: resolveAdvisorHref(advisor, id),
+  });
+}
+
 export function extractAdvisorLinks(event: CorporateEvent): EntityLink[] {
   const e = event as LooseEvent;
   const advisors: EntityLink[] = [];
   const seen = new Set<string>();
 
-  if (Array.isArray(event.advisors)) {
-    for (const advisor of event.advisors) {
-      const id = advisor._new_company?.id;
-      const name = (advisor._new_company?.name || "").trim();
-      if (!name) continue;
-      pushUniqueParty(advisors, seen, {
-        id,
-        name,
-        href: typeof id === "number" ? `/advisor/${id}` : null,
-      });
-    }
-  }
-
   if (Array.isArray(e.advisors)) {
-    for (const advisor of e.advisors as Array<{
-      advisor_company?: { id?: number; name?: string };
-      _new_company?: { id?: number; name?: string };
-    }>) {
-      const id = advisor.advisor_company?.id ?? advisor._new_company?.id;
-      const name = (
-        advisor.advisor_company?.name ||
-        advisor._new_company?.name ||
-        ""
-      ).trim();
-      if (!name) continue;
-      pushUniqueParty(advisors, seen, {
-        id,
-        name,
-        href: typeof id === "number" ? `/advisor/${id}` : null,
-      });
+    for (const advisor of e.advisors as unknown as Array<Record<string, unknown>>) {
+      pushAdvisorLink(advisors, seen, advisor);
     }
   }
 
   const legacyAdvisors =
-    (e["1"] as Array<{ _new_company?: { id?: number; name?: string } }> | undefined) ??
-    [];
+    (e["1"] as Array<Record<string, unknown>> | undefined) ?? [];
   for (const advisor of legacyAdvisors) {
-    const id = advisor._new_company?.id;
-    const name = (advisor._new_company?.name || "").trim();
-    if (!name) continue;
-    pushUniqueParty(advisors, seen, {
-      id,
-      name,
-      href: typeof id === "number" ? `/advisor/${id}` : null,
-    });
+    pushAdvisorLink(advisors, seen, advisor);
   }
 
   const advisorNames = Array.isArray(e.advisors_names)

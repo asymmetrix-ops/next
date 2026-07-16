@@ -456,7 +456,7 @@ export const CorporateEventsSearchSection = ({
       .target_label as string | undefined;
 
     return (
-      <div>
+      <div className="company-table-parties-cell">
         <div className="muted-row">
           <strong>
             {targetLabel || (partnership ? "Target(s)" : "Target")}:
@@ -596,7 +596,9 @@ export const CorporateEventsSearchSection = ({
         return renderDetailsCell(event);
       case "advisors":
         return (
-          renderEntityLinks(extractAdvisorLinks(event), "advisor") || "-"
+          <div className="company-table-advisors-cell">
+            {renderEntityLinks(extractAdvisorLinks(event), "advisor") || "-"}
+          </div>
         );
       case "primary_sectors":
         return renderSectorCell(
