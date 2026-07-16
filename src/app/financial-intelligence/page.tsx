@@ -66,7 +66,6 @@ function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow 
     financial_year_value: 0,
     fy_ye_month: 0,
     revenue_m_usd: null,
-    arr_m_usd: null,
     rev_growth_pc: null,
     new_client_growth_pc: null,
     ebitda_margin: null,

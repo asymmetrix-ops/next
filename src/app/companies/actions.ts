@@ -46,8 +46,6 @@ export interface CompanyItem {
   revenue_growth?: number | null;
   ebitda_margin?: number | null;
   rule_of_40?: number | null;
-  arr_pc?: number | null;
-  arr_m?: number | null;
   churn?: number | null;
   grr?: number | null;
   nrr?: number | null;

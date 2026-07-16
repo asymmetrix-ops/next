@@ -17,7 +17,7 @@ export const SUMMARY_LINKS = {
   subs:           { section: 'Ownership',   blurb: 'Subsidiary tree, ownership chain, headcount' },
   financials:     { section: 'Financials',  blurb: 'Full P&L, multiples, peer set, valuation' },
   income:         { section: 'Financials',  blurb: 'Income statement, balance sheet, cash flow' },
-  subscription:   { section: 'Financials',  blurb: 'ARR, NRR, GDR, cohorts, retention curves' },
+  subscription:   { section: 'Financials',  blurb: 'NRR, GDR, cohorts, retention curves' },
   headcount:      { section: 'Market',      blurb: 'LinkedIn headcount trend, function mix, geography' },
 };
 

@@ -1,5 +1,4 @@
 import type { ColumnCategory } from './types';
-import { filterArrFromCategories } from '@/lib/platformVisibility';
 
 const FIN_COLUMN_CATEGORIES_RAW: ColumnCategory[] = [
   {
@@ -19,7 +18,6 @@ const FIN_COLUMN_CATEGORIES_RAW: ColumnCategory[] = [
     description: 'Size and operating scale metrics.',
     columns: [
       { id: 'revenue',          label: 'Revenue',              type: 'currency', defaultVisible: true  },
-      { id: 'arr',              label: 'ARR',                  type: 'currency', defaultVisible: false },
       { id: 'ev',               label: 'EV',                   type: 'currency', defaultVisible: true  },
       { id: 'num_clients',      label: 'Number of clients',    type: 'number',   defaultVisible: false },
       { id: 'rev_per_employee', label: 'Revenue per employee', type: 'currency', defaultVisible: false },
@@ -58,9 +56,7 @@ const FIN_COLUMN_CATEGORIES_RAW: ColumnCategory[] = [
   },
 ];
 
-export const FIN_COLUMN_CATEGORIES = filterArrFromCategories(
-  FIN_COLUMN_CATEGORIES_RAW
-);
+export const FIN_COLUMN_CATEGORIES = FIN_COLUMN_CATEGORIES_RAW;
 
 // ── Derived helpers ──────────────────────────────────────────────────────────
 

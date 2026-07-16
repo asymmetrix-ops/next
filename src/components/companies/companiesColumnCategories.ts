@@ -277,20 +277,6 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
     name: "Subscription metrics",
     columns: [
       {
-        id: "recurring_revenue",
-        columnKey: "arr_pc",
-        label: "Recurring Revenue",
-        type: "currency",
-        defaultVisible: false,
-      },
-      {
-        id: "arr",
-        columnKey: "arr_m",
-        label: "ARR (m)",
-        type: "currency",
-        defaultVisible: false,
-      },
-      {
         id: "churn",
         columnKey: "churn_pc",
         label: "Churn",

@@ -1,5 +1,4 @@
 import type { CompanyColumnCategory } from "@/components/companies/companiesColumnCategories";
-import { SHOW_ARR } from "@/lib/platformVisibility";
 
 const FI_PEER_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
   {
@@ -23,9 +22,6 @@ const FI_PEER_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
     name: "Subscription Metrics",
     description: "Subscription and expansion metrics.",
     columns: [
-      ...(SHOW_ARR
-        ? [{ id: "arr", columnKey: "arr", label: "ARR", type: "currency" as const, defaultVisible: false }]
-        : []),
       { id: "nrr", columnKey: "nrr", label: "NRR", type: "percent", defaultVisible: false },
       { id: "new_clients_rev", columnKey: "new_clients_rev", label: "New client growth", type: "percent", defaultVisible: false },
     ],

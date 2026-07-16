@@ -4,7 +4,6 @@ import React, { useRef, useState } from "react";
 import { useTextTruncation } from "@/hooks/useTextTruncation";
 import Image from "next/image";
 import { ALL_COMPANIES_COLUMN_META } from "./companiesColumnCategories";
-import { SHOW_ARR } from "@/lib/platformVisibility";
 import { getFieldAliasesForColumn, LIST_JSON_COLUMN_KEYS } from "./companiesColumnFields";
 import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
 import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
@@ -587,7 +586,6 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
     cols: [
       makeTextColumn("subscription_revenue_pc", "Subscription Revenue %", "Subscription Metrics"),
       makeTextColumn("subscription_revenue_m", "Subscription Revenue (m)", "Subscription Metrics"),
-      ...(SHOW_ARR ? [makeTextColumn("arr_m", "ARR (m)", "Subscription Metrics")] : []),
       makeTextColumn("churn_pc", "Churn", "Subscription Metrics"),
       makeTextColumn("grr_pc", "GRR", "Subscription Metrics"),
       makeTextColumn("nrr", "NRR", "Subscription Metrics"),

@@ -33,7 +33,6 @@ const METRIC_SOURCE_FIELD: Partial<
   Record<FiMetricKey, keyof FiCompanyRow>
 > = {
   revenue_m_usd: "revenue_source_type",
-  arr_m_usd: "arr_source_type",
   ebitda_m_usd: "ebitda_source_type",
   ebit_m_usd: "ebit_source_type",
   ev_usd: "ev_source_type",

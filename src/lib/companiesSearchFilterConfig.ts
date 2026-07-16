@@ -6,8 +6,6 @@ import {
   buildColumnLinkedFilterDefs,
   EXTRA_FILTER_DEFS,
 } from "@/components/companies/companiesColumnFilterMap";
-import { SHOW_ARR } from "@/lib/platformVisibility";
-
 export type CompaniesOwnershipCounts = {
   totalCount: number;
   publicCompanies: number;
@@ -30,20 +28,15 @@ export const EMPTY_OWNERSHIP_COUNTS: CompaniesOwnershipCounts = {
   otherCompanies: 0,
 };
 
-const FILTER_CATEGORIES_ALL: FilterCategory[] = [
+export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "lists", name: "Lists" },
   { id: "location", name: "Location" },
   { id: "sectors", name: "Sectors" },
   { id: "company", name: "Company details" },
   { id: "financial", name: "Financial metrics" },
   { id: "subscription", name: "Subscription revenue" },
-  { id: "arr", name: "ARR" },
   { id: "other", name: "Other metrics" },
 ];
-
-export const FILTER_CATEGORIES: FilterCategory[] = SHOW_ARR
-  ? FILTER_CATEGORIES_ALL
-  : FILTER_CATEGORIES_ALL.filter((category) => category.id !== "arr");
 
 type Country = { locations_Country: string };
 type Province = { State__Province__County: string };
@@ -232,18 +225,6 @@ export function buildCompaniesFilterDefs({
         ["50–79%", 50, 79],
         ["80–94%", 80, 94],
         ["95%+", 95, 100],
-      ],
-    },
-    arr_m: {
-      unit: "$m",
-      min: 0,
-      max: 5000,
-      presets: [
-        ["<$10m", 0, 9],
-        ["$10–49m", 10, 49],
-        ["$50–99m", 50, 99],
-        ["$100–499m", 100, 499],
-        ["$500m+", 500, 5000],
       ],
     },
     churn: {

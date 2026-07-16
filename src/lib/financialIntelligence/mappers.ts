@@ -118,7 +118,6 @@ export function mapCompanyToFinRow(
     trend: [],
     rule_of_40: ruleOf40 ?? undefined,
     financial_year: row.financial_year ? String(row.financial_year) : undefined,
-    arr: toMillions(row.arr_m_usd) ?? undefined,
     churn: row.churn_pc ?? undefined,
     nrr: row.nrr ?? undefined,
     new_clients_rev: row.new_client_growth_pc ?? undefined,

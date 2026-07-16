@@ -20,7 +20,6 @@ export interface FiCompanyRow {
   financial_year_value: number;
   fy_ye_month: number;
   revenue_m_usd: number | null;
-  arr_m_usd: number | null;
   rev_growth_pc: number | null;
   new_client_growth_pc: number | null;
   ebitda_margin: number | null;
@@ -40,7 +39,6 @@ export interface FiCompanyRow {
   ev_revenue_x: number | null;
   ev_ebitda_x: number | null;
   revenue_source_type?: FiMetricSourceType | null;
-  arr_source_type?: FiMetricSourceType | null;
   rev_growth_source_type?: FiMetricSourceType | null;
   new_client_growth_source_type?: FiMetricSourceType | null;
   ebitda_source_type?: FiMetricSourceType | null;
@@ -108,7 +106,6 @@ export interface SavedBenchmark {
 
 export type FiMetricKey =
   | "revenue_m_usd"
-  | "arr_m_usd"
   | "ebitda_m_usd"
   | "ebit_m_usd"
   | "ev_usd"

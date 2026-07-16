@@ -1,15 +1,7 @@
-"use client";
-/**
- * SubscriptionCard — redesign/SubscriptionCard.jsx converted to TypeScript.
- * ARR / NRR / GDR / Upsell / New logos mini-rows.
- */
 import React from "react";
-import { LinkPanel, LinkedH, MiniKV, Delta, T, overviewBodyPadding } from "./primitives";
-import { filterArrSubscriptionRows } from "@/lib/platformVisibility";
+import { LinkPanel, LinkedH, MiniKV, T, overviewBodyPadding } from "./primitives";
 
 export type SubscriptionMetrics = {
-  recurringRev?: string;
-  arrGrowth?: string;
   nrr?: string;
   gdr?: string;
   upsell?: string;
@@ -21,8 +13,6 @@ export type SubscriptionMetrics = {
 };
 
 export function SubscriptionCard({
-  recurringRev,
-  arrGrowth,
   nrr,
   gdr,
   upsell,
@@ -33,20 +23,7 @@ export function SubscriptionCard({
   revExpansion,
   fillGridCell = false,
 }: SubscriptionMetrics & { fillGridCell?: boolean }) {
-  const rows = filterArrSubscriptionRows([
-    {
-      k: "Recurring rev",
-      v: recurringRev || <span style={{ color: T.faint }}>—</span>,
-      mono: true,
-    },
-    {
-      k: "ARR growth",
-      v: arrGrowth ? (
-        <Delta value={arrGrowth} />
-      ) : (
-        <span style={{ color: T.faint }}>—</span>
-      ),
-    },
+  const rows = [
     {
       k: "NRR",
       v: nrr || <span style={{ color: T.faint }}>—</span>,
@@ -87,7 +64,7 @@ export function SubscriptionCard({
       v: revExpansion || <span style={{ color: T.faint }}>—</span>,
       mono: true,
     },
-  ]);
+  ];
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>

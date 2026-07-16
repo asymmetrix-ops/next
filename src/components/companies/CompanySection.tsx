@@ -70,7 +70,6 @@ interface CompanyCSVRow extends BaseCompanyCSVRow {
   "Revenue Growth"?: string;
   "EBITDA Margin"?: string;
   "Rule of 40"?: string;
-  ARR?: string;
   Churn?: string;
   GRR?: string;
   NRR?: string;
@@ -134,8 +133,6 @@ interface ExportCompanyJson {
   Rev_Growth_PC?: number | string;
   EBITDA_margin?: number | string;
   Rule_of_40?: number | string;
-  ARR_pc?: number | string;
-  ARR_m?: number | string;
   Churn_pc?: number | string;
   GRR_pc?: number | string;
   NRR?: number | string;
@@ -654,8 +651,6 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
   {
     group: "Subscription Metrics",
     cols: [
-      makeTextColumn("arr_pc", "Recurring Revenue", "Subscription Metrics"),
-      makeTextColumn("arr_m", "ARR (m)", "Subscription Metrics"),
       makeTextColumn("churn_pc", "Churn", "Subscription Metrics"),
       makeTextColumn("grr_pc", "GRR", "Subscription Metrics"),
       makeTextColumn("nrr", "NRR", "Subscription Metrics"),
@@ -1408,14 +1403,6 @@ export const CompanySection = ({
                 .filter(Boolean)
             : [];
 
-          // Some payloads use `arr_pc` while others use `ARR_pc`
-          const arrPcRaw =
-            (it as unknown as Record<string, unknown>)["arr_pc"] ?? it.ARR_pc;
-          const arrPc =
-            typeof arrPcRaw === "number" || typeof arrPcRaw === "string"
-              ? arrPcRaw
-              : undefined;
-          
           // Construct company URL from ID, or fall back to API-provided URLs
           let companyLink = "";
           if (it.id != null) {
@@ -1476,8 +1463,6 @@ export const CompanySection = ({
                 ? String(it.Rule_of_40)
                 : "-",
             // Subscription Metrics - exact field names from API
-            "Recurring Revenue": CompaniesCSVExporter.formatPercent(arrPc),
-            ARR: it.ARR_m != null && it.ARR_m !== "" ? `${it.ARR_m}M` : "-",
             Churn:
               it.Churn_pc != null && it.Churn_pc !== ""
                 ? `${it.Churn_pc}%`

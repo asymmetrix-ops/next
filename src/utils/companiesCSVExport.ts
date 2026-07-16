@@ -12,12 +12,6 @@ interface Company {
   linkedin_members_latest: number;
   linkedin_members_old: number;
   linkedin_members: number;
-  // Subscription metrics (may be top-level or nested depending on API shape)
-  arr_pc?: number | string;
-  ARR_pc?: number | string;
-  financial_metrics?: Record<string, unknown>;
-  _financial_metrics?: Record<string, unknown>;
-  financialMetrics?: Record<string, unknown>;
 }
 
 export interface CompanyCSVRow {
@@ -39,8 +33,6 @@ export interface CompanyCSVRow {
   "EBITDA Margin"?: string;
   "Rule of 40"?: string;
   // Optional Subscription Metrics
-  "Recurring Revenue"?: string;
-  ARR?: string;
   Churn?: string;
   GRR?: string;
   NRR?: string;
@@ -54,23 +46,6 @@ export class CompaniesCSVExporter {
       : undefined;
   }
 
-  static getARRPercent(company: Company): number | string | undefined {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const companyAny = company as unknown as Record<string, any>;
-    return this.asNumberOrString(
-      companyAny.arr_pc ??
-        companyAny.ARR_pc ??
-        companyAny.arr_percent ??
-        companyAny.ARR_percent ??
-        companyAny.financial_metrics?.arr_pc ??
-        companyAny.financial_metrics?.ARR_pc ??
-        companyAny._financial_metrics?.arr_pc ??
-        companyAny._financial_metrics?.ARR_pc ??
-        companyAny.financialMetrics?.arr_pc ??
-        companyAny.financialMetrics?.ARR_pc
-    );
-  }
-
   static formatLinkedinMembers(members: number | undefined): string {
     if (members === undefined || members === null) return "0";
     return members.toLocaleString();
@@ -82,7 +57,7 @@ export class CompaniesCSVExporter {
   }
 
   /**
-   * Format values that represent millions (e.g. revenue_m, ebitda_m, arr_m).
+   * Format values that represent millions (e.g. revenue_m, ebitda_m).
    * We keep one decimal place and append "M", e.g. 50 -> "50.0M", 2.25 -> "2.3M".
    */
   static formatMillions(
@@ -117,30 +92,6 @@ export class CompaniesCSVExporter {
   }
 
   /**
-   * Clean ARR values that come as "8 EURM", "8.5 GBPM" etc.
-   * Returns just the numeric part with M: "8.0M", "8.5M"
-   */
-  static cleanARR(
-    value: number | string | undefined
-  ): string {
-    if (value === undefined || value === null || value === "") return "-";
-    const str = String(value).trim();
-    if (str === "-" || str === "") return "-";
-    
-    // Extract just the numeric part from "8 EURM" or "8.5 GBPM"
-    // Match the number (with optional decimal) before any text
-    const match = str.match(/^([\d.]+)/);
-    if (match) {
-      const num = parseFloat(match[1]);
-      if (!isNaN(num)) {
-        return `${num.toFixed(1)}M`;
-      }
-    }
-    
-    return "-";
-  }
-  
-  /**
    * Fix NRR basis points issue: "10500%" -> "105%", "10300%" -> "103%"
    * Other percentage fields already have correct format, so pass through
    */
@@ -150,7 +101,7 @@ export class CompaniesCSVExporter {
     if (value === undefined || value === null || value === "") return "-";
     const str = String(value).trim();
     if (str === "-" || str === "") return "-";
-    
+
     // If it has %, extract the number
     if (str.includes("%")) {
       const num = Number(str.replace(/[^0-9.-]/g, ""));
@@ -161,11 +112,11 @@ export class CompaniesCSVExporter {
         return `${normalized.toFixed(decimals)}%`;
       }
     }
-    
+
     // Return as-is (already formatted correctly)
     return str;
   }
-  
+
   /**
    * Format Rule of 40 which comes as a plain number without %
    */
@@ -175,13 +126,14 @@ export class CompaniesCSVExporter {
     if (value === undefined || value === null || value === "") return "-";
     const str = String(value).trim();
     if (str === "-" || str === "") return "-";
-    
+
     // If it already has %, return as-is
     if (str.includes("%")) return str;
-    
+
     // Otherwise add %
     return `${str}%`;
   }
+
   static convertToCSVData(companies: Company[]): CompanyCSVRow[] {
     return companies.map((company) => {
       // Generate the company link
@@ -202,7 +154,6 @@ export class CompaniesCSVExporter {
         HQ: company.country || "-",
         "Company Link": companyLink,
         "Company URL": "",
-        "Recurring Revenue": this.formatPercent(this.getARRPercent(company)),
       };
     });
   }

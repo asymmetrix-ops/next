@@ -106,7 +106,6 @@ export const COMPANY = {
   evEbitda:  '23.8x',
   revGrowth: '+6.8%',
   rule40:    32,
-  arr:       '1.94B',
   nrr:       '108%',
   gdr:       '94%',
   clv:       'n/a',

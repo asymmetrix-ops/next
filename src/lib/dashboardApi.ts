@@ -26,8 +26,6 @@ export type FinancialMetricsRow = {
   mean_revenue_per_employee?: string | number | null;
 
   // Subscription Metrics - Mean
-  mean_arr_percent?: string | number | null;
-  mean_arr_m?: string | number | null;
   mean_churn_pc?: string | number | null;
   mean_grr?: string | number | null;
   mean_upsell_pc?: string | number | null;
@@ -52,8 +50,6 @@ export type FinancialMetricsRow = {
   median_revenue_per_employee?: string | number | null;
 
   // Subscription Metrics - Median
-  median_arr_percent?: string | number | null;
-  median_arr_m?: string | number | null;
   median_churn_pc?: string | number | null;
   median_grr?: string | number | null;
   median_upsell_pc?: string | number | null;

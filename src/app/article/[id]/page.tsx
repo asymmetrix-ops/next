@@ -17,7 +17,6 @@ import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { canUserViewArticle } from "@/lib/articleVisibility";
 import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
-import { SHOW_ARR, isArrColumnKey } from "@/lib/platformVisibility";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -103,7 +102,6 @@ interface CompanyOfFocusOverview {
 }
 
 interface CompanyOfFocusFinancialOverview {
-  arr_m?: number | string | null;
   ebitda_m?: number | string | null;
   revenue_m?: number | string | null;
   enterprise_value_m?: number | string | null;
@@ -115,7 +113,6 @@ interface CompanyOfFocusFinancialOverview {
   revenue_currency?: string | null;
   // Source fields for financial metrics (e.g., "Estimate")
   revenue_source?: string | null;
-  arr_source?: string | null;
   ebitda_source?: string | null;
   ev_source?: string | null;
   revenue_multiple_source?: string | null;
@@ -149,11 +146,9 @@ interface TableCompanyRow {
   li_emp: string;
   li_growth_pc: string;
   revenue_m: string;
-  arr_m: string;
   ebitda_m: string;
   ebit_m: string;
   ev: string;
-  arr_pc: string;
   churn_pc: string;
   grr_pc: string;
   nrr: string;
@@ -176,9 +171,6 @@ interface ColumnDefinition {
   key: string;
   label: string;
 }
-
-const filterVisibleTableColumns = (cols: ColumnDefinition[]) =>
-  SHOW_ARR ? cols : cols.filter((column) => !isArrColumnKey(column.key));
 
 const COL_GROUPS: Array<{ group: string; cols: ColumnDefinition[] }> = [
   {
@@ -210,8 +202,6 @@ const COL_GROUPS: Array<{ group: string; cols: ColumnDefinition[] }> = [
   {
     group: "Subscription Metrics",
     cols: [
-      { key: "arr_pc", label: "Recurring Revenue" },
-      { key: "arr_m", label: "ARR (m)" },
       { key: "churn_pc", label: "Churn" },
       { key: "grr_pc", label: "GRR" },
       { key: "upsell_pc", label: "Upsell" },
@@ -234,10 +224,7 @@ const COL_GROUPS: Array<{ group: string; cols: ColumnDefinition[] }> = [
   },
 ];
 
-const VISIBLE_COL_GROUPS = COL_GROUPS.map((group) => ({
-  ...group,
-  cols: filterVisibleTableColumns(group.cols),
-}));
+const VISIBLE_COL_GROUPS = COL_GROUPS;
 
 const ALL_TABLE_COLUMNS: ColumnDefinition[] = VISIBLE_COL_GROUPS.flatMap((g) => g.cols);
 const WRAP_COLS = new Set([
@@ -1458,11 +1445,9 @@ const ArticleDetailPage = () => {
         ),
         li_growth_pc: formatPercent(row.linkedin_growth_1y_pct),
         revenue_m: formatPlainNumber(row.Revenue_m as number | string | null | undefined),
-        arr_m: formatPlainNumber(row.ARR_m as number | string | null | undefined),
         ebitda_m: formatPlainNumber(row.EBITDA_m as number | string | null | undefined),
         ebit_m: formatPlainNumber(row.EBIT_m as number | string | null | undefined),
         ev: formatPlainNumber(row.EV as number | string | null | undefined),
-        arr_pc: formatPercent(row.ARR_pc),
         churn_pc: formatPercent(row.Churn_pc),
         grr_pc: formatPercent(row.GRR_pc),
         nrr: formatPercent(row.NRR),
@@ -2137,10 +2122,6 @@ const ArticleDetailPage = () => {
                 ? formatPlainNumber(financial.revenue_m)
                 : "Not available";
 
-              const arrDisplay = financial
-                ? formatPlainNumber(financial.arr_m)
-                : "Not available";
-
               const ebitdaDisplay = financial
                 ? formatPlainNumber(financial.ebitda_m)
                 : "Not available";
@@ -2399,19 +2380,6 @@ const ArticleDetailPage = () => {
                             {revenueDisplay}
                           </span>
                         </div>
-                        {SHOW_ARR ? (
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>ARR (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.arr_source
-                            )}
-                          >
-                            {arrDisplay}
-                          </span>
-                        </div>
-                        ) : null}
                         <div style={styles.infoRow}>
                           <span style={styles.label}>EBITDA (m)</span>
                           <span

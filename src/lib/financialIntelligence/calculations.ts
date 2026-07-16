@@ -1,10 +1,8 @@
 import type { FiCompanyRow, FiMetricDef, FiMetricKey, FiMetricSourceType, FiPeerAggregateMode } from "./types";
 import { isMetricSourceAllowed } from "./sourceTypes";
-import { SHOW_ARR } from "@/lib/platformVisibility";
 
-const FI_BENCHMARK_METRICS_ALL: FiMetricDef[] = [
+export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
   { key: "revenue_m_usd", label: "Revenue", higherIsBetter: true, format: "currency" },
-  { key: "arr_m_usd", label: "ARR", higherIsBetter: true, format: "currency" },
   { key: "ev_usd", label: "EV", higherIsBetter: true, format: "currency" },
   { key: "no_of_clients", label: "Number of clients", higherIsBetter: true, format: "count" },
   {
@@ -45,10 +43,6 @@ const FI_BENCHMARK_METRICS_ALL: FiMetricDef[] = [
   },
 ];
 
-export const FI_BENCHMARK_METRICS: FiMetricDef[] = SHOW_ARR
-  ? FI_BENCHMARK_METRICS_ALL
-  : FI_BENCHMARK_METRICS_ALL.filter((metric) => metric.key !== "arr_m_usd");
-
 export const FI_BENCHMARK_SECTIONS: Array<{
   id: string;
   label: string;
@@ -73,7 +67,6 @@ export const FI_BENCHMARK_SECTIONS: Array<{
     id: "subscription_metrics",
     label: "Subscription Metrics",
     keys: [
-      ...(SHOW_ARR ? (["arr_m_usd"] as FiMetricKey[]) : []),
       "nrr",
       "new_client_growth_pc",
     ],
@@ -95,8 +88,6 @@ export function getMetricValue(row: FiCompanyRow, key: FiMetricKey): number | nu
   switch (key) {
     case "revenue_m_usd":
       return toMillions(row.revenue_m_usd);
-    case "arr_m_usd":
-      return toMillions(row.arr_m_usd);
     case "ebitda_m_usd":
       return toMillions(row.ebitda_m_usd);
     case "ebit_m_usd":

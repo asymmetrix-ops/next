@@ -32,7 +32,6 @@ export default function FinMetricsIncomeCard() {
     'Revenue growth':    '+7.3%',
     'EBITDA margin':     '24.0%',
     'Rule of 40':        '31',
-    'Recurring revenue': '$1.2bn',
     'NRR':               '105%',
   };
   const rows = [
@@ -42,7 +41,6 @@ export default function FinMetricsIncomeCard() {
     ['Revenue growth',    c.revGrowth],
     ['EBITDA margin',     `${c.fin[0].marg}%`],
     ['Rule of 40',        c.rule40],
-    ['Recurring revenue', `$${c.arr}`],
     ['NRR',               c.nrr],
   ];
 

@@ -25,10 +25,6 @@ type FinancialMetricsPayload = {
   Subscription_revenue_source_label?: string | null;
   Subscription_revenue_source?: number | string | null;
   Subscription_revenue_currency_display?: string | null;
-  ARR_m?: number | null;
-  ARR_source_label?: string | null;
-  ARR_source?: number | string | null;
-  ARR_currency_display?: string | null;
   Churn_pc?: number | null;
   Churn_source_label?: string | null;
   Churn_Source?: number | string | null;
