@@ -795,48 +795,22 @@ function TabNavigation({
   );
 }
 
-function RecentInsightsCard({ sectorId }: { sectorId: string }) {
-  const [articles, setArticles] = useState<ContentArticle[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchArticles = async () => {
-      setLoading(true);
-      try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const sectorIdNum = Number(sectorId);
-        if (Number.isNaN(sectorIdNum)) return;
-
-        const params = new URLSearchParams();
-        params.append("primary_sectors_ids[]", String(sectorIdNum));
-
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors?${params.toString()}`;
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-
-        if (!response.ok) return;
-
-        const data = await response.json();
-        const arr: ContentArticle[] = Array.isArray(data) ? data : [];
-        const sorted = arr.sort((a, b) =>
+function RecentInsightsCard({
+  articles,
+  loading,
+}: {
+  articles: ContentArticle[];
+  loading: boolean;
+}) {
+  const sortedArticles = useMemo(
+    () =>
+      [...articles].sort(
+        (a, b) =>
           new Date(b.Publication_Date).getTime() -
           new Date(a.Publication_Date).getTime()
-        );
-        setArticles(sorted);
-      } catch {
-        // silent fail
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (sectorId) fetchArticles();
-  }, [sectorId]);
+      ),
+    [articles]
+  );
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "";
@@ -899,7 +873,7 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
               </div>
             ))}
           </div>
-        ) : articles.length === 0 ? (
+        ) : sortedArticles.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
               <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -910,7 +884,7 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
           </div>
         ) : (
           <div className="divide-y divide-slate-100 overflow-y-auto overflow-x-hidden h-full">
-            {articles.map((article) => (
+            {sortedArticles.map((article) => (
               <a
                 key={article.id}
                 href={`/article/${article.id}`}
@@ -1880,6 +1854,7 @@ const SectorDetailPage = ({
   const [splitRecentRaw, setSplitRecentRaw] = useState<unknown>(
     initialRecentTransactions || null
   );
+  const [insightsArticles, setInsightsArticles] = useState<ContentArticle[]>([]);
   // Track if overview data has finished loading (to distinguish "loading" from "no data")
   const [overviewDataLoaded, setOverviewDataLoaded] = useState(false);
   // Market map / All Companies export state
@@ -2394,11 +2369,15 @@ const SectorDetailPage = ({
         setSectorData(data.sectorData as SectorStatistics);
       }
       if (data.splitDatasets) {
-        const { marketMap, strategic, pe, recentTransactions } = data.splitDatasets;
+        const { marketMap, strategic, pe, recentTransactions, insightsArticles } =
+          data.splitDatasets;
         if (marketMap) setSplitMarketMapRaw(marketMap);
         if (strategic) setSplitStrategicRaw(strategic);
         if (pe) setSplitPERaw(pe);
         if (recentTransactions) setSplitRecentRaw(recentTransactions);
+        setInsightsArticles(
+          Array.isArray(insightsArticles) ? (insightsArticles as ContentArticle[]) : []
+        );
       }
 
       // Log server timing for debugging
@@ -5349,7 +5328,10 @@ const SectorDetailPage = ({
             {/* Top Row - Changed from grid to flex */}
             <div className="flex flex-col lg:flex-row gap-6">
               <div className="lg:w-1/2">
-                <RecentInsightsCard sectorId={sectorId} />
+                <RecentInsightsCard
+                  articles={insightsArticles}
+                  loading={!overviewDataLoaded}
+                />
               </div>
               <div className="lg:w-1/2">
                 {recentTransactions.length > 0 ? (
