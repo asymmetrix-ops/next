@@ -3,7 +3,8 @@ import type { ContentArticle } from "@/types/insightsAnalysis";
 export const SECTOR_INSIGHTS_ARTICLES_API =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors";
 
-export const INSIGHTS_PAGE_SIZE = 3;
+/** Matches `articles_based_on_sectors` default page size. */
+export const INSIGHTS_PAGE_SIZE = 2;
 
 /** Parse `corporate_events_id` from URL search params. */
 export function parseCorporateEventIdFromSearch(
@@ -90,7 +91,10 @@ type PaginatedArticlesPayload = {
   showing_from?: number;
   showing_to?: number;
   page?: number;
+  /** Items returned on this page — not the full result count. */
   itemsReceived?: number;
+  itemTotal?: number;
+  itemsTotal?: number;
   curPage?: number;
   nextPage?: number | null;
   prevPage?: number | null;
@@ -99,13 +103,15 @@ type PaginatedArticlesPayload = {
   pageTotal?: number;
 };
 
-function parsePaginatedArticles(
+/** Parse paginated I&A list responses (`itemsTotal`, `pageTotal`, `curPage`, …). */
+export function parseInsightsArticlesPage(
   data: ContentArticle[] | PaginatedArticlesPayload,
-  page: number
+  page: number,
+  defaultPerPage: number = INSIGHTS_PAGE_SIZE
 ): SectorInsightsArticlesResult {
   if (Array.isArray(data)) {
     const total = data.length;
-    const responsePerPage = INSIGHTS_PAGE_SIZE;
+    const responsePerPage = defaultPerPage;
     const start = total > 0 ? (page - 1) * responsePerPage : 0;
     const articles = data.slice(start, start + responsePerPage);
     const showingTo = total > 0 ? Math.min(start + articles.length, total) : 0;
@@ -130,14 +136,27 @@ function parsePaginatedArticles(
   const responsePerPage =
     typeof data?.perPage === "number" && data.perPage > 0
       ? data.perPage
-      : INSIGHTS_PAGE_SIZE;
-  const offset = typeof data?.offset === "number" ? data.offset : 0;
+      : defaultPerPage;
+  const offset =
+    typeof data?.offset === "number"
+      ? data.offset
+      : (responsePage - 1) * responsePerPage;
+
+  const explicitTotal =
+    typeof data?.itemsTotal === "number"
+      ? data.itemsTotal
+      : typeof data?.itemTotal === "number"
+        ? data.itemTotal
+        : typeof data?.total === "number"
+          ? data.total
+          : undefined;
+
   const total =
-    typeof data?.itemsReceived === "number"
-      ? data.itemsReceived
-      : typeof data?.total === "number"
-        ? data.total
-        : items.length;
+    explicitTotal ??
+    (data?.nextPage != null
+      ? offset + items.length + 1
+      : offset + items.length);
+
   const showingFrom =
     typeof data?.showing_from === "number"
       ? data.showing_from
@@ -158,8 +177,8 @@ function parsePaginatedArticles(
         : total > 0
           ? Math.ceil(total / responsePerPage)
           : 0;
-  const hasNext = showingTo > 0 && showingTo < total;
-  const hasPrev = responsePage > 1;
+  const hasNext = data?.nextPage != null;
+  const hasPrev = data?.prevPage != null;
 
   return {
     articles: items,
@@ -188,6 +207,7 @@ export async function fetchSectorInsightsArticles(args: {
   });
   params.append("corporate_events_id", String(args.corporateEventId));
   params.append("page", String(page));
+  params.append("per_page", String(INSIGHTS_PAGE_SIZE));
 
   const url = `${SECTOR_INSIGHTS_ARTICLES_API}?${params.toString()}`;
   const res = await fetch(url, {
@@ -203,7 +223,7 @@ export async function fetchSectorInsightsArticles(args: {
   }
 
   const data = (await res.json()) as ContentArticle[] | PaginatedArticlesPayload;
-  return parsePaginatedArticles(data, page);
+  return parseInsightsArticlesPage(data, page);
 }
 
 export function mapArticlesForPdfExport(

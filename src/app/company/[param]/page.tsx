@@ -78,6 +78,7 @@ import {
 } from "@/lib/companyAiRisks";
 import { fetchCompanyProductUsers } from "@/lib/companyProductUsers";
 import { ContentArticle } from "@/types/insightsAnalysis";
+import { parseInsightsArticlesPage } from "@/lib/sectorInsightsArticles";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
 const FINANCIAL_METRICS_EXPORT_SOURCE = "contribution_email";
@@ -1265,9 +1266,10 @@ const CompanyDetail = () => {
   const [articlesLoading, setArticlesLoading] = useState(false);
   const [insightsPage, setInsightsPage] = useState(1);
   const [insightsTotal, setInsightsTotal] = useState(0);
-  const [insightsTotalPages, setInsightsTotalPages] = useState(0);
   const [insightsShowingFrom, setInsightsShowingFrom] = useState(0);
   const [insightsShowingTo, setInsightsShowingTo] = useState(0);
+  const [insightsHasNext, setInsightsHasNext] = useState(false);
+  const [insightsHasPrev, setInsightsHasPrev] = useState(false);
   // Optional preformatted displays from API (ebitda_data)
   const [, setMetricsDisplay] = useState<
     | {
@@ -1551,55 +1553,34 @@ const CompanyDetail = () => {
         if (!response.ok) {
           setCompanyArticles([]);
           setInsightsTotal(0);
-          setInsightsTotalPages(0);
           setInsightsShowingFrom(0);
           setInsightsShowingTo(0);
           setInsightsPage(1);
+          setInsightsHasNext(false);
+          setInsightsHasPrev(false);
         } else {
           const data = await response.json();
-          if (Array.isArray(data)) {
-            const items = data as ContentArticle[];
-            const total = items.length;
-            const start = total > 0 ? (page - 1) * INSIGHTS_PREVIEW_COUNT : 0;
-            setCompanyArticles(
-              items.slice(start, start + INSIGHTS_PREVIEW_COUNT)
-            );
-            setInsightsTotal(total);
-            setInsightsTotalPages(
-              total > 0 ? Math.ceil(total / INSIGHTS_PREVIEW_COUNT) : 0
-            );
-            setInsightsShowingFrom(total > 0 ? start + 1 : 0);
-            setInsightsShowingTo(
-              total > 0 ? Math.min(start + INSIGHTS_PREVIEW_COUNT, total) : 0
-            );
-            setInsightsPage(page);
-          } else {
-            const items = Array.isArray(data?.items)
-              ? (data.items as ContentArticle[])
-              : [];
-            setCompanyArticles(items);
-            setInsightsTotal(
-              typeof data?.total === "number" ? data.total : items.length
-            );
-            setInsightsTotalPages(
-              typeof data?.total_pages === "number" ? data.total_pages : 0
-            );
-            setInsightsShowingFrom(
-              typeof data?.showing_from === "number" ? data.showing_from : 0
-            );
-            setInsightsShowingTo(
-              typeof data?.showing_to === "number" ? data.showing_to : 0
-            );
-            setInsightsPage(typeof data?.page === "number" ? data.page : page);
-          }
+          const result = parseInsightsArticlesPage(
+            data as ContentArticle[] | Record<string, unknown>,
+            page,
+            INSIGHTS_PREVIEW_COUNT
+          );
+          setCompanyArticles(result.articles);
+          setInsightsTotal(result.total);
+          setInsightsShowingFrom(result.showingFrom);
+          setInsightsShowingTo(result.showingTo);
+          setInsightsPage(result.page);
+          setInsightsHasNext(result.hasNext);
+          setInsightsHasPrev(result.hasPrev);
         }
       } catch {
         setCompanyArticles([]);
         setInsightsTotal(0);
-        setInsightsTotalPages(0);
         setInsightsShowingFrom(0);
         setInsightsShowingTo(0);
         setInsightsPage(1);
+        setInsightsHasNext(false);
+        setInsightsHasPrev(false);
       } finally {
         setArticlesLoading(false);
       }
@@ -1611,9 +1592,10 @@ const CompanyDetail = () => {
     setInsightsPage(1);
     setCompanyArticles([]);
     setInsightsTotal(0);
-    setInsightsTotalPages(0);
     setInsightsShowingFrom(0);
     setInsightsShowingTo(0);
+    setInsightsHasNext(false);
+    setInsightsHasPrev(false);
   }, [company?.id]);
 
   /** Only render I&A when the company has linked articles. */
@@ -2855,9 +2837,8 @@ const CompanyDetail = () => {
     ? `${company.exchange}: ${company.ticker}`
     : company.ticker || null;
 
-  const canInsightPrev = insightsTotal > 0 && insightsPage > 1;
-  const canInsightNext =
-    insightsTotal > 0 && insightsPage < insightsTotalPages;
+  const canInsightPrev = insightsHasPrev;
+  const canInsightNext = insightsHasNext;
   const canCePrev = ceTotal > 0 && cePage > 1;
   const canCeNext = ceTotal > 0 && cePage < ceTotalPages;
 
@@ -4403,7 +4384,7 @@ const CompanyDetail = () => {
                     }
                   }}
                   onNext={() => {
-                    if (company?.id && insightsPage < insightsTotalPages) {
+                    if (company?.id && canInsightNext) {
                       fetchCompanyArticles(company.id, insightsPage + 1);
                     }
                   }}
