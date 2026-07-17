@@ -4,9 +4,10 @@ import { isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
 import {
   isValidHttpUrl,
   MCP_GUEST_AUTH_ME_API,
-  MCP_GUEST_FLAG_API_BASE,
+  USERS_DATA_RESEARCH_REQUESTS_URL,
 } from "@/lib/mcpGuestFlagServer";
 import { normalizeCompanyUrl } from "@/lib/mcpGuestFlag";
+import { buildMcpGuestCompanyFlagPayload } from "@/lib/usersDataResearchRequests";
 
 type FlagCompanyPayload = {
   company_name?: unknown;
@@ -109,23 +110,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const response = await fetch(`${MCP_GUEST_FLAG_API_BASE}/flag_company`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${auth.token}`,
-      },
-      body: JSON.stringify({
-        company_name: companyName,
-        company_url: companyUrl,
-        proof_url: proofUrl || null,
-        proof_image_url: proofImageUrl || null,
-        submitter_email: auth.email,
-        submitter_user_id: auth.userId,
-      }),
-      cache: "no-store",
+    const xanoPayload = buildMcpGuestCompanyFlagPayload({
+      companyName,
+      companyUrl,
+      proofUrl,
+      proofImageUrl,
+      submittedBy: auth.userId ?? 0,
+      submitterEmail: auth.email,
     });
+
+    const doPost = (authorization: string) =>
+      fetch(USERS_DATA_RESEARCH_REQUESTS_URL, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: authorization,
+        },
+        body: JSON.stringify(xanoPayload),
+        cache: "no-store",
+      });
+
+    let response = await doPost(`Bearer ${auth.token}`);
+    if (response.status === 401) {
+      response = await doPost(auth.token);
+    }
 
     if (!response.ok) {
       return NextResponse.json(
