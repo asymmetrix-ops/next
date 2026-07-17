@@ -60,7 +60,7 @@ export default function TrialRouteGuard() {
       }
 
       if (!isMcpGuestSessionPath(pathname)) {
-        router.replace(MCP_GUEST_ALLOWED_PATH);
+        router.replace(MCP_GUEST_CONVERSION_PATH);
       }
       return;
     }

@@ -1,39 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import McpGuestPageShell from "@/components/mcp-guest/McpGuestPageShell";
+import Header from "@/components/Header";
+import McpGuestSalesMeetingEmbed from "@/components/mcp-guest/McpGuestSalesMeetingEmbed";
 import { MCP_GUEST_ALLOWED_PATH } from "@/lib/mcpGuest";
 
 export default function McpGuestUpgradePage() {
   return (
-    <McpGuestPageShell>
-      <div className="text-center">
-        <h1 className="mb-3 text-3xl font-bold text-gray-900">
-          Unlock full company profiles
-        </h1>
-        <p className="mb-8 text-gray-600 leading-relaxed">
-          MCP Guest access includes the full MCP company list. Company profiles,
-          exports, and the rest of the platform require a full Asymmetrix
-          subscription.
-        </p>
+    <div className="min-h-screen bg-[#f8fafc]">
+      <Header />
 
-        <div className="flex flex-col gap-3">
-          <a
-            href="https://www.asymmetrixintelligence.com/contact"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-3 w-full font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 no-underline"
-          >
-            Contact sales
-          </a>
+      <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
+        <div className="mb-8 text-center">
+          <h1 className="mb-3 text-3xl font-bold text-gray-900">
+            Interested in getting more info?
+          </h1>
+          <p className="text-gray-600 leading-relaxed">
+            Book a slot with our Sales team to learn about full Asymmetrix
+            access — company profiles, exports, sectors, investors, and more.
+          </p>
+        </div>
+
+        <McpGuestSalesMeetingEmbed />
+
+        <div className="mt-8 text-center">
           <Link
             href={MCP_GUEST_ALLOWED_PATH}
-            className="px-4 py-3 w-full font-medium text-gray-800 bg-gray-100 rounded-lg border border-gray-200 hover:bg-gray-200 no-underline"
+            className="inline-flex items-center justify-center px-4 py-3 font-medium text-gray-800 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 no-underline"
           >
             Back to MCP companies
           </Link>
         </div>
-      </div>
-    </McpGuestPageShell>
+      </main>
+    </div>
   );
 }
