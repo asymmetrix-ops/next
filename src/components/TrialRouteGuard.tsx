@@ -7,7 +7,7 @@ import {
   ACCESS_DENIED_PATH,
   MCP_GUEST_ALLOWED_PATH,
   MCP_GUEST_CONVERSION_PATH,
-  MCP_GUEST_LOGIN_PATH,
+  MCP_GUEST_SIGN_IN_PATH,
   MCP_GUEST_PUBLIC_PATHS,
   MCP_GUEST_SESSION_PATHS,
 } from "@/lib/mcpGuest";
@@ -70,7 +70,7 @@ export default function TrialRouteGuard() {
       (pathname === MCP_GUEST_ALLOWED_PATH ||
         pathname === MCP_GUEST_CONVERSION_PATH)
     ) {
-      router.replace(MCP_GUEST_LOGIN_PATH);
+      router.replace(MCP_GUEST_SIGN_IN_PATH);
       return;
     }
 
