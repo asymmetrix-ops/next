@@ -29,6 +29,7 @@
     "d3-scale": "^4.0.2",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.0",
+    "exceljs": "^4.4.0",
     "framer-motion": "^10.16.0",
     "geist": "^1.7.2",
     "html-escaper": "^3.0.3",
@@ -61,7 +62,6 @@
     "tailwindcss-animate": "^1.0.7",
     "tiny-emitter": "^2.1.0",
     "uuid": "^11.1.0",
-    "xlsx": "^0.18.5",
     "yahoo-finance2": "^2.13.3",
     "zustand": "^4.4.0"
   },

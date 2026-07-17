@@ -1,23 +1,48 @@
 import type { ExportColumnDef } from "./types";
 
-/** Blank rows before category/header block (matches reference export layout). */
-const PADDING_ROW_COUNT = 6;
-const CATEGORY_HEADER_ROW = PADDING_ROW_COUNT + 1; // 7
-const COLUMN_HEADER_ROW = PADDING_ROW_COUNT + 2; // 8
-const DATA_START_ROW = PADDING_ROW_COUNT + 3; // 9
+/** Reference brand palette (extracted from Asymmetrix export template). */
+const BANNER_NAVY = "FF011844";
+const BANNER_BLUE = "FF0370AA";
+const BANNER_LIGHT_BLUE = "FF2DB7FF";
+const WHITE = "FFFFFFFF";
 
-/** Leading spacer column A — data starts at column B (index 2 in 1-based Excel). */
+const LOGO_PATH = "/exports/asymmetrix-export-logo.png";
+/** Reference logo image is 935x381px (~2.45:1 aspect ratio). */
+const LOGO_ASPECT_RATIO = 381 / 935;
+const LOGO_HEIGHT_PX = 44;
+const LOGO_WIDTH_PX = Math.round(LOGO_HEIGHT_PX / LOGO_ASPECT_RATIO);
+
+/** Excel row height is in points; 1pt ≈ 1.333px. Taller navy rows give the logo room to breathe. */
+const BANNER_NAVY_ROW_HEIGHT_PT = 24;
+
+/** Banner rows 1-3 (navy), row 4 (blue stripe), row 5 (light-blue stripe), row 6 (blank gap). */
+const BANNER_ROW_COUNT = 6;
+const CATEGORY_HEADER_ROW = BANNER_ROW_COUNT + 1; // 7
+const COLUMN_HEADER_ROW = BANNER_ROW_COUNT + 2; // 8
+const DATA_START_ROW = BANNER_ROW_COUNT + 3; // 9
+
+/** Leading spacer column A — data starts at column B. */
 const DATA_COL_OFFSET = 1;
 
-function columnIndexToLetter(index: number): string {
-  let n = index;
-  let result = "";
-  while (n > 0) {
-    const rem = (n - 1) % 26;
-    result = String.fromCharCode(65 + rem) + result;
-    n = Math.floor((n - 1) / 26);
+let cachedLogoBase64: string | null = null;
+
+async function loadLogoBase64(): Promise<string | null> {
+  if (cachedLogoBase64) return cachedLogoBase64;
+  if (typeof window === "undefined") return null;
+  try {
+    const response = await fetch(LOGO_PATH);
+    if (!response.ok) return null;
+    const buffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 1) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    cachedLogoBase64 = btoa(binary);
+    return cachedLogoBase64;
+  } catch {
+    return null;
   }
-  return result;
 }
 
 /** Normalize control-room category names to the reference export labels. */
@@ -34,55 +59,6 @@ export function exportCategoryLabel(categoryName: string): string {
   if (key === "identity") return "Identity";
   if (key === "lists") return "Lists";
   return categoryName;
-}
-
-function buildCategoryHeaderRow(columns: ExportColumnDef[]): string[] {
-  const row = columns.map(() => "");
-  let currentCategory = "";
-  for (let i = 0; i < columns.length; i += 1) {
-    const category = exportCategoryLabel(columns[i].categoryName);
-    if (category !== currentCategory) {
-      row[i] = category;
-      currentCategory = category;
-    }
-  }
-  return row;
-}
-
-function withLeadingSpacer(values: string[]): string[] {
-  return ["", ...values];
-}
-
-function buildPaddingRows(columnCount: number): string[][] {
-  return Array.from({ length: PADDING_ROW_COUNT }, () =>
-    Array.from({ length: columnCount + DATA_COL_OFFSET }, () => "")
-  );
-}
-
-function setColWidths(
-  sheet: Record<string, unknown>,
-  widths: Array<{ wch: number }>
-): void {
-  sheet["!cols"] = widths;
-}
-
-function setFreeze(
-  sheet: Record<string, unknown>,
-  opts: {
-    xSplit: number;
-    ySplit: number;
-    topLeftCell: string;
-  }
-): void {
-  sheet["!views"] = [
-    {
-      state: "frozen",
-      xSplit: opts.xSplit,
-      ySplit: opts.ySplit,
-      topLeftCell: opts.topLeftCell,
-      activePane: "bottomRight",
-    },
-  ];
 }
 
 function groupColumnsForDirectory(
@@ -107,125 +83,195 @@ function groupColumnsForDirectory(
   return { left, right };
 }
 
+async function applyBanner(
+  worksheet: import("exceljs").Worksheet,
+  totalColumns: number,
+  workbook: import("exceljs").Workbook
+): Promise<void> {
+  const fillRow = (rowNum: number, argb: string) => {
+    for (let col = 1; col <= totalColumns; col += 1) {
+      worksheet.getCell(rowNum, col).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb },
+      };
+    }
+  };
+
+  worksheet.getRow(1).height = BANNER_NAVY_ROW_HEIGHT_PT;
+  worksheet.getRow(2).height = BANNER_NAVY_ROW_HEIGHT_PT;
+  worksheet.getRow(3).height = BANNER_NAVY_ROW_HEIGHT_PT;
+  fillRow(1, BANNER_NAVY);
+  fillRow(2, BANNER_NAVY);
+  fillRow(3, BANNER_NAVY);
+  worksheet.getRow(4).height = 6;
+  fillRow(4, BANNER_BLUE);
+  worksheet.getRow(5).height = 6;
+  fillRow(5, BANNER_LIGHT_BLUE);
+  worksheet.getRow(6).height = 6;
+
+  worksheet.mergeCells(1, 1, 3, totalColumns);
+
+  const logoBase64 = await loadLogoBase64();
+  if (!logoBase64) return;
+
+  const imageId = workbook.addImage({
+    base64: `data:image/png;base64,${logoBase64}`,
+    extension: "png",
+  });
+
+  // Navy block is ~72px tall (3 rows @ 24pt); center the 44px-tall logo within it.
+  worksheet.addImage(imageId, {
+    tl: { col: 0.2, row: 0.55 },
+    ext: { width: LOGO_WIDTH_PX, height: LOGO_HEIGHT_PX },
+  });
+}
+
+function applyCategoryAndHeaderRows(
+  worksheet: import("exceljs").Worksheet,
+  columns: ExportColumnDef[]
+): void {
+  const categoryRowNum = CATEGORY_HEADER_ROW;
+  const headerRowNum = COLUMN_HEADER_ROW;
+
+  let currentCategory = "";
+  let categoryStartCol = DATA_COL_OFFSET + 1;
+
+  const closeCategoryGroup = (endCol: number) => {
+    if (!currentCategory) return;
+    if (endCol > categoryStartCol) {
+      worksheet.mergeCells(
+        categoryRowNum,
+        categoryStartCol,
+        categoryRowNum,
+        endCol
+      );
+    }
+  };
+
+  for (let i = 0; i < columns.length; i += 1) {
+    const col = DATA_COL_OFFSET + i + 1;
+    const category = exportCategoryLabel(columns[i].categoryName);
+
+    if (category !== currentCategory) {
+      closeCategoryGroup(col - 1);
+      currentCategory = category;
+      categoryStartCol = col;
+      const cell = worksheet.getCell(categoryRowNum, col);
+      cell.value = category;
+      cell.font = { bold: true, size: 11 };
+    }
+
+    const headerCell = worksheet.getCell(headerRowNum, col);
+    headerCell.value = columns[i].label;
+    headerCell.font = { bold: true, size: 11 };
+    headerCell.border = {
+      top: { style: "thin", color: { argb: "FFD0D0D0" } },
+      bottom: { style: "thin", color: { argb: "FFD0D0D0" } },
+    };
+  }
+  closeCategoryGroup(DATA_COL_OFFSET + columns.length);
+}
+
 function buildDirectorySheet(
-  XLSX: typeof import("xlsx"),
+  worksheet: import("exceljs").Worksheet,
   entitySheetName: string,
   columns: ExportColumnDef[]
-) {
+): void {
   const { left, right } = groupColumnsForDirectory(columns);
-  const aoa: string[][] = Array.from({ length: 6 }, () => ["", "", "", "", ""]);
 
-  // Row 7: category titles for the two directory columns
-  const leftFirstCat = left[0]
-    ? exportCategoryLabel(left[0].categoryName)
-    : "";
-  const rightFirstCat = right[0]
-    ? exportCategoryLabel(right[0].categoryName)
-    : "";
-  aoa.push(["", leftFirstCat, "", rightFirstCat, ""]);
+  worksheet.columns = [
+    { width: 3 },
+    { width: 28 },
+    { width: 3 },
+    { width: 28 },
+    { width: 3 },
+  ];
 
   type DirEntry =
     | { kind: "category"; label: string }
-    | { kind: "column"; column: ExportColumnDef; sheetColLetter: string };
+    | { kind: "column"; column: ExportColumnDef; headerColLetter: string };
 
   const toEntries = (cols: ExportColumnDef[]): DirEntry[] => {
     const entries: DirEntry[] = [];
     let current = "";
     for (const column of cols) {
       const cat = exportCategoryLabel(column.categoryName);
-      // First category already shown on row 7 — subsequent groups get a blank + header
       if (cat !== current) {
-        if (current !== "") {
-          entries.push({ kind: "category", label: "" }); // spacer row
-          entries.push({ kind: "category", label: cat });
-        }
+        if (current !== "") entries.push({ kind: "category", label: "" });
+        entries.push({ kind: "category", label: cat });
         current = cat;
       }
-      const colIdx =
+      const colIndex =
         columns.findIndex((c) => c.key === column.key) + 1 + DATA_COL_OFFSET;
       entries.push({
         kind: "column",
         column,
-        sheetColLetter: columnIndexToLetter(colIdx),
+        headerColLetter: worksheet.getColumn(colIndex).letter ?? "",
       });
     }
     return entries;
   };
 
+  // Row 7: first category label for each column already appears via entries below (row 8+)
   const leftEntries = toEntries(left);
   const rightEntries = toEntries(right);
   const rowCount = Math.max(leftEntries.length, rightEntries.length);
 
-  for (let i = 0; i < rowCount; i += 1) {
-    const row = ["", "", "", "", ""];
-    const l = leftEntries[i];
-    const r = rightEntries[i];
-    if (l?.kind === "category") row[1] = l.label;
-    if (l?.kind === "column") row[1] = l.column.label;
-    if (r?.kind === "category") row[3] = r.label;
-    if (r?.kind === "column") row[3] = r.column.label;
-    aoa.push(row);
-  }
-
-  const sheet = XLSX.utils.aoa_to_sheet(aoa);
-  setColWidths(sheet, [
-    { wch: 3 },
-    { wch: 28 },
-    { wch: 3 },
-    { wch: 28 },
-    { wch: 3 },
-  ]);
-
-  // Hyperlinks: column labels → header cell on entity sheet (row 8)
-  const applyLinks = (entries: DirEntry[], excelCol: "B" | "D") => {
+  const writeColumn = (entries: DirEntry[], col: number) => {
     for (let i = 0; i < entries.length; i += 1) {
       const entry = entries[i];
-      if (entry.kind !== "column") continue;
-      const rowNum = 8 + i; // first data row of directory block is Excel row 8
-      const cellRef = `${excelCol}${rowNum}`;
+      const rowNum = CATEGORY_HEADER_ROW + i;
+      const cell = worksheet.getCell(rowNum, col);
+      if (entry.kind === "category") {
+        cell.value = entry.label;
+        cell.font = { bold: true, size: 11 };
+        continue;
+      }
       const label = entry.column.label;
-      const location = `${entitySheetName}!${entry.sheetColLetter}${COLUMN_HEADER_ROW}`;
-      sheet[cellRef] = {
-        v: label,
-        t: "s",
-        l: { Target: `#${location}`, Tooltip: label },
+      const target = `${entitySheetName}!${entry.headerColLetter}${COLUMN_HEADER_ROW}`;
+      cell.value = {
+        text: label,
+        hyperlink: `#'${entitySheetName}'!${entry.headerColLetter}${COLUMN_HEADER_ROW}`,
+        tooltip: target,
       };
+      cell.font = { color: { argb: "FF0563C1" }, underline: true, size: 11 };
     }
   };
 
-  applyLinks(leftEntries, "B");
-  applyLinks(rightEntries, "D");
+  writeColumn(leftEntries, 2);
+  writeColumn(rightEntries, 4);
 
-  return sheet;
+  void rowCount;
 }
 
 function buildEntitySheet(
-  XLSX: typeof import("xlsx"),
+  worksheet: import("exceljs").Worksheet,
   columns: ExportColumnDef[],
   rows: string[][]
-) {
-  const headers = columns.map((column) => column.label);
-  const categoryRow = buildCategoryHeaderRow(columns);
-  const columnCount = columns.length;
-
-  const aoa: string[][] = [
-    ...buildPaddingRows(columnCount),
-    withLeadingSpacer(categoryRow),
-    withLeadingSpacer(headers),
-    ...rows.map((row) => withLeadingSpacer(row)),
+): void {
+  worksheet.columns = [
+    { width: 3 },
+    ...columns.map(() => ({ width: 18 })),
   ];
 
-  const sheet = XLSX.utils.aoa_to_sheet(aoa);
+  applyCategoryAndHeaderRows(worksheet, columns);
 
-  const colWidths = [{ wch: 3 }, ...columns.map(() => ({ wch: 18 }))];
-  setColWidths(sheet, colWidths);
-  setFreeze(sheet, {
-    xSplit: 3,
-    ySplit: COLUMN_HEADER_ROW,
-    topLeftCell: "D9",
-  });
+  for (let r = 0; r < rows.length; r += 1) {
+    const rowNum = DATA_START_ROW + r;
+    const rowValues = rows[r];
+    for (let c = 0; c < rowValues.length; c += 1) {
+      worksheet.getCell(rowNum, DATA_COL_OFFSET + c + 1).value = rowValues[c];
+    }
+  }
 
-  return sheet;
+  worksheet.views = [
+    {
+      state: "frozen",
+      xSplit: DATA_COL_OFFSET + 2,
+      ySplit: COLUMN_HEADER_ROW,
+    },
+  ];
 }
 
 export interface AllColumnsWorkbookInput {
@@ -243,38 +289,33 @@ export interface VisibleColumnsWorkbookInput {
 export async function buildAllColumnsWorkbook(
   input: AllColumnsWorkbookInput
 ): Promise<ArrayBuffer> {
-  const XLSX = await import("xlsx");
+  const ExcelJS = (await import("exceljs")).default;
+  const workbook = new ExcelJS.Workbook();
 
-  const directorySheet = buildDirectorySheet(
-    XLSX,
-    input.entitySheetName,
-    input.columns
-  );
-  const entitySheet = buildEntitySheet(XLSX, input.columns, input.rows);
+  const directorySheet = workbook.addWorksheet("Directory");
+  buildDirectorySheet(directorySheet, input.entitySheetName, input.columns);
+  await applyBanner(directorySheet, 5, workbook);
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, directorySheet, "Directory");
-  XLSX.utils.book_append_sheet(workbook, entitySheet, input.entitySheetName);
+  const entitySheet = workbook.addWorksheet(input.entitySheetName);
+  buildEntitySheet(entitySheet, input.columns, input.rows);
+  await applyBanner(entitySheet, input.columns.length + DATA_COL_OFFSET, workbook);
 
-  return XLSX.write(workbook, {
-    bookType: "xlsx",
-    type: "array",
-  }) as ArrayBuffer;
+  const buffer = await workbook.xlsx.writeBuffer();
+  return buffer as ArrayBuffer;
 }
 
 export async function buildVisibleColumnsWorkbook(
   input: VisibleColumnsWorkbookInput
 ): Promise<ArrayBuffer> {
-  const XLSX = await import("xlsx");
-  const entitySheet = buildEntitySheet(XLSX, input.columns, input.rows);
+  const ExcelJS = (await import("exceljs")).default;
+  const workbook = new ExcelJS.Workbook();
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, entitySheet, input.entitySheetName);
+  const entitySheet = workbook.addWorksheet(input.entitySheetName);
+  buildEntitySheet(entitySheet, input.columns, input.rows);
+  await applyBanner(entitySheet, input.columns.length + DATA_COL_OFFSET, workbook);
 
-  return XLSX.write(workbook, {
-    bookType: "xlsx",
-    type: "array",
-  }) as ArrayBuffer;
+  const buffer = await workbook.xlsx.writeBuffer();
+  return buffer as ArrayBuffer;
 }
 
 export async function downloadXlsxBuffer(
@@ -297,9 +338,16 @@ export async function downloadXlsxBuffer(
 }
 
 export const EXPORT_SHEET_LAYOUT = {
-  PADDING_ROW_COUNT,
+  BANNER_ROW_COUNT,
   CATEGORY_HEADER_ROW,
   COLUMN_HEADER_ROW,
   DATA_START_ROW,
   DATA_COL_OFFSET,
+};
+
+export const EXPORT_BRAND_COLORS = {
+  BANNER_NAVY,
+  BANNER_BLUE,
+  BANNER_LIGHT_BLUE,
+  WHITE,
 };
