@@ -501,10 +501,11 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
       } else {
         mostRecentTarget = toStringSafe(mostRecentTargetRaw || "");
         mostRecentTargetId = getFirstMatchingNumber(obj, [
+          "Most_Recent_Target_Id",
+          "Most_Recent_Target_ID",
           "Most_Recent_Target_company_id",
           "most_recent_target_company_id",
           "Most_Recent_Target_Company_ID",
-          "Most_Recent_Target_ID",
           "most_recent_target_id",
           "Most_Recent_Target_id",
           "Target_company_id",
@@ -534,6 +535,8 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
         "vc_investor_company_id",
       ]);
       const corporateEventId = getFirstMatchingNumber(obj, [
+        "Most_Recent_Target_Event_Id",
+        "most_recent_target_event_id",
         "Corporate_Event_ID",
         "corporate_event_id",
         "event_id",
