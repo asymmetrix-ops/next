@@ -6,7 +6,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { trackLogout } from "@/lib/tracking";
-import { MCP_GUEST_ALLOWED_PATH, MCP_GUEST_SIGN_IN_PATH } from "@/lib/mcpGuest";
+import { MCP_GUEST_ALLOWED_PATH, MCP_GUEST_OTP_LOGIN_PATH } from "@/lib/mcpGuest";
 
 const ASYMMETRIX_BLUE = "hsl(228 85% 63%)";
 
@@ -122,7 +122,7 @@ const Header = () => {
 
   const handleLogout = () => {
     const userId = user?.id ? Number.parseInt(user.id, 10) : 0;
-    const redirectTo = isMcpGuest ? MCP_GUEST_SIGN_IN_PATH : "/login";
+    const redirectTo = isMcpGuest ? MCP_GUEST_OTP_LOGIN_PATH : "/login";
     trackLogout(Number.isFinite(userId) ? userId : 0);
     logout();
     router.push(redirectTo);

@@ -1,5 +1,5 @@
 import { authService } from "./auth";
-import { isMcpGuestSession, MCP_GUEST_SIGN_IN_PATH } from "./mcpGuest";
+import { isMcpGuestSession, MCP_GUEST_OTP_LOGIN_PATH } from "./mcpGuest";
 import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters } from "@/types/emailAlerts";
 import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
 
@@ -54,7 +54,7 @@ class EmailAlertsService {
         const token = authService.getToken();
         const user = authService.getUser();
         const redirectTo = isMcpGuestSession(token, user)
-          ? MCP_GUEST_SIGN_IN_PATH
+          ? MCP_GUEST_OTP_LOGIN_PATH
           : "/login";
         authService.logout();
         window.location.href = redirectTo;
