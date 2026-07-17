@@ -28,7 +28,10 @@ import {
   SearchEntityMultiValueCell,
   SEARCH_MULTI_VALUE_STYLES,
 } from "@/components/search/SearchEntityMultiValueCell";
-import type { SearchMultiValueItem } from "@/components/search/searchMultiValueUtils";
+import {
+  buildAdvisorSectorItems,
+  parseAdvisorSectors,
+} from "@/components/search/searchEntityLinkUtils";
 
 // Types for API integration
 interface SectorData {
@@ -1275,19 +1278,13 @@ const MOST_ACTIVE_SUB_TABS = [
 
 type MostActiveSubTabId = (typeof MOST_ACTIVE_SUB_TABS)[number]["id"];
 
-interface AdvisorSectorLink {
-  id?: number;
-  name: string;
-  importance?: string;
-}
-
 interface AdvisorEntity {
   name: string;
   totalDealsAdvised: number;
   id?: number;
   country?: string;
-  sectorsCovered?: string;
-  sectorLinks?: AdvisorSectorLink[];
+  sectors: Array<{ id: number; name: string }>;
+  sectorsCount?: number;
   logoUrl?: string;
 }
 
@@ -1436,30 +1433,19 @@ function MostActiveFullTable({
   );
 }
 
-function advisorSectorLinksToItems(
-  links: AdvisorSectorLink[]
-): SearchMultiValueItem[] {
-  return links.flatMap((sector, index) => {
-    const name = sector.name?.trim();
-    if (!name) return [];
+function AdvisedSectorsCell({
+  sectors,
+}: {
+  sectors: Array<{ id: number; name: string }>;
+}) {
+  if (sectors.length === 0) return <span>-</span>;
 
-    const isSecondary = (sector.importance || "")
-      .toLowerCase()
-      .includes("secondary");
-    const href = sector.id
-      ? isSecondary
-        ? `/sub-sector/${sector.id}`
-        : `/sector/${sector.id}`
-      : undefined;
-
-    return [
-      {
-        name,
-        href,
-        key: `${sector.id ?? index}-${name}`,
-      },
-    ];
-  });
+  return (
+    <SearchEntityMultiValueCell
+      items={buildAdvisorSectorItems(sectors, "sector-advisor")}
+      maxVisible={10}
+    />
+  );
 }
 
 function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
@@ -1538,14 +1524,7 @@ function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-slate-700 max-w-[360px]">
-                    {it.sectorLinks && it.sectorLinks.length > 0 ? (
-                      <SearchEntityMultiValueCell
-                        items={advisorSectorLinksToItems(it.sectorLinks)}
-                        maxVisible={10}
-                      />
-                    ) : (
-                      it.sectorsCovered || "-"
-                    )}
+                    <AdvisedSectorsCell sectors={it.sectors} />
                   </td>
                 </tr>
               );
@@ -1690,62 +1669,6 @@ function getAdvisorPaginationNumber(
   return undefined;
 }
 
-function formatAdvisorSectors(value: unknown): string | undefined {
-  if (Array.isArray(value)) {
-    const joined = value.map((item) => toStringSafe(item)).filter(Boolean).join(", ");
-    return joined || undefined;
-  }
-  const str = toStringSafe(value).trim();
-  return str || undefined;
-}
-
-function parseAdvisorSectorLinks(value: unknown): AdvisorSectorLink[] {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .map((item) => {
-      if (typeof item === "string") {
-        const name = item.trim();
-        return name ? ({ name } as AdvisorSectorLink) : null;
-      }
-      if (!item || typeof item !== "object") return null;
-
-      const obj = item as Record<string, unknown>;
-      const name = toStringSafe(
-        getFirstMatchingValue(obj, [
-          "sector_name",
-          "name",
-          "Sector",
-          "sector",
-          "target_sector",
-          "Target_Sector",
-        ]) || ""
-      ).trim();
-      if (!name) return null;
-
-      return {
-        id: getFirstMatchingNumber(obj, [
-          "id",
-          "sector_id",
-          "sectors_id",
-          "primary_sector_id",
-          "secondary_sector_id",
-        ]),
-        name,
-        importance:
-          toStringSafe(
-            getFirstMatchingValue(obj, [
-              "Sector_importance",
-              "sector_importance",
-              "importance",
-              "type",
-            ]) || ""
-          ) || undefined,
-      } as AdvisorSectorLink;
-    })
-    .filter(Boolean) as AdvisorSectorLink[];
-}
-
 function mapAdvisorEntities(raw: unknown): AdvisorEntity[] {
   const arr = getAdvisorListRoot(raw);
   return arr
@@ -1764,7 +1687,10 @@ function mapAdvisorEntities(raw: unknown): AdvisorEntity[] {
         "target_sectors",
         "Target_Sectors",
       ]);
-      const sectorLinks = parseAdvisorSectorLinks(sectorsValue);
+      const sectors = parseAdvisorSectors(sectorsValue);
+      const sectorsCount =
+        getFirstMatchingNumber(obj, ["sectors_count", "sectorsCount"]) ??
+        sectors.length;
 
       return {
         id: getFirstMatchingNumber(obj, ["id", "advisor_id", "company_id"]),
@@ -1772,8 +1698,8 @@ function mapAdvisorEntities(raw: unknown): AdvisorEntity[] {
         country: toStringSafe(getFirstMatchingValue(obj, ["country", "Country"]) || "") || undefined,
         totalDealsAdvised:
           getFirstMatchingNumber(obj, ["events_advised", "events_cnt_sector"]) ?? 0,
-        sectorsCovered: formatAdvisorSectors(sectorsValue) || undefined,
-        sectorLinks: sectorLinks.length > 0 ? sectorLinks : undefined,
+        sectors,
+        sectorsCount,
         logoUrl: logoUrl || undefined,
       } as AdvisorEntity;
     })
