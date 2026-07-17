@@ -6,6 +6,55 @@ export interface McpGuestRequestPayload {
   last_name: string;
   company: string;
   work_email: string;
+  new_company_id: number;
+}
+
+export interface McpGuestCompanyOption {
+  id: number;
+  name: string;
+}
+
+const MCP_GUEST_COMPANIES_API =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies";
+
+export async function searchMcpGuestCompanies(
+  query: string
+): Promise<McpGuestCompanyOption[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const params = new URLSearchParams({
+    Offset: "1",
+    Per_page: "15",
+    Min_linkedin_members: "0",
+    Max_linkedin_members: "0",
+    Horizontals_ids: "",
+    query: trimmed,
+  });
+
+  const response = await fetch(`${MCP_GUEST_COMPANIES_API}?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) return [];
+
+  const data = await response.json().catch(() => null);
+  const items: Array<{ id: number; name: string }> =
+    (data?.result1?.items as Array<{ id: number; name: string }>) ||
+    (data?.companies?.items as Array<{ id: number; name: string }>) ||
+    (data?.items as Array<{ id: number; name: string }>) ||
+    [];
+
+  return (Array.isArray(items) ? items : [])
+    .map((company) => ({
+      id: Number(company.id),
+      name: String(company.name || "").trim(),
+    }))
+    .filter((company) => company.id > 0 && company.name);
 }
 
 export type McpGuestActionOutcome =
