@@ -1932,6 +1932,7 @@ function MostActiveTab({
         qs.set("page", String(page));
         qs.set("per_page", "25");
         qs.set("portfolio_only", "false");
+        qs.set("include_sectors", "true");
         if ((sectorImportance || "").toLowerCase().includes("secondary")) {
           qs.append("Secondary_sectors_ids[]", String(sectorIdNum));
         } else {
