@@ -6,7 +6,9 @@ import {
   companyCountsPayloadToSearchParams,
   companySearchPayloadToSearchParams,
   normalizeCompanySearchPayload,
+  buildMcpGuestCompaniesFilters,
 } from "@/lib/companiesFilterPayload";
+import { isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
 import { normalizeCompaniesResponse } from "./normalizeCompaniesResponse";
 
 export type CompaniesFilters = CompanySearchPayload;
@@ -107,18 +109,42 @@ export interface CompaniesCountsResponse {
 const COMPANIES_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
 
+async function getServerToken(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get("asymmetrix_auth_token")?.value ?? null;
+}
+
+function resolveCompaniesFilters(
+  token: string,
+  filters: CompaniesFilters
+): CompaniesFilters | null {
+  if (isContributorSession(token, null)) {
+    return null;
+  }
+
+  if (isMcpGuestSession(token, null)) {
+    return buildMcpGuestCompaniesFilters();
+  }
+
+  return filters;
+}
+
 export async function fetchCompaniesCountsServer(
   filters: CompaniesFilters = {}
 ): Promise<CompaniesCountsResponse | null> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("asymmetrix_auth_token")?.value;
+    const token = await getServerToken();
 
     if (!token) {
       return null;
     }
 
-    const payload = normalizeCompanySearchPayload(filters);
+    const resolvedFilters = resolveCompaniesFilters(token, filters);
+    if (!resolvedFilters) {
+      return null;
+    }
+
+    const payload = normalizeCompanySearchPayload(resolvedFilters);
     const params = companyCountsPayloadToSearchParams(payload);
     const url = `${COMPANIES_API_BASE}/companies_counts?${params.toString()}`;
 
@@ -150,17 +176,21 @@ export async function fetchCompaniesServer(
   filters: CompaniesFilters = {}
 ): Promise<CompaniesResponse | null> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("asymmetrix_auth_token")?.value;
+    const token = await getServerToken();
 
     if (!token) {
       return null;
     }
 
-    const perPageRaw = filters.Per_page ?? 20;
+    const resolvedFilters = resolveCompaniesFilters(token, filters);
+    if (!resolvedFilters) {
+      return null;
+    }
+
+    const perPageRaw = resolvedFilters.Per_page ?? 20;
     const perPage = perPageRaw > 0 ? perPageRaw : 20;
     const payload: CompanySearchPayload = {
-      ...normalizeCompanySearchPayload(filters),
+      ...normalizeCompanySearchPayload(resolvedFilters),
       Offset: page,
       Per_page: perPage,
     };

@@ -7,6 +7,7 @@ import { toast } from "react-hot-toast";
 import McpGuestPageShell from "@/components/mcp-guest/McpGuestPageShell";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
+  ACCESS_DENIED_PATH,
   MCP_GUEST_ALLOWED_PATH,
   MCP_GUEST_REQUEST_PATH,
 } from "@/lib/mcpGuest";
@@ -16,10 +17,11 @@ import {
   MCP_GUEST_OTP_SENT_MESSAGE,
   sendMcpGuestOtp,
 } from "@/lib/mcpGuestAuth";
+import { isWorkEmail, WORK_EMAIL_REQUIRED_MESSAGE } from "@/lib/workEmail";
 
 export default function McpGuestLoginPage() {
   const router = useRouter();
-  const { loginMcpGuestWithOtp, isMcpGuest, isAuthenticated, loading } =
+  const { loginMcpGuestWithOtp, isMcpGuest, isContributor, isAuthenticated, loading } =
     useAuth();
   const [workEmail, setWorkEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -28,15 +30,24 @@ export default function McpGuestLoginPage() {
   const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
-    if (!loading && isAuthenticated && isMcpGuest) {
+    if (loading) return;
+    if (isAuthenticated && isContributor) {
+      router.replace(ACCESS_DENIED_PATH);
+      return;
+    }
+    if (isAuthenticated && isMcpGuest) {
       router.replace(MCP_GUEST_ALLOWED_PATH);
     }
-  }, [isAuthenticated, isMcpGuest, loading, router]);
+  }, [isAuthenticated, isContributor, isMcpGuest, loading, router]);
 
   const handleSendOtp = async () => {
     const trimmedEmail = workEmail.trim();
     if (!trimmedEmail) {
       toast.error("Please enter your work email.");
+      return;
+    }
+    if (!isWorkEmail(trimmedEmail)) {
+      toast.error(WORK_EMAIL_REQUIRED_MESSAGE);
       return;
     }
 
@@ -60,6 +71,10 @@ export default function McpGuestLoginPage() {
 
     if (!trimmedEmail) {
       toast.error("Please enter your work email.");
+      return;
+    }
+    if (!isWorkEmail(trimmedEmail)) {
+      toast.error(WORK_EMAIL_REQUIRED_MESSAGE);
       return;
     }
     if (!trimmedOtp) {

@@ -1,5 +1,6 @@
-import { MCP_GUEST_ROLE } from "@/lib/mcpGuest";
+import { MCP_GUEST_ROLE, isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
 import { verifyMcpGuestOtp } from "@/lib/mcpGuestAuth";
+import { MCP_GUEST_AUTH_GENERIC_ERROR } from "@/lib/mcpGuestAuthServer";
 
 interface AuthUser {
   id: string;
@@ -191,6 +192,14 @@ class AuthService {
           role: MCP_GUEST_ROLE,
         };
       }
+    }
+
+    if (isContributorSession(token, user)) {
+      throw new Error("Access denied");
+    }
+
+    if (!isMcpGuestSession(token, user)) {
+      throw new Error(MCP_GUEST_AUTH_GENERIC_ERROR);
     }
 
     this.setAuth(token, user);

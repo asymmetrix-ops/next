@@ -46,6 +46,7 @@ import {
   SEARCH_DASHBOARD_TITLE,
   SearchListTabs,
 } from "@/components/search/searchDashboardLayout";
+import McpGuestFlagCompanyButton from "@/components/mcp-guest/McpGuestFlagCompanyButton";
 
 export type CompanyDashboardProps = {
   onSearch?: (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => void;
@@ -430,7 +431,16 @@ export const CompanyDashboard = ({
           )}
 
           {/* Action buttons */}
-          {!guestMode && (
+          {guestMode ? (
+            <div
+              style={{
+                ...SEARCH_DASHBOARD_ACTIONS,
+                marginLeft: hidePageHeader ? "auto" : undefined,
+              }}
+            >
+              <McpGuestFlagCompanyButton />
+            </div>
+          ) : (
           <div
             style={{
               ...SEARCH_DASHBOARD_ACTIONS,
@@ -519,8 +529,9 @@ export const CompanyDashboard = ({
           >
             Showing companies with{" "}
             <strong style={{ color: "#0f172a" }}>MCP = Yes</strong> only. Filters,
-            exports, and company profiles are not available in guest view. Click a
-            company name to learn about full access.
+            exports, and company profiles are not available in guest view. Use{" "}
+            <strong style={{ color: "#0f172a" }}>Flag a company</strong> if one
+            is missing from this list.
           </div>
         </div>
       ) : (

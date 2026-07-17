@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { submitMcpGuestRequest } from "@/lib/mcpGuestRequest";
 import McpGuestCompanyField from "@/components/mcp-guest/McpGuestCompanyField";
+import { isWorkEmail, WORK_EMAIL_REQUIRED_MESSAGE } from "@/lib/workEmail";
 import McpGuestPageShell from "@/components/mcp-guest/McpGuestPageShell";
 import { MCP_GUEST_LOGIN_PATH } from "@/lib/mcpGuest";
 
@@ -39,6 +40,10 @@ export default function McpGuestRequestPage() {
     }
     if (!trimmedWorkEmail) {
       toast.error("Please enter your work email.");
+      return;
+    }
+    if (!isWorkEmail(trimmedWorkEmail)) {
+      toast.error(WORK_EMAIL_REQUIRED_MESSAGE);
       return;
     }
 
