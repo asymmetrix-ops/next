@@ -1,5 +1,6 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { cookies } from "next/headers";
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -11,7 +12,7 @@ async function fetchInvestorMeta(
 ): Promise<{ name?: string; description?: string; logo?: string } | null> {
   try {
     const token = cookies().get("asymmetrix_auth_token")?.value;
-    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_the_investor_new_company?new_comp_id=${encodeURIComponent(
+    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_the_investor_new_company?new_comp_id=${encodeURIComponent(
       id
     )}`;
     const res = await fetch(url, {
@@ -54,9 +55,8 @@ export async function generateMetadata(
       ? `${name} investor profile on Asymmetrix.`
       : "Investor profile on Asymmetrix.");
 
-  const imageUrl = meta?.logo
-    ? `data:image/jpeg;base64,${meta.logo}`
-    : `${base.origin}/og-image.jpg`;
+  const imageUrl =
+    resolveCompanyLogoSrc(meta?.logo) ?? `${base.origin}/og-image.jpg`;
   const url = new URL(`/investors/${id}`, base).toString();
 
   return {

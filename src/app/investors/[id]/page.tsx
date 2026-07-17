@@ -27,6 +27,7 @@ import {
 } from "@/components/investors/InvestorFocusMixCard";
 import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
 const INVESTOR_PROFILE_TABS = [
   "Summary",
@@ -350,10 +351,11 @@ function extractOptionalString(raw: unknown, keys: string[]): string | null {
 }
 
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
-  if (logo) {
+  const logoSrc = resolveCompanyLogoSrc(logo);
+  if (logoSrc) {
     return (
       <Image
-        src={`data:image/jpeg;base64,${logo}`}
+        src={logoSrc}
         alt={`${name} logo`}
         width={40}
         height={40}
@@ -451,7 +453,7 @@ const InvestorDetailPage = () => {
       params.append("new_comp_id", investorId);
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_the_investor_new_company?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_the_investor_new_company?${params.toString()}`,
         {
           method: "GET",
           headers: {

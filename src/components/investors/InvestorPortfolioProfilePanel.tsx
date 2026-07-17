@@ -16,6 +16,7 @@ import {
   tableColHeaderBarStyle,
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
 export type InvestorPortfolioCompany = {
   id: number;
@@ -56,10 +57,11 @@ const HEADERS = ["Name", "Sectors", "Country", "Invested", "Deal Lead"] as const
 type PortfolioTab = "current" | "past";
 
 function CompanyLogo({ logo, name }: { logo?: string | null; name: string }) {
-  if (logo) {
+  const logoSrc = resolveCompanyLogoSrc(logo);
+  if (logoSrc) {
     return (
       <Image
-        src={`data:image/jpeg;base64,${logo}`}
+        src={logoSrc}
         alt={`${name} logo`}
         width={24}
         height={24}
