@@ -8,15 +8,23 @@ export const ACCESS_DENIED_PATH = "/access-denied";
 
 export const MCP_GUEST_ALLOWED_PATH = "/companies";
 
-export const MCP_GUEST_LOGIN_PATH = "/mcp-guest/login";
+/** Primary public link to share — request access form */
+export const MCP_GUEST_ENTRY_PATH = "/mcp-guest/request";
 
-export const MCP_GUEST_REQUEST_PATH = "/mcp-guest/request";
+export const MCP_GUEST_REQUEST_PATH = MCP_GUEST_ENTRY_PATH;
+
+/** Email + status check + OTP sign-in for approved guests */
+export const MCP_GUEST_SIGN_IN_PATH = "/mcp-guest/sign-in";
+
+/** Legacy URL — redirects to the request entry page */
+export const MCP_GUEST_LOGIN_PATH = "/mcp-guest/login";
 
 export const MCP_GUEST_CONVERSION_PATH = "/mcp-guest/upgrade";
 
 export const MCP_GUEST_PUBLIC_PATHS = [
+  MCP_GUEST_ENTRY_PATH,
+  MCP_GUEST_SIGN_IN_PATH,
   MCP_GUEST_LOGIN_PATH,
-  MCP_GUEST_REQUEST_PATH,
 ] as const;
 
 export const MCP_GUEST_SESSION_PATHS = [
