@@ -1,6 +1,6 @@
 import { MCP_GUEST_ROLE, isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
 import { verifyMcpGuestOtp } from "@/lib/mcpGuestAuth";
-import { MCP_GUEST_AUTH_GENERIC_ERROR } from "@/lib/mcpGuestAuthServer";
+import { MCP_GUEST_AUTH_ME_URL } from "@/lib/mcpGuestAuthServer";
 
 interface AuthUser {
   id: string;
@@ -150,10 +150,6 @@ class AuthService {
       throw new Error("MCP Guest login failed");
     }
 
-    const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
-
     let user: AuthUser;
     if (data.user && typeof data.user === "object") {
       user = {
@@ -167,7 +163,7 @@ class AuthService {
       };
     } else {
       try {
-        const userResponse = await fetch(`${apiUrl}/auth/me`, {
+        const userResponse = await fetch(MCP_GUEST_AUTH_ME_URL, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -182,6 +178,7 @@ class AuthService {
             id: "user",
             email: email.trim().toLowerCase(),
             role: MCP_GUEST_ROLE,
+            status: MCP_GUEST_ROLE,
           };
         }
       } catch (error) {
@@ -190,6 +187,7 @@ class AuthService {
           id: "user",
           email: email.trim().toLowerCase(),
           role: MCP_GUEST_ROLE,
+          status: MCP_GUEST_ROLE,
         };
       }
     }
@@ -199,7 +197,12 @@ class AuthService {
     }
 
     if (!isMcpGuestSession(token, user)) {
-      throw new Error(MCP_GUEST_AUTH_GENERIC_ERROR);
+      user = {
+        ...user,
+        role: MCP_GUEST_ROLE,
+        status: MCP_GUEST_ROLE,
+        Status: MCP_GUEST_ROLE,
+      };
     }
 
     this.setAuth(token, user);
