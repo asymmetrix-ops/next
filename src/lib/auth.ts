@@ -1,4 +1,5 @@
 import { MCP_GUEST_ROLE } from "@/lib/mcpGuest";
+import { verifyMcpGuestOtp } from "@/lib/mcpGuestAuth";
 
 interface AuthUser {
   id: string;
@@ -134,6 +135,62 @@ class AuthService {
     } catch (error) {
       console.error("AuthService - Error fetching user data:", error);
       user = { id: "user", email: "user@example.com" };
+    }
+
+    this.setAuth(token, user);
+    return { token, user };
+  }
+
+  // MCP Guest OTP login
+  async loginMcpGuestWithOtp(email: string, otp: string): Promise<LoginResponse> {
+    const data = await verifyMcpGuestOtp(email, otp);
+    const token = data.authToken || data.token;
+    if (!token) {
+      throw new Error("MCP Guest login failed");
+    }
+
+    const apiUrl =
+      process.env.NEXT_PUBLIC_XANO_API_URL ||
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+
+    let user: AuthUser;
+    if (data.user && typeof data.user === "object") {
+      user = {
+        id: String(data.user.id ?? "user"),
+        email: String(data.user.email ?? email),
+        name: data.user.name,
+        roles: data.user.roles,
+        Status: data.user.Status,
+        status: data.user.status ?? data.user.role ?? MCP_GUEST_ROLE,
+        role: data.user.role ?? MCP_GUEST_ROLE,
+      };
+    } else {
+      try {
+        const userResponse = await fetch(`${apiUrl}/auth/me`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (userResponse.ok) {
+          user = await userResponse.json();
+        } else {
+          user = {
+            id: "user",
+            email: email.trim().toLowerCase(),
+            role: MCP_GUEST_ROLE,
+          };
+        }
+      } catch (error) {
+        console.error("AuthService - Error fetching MCP Guest user data:", error);
+        user = {
+          id: "user",
+          email: email.trim().toLowerCase(),
+          role: MCP_GUEST_ROLE,
+        };
+      }
     }
 
     this.setAuth(token, user);

@@ -4,7 +4,6 @@ import {
   MCP_GUEST_AUTH_GENERIC_ERROR,
   normalizeMcpGuestEmail,
 } from "@/lib/mcpGuestAuthServer";
-import { isWorkEmail, WORK_EMAIL_REQUIRED_MESSAGE } from "@/lib/workEmail";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,13 +16,6 @@ export async function POST(request: NextRequest) {
     if (!to) {
       return NextResponse.json(
         { error: MCP_GUEST_AUTH_GENERIC_ERROR },
-        { status: 400 }
-      );
-    }
-
-    if (!isWorkEmail(to)) {
-      return NextResponse.json(
-        { error: WORK_EMAIL_REQUIRED_MESSAGE },
         { status: 400 }
       );
     }

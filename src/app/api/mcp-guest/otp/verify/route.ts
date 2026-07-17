@@ -1,37 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MCP_GUEST_ROLE, isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
 import {
   MCP_GUEST_AUTH_API_BASE,
   MCP_GUEST_AUTH_GENERIC_ERROR,
-  extractAuthToken,
-  fetchMcpGuestAuthMe,
   normalizeMcpGuestEmail,
 } from "@/lib/mcpGuestAuthServer";
-import { isWorkEmail, WORK_EMAIL_REQUIRED_MESSAGE } from "@/lib/workEmail";
-
-function buildOtpLoginResponse(
-  token: string,
-  email: string,
-  data: unknown,
-  user: Record<string, unknown> | null
-) {
-  const resolvedUser = user ?? {
-    email,
-    role: MCP_GUEST_ROLE,
-    status: MCP_GUEST_ROLE,
-    Status: MCP_GUEST_ROLE,
-  };
-
-  const base =
-    data && typeof data === "object" ? (data as Record<string, unknown>) : {};
-
-  return {
-    ...base,
-    authToken: token,
-    token,
-    user: resolvedUser,
-  };
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,13 +18,6 @@ export async function POST(request: NextRequest) {
     if (!email || !otp) {
       return NextResponse.json(
         { error: MCP_GUEST_AUTH_GENERIC_ERROR },
-        { status: 400 }
-      );
-    }
-
-    if (!isWorkEmail(email)) {
-      return NextResponse.json(
-        { error: WORK_EMAIL_REQUIRED_MESSAGE },
         { status: 400 }
       );
     }
@@ -76,7 +41,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const token = extractAuthToken(data);
+    const token =
+      data &&
+      typeof data === "object" &&
+      ("authToken" in data || "token" in data)
+        ? String(
+            (data as { authToken?: unknown; token?: unknown }).authToken ??
+              (data as { token?: unknown }).token ??
+              ""
+          )
+        : "";
+
     if (!token) {
       return NextResponse.json(
         { error: MCP_GUEST_AUTH_GENERIC_ERROR },
@@ -84,35 +59,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const inlineUser =
-      data && typeof data === "object" && "user" in data
-        ? ((data as { user?: unknown }).user as Record<string, unknown> | null)
-        : null;
-
-    const user = inlineUser ?? (await fetchMcpGuestAuthMe(token));
-
-    if (isContributorSession(token, user)) {
-      return NextResponse.json(
-        { error: MCP_GUEST_AUTH_GENERIC_ERROR },
-        { status: 403 }
-      );
-    }
-
-    // Token is only returned after Xano otp_login validates email + OTP.
-    // This route never treats query params as proof of auth — only this response.
-    if (user && !isMcpGuestSession(token, user)) {
-      return NextResponse.json(
-        buildOtpLoginResponse(token, email, data, {
-          ...user,
-          email: String(user.email ?? email),
-          role: MCP_GUEST_ROLE,
-          status: MCP_GUEST_ROLE,
-          Status: MCP_GUEST_ROLE,
-        })
-      );
-    }
-
-    return NextResponse.json(buildOtpLoginResponse(token, email, data, user));
+    return NextResponse.json(data);
   } catch {
     return NextResponse.json(
       { error: MCP_GUEST_AUTH_GENERIC_ERROR },

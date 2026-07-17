@@ -323,7 +323,7 @@ function CompaniesPageInner() {
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
         readOnlyGuestMode={isMcpGuest}
       />
-      <Footer />
+      {!isMcpGuest && <Footer />}
     </div>
   );
 }

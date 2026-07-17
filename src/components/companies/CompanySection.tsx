@@ -8,6 +8,7 @@ import React, {
   useRef,
 } from "react";
 import { useRouter } from "next/navigation";
+import { MCP_GUEST_CONVERSION_PATH } from "@/lib/mcpGuest";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
 import {
@@ -375,8 +376,12 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
               name={company.name || "-"}
               logo={readLogoFromRecord(company, getFieldAliasesForColumn("logo"))}
               subtitle={subtitle}
-              href={readOnlyGuestMode ? undefined : `/company/${company.id}`}
-              readOnly={readOnlyGuestMode}
+              href={
+                readOnlyGuestMode
+                  ? MCP_GUEST_CONVERSION_PATH
+                  : `/company/${company.id}`
+              }
+              readOnly={false}
               onClick={(e) => {
                 if (
                   e.defaultPrevented ||
@@ -401,10 +406,13 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Identity",
         wrap: true,
         minWidth: 220,
-        render: (company) => {
+        render: (company, { readOnlyGuestMode }) => {
           const raw = readCompanyValue(company, [
             ...getFieldAliasesForColumn("website"),
           ]);
+          if (readOnlyGuestMode) {
+            return toPlainText(raw);
+          }
           const href = normalizeWebsiteUrl(raw);
           if (!href) return toPlainText(raw);
           return (
@@ -681,11 +689,23 @@ const CompanyCardBase = ({
             );
       })(),
       React.createElement(
-        readOnlyGuestMode ? "span" : "a",
+        readOnlyGuestMode ? "button" : "a",
         {
           className: "company-card-name",
+          type: readOnlyGuestMode ? "button" : undefined,
           ...(readOnlyGuestMode
-            ? { style: { cursor: "default" } }
+            ? {
+                style: {
+                  textDecoration: "none",
+                  color: "#0075df",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  textAlign: "left" as const,
+                },
+                onClick: () => router.push(MCP_GUEST_CONVERSION_PATH),
+              }
             : {
                 href: `/company/${company.id}`,
                 style: { textDecoration: "none", color: "#0075df" },
@@ -1250,7 +1270,10 @@ export const CompanySection = ({
 
   const handleCompanyClick = useCallback(
     (companyId: number) => {
-      if (readOnlyGuestMode) return;
+      if (readOnlyGuestMode) {
+        router.push(MCP_GUEST_CONVERSION_PATH);
+        return;
+      }
       router.push(`/company/${companyId}`);
     },
     [router, readOnlyGuestMode]
