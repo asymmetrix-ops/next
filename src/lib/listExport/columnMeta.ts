@@ -38,6 +38,49 @@ export function getVisibleExportColumns(
     .filter((column): column is ExportColumnDef => Boolean(column));
 }
 
+/**
+ * Inserts extra identity columns in reference order:
+ * ID, Name, Website, Asymmetrix URL, …
+ */
+function mergeExtraLeadingColumns(
+  columns: ExportColumnDef[],
+  extraLeadingColumns: ExportColumnDef[]
+): ExportColumnDef[] {
+  if (!extraLeadingColumns.length) return columns;
+
+  const byKey = new Map(extraLeadingColumns.map((column) => [column.key, column]));
+  const idCol = byKey.get("id");
+  const urlCol = byKey.get("asymmetrix_url");
+  const otherExtras = extraLeadingColumns.filter(
+    (column) => column.key !== "id" && column.key !== "asymmetrix_url"
+  );
+
+  const seen = new Set<string>();
+  const result: ExportColumnDef[] = [];
+
+  const push = (column: ExportColumnDef | undefined) => {
+    if (!column || seen.has(column.key)) return;
+    seen.add(column.key);
+    result.push(column);
+  };
+
+  // Reference Identity order: ID → Name → Website → Asymmetrix URL
+  push(idCol);
+  for (const column of columns) {
+    if (column.key === "name" || column.key === "website") {
+      push(column);
+      if (column.key === "website") push(urlCol);
+    }
+  }
+  // If name/website missing, still place URL after ID
+  push(urlCol);
+
+  for (const column of otherExtras) push(column);
+  for (const column of columns) push(column);
+
+  return result;
+}
+
 export function buildExportColumnList(
   mode: "all_columns" | "visible_columns",
   config: {
@@ -59,18 +102,10 @@ export function buildExportColumnList(
       ? allColumns
       : getVisibleExportColumns(config.visibleColumnKeys, allColumns);
 
-  if (mode !== "all_columns" || !config.extraLeadingColumns?.length) {
-    return selected;
+  if (mode === "all_columns" && config.extraLeadingColumns?.length) {
+    return mergeExtraLeadingColumns(selected, config.extraLeadingColumns);
   }
 
-  const seen = new Set<string>();
-  const leading: ExportColumnDef[] = [];
-  for (const column of config.extraLeadingColumns) {
-    if (seen.has(column.key)) continue;
-    seen.add(column.key);
-    leading.push(column);
-  }
-
-  const rest = selected.filter((column) => !seen.has(column.key));
-  return [...leading, ...rest];
+  // Visible export: user order only — no forced ID / URL extras
+  return selected;
 }

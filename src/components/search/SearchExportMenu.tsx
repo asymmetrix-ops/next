@@ -118,7 +118,7 @@ export function SearchExportMenu({
             >
               Export all columns
               <span className="search-export-menu-item-desc">
-                Two-sheet XLSX with Index
+                Two-sheet XLSX with Directory
               </span>
             </button>
             <button
@@ -130,7 +130,7 @@ export function SearchExportMenu({
             >
               Export visible columns only
               <span className="search-export-menu-item-desc">
-                Single-sheet CSV
+                Single-sheet XLSX
               </span>
             </button>
           </div>
