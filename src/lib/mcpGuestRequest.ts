@@ -1,5 +1,18 @@
+import { assertWorkEmail } from "@/lib/workEmail";
+
 const MCP_GUEST_REQUEST_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:UXwnqlMz:develop/mcp_guest_request";
+
+export type McpGuestRequestStatus =
+  | "not_submitted"
+  | "pending"
+  | "rejected"
+  | "approved";
+
+export interface McpGuestRequestStatusResult {
+  status: McpGuestRequestStatus;
+  company: string | null;
+}
 
 export interface McpGuestRequestPayload {
   first_name: string;
@@ -133,7 +146,53 @@ async function callMcpGuestAction(
   return parseMcpGuestActionResult(data, action);
 }
 
-import { assertWorkEmail } from "@/lib/workEmail";
+function parseMcpGuestRequestStatus(data: unknown): McpGuestRequestStatusResult {
+  const record =
+    data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+
+  const rawStatus = readStringField(record, "status") ?? "not_submitted";
+  const status = (
+    ["not_submitted", "pending", "rejected", "approved"] as const
+  ).includes(rawStatus as McpGuestRequestStatus)
+    ? (rawStatus as McpGuestRequestStatus)
+    : "not_submitted";
+
+  const company = readStringField(record, "company");
+
+  return {
+    status,
+    company,
+  };
+}
+
+export async function fetchMcpGuestRequestStatus(
+  workEmail: string
+): Promise<McpGuestRequestStatusResult> {
+  assertWorkEmail(workEmail);
+
+  const response = await fetch("/api/mcp-guest/request/status", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ work_email: workEmail.trim().toLowerCase() }),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      readStringField(
+        data && typeof data === "object" ? (data as Record<string, unknown>) : {},
+        "error",
+        "message"
+      ) ?? "Unable to check your request status. Please try again."
+    );
+  }
+
+  return parseMcpGuestRequestStatus(data);
+}
 
 export async function submitMcpGuestRequest(
   payload: McpGuestRequestPayload
