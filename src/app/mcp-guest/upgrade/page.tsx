@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Header from "@/components/Header";
-import McpGuestSalesMeetingEmbed from "@/components/mcp-guest/McpGuestSalesMeetingEmbed";
+import { McpGuestSalesConversionPanel } from "@/components/mcp-guest/McpGuestSalesConversionPanel";
 import { MCP_GUEST_ALLOWED_PATH } from "@/lib/mcpGuest";
 
 export default function McpGuestUpgradePage() {
@@ -11,17 +11,7 @@ export default function McpGuestUpgradePage() {
       <Header />
 
       <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
-        <div className="mb-8 text-center">
-          <h1 className="mb-3 text-3xl font-bold text-gray-900">
-            Interested in getting more info?
-          </h1>
-          <p className="text-gray-600 leading-relaxed">
-            Book a slot with our Sales team to learn about full Asymmetrix
-            access — company profiles, exports, sectors, investors, and more.
-          </p>
-        </div>
-
-        <McpGuestSalesMeetingEmbed />
+        <McpGuestSalesConversionPanel />
 
         <div className="mt-8 text-center">
           <Link
