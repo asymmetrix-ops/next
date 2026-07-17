@@ -129,7 +129,7 @@ const Header = () => {
   };
 
   const navItems = isMcpGuest
-    ? ["Companies"]
+    ? []
     : [
     "Dashboard",
     "Companies",
@@ -344,7 +344,18 @@ const Header = () => {
 
             {/* Desktop Navigation */}
             <nav style={styles.navDesktop} className="nav-desktop">
-              {navItems.map((item) => {
+              {isMcpGuest ? (
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#0f172a",
+                  }}
+                >
+                  MCP Guest
+                </span>
+              ) : (
+              navItems.map((item) => {
                 const href = getNavHref(item);
                 const isActive = isNavItemActive(pathname, item, href);
                 const isDisabled = !isAllowedRoute(href);
@@ -378,7 +389,8 @@ const Header = () => {
                     {item}
                   </Link>
                 );
-              })}
+              })
+              )}
             </nav>
           </div>
 

@@ -6,6 +6,20 @@ export const MCP_GUEST_ALLOWED_PATH = "/companies";
 
 export const MCP_GUEST_LOGIN_PATH = "/mcp-guest/login";
 
+export const MCP_GUEST_REQUEST_PATH = "/mcp-guest/request";
+
+export const MCP_GUEST_CONVERSION_PATH = "/mcp-guest/upgrade";
+
+export const MCP_GUEST_PUBLIC_PATHS = [
+  MCP_GUEST_LOGIN_PATH,
+  MCP_GUEST_REQUEST_PATH,
+] as const;
+
+export const MCP_GUEST_SESSION_PATHS = [
+  MCP_GUEST_ALLOWED_PATH,
+  MCP_GUEST_CONVERSION_PATH,
+] as const;
+
 export const MCP_GUEST_LOCKED_FILTER = {
   id: "has_mcp",
   value: { yes: true, no: false },

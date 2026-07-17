@@ -19,12 +19,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<void>;
-  loginMcpGuest: (
-    email: string,
-    name: string,
-    companyId: number,
-    companyName: string
-  ) => Promise<void>;
+  loginMcpGuestWithOtp: (email: string, otp: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
   // Trial info derived from token + user
@@ -121,19 +116,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const loginMcpGuest = async (
-    email: string,
-    name: string,
-    companyId: number,
-    companyName: string
-  ) => {
+  const loginMcpGuestWithOtp = async (email: string, otp: string) => {
     try {
-      const response = await authService.signupMcpGuest(
-        email,
-        name,
-        companyId,
-        companyName
-      );
+      const response = await authService.loginMcpGuestWithOtp(email, otp);
       setIsAuthenticated(true);
       setUser(response.user);
       const token = authService.getToken();
@@ -144,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       setIsMcpGuest(isMcpGuestSession(token, response.user));
     } catch (error) {
-      console.error("AuthProvider - MCP Guest login failed:", error);
+      console.error("AuthProvider - MCP Guest OTP login failed:", error);
       throw error;
     }
   };
@@ -161,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated,
     user,
     login,
-    loginMcpGuest,
+    loginMcpGuestWithOtp,
     logout,
     loading,
     isTrial: trial.isTrial,

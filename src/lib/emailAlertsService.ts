@@ -1,4 +1,5 @@
 import { authService } from "./auth";
+import { isMcpGuestSession } from "./mcpGuest";
 import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters } from "@/types/emailAlerts";
 import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
 
@@ -50,8 +51,13 @@ class EmailAlertsService {
 
     if (!response.ok) {
       if (response.status === 401) {
+        const token = authService.getToken();
+        const user = authService.getUser();
+        const redirectTo = isMcpGuestSession(token, user)
+          ? "/mcp-guest/login"
+          : "/login";
         authService.logout();
-        window.location.href = "/login";
+        window.location.href = redirectTo;
         throw new Error("Authentication required");
       }
       const errorText = await response.text().catch(() => "");

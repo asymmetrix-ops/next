@@ -519,7 +519,8 @@ export const CompanyDashboard = ({
           >
             Showing companies with{" "}
             <strong style={{ color: "#0f172a" }}>MCP = Yes</strong> only. Filters,
-            exports, and company profiles are not available in guest view.
+            exports, and company profiles are not available in guest view. Click a
+            company name to learn about full access.
           </div>
         </div>
       ) : (
