@@ -312,6 +312,7 @@ export type CompanyAiRiskScores = {
   authority?: number | null;
   historical_data?: number | null;
   data_moat?: number | null;
+  human_judgement?: number | null;
 };
 
 export type CompanyAiRiskRationale = {
@@ -391,6 +392,14 @@ const AXIS_META: AxisMeta[] = [
     rationaleKey: "value_at_stake",
     blurb:
       "Captures the business impact if outputs are wrong — budgets, compliance, or strategic decisions at risk.",
+  },
+  {
+    key: "human",
+    label: "Human Judgement / Expert Commentary",
+    scoreKey: "human_judgement",
+    rationaleKey: "human_judgement",
+    blurb:
+      "How much value comes from expert editorial input, curation, or interpretation that AI cannot easily replicate.",
   },
   {
     key: "workflow",
@@ -484,10 +493,14 @@ export function mapCompanyAiRisksToAxes(
     const raw = meta.scoreKey
       ? record.defense?.[meta.scoreKey] ?? record.risk?.[meta.scoreKey]
       : undefined;
+    const rationaleText = record.rationale?.[meta.rationaleKey];
     const hasScore = typeof raw === "number" && Number.isFinite(raw);
-    if (!hasScore) continue;
+    const hasRationale =
+      typeof rationaleText === "string" && rationaleText.trim().length > 0;
+    const includeRationaleOnly = meta.key === "human" && hasRationale;
+    if (!hasScore && !includeRationaleOnly) continue;
 
-    const score = normalizeToThreeScore(raw);
+    const score = hasScore ? normalizeToThreeScore(raw) : normalizeToThreeScore(undefined);
     axes.push({
       key: meta.key,
       label: meta.label,
