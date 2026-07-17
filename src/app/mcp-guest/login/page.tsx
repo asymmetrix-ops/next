@@ -5,11 +5,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
 import { submitMcpGuestRequest } from "@/lib/mcpGuestRequest";
+import McpGuestCompanyField from "@/components/mcp-guest/McpGuestCompanyField";
 
 export default function McpGuestLoginPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [company, setCompany] = useState("");
+  const [companyId, setCompanyId] = useState<number | null>(null);
   const [workEmail, setWorkEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -46,6 +48,7 @@ export default function McpGuestLoginPage() {
         last_name: trimmedLastName,
         company: trimmedCompany,
         work_email: trimmedWorkEmail,
+        new_company_id: companyId && companyId > 0 ? companyId : 0,
       });
       setSubmitted(true);
     } catch {
@@ -147,16 +150,14 @@ export default function McpGuestLoginPage() {
                   >
                     Company
                   </label>
-                  <input
-                    id="company"
-                    name="company"
-                    type="text"
-                    value={company}
-                    onChange={(e) => setCompany(e.target.value)}
-                    className="px-4 py-3 w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter your company"
-                    required
-                    autoComplete="organization"
+                  <McpGuestCompanyField
+                    companyName={company}
+                    companyId={companyId}
+                    onChange={(name, id) => {
+                      setCompany(name);
+                      setCompanyId(id);
+                    }}
+                    disabled={isSubmitting}
                   />
                 </div>
 
