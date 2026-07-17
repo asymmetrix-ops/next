@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import McpGuestPageShell from "@/components/mcp-guest/McpGuestPageShell";
 import McpGuestRequestForm from "@/components/mcp-guest/McpGuestRequestForm";
-import { MCP_GUEST_SIGN_IN_PATH } from "@/lib/mcpGuest";
+import { MCP_GUEST_OTP_LOGIN_PATH } from "@/lib/mcpGuest";
 
 function McpGuestRequestContent() {
   const searchParams = useSearchParams();
@@ -20,7 +20,7 @@ function McpGuestRequestContent() {
 
       <p className="mt-6 text-sm text-center text-gray-600">
         Already approved?{" "}
-        <Link href={MCP_GUEST_SIGN_IN_PATH} className="text-blue-600 hover:underline">
+        <Link href={MCP_GUEST_OTP_LOGIN_PATH} className="text-blue-600 hover:underline">
           Sign in with your one-time password
         </Link>
       </p>

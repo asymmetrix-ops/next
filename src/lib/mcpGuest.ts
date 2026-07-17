@@ -16,7 +16,10 @@ export const MCP_GUEST_REQUEST_PATH = MCP_GUEST_ENTRY_PATH;
 /** Email + status check + OTP sign-in for approved guests */
 export const MCP_GUEST_SIGN_IN_PATH = "/mcp-guest/sign-in";
 
-/** Legacy URL — redirects to the request entry page */
+/** OTP sign-in entry (e.g. links from approval emails) */
+export const MCP_GUEST_OTP_LOGIN_PATH = "/mcp-guest/login?otp=true";
+
+/** Legacy URL — redirects to the request entry page unless ?otp=true */
 export const MCP_GUEST_LOGIN_PATH = "/mcp-guest/login";
 
 export const MCP_GUEST_CONVERSION_PATH = "/mcp-guest/upgrade";
