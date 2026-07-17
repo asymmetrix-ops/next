@@ -9,28 +9,19 @@ import {
 import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
 import { companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
 import type { CompanySearchPayload } from "@/lib/filterBuilder";
-import {
-  DEFAULT_PLATFORM_CURRENCY,
-  platformCurrencyIdToCode,
-  readPlatformCurrencyIdClient,
-} from "@/lib/platformCurrency";
 import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
 import { mapCompanyTableApiRow } from "@/lib/companyTableData";
 import { normalizeCompaniesResponse } from "@/app/companies/normalizeCompaniesResponse";
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import { readFieldValue } from "./readFieldValue";
 import { runGenericListExport } from "./runListExport";
-import {
-  applyFullListExportCap,
-  hasReachedExportCap,
-} from "./exportCap";
-import { type ExportColumnDef, type ListExportRequest } from "./types";
+import type { ExportColumnDef, ListExportRequest } from "./types";
 
 const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
 
 const COMPANIES_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
 
 const COLUMN_TYPE_BY_KEY = new Map<string, CompanyColumnType>(
   COMPANIES_COLUMN_CATEGORIES.flatMap((category) =>
@@ -66,24 +57,20 @@ function getAllExportApiColumns(): string[] {
   );
 }
 
-function normalizeSelectedCompanyIds(selectedIds: number[]): number[] {
-  return selectedIds
-    .map((id) => Number(id))
-    .filter((id) => Number.isFinite(id) && id > 0);
-}
-
 function buildSelectedCompaniesFilters(
   filters: CompanySearchPayload,
   selectedIds: number[]
 ): CompanySearchPayload {
-  const safeIds = normalizeSelectedCompanyIds(selectedIds);
-  if (safeIds.length === 0) {
-    return filters;
-  }
+  const safeIds = selectedIds.filter((id) => Number.isFinite(id) && id > 0);
+  const idSql =
+    safeIds.length === 1
+      ? `nc.id = ${safeIds[0]}`
+      : `nc.id IN (${safeIds.join(",")})`;
+  const existingSql = filters.filters_sql?.trim();
 
   return {
     ...filters,
-    company_ids: safeIds,
+    filters_sql: existingSql ? `(${existingSql}) AND (${idSql})` : idSql,
     Offset: 1,
     Per_page: Math.min(Math.max(safeIds.length, 1), EXPORT_PER_PAGE),
   };
@@ -138,8 +125,7 @@ function toPlainText(value: unknown): string {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string") {
     const trimmed = value.trim();
-    if (!trimmed || trimmed === "[]" || trimmed === "{}") return EMPTY_DISPLAY;
-    return trimmed;
+    return trimmed === "" ? EMPTY_DISPLAY : trimmed;
   }
   if (Array.isArray(value)) {
     const text = value
@@ -201,7 +187,9 @@ function getCompanyCellValue(
 
   if (LIST_JSON_COLUMN_KEYS.has(column.key)) {
     const parsed = parseListField(raw);
-    return parsed.length > 0 ? toPlainText(parsed) : EMPTY_DISPLAY;
+    if (parsed.length > 0) {
+      return toPlainText(parsed);
+    }
   }
 
   const columnType = (COLUMN_TYPE_BY_KEY.get(column.key) ??
@@ -211,13 +199,7 @@ function getCompanyCellValue(
     return toPlainText(raw);
   }
 
-  return formatCompanyColumnDisplay(
-    column.key,
-    columnType,
-    raw,
-    platformCurrencyIdToCode(readPlatformCurrencyIdClient()) ??
-      DEFAULT_PLATFORM_CURRENCY
-  );
+  return formatCompanyColumnDisplay(column.key, columnType, raw);
 }
 
 function appendUniqueItems(
@@ -239,50 +221,43 @@ function appendUniqueItems(
 }
 
 function resolveExportPageLimit(
-  totalCount: number,
-  pageTotal: number,
-  listPerPage = 20
+  expectedTotalCount: number | undefined,
+  apiTotalCount: number,
+  pageTotal: number
 ): number {
-  if (totalCount > 0) {
-    return Math.min(Math.ceil(totalCount / EXPORT_PER_PAGE), MAX_EXPORT_PAGES);
+  const totalItems =
+    expectedTotalCount && expectedTotalCount > 0
+      ? expectedTotalCount
+      : apiTotalCount > 0
+        ? apiTotalCount
+        : 0;
+
+  if (totalItems > 0) {
+    return Math.min(Math.ceil(totalItems / EXPORT_PER_PAGE), MAX_EXPORT_PAGES);
   }
 
-  if (pageTotal <= 0) return 1;
-
-  // pageTotal is sometimes total items, sometimes page count
-  if (pageTotal > MAX_EXPORT_PAGES) {
-    return Math.min(Math.ceil(pageTotal / EXPORT_PER_PAGE), MAX_EXPORT_PAGES);
+  if (pageTotal > 0) {
+    return Math.min(pageTotal, MAX_EXPORT_PAGES);
   }
 
-  const pagesIfItemCount = Math.ceil(pageTotal / EXPORT_PER_PAGE);
-  const pagesIfListPages = Math.ceil(
-    (pageTotal * Math.max(listPerPage, 1)) / EXPORT_PER_PAGE
-  );
-  return Math.min(Math.max(pagesIfItemCount, pagesIfListPages), MAX_EXPORT_PAGES);
+  return MAX_EXPORT_PAGES;
 }
 
 async function fetchCompaniesPage(
   filters: CompanySearchPayload,
   page: number,
-  apiColumns: string[],
-  perPage: number = EXPORT_PER_PAGE
+  apiColumns: string[]
 ): Promise<{
   items: Record<string, unknown>[];
   pageTotal: number;
   curPage: number;
   nextPage: number | null;
   totalCount: number;
-  perPage: number;
 }> {
   const token = getAuthToken();
   const params = companySearchPayloadToSearchParams(
-    {
-      ...filters,
-      columns: apiColumns,
-      preferred_currency_id:
-        filters.preferred_currency_id ?? readPlatformCurrencyIdClient(),
-    },
-    { page, perPage }
+    { ...filters, columns: apiColumns },
+    { page, perPage: EXPORT_PER_PAGE }
   );
   const url = `${COMPANIES_API_BASE}/Get_new_companies?${params.toString()}`;
   const response = await fetch(url, {
@@ -306,7 +281,6 @@ async function fetchCompaniesPage(
     curPage,
     nextPage,
     totalCount = 0,
-    perPage: responsePerPage,
   } = normalized.result1;
 
   return {
@@ -315,61 +289,46 @@ async function fetchCompaniesPage(
     curPage,
     nextPage,
     totalCount,
-    perPage: responsePerPage || perPage,
   };
-}
-
-async function fetchSelectedCompaniesForExport(
-  filters: CompanySearchPayload,
-  selectedIds: number[]
-): Promise<Record<string, unknown>[]> {
-  const token = getAuthToken();
-  if (!token) throw new Error("Authentication required");
-
-  const safeIds = normalizeSelectedCompanyIds(selectedIds);
-  if (safeIds.length === 0) return [];
-
-  const apiColumns = getAllExportApiColumns();
-  const exportFilters = buildSelectedCompaniesFilters(filters, safeIds);
-  const perPage = Math.min(Math.max(safeIds.length, 1), EXPORT_PER_PAGE);
-  const result = await fetchCompaniesPage(
-    exportFilters,
-    1,
-    apiColumns,
-    perPage
-  );
-
-  return orderRowsBySelectedIds(result.items, safeIds);
 }
 
 async function fetchAllCompaniesForExport(
   filters: CompanySearchPayload,
-  expectedTotalCount?: number,
-  uncapped = false
+  selectedIds?: number[],
+  expectedTotalCount?: number
 ): Promise<Record<string, unknown>[]> {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
 
   const apiColumns = getAllExportApiColumns();
+  const exportFilters =
+    selectedIds && selectedIds.length > 0
+      ? buildSelectedCompaniesFilters(filters, selectedIds)
+      : filters;
+  const rowLimit =
+    selectedIds && selectedIds.length > 0
+      ? selectedIds.length
+      : expectedTotalCount && expectedTotalCount > 0
+        ? expectedTotalCount
+        : 0;
+
   let page = 1;
   const allItems: Record<string, unknown>[] = [];
   const seenIds = new Set<number>();
-  let resolvedTotalCount = 0;
   let pageLimit = MAX_EXPORT_PAGES;
+  let resolvedTotalCount = rowLimit;
 
   while (page <= pageLimit) {
-    const result = await fetchCompaniesPage(filters, page, apiColumns);
+    const result = await fetchCompaniesPage(exportFilters, page, apiColumns);
 
     if (page === 1) {
-      if (result.totalCount > 0) {
+      if (!resolvedTotalCount && result.totalCount > 0) {
         resolvedTotalCount = result.totalCount;
-      } else if (expectedTotalCount && expectedTotalCount > 0) {
-        resolvedTotalCount = expectedTotalCount;
       }
       pageLimit = resolveExportPageLimit(
-        resolvedTotalCount,
-        result.pageTotal,
-        result.perPage
+        resolvedTotalCount || undefined,
+        result.totalCount,
+        result.pageTotal
       );
     }
 
@@ -378,34 +337,41 @@ async function fetchAllCompaniesForExport(
     const added = appendUniqueItems(allItems, seenIds, result.items);
     if (added === 0) break;
 
-    if (hasReachedExportCap(allItems.length, uncapped)) break;
     if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
 
-    const responsePerPage = result.perPage || EXPORT_PER_PAGE;
-    if (result.items.length < responsePerPage) break;
+    if (result.items.length < EXPORT_PER_PAGE) break;
+    if (result.nextPage == null) break;
 
-    page += 1;
+    page = result.nextPage > page ? result.nextPage : page + 1;
   }
 
-  return applyFullListExportCap(allItems, uncapped);
+  if (selectedIds && selectedIds.length > 0) {
+    return orderRowsBySelectedIds(allItems, selectedIds);
+  }
+
+  return allItems;
 }
 
 export async function exportCompaniesList(
   request: ListExportRequest,
   filters: CompanySearchPayload,
   visibleColumnKeys: string[],
-  expectedTotalCount?: number,
-  uncapped = false
+  expectedTotalCount?: number
 ): Promise<void> {
-  let rows: Record<string, unknown>[];
+  const selectedIds =
+    request.scope === "selected" ? request.selectedIds ?? [] : undefined;
 
-  if (request.scope === "selected") {
-    const selectedIds = normalizeSelectedCompanyIds(request.selectedIds ?? []);
-    if (selectedIds.length === 0) return;
-    rows = await fetchSelectedCompaniesForExport(filters, selectedIds);
-  } else {
-    rows = await fetchAllCompaniesForExport(filters, expectedTotalCount, uncapped);
+  if (request.scope === "selected" && (!selectedIds || selectedIds.length === 0)) {
+    return;
   }
+
+  const rows = await fetchAllCompaniesForExport(
+    filters,
+    selectedIds,
+    request.scope === "full_list"
+      ? expectedTotalCount
+      : selectedIds?.length
+  );
 
   await runGenericListExport({
     request,

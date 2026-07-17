@@ -31,6 +31,8 @@ import {
 } from "@/components/investors/investorsFilterConfig";
 import { CANONICAL_INVESTOR_COLUMN_KEYS } from "@/components/investors/investorsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
+import { SearchExportMenu } from "@/components/search/SearchExportMenu";
+import type { ListExportMode } from "@/lib/listExport/types";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { SEARCH_HEADER_ACTION_BUTTON_STYLE } from "@/components/search/searchHeaderActions";
 import {
@@ -63,6 +65,8 @@ export type InvestorDashboardProps = {
   onColumnsClick?: () => void;
   columnsActive?: boolean;
   columnsCount?: number;
+  onExport?: (mode: ListExportMode) => void | Promise<void>;
+  exporting?: boolean;
 };
 
 export const InvestorDashboard = ({
@@ -75,6 +79,8 @@ export const InvestorDashboard = ({
   onColumnsClick,
   columnsActive = false,
   columnsCount = 0,
+  onExport,
+  exporting = false,
 }: InvestorDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
     filters: [],
@@ -339,6 +345,11 @@ export const InvestorDashboard = ({
               count={columnsCount}
               total={CANONICAL_INVESTOR_COLUMN_KEYS.length}
               onClick={onColumnsClick}
+            />
+            <SearchExportMenu
+              onExport={(mode) => onExport?.(mode)}
+              exporting={exporting}
+              disabled={!onExport}
             />
             <RequestDataResearchButton
               label="Request Investor Profile"

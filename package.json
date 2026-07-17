@@ -61,6 +61,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tiny-emitter": "^2.1.0",
     "uuid": "^11.1.0",
+    "xlsx": "^0.18.5",
     "yahoo-finance2": "^2.13.3",
     "zustand": "^4.4.0"
   },

@@ -31,6 +31,8 @@ import {
 } from "@/components/individuals/individualsFilterConfig";
 import { CANONICAL_INDIVIDUAL_COLUMN_KEYS } from "@/components/individuals/individualsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
+import { SearchExportMenu } from "@/components/search/SearchExportMenu";
+import type { ListExportMode } from "@/lib/listExport/types";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { SEARCH_HEADER_ACTION_BUTTON_STYLE } from "@/components/search/searchHeaderActions";
 import {
@@ -62,6 +64,8 @@ export type IndividualDashboardProps = {
   onColumnsClick?: () => void;
   columnsActive?: boolean;
   columnsCount?: number;
+  onExport?: (mode: ListExportMode) => void | Promise<void>;
+  exporting?: boolean;
 };
 
 export const IndividualDashboard = ({
@@ -73,6 +77,8 @@ export const IndividualDashboard = ({
   onColumnsClick,
   columnsActive = false,
   columnsCount = 0,
+  onExport,
+  exporting = false,
 }: IndividualDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
     filters: [],
@@ -313,6 +319,11 @@ export const IndividualDashboard = ({
               count={columnsCount}
               total={CANONICAL_INDIVIDUAL_COLUMN_KEYS.length}
               onClick={onColumnsClick}
+            />
+            <SearchExportMenu
+              onExport={(mode) => onExport?.(mode)}
+              exporting={exporting}
+              disabled={!onExport}
             />
             <RequestDataResearchButton
               label="Request Individual Profile"

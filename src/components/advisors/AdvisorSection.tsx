@@ -14,7 +14,6 @@ import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import type { AdvisorListItem, AdvisorsSearchFilters } from "@/app/advisors/actions";
 import {
   createDefaultAdvisorFilters,
-  advisorsFiltersToSearchParams,
 } from "@/lib/advisorsFilterPayload";
 import {
   ADVISORS_COLUMN_CATEGORIES,
@@ -44,6 +43,9 @@ import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdenti
 import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
 import { readLogoFromRecord } from "@/lib/companyLogo";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
+import { exportAdvisorsList } from "@/lib/listExport/advisorsListExport";
+import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
+import { checkExportLimit } from "@/utils/exportLimitCheck";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import {
   isSearchTableSelectionEnabled,
@@ -96,14 +98,6 @@ function getValidColumnKeys(keys: string[]): string[] {
   );
 }
 
-function escapeCsvField(value: string): string {
-  const s = String(value ?? "").trim();
-  if (s.includes('"') || s.includes("\n") || s.includes(",")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
 export const AdvisorSection = ({
   advisors,
   loading,
@@ -116,6 +110,7 @@ export const AdvisorSection = ({
   externalSetShowColumnsModal,
   onColumnsCountChange,
   onRegisterExportCSV,
+  onExportingChange,
   isPortfolioOnlyFilter = false,
   sortColumnKey = null,
   sortDirection = "desc",
@@ -146,7 +141,8 @@ export const AdvisorSection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
-  onRegisterExportCSV?: (fn: () => void) => void;
+  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
+  onExportingChange?: (exporting: boolean) => void;
   isPortfolioOnlyFilter?: boolean;
   sortColumnKey?: string | null;
   sortDirection?: "asc" | "desc";
@@ -310,70 +306,48 @@ export const AdvisorSection = ({
     [frozenColumnKeys]
   );
 
-  const exportToCsv = useCallback(async () => {
-    const filters = currentFilters ?? createDefaultAdvisorFilters();
-    const itemsTotal = pagination.itemsTotal;
-    if (itemsTotal <= 0) return;
+  const [exporting, setExporting] = useState(false);
 
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = advisorsFiltersToSearchParams({
-        ...filters,
-        page: 1,
-        per_page: itemsTotal,
-      });
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-      if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
+  const handleListExport = useCallback(
+    async (mode: ListExportMode, scope: ListExportRequest["scope"]) => {
+      try {
+        const limitCheck = await checkExportLimit();
+        if (!limitCheck.canExport) return;
 
-      const raw = (await response.json()) as {
-        items?: Advisor[];
-        result1?: { items?: Advisor[] };
-        Advisors_companies?: { items?: Advisor[] };
-      };
-      const allAdvisors =
-        raw.items ?? raw.result1?.items ?? raw.Advisors_companies?.items ?? [];
-      const baseUrl = window.location.origin;
-      const headers = [
-        "Advisor Name",
-        "Asymmetrix link",
-        "Description",
-        "Number of corporate events advised",
-        "Advised sectors",
-        "Country",
-      ];
-      const rows = allAdvisors.map((advisor) =>
-        [
-          escapeCsvField(advisor.name ?? ""),
-          escapeCsvField(`${baseUrl}/advisor/${advisor.id}`),
-          escapeCsvField(advisor.description ?? ""),
-          String(advisor.events_advised ?? 0),
-          escapeCsvField(advisor.sectors ?? ""),
-          escapeCsvField(advisor.country ?? ""),
-        ].join(",")
-      );
-      const csv = [headers.join(","), ...rows].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const urlObj = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = urlObj;
-      a.download = `advisors-export-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(urlObj);
-    } catch (exportError) {
-      console.error("Export CSV failed:", exportError);
-    }
-  }, [currentFilters, pagination.itemsTotal]);
+        setExporting(true);
+        await exportAdvisorsList(
+          {
+            mode,
+            scope,
+            selectedIds:
+              scope === "selected" ? selectedIdList : undefined,
+          },
+          currentFilters ?? createDefaultAdvisorFilters(),
+          selectedColumnKeys
+        );
+      } catch (exportError) {
+        console.error("Advisor export failed:", exportError);
+      } finally {
+        setExporting(false);
+      }
+    },
+    [currentFilters, selectedColumnKeys, selectedIdList]
+  );
+
+  const handleExportRequest = useCallback(
+    async (request: ListExportRequest) => {
+      await handleListExport(request.mode, request.scope);
+    },
+    [handleListExport]
+  );
 
   useEffect(() => {
-    onRegisterExportCSV?.(exportToCsv);
-  }, [exportToCsv, onRegisterExportCSV]);
+    onExportingChange?.(exporting);
+  }, [exporting, onExportingChange]);
+
+  useEffect(() => {
+    onRegisterExportCSV?.(handleExportRequest);
+  }, [handleExportRequest, onRegisterExportCSV]);
 
   const columnsModalInitial = useMemo(
     () => advisorColumnKeysToVisibility(selectedColumnKeys),
@@ -632,6 +606,8 @@ export const AdvisorSection = ({
           entityType="advisor"
           entityIds={selectedIdList}
           onClearSelection={onClearSelection}
+          exporting={exporting}
+          onExport={(mode) => handleListExport(mode, "selected")}
         />
       )}
       <div className="company-table-scroll">

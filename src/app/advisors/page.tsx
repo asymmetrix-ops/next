@@ -28,6 +28,7 @@ import {
 } from "./actions";
 import { getAdvisorServerSortColumn } from "@/components/advisors/advisorsTableSort";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
+import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useAdvisorsAPI = () => {
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -188,7 +189,10 @@ function AdvisorsPageInner() {
   const [initialSearch, setInitialSearch] = useState<string | undefined>(
     undefined
   );
-  const exportCSVRef = useRef<(() => void) | null>(null);
+  const exportCSVRef = useRef<
+    ((request: ListExportRequest) => Promise<void>) | null
+  >(null);
+  const [exporting, setExporting] = useState(false);
   const [sortColumnKey, setSortColumnKey] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
@@ -293,7 +297,10 @@ function AdvisorsPageInner() {
         initialSearch={initialSearch}
         roleCounts={roleCounts}
         onColumnsClick={() => setShowColumnsModal((value) => !value)}
-        onExportCSVClick={() => exportCSVRef.current?.()}
+        onExport={(mode) =>
+          exportCSVRef.current?.({ mode, scope: "full_list" })
+        }
+        exporting={exporting}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
       />
@@ -311,6 +318,7 @@ function AdvisorsPageInner() {
         onRegisterExportCSV={(fn) => {
           exportCSVRef.current = fn;
         }}
+        onExportingChange={setExporting}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
         sortColumnKey={sortColumnKey}
         sortDirection={sortDirection}
