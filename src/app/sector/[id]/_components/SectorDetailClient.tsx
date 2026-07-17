@@ -24,6 +24,11 @@ import {
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "@/types/insightsAnalysis";
+import {
+  SearchEntityMultiValueCell,
+  SEARCH_MULTI_VALUE_STYLES,
+} from "@/components/search/SearchEntityMultiValueCell";
+import type { SearchMultiValueItem } from "@/components/search/searchMultiValueUtils";
 
 // Types for API integration
 interface SectorData {
@@ -208,9 +213,43 @@ interface RankedEntity {
   count: number;
   id?: number;
   mostRecentTarget?: string;
+  mostRecentTargetId?: number;
   closedDate?: string;
   corporateEventId?: number;
   logoUrl?: string; // fully qualified (e.g., data:image/jpeg;base64,...)
+}
+
+function renderMostRecentTargetValue(
+  entity: Pick<RankedEntity, "mostRecentTarget" | "mostRecentTargetId" | "corporateEventId">,
+  className = "text-blue-600 hover:underline"
+): React.ReactNode {
+  if (!entity.mostRecentTarget) return "-";
+
+  if (entity.mostRecentTargetId) {
+    return (
+      <a
+        href={`/company/${entity.mostRecentTargetId}`}
+        className={className}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {entity.mostRecentTarget}
+      </a>
+    );
+  }
+
+  if (entity.corporateEventId) {
+    return (
+      <a
+        href={`/corporate-event/${entity.corporateEventId}`}
+        className={className}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {entity.mostRecentTarget}
+      </a>
+    );
+  }
+
+  return entity.mostRecentTarget;
 }
 
 function toStringSafe(value: unknown): string {
@@ -431,16 +470,48 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
           "times",
           "occurrences",
         ]) ?? 0;
-      const mostRecentTarget = toStringSafe(
-        getFirstMatchingValue(obj, [
-          "Most_Recent_Target",
-          "most_recent_target",
-          "Most_Recent_Investment",
-          "most_recent_investment",
-          "Most_Recent_Acquisition",
-          "most_recent_acquisition",
-        ]) || ""
-      );
+      const mostRecentTargetRaw = getFirstMatchingValue(obj, [
+        "Most_Recent_Target",
+        "most_recent_target",
+        "Most_Recent_Investment",
+        "most_recent_investment",
+        "Most_Recent_Acquisition",
+        "most_recent_acquisition",
+      ]);
+      let mostRecentTarget = "";
+      let mostRecentTargetId: number | undefined;
+      if (mostRecentTargetRaw && typeof mostRecentTargetRaw === "object") {
+        const targetObj = mostRecentTargetRaw as Record<string, unknown>;
+        mostRecentTarget = toStringSafe(
+          getFirstMatchingValue(targetObj, [
+            "name",
+            "company_name",
+            "target_name",
+            "Target",
+            "target",
+          ]) || ""
+        );
+        mostRecentTargetId = getFirstMatchingNumber(targetObj, [
+          "id",
+          "company_id",
+          "target_company_id",
+          "new_company_id",
+          "original_new_company_id",
+        ]);
+      } else {
+        mostRecentTarget = toStringSafe(mostRecentTargetRaw || "");
+        mostRecentTargetId = getFirstMatchingNumber(obj, [
+          "Most_Recent_Target_company_id",
+          "most_recent_target_company_id",
+          "Most_Recent_Target_Company_ID",
+          "Most_Recent_Target_ID",
+          "most_recent_target_id",
+          "Most_Recent_Target_id",
+          "Target_company_id",
+          "target_company_id",
+          "most_recent_target_new_company_id",
+        ]);
+      }
       const closedDate = toStringSafe(
         getFirstMatchingValue(obj, [
           "Closed_Date",
@@ -488,6 +559,8 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
         count,
         id: typeof acquirerId === "number" ? acquirerId : undefined,
         mostRecentTarget: mostRecentTarget || undefined,
+        mostRecentTargetId:
+          typeof mostRecentTargetId === "number" ? mostRecentTargetId : undefined,
         closedDate: closedDate || undefined,
         corporateEventId:
           typeof corporateEventId === "number" ? corporateEventId : undefined,
@@ -996,7 +1069,10 @@ function MostActiveTableCard({
                       </div>
                       <div className="text-right min-w-0 flex-1">
                         <p className="text-xs font-medium text-slate-900 truncate">
-                          {it.mostRecentTarget || "-"}
+                          {renderMostRecentTargetValue(
+                            it,
+                            "text-blue-600 hover:underline"
+                          )}
                         </p>
                         <p className="text-xs text-slate-500">
                           {it.closedDate || "-"}
@@ -1165,17 +1241,7 @@ function MostActiveTableCard({
                         <td className="py-3">
                           <div>
                             <p className="text-sm font-medium text-slate-900">
-                              {it.corporateEventId && it.mostRecentTarget ? (
-                                <a
-                                  href={`/corporate-event/${it.corporateEventId}`}
-                                  className="text-blue-600 hover:underline"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {it.mostRecentTarget}
-                                </a>
-                              ) : (
-                                it.mostRecentTarget || "-"
-                              )}
+                              {renderMostRecentTargetValue(it)}
                             </p>
                             <p className="mt-1 text-xs text-slate-500">
                               {it.closedDate || "-"}
@@ -1353,17 +1419,7 @@ function MostActiveFullTable({
                   </span>
                 </td>
                 <td className="py-3 px-4 text-slate-700 max-w-[200px] truncate">
-                  {it.corporateEventId && it.mostRecentTarget ? (
-                    <a
-                      href={`/corporate-event/${it.corporateEventId}`}
-                      className="text-blue-600 hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {it.mostRecentTarget}
-                    </a>
-                  ) : (
-                    it.mostRecentTarget || "-"
-                  )}
+                  {renderMostRecentTargetValue(it)}
                 </td>
                 <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
                   {it.closedDate || "-"}
@@ -1375,6 +1431,32 @@ function MostActiveFullTable({
       </table>
     </div>
   );
+}
+
+function advisorSectorLinksToItems(
+  links: AdvisorSectorLink[]
+): SearchMultiValueItem[] {
+  return links.flatMap((sector, index) => {
+    const name = sector.name?.trim();
+    if (!name) return [];
+
+    const isSecondary = (sector.importance || "")
+      .toLowerCase()
+      .includes("secondary");
+    const href = sector.id
+      ? isSecondary
+        ? `/sub-sector/${sector.id}`
+        : `/sector/${sector.id}`
+      : undefined;
+
+    return [
+      {
+        name,
+        href,
+        key: `${sector.id ?? index}-${name}`,
+      },
+    ];
+  });
 }
 
 function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
@@ -1393,108 +1475,82 @@ function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
   }
 
   return (
-    <div className="overflow-auto">
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="bg-slate-50 border-b border-slate-100">
-            <th className="py-3 px-4 text-left font-semibold text-slate-600 w-10">#</th>
-            <th className="py-3 px-4 text-left font-semibold text-slate-600 w-16">Logo</th>
-            <th className="py-3 px-4 text-left font-semibold text-slate-600">Advisor Name</th>
-            <th className="py-3 px-4 text-left font-semibold text-slate-600">Country</th>
-            <th className="py-3 px-4 text-center font-semibold text-slate-600 w-48">
-              Total No. Deals Advised
-            </th>
-            <th className="py-3 px-4 text-left font-semibold text-slate-600">
-              Sectors Covered
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {items.map((it, i) => {
-            const linkUrl = it.id ? `/advisor/${it.id}` : undefined;
-            return (
-              <tr
-                key={`${it.name}-${i}`}
-                className="hover:bg-slate-50/60 transition-colors duration-100"
-              >
-                <td className="py-3 px-4 text-slate-400 font-medium">{i + 1}</td>
-                <td className="py-3 px-4">
-                  {it.logoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={it.logoUrl}
-                      alt={it.name}
-                      className="w-8 h-8 rounded-lg object-contain"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="flex justify-center items-center w-8 h-8 rounded-lg text-white bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
-                      <BuildingOfficeIcon className="w-4 h-4" />
-                    </div>
-                  )}
-                </td>
-                <td className="py-3 px-4">
-                  {linkUrl ? (
-                    <a href={linkUrl} className="font-medium text-blue-600 hover:underline">
-                      {it.name}
-                    </a>
-                  ) : (
-                    <span className="font-medium text-slate-900">{it.name}</span>
-                  )}
-                </td>
-                <td className="py-3 px-4 text-slate-700">
-                  {it.country || "-"}
-                </td>
-                <td className="py-3 px-4 text-center">
-                  <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-amber-50 text-amber-700">
-                    {formatNumber(it.totalDealsAdvised)}
-                  </span>
-                </td>
-                <td className="py-3 px-4 text-slate-700 max-w-[360px]">
-                  {it.sectorLinks && it.sectorLinks.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {it.sectorLinks.map((sector, idx) => {
-                        const isSecondary = (sector.importance || "")
-                          .toLowerCase()
-                          .includes("secondary");
-                        const href = sector.id
-                          ? isSecondary
-                            ? `/sub-sector/${sector.id}`
-                            : `/sector/${sector.id}`
-                          : undefined;
-                        const className =
-                          "inline-flex max-w-[180px] items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors truncate";
-
-                        return href ? (
-                          <a
-                            key={`${sector.name}-${sector.id ?? idx}`}
-                            href={href}
-                            title={sector.name}
-                            className={className}
-                          >
-                            {sector.name}
-                          </a>
-                        ) : (
-                          <span
-                            key={`${sector.name}-${idx}`}
-                            title={sector.name}
-                            className="inline-flex max-w-[180px] items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 truncate"
-                          >
-                            {sector.name}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    it.sectorsCovered || "-"
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <style>{SEARCH_MULTI_VALUE_STYLES}</style>
+      <div className="overflow-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-100">
+              <th className="py-3 px-4 text-left font-semibold text-slate-600 w-10">#</th>
+              <th className="py-3 px-4 text-left font-semibold text-slate-600 w-16">Logo</th>
+              <th className="py-3 px-4 text-left font-semibold text-slate-600">Advisor Name</th>
+              <th className="py-3 px-4 text-left font-semibold text-slate-600">Country</th>
+              <th className="py-3 px-4 text-center font-semibold text-slate-600 w-48">
+                Total No. Deals Advised
+              </th>
+              <th className="py-3 px-4 text-left font-semibold text-slate-600">
+                Sectors Covered
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {items.map((it, i) => {
+              const linkUrl = it.id ? `/advisor/${it.id}` : undefined;
+              return (
+                <tr
+                  key={`${it.name}-${i}`}
+                  className="hover:bg-slate-50/60 transition-colors duration-100"
+                >
+                  <td className="py-3 px-4 text-slate-400 font-medium">{i + 1}</td>
+                  <td className="py-3 px-4">
+                    {it.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={it.logoUrl}
+                        alt={it.name}
+                        className="w-8 h-8 rounded-lg object-contain"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex justify-center items-center w-8 h-8 rounded-lg text-white bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
+                        <BuildingOfficeIcon className="w-4 h-4" />
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-3 px-4">
+                    {linkUrl ? (
+                      <a href={linkUrl} className="font-medium text-blue-600 hover:underline">
+                        {it.name}
+                      </a>
+                    ) : (
+                      <span className="font-medium text-slate-900">{it.name}</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-slate-700">
+                    {it.country || "-"}
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-amber-50 text-amber-700">
+                      {formatNumber(it.totalDealsAdvised)}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-slate-700 max-w-[360px]">
+                    {it.sectorLinks && it.sectorLinks.length > 0 ? (
+                      <SearchEntityMultiValueCell
+                        items={advisorSectorLinksToItems(it.sectorLinks)}
+                        maxVisible={10}
+                      />
+                    ) : (
+                      it.sectorsCovered || "-"
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
