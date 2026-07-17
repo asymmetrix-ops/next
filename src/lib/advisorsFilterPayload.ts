@@ -165,6 +165,7 @@ export const createDefaultAdvisorFilters = (): AdvisorsSearchFilters =>
     page: 1,
     per_page: 25,
     portfolio_only: false,
+    include_sectors: true,
   });
 
 export function buildAdvisorsSearchPayload(args: {
