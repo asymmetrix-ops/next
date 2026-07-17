@@ -33,11 +33,10 @@ import {
 } from "@/components/advisors/advisorsFilterConfig";
 import { CANONICAL_ADVISOR_COLUMN_KEYS } from "@/components/advisors/advisorsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
+import { SearchExportMenu } from "@/components/search/SearchExportMenu";
+import type { ListExportMode } from "@/lib/listExport/types";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
-import {
-  SEARCH_HEADER_ACTION_BUTTON_STYLE,
-  SearchExportCsvIcon,
-} from "@/components/search/searchHeaderActions";
+import { SEARCH_HEADER_ACTION_BUTTON_STYLE } from "@/components/search/searchHeaderActions";
 import {
   SEARCH_DASHBOARD_ACTIONS,
   SEARCH_DASHBOARD_EYEBROW,
@@ -62,7 +61,8 @@ export type AdvisorDashboardProps = {
   initialSearch?: string;
   roleCounts?: AdvisorsRoleCounts;
   onColumnsClick?: () => void;
-  onExportCSVClick?: () => void;
+  onExport?: (mode: ListExportMode) => void | Promise<void>;
+  exporting?: boolean;
   columnsActive?: boolean;
   columnsCount?: number;
 };
@@ -73,7 +73,8 @@ export const AdvisorDashboard = ({
   initialSearch,
   roleCounts = EMPTY_ADVISORS_ROLE_COUNTS,
   onColumnsClick,
-  onExportCSVClick,
+  onExport,
+  exporting = false,
   columnsActive = false,
   columnsCount = 0,
 }: AdvisorDashboardProps) => {
@@ -323,14 +324,11 @@ export const AdvisorDashboard = ({
               className="inline-flex items-center justify-center"
               style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
             />
-            <button
-              type="button"
-              onClick={onExportCSVClick}
-              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
-            >
-              <SearchExportCsvIcon />
-              Export CSV
-            </button>
+            <SearchExportMenu
+              onExport={(mode) => onExport?.(mode)}
+              exporting={exporting}
+              disabled={!onExport}
+            />
           </div>
         </div>
 

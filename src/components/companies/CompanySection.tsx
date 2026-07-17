@@ -11,13 +11,12 @@ import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
 import {
-  CompaniesCSVExporter,
-  CompanyCSVRow as BaseCompanyCSVRow,
-} from "@/utils/companiesCSVExport";
+  exportCompaniesList,
+} from "@/lib/listExport/companiesListExport";
+import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import type { CompaniesFilters } from "@/app/companies/actions";
-import { companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import {
   CANONICAL_COMPANY_COLUMN_KEYS,
@@ -61,21 +60,6 @@ import { useSectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import type { SectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import CompactPagination from "@/components/ui/CompactPagination";
 
-interface CompanyCSVRow extends BaseCompanyCSVRow {
-  Revenue?: string;
-  EBITDA?: string;
-  "Enterprise Value"?: string;
-  "Revenue Multiple"?: string;
-  "Revenue Growth"?: string;
-  "EBITDA Margin"?: string;
-  "Rule of 40"?: string;
-  ARR?: string;
-  Churn?: string;
-  GRR?: string;
-  NRR?: string;
-  "New Clients Revenue Growth"?: string;
-}
-
 export type SectorRef =
   | string
   | {
@@ -115,59 +99,9 @@ export const createDefaultFilters = (): Filters => ({
   columns: [],
 });
 
-interface ExportCompanyJson {
-  id?: number | string;
-  name?: string;
-  description?: string;
-  primary_sectors?: string | string[];
-  secondary_sectors?: string | string[];
-  ownership?: string;
-  linkedin_members?: number | string;
-  country?: string;
-  asymmetrix_url?: string;
-  company_link?: string;
-  Revenue_m?: number | string;
-  EBITDA_m?: number | string;
-  EV?: number | string;
-  Revenue_multiple?: number | string;
-  Rev_Growth_PC?: number | string;
-  EBITDA_margin?: number | string;
-  Rule_of_40?: number | string;
-  ARR_pc?: number | string;
-  ARR_m?: number | string;
-  Churn_pc?: number | string;
-  GRR_pc?: number | string;
-  NRR?: number | string;
-  New_client_growth_pc?: number | string;
-  Financial_Year?: number | string;
-}
-
 const formatNumber = (num: number | undefined): string => {
   if (num === undefined || num === null) return "0";
   return num.toLocaleString();
-};
-
-const isExportCompanyJson = (value: unknown): value is ExportCompanyJson => {
-  if (!value || typeof value !== "object") return false;
-  const obj = value as Record<string, unknown>;
-  return (
-    typeof obj.name === "string" ||
-    typeof obj.description === "string" ||
-    typeof obj.country === "string"
-  );
-};
-
-const getSectorInfo = (sector: unknown): { name: string; id?: number } => {
-  if (typeof sector === "string") return { name: sector };
-  if (!sector || typeof sector !== "object") return { name: "" };
-  const rec = sector as Record<string, unknown>;
-  const nameRaw =
-    (typeof rec.sector_name === "string" && rec.sector_name) ||
-    (typeof rec.name === "string" && rec.name) ||
-    "";
-  const idRaw = rec.id;
-  const id = typeof idRaw === "number" ? idRaw : undefined;
-  return { name: String(nameRaw), id };
 };
 
 const buildSectorItems = (
@@ -879,6 +813,7 @@ export const CompanySection = ({
   externalSetShowColumnsModal,
   onColumnsCountChange,
   onRegisterExportCSV,
+  onExportingChange,
   selectedCompanyIds,
   onToggleCompanySelection,
   onTogglePageSelection,
@@ -898,6 +833,7 @@ export const CompanySection = ({
     offset: number;
     perPage: number;
     pageTotal: number;
+    totalCount?: number;
   };
   ownershipCounts: CompaniesOwnershipCounts;
   fetchCompanies: (page?: number, filters?: Filters, countsFilters?: Filters) => Promise<void>;
@@ -908,7 +844,8 @@ export const CompanySection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (v: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
-  onRegisterExportCSV?: (fn: () => void) => void;
+  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
+  onExportingChange?: (exporting: boolean) => void;
   selectedCompanyIds: Set<number>;
   onToggleCompanySelection: (id: number) => void;
   onTogglePageSelection: (ids: number[]) => void;
@@ -924,6 +861,8 @@ export const CompanySection = ({
     : "company-section";
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const exportInFlightRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal = externalShowColumnsModal !== undefined ? externalShowColumnsModal : internalShowColumnsModal;
   const setShowColumnsModal = externalSetShowColumnsModal ?? setInternalShowColumnsModal;
@@ -1235,317 +1174,79 @@ export const CompanySection = ({
 
 
   // Handle CSV export using backend endpoint and include active filters
-  const handleExportCSV = useCallback(async () => {
-    try {
-      // Check export limit first
-      const limitCheck = await checkExportLimit();
-      if (!limitCheck.canExport) {
-        setExportsLeft(limitCheck.exportsLeft);
-        setShowExportLimitModal(true);
-        return;
-      }
-
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = currentFilters
-        ? companySearchPayloadToSearchParams(currentFilters)
-        : new URLSearchParams();
-
-      // First, fetch page 1 to get total page count
-      const baseParams = new URLSearchParams(params.toString());
-      baseParams.append("Offset", "1");
-      baseParams.append("Per_page", "25");
-      
-      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${baseParams.toString()}`;
-      
-      const firstResp = await fetch(firstPageUrl, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: "include",
-      });
-      
-      if (!firstResp.ok) {
-        // Check if it's an export limit error
-        if (firstResp.status === 403 || firstResp.status === 429) {
-          const limitCheck = await checkExportLimit();
+  const handleListExport = useCallback(
+    async (mode: ListExportMode, scope: ListExportRequest["scope"]) => {
+      if (readOnlyGuestMode || exportInFlightRef.current) return;
+      try {
+        const limitCheck = await checkExportLimit();
+        if (!limitCheck.canExport) {
           setExportsLeft(limitCheck.exportsLeft);
           setShowExportLimitModal(true);
           return;
         }
-        const errText = await firstResp.text();
-        throw new Error(
-          `Export failed: ${firstResp.status} ${firstResp.statusText} - ${errText}`
-        );
-      }
-      
-      // Parse first page to get pagination info
-      const firstPageText = await firstResp.text();
-      let firstPageParsed: unknown;
-      let isJson = false;
-      let totalPages = 1;
-      
-      try {
-        firstPageParsed = JSON.parse(firstPageText);
-        isJson = true;
-        // Check if response has pagination info
-        if (
-          firstPageParsed &&
-          typeof firstPageParsed === "object" &&
-          "pageTotal" in (firstPageParsed as Record<string, unknown>)
-        ) {
-          totalPages = (firstPageParsed as { pageTotal?: number }).pageTotal || 1;
-        } else if (
-          firstPageParsed &&
-          typeof firstPageParsed === "object" &&
-          "result1" in (firstPageParsed as Record<string, unknown>)
-        ) {
-          const result1 = (firstPageParsed as { result1?: { pageTotal?: number } }).result1;
-          totalPages = result1?.pageTotal || 1;
-        }
-      } catch {
-        isJson = false;
-      }
-      
-      // Collect all items from all pages
-      let allItems: ExportCompanyJson[] = [];
-      
-      // Process first page
-      if (isJson) {
-        const itemsUnknown: unknown[] = Array.isArray(firstPageParsed)
-          ? (firstPageParsed as unknown[])
-          : firstPageParsed &&
-            typeof firstPageParsed === "object" &&
-            Array.isArray((firstPageParsed as { items?: unknown[] }).items)
-          ? ((firstPageParsed as { items?: unknown[] }).items as unknown[])
-          : firstPageParsed &&
-            typeof firstPageParsed === "object" &&
-            "result1" in (firstPageParsed as Record<string, unknown>) &&
-            Array.isArray((firstPageParsed as { result1?: { items?: unknown[] } }).result1?.items)
-          ? ((firstPageParsed as { result1?: { items?: unknown[] } }).result1?.items as unknown[])
-          : [];
-        allItems = itemsUnknown.filter(isExportCompanyJson);
-      }
-      
-      // Fetch remaining pages if there are more
-      if (totalPages > 1) {
-        for (let page = 2; page <= totalPages; page++) {
-          const pageParams = new URLSearchParams(params.toString());
-          pageParams.append("Offset", page.toString());
-          pageParams.append("Per_page", "25");
-          
-          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${pageParams.toString()}`;
-          
-          const pageResp = await fetch(pageUrl, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              "Accept": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            credentials: "include",
-          });
-          
-          if (!pageResp.ok) {
-            console.warn(`Failed to fetch page ${page}, continuing with available data`);
-            continue;
-          }
-          
-          const pageText = await pageResp.text();
-          try {
-            const pageParsed = JSON.parse(pageText);
-            const pageItemsUnknown: unknown[] = Array.isArray(pageParsed)
-              ? (pageParsed as unknown[])
-              : pageParsed &&
-                typeof pageParsed === "object" &&
-                Array.isArray((pageParsed as { items?: unknown[] }).items)
-              ? ((pageParsed as { items?: unknown[] }).items as unknown[])
-              : pageParsed &&
-                typeof pageParsed === "object" &&
-                "result1" in (pageParsed as Record<string, unknown>) &&
-                Array.isArray((pageParsed as { result1?: { items?: unknown[] } }).result1?.items)
-              ? ((pageParsed as { result1?: { items?: unknown[] } }).result1?.items as unknown[])
-              : [];
-            const pageItems = pageItemsUnknown.filter(isExportCompanyJson);
-            allItems = [...allItems, ...pageItems];
-          } catch (e) {
-            console.warn(`Failed to parse page ${page}, continuing with available data`, e);
-          }
-        }
-      }
-      
-      if (allItems.length === 0) {
-        throw new Error("Export returned empty data");
-      }
-      
-      if (isJson) {
-        const items = allItems;
-        
-        // Ensure all rows have all columns by creating a base row structure
-        const rows: CompanyCSVRow[] = items.map((it: ExportCompanyJson) => {
-          const primaryVal = it.primary_sectors ?? "";
-          const secondaryVal = it.secondary_sectors ?? "";
-          const primaryStr = Array.isArray(primaryVal)
-            ? primaryVal.join(", ")
-            : String(primaryVal);
-          const secondaryStr = Array.isArray(secondaryVal)
-            ? secondaryVal.join(", ")
-            : String(secondaryVal);
-          const primary = primaryStr
-            ? primaryStr
-                .split(",")
-                .map((s: string) => s.trim())
-                .filter(Boolean)
-            : [];
-          const secondary = secondaryStr
-            ? secondaryStr
-                .split(",")
-                .map((s: string) => s.trim())
-                .filter(Boolean)
-            : [];
 
-          // Some payloads use `arr_pc` while others use `ARR_pc`
-          const arrPcRaw =
-            (it as unknown as Record<string, unknown>)["arr_pc"] ?? it.ARR_pc;
-          const arrPc =
-            typeof arrPcRaw === "number" || typeof arrPcRaw === "string"
-              ? arrPcRaw
-              : undefined;
-          
-          // Construct company URL from ID, or fall back to API-provided URLs
-          let companyLink = "";
-          if (it.id != null) {
-            const companyId = typeof it.id === "number" ? it.id : Number(it.id);
-            if (!isNaN(companyId)) {
-              companyLink = `https://www.asymmetrixintelligence.com/company/${companyId}`;
-            }
-          }
-          if (!companyLink && it.company_link) {
-            companyLink = it.company_link;
-          }
-          if (!companyLink && it.asymmetrix_url) {
-            companyLink = it.asymmetrix_url;
-          }
-          
-          // Create row with ALL columns always present
-          const row: CompanyCSVRow = {
-            Name: it.name ?? "-",
-            Description: it.description ?? "-",
-            "Primary Sector(s)": CompaniesCSVExporter.formatSectors(primary),
-            "Secondary Sector(s)": CompaniesCSVExporter.formatSectors(secondary),
-            Ownership: it.ownership ?? "-",
-            "LinkedIn Members": CompaniesCSVExporter.formatLinkedinMembers(
-              typeof it.linkedin_members === "number"
-                ? it.linkedin_members
-                : Number(it.linkedin_members)
-            ),
-            HQ: toPlainText(
-              readCompanyValue(it as Company, [...getFieldAliasesForColumn("hq")])
-            ),
-            "Company Link": companyLink || "-",
-            "Company URL": it.company_link ?? "",
-            // Financial Metrics - exact field names from API
-            Revenue:
-              it.Revenue_m != null && it.Revenue_m !== ""
-                ? `${it.Revenue_m}M`
-                : "-",
-            EBITDA:
-              it.EBITDA_m != null && it.EBITDA_m !== ""
-                ? `${it.EBITDA_m}M`
-                : "-",
-            "Enterprise Value":
-              it.EV != null && it.EV !== "" ? `${it.EV}M` : "-",
-            "Revenue Multiple":
-              it.Revenue_multiple != null && it.Revenue_multiple !== ""
-                ? String(it.Revenue_multiple)
-                : "-",
-            "Revenue Growth":
-              it.Rev_Growth_PC != null && it.Rev_Growth_PC !== ""
-                ? `${it.Rev_Growth_PC}%`
-                : "-",
-            "EBITDA Margin":
-              it.EBITDA_margin != null && it.EBITDA_margin !== ""
-                ? `${it.EBITDA_margin}%`
-                : "-",
-            "Rule of 40":
-              it.Rule_of_40 != null && it.Rule_of_40 !== ""
-                ? String(it.Rule_of_40)
-                : "-",
-            // Subscription Metrics - exact field names from API
-            "Recurring Revenue": CompaniesCSVExporter.formatPercent(arrPc),
-            ARR: it.ARR_m != null && it.ARR_m !== "" ? `${it.ARR_m}M` : "-",
-            Churn:
-              it.Churn_pc != null && it.Churn_pc !== ""
-                ? `${it.Churn_pc}%`
-                : "-",
-            GRR:
-              it.GRR_pc != null && it.GRR_pc !== ""
-                ? `${it.GRR_pc}%`
-                : "-",
-            NRR: it.NRR != null && it.NRR !== "" ? `${it.NRR}%` : "-",
-            "New Clients Revenue Growth":
-              it.New_client_growth_pc != null && it.New_client_growth_pc !== ""
-                ? `${it.New_client_growth_pc}%`
-                : "-",
-          };
-          return row;
-        });
-        
-        const csv = CompaniesCSVExporter.convertToCSV(rows);
-        CompaniesCSVExporter.downloadCSV(csv, "companies_filtered");
-      } else {
-        // Fallback: If API returns CSV directly, use it as-is
-        // Note: This may not include all financial columns if the server CSV is incomplete
-        // Also note: CSV format doesn't support pagination, so only first page will be exported
-        console.warn("API returned CSV directly - financial columns may be missing and only first page will be exported");
-        const normalized = firstPageText.replace(/\r?\n/g, "\r\n");
-        const contentWithBOM = "\uFEFF" + normalized;
-        const blob = new Blob([contentWithBOM], {
-          type: "text/csv;charset=utf-8;",
-        });
-        const link = document.createElement("a");
-        const urlObject = URL.createObjectURL(blob);
-        link.href = urlObject;
-        link.download = "companies_filtered.csv";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(urlObject);
-      }
-    } catch (e) {
-      console.error("Error exporting CSV:", e);
-      // Fallback to client-side CSV if API export fails
-      if (companies.length > 0) {
-        // `CompaniesCSVExporter` expects sectors as string arrays; normalize in case API returns objects.
-        const toStringArray = (vals: unknown): string[] =>
-          parseListField(vals)
-            .map((v) => getSectorInfo(v).name)
-            .map((n) => String(n ?? "").trim())
-            .filter(Boolean);
-        const normalizedCompanies = companies.map((c) => ({
-          ...c,
-          primary_sectors: toStringArray(c.primary_sectors),
-          secondary_sectors: toStringArray(c.secondary_sectors),
-        }));
-        CompaniesCSVExporter.exportCompanies(
-          // Exporter has its own internal `Company` type with string[] sectors.
-          normalizedCompanies as unknown as Parameters<
-            typeof CompaniesCSVExporter.exportCompanies
-          >[0],
-          "companies_filtered"
-        );
-      }
-    }
-  }, [currentFilters, companies]);
+        exportInFlightRef.current = true;
+        setExporting(true);
 
-  // Register export function with parent so header Export CSV button works
+        const exportTotalCount =
+          pagination.totalCount || ownershipCounts.totalCount || 0;
+        if (scope === "full_list" && exportTotalCount <= 0) {
+          console.error("Companies export aborted: match count is not available yet.");
+          return;
+        }
+
+        await exportCompaniesList(
+          {
+            mode,
+            scope,
+            selectedIds:
+              scope === "selected"
+                ? Array.from(selectedCompanyIds)
+                : undefined,
+          },
+          currentFilters ?? createDefaultFilters(),
+          selectedColumnKeys,
+          scope === "full_list"
+            ? exportTotalCount
+            : undefined
+        );
+      } catch (exportError) {
+        console.error("Companies export failed:", exportError);
+      } finally {
+        exportInFlightRef.current = false;
+        setExporting(false);
+      }
+    },
+    [
+      currentFilters,
+      readOnlyGuestMode,
+      selectedColumnKeys,
+      selectedCompanyIds,
+      pagination.totalCount,
+      ownershipCounts.totalCount,
+    ]
+  );
+
+  const handleSelectedListExport = useCallback(
+    (mode: ListExportMode) => handleListExport(mode, "selected"),
+    [handleListExport]
+  );
+
+  const handleExportRequest = useCallback(
+    async (request: ListExportRequest) => {
+      await handleListExport(request.mode, request.scope);
+    },
+    [handleListExport]
+  );
+
+  useEffect(() => {
+    onExportingChange?.(exporting);
+  }, [exporting, onExportingChange]);
+
   useEffect(() => {
     if (readOnlyGuestMode) return;
-    onRegisterExportCSV?.(handleExportCSV);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleExportCSV, readOnlyGuestMode]);
+    onRegisterExportCSV?.(handleExportRequest);
+  }, [handleExportRequest, onRegisterExportCSV, readOnlyGuestMode]);
 
   const handleCompanyClick = useCallback(
     (companyId: number) => {
@@ -2075,6 +1776,8 @@ export const CompanySection = ({
         entityType: "company",
         entityIds: Array.from(selectedCompanyIds),
         onClearSelection,
+        exporting,
+        onExport: handleSelectedListExport,
       }),
     React.createElement(
       "div",

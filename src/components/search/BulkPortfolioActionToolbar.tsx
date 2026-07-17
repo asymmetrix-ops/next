@@ -10,6 +10,8 @@ import {
 import type { PortfolioEntityType } from "@/lib/portfolioEntity";
 import { fetchUserListsFromXano } from "@/lib/userLists";
 import { usePortfolioStore } from "@/store/portfolioStore";
+import { SearchExportMenu } from "@/components/search/SearchExportMenu";
+import type { ListExportMode } from "@/lib/listExport/types";
 
 type ListOption = { id: number; label: string };
 
@@ -42,10 +44,14 @@ export function BulkPortfolioActionToolbar({
   entityType,
   entityIds,
   onClearSelection,
+  onExport,
+  exporting = false,
 }: {
   entityType: PortfolioEntityType;
   entityIds: number[];
   onClearSelection: () => void;
+  onExport?: (mode: ListExportMode) => void | Promise<void>;
+  exporting?: boolean;
 }) {
   const fetchPortfolio = usePortfolioStore((s) => s.fetchPortfolio);
   const count = entityIds.length;
@@ -199,6 +205,16 @@ export function BulkPortfolioActionToolbar({
             Add
           </button>
         </div>
+
+        {onExport && (
+          <SearchExportMenu
+            label="Export CSV"
+            compact
+            exporting={exporting}
+            disabled={submitting}
+            onExport={onExport}
+          />
+        )}
 
         <div className="search-bulk-action-toolbar-group">
           <label className="search-bulk-action-toolbar-label" htmlFor="bulk-new-list">

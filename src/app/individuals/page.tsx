@@ -30,6 +30,7 @@ import {
 } from "./actions";
 import { authService } from "@/lib/auth";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
+import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useIndividualsAPI = () => {
   const [individuals, setIndividuals] = useState<Individual[]>([]);
@@ -192,6 +193,10 @@ function IndividualsPageInner() {
   const [initialSearch, setInitialSearch] = useState<string | undefined>(
     undefined
   );
+  const exportCSVRef = useRef<
+    ((request: ListExportRequest) => Promise<void>) | null
+  >(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -235,6 +240,10 @@ function IndividualsPageInner() {
         summaryCounts={summaryCounts}
         jobTitles={jobTitles}
         onColumnsClick={() => setShowColumnsModal((value) => !value)}
+        onExport={(mode) =>
+          exportCSVRef.current?.({ mode, scope: "full_list" })
+        }
+        exporting={exporting}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
       />
@@ -249,6 +258,10 @@ function IndividualsPageInner() {
         externalShowColumnsModal={showColumnsModal}
         externalSetShowColumnsModal={setShowColumnsModal}
         onColumnsCountChange={setColumnsCount}
+        onRegisterExportCSV={(fn) => {
+          exportCSVRef.current = fn;
+        }}
+        onExportingChange={setExporting}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
         selectedEntityIds={selectedEntityIds}
         onToggleEntitySelection={toggleEntitySelection}

@@ -40,6 +40,9 @@ import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMult
 import { namesToMultiValueItems } from "@/components/search/searchMultiValueUtils";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
+import { exportIndividualsList } from "@/lib/listExport/individualsListExport";
+import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
+import { checkExportLimit } from "@/utils/exportLimitCheck";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import {
   isSearchTableSelectionEnabled,
@@ -96,6 +99,8 @@ export const IndividualSection = ({
   externalShowColumnsModal,
   externalSetShowColumnsModal,
   onColumnsCountChange,
+  onRegisterExportCSV,
+  onExportingChange,
   isPortfolioOnlyFilter = false,
   selectedEntityIds,
   onToggleEntitySelection,
@@ -118,6 +123,8 @@ export const IndividualSection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
+  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
+  onExportingChange?: (exporting: boolean) => void;
   isPortfolioOnlyFilter?: boolean;
 } & SearchTableSelectionProps & {
   onClearSelection?: () => void;
@@ -141,6 +148,7 @@ export const IndividualSection = ({
   } | null>(null);
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const selectionEnabled = isSearchTableSelectionEnabled({
     selectedEntityIds,
     onToggleEntitySelection,
@@ -400,6 +408,47 @@ export const IndividualSection = ({
     }
   };
 
+  const handleListExport = useCallback(
+    async (mode: ListExportMode, scope: ListExportRequest["scope"]) => {
+      try {
+        const limitCheck = await checkExportLimit();
+        if (!limitCheck.canExport) return;
+
+        setExporting(true);
+        await exportIndividualsList(
+          {
+            mode,
+            scope,
+            selectedIds:
+              scope === "selected" ? selectedIdList : undefined,
+          },
+          currentFilters ?? createDefaultIndividualFilters(),
+          selectedColumnKeys
+        );
+      } catch (exportError) {
+        console.error("Individual export failed:", exportError);
+      } finally {
+        setExporting(false);
+      }
+    },
+    [currentFilters, selectedColumnKeys, selectedIdList]
+  );
+
+  const handleExportRequest = useCallback(
+    async (request: ListExportRequest) => {
+      await handleListExport(request.mode, request.scope);
+    },
+    [handleListExport]
+  );
+
+  useEffect(() => {
+    onExportingChange?.(exporting);
+  }, [exporting, onExportingChange]);
+
+  useEffect(() => {
+    onRegisterExportCSV?.(handleExportRequest);
+  }, [handleExportRequest, onRegisterExportCSV]);
+
   const generatePaginationButtons = () => {
     const buttons: React.ReactNode[] = [];
     const maxVisible = 7;
@@ -573,6 +622,8 @@ export const IndividualSection = ({
           entityType="individual"
           entityIds={selectedIdList}
           onClearSelection={onClearSelection}
+          exporting={exporting}
+          onExport={(mode) => handleListExport(mode, "selected")}
         />
       )}
       <div className="company-table-scroll">

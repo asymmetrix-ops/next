@@ -31,6 +31,7 @@ import {
 } from "./actions";
 import { CompaniesEditContext } from "./CompaniesEditContext";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
+import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -250,7 +251,10 @@ function CompaniesPageInner() {
   const [columnsCount, setColumnsCount] = useState(
     DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS.length
   );
-  const exportCSVRef = useRef<(() => void) | null>(null);
+  const exportCSVRef = useRef<
+    ((request: ListExportRequest) => Promise<void>) | null
+  >(null);
+  const [exporting, setExporting] = useState(false);
   const filtersKey = useMemo(
     () => JSON.stringify(currentFilters ?? {}),
     [currentFilters]
@@ -273,9 +277,12 @@ function CompaniesPageInner() {
         onColumnsClick={
           isMcpGuest ? undefined : () => setShowColumnsModal((v) => !v)
         }
-        onExportCSVClick={
-          isMcpGuest ? undefined : () => exportCSVRef.current?.()
+        onExport={
+          isMcpGuest
+            ? undefined
+            : (mode) => exportCSVRef.current?.({ mode, scope: "full_list" })
         }
+        exporting={exporting}
         columnsCount={columnsCount}
         columnsActive={showColumnsModal}
         guestMode={isMcpGuest}
@@ -308,6 +315,7 @@ function CompaniesPageInner() {
                 exportCSVRef.current = fn;
               }
         }
+        onExportingChange={isMcpGuest ? undefined : setExporting}
         selectedCompanyIds={selectedCompanyIds}
         onToggleCompanySelection={toggleCompanySelection}
         onTogglePageSelection={togglePageSelection}

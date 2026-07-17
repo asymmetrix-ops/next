@@ -39,6 +39,9 @@ import { useSectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import type { SectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
+import { exportInvestorsList } from "@/lib/listExport/investorsListExport";
+import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
+import { checkExportLimit } from "@/utils/exportLimitCheck";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import {
   isSearchTableSelectionEnabled,
@@ -292,6 +295,8 @@ export const InvestorSection = ({
   externalShowColumnsModal,
   externalSetShowColumnsModal,
   onColumnsCountChange,
+  onRegisterExportCSV,
+  onExportingChange,
   isPortfolioOnlyFilter = false,
   sortColumnKey = null,
   sortDirection = "desc",
@@ -322,6 +327,8 @@ export const InvestorSection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
+  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
+  onExportingChange?: (exporting: boolean) => void;
   isPortfolioOnlyFilter?: boolean;
   sortColumnKey?: string | null;
   sortDirection?: "asc" | "desc";
@@ -345,6 +352,7 @@ export const InvestorSection = ({
   );
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const sectorMaps = useSectorNameIdMaps();
   const selectionEnabled = isSearchTableSelectionEnabled({
     selectedEntityIds,
@@ -494,6 +502,47 @@ export const InvestorSection = ({
     (columnKey: string) => filterPinnedColumnKeys.includes(columnKey),
     [filterPinnedColumnKeys]
   );
+
+  const handleListExport = useCallback(
+    async (mode: ListExportMode, scope: ListExportRequest["scope"]) => {
+      try {
+        const limitCheck = await checkExportLimit();
+        if (!limitCheck.canExport) return;
+
+        setExporting(true);
+        await exportInvestorsList(
+          {
+            mode,
+            scope,
+            selectedIds:
+              scope === "selected" ? selectedIdList : undefined,
+          },
+          currentFilters ?? createDefaultInvestorFilters(),
+          selectedColumnKeys
+        );
+      } catch (exportError) {
+        console.error("Investor export failed:", exportError);
+      } finally {
+        setExporting(false);
+      }
+    },
+    [currentFilters, selectedColumnKeys, selectedIdList]
+  );
+
+  const handleExportRequest = useCallback(
+    async (request: ListExportRequest) => {
+      await handleListExport(request.mode, request.scope);
+    },
+    [handleListExport]
+  );
+
+  useEffect(() => {
+    onExportingChange?.(exporting);
+  }, [exporting, onExportingChange]);
+
+  useEffect(() => {
+    onRegisterExportCSV?.(handleExportRequest);
+  }, [handleExportRequest, onRegisterExportCSV]);
 
   const generatePaginationButtons = () => {
     const buttons: React.ReactNode[] = [];
@@ -676,6 +725,8 @@ export const InvestorSection = ({
           entityType="investor"
           entityIds={selectedIdList}
           onClearSelection={onClearSelection}
+          exporting={exporting}
+          onExport={(mode) => handleListExport(mode, "selected")}
         />
       )}
       <div className="company-table-scroll">
