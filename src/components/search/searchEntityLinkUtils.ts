@@ -62,6 +62,41 @@ export function getSectorInfoFromUnknown(
   return { name: String(nameRaw).trim(), id };
 }
 
+export type AdvisorSectorRef = {
+  id: number;
+  name: string;
+};
+
+export function parseAdvisorSectors(value: unknown): AdvisorSectorRef[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const rec = item as Record<string, unknown>;
+    const idRaw = rec.id ?? rec.sector_id ?? rec.sectors_id;
+    const id =
+      typeof idRaw === "number"
+        ? idRaw
+        : typeof idRaw === "string" && idRaw.trim() !== ""
+        ? Number(idRaw)
+        : undefined;
+    const name = String(rec.name ?? rec.sector_name ?? "").trim();
+    if (!id || !Number.isFinite(id) || !name) return [];
+    return [{ id, name }];
+  });
+}
+
+export function buildAdvisorSectorItems(
+  sectors: unknown,
+  keyPrefix = "advisor-sector"
+): SearchMultiValueItem[] {
+  return parseAdvisorSectors(sectors).map((sector, index) => ({
+    name: sector.name,
+    href: `/sector/${sector.id}`,
+    key: `${keyPrefix}-${sector.id}-${index}`,
+  }));
+}
+
 export function buildSectorItemsFromUnknown(
   sectors: unknown[] | undefined,
   kind: "primary" | "secondary",

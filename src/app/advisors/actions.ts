@@ -13,12 +13,18 @@ import { readLogoFromRecord } from "@/lib/companyLogo";
 
 export type { AdvisorsSearchFilters };
 
+export interface AdvisorSectorItem {
+  id: number;
+  name: string;
+}
+
 export interface AdvisorListItem {
   id: number;
   name: string;
   description?: string;
   events_advised?: number;
-  sectors?: string;
+  sectors?: AdvisorSectorItem[];
+  sectors_count?: number;
   linkedin_members?: number;
   country?: string;
   linkedin_logo?: string;
