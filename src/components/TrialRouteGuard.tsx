@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
+  ACCESS_DENIED_PATH,
   MCP_GUEST_ALLOWED_PATH,
   MCP_GUEST_CONVERSION_PATH,
   MCP_GUEST_LOGIN_PATH,
@@ -25,6 +26,7 @@ export default function TrialRouteGuard() {
     isTrialExpired,
     isTrial,
     isMcpGuest,
+    isContributor,
     isAuthenticated,
     loading,
   } = useAuth();
@@ -33,6 +35,13 @@ export default function TrialRouteGuard() {
 
   useEffect(() => {
     if (!pathname || loading) return;
+
+    if (isAuthenticated && isContributor) {
+      if (pathname !== ACCESS_DENIED_PATH) {
+        router.replace(ACCESS_DENIED_PATH);
+      }
+      return;
+    }
 
     if (isMcpGuestPublicPath(pathname)) {
       if (isAuthenticated && isMcpGuest) {
@@ -65,20 +74,19 @@ export default function TrialRouteGuard() {
       return;
     }
 
-    // If trial expired, redirect to trial-expired page from anywhere
     if (isTrial && isTrialExpired && pathname !== "/trial-expired") {
       router.replace("/trial-expired");
       return;
     }
 
     if (!isTrialActive) return;
-    // Block individual Company and Corporate Event detail pages
     const restrictedPatterns = [/^\/company\//, /^\/corporate-event\//];
     if (restrictedPatterns.some((re) => re.test(pathname))) {
       router.replace("/home-user");
     }
   }, [
     isAuthenticated,
+    isContributor,
     isMcpGuest,
     isTrial,
     isTrialExpired,

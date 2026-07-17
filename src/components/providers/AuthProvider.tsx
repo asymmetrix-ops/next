@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { authService } from "@/lib/auth";
 import { getTrialInfo, TrialInfo } from "@/lib/trial";
-import { isMcpGuestSession } from "@/lib/mcpGuest";
+import { isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
 
 interface AuthUser {
   id: string;
@@ -27,6 +27,7 @@ interface AuthContextType {
   isTrialActive: boolean;
   isTrialExpired: boolean;
   isMcpGuest: boolean;
+  isContributor: boolean;
   trialExpiresAt?: Date;
   trialDaysLeft?: number;
 }
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isTrialExpired: false,
   });
   const [isMcpGuest, setIsMcpGuest] = useState(false);
+  const [isContributor, setIsContributor] = useState(false);
 
   useEffect(() => {
     // Check authentication status on mount
@@ -58,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const t = getTrialInfo(token, userData);
           setTrial(t);
           setIsMcpGuest(isMcpGuestSession(token, userData));
+          setIsContributor(isContributorSession(token, userData));
 
           // If Status missing, refresh from /auth/me then recompute
           const hasStatus = !!(
@@ -71,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const t2 = getTrialInfo(token, refreshed);
               setTrial(t2);
               setIsMcpGuest(isMcpGuestSession(token, refreshed));
+              setIsContributor(isContributorSession(token, refreshed));
             }
           }
         } else {
@@ -82,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isTrialExpired: false,
           });
           setIsMcpGuest(false);
+          setIsContributor(false);
         }
       } catch (error) {
         console.error("AuthProvider - Error checking auth:", error);
@@ -93,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isTrialExpired: false,
         });
         setIsMcpGuest(false);
+        setIsContributor(false);
       } finally {
         setLoading(false);
       }
@@ -110,6 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const t = getTrialInfo(token, response.user);
       setTrial(t);
       setIsMcpGuest(isMcpGuestSession(token, response.user));
+      setIsContributor(isContributorSession(token, response.user));
     } catch (error) {
       console.error("AuthProvider - Login failed:", error);
       throw error;
@@ -128,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isTrialExpired: false,
       });
       setIsMcpGuest(isMcpGuestSession(token, response.user));
+      setIsContributor(isContributorSession(token, response.user));
     } catch (error) {
       console.error("AuthProvider - MCP Guest OTP login failed:", error);
       throw error;
@@ -140,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setTrial({ isTrial: false, isTrialActive: false, isTrialExpired: false });
     setIsMcpGuest(false);
+    setIsContributor(false);
   };
 
   const value = {
@@ -153,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isTrialActive: trial.isTrialActive,
     isTrialExpired: trial.isTrialExpired,
     isMcpGuest,
+    isContributor,
     trialExpiresAt: trial.trialExpiresAt,
     trialDaysLeft: trial.daysLeft,
   };

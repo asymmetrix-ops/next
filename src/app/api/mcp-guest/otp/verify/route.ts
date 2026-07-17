@@ -4,6 +4,8 @@ import {
   MCP_GUEST_AUTH_GENERIC_ERROR,
   normalizeMcpGuestEmail,
 } from "@/lib/mcpGuestAuthServer";
+import { isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
+import { isWorkEmail, WORK_EMAIL_REQUIRED_MESSAGE } from "@/lib/workEmail";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +20,13 @@ export async function POST(request: NextRequest) {
     if (!email || !otp) {
       return NextResponse.json(
         { error: MCP_GUEST_AUTH_GENERIC_ERROR },
+        { status: 400 }
+      );
+    }
+
+    if (!isWorkEmail(email)) {
+      return NextResponse.json(
+        { error: WORK_EMAIL_REQUIRED_MESSAGE },
         { status: 400 }
       );
     }
@@ -56,6 +65,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: MCP_GUEST_AUTH_GENERIC_ERROR },
         { status: 400 }
+      );
+    }
+
+    const user =
+      data && typeof data === "object" && "user" in data
+        ? (data as { user?: unknown }).user
+        : null;
+
+    if (isContributorSession(token, user)) {
+      return NextResponse.json(
+        { error: MCP_GUEST_AUTH_GENERIC_ERROR },
+        { status: 403 }
+      );
+    }
+
+    if (!isMcpGuestSession(token, user)) {
+      return NextResponse.json(
+        { error: MCP_GUEST_AUTH_GENERIC_ERROR },
+        { status: 403 }
       );
     }
 

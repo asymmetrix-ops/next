@@ -2,6 +2,10 @@ import { decodeJwt, type JWTPayload } from "jose";
 
 export const MCP_GUEST_ROLE = "MCP Guest";
 
+export const CONTRIBUTOR_ROLE = "Contributor";
+
+export const ACCESS_DENIED_PATH = "/access-denied";
+
 export const MCP_GUEST_ALLOWED_PATH = "/companies";
 
 export const MCP_GUEST_LOGIN_PATH = "/mcp-guest/login";
@@ -34,6 +38,31 @@ function normalizeStatus(value: unknown): string {
 
 export function isMcpGuestStatus(value: unknown): boolean {
   return normalizeStatus(value) === "mcp guest";
+}
+
+export function isContributorStatus(value: unknown): boolean {
+  return normalizeStatus(value) === "contributor";
+}
+
+export function isContributorUser(user: unknown): boolean {
+  return isContributorStatus(getUserStatus(user));
+}
+
+export function isContributorSession(
+  token: string | null,
+  user: unknown
+): boolean {
+  if (token) {
+    try {
+      const claims = decodeJwt(token) as JWTPayload & Record<string, unknown>;
+      const raw = claims.status ?? claims.Status ?? claims.role;
+      if (isContributorStatus(raw)) return true;
+    } catch {
+      // ignore decode errors
+    }
+  }
+
+  return isContributorUser(user);
 }
 
 export function getUserStatus(user: unknown): string {

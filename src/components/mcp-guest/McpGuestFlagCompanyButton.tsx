@@ -352,7 +352,7 @@ export default function McpGuestFlagCompanyButton({
 
                 <div style={{ marginBottom: 4 }}>
                   <label htmlFor="mcp-flag-proof-url" style={labelStyle}>
-                    Proof of MCP implementation <RequiredMark />
+                    Proof of MCP implementation
                   </label>
                   <p
                     style={{
@@ -371,7 +371,7 @@ export default function McpGuestFlagCompanyButton({
                     inputMode="url"
                     value={proofUrl}
                     onChange={(event) => setProofUrl(event.target.value)}
-                    placeholder="Press release, blog post, etc."
+                    placeholder="GitHub repo, docs page, blog post, etc."
                     style={inputStyle}
                   />
                 </div>

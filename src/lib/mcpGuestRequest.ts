@@ -133,9 +133,13 @@ async function callMcpGuestAction(
   return parseMcpGuestActionResult(data, action);
 }
 
+import { assertWorkEmail } from "@/lib/workEmail";
+
 export async function submitMcpGuestRequest(
   payload: McpGuestRequestPayload
 ): Promise<void> {
+  assertWorkEmail(payload.work_email);
+
   const response = await fetch(`${MCP_GUEST_REQUEST_BASE}/submit`, {
     method: "POST",
     headers: {
