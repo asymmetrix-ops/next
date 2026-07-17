@@ -3,9 +3,7 @@ export {
   isValidHttpUrl,
 } from "@/lib/mcpGuestFlag";
 
-export const MCP_GUEST_FLAG_API_BASE =
-  process.env.MCP_GUEST_FLAG_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:UXwnqlMz/mcp_guest_request";
+export { USERS_DATA_RESEARCH_REQUESTS_URL } from "@/lib/usersDataResearchRequests";
 
 export const MCP_GUEST_FLAG_IMAGE_API =
   process.env.MCP_GUEST_FLAG_IMAGE_API_URL ||
