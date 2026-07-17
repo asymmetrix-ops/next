@@ -9,15 +9,25 @@ const DEFAULT_MAX_VISIBLE = 10;
 type SearchEntityMultiValueCellProps = {
   items: SearchMultiValueItem[];
   maxVisible?: number;
+  onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
-function renderInlineValue(item: SearchMultiValueItem) {
+function renderInlineValue(
+  item: SearchMultiValueItem,
+  onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void
+) {
   if (item.href) {
     return (
       <a
         href={item.href}
         className="search-multi-value-link"
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (onLinkClick) {
+            event.preventDefault();
+            onLinkClick(event);
+          }
+        }}
       >
         {item.name}
       </a>
@@ -30,6 +40,7 @@ function renderInlineValue(item: SearchMultiValueItem) {
 export function SearchEntityMultiValueCell({
   items,
   maxVisible = DEFAULT_MAX_VISIBLE,
+  onLinkClick,
 }: SearchEntityMultiValueCellProps) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -89,7 +100,7 @@ export function SearchEntityMultiValueCell({
         {visibleItems.map((item, index) => (
           <React.Fragment key={item.key ?? `visible-${item.name}-${index}`}>
             {index > 0 ? ", " : null}
-            {renderInlineValue(item)}
+            {renderInlineValue(item, onLinkClick)}
           </React.Fragment>
         ))}
         {hiddenCount > 0 ? (
@@ -127,7 +138,7 @@ export function SearchEntityMultiValueCell({
                     key={item.key ?? `popover-${item.name}-${index}`}
                     className="search-multi-value-popover-item"
                   >
-                    {renderInlineValue(item)}
+                    {renderInlineValue(item, onLinkClick)}
                   </div>
                 ))}
               </div>

@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import { MCP_GUEST_CONVERSION_PATH } from "@/lib/mcpGuest";
+import { McpGuestSalesConversionModal } from "@/components/mcp-guest/McpGuestSalesConversionPanel";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
 import {
@@ -116,7 +117,8 @@ const renderSectorLinks = (
   sectors: unknown[] | undefined,
   kind: "primary" | "secondary",
   sectorMaps?: SectorNameIdMaps,
-  guestMode = false
+  guestMode = false,
+  onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void
 ): React.ReactNode => (
   <SearchEntityMultiValueCell
     items={
@@ -126,6 +128,7 @@ const renderSectorLinks = (
           )
         : buildSectorItems(sectors, kind, sectorMaps)
     }
+    onLinkClick={guestMode ? onLinkClick : undefined}
   />
 );
 
@@ -198,14 +201,19 @@ const buildInvestorItems = (
 
 const renderInvestorLinks = (
   investors: unknown[],
-  guestMode = false
+  guestMode = false,
+  onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void
 ): React.ReactNode => (
-  <SearchEntityMultiValueCell items={buildInvestorItems(investors, guestMode)} />
+  <SearchEntityMultiValueCell
+    items={buildInvestorItems(investors, guestMode)}
+    onLinkClick={guestMode ? onLinkClick : undefined}
+  />
 );
 
 type CompanyColumnRenderContext = {
   index: number;
   onCompanyClick: (companyId: number) => void;
+  onGuestConversionClick?: () => void;
   readOnlyGuestMode?: boolean;
   sectorMaps?: SectorNameIdMaps;
 };
@@ -501,12 +509,15 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Default",
         wrap: true,
         minWidth: 190,
-        render: (company, { sectorMaps, readOnlyGuestMode }) =>
+        render: (company, { sectorMaps, readOnlyGuestMode, onGuestConversionClick }) =>
           renderSectorLinks(
             parseListField(company.primary_sectors),
             "primary",
             sectorMaps,
-            readOnlyGuestMode
+            readOnlyGuestMode,
+            onGuestConversionClick
+              ? () => onGuestConversionClick()
+              : undefined
           ),
       },
       {
@@ -515,12 +526,15 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Default",
         wrap: true,
         minWidth: 190,
-        render: (company, { sectorMaps, readOnlyGuestMode }) =>
+        render: (company, { sectorMaps, readOnlyGuestMode, onGuestConversionClick }) =>
           renderSectorLinks(
             parseListField(company.secondary_sectors),
             "secondary",
             sectorMaps,
-            readOnlyGuestMode
+            readOnlyGuestMode,
+            onGuestConversionClick
+              ? () => onGuestConversionClick()
+              : undefined
           ),
       },
       makeTextColumn("ownership", "Ownership", "Default"),
@@ -570,8 +584,14 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Overview",
         wrap: true,
         minWidth: 220,
-        render: (company, { readOnlyGuestMode }) =>
-          renderInvestorLinks(readInvestorsFromCompany(company), readOnlyGuestMode),
+        render: (company, { readOnlyGuestMode, onGuestConversionClick }) =>
+          renderInvestorLinks(
+            readInvestorsFromCompany(company),
+            readOnlyGuestMode,
+            onGuestConversionClick
+              ? () => onGuestConversionClick()
+              : undefined
+          ),
       },
       makeTextColumn("years_since_last_investment", "Years Since Last Investment", "Overview", {
         minWidth: 190,
@@ -678,11 +698,13 @@ const CompanyCardBase = ({
   company,
   readOnlyGuestMode = false,
   sectorMaps,
+  onGuestConversionClick,
 }: {
   company: Company;
   index: number;
   readOnlyGuestMode?: boolean;
   sectorMaps?: SectorNameIdMaps;
+  onGuestConversionClick?: () => void;
 }) => {
   const router = useRouter();
 
@@ -734,7 +756,7 @@ const CompanyCardBase = ({
                   cursor: "pointer",
                   textAlign: "left" as const,
                 },
-                onClick: () => router.push(MCP_GUEST_CONVERSION_PATH),
+                onClick: () => onGuestConversionClick?.(),
               }
             : {
                 href: `/company/${company.id}`,
@@ -777,7 +799,10 @@ const CompanyCardBase = ({
                 computedPrimarySectors as unknown[],
                 "primary",
                 sectorMaps,
-                readOnlyGuestMode
+                readOnlyGuestMode,
+                onGuestConversionClick
+                  ? () => onGuestConversionClick()
+                  : undefined
               )
             : "-"
         )
@@ -798,7 +823,10 @@ const CompanyCardBase = ({
                 parseListField(company.secondary_sectors),
                 "secondary",
                 sectorMaps,
-                readOnlyGuestMode
+                readOnlyGuestMode,
+                onGuestConversionClick
+                  ? () => onGuestConversionClick()
+                  : undefined
               )
             : "-"
         )
@@ -915,6 +943,13 @@ export const CompanySection = ({
   readOnlyGuestMode?: boolean;
 }) => {
   const router = useRouter();
+  const [showSalesConversion, setShowSalesConversion] = useState(false);
+  const openSalesConversion = useCallback(() => {
+    setShowSalesConversion(true);
+  }, []);
+  const closeSalesConversion = useCallback(() => {
+    setShowSalesConversion(false);
+  }, []);
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const sectionClassName = embedded
     ? "company-section company-section-embedded"
@@ -1311,12 +1346,12 @@ export const CompanySection = ({
   const handleCompanyClick = useCallback(
     (companyId: number) => {
       if (readOnlyGuestMode) {
-        router.push(MCP_GUEST_CONVERSION_PATH);
+        openSalesConversion();
         return;
       }
       router.push(`/company/${companyId}`);
     },
-    [router, readOnlyGuestMode]
+    [router, readOnlyGuestMode, openSalesConversion]
   );
 
   const handlePageChange = useCallback(
@@ -1412,6 +1447,9 @@ export const CompanySection = ({
                   column.render(displayCompany, {
                     index,
                     onCompanyClick: handleCompanyClick,
+                    onGuestConversionClick: readOnlyGuestMode
+                      ? openSalesConversion
+                      : undefined,
                     readOnlyGuestMode,
                     sectorMaps,
                   })
@@ -1448,6 +1486,7 @@ export const CompanySection = ({
       getStickyColumnStyle,
       getTableColumnClassName,
       readOnlyGuestMode,
+      openSalesConversion,
       sectorMaps,
     ]
   );
@@ -1852,6 +1891,9 @@ export const CompanySection = ({
           index: index,
           readOnlyGuestMode,
           sectorMaps,
+          onGuestConversionClick: readOnlyGuestMode
+            ? openSalesConversion
+            : undefined,
         })
       )
     ),
@@ -2076,6 +2118,11 @@ export const CompanySection = ({
       exportsLeft: exportsLeft,
       totalExports: EXPORT_LIMIT,
     }),
+    readOnlyGuestMode &&
+      React.createElement(McpGuestSalesConversionModal, {
+        open: showSalesConversion,
+        onClose: closeSalesConversion,
+      }),
     React.createElement("style", {
       dangerouslySetInnerHTML: { __html: style },
     })

@@ -24,10 +24,10 @@ export const MCP_GUEST_LOGIN_PATH = "/mcp-guest/login";
 
 export const MCP_GUEST_CONVERSION_PATH = "/mcp-guest/upgrade";
 
-/** HubSpot Meetings URL for MCP Guest sales booking (Honor / sales team) */
-export const MCP_GUEST_SALES_MEETINGS_URL =
-  process.env.NEXT_PUBLIC_MCP_GUEST_SALES_MEETINGS_URL ||
-  "https://meetings.hubspot.com/h-crean";
+/** Calendly booking page for MCP Guest sales conversion */
+export const MCP_GUEST_CALENDLY_URL =
+  process.env.NEXT_PUBLIC_MCP_GUEST_CALENDLY_URL ||
+  "https://calendly.com/d/cvxj-zdj-nss/intro-call-with-asymmetrix";
 
 export const MCP_GUEST_PUBLIC_PATHS = [
   MCP_GUEST_ENTRY_PATH,
