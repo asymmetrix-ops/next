@@ -115,9 +115,18 @@ const buildSectorItems = (
 const renderSectorLinks = (
   sectors: unknown[] | undefined,
   kind: "primary" | "secondary",
-  sectorMaps?: SectorNameIdMaps
+  sectorMaps?: SectorNameIdMaps,
+  guestMode = false
 ): React.ReactNode => (
-  <SearchEntityMultiValueCell items={buildSectorItems(sectors, kind, sectorMaps)} />
+  <SearchEntityMultiValueCell
+    items={
+      guestMode
+        ? buildSectorItems(sectors, kind, sectorMaps).map((item) =>
+            item.href ? { ...item, href: MCP_GUEST_CONVERSION_PATH } : item
+          )
+        : buildSectorItems(sectors, kind, sectorMaps)
+    }
+  />
 );
 
 const getInvestorInfo = (investor: unknown): { name: string; id?: number } => {
@@ -167,21 +176,31 @@ const readInvestorsFromCompany = (company: Company): unknown[] => {
   return parseListField(rec.investor_names);
 };
 
-const buildInvestorItems = (investors: unknown[]): SearchMultiValueItem[] =>
+const buildInvestorItems = (
+  investors: unknown[],
+  guestMode = false
+): SearchMultiValueItem[] =>
   investors.flatMap((investor, index) => {
     const { name, id } = getInvestorInfo(investor);
     if (!name) return [];
     return [
       {
         name,
-        href: id != null ? `/investors/${id}` : undefined,
+        href: guestMode
+          ? MCP_GUEST_CONVERSION_PATH
+          : id != null
+            ? `/investors/${id}`
+            : undefined,
         key: `investor-${id ?? name}-${index}`,
       },
     ];
   });
 
-const renderInvestorLinks = (investors: unknown[]): React.ReactNode => (
-  <SearchEntityMultiValueCell items={buildInvestorItems(investors)} />
+const renderInvestorLinks = (
+  investors: unknown[],
+  guestMode = false
+): React.ReactNode => (
+  <SearchEntityMultiValueCell items={buildInvestorItems(investors, guestMode)} />
 );
 
 type CompanyColumnRenderContext = {
@@ -482,8 +501,13 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Default",
         wrap: true,
         minWidth: 190,
-        render: (company, { sectorMaps }) =>
-          renderSectorLinks(parseListField(company.primary_sectors), "primary", sectorMaps),
+        render: (company, { sectorMaps, readOnlyGuestMode }) =>
+          renderSectorLinks(
+            parseListField(company.primary_sectors),
+            "primary",
+            sectorMaps,
+            readOnlyGuestMode
+          ),
       },
       {
         key: "secondary_sectors",
@@ -491,8 +515,13 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Default",
         wrap: true,
         minWidth: 190,
-        render: (company, { sectorMaps }) =>
-          renderSectorLinks(parseListField(company.secondary_sectors), "secondary", sectorMaps),
+        render: (company, { sectorMaps, readOnlyGuestMode }) =>
+          renderSectorLinks(
+            parseListField(company.secondary_sectors),
+            "secondary",
+            sectorMaps,
+            readOnlyGuestMode
+          ),
       },
       makeTextColumn("ownership", "Ownership", "Default"),
       makeTextColumn("linkedin_members", "LinkedIn Members", "Default", {
@@ -541,7 +570,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         group: "Overview",
         wrap: true,
         minWidth: 220,
-        render: (company) => renderInvestorLinks(readInvestorsFromCompany(company)),
+        render: (company, { readOnlyGuestMode }) =>
+          renderInvestorLinks(readInvestorsFromCompany(company), readOnlyGuestMode),
       },
       makeTextColumn("years_since_last_investment", "Years Since Last Investment", "Overview", {
         minWidth: 190,
@@ -743,7 +773,12 @@ const CompanyCardBase = ({
           "span",
           { className: "company-card-value" },
           computedPrimarySectors.length > 0
-            ? renderSectorLinks(computedPrimarySectors as unknown[], "primary", sectorMaps)
+            ? renderSectorLinks(
+                computedPrimarySectors as unknown[],
+                "primary",
+                sectorMaps,
+                readOnlyGuestMode
+              )
             : "-"
         )
       ),
@@ -759,7 +794,12 @@ const CompanyCardBase = ({
           "span",
           { className: "company-card-value" },
           parseListField(company.secondary_sectors).length > 0
-            ? renderSectorLinks(parseListField(company.secondary_sectors), "secondary", sectorMaps)
+            ? renderSectorLinks(
+                parseListField(company.secondary_sectors),
+                "secondary",
+                sectorMaps,
+                readOnlyGuestMode
+              )
             : "-"
         )
       ),

@@ -24,6 +24,11 @@ export const MCP_GUEST_LOGIN_PATH = "/mcp-guest/login";
 
 export const MCP_GUEST_CONVERSION_PATH = "/mcp-guest/upgrade";
 
+/** HubSpot Meetings URL for MCP Guest sales booking (Honor / sales team) */
+export const MCP_GUEST_SALES_MEETINGS_URL =
+  process.env.NEXT_PUBLIC_MCP_GUEST_SALES_MEETINGS_URL ||
+  "https://meetings.hubspot.com/h-crean";
+
 export const MCP_GUEST_PUBLIC_PATHS = [
   MCP_GUEST_ENTRY_PATH,
   MCP_GUEST_SIGN_IN_PATH,
