@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Header from "@/components/Header";
 import { McpGuestSalesConversionPanel } from "@/components/mcp-guest/McpGuestSalesConversionPanel";
-import { MCP_GUEST_ALLOWED_PATH } from "@/lib/mcpGuest";
+import { MCP_GUEST_ALLOWED_PATH, MCP_GUEST_TRACKER_TITLE } from "@/lib/mcpGuest";
 
 export default function McpGuestUpgradePage() {
   return (
@@ -18,7 +18,7 @@ export default function McpGuestUpgradePage() {
             href={MCP_GUEST_ALLOWED_PATH}
             className="inline-flex items-center justify-center px-4 py-3 font-medium text-gray-800 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 no-underline"
           >
-            Back to MCP companies
+            Back to {MCP_GUEST_TRACKER_TITLE}
           </Link>
         </div>
       </main>

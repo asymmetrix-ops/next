@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import { submitMcpGuestRequest } from "@/lib/mcpGuestRequest";
 import McpGuestCompanyField from "@/components/mcp-guest/McpGuestCompanyField";
 import { isWorkEmail, WORK_EMAIL_REQUIRED_MESSAGE } from "@/lib/workEmail";
+import { MCP_GUEST_TRACKER_TITLE } from "@/lib/mcpGuest";
 
 interface McpGuestRequestFormProps {
   initialWorkEmail?: string;
@@ -79,8 +80,8 @@ export default function McpGuestRequestForm({
       <div className="text-center">
         <h2 className="mb-3 text-xl font-bold text-gray-900">Request submitted</h2>
         <p className="text-gray-600 leading-relaxed">
-          Thank you for your interest in MCP Guest access. Our team will review
-          your request and get back to you within 24 hours.
+          Thank you for your interest in {MCP_GUEST_TRACKER_TITLE}. Our team will
+          review your request and get back to you within 24 hours.
         </p>
       </div>
     );
