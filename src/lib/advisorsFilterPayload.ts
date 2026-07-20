@@ -165,6 +165,7 @@ export const createDefaultAdvisorFilters = (): AdvisorsSearchFilters =>
     page: 1,
     per_page: 25,
     portfolio_only: false,
+    include_sectors: true,
   });
 
 export function buildAdvisorsSearchPayload(args: {
@@ -193,6 +194,9 @@ export function buildAdvisorsSearchPayload(args: {
       portfolioOnly,
       primarySectorIds,
       secondarySectorIds,
+      needGeoCount: false,
+      needSectorCount: false,
+      endpoint: "sql_advisors_list",
     })
   );
 
@@ -221,6 +225,9 @@ export function buildAdvisorsCountsSearchPayload(args: {
       portfolioOnly,
       primarySectorIds,
       secondarySectorIds,
+      needGeoCount: true,
+      needSectorCount: true,
+      endpoint: "sql_advisors_counts",
     })
   );
 }
