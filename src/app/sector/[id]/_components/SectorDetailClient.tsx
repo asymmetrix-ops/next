@@ -5,7 +5,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 // import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
+import CompactPagination from "@/components/ui/CompactPagination";
 import { locationsService } from "@/lib/locationsService";
 import { BuildingOfficeIcon } from "@heroicons/react/24/outline";
 import SearchableSelect from "@/components/ui/SearchableSelect";
@@ -18,12 +18,37 @@ import {
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import {
   ContentArticle,
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "@/types/insightsAnalysis";
+import type { CompaniesFilters } from "@/app/companies/actions";
+import {
+  CompaniesSearchDashboard,
+  EMPTY_OWNERSHIP_COUNTS,
+  type CompaniesOwnershipCounts,
+} from "@/components/companies/CompaniesSearchDashboard";
+import {
+  fetchAllCompaniesClientPages,
+  fetchCompaniesClient,
+  fetchCompaniesCountsClient,
+} from "@/lib/companiesClientApi";
+import { ownershipFilterParamToTab } from "@/lib/companiesSearchFilterConfig";
+import {
+  CompaniesDataTable,
+  ALL_COMPANY_COLUMN_KEYS,
+  type CompaniesSortChangePayload,
+} from "@/components/companies/CompaniesDataTable";
+import {
+  DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS,
+  SECTOR_ALL_COMPANIES_COLUMNS_STORAGE_KEY,
+  type CompanyRow,
+} from "@/components/companies/companyColumnDefinitions";
+import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
+
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import {
   SearchEntityMultiValueCell,
   SEARCH_MULTI_VALUE_STYLES,
@@ -33,9 +58,9 @@ import {
   parseAdvisorSectors,
 } from "@/components/search/searchEntityLinkUtils";
 import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
-import { fetchSectorProfileInsightsArticles } from "@/lib/sectorInsightsArticles";
 
 const SECTOR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+
 
 // Types for API integration
 interface SectorData {
@@ -161,6 +186,70 @@ const getSectorLabel = (sector: SectorLinkItem): string => {
   return String(name ?? "").trim();
 };
 
+const renderSectorLinks = (
+  sectors: SectorLinkItem[] | undefined,
+  hrefBase: "/sector/" | "/sub-sector/" = "/sector/"
+): React.ReactNode => {
+  if (!Array.isArray(sectors) || sectors.length === 0) {
+    return "N/A";
+  }
+  const nodes: React.ReactNode[] = [];
+  sectors.forEach((sector, index) => {
+    const label = getSectorLabel(sector);
+    if (!label) return;
+    const sectorId =
+      typeof sector === "object" && sector
+        ? (sector.id ?? sector.sector_id ?? sector.sectorId ?? undefined)
+        : undefined;
+
+    nodes.push(
+      typeof sectorId === "number" ? (
+        <a
+          key={`${hrefBase}${sectorId}-${label}-${index}`}
+          href={`${hrefBase}${sectorId}`}
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {label}
+        </a>
+      ) : (
+        <span key={`${label}-${index}`}>{label}</span>
+      )
+    );
+
+    if (index < sectors.length - 1) nodes.push(<span key={`sep-${index}`}>, </span>);
+  });
+  return nodes.length > 0 ? nodes : "N/A";
+};
+
+const parseSectorList = (value: unknown): SectorLinkItem[] => {
+  if (value == null || value === "") return [];
+  if (Array.isArray(value)) return value as SectorLinkItem[];
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === "[]" || trimmed === "{}") return [];
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (Array.isArray(parsed)) return parsed as SectorLinkItem[];
+        if (parsed && typeof parsed === "object") {
+          return Object.values(parsed as Record<string, SectorLinkItem>);
+        }
+      } catch {
+        // fall through
+      }
+    }
+    return trimmed
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((sector_name) => ({ sector_name }));
+  }
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, SectorLinkItem>);
+  }
+  return [];
+};
+
 interface NewCompanyItem {
   id: number;
   name: string;
@@ -225,6 +314,7 @@ interface RankedEntity {
   corporateEventId?: number;
   logoUrl?: string; // fully qualified (e.g., data:image/jpeg;base64,...)
 }
+
 
 function renderMostRecentTargetValue(
   entity: Pick<RankedEntity, "mostRecentTarget" | "mostRecentTargetId" | "corporateEventId">,
@@ -430,7 +520,12 @@ function mapRecentTransactions(raw: unknown): TransactionRecord[] {
           "targetLogo",
         ]) || ""
       );
-      const targetLogoUrl = resolveCompanyLogoSrc(rawTargetLogo) ?? "";
+      const targetLogoUrl = rawTargetLogo
+        ? rawTargetLogo.startsWith("http") ||
+          rawTargetLogo.startsWith("data:image")
+          ? rawTargetLogo
+          : `data:image/jpeg;base64,${rawTargetLogo}`
+        : "";
       if (!buyer && !target) return null;
       return {
         date,
@@ -579,6 +674,7 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
     })
     .filter(Boolean) as RankedEntity[];
 }
+
 
 function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
   if (!raw) return [];
@@ -752,20 +848,13 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
 // Tabs
 const TABS = [
   { id: "overview", name: "Overview" },
-  { id: "most_active", name: "Most Active" },
   { id: "public", name: "Public Companies" },
+  { id: "most_active", name: "Most Active" },
   { id: "subsectors", name: "Sub-Sectors" },
   { id: "transactions", name: "Transactions" },
   { id: "insights", name: "Insights & Analysis" },
   { id: "all", name: "All Companies" },
 ] as const;
-
-const OWNERSHIP_URL_FILTER_MAP: Record<string, number[]> = {
-  public: [7],
-  private_equity_owned: [1],
-  venture_capital_backed: [3],
-  private: [2],
-};
 
 function TabNavigation({
   activeTab,
@@ -2135,21 +2224,6 @@ function RecentTransactionsCard({
 }) {
   const hasItems = Array.isArray(transactions) && transactions.length > 0;
 
-  const getDealTypeBadge = (dealType?: string) => {
-    const colors: Record<string, string> = {
-      acquisition: "bg-red-50 text-red-700 border-red-200",
-      merger: "bg-blue-50 text-blue-700 border-blue-200",
-      ipo: "bg-green-50 text-green-700 border-green-200",
-      funding_round: "bg-purple-50 text-purple-700 border-purple-200",
-      lbo: "bg-orange-50 text-orange-700 border-orange-200",
-      recapitalization: "bg-pink-50 text-pink-700 border-pink-200",
-    };
-    return (
-      colors[(dealType || "").toLowerCase().replace(/\s+/g, "_")] ||
-      "bg-gray-50 text-gray-700 border-gray-200"
-    );
-  };
-
   const getStatusBadge = (status?: string) => {
     const colors: Record<string, string> = {
       completed: "bg-green-50 text-green-700 border-green-200",
@@ -2187,7 +2261,7 @@ function RecentTransactionsCard({
           <div className="block space-y-3 md:hidden">
             {!hasItems ? (
               <div className="py-6 text-sm text-center text-slate-500">
-                -
+                Not available
               </div>
             ) : (
               transactions.slice(0, 25).map((t, idx) => {
@@ -2274,13 +2348,7 @@ function RecentTransactionsCard({
                     {(t.type || t.seller) && (
                       <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap gap-1">
                         {t.type && (
-                          <span
-                            className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
-                              t.type
-                            )}`}
-                          >
-                            {t.type.replace(/_/g, " ")}
-                          </span>
+                          <DealTypeBadge dealType={t.type.replace(/_/g, " ")} />
                         )}
                         {t.seller && (
                           <span
@@ -2429,13 +2497,7 @@ function RecentTransactionsCard({
                         <td className="py-3">
                           <div className="space-y-1">
                             {t.type && (
-                              <span
-                                className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
-                                  t.type
-                                )}`}
-                              >
-                                {t.type.replace(/_/g, " ")}
-                              </span>
+                              <DealTypeBadge dealType={t.type.replace(/_/g, " ")} />
                             )}
                             {t.seller && (
                               <span
@@ -2457,7 +2519,7 @@ function RecentTransactionsCard({
                       colSpan={3}
                       className="py-6 text-sm text-center text-slate-500"
                     >
-                      -
+                      Not available
                     </td>
                   </tr>
                 )}
@@ -2481,9 +2543,13 @@ interface MarketMapCounts {
 function MarketMapGrid({
   companies,
   counts: countsProp,
+  onExportBucket,
+  exportingBucket,
 }: {
   companies: SectorCompany[];
   counts?: MarketMapCounts;
+  onExportBucket?: (type: string, label: string) => void;
+  exportingBucket?: string | null;
 }) {
   const labelFor = (type: string) =>
     type === "public"
@@ -2508,7 +2574,9 @@ function MarketMapGrid({
     return {
       id: c.id,
       name: c.name,
-      logo_url: resolveCompanyLogoSrc(c.linkedin_logo) ?? "",
+      logo_url: c.linkedin_logo
+        ? `data:image/jpeg;base64,${c.linkedin_logo}`
+        : "",
       sub_sector:
         Array.isArray(c.primary_sectors) && c.primary_sectors.length > 0
           ? getSectorLabel(c.primary_sectors[0] as SectorLinkItem)
@@ -2638,12 +2706,26 @@ function MarketMapGrid({
                     {countsProp?.[type as keyof MarketMapCounts] ?? list.length}
                   </span>
                 </div>
-                <a
-                  href={`?tab=all&ownership=${encodeURIComponent(type)}`}
-                  className="flex-shrink-0 px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
-                >
-                  View All
-                </a>
+                <div className="flex flex-shrink-0 gap-2 items-center">
+                  {onExportBucket && (
+                    <button
+                      onClick={() => onExportBucket(type, titleFor(type))}
+                      disabled={exportingBucket === type}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border rounded-md transition-colors duration-150 border-slate-300 text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                      </svg>
+                      {exportingBucket === type ? "Exporting…" : "Export CSV"}
+                    </button>
+                  )}
+                  <a
+                    href={`?tab=all&ownership=${encodeURIComponent(type)}`}
+                    className="px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
+                  >
+                    View All
+                  </a>
+                </div>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {list.slice(0, 12).map((company) => (
@@ -2787,10 +2869,110 @@ const SectorDetailPage = ({
   const [insightsArticles, setInsightsArticles] = useState<ContentArticle[]>([]);
   // Track if overview data has finished loading (to distinguish "loading" from "no data")
   const [overviewDataLoaded, setOverviewDataLoaded] = useState(false);
+  // Market map / All Companies export state
+  const [mmExportingBucket, setMmExportingBucket] = useState<string | null>(null);
+  const [allExporting, setAllExporting] = useState(false);
+  const [mmShowExportLimitModal, setMmShowExportLimitModal] = useState(false);
+  const [mmExportsLeft, setMmExportsLeft] = useState(0);
   // Sub-sectors
   const [subSectors, setSubSectors] = useState<SubSector[]>([]);
   const [subSectorsLoading, setSubSectorsLoading] = useState(false);
   const [subSectorsError, setSubSectorsError] = useState<string | null>(null);
+  // All Companies (reusing companies page logic, filtered by primary sector id)
+  interface AllCompanyItem {
+    id: number;
+    name: string;
+    description: string;
+    url?: string;
+    primary_sectors: string[];
+    secondary_sectors: string[];
+    ownership: string;
+    country: string;
+    linkedin_logo: string; // base64
+    linkedin_members: number;
+  }
+  const [allCompanies, setAllCompanies] = useState<AllCompanyItem[]>([]);
+  const [allCompaniesLoading, setAllCompaniesLoading] = useState(false);
+  const [allCompaniesError, setAllCompaniesError] = useState<string | null>(
+    null
+  );
+  const [allCompaniesPagination, setAllCompaniesPagination] = useState({
+    itemsReceived: 0,
+    curPage: 1,
+    nextPage: null as number | null,
+    prevPage: null as number | null,
+    offset: 0,
+    perPage: 25,
+    pageTotal: 0,
+  });
+  const [showAllCompaniesColumnsModal, setShowAllCompaniesColumnsModal] =
+    useState(false);
+  const [allCompaniesColumnsCount, setAllCompaniesColumnsCount] = useState<number>(
+    DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS.length
+  );
+  const allCompaniesApiColumnsRef = useRef<string[]>(
+    getApiColumnsForSelectedKeys([...DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS])
+  );
+  const [allCompaniesCurrentFilters, setAllCompaniesCurrentFilters] = useState<
+    CompaniesFilters | undefined
+  >(undefined);
+  const [allCompaniesOwnershipCounts, setAllCompaniesOwnershipCounts] =
+    useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
+  const allCompaniesCountsTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  // Public Companies (reuse companies API with primary sector filter and ownership Public)
+  const [publicCompanies, setPublicCompanies] = useState<AllCompanyItem[]>([]);
+  const [publicCompaniesLoading, setPublicCompaniesLoading] = useState(false);
+  const [publicCompaniesError, setPublicCompaniesError] = useState<
+    string | null
+  >(null);
+  const [publicCompaniesPagination, setPublicCompaniesPagination] = useState({
+    itemsReceived: 0,
+    curPage: 1,
+    nextPage: null as number | null,
+    prevPage: null as number | null,
+    offset: 0,
+    perPage: 25,
+    pageTotal: 0,
+  });
+  const [publicExpandedDescriptions, setPublicExpandedDescriptions] = useState<
+    Record<number, boolean>
+  >({});
+
+  // Load secondary->primary mapping once (not required in the new overview layout)
+  // useEffect(() => {
+  //   let cancelled = false;
+  //   const load = async () => {
+  //     try {
+  //       const allSecondary =
+  //         await locationsService.getAllSecondarySectorsWithPrimary();
+  //       if (!cancelled && Array.isArray(allSecondary)) {
+  //         const map: Record<string, string> = {};
+  //         for (const sec of allSecondary) {
+  //           const secName = (sec as { sector_name?: string }).sector_name;
+  //           const primary = (sec as any)?.related_primary_sector as
+  //             | { sector_name?: string }
+  //             | undefined;
+  //           const primaryName = primary?.sector_name;
+  //           if (secName && primaryName) {
+  //             map[(secName || "").trim().toLowerCase()] = primaryName;
+  //           }
+  //         }
+  //         setSecondaryToPrimaryMap(map);
+  //       }
+  //     } catch (e) {
+  //       console.warn("[Sector] Failed to load secondary->primary map", e);
+  //     }
+  //   };
+  //   load();
+  //   return () => {
+  //     cancelled = true;
+  //   };
+  // }, []);
+
+  // Note: fetchSectorData and fetchSplitDatasets removed - now using /api/sector/[id]/overview route
 
   // Fetch companies data (include companies whose secondary sectors map to this primary sector)
   const fetchCompanies = useCallback(
@@ -2806,7 +2988,11 @@ const SectorDetailPage = ({
           return;
         }
 
+        // Prepare sector id
         const sectorIdNum = Number(sectorId);
+
+        // Companies endpoint (sector-scoped) - GET with query params
+        // Backend expects Offset as the page number (1-based)
         const offsetForApi = Math.max(1, page);
         const params = new URLSearchParams();
         params.append("Offset", String(offsetForApi));
@@ -2833,10 +3019,14 @@ const SectorDetailPage = ({
         }
 
         const rawJson = await response.json();
+        // Parsed companies payload
+        // Keep parsed payload for mapping dashboard datasets
         setCompaniesApiPayload(rawJson);
 
+        // Adapt response items to SectorCompany shape used by this page
         const raw = rawJson as unknown as
           | NewCompaniesAPIResult
+          // Fallbacks for potential alternative shapes
           | { items?: NewCompanyItem[] }
           | (NewCompanyItem[] & { Count?: number })
           | ({ result1?: { items?: NewCompanyItem[] } } & { Count?: number })
@@ -2857,8 +3047,11 @@ const SectorDetailPage = ({
           raw as { sql_count?: Array<{ total_companies?: number }> }
         ).sql_count?.[0]?.total_companies;
         const overallCount: number =
+          // prefer SQL-derived total when provided
           (typeof sqlTotal === "number" ? sqlTotal : undefined) ??
+          // then explicit Count when available
           (raw as { Count?: number })?.Count ??
+          // itemsReceived may represent total when pageTotal is 1
           (typeof r1?.itemsReceived === "number"
             ? r1!.itemsReceived
             : undefined) ??
@@ -2882,6 +3075,7 @@ const SectorDetailPage = ({
             : [],
           description: c.description || "",
           linkedin_employee:
+            // support multiple possible fields
             (c as unknown as { linkedin_employee?: number })
               .linkedin_employee ??
             (c as unknown as { linkedin_members?: number }).linkedin_members ??
@@ -2924,6 +3118,7 @@ const SectorDetailPage = ({
         const r1b = (raw as NewCompaniesAPIResult)?.result1;
         const computedCurPage = r1b?.curPage ?? page;
         const computedPerPage = r1b?.perPage ?? perPageToUse;
+        // Normalize offset to be a 0-based item start index for internal use
         const computedOffset =
           typeof r1b?.offset === "number"
             ? Math.max(0, (r1b.offset - 1) * computedPerPage)
@@ -2951,6 +3146,210 @@ const SectorDetailPage = ({
     [sectorId, selectedPerPage]
   );
 
+  // Note: fetchSplitDatasets removed - now part of /api/sector/[id]/overview route
+
+  const fetchAllCompaniesForSector = useCallback(
+    async (page: number = 1, filters?: CompaniesFilters) => {
+      setAllCompaniesLoading(true);
+      setAllCompaniesError(null);
+
+      try {
+        const Sector_id = Number(sectorId);
+        if (Number.isNaN(Sector_id)) {
+          throw new Error("Invalid sector id");
+        }
+
+        if (filters !== undefined) {
+          setAllCompaniesCurrentFilters(filters);
+        }
+        const filtersToUse =
+          filters ??
+          allCompaniesCurrentFilters ?? {
+            filters_sql: null,
+            query: null,
+            columns: [],
+            has_financial_filters: false,
+            has_year_filter: false,
+          };
+
+        const data = await fetchCompaniesClient(page, {
+          ...filtersToUse,
+          columns: allCompaniesApiColumnsRef.current,
+          Per_page: 25,
+        });
+
+        if (!data?.result1) {
+          throw new Error("Failed to fetch companies");
+        }
+
+        const r1 = data.result1;
+        setAllCompanies((r1.items || []) as AllCompanyItem[]);
+        setAllCompaniesPagination({
+          itemsReceived: r1.itemsReceived || 0,
+          curPage: r1.curPage || 1,
+          nextPage: r1.nextPage || null,
+          prevPage: r1.prevPage || null,
+          offset: r1.offset || 0,
+          perPage: r1.perPage || 25,
+          pageTotal: r1.pageTotal || 0,
+        });
+      } catch (err) {
+        setAllCompaniesError(
+          err instanceof Error ? err.message : "Failed to fetch companies"
+        );
+      } finally {
+        setAllCompaniesLoading(false);
+      }
+    },
+    [sectorId, allCompaniesCurrentFilters]
+  );
+
+  const scheduleAllCompaniesCountsFetch = useCallback(
+    (countsFilters: CompaniesFilters) => {
+      if (allCompaniesCountsTimeoutRef.current) {
+        clearTimeout(allCompaniesCountsTimeoutRef.current);
+      }
+      allCompaniesCountsTimeoutRef.current = setTimeout(() => {
+        void fetchCompaniesCountsClient(countsFilters)
+          .then((countsData) => {
+            if (!countsData) return;
+            setAllCompaniesOwnershipCounts({
+              totalCount: countsData.totalCount || 0,
+              publicCompanies: countsData.publicCompanies || 0,
+              peOwnedCompanies: countsData.peOwnedCompanies || 0,
+              vcOwnedCompanies: countsData.vcOwnedCompanies || 0,
+              privateCompanies: countsData.privateCompanies || 0,
+              subsidiaryCompanies: countsData.subsidiaryCompanies || 0,
+              acquiredCompanies: countsData.acquiredCompanies || 0,
+              otherCompanies: countsData.otherCompanies || 0,
+            });
+          })
+          .catch(console.error);
+      }, 400);
+    },
+    []
+  );
+
+  const handleAllCompaniesApiColumnsChange = useCallback((apiColumns: string[]) => {
+    allCompaniesApiColumnsRef.current = apiColumns;
+  }, []);
+
+  const handleAllCompaniesSearch = useCallback(
+    (listFilters: CompaniesFilters, countsFilters: CompaniesFilters) => {
+      scheduleAllCompaniesCountsFetch(countsFilters);
+      void fetchAllCompaniesForSector(1, listFilters);
+    },
+    [fetchAllCompaniesForSector, scheduleAllCompaniesCountsFetch]
+  );
+
+  const refetchAllCompaniesFirstPage = useCallback(() => {
+    void fetchAllCompaniesForSector(1);
+  }, [fetchAllCompaniesForSector]);
+
+  const handleAllCompaniesSortChange = useCallback(
+    (sortPayload: CompaniesSortChangePayload) => {
+      const base =
+        allCompaniesCurrentFilters ?? {
+          filters_sql: null,
+          query: null,
+          columns: [],
+          has_financial_filters: false,
+          has_year_filter: false,
+        };
+      void fetchAllCompaniesForSector(1, {
+        ...base,
+        ...sortPayload,
+      });
+    },
+    [fetchAllCompaniesForSector, allCompaniesCurrentFilters]
+  );
+
+  const forcedPrimarySectorIds = useMemo(() => {
+    const id = Number(sectorId);
+    return Number.isFinite(id) && id > 0 ? [id] : [];
+  }, [sectorId]);
+
+  const initialAllCompaniesOwnershipTab = useMemo(
+    () => ownershipFilterParamToTab(ownershipFilter),
+    [ownershipFilter]
+  );
+
+  // Fetch Public Companies for sector (ownership type Public)
+  const fetchPublicCompaniesForSector = useCallback(
+    async (page: number = 1) => {
+      setPublicCompaniesLoading(true);
+      setPublicCompaniesError(null);
+
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const Sector_id = Number(sectorId);
+        if (Number.isNaN(Sector_id)) {
+          throw new Error("Invalid sector id");
+        }
+
+        const perPage = 25;
+        const offset = page; // API expects 1-based page
+
+        const params = new URLSearchParams();
+        params.append("Offset", String(offset));
+        params.append("Per_page", String(perPage));
+        params.append("Min_linkedin_members", "0");
+        params.append("Max_linkedin_members", "0");
+        params.append("Horizontals_ids", "");
+        params.append("Primary_sectors_ids[]", String(Sector_id));
+        // Explicit mapping: Public ownership type id is 7
+        params.append("Ownership_types_ids[]", String(7));
+
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `API request failed: ${response.status} ${response.statusText} - ${errorText}`
+          );
+        }
+        const data = JSON.parse(await response.text()) as {
+          result1?: {
+            items?: AllCompanyItem[];
+            itemsReceived?: number;
+            curPage?: number;
+            nextPage?: number | null;
+            prevPage?: number | null;
+            offset?: number;
+            perPage?: number;
+            pageTotal?: number;
+          };
+        };
+        const r1 = data.result1 || {};
+        setPublicCompanies(r1.items || []);
+        setPublicCompaniesPagination({
+          itemsReceived: r1.itemsReceived || 0,
+          curPage: r1.curPage || 1,
+          nextPage: r1.nextPage || null,
+          prevPage: r1.prevPage || null,
+          offset: r1.offset || 0,
+          perPage: r1.perPage || perPage,
+          pageTotal: r1.pageTotal || 0,
+        });
+      } catch (err) {
+        setPublicCompaniesError(
+          err instanceof Error ? err.message : "Failed to fetch companies"
+        );
+      } finally {
+        setPublicCompaniesLoading(false);
+      }
+    },
+    [sectorId]
+  );
+
+
   // Fetch all overview data via Next.js API route (cached for 5 min).
   // Single request aggregates all Xano calls server-side → faster for users far from Xano.
   // First request: ~6s (slowest Xano endpoint). Subsequent requests: <200ms (from cache).
@@ -2965,9 +3364,13 @@ const SectorDetailPage = ({
       if (!resp.ok) {
         if (resp.status === 401) {
           setError("Authentication required");
+        } else if (resp.status === 503) {
+          setError("Sector data is not available yet. Please try again later.");
         } else {
           console.error("❌ Overview fetch failed:", resp.status);
+          setError("Failed to load sector data.");
         }
+        setOverviewDataLoaded(true);
         return;
       }
 
@@ -2984,32 +3387,9 @@ const SectorDetailPage = ({
         if (strategic) setSplitStrategicRaw(strategic);
         if (pe) setSplitPERaw(pe);
         if (recentTransactions) setSplitRecentRaw(recentTransactions);
-
-        if ("insightsArticles" in data.splitDatasets) {
-          setInsightsArticles(
-            Array.isArray(insightsArticles)
-              ? (insightsArticles as ContentArticle[])
-              : []
-          );
-        } else {
-          const sectorIdNum = Number(sectorId);
-          if (!Number.isNaN(sectorIdNum)) {
-            const sectorStats = data.sectorData as SectorStatistics | undefined;
-            const sectorImportance =
-              sectorStats?.Sector?.Sector_importance ||
-              toStringSafe(
-                (sectorStats as unknown as { Sector_importance?: unknown })
-                  ?.Sector_importance
-              );
-            const token = localStorage.getItem("asymmetrix_auth_token");
-            const articles = await fetchSectorProfileInsightsArticles({
-              sectorId: sectorIdNum,
-              sectorImportance,
-              token,
-            });
-            setInsightsArticles(articles);
-          }
-        }
+        setInsightsArticles(
+          Array.isArray(insightsArticles) ? (insightsArticles as ContentArticle[]) : []
+        );
       }
 
       // Log server timing for debugging
@@ -3030,6 +3410,12 @@ const SectorDetailPage = ({
     if (!sectorId) return;
     fetchOverviewData();
   }, [sectorId, fetchOverviewData]);
+
+  useEffect(() => {
+    if (activeTab === "public") {
+      fetchPublicCompaniesForSector(1);
+    }
+  }, [activeTab, fetchPublicCompaniesForSector]);
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -3314,6 +3700,184 @@ const SectorDetailPage = ({
       private: getFirstMatchingNumber(o, ["private_count", "Private_count"]),
     };
   }, [preferredSource]);
+
+  // Sector name slug for export filenames
+  const sectorNameSlug = useMemo(() => {
+    const name =
+      (sectorData as { sector_name?: string })?.sector_name ||
+      (sectorData as { Sector?: { sector_name?: string } })?.Sector?.sector_name ||
+      `sector_${sectorId}`;
+    return name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
+  }, [sectorData, sectorId]);
+
+  // Fixed ownership → Xano type ID mapping
+  const BUCKET_TYPE_IDS: Record<string, number> = {
+    public: 7,
+    private_equity_owned: 1,
+    venture_capital_backed: 3,
+    private: 2,
+  };
+
+  // Shared helper: fetch all pages for a given set of query params
+  const fetchAllCompanyPages = async (
+    baseParams: URLSearchParams,
+    token: string | null
+  ): Promise<AllCompanyItem[]> => {
+    const allItems: AllCompanyItem[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const params = new URLSearchParams(baseParams.toString());
+      params.set("Offset", String(page));
+      const res = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        }
+      );
+      if (!res.ok) break;
+      const data = (await res.json()) as {
+        result1?: { items?: AllCompanyItem[]; pageTotal?: number };
+      };
+      const r1 = data.result1 ?? {};
+      allItems.push(...(r1.items ?? []));
+      totalPages = r1.pageTotal ?? 1;
+      page++;
+    } while (page <= totalPages);
+    return allItems;
+  };
+
+  // Build a single export row from an AllCompanyItem (matches API ExportRow shape)
+  const buildExportRow = (
+    c: AllCompanyItem,
+    origin: string,
+    filtersApplied?: string
+  ) => ({
+    id: c.id,
+    name: c.name || "N/A",
+    url: c.url || "N/A",
+    asymmetrixUrl: `${origin}/company/${c.id}`,
+    description: c.description || "N/A",
+    primarySectors: Array.isArray(c.primary_sectors)
+      ? (c.primary_sectors as unknown as SectorLinkItem[])
+          .map(getSectorLabel)
+          .filter(Boolean)
+          .join(", ") || "N/A"
+      : "N/A",
+    subSectors: Array.isArray(c.secondary_sectors)
+      ? (c.secondary_sectors as unknown as SectorLinkItem[])
+          .map(getSectorLabel)
+          .filter(Boolean)
+          .join(", ") || "N/A"
+      : "N/A",
+    linkedinMembers: c.linkedin_members ?? 0,
+    country: c.country || "N/A",
+    ...(filtersApplied ? { filtersApplied } : {}),
+  });
+
+  // Call the server-side Excel export API and trigger a file download
+  const downloadExcelExport = async (
+    rows: ReturnType<typeof buildExportRow>[],
+    filename: string
+  ) => {
+    const res = await fetch('/api/export/sector-companies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows, filename }),
+    });
+    if (!res.ok) throw new Error(`Export API failed: ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // Export a single market-map bucket (called from each "Export CSV" next to "View All")
+  const handleExportBucket = useCallback(
+    async (bucketType: string, bucketLabel: string) => {
+      const limitCheck = await checkExportLimit();
+      if (!limitCheck.canExport) {
+        setMmExportsLeft(limitCheck.exportsLeft);
+        setMmShowExportLimitModal(true);
+        return;
+      }
+      setMmExportingBucket(bucketType);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const params = new URLSearchParams();
+        params.set("Per_page", "500");
+        params.set("Min_linkedin_members", "0");
+        params.set("Max_linkedin_members", "0");
+        params.set("Horizontals_ids", "");
+        params.append("Primary_sectors_ids[]", String(Number(sectorId)));
+        params.append("Ownership_types_ids[]", String(BUCKET_TYPE_IDS[bucketType] ?? 0));
+        const items = await fetchAllCompanyPages(params, token);
+        const rows = items.map((c) => buildExportRow(c, origin));
+        await downloadExcelExport(rows, `${sectorNameSlug}_${bucketLabel.replace(/\s+/g, "_")}`);
+      } finally {
+        setMmExportingBucket(null);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sectorId, sectorNameSlug]
+  );
+
+  // Export all companies in the "All Companies" tab, respecting active filters
+  const handleExportAllCompanies = useCallback(async () => {
+    const limitCheck = await checkExportLimit();
+    if (!limitCheck.canExport) {
+      setMmExportsLeft(limitCheck.exportsLeft);
+      setMmShowExportLimitModal(true);
+      return;
+    }
+    setAllExporting(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const filtersToUse = allCompaniesCurrentFilters ?? {
+        filters_sql: null,
+        query: null,
+        columns: [],
+        has_financial_filters: false,
+        has_year_filter: false,
+      };
+      const filtersApplied = filtersToUse.filters_sql
+        ? `filters_sql: ${filtersToUse.filters_sql}`
+        : undefined;
+
+      const items = await fetchAllCompaniesClientPages<AllCompanyItem>(
+        {
+          ...filtersToUse,
+          columns: allCompaniesApiColumnsRef.current,
+          Per_page: 500,
+        },
+        { perPage: 500, token }
+      );
+      const rows = items.map((c) =>
+        buildExportRow(c, origin, filtersApplied || undefined)
+      );
+      const ownershipSlug = ownershipFilter
+        ? `_${ownershipFilter.replace(/_/g, " ")}`.replace(/\s+/g, "_")
+        : "";
+      await downloadExcelExport(
+        rows,
+        `${sectorNameSlug}_All_Companies${ownershipSlug}`
+      );
+    } finally {
+      setAllExporting(false);
+    }
+  }, [sectorNameSlug, ownershipFilter, allCompaniesCurrentFilters]);
 
   // Only block rendering for critical errors (auth/not found)
   if (error) {
@@ -4056,117 +4620,6 @@ const SectorDetailPage = ({
       }
     };
 
-    // Generate pagination buttons
-    const generatePaginationButtons = () => {
-      const buttons = [];
-      const currentPage = pagination.curPage;
-      const totalPages = pagination.pageTotal;
-
-      // Previous button
-      buttons.push(
-        <button
-          key="prev"
-          className="pagination-button"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={!pagination.prevPage}
-        >
-          &lt;
-        </button>
-      );
-
-      // Page numbers
-      if (totalPages <= 7) {
-        for (let i = 1; i <= totalPages; i++) {
-          buttons.push(
-            <button
-              key={i}
-              className={`pagination-button ${
-                i === currentPage ? "active" : ""
-              }`}
-              onClick={() => handlePageChange(i)}
-            >
-              {i.toString()}
-            </button>
-          );
-        }
-      } else {
-        // Show first page
-        buttons.push(
-          <button
-            key={1}
-            className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
-            onClick={() => handlePageChange(1)}
-          >
-            1
-          </button>
-        );
-
-        if (currentPage > 3) {
-          buttons.push(
-            <span key="ellipsis1" className="pagination-ellipsis">
-              ...
-            </span>
-          );
-        }
-
-        // Show current page and neighbors
-        for (
-          let i = Math.max(2, currentPage - 1);
-          i <= Math.min(totalPages - 1, currentPage + 1);
-          i++
-        ) {
-          if (i > 1 && i < totalPages) {
-            buttons.push(
-              <button
-                key={i}
-                className={`pagination-button ${
-                  i === currentPage ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(i)}
-              >
-                {i.toString()}
-              </button>
-            );
-          }
-        }
-
-        if (currentPage < totalPages - 2) {
-          buttons.push(
-            <span key="ellipsis2" className="pagination-ellipsis">
-              ...
-            </span>
-          );
-        }
-
-        // Show last page
-        buttons.push(
-          <button
-            key={totalPages}
-            className={`pagination-button ${
-              currentPage === totalPages ? "active" : ""
-            }`}
-            onClick={() => handlePageChange(totalPages)}
-          >
-            {totalPages.toString()}
-          </button>
-        );
-      }
-
-      // Next button
-      buttons.push(
-        <button
-          key="next"
-          className="pagination-button"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={!pagination.nextPage}
-        >
-          &gt;
-        </button>
-      );
-
-      return buttons;
-    };
-
     return (
       <div className="space-y-6">
         {/* Filters Section */}
@@ -4822,15 +5275,15 @@ const SectorDetailPage = ({
                     targetCounterparty?.new_company;
                   const targetCounterpartyId =
                     event.target_counterparty?.new_company_counterparty;
-                  const targetName = target?.name || "-";
+                  const targetName = target?.name || "Not Available";
                   const targetHref = targetCounterpartyId
                     ? `/company/${targetCounterpartyId}`
                     : "";
                   const targetCountry = (target?._location?.Country ?? 
-                                        target?.country) || "-";
+                                        target?.country) || "Not Available";
 
                   const formatDate = (dateString: string) => {
-                    if (!dateString) return "-";
+                    if (!dateString) return "Not available";
                     try {
                       return new Date(dateString).toLocaleDateString("en-US", {
                         year: "numeric",
@@ -4846,9 +5299,9 @@ const SectorDetailPage = ({
                     amount: string | undefined,
                     currency: string | undefined
                   ) => {
-                    if (!amount || !currency) return "-";
+                    if (!amount || !currency) return "Not available";
                     const n = Number(amount);
-                    if (Number.isNaN(n)) return "-";
+                    if (Number.isNaN(n)) return "Not available";
                     return `${currency}${n.toLocaleString(undefined, {
                       maximumFractionDigits: 3,
                     })}m`;
@@ -4870,7 +5323,7 @@ const SectorDetailPage = ({
                     hrefBase: "/sector/" | "/sub-sector/" = "/sector/"
                   ): React.ReactNode => {
                     if (!Array.isArray(sectors) || sectors.length === 0) {
-                      return "-";
+                      return "Not available";
                     }
                     const nodes: React.ReactNode[] = [];
                     sectors.forEach((sector, index) => {
@@ -4906,7 +5359,7 @@ const SectorDetailPage = ({
                         nodes.push(<span key={`sep-${index}`}>, </span>);
                       }
                     });
-                    return nodes.length > 0 ? nodes : "-";
+                    return nodes.length > 0 ? nodes : "Not available";
                   };
 
                   const fundingStage =
@@ -4953,7 +5406,7 @@ const SectorDetailPage = ({
                             href={`/corporate-event/${event.id}`}
                             className="font-medium text-blue-600 underline hover:text-blue-800"
                           >
-                            {event.description || "-"}
+                            {event.description || "Not Available"}
                           </a>
                         </div>
                         <div className="text-xs text-slate-600">
@@ -5035,7 +5488,7 @@ const SectorDetailPage = ({
                               if (list.length === 0) {
                                 return (
                                   <>
-                                    <strong>Buyer(s):</strong> -
+                                    <strong>Buyer(s):</strong> Not Available
                                   </>
                                 );
                               }
@@ -5220,7 +5673,7 @@ const SectorDetailPage = ({
                               )}
                             </span>
                           ) : (
-                            "-"
+                            "Not Available"
                           )}
                         </div>
                         <div className="text-xs text-slate-600">
@@ -5269,7 +5722,7 @@ const SectorDetailPage = ({
                                   </span>
                                 );
                               })
-                            : "-"}
+                            : "Not Available"}
                         </div>
                       </td>
                       {/* Sectors */}
@@ -5292,11 +5745,14 @@ const SectorDetailPage = ({
         )}
 
         {/* Pagination */}
-        {pagination.pageTotal > 1 && (
-          <div className="flex gap-2 justify-center items-center mt-6">
-            {generatePaginationButtons()}
-          </div>
-        )}
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+          <CompactPagination
+            curPage={pagination.curPage}
+            pageTotal={pagination.pageTotal}
+            onPageChange={handlePageChange}
+            disabled={loading}
+          />
+        </div>
 
         {/* CSS for pagination */}
         <style jsx>{`
@@ -5487,7 +5943,7 @@ const SectorDetailPage = ({
     };
 
     const formatDate = (dateString: string) => {
-      if (!dateString) return "-";
+      if (!dateString) return "Not available";
       try {
         return new Date(dateString).toLocaleDateString("en-US", {
           year: "numeric",
@@ -5502,22 +5958,22 @@ const SectorDetailPage = ({
     const formatSectors = (
       sectors: Array<Array<{ sector_name: string }>> | undefined
     ) => {
-      if (!sectors || sectors.length === 0) return "-";
+      if (!sectors || sectors.length === 0) return "Not available";
       const allSectors = sectors
         .flat()
         .filter((s) => s && s.sector_name)
         .map((s) => s.sector_name);
-      return allSectors.length > 0 ? allSectors.join(", ") : "-";
+      return allSectors.length > 0 ? allSectors.join(", ") : "Not available";
     };
 
     const formatCompanies = (
       companies: ContentArticle["companies_mentioned"] | undefined
     ) => {
-      if (!companies || companies.length === 0) return "-";
+      if (!companies || companies.length === 0) return "Not available";
       const validCompanies = companies
         .filter((c) => c && c.name)
         .map((c) => c.name);
-      return validCompanies.length > 0 ? validCompanies.join(", ") : "-";
+      return validCompanies.length > 0 ? validCompanies.join(", ") : "Not available";
     };
 
     const badgeClassFor = (contentType?: string): string => {
@@ -5530,110 +5986,6 @@ const SectorDetailPage = ({
       if (t === "hot take") return "badge badge-hot-take";
       if (t === "executive interview") return "badge badge-executive-interview";
       return "badge";
-    };
-
-    const generatePaginationButtons = () => {
-      const buttons = [];
-      const currentPage = pagination.curPage;
-      const totalPages = pagination.pageTotal;
-
-      buttons.push(
-        <button
-          key="prev"
-          className="pagination-button"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={!pagination.prevPage}
-        >
-          &lt;
-        </button>
-      );
-
-      if (totalPages <= 7) {
-        for (let i = 1; i <= totalPages; i++) {
-          buttons.push(
-            <button
-              key={i}
-              className={`pagination-button ${
-                i === currentPage ? "active" : ""
-              }`}
-              onClick={() => handlePageChange(i)}
-            >
-              {i.toString()}
-            </button>
-          );
-        }
-      } else {
-        buttons.push(
-          <button
-            key={1}
-            className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
-            onClick={() => handlePageChange(1)}
-          >
-            1
-          </button>
-        );
-
-        if (currentPage > 3) {
-          buttons.push(
-            <span key="ellipsis1" className="pagination-ellipsis">
-              ...
-            </span>
-          );
-        }
-
-        for (
-          let i = Math.max(2, currentPage - 1);
-          i <= Math.min(totalPages - 1, currentPage + 1);
-          i++
-        ) {
-          if (i > 1 && i < totalPages) {
-            buttons.push(
-              <button
-                key={i}
-                className={`pagination-button ${
-                  i === currentPage ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(i)}
-              >
-                {i.toString()}
-              </button>
-            );
-          }
-        }
-
-        if (currentPage < totalPages - 2) {
-          buttons.push(
-            <span key="ellipsis2" className="pagination-ellipsis">
-              ...
-            </span>
-          );
-        }
-
-        buttons.push(
-          <button
-            key={totalPages}
-            className={`pagination-button ${
-              currentPage === totalPages ? "active" : ""
-            }`}
-            onClick={() => handlePageChange(totalPages)}
-          >
-            {totalPages.toString()}
-          </button>
-        );
-      }
-
-      buttons.push(
-        <button
-          key="next"
-          className="pagination-button"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={!pagination.nextPage}
-        >
-          &gt;
-        </button>
-      );
-
-      return buttons;
     };
 
     return (
@@ -5725,7 +6077,7 @@ const SectorDetailPage = ({
                   }}
                 >
                   <h3 className="article-title">
-                    {article.Headline || "-"}
+                    {article.Headline || "Not Available"}
                   </h3>
                   <p className="article-date">
                     {formatDate(article.Publication_Date)}
@@ -5766,11 +6118,14 @@ const SectorDetailPage = ({
         )}
 
         {/* Pagination */}
-        {pagination.pageTotal > 1 && (
-          <div className="flex gap-2 justify-center items-center mt-6">
-            {generatePaginationButtons()}
-          </div>
-        )}
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+          <CompactPagination
+            curPage={pagination.curPage}
+            pageTotal={pagination.pageTotal}
+            onPageChange={handlePageChange}
+            disabled={loading}
+          />
+        </div>
 
         {/* CSS Styles */}
         <style jsx>{`
@@ -6091,6 +6446,8 @@ const SectorDetailPage = ({
               <MarketMapGrid
                 companies={marketMapCompanies}
                 counts={marketMapCounts}
+                onExportBucket={handleExportBucket}
+                exportingBucket={mmExportingBucket}
               />
             ) : overviewDataLoaded ? (
               <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
@@ -6192,62 +6549,317 @@ const SectorDetailPage = ({
             )}
           </div>
         ) : activeTab === "all" ? (
-          !Number.isNaN(Number(sectorId)) && Number(sectorId) > 0 ? (
-            <div className="space-y-4">
-              {ownershipFilter && (
-                <div className="px-3 py-2 bg-blue-50 rounded border border-blue-200">
-                  <span className="text-sm text-blue-900">
-                    Viewing a pre-filtered list:{" "}
-                    <strong>
-                      {ownershipFilter === "public"
-                        ? "Public Companies"
-                        : ownershipFilter === "private_equity_owned"
-                        ? "Private Equity Owned"
-                        : ownershipFilter === "venture_capital_backed"
-                        ? "Venture Capital Backed"
-                        : "Private Companies"}
-                    </strong>
-                  </span>
-                  <button
-                    onClick={() => {
-                      try {
-                        if (typeof window !== "undefined") {
-                          const url = new URL(window.location.href);
-                          url.searchParams.delete("ownership");
-                          url.searchParams.set("tab", "all");
-                          window.history.replaceState({}, "", url.toString());
-                        }
-                      } finally {
-                        setOwnershipFilter(null);
-                      }
-                    }}
-                    className="ml-3 text-sm font-semibold text-blue-700 underline hover:text-blue-900"
-                  >
-                    Clear filter
-                  </button>
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <div className="flex justify-between items-center gap-3">
+                  <div className="flex gap-3 items-center text-xl">
+                    <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
+                      <svg
+                        className="w-4 h-4 text-indigo-600"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M3 12h18M3 6h18M3 18h18" />
+                      </svg>
+                    </span>
+                    <span className="text-slate-900">All Companies</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-slate-600">
+                      {allCompaniesOwnershipCounts.totalCount.toLocaleString()} matches
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAllCompaniesColumnsModal((v) => !v)}
+                      aria-pressed={showAllCompaniesColumnsModal}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors duration-150 ${
+                        showAllCompaniesColumnsModal
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
+                      }`}
+                    >
+                      <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
+                        <path d="M0 1h14M0 5h10M0 9h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                      Columns {allCompaniesColumnsCount}/{ALL_COMPANY_COLUMN_KEYS.length}
+                    </button>
+                    <button
+                      onClick={handleExportAllCompanies}
+                      disabled={allExporting}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors duration-150 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                      </svg>
+                      {allExporting ? "Exporting…" : "Export CSV"}
+                    </button>
+                  </div>
                 </div>
-              )}
-              <ScopedCompaniesPanel
-                primarySectorId={Number(sectorId)}
-                fixedOwnershipTypeIds={
-                  ownershipFilter
-                    ? OWNERSHIP_URL_FILTER_MAP[ownershipFilter]
-                    : undefined
-                }
-                hideOwnershipTabs={Boolean(ownershipFilter)}
-                embedded
-              />
+              </div>
+              <div className="px-5 pt-2 pb-1">
+                <CompaniesSearchDashboard
+                  key={`${sectorId}-${ownershipFilter ?? "all"}`}
+                  embedded
+                  forcedPrimarySectorIds={forcedPrimarySectorIds}
+                  initialOwnershipTab={initialAllCompaniesOwnershipTab}
+                  ownershipCounts={allCompaniesOwnershipCounts}
+                  onSearch={handleAllCompaniesSearch}
+                />
+              </div>
+              <div className="px-5 py-4">
+                <CompaniesDataTable
+                  companies={allCompanies as CompanyRow[]}
+                  loading={allCompaniesLoading}
+                  error={allCompaniesError}
+                  columnStorageKey={SECTOR_ALL_COMPANIES_COLUMNS_STORAGE_KEY}
+                  defaultColumnKeys={DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS}
+                  onApiColumnsChange={handleAllCompaniesApiColumnsChange}
+                  onRefetch={refetchAllCompaniesFirstPage}
+                  onSortChange={handleAllCompaniesSortChange}
+                  syncSortFromFilters={{
+                    sort_column: allCompaniesCurrentFilters?.sort_column,
+                    sort_direction: allCompaniesCurrentFilters?.sort_direction,
+                  }}
+                  externalShowColumnsModal={showAllCompaniesColumnsModal}
+                  externalSetShowColumnsModal={setShowAllCompaniesColumnsModal}
+                  onColumnsCountChange={setAllCompaniesColumnsCount}
+                  hideSelection
+                  emptyMessage="No companies found for this sector."
+                />
+              </div>
             </div>
-          ) : null
+            {allCompaniesPagination.pageTotal > 1 && (
+              <div className="flex gap-2 justify-center items-center">
+                <button
+                  disabled={!allCompaniesPagination.prevPage}
+                  onClick={() =>
+                    allCompaniesPagination.prevPage &&
+                    fetchAllCompaniesForSector(allCompaniesPagination.prevPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm text-slate-600">
+                  Page {allCompaniesPagination.curPage} of{" "}
+                  {allCompaniesPagination.pageTotal}
+                </span>
+                <button
+                  disabled={!allCompaniesPagination.nextPage}
+                  onClick={() =>
+                    allCompaniesPagination.nextPage &&
+                    fetchAllCompaniesForSector(allCompaniesPagination.nextPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
         ) : activeTab === "public" ? (
-          !Number.isNaN(Number(sectorId)) && Number(sectorId) > 0 ? (
-            <ScopedCompaniesPanel
-              primarySectorId={Number(sectorId)}
-              fixedOwnershipTypeIds={[7]}
-              hideOwnershipTabs
-              embedded
-            />
-          ) : null
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-3 items-center text-xl">
+                    <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
+                      <svg
+                        className="w-4 h-4 text-indigo-600"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M3 12h18M3 6h18M3 18h18" />
+                      </svg>
+                    </span>
+                    <span className="text-slate-900">Public Companies</span>
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    {publicCompaniesPagination.itemsReceived.toLocaleString()}{" "}
+                    total
+                  </div>
+                </div>
+              </div>
+              <div className="px-5 py-4">
+                {publicCompaniesLoading ? (
+                  <div className="py-10 text-center text-slate-500">
+                    Loading companies...
+                  </div>
+                ) : publicCompaniesError ? (
+                  <div className="py-4 text-center text-red-600">
+                    {publicCompaniesError}
+                  </div>
+                ) : publicCompanies.length === 0 ? (
+                  <div className="py-10 text-center text-slate-500">
+                    No companies found for this sector.
+                  </div>
+                ) : (
+                  <div className="overflow-x-hidden">
+                    <table className="w-full text-sm table-fixed">
+                      <thead className="bg-slate-50/80">
+                        <tr className="hover:bg-slate-50/80">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[8%]">
+                            Logo
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[17%]">
+                            Name
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[20%]">
+                            Description
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[16%]">
+                            Primary Sector(s)
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
+                            Sub-Sector(s)
+                          </th>
+                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
+                            LinkedIn Members
+                          </th>
+                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
+                            Country
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {publicCompanies.map((c) => {
+                          const primaryDisplay = parseSectorList(c.primary_sectors);
+                          const secondaryDisplay = parseSectorList(
+                            c.secondary_sectors
+                          );
+                          const expanded = !!publicExpandedDescriptions[c.id];
+                          return (
+                            <tr key={c.id} className="hover:bg-slate-50/50">
+                              <td className="py-3 pr-4">
+                                {c.linkedin_logo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={`data:image/jpeg;base64,${c.linkedin_logo}`}
+                                    alt={`${c.name} logo`}
+                                    className="object-contain w-12 h-8 rounded"
+                                    onError={(e) => {
+                                      (
+                                        e.target as HTMLImageElement
+                                      ).style.display = "none";
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="flex justify-center items-center w-12 h-8 text-[10px] text-slate-500 bg-slate-100 rounded">
+                                    No Logo
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words">
+                                <a
+                                  href={`/company/${c.id}`}
+                                  className="font-medium text-blue-600 underline"
+                                >
+                                  {c.name}
+                                </a>
+                              </td>
+                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
+                                {c.description ? (
+                                  <>
+                                    <div
+                                      style={
+                                        expanded
+                                          ? {}
+                                          : {
+                                              display: "-webkit-box",
+                                              WebkitLineClamp: 4,
+                                              WebkitBoxOrient: "vertical",
+                                              overflow: "hidden",
+                                              textOverflow: "ellipsis",
+                                              minHeight: "5rem",
+                                            }
+                                      }
+                                    >
+                                      {c.description}
+                                    </div>
+                                    {c.description.length > 160 && (
+                                      <button
+                                        className="mt-1 text-xs text-blue-600 underline hover:text-blue-800"
+                                        onClick={() =>
+                                          setPublicExpandedDescriptions(
+                                            (prev) => ({
+                                              ...prev,
+                                              [c.id]: !expanded,
+                                            })
+                                          )
+                                        }
+                                      >
+                                        {expanded ? "Read Less" : "Read More"}
+                                      </button>
+                                    )}
+                                  </>
+                                ) : (
+                                  "N/A"
+                                )}
+                              </td>
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
+                                {renderSectorLinks(primaryDisplay, "/sector/")}
+                              </td>
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
+                                {renderSectorLinks(
+                                  secondaryDisplay,
+                                  "/sub-sector/"
+                                )}
+                              </td>
+                              <td className="py-3 pr-4 text-center text-slate-700">
+                                {typeof c.linkedin_members === "number"
+                                  ? c.linkedin_members.toLocaleString()
+                                  : "0"}
+                              </td>
+                              <td className="py-3 pr-4 text-center text-slate-700">
+                                {c.country || "N/A"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+            {publicCompaniesPagination.pageTotal > 1 && (
+              <div className="flex gap-2 justify-center items-center">
+                <button
+                  disabled={!publicCompaniesPagination.prevPage}
+                  onClick={() =>
+                    publicCompaniesPagination.prevPage &&
+                    fetchPublicCompaniesForSector(
+                      publicCompaniesPagination.prevPage
+                    )
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm text-slate-600">
+                  Page {publicCompaniesPagination.curPage} of{" "}
+                  {publicCompaniesPagination.pageTotal}
+                </span>
+                <button
+                  disabled={!publicCompaniesPagination.nextPage}
+                  onClick={() =>
+                    publicCompaniesPagination.nextPage &&
+                    fetchPublicCompaniesForSector(
+                      publicCompaniesPagination.nextPage
+                    )
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
         ) : activeTab === "subsectors" ? (
           <div className="space-y-4">
             <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
@@ -6332,6 +6944,12 @@ const SectorDetailPage = ({
           </div>
         )}
       </main>
+      <ExportLimitModal
+        isOpen={mmShowExportLimitModal}
+        onClose={() => setMmShowExportLimitModal(false)}
+        exportsLeft={mmExportsLeft}
+        totalExports={EXPORT_LIMIT}
+      />
       <Footer />
     </div>
   );
