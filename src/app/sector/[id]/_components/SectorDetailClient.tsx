@@ -5,7 +5,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 // import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import CompactPagination from "@/components/ui/CompactPagination";
+import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
 import { locationsService } from "@/lib/locationsService";
 import { BuildingOfficeIcon } from "@heroicons/react/24/outline";
 import SearchableSelect from "@/components/ui/SearchableSelect";
@@ -18,35 +18,23 @@ import {
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import {
   ContentArticle,
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "@/types/insightsAnalysis";
-import type { CompaniesFilters } from "@/app/companies/actions";
 import {
-  CompaniesSearchDashboard,
-  EMPTY_OWNERSHIP_COUNTS,
-  type CompaniesOwnershipCounts,
-} from "@/components/companies/CompaniesSearchDashboard";
+  SearchEntityMultiValueCell,
+  SEARCH_MULTI_VALUE_STYLES,
+} from "@/components/search/SearchEntityMultiValueCell";
 import {
-  fetchAllCompaniesClientPages,
-  fetchCompaniesClient,
-  fetchCompaniesCountsClient,
-} from "@/lib/companiesClientApi";
-import { ownershipFilterParamToTab } from "@/lib/companiesSearchFilterConfig";
-import {
-  CompaniesDataTable,
-  ALL_COMPANY_COLUMN_KEYS,
-  type CompaniesSortChangePayload,
-} from "@/components/companies/CompaniesDataTable";
-import {
-  DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS,
-  SECTOR_ALL_COMPANIES_COLUMNS_STORAGE_KEY,
-  type CompanyRow,
-} from "@/components/companies/companyColumnDefinitions";
-import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
-import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
+  buildAdvisorSectorItems,
+  parseAdvisorSectors,
+} from "@/components/search/searchEntityLinkUtils";
+import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
+
+const SECTOR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
 
 // Types for API integration
 interface SectorData {
@@ -172,70 +160,6 @@ const getSectorLabel = (sector: SectorLinkItem): string => {
   return String(name ?? "").trim();
 };
 
-const renderSectorLinks = (
-  sectors: SectorLinkItem[] | undefined,
-  hrefBase: "/sector/" | "/sub-sector/" = "/sector/"
-): React.ReactNode => {
-  if (!Array.isArray(sectors) || sectors.length === 0) {
-    return "N/A";
-  }
-  const nodes: React.ReactNode[] = [];
-  sectors.forEach((sector, index) => {
-    const label = getSectorLabel(sector);
-    if (!label) return;
-    const sectorId =
-      typeof sector === "object" && sector
-        ? (sector.id ?? sector.sector_id ?? sector.sectorId ?? undefined)
-        : undefined;
-
-    nodes.push(
-      typeof sectorId === "number" ? (
-        <a
-          key={`${hrefBase}${sectorId}-${label}-${index}`}
-          href={`${hrefBase}${sectorId}`}
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          {label}
-        </a>
-      ) : (
-        <span key={`${label}-${index}`}>{label}</span>
-      )
-    );
-
-    if (index < sectors.length - 1) nodes.push(<span key={`sep-${index}`}>, </span>);
-  });
-  return nodes.length > 0 ? nodes : "N/A";
-};
-
-const parseSectorList = (value: unknown): SectorLinkItem[] => {
-  if (value == null || value === "") return [];
-  if (Array.isArray(value)) return value as SectorLinkItem[];
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed || trimmed === "[]" || trimmed === "{}") return [];
-    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
-      try {
-        const parsed = JSON.parse(trimmed) as unknown;
-        if (Array.isArray(parsed)) return parsed as SectorLinkItem[];
-        if (parsed && typeof parsed === "object") {
-          return Object.values(parsed as Record<string, SectorLinkItem>);
-        }
-      } catch {
-        // fall through
-      }
-    }
-    return trimmed
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .map((sector_name) => ({ sector_name }));
-  }
-  if (typeof value === "object") {
-    return Object.values(value as Record<string, SectorLinkItem>);
-  }
-  return [];
-};
-
 interface NewCompanyItem {
   id: number;
   name: string;
@@ -295,8 +219,43 @@ interface RankedEntity {
   count: number;
   id?: number;
   mostRecentTarget?: string;
+  mostRecentTargetId?: number;
   closedDate?: string;
+  corporateEventId?: number;
   logoUrl?: string; // fully qualified (e.g., data:image/jpeg;base64,...)
+}
+
+function renderMostRecentTargetValue(
+  entity: Pick<RankedEntity, "mostRecentTarget" | "mostRecentTargetId" | "corporateEventId">,
+  className = "text-blue-600 hover:underline"
+): React.ReactNode {
+  if (!entity.mostRecentTarget) return "-";
+
+  if (entity.mostRecentTargetId) {
+    return (
+      <a
+        href={`/company/${entity.mostRecentTargetId}`}
+        className={className}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {entity.mostRecentTarget}
+      </a>
+    );
+  }
+
+  if (entity.corporateEventId) {
+    return (
+      <a
+        href={`/corporate-event/${entity.corporateEventId}`}
+        className={className}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {entity.mostRecentTarget}
+      </a>
+    );
+  }
+
+  return entity.mostRecentTarget;
 }
 
 function toStringSafe(value: unknown): string {
@@ -470,12 +429,7 @@ function mapRecentTransactions(raw: unknown): TransactionRecord[] {
           "targetLogo",
         ]) || ""
       );
-      const targetLogoUrl = rawTargetLogo
-        ? rawTargetLogo.startsWith("http") ||
-          rawTargetLogo.startsWith("data:image")
-          ? rawTargetLogo
-          : `data:image/jpeg;base64,${rawTargetLogo}`
-        : "";
+      const targetLogoUrl = resolveCompanyLogoSrc(rawTargetLogo) ?? "";
       if (!buyer && !target) return null;
       return {
         date,
@@ -522,14 +476,49 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
           "times",
           "occurrences",
         ]) ?? 0;
-      const mostRecentTarget = toStringSafe(
-        getFirstMatchingValue(obj, [
-          "Most_Recent_Target",
-          "most_recent_target",
-          "Most_Recent_Acquisition",
-          "most_recent_acquisition",
-        ]) || ""
-      );
+      const mostRecentTargetRaw = getFirstMatchingValue(obj, [
+        "Most_Recent_Target",
+        "most_recent_target",
+        "Most_Recent_Investment",
+        "most_recent_investment",
+        "Most_Recent_Acquisition",
+        "most_recent_acquisition",
+      ]);
+      let mostRecentTarget = "";
+      let mostRecentTargetId: number | undefined;
+      if (mostRecentTargetRaw && typeof mostRecentTargetRaw === "object") {
+        const targetObj = mostRecentTargetRaw as Record<string, unknown>;
+        mostRecentTarget = toStringSafe(
+          getFirstMatchingValue(targetObj, [
+            "name",
+            "company_name",
+            "target_name",
+            "Target",
+            "target",
+          ]) || ""
+        );
+        mostRecentTargetId = getFirstMatchingNumber(targetObj, [
+          "id",
+          "company_id",
+          "target_company_id",
+          "new_company_id",
+          "original_new_company_id",
+        ]);
+      } else {
+        mostRecentTarget = toStringSafe(mostRecentTargetRaw || "");
+        mostRecentTargetId = getFirstMatchingNumber(obj, [
+          "Most_Recent_Target_Id",
+          "Most_Recent_Target_ID",
+          "Most_Recent_Target_company_id",
+          "most_recent_target_company_id",
+          "Most_Recent_Target_Company_ID",
+          "most_recent_target_id",
+          "Most_Recent_Target_id",
+          "Target_company_id",
+          "target_company_id",
+          "most_recent_target_new_company_id",
+        ]);
+      }
       const closedDate = toStringSafe(
         getFirstMatchingValue(obj, [
           "Closed_Date",
@@ -537,6 +526,8 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
           "date",
           "Announcement_Date",
           "announcement_date",
+          "Most_Recent_Announcement_Date",
+          "most_recent_announcement_date",
         ]) || ""
       );
       const acquirerId = getFirstMatchingNumber(obj, [
@@ -547,21 +538,29 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
         "company_id",
         "id",
         "investor_company_id",
+        "vc_investor_company_id",
+      ]);
+      const corporateEventId = getFirstMatchingNumber(obj, [
+        "Most_Recent_Target_Event_Id",
+        "most_recent_target_event_id",
+        "Corporate_Event_ID",
+        "corporate_event_id",
+        "event_id",
+        "corporateEventId",
       ]);
       // Build logo URL if available (prefer prefixed, else base64 data)
       const rawLogo = toStringSafe(
         getFirstMatchingValue(obj, [
           "Acquirer_Logo_Url",
+          "Investor_Logo_Url",
+          "PE_Investor_Logo_Url",
+          "VC_Investor_Logo_Url",
           "logo",
           "logo_url",
           "logoUrl",
         ]) || ""
       );
-      const logoUrl = rawLogo
-        ? rawLogo.startsWith("http") || rawLogo.startsWith("data:image")
-          ? rawLogo
-          : `data:image/jpeg;base64,${rawLogo}`
-        : "";
+      const logoUrl = resolveCompanyLogoSrc(rawLogo) ?? "";
       const count = typeof countRaw === "number" ? countRaw : 0;
       if (!name) return null;
       return {
@@ -569,7 +568,11 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
         count,
         id: typeof acquirerId === "number" ? acquirerId : undefined,
         mostRecentTarget: mostRecentTarget || undefined,
+        mostRecentTargetId:
+          typeof mostRecentTargetId === "number" ? mostRecentTargetId : undefined,
         closedDate: closedDate || undefined,
+        corporateEventId:
+          typeof corporateEventId === "number" ? corporateEventId : undefined,
         logoUrl: logoUrl || undefined,
       } as RankedEntity;
     })
@@ -748,12 +751,20 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
 // Tabs
 const TABS = [
   { id: "overview", name: "Overview" },
+  { id: "most_active", name: "Most Active" },
   { id: "public", name: "Public Companies" },
   { id: "subsectors", name: "Sub-Sectors" },
   { id: "transactions", name: "Transactions" },
   { id: "insights", name: "Insights & Analysis" },
   { id: "all", name: "All Companies" },
 ] as const;
+
+const OWNERSHIP_URL_FILTER_MAP: Record<string, number[]> = {
+  public: [7],
+  private_equity_owned: [1],
+  venture_capital_backed: [3],
+  private: [2],
+};
 
 function TabNavigation({
   activeTab,
@@ -795,22 +806,48 @@ function TabNavigation({
   );
 }
 
-function RecentInsightsCard({
-  articles,
-  loading,
-}: {
-  articles: ContentArticle[];
-  loading: boolean;
-}) {
-  const sortedArticles = useMemo(
-    () =>
-      [...articles].sort(
-        (a, b) =>
+function RecentInsightsCard({ sectorId }: { sectorId: string }) {
+  const [articles, setArticles] = useState<ContentArticle[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchArticles = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const sectorIdNum = Number(sectorId);
+        if (Number.isNaN(sectorIdNum)) return;
+
+        const params = new URLSearchParams();
+        params.append("primary_sectors_ids[]", String(sectorIdNum));
+
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors?${params.toString()}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const arr: ContentArticle[] = Array.isArray(data) ? data : [];
+        const sorted = arr.sort((a, b) =>
           new Date(b.Publication_Date).getTime() -
           new Date(a.Publication_Date).getTime()
-      ),
-    [articles]
-  );
+        );
+        setArticles(sorted);
+      } catch {
+        // silent fail
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (sectorId) fetchArticles();
+  }, [sectorId]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "";
@@ -873,7 +910,7 @@ function RecentInsightsCard({
               </div>
             ))}
           </div>
-        ) : sortedArticles.length === 0 ? (
+        ) : articles.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
               <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -884,7 +921,7 @@ function RecentInsightsCard({
           </div>
         ) : (
           <div className="divide-y divide-slate-100 overflow-y-auto overflow-x-hidden h-full">
-            {sortedArticles.map((article) => (
+            {articles.map((article) => (
               <a
                 key={article.id}
                 href={`/article/${article.id}`}
@@ -926,6 +963,7 @@ function MostActiveTableCard({
   badgeLabel,
   mostRecentHeader,
   showBadge = true,
+  onViewAll,
 }: {
   title: string;
   items: RankedEntity[];
@@ -933,6 +971,7 @@ function MostActiveTableCard({
   badgeLabel: string;
   mostRecentHeader?: string;
   showBadge?: boolean;
+  onViewAll?: () => void;
 }) {
   const hasItems = Array.isArray(items) && items.length > 0;
   const accentClasses =
@@ -952,17 +991,27 @@ function MostActiveTableCard({
   return (
     <div className="h-full bg-white rounded-xl border shadow-lg border-slate-200/60">
       <div className="px-5 py-4 border-b border-slate-100">
-        <div className="flex gap-3 items-center text-xl">
-          <span className="inline-flex justify-center items-center w-8 h-8 rounded-lg bg-slate-50">
-            <BuildingOfficeIcon
-              className={`w-4 h-4 text-${
-                accent === "purple" ? "purple" : "blue"
-              }-600`}
-            />
-          </span>
-          <span className="text-base font-semibold text-slate-900 sm:text-lg">
-            {title}
-          </span>
+        <div className="flex gap-3 items-center justify-between">
+          <div className="flex gap-3 items-center text-xl">
+            <span className="inline-flex justify-center items-center w-8 h-8 rounded-lg bg-slate-50">
+              <BuildingOfficeIcon
+                className={`w-4 h-4 text-${
+                  accent === "purple" ? "purple" : "blue"
+                }-600`}
+              />
+            </span>
+            <span className="text-base font-semibold text-slate-900 sm:text-lg">
+              {title}
+            </span>
+          </div>
+          {onViewAll && (
+            <button
+              onClick={onViewAll}
+              className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors whitespace-nowrap"
+            >
+              View All →
+            </button>
+          )}
         </div>
       </div>
       <div className="px-5 pb-5">
@@ -971,7 +1020,7 @@ function MostActiveTableCard({
           <div className="block space-y-3 md:hidden">
             {!hasItems ? (
               <div className="py-6 text-sm text-center text-slate-500">
-                Not available
+                -
               </div>
             ) : (
               items.slice(0, 25).map((it) => {
@@ -1029,10 +1078,13 @@ function MostActiveTableCard({
                       </div>
                       <div className="text-right min-w-0 flex-1">
                         <p className="text-xs font-medium text-slate-900 truncate">
-                          {it.mostRecentTarget || "N/A"}
+                          {renderMostRecentTargetValue(
+                            it,
+                            "text-blue-600 hover:underline"
+                          )}
                         </p>
                         <p className="text-xs text-slate-500">
-                          {it.closedDate || "N/A"}
+                          {it.closedDate || "-"}
                         </p>
                       </div>
                     </div>
@@ -1085,7 +1137,7 @@ function MostActiveTableCard({
                       colSpan={3}
                       className="py-6 text-sm text-center text-slate-500"
                     >
-                      Not available
+                      -
                     </td>
                   </tr>
                 ) : (
@@ -1198,10 +1250,10 @@ function MostActiveTableCard({
                         <td className="py-3">
                           <div>
                             <p className="text-sm font-medium text-slate-900">
-                              {it.mostRecentTarget || "N/A"}
+                              {renderMostRecentTargetValue(it)}
                             </p>
                             <p className="mt-1 text-xs text-slate-500">
-                              {it.closedDate || "N/A"}
+                              {it.closedDate || "-"}
                             </p>
                           </div>
                         </td>
@@ -1218,12 +1270,910 @@ function MostActiveTableCard({
   );
 }
 
+// ── Most Active tab ─────────────────────────────────────────────────────────
+
+const MOST_ACTIVE_SUB_TABS = [
+  { id: "strategics", label: "Strategic Acquirers" },
+  { id: "pe", label: "PE Investors" },
+  { id: "venture", label: "Venture Investors" },
+  { id: "advisors", label: "Advisors" },
+] as const;
+
+type MostActiveSubTabId = (typeof MOST_ACTIVE_SUB_TABS)[number]["id"];
+
+interface AdvisorEntity {
+  name: string;
+  totalDealsAdvised: number;
+  id?: number;
+  country?: string;
+  sectors: Array<{ id: number; name: string }>;
+  sectorsCount?: number;
+  logoUrl?: string;
+}
+
+function MostActiveSubTabNav({
+  active,
+  onChange,
+}: {
+  active: MostActiveSubTabId;
+  onChange: (id: MostActiveSubTabId) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1 bg-slate-100 rounded-lg p-1 w-fit mb-6">
+      {MOST_ACTIVE_SUB_TABS.map((st) => (
+        <button
+          key={st.id}
+          onClick={() => onChange(st.id)}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-150 whitespace-nowrap ${
+            active === st.id
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          {st.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MostActiveFullTable({
+  items,
+  accent,
+  columnOneLabel,
+  mostRecentHeader,
+}: {
+  items: RankedEntity[];
+  accent: "blue" | "purple" | "green";
+  columnOneLabel: string;
+  mostRecentHeader: string;
+}) {
+  const accentMap = {
+    blue: {
+      gradient: "from-blue-500 to-indigo-500",
+      countBg: "bg-blue-50 text-blue-700",
+    },
+    purple: {
+      gradient: "from-purple-500 to-pink-500",
+      countBg: "bg-purple-50 text-purple-700",
+    },
+    green: {
+      gradient: "from-emerald-500 to-teal-500",
+      countBg: "bg-emerald-50 text-emerald-700",
+    },
+  };
+  const cls = accentMap[accent];
+  const isInvestorTable = accent !== "blue";
+
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+          <BuildingOfficeIcon className="w-6 h-6 text-slate-400" />
+        </div>
+        <p className="text-slate-500 text-sm">No data available yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-auto">
+      <table className="min-w-full text-sm">
+        <thead>
+          <tr className="bg-slate-50 border-b border-slate-100">
+            <th className="py-3 px-4 text-left font-semibold text-slate-600 w-10">#</th>
+            <th className="py-3 px-4 text-left font-semibold text-slate-600">{columnOneLabel}</th>
+            <th className="py-3 px-4 text-center font-semibold text-slate-600 w-24">Deals</th>
+            <th className="py-3 px-4 text-left font-semibold text-slate-600">{mostRecentHeader}</th>
+            <th className="py-3 px-4 text-left font-semibold text-slate-600 w-36">Date</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {items.map((it, i) => {
+            const linkUrl = isInvestorTable
+              ? `/investors/${it.id}`
+              : `/company/${it.id}`;
+            return (
+              <tr
+                key={`${it.name}-${i}`}
+                className={`hover:bg-slate-50/60 transition-colors duration-100 ${it.id ? "cursor-pointer" : ""}`}
+                onClick={() => { if (it.id) window.location.href = linkUrl; }}
+              >
+                <td className="py-3 px-4 text-slate-400 font-medium">{i + 1}</td>
+                <td className="py-3 px-4">
+                  <div className="flex items-center gap-3">
+                    {it.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={it.logoUrl}
+                        alt={it.name}
+                        className="w-8 h-8 rounded-lg object-contain flex-shrink-0"
+                        onError={(e) => {
+                          const t = e.target as HTMLImageElement;
+                          t.style.display = "none";
+                          const fb = t.nextElementSibling as HTMLElement | null;
+                          if (fb) fb.style.display = "flex";
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`${it.logoUrl ? "hidden" : "flex"} justify-center items-center w-8 h-8 rounded-lg text-white bg-gradient-to-br flex-shrink-0 ${cls.gradient}`}
+                    >
+                      <BuildingOfficeIcon className="w-4 h-4" />
+                    </div>
+                    {it.id ? (
+                      <a
+                        href={linkUrl}
+                        className="font-medium text-blue-600 hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {it.name}
+                      </a>
+                    ) : (
+                      <span className="font-medium text-slate-900">{it.name}</span>
+                    )}
+                  </div>
+                </td>
+                <td className="py-3 px-4 text-center">
+                  <span
+                    className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold ${cls.countBg}`}
+                  >
+                    {formatNumber(it.count)}
+                  </span>
+                </td>
+                <td className="py-3 px-4 text-slate-700 max-w-[200px] truncate">
+                  {renderMostRecentTargetValue(it)}
+                </td>
+                <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
+                  {it.closedDate || "-"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AdvisedSectorsCell({
+  sectors,
+}: {
+  sectors: Array<{ id: number; name: string }>;
+}) {
+  if (sectors.length === 0) return <span>-</span>;
+
+  return (
+    <SearchEntityMultiValueCell
+      items={buildAdvisorSectorItems(sectors, "sector-advisor")}
+      maxVisible={10}
+    />
+  );
+}
+
+function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+          <BuildingOfficeIcon className="w-6 h-6 text-slate-400" />
+        </div>
+        <p className="text-slate-500 text-sm font-medium">No advisor data available yet</p>
+        <p className="text-slate-400 text-xs mt-1 max-w-sm">
+          Data will appear here when Corporate Events with advisors are available for this sector.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <style>{SEARCH_MULTI_VALUE_STYLES}</style>
+      <div className="overflow-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-100">
+              <th className="py-3 px-4 text-left font-semibold text-slate-600 w-10">#</th>
+              <th className="py-3 px-4 text-left font-semibold text-slate-600 w-16">Logo</th>
+              <th className="py-3 px-4 text-left font-semibold text-slate-600">Advisor Name</th>
+              <th className="py-3 px-4 text-left font-semibold text-slate-600">Country</th>
+              <th className="py-3 px-4 text-center font-semibold text-slate-600 w-48">
+                Total No. Deals Advised
+              </th>
+              <th className="py-3 px-4 text-left font-semibold text-slate-600">
+                Sectors Covered
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {items.map((it, i) => {
+              const linkUrl = it.id ? `/advisor/${it.id}` : undefined;
+              return (
+                <tr
+                  key={`${it.name}-${i}`}
+                  className="hover:bg-slate-50/60 transition-colors duration-100"
+                >
+                  <td className="py-3 px-4 text-slate-400 font-medium">{i + 1}</td>
+                  <td className="py-3 px-4">
+                    {it.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={it.logoUrl}
+                        alt={it.name}
+                        className="w-8 h-8 rounded-lg object-contain"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex justify-center items-center w-8 h-8 rounded-lg text-white bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
+                        <BuildingOfficeIcon className="w-4 h-4" />
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-3 px-4">
+                    {linkUrl ? (
+                      <a href={linkUrl} className="font-medium text-blue-600 hover:underline">
+                        {it.name}
+                      </a>
+                    ) : (
+                      <span className="font-medium text-slate-900">{it.name}</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-slate-700">
+                    {it.country || "-"}
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-amber-50 text-amber-700">
+                      {formatNumber(it.totalDealsAdvised)}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-slate-700 max-w-[360px]">
+                    <AdvisedSectorsCell sectors={it.sectors} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+const MOST_ACTIVE_SUB_TAB_CONFIG: Record<
+  MostActiveSubTabId,
+  { title: string; description: string }
+> = {
+  strategics: {
+    title: "Most Active Strategic Acquirers",
+    description:
+      "Companies that have made the most acquisitions within this sector, ranked by deal count.",
+  },
+  pe: {
+    title: "Most Active Private Equity Investors",
+    description:
+      "Private equity firms that have been most active in investing within this sector.",
+  },
+  venture: {
+    title: "Most Active Venture Investors",
+    description:
+      "Venture capital firms (Financial Services / Venture Capital) most active in this sector.",
+  },
+  advisors: {
+    title: "Most Active Advisors",
+    description:
+      "Advisory firms that have advised on the most transactions where this sector is the primary sector. All-time.",
+  },
+};
+
+interface MostActivePagedState {
+  items: RankedEntity[];
+  currentPage: number;
+  totalPages: number;
+  total: number;
+  loading: boolean;
+}
+
+interface MostActiveAdvisorsPagedState {
+  items: AdvisorEntity[];
+  currentPage: number;
+  totalPages: number;
+  total: number;
+  loading: boolean;
+}
+
+const MOST_ACTIVE_INITIAL_STATE: MostActivePagedState = {
+  items: [],
+  currentPage: 1,
+  totalPages: 1,
+  total: 0,
+  loading: false,
+};
+
+const MOST_ACTIVE_ADVISORS_INITIAL_STATE: MostActiveAdvisorsPagedState = {
+  items: [],
+  currentPage: 1,
+  totalPages: 1,
+  total: 0,
+  loading: false,
+};
+
+function MostActivePagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between pt-4 mt-2 border-t border-slate-100">
+      <p className="text-sm text-slate-500">
+        Page {currentPage} of {totalPages}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage <= 1}
+          className="px-3 py-1.5 text-sm rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          Previous
+        </button>
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+          className="px-3 py-1.5 text-sm rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function getNestedRecord(
+  raw: Record<string, unknown>,
+  key: string
+): Record<string, unknown> | undefined {
+  const value = raw[key];
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function getAdvisorListRoot(raw: unknown): unknown[] {
+  if (!raw || typeof raw !== "object") return [];
+  const root = raw as Record<string, unknown>;
+  const result1 = getNestedRecord(root, "result1");
+  const advisorsCompanies = getNestedRecord(root, "Advisors_companies");
+  return extractArray(
+    root.items
+      ? { items: root.items }
+      : result1?.items
+      ? { items: result1.items }
+      : advisorsCompanies?.items
+      ? { items: advisorsCompanies.items }
+      : raw
+  );
+}
+
+function getAdvisorPaginationNumber(
+  raw: unknown,
+  key: string
+): number | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const root = raw as Record<string, unknown>;
+  const result1 = getNestedRecord(root, "result1");
+  const advisorsCompanies = getNestedRecord(root, "Advisors_companies");
+  const value = root[key] ?? result1?.[key] ?? advisorsCompanies?.[key];
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim() !== "") return Number(value);
+  return undefined;
+}
+
+function mapAdvisorEntities(raw: unknown): AdvisorEntity[] {
+  const arr = getAdvisorListRoot(raw);
+  return arr
+    .map((item) => {
+      const obj = (item || {}) as Record<string, unknown>;
+      const name = toStringSafe(getFirstMatchingValue(obj, ["name", "advisor", "Advisor"]));
+      if (!name) return null;
+
+      const rawLogo = toStringSafe(
+        getFirstMatchingValue(obj, ["linkedin_logo", "Linkedin_Logo", "logo_url"]) || ""
+      );
+      const logoUrl = resolveCompanyLogoSrc(rawLogo) ?? "";
+
+      const sectorsValue = getFirstMatchingValue(obj, [
+        "sectors",
+        "target_sectors",
+        "Target_Sectors",
+      ]);
+      const sectors = parseAdvisorSectors(sectorsValue);
+      const sectorsCount =
+        getFirstMatchingNumber(obj, ["sectors_count", "sectorsCount"]) ??
+        sectors.length;
+
+      return {
+        id: getFirstMatchingNumber(obj, ["id", "advisor_id", "company_id"]),
+        name,
+        country: toStringSafe(getFirstMatchingValue(obj, ["country", "Country"]) || "") || undefined,
+        totalDealsAdvised:
+          getFirstMatchingNumber(obj, ["events_advised", "events_cnt_sector"]) ?? 0,
+        sectors,
+        sectorsCount,
+        logoUrl: logoUrl || undefined,
+      } as AdvisorEntity;
+    })
+    .filter(Boolean) as AdvisorEntity[];
+}
+
+function MostActiveTab({
+  sectorId,
+  sectorImportance,
+  activeSubTab,
+  setActiveSubTab,
+}: {
+  sectorId: string;
+  sectorImportance?: string;
+  activeSubTab: MostActiveSubTabId;
+  setActiveSubTab: (id: MostActiveSubTabId) => void;
+}) {
+  const [strategicsState, setStrategicsState] = useState<MostActivePagedState>(
+    MOST_ACTIVE_INITIAL_STATE
+  );
+  const [peState, setPeState] = useState<MostActivePagedState>(
+    MOST_ACTIVE_INITIAL_STATE
+  );
+  const [vcState, setVcState] = useState<MostActivePagedState>(
+    MOST_ACTIVE_INITIAL_STATE
+  );
+  const [advisorsState, setAdvisorsState] =
+    useState<MostActiveAdvisorsPagedState>(MOST_ACTIVE_ADVISORS_INITIAL_STATE);
+
+  const fetchStrategics = useCallback(
+    async (page: number) => {
+      setStrategicsState((prev) => ({ ...prev, loading: true }));
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        if (!token) {
+          setStrategicsState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const sectorIdNum = Number(sectorId);
+        if (Number.isNaN(sectorIdNum)) {
+          setStrategicsState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const qs = new URLSearchParams();
+        qs.set("Sector_id", String(sectorIdNum));
+        qs.set("limit", "25");
+        qs.set("offset", String((page - 1) * 25));
+
+        const resp = await fetch(
+          `${SECTOR_API_BASE}/sectors_strategic_acquirers?${qs.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!resp.ok) {
+          setStrategicsState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const data = await resp.json() as {
+          items?: unknown[];
+          total?: number;
+          total_pages?: number;
+        };
+        const items = extractArray(data);
+        setStrategicsState({
+          items: mapRankedEntities(items),
+          currentPage: page,
+          totalPages: data.total_pages ?? 1,
+          total: data.total ?? items.length,
+          loading: false,
+        });
+      } catch {
+        setStrategicsState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [sectorId]
+  );
+
+  const fetchPEInvestors = useCallback(
+    async (page: number) => {
+      setPeState((prev) => ({ ...prev, loading: true }));
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        if (!token) {
+          setPeState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const sectorIdNum = Number(sectorId);
+        if (Number.isNaN(sectorIdNum)) {
+          setPeState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const qs = new URLSearchParams();
+        qs.set("Sector_id", String(sectorIdNum));
+        qs.set("limit", "25");
+        qs.set("offset", String((page - 1) * 25));
+
+        const resp = await fetch(
+          `${SECTOR_API_BASE}/sectors_pe_investors?${qs.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!resp.ok) {
+          setPeState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const data = await resp.json() as {
+          items?: unknown[];
+          total?: number;
+          total_pages?: number;
+        };
+        const items = extractArray(data);
+        setPeState({
+          items: mapRankedEntities(items),
+          currentPage: page,
+          totalPages: data.total_pages ?? 1,
+          total: data.total ?? items.length,
+          loading: false,
+        });
+      } catch {
+        setPeState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [sectorId]
+  );
+
+  const fetchVCInvestors = useCallback(
+    async (page: number) => {
+      setVcState((prev) => ({ ...prev, loading: true }));
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        if (!token) {
+          setVcState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const sectorIdNum = Number(sectorId);
+        if (Number.isNaN(sectorIdNum)) {
+          setVcState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const qs = new URLSearchParams();
+        qs.set("Sector_id", String(sectorIdNum));
+        qs.set("limit", "25");
+        qs.set("offset", String((page - 1) * 25));
+
+        const resp = await fetch(
+          `${SECTOR_API_BASE}/sectors_vc_investors?${qs.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!resp.ok) {
+          setVcState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const data = await resp.json() as {
+          items?: unknown[];
+          total?: number;
+          total_pages?: number;
+        };
+        const items = extractArray(data);
+        setVcState({
+          items: mapRankedEntities(items),
+          currentPage: page,
+          totalPages: data.total_pages ?? 1,
+          total: data.total ?? items.length,
+          loading: false,
+        });
+      } catch {
+        setVcState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [sectorId]
+  );
+
+  const fetchAdvisors = useCallback(
+    async (page: number) => {
+      setAdvisorsState((prev) => ({ ...prev, loading: true }));
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        if (!token) {
+          setAdvisorsState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const sectorIdNum = Number(sectorId);
+        if (Number.isNaN(sectorIdNum)) {
+          setAdvisorsState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const qs = new URLSearchParams();
+        qs.set("page", String(page));
+        qs.set("per_page", "25");
+        qs.set("portfolio_only", "false");
+        qs.set("include_sectors", "true");
+        if ((sectorImportance || "").toLowerCase().includes("secondary")) {
+          qs.append("Secondary_sectors_ids[]", String(sectorIdNum));
+        } else {
+          qs.append("primary_sectors_ids[]", String(sectorIdNum));
+        }
+
+        const resp = await fetch(
+          `${ADVISORS_API_BASE}/get_all_advisors_list?${qs.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!resp.ok) {
+          setAdvisorsState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
+        const data = await resp.json();
+        const items = mapAdvisorEntities(data);
+        const total = getAdvisorPaginationNumber(data, "itemsTotal") ?? items.length;
+        const totalPages =
+          getAdvisorPaginationNumber(data, "pageTotal") ??
+          (total > 0 ? Math.ceil(total / 25) : 1);
+
+        setAdvisorsState({
+          items,
+          currentPage: getAdvisorPaginationNumber(data, "curPage") ?? page,
+          totalPages: Math.max(1, totalPages),
+          total,
+          loading: false,
+        });
+      } catch {
+        setAdvisorsState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [sectorId, sectorImportance]
+  );
+
+  // Fetch on first activation and whenever sectorId changes
+  useEffect(() => {
+    if (activeSubTab === "strategics") {
+      fetchStrategics(1);
+    } else if (activeSubTab === "pe") {
+      fetchPEInvestors(1);
+    } else if (activeSubTab === "venture") {
+      fetchVCInvestors(1);
+    } else if (activeSubTab === "advisors") {
+      fetchAdvisors(1);
+    }
+  }, [
+    activeSubTab,
+    sectorId,
+    fetchAdvisors,
+    fetchPEInvestors,
+    fetchStrategics,
+    fetchVCInvestors,
+  ]);
+
+  const config = MOST_ACTIVE_SUB_TAB_CONFIG[activeSubTab];
+
+  const renderSkeleton = () => (
+    <div className="space-y-3 py-2">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 animate-pulse">
+          <div className="w-6 h-4 bg-slate-200 rounded" />
+          <div className="w-8 h-8 bg-slate-200 rounded-lg flex-shrink-0" />
+          <div className="flex-1 h-4 bg-slate-200 rounded" />
+          <div className="w-10 h-8 bg-slate-200 rounded-full" />
+          <div className="w-32 h-4 bg-slate-200 rounded" />
+          <div className="w-20 h-4 bg-slate-200 rounded" />
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <MostActiveSubTabNav active={activeSubTab} onChange={setActiveSubTab} />
+
+      <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+        <div className="px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-3 mb-1">
+            <span
+              className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${
+                activeSubTab === "strategics"
+                  ? "bg-blue-50"
+                  : activeSubTab === "pe"
+                  ? "bg-purple-50"
+                  : activeSubTab === "venture"
+                  ? "bg-emerald-50"
+                  : "bg-amber-50"
+              }`}
+            >
+              <BuildingOfficeIcon
+                className={`w-4 h-4 ${
+                  activeSubTab === "strategics"
+                    ? "text-blue-600"
+                    : activeSubTab === "pe"
+                    ? "text-purple-600"
+                    : activeSubTab === "venture"
+                    ? "text-emerald-600"
+                    : "text-amber-600"
+                }`}
+              />
+            </span>
+            <h3 className="text-lg font-semibold text-slate-900">{config.title}</h3>
+            {((activeSubTab === "strategics" && strategicsState.total > 0) ||
+              (activeSubTab === "pe" && peState.total > 0) ||
+              (activeSubTab === "venture" && vcState.total > 0) ||
+              (activeSubTab === "advisors" && advisorsState.total > 0)) && (
+              <span className="ml-auto text-sm text-slate-500 tabular-nums">
+                {activeSubTab === "strategics"
+                  ? strategicsState.total
+                  : activeSubTab === "pe"
+                  ? peState.total
+                  : activeSubTab === "venture"
+                  ? vcState.total
+                  : advisorsState.total} total
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-slate-500 ml-11">{config.description}</p>
+        </div>
+
+        <div className="px-6 py-4">
+          {activeSubTab === "strategics" && (
+            <>
+              {strategicsState.loading ? (
+                renderSkeleton()
+              ) : (
+                <>
+                  <MostActiveFullTable
+                    items={strategicsState.items}
+                    accent="blue"
+                    columnOneLabel="Acquirer"
+                    mostRecentHeader="Most Recent Acquisition"
+                  />
+                  <MostActivePagination
+                    currentPage={strategicsState.currentPage}
+                    totalPages={strategicsState.totalPages}
+                    onPageChange={fetchStrategics}
+                  />
+                </>
+              )}
+            </>
+          )}
+          {activeSubTab === "pe" && (
+            <>
+              {peState.loading ? (
+                renderSkeleton()
+              ) : (
+                <>
+                  <MostActiveFullTable
+                    items={peState.items}
+                    accent="purple"
+                    columnOneLabel="Investor"
+                    mostRecentHeader="Most Recent Investment"
+                  />
+                  <MostActivePagination
+                    currentPage={peState.currentPage}
+                    totalPages={peState.totalPages}
+                    onPageChange={fetchPEInvestors}
+                  />
+                </>
+              )}
+            </>
+          )}
+          {activeSubTab === "venture" && (
+            <>
+              {vcState.loading ? (
+                renderSkeleton()
+              ) : (
+                <>
+                  <MostActiveFullTable
+                    items={vcState.items}
+                    accent="green"
+                    columnOneLabel="Investor"
+                    mostRecentHeader="Most Recent Investment"
+                  />
+                  <MostActivePagination
+                    currentPage={vcState.currentPage}
+                    totalPages={vcState.totalPages}
+                    onPageChange={fetchVCInvestors}
+                  />
+                </>
+              )}
+            </>
+          )}
+          {activeSubTab === "advisors" && (
+            <>
+              {advisorsState.loading ? (
+                renderSkeleton()
+              ) : (
+                <>
+                  <AdvisorsFullTable items={advisorsState.items} />
+                  <MostActivePagination
+                    currentPage={advisorsState.currentPage}
+                    totalPages={advisorsState.totalPages}
+                    onPageChange={fetchAdvisors}
+                  />
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── End Most Active tab ──────────────────────────────────────────────────────
+
 function RecentTransactionsCard({
   transactions,
 }: {
   transactions: TransactionRecord[];
 }) {
   const hasItems = Array.isArray(transactions) && transactions.length > 0;
+
+  const getDealTypeBadge = (dealType?: string) => {
+    const colors: Record<string, string> = {
+      acquisition: "bg-red-50 text-red-700 border-red-200",
+      merger: "bg-blue-50 text-blue-700 border-blue-200",
+      ipo: "bg-green-50 text-green-700 border-green-200",
+      funding_round: "bg-purple-50 text-purple-700 border-purple-200",
+      lbo: "bg-orange-50 text-orange-700 border-orange-200",
+      recapitalization: "bg-pink-50 text-pink-700 border-pink-200",
+    };
+    return (
+      colors[(dealType || "").toLowerCase().replace(/\s+/g, "_")] ||
+      "bg-gray-50 text-gray-700 border-gray-200"
+    );
+  };
 
   const getStatusBadge = (status?: string) => {
     const colors: Record<string, string> = {
@@ -1262,7 +2212,7 @@ function RecentTransactionsCard({
           <div className="block space-y-3 md:hidden">
             {!hasItems ? (
               <div className="py-6 text-sm text-center text-slate-500">
-                Not available
+                -
               </div>
             ) : (
               transactions.slice(0, 25).map((t, idx) => {
@@ -1349,7 +2299,13 @@ function RecentTransactionsCard({
                     {(t.type || t.seller) && (
                       <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap gap-1">
                         {t.type && (
-                          <DealTypeBadge dealType={t.type.replace(/_/g, " ")} />
+                          <span
+                            className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
+                              t.type
+                            )}`}
+                          >
+                            {t.type.replace(/_/g, " ")}
+                          </span>
                         )}
                         {t.seller && (
                           <span
@@ -1498,7 +2454,13 @@ function RecentTransactionsCard({
                         <td className="py-3">
                           <div className="space-y-1">
                             {t.type && (
-                              <DealTypeBadge dealType={t.type.replace(/_/g, " ")} />
+                              <span
+                                className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
+                                  t.type
+                                )}`}
+                              >
+                                {t.type.replace(/_/g, " ")}
+                              </span>
                             )}
                             {t.seller && (
                               <span
@@ -1520,7 +2482,7 @@ function RecentTransactionsCard({
                       colSpan={3}
                       className="py-6 text-sm text-center text-slate-500"
                     >
-                      Not available
+                      -
                     </td>
                   </tr>
                 )}
@@ -1544,13 +2506,9 @@ interface MarketMapCounts {
 function MarketMapGrid({
   companies,
   counts: countsProp,
-  onExportBucket,
-  exportingBucket,
 }: {
   companies: SectorCompany[];
   counts?: MarketMapCounts;
-  onExportBucket?: (type: string, label: string) => void;
-  exportingBucket?: string | null;
 }) {
   const labelFor = (type: string) =>
     type === "public"
@@ -1575,9 +2533,7 @@ function MarketMapGrid({
     return {
       id: c.id,
       name: c.name,
-      logo_url: c.linkedin_logo
-        ? `data:image/jpeg;base64,${c.linkedin_logo}`
-        : "",
+      logo_url: resolveCompanyLogoSrc(c.linkedin_logo) ?? "",
       sub_sector:
         Array.isArray(c.primary_sectors) && c.primary_sectors.length > 0
           ? getSectorLabel(c.primary_sectors[0] as SectorLinkItem)
@@ -1707,26 +2663,12 @@ function MarketMapGrid({
                     {countsProp?.[type as keyof MarketMapCounts] ?? list.length}
                   </span>
                 </div>
-                <div className="flex flex-shrink-0 gap-2 items-center">
-                  {onExportBucket && (
-                    <button
-                      onClick={() => onExportBucket(type, titleFor(type))}
-                      disabled={exportingBucket === type}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border rounded-md transition-colors duration-150 border-slate-300 text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
-                      </svg>
-                      {exportingBucket === type ? "Exporting…" : "Export CSV"}
-                    </button>
-                  )}
-                  <a
-                    href={`?tab=all&ownership=${encodeURIComponent(type)}`}
-                    className="px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
-                  >
-                    View All
-                  </a>
-                </div>
+                <a
+                  href={`?tab=all&ownership=${encodeURIComponent(type)}`}
+                  className="flex-shrink-0 px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
+                >
+                  View All
+                </a>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {list.slice(0, 12).map((company) => (
@@ -1839,6 +2781,19 @@ const SectorDetailPage = ({
   const searchParams = useSearchParams();
   const initialTab = (searchParams?.get("tab") || "overview").toString();
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+  const [mostActiveSubTab, setMostActiveSubTab] =
+    useState<MostActiveSubTabId>("strategics");
+
+  const goToMostActiveSubTab = (subTab: MostActiveSubTabId) => {
+    setActiveTab("most_active");
+    setMostActiveSubTab(subTab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", "most_active");
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
   const [ownershipFilter, setOwnershipFilter] = useState<string | null>(
     searchParams?.get("ownership") || null
   );
@@ -1854,113 +2809,12 @@ const SectorDetailPage = ({
   const [splitRecentRaw, setSplitRecentRaw] = useState<unknown>(
     initialRecentTransactions || null
   );
-  const [insightsArticles, setInsightsArticles] = useState<ContentArticle[]>([]);
   // Track if overview data has finished loading (to distinguish "loading" from "no data")
   const [overviewDataLoaded, setOverviewDataLoaded] = useState(false);
-  // Market map / All Companies export state
-  const [mmExportingBucket, setMmExportingBucket] = useState<string | null>(null);
-  const [allExporting, setAllExporting] = useState(false);
-  const [mmShowExportLimitModal, setMmShowExportLimitModal] = useState(false);
-  const [mmExportsLeft, setMmExportsLeft] = useState(0);
   // Sub-sectors
   const [subSectors, setSubSectors] = useState<SubSector[]>([]);
   const [subSectorsLoading, setSubSectorsLoading] = useState(false);
   const [subSectorsError, setSubSectorsError] = useState<string | null>(null);
-  // All Companies (reusing companies page logic, filtered by primary sector id)
-  interface AllCompanyItem {
-    id: number;
-    name: string;
-    description: string;
-    url?: string;
-    primary_sectors: string[];
-    secondary_sectors: string[];
-    ownership: string;
-    country: string;
-    linkedin_logo: string; // base64
-    linkedin_members: number;
-  }
-  const [allCompanies, setAllCompanies] = useState<AllCompanyItem[]>([]);
-  const [allCompaniesLoading, setAllCompaniesLoading] = useState(false);
-  const [allCompaniesError, setAllCompaniesError] = useState<string | null>(
-    null
-  );
-  const [allCompaniesPagination, setAllCompaniesPagination] = useState({
-    itemsReceived: 0,
-    curPage: 1,
-    nextPage: null as number | null,
-    prevPage: null as number | null,
-    offset: 0,
-    perPage: 25,
-    pageTotal: 0,
-  });
-  const [showAllCompaniesColumnsModal, setShowAllCompaniesColumnsModal] =
-    useState(false);
-  const [allCompaniesColumnsCount, setAllCompaniesColumnsCount] = useState<number>(
-    DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS.length
-  );
-  const allCompaniesApiColumnsRef = useRef<string[]>(
-    getApiColumnsForSelectedKeys([...DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS])
-  );
-  const [allCompaniesCurrentFilters, setAllCompaniesCurrentFilters] = useState<
-    CompaniesFilters | undefined
-  >(undefined);
-  const [allCompaniesOwnershipCounts, setAllCompaniesOwnershipCounts] =
-    useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
-  const allCompaniesCountsTimeoutRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-
-  // Public Companies (reuse companies API with primary sector filter and ownership Public)
-  const [publicCompanies, setPublicCompanies] = useState<AllCompanyItem[]>([]);
-  const [publicCompaniesLoading, setPublicCompaniesLoading] = useState(false);
-  const [publicCompaniesError, setPublicCompaniesError] = useState<
-    string | null
-  >(null);
-  const [publicCompaniesPagination, setPublicCompaniesPagination] = useState({
-    itemsReceived: 0,
-    curPage: 1,
-    nextPage: null as number | null,
-    prevPage: null as number | null,
-    offset: 0,
-    perPage: 25,
-    pageTotal: 0,
-  });
-  const [publicExpandedDescriptions, setPublicExpandedDescriptions] = useState<
-    Record<number, boolean>
-  >({});
-
-  // Load secondary->primary mapping once (not required in the new overview layout)
-  // useEffect(() => {
-  //   let cancelled = false;
-  //   const load = async () => {
-  //     try {
-  //       const allSecondary =
-  //         await locationsService.getAllSecondarySectorsWithPrimary();
-  //       if (!cancelled && Array.isArray(allSecondary)) {
-  //         const map: Record<string, string> = {};
-  //         for (const sec of allSecondary) {
-  //           const secName = (sec as { sector_name?: string }).sector_name;
-  //           const primary = (sec as any)?.related_primary_sector as
-  //             | { sector_name?: string }
-  //             | undefined;
-  //           const primaryName = primary?.sector_name;
-  //           if (secName && primaryName) {
-  //             map[(secName || "").trim().toLowerCase()] = primaryName;
-  //           }
-  //         }
-  //         setSecondaryToPrimaryMap(map);
-  //       }
-  //     } catch (e) {
-  //       console.warn("[Sector] Failed to load secondary->primary map", e);
-  //     }
-  //   };
-  //   load();
-  //   return () => {
-  //     cancelled = true;
-  //   };
-  // }, []);
-
-  // Note: fetchSectorData and fetchSplitDatasets removed - now using /api/sector/[id]/overview route
 
   // Fetch companies data (include companies whose secondary sectors map to this primary sector)
   const fetchCompanies = useCallback(
@@ -1976,11 +2830,7 @@ const SectorDetailPage = ({
           return;
         }
 
-        // Prepare sector id
         const sectorIdNum = Number(sectorId);
-
-        // Companies endpoint (sector-scoped) - GET with query params
-        // Backend expects Offset as the page number (1-based)
         const offsetForApi = Math.max(1, page);
         const params = new URLSearchParams();
         params.append("Offset", String(offsetForApi));
@@ -2007,14 +2857,10 @@ const SectorDetailPage = ({
         }
 
         const rawJson = await response.json();
-        // Parsed companies payload
-        // Keep parsed payload for mapping dashboard datasets
         setCompaniesApiPayload(rawJson);
 
-        // Adapt response items to SectorCompany shape used by this page
         const raw = rawJson as unknown as
           | NewCompaniesAPIResult
-          // Fallbacks for potential alternative shapes
           | { items?: NewCompanyItem[] }
           | (NewCompanyItem[] & { Count?: number })
           | ({ result1?: { items?: NewCompanyItem[] } } & { Count?: number })
@@ -2035,11 +2881,8 @@ const SectorDetailPage = ({
           raw as { sql_count?: Array<{ total_companies?: number }> }
         ).sql_count?.[0]?.total_companies;
         const overallCount: number =
-          // prefer SQL-derived total when provided
           (typeof sqlTotal === "number" ? sqlTotal : undefined) ??
-          // then explicit Count when available
           (raw as { Count?: number })?.Count ??
-          // itemsReceived may represent total when pageTotal is 1
           (typeof r1?.itemsReceived === "number"
             ? r1!.itemsReceived
             : undefined) ??
@@ -2063,7 +2906,6 @@ const SectorDetailPage = ({
             : [],
           description: c.description || "",
           linkedin_employee:
-            // support multiple possible fields
             (c as unknown as { linkedin_employee?: number })
               .linkedin_employee ??
             (c as unknown as { linkedin_members?: number }).linkedin_members ??
@@ -2106,7 +2948,6 @@ const SectorDetailPage = ({
         const r1b = (raw as NewCompaniesAPIResult)?.result1;
         const computedCurPage = r1b?.curPage ?? page;
         const computedPerPage = r1b?.perPage ?? perPageToUse;
-        // Normalize offset to be a 0-based item start index for internal use
         const computedOffset =
           typeof r1b?.offset === "number"
             ? Math.max(0, (r1b.offset - 1) * computedPerPage)
@@ -2134,210 +2975,6 @@ const SectorDetailPage = ({
     [sectorId, selectedPerPage]
   );
 
-  // Note: fetchSplitDatasets removed - now part of /api/sector/[id]/overview route
-
-  const fetchAllCompaniesForSector = useCallback(
-    async (page: number = 1, filters?: CompaniesFilters) => {
-      setAllCompaniesLoading(true);
-      setAllCompaniesError(null);
-
-      try {
-        const Sector_id = Number(sectorId);
-        if (Number.isNaN(Sector_id)) {
-          throw new Error("Invalid sector id");
-        }
-
-        if (filters !== undefined) {
-          setAllCompaniesCurrentFilters(filters);
-        }
-        const filtersToUse =
-          filters ??
-          allCompaniesCurrentFilters ?? {
-            filters_sql: null,
-            query: null,
-            columns: [],
-            has_financial_filters: false,
-            has_year_filter: false,
-          };
-
-        const data = await fetchCompaniesClient(page, {
-          ...filtersToUse,
-          columns: allCompaniesApiColumnsRef.current,
-          Per_page: 25,
-        });
-
-        if (!data?.result1) {
-          throw new Error("Failed to fetch companies");
-        }
-
-        const r1 = data.result1;
-        setAllCompanies((r1.items || []) as AllCompanyItem[]);
-        setAllCompaniesPagination({
-          itemsReceived: r1.itemsReceived || 0,
-          curPage: r1.curPage || 1,
-          nextPage: r1.nextPage || null,
-          prevPage: r1.prevPage || null,
-          offset: r1.offset || 0,
-          perPage: r1.perPage || 25,
-          pageTotal: r1.pageTotal || 0,
-        });
-      } catch (err) {
-        setAllCompaniesError(
-          err instanceof Error ? err.message : "Failed to fetch companies"
-        );
-      } finally {
-        setAllCompaniesLoading(false);
-      }
-    },
-    [sectorId, allCompaniesCurrentFilters]
-  );
-
-  const scheduleAllCompaniesCountsFetch = useCallback(
-    (countsFilters: CompaniesFilters) => {
-      if (allCompaniesCountsTimeoutRef.current) {
-        clearTimeout(allCompaniesCountsTimeoutRef.current);
-      }
-      allCompaniesCountsTimeoutRef.current = setTimeout(() => {
-        void fetchCompaniesCountsClient(countsFilters)
-          .then((countsData) => {
-            if (!countsData) return;
-            setAllCompaniesOwnershipCounts({
-              totalCount: countsData.totalCount || 0,
-              publicCompanies: countsData.publicCompanies || 0,
-              peOwnedCompanies: countsData.peOwnedCompanies || 0,
-              vcOwnedCompanies: countsData.vcOwnedCompanies || 0,
-              privateCompanies: countsData.privateCompanies || 0,
-              subsidiaryCompanies: countsData.subsidiaryCompanies || 0,
-              acquiredCompanies: countsData.acquiredCompanies || 0,
-              otherCompanies: countsData.otherCompanies || 0,
-            });
-          })
-          .catch(console.error);
-      }, 400);
-    },
-    []
-  );
-
-  const handleAllCompaniesApiColumnsChange = useCallback((apiColumns: string[]) => {
-    allCompaniesApiColumnsRef.current = apiColumns;
-  }, []);
-
-  const handleAllCompaniesSearch = useCallback(
-    (listFilters: CompaniesFilters, countsFilters: CompaniesFilters) => {
-      scheduleAllCompaniesCountsFetch(countsFilters);
-      void fetchAllCompaniesForSector(1, listFilters);
-    },
-    [fetchAllCompaniesForSector, scheduleAllCompaniesCountsFetch]
-  );
-
-  const refetchAllCompaniesFirstPage = useCallback(() => {
-    void fetchAllCompaniesForSector(1);
-  }, [fetchAllCompaniesForSector]);
-
-  const handleAllCompaniesSortChange = useCallback(
-    (sortPayload: CompaniesSortChangePayload) => {
-      const base =
-        allCompaniesCurrentFilters ?? {
-          filters_sql: null,
-          query: null,
-          columns: [],
-          has_financial_filters: false,
-          has_year_filter: false,
-        };
-      void fetchAllCompaniesForSector(1, {
-        ...base,
-        ...sortPayload,
-      });
-    },
-    [fetchAllCompaniesForSector, allCompaniesCurrentFilters]
-  );
-
-  const forcedPrimarySectorIds = useMemo(() => {
-    const id = Number(sectorId);
-    return Number.isFinite(id) && id > 0 ? [id] : [];
-  }, [sectorId]);
-
-  const initialAllCompaniesOwnershipTab = useMemo(
-    () => ownershipFilterParamToTab(ownershipFilter),
-    [ownershipFilter]
-  );
-
-  // Fetch Public Companies for sector (ownership type Public)
-  const fetchPublicCompaniesForSector = useCallback(
-    async (page: number = 1) => {
-      setPublicCompaniesLoading(true);
-      setPublicCompaniesError(null);
-
-      try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const Sector_id = Number(sectorId);
-        if (Number.isNaN(Sector_id)) {
-          throw new Error("Invalid sector id");
-        }
-
-        const perPage = 25;
-        const offset = page; // API expects 1-based page
-
-        const params = new URLSearchParams();
-        params.append("Offset", String(offset));
-        params.append("Per_page", String(perPage));
-        params.append("Min_linkedin_members", "0");
-        params.append("Max_linkedin_members", "0");
-        params.append("Horizontals_ids", "");
-        params.append("Primary_sectors_ids[]", String(Sector_id));
-        // Explicit mapping: Public ownership type id is 7
-        params.append("Ownership_types_ids[]", String(7));
-
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(
-            `API request failed: ${response.status} ${response.statusText} - ${errorText}`
-          );
-        }
-        const data = JSON.parse(await response.text()) as {
-          result1?: {
-            items?: AllCompanyItem[];
-            itemsReceived?: number;
-            curPage?: number;
-            nextPage?: number | null;
-            prevPage?: number | null;
-            offset?: number;
-            perPage?: number;
-            pageTotal?: number;
-          };
-        };
-        const r1 = data.result1 || {};
-        setPublicCompanies(r1.items || []);
-        setPublicCompaniesPagination({
-          itemsReceived: r1.itemsReceived || 0,
-          curPage: r1.curPage || 1,
-          nextPage: r1.nextPage || null,
-          prevPage: r1.prevPage || null,
-          offset: r1.offset || 0,
-          perPage: r1.perPage || perPage,
-          pageTotal: r1.pageTotal || 0,
-        });
-      } catch (err) {
-        setPublicCompaniesError(
-          err instanceof Error ? err.message : "Failed to fetch companies"
-        );
-      } finally {
-        setPublicCompaniesLoading(false);
-      }
-    },
-    [sectorId]
-  );
-
-
   // Fetch all overview data via Next.js API route (cached for 5 min).
   // Single request aggregates all Xano calls server-side → faster for users far from Xano.
   // First request: ~6s (slowest Xano endpoint). Subsequent requests: <200ms (from cache).
@@ -2352,13 +2989,9 @@ const SectorDetailPage = ({
       if (!resp.ok) {
         if (resp.status === 401) {
           setError("Authentication required");
-        } else if (resp.status === 503) {
-          setError("Sector data is not available yet. Please try again later.");
         } else {
           console.error("❌ Overview fetch failed:", resp.status);
-          setError("Failed to load sector data.");
         }
-        setOverviewDataLoaded(true);
         return;
       }
 
@@ -2369,15 +3002,11 @@ const SectorDetailPage = ({
         setSectorData(data.sectorData as SectorStatistics);
       }
       if (data.splitDatasets) {
-        const { marketMap, strategic, pe, recentTransactions, insightsArticles } =
-          data.splitDatasets;
+        const { marketMap, strategic, pe, recentTransactions } = data.splitDatasets;
         if (marketMap) setSplitMarketMapRaw(marketMap);
         if (strategic) setSplitStrategicRaw(strategic);
         if (pe) setSplitPERaw(pe);
         if (recentTransactions) setSplitRecentRaw(recentTransactions);
-        setInsightsArticles(
-          Array.isArray(insightsArticles) ? (insightsArticles as ContentArticle[]) : []
-        );
       }
 
       // Log server timing for debugging
@@ -2398,12 +3027,6 @@ const SectorDetailPage = ({
     if (!sectorId) return;
     fetchOverviewData();
   }, [sectorId, fetchOverviewData]);
-
-  useEffect(() => {
-    if (activeTab === "public") {
-      fetchPublicCompaniesForSector(1);
-    }
-  }, [activeTab, fetchPublicCompaniesForSector]);
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -2688,184 +3311,6 @@ const SectorDetailPage = ({
       private: getFirstMatchingNumber(o, ["private_count", "Private_count"]),
     };
   }, [preferredSource]);
-
-  // Sector name slug for export filenames
-  const sectorNameSlug = useMemo(() => {
-    const name =
-      (sectorData as { sector_name?: string })?.sector_name ||
-      (sectorData as { Sector?: { sector_name?: string } })?.Sector?.sector_name ||
-      `sector_${sectorId}`;
-    return name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
-  }, [sectorData, sectorId]);
-
-  // Fixed ownership → Xano type ID mapping
-  const BUCKET_TYPE_IDS: Record<string, number> = {
-    public: 7,
-    private_equity_owned: 1,
-    venture_capital_backed: 3,
-    private: 2,
-  };
-
-  // Shared helper: fetch all pages for a given set of query params
-  const fetchAllCompanyPages = async (
-    baseParams: URLSearchParams,
-    token: string | null
-  ): Promise<AllCompanyItem[]> => {
-    const allItems: AllCompanyItem[] = [];
-    let page = 1;
-    let totalPages = 1;
-    do {
-      const params = new URLSearchParams(baseParams.toString());
-      params.set("Offset", String(page));
-      const res = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
-        }
-      );
-      if (!res.ok) break;
-      const data = (await res.json()) as {
-        result1?: { items?: AllCompanyItem[]; pageTotal?: number };
-      };
-      const r1 = data.result1 ?? {};
-      allItems.push(...(r1.items ?? []));
-      totalPages = r1.pageTotal ?? 1;
-      page++;
-    } while (page <= totalPages);
-    return allItems;
-  };
-
-  // Build a single export row from an AllCompanyItem (matches API ExportRow shape)
-  const buildExportRow = (
-    c: AllCompanyItem,
-    origin: string,
-    filtersApplied?: string
-  ) => ({
-    id: c.id,
-    name: c.name || "N/A",
-    url: c.url || "N/A",
-    asymmetrixUrl: `${origin}/company/${c.id}`,
-    description: c.description || "N/A",
-    primarySectors: Array.isArray(c.primary_sectors)
-      ? (c.primary_sectors as unknown as SectorLinkItem[])
-          .map(getSectorLabel)
-          .filter(Boolean)
-          .join(", ") || "N/A"
-      : "N/A",
-    subSectors: Array.isArray(c.secondary_sectors)
-      ? (c.secondary_sectors as unknown as SectorLinkItem[])
-          .map(getSectorLabel)
-          .filter(Boolean)
-          .join(", ") || "N/A"
-      : "N/A",
-    linkedinMembers: c.linkedin_members ?? 0,
-    country: c.country || "N/A",
-    ...(filtersApplied ? { filtersApplied } : {}),
-  });
-
-  // Call the server-side Excel export API and trigger a file download
-  const downloadExcelExport = async (
-    rows: ReturnType<typeof buildExportRow>[],
-    filename: string
-  ) => {
-    const res = await fetch('/api/export/sector-companies', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rows, filename }),
-    });
-    if (!res.ok) throw new Error(`Export API failed: ${res.status}`);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${filename}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  // Export a single market-map bucket (called from each "Export CSV" next to "View All")
-  const handleExportBucket = useCallback(
-    async (bucketType: string, bucketLabel: string) => {
-      const limitCheck = await checkExportLimit();
-      if (!limitCheck.canExport) {
-        setMmExportsLeft(limitCheck.exportsLeft);
-        setMmShowExportLimitModal(true);
-        return;
-      }
-      setMmExportingBucket(bucketType);
-      try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
-        const params = new URLSearchParams();
-        params.set("Per_page", "500");
-        params.set("Min_linkedin_members", "0");
-        params.set("Max_linkedin_members", "0");
-        params.set("Horizontals_ids", "");
-        params.append("Primary_sectors_ids[]", String(Number(sectorId)));
-        params.append("Ownership_types_ids[]", String(BUCKET_TYPE_IDS[bucketType] ?? 0));
-        const items = await fetchAllCompanyPages(params, token);
-        const rows = items.map((c) => buildExportRow(c, origin));
-        await downloadExcelExport(rows, `${sectorNameSlug}_${bucketLabel.replace(/\s+/g, "_")}`);
-      } finally {
-        setMmExportingBucket(null);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sectorId, sectorNameSlug]
-  );
-
-  // Export all companies in the "All Companies" tab, respecting active filters
-  const handleExportAllCompanies = useCallback(async () => {
-    const limitCheck = await checkExportLimit();
-    if (!limitCheck.canExport) {
-      setMmExportsLeft(limitCheck.exportsLeft);
-      setMmShowExportLimitModal(true);
-      return;
-    }
-    setAllExporting(true);
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const filtersToUse = allCompaniesCurrentFilters ?? {
-        filters_sql: null,
-        query: null,
-        columns: [],
-        has_financial_filters: false,
-        has_year_filter: false,
-      };
-      const filtersApplied = filtersToUse.filters_sql
-        ? `filters_sql: ${filtersToUse.filters_sql}`
-        : undefined;
-
-      const items = await fetchAllCompaniesClientPages<AllCompanyItem>(
-        {
-          ...filtersToUse,
-          columns: allCompaniesApiColumnsRef.current,
-          Per_page: 500,
-        },
-        { perPage: 500, token }
-      );
-      const rows = items.map((c) =>
-        buildExportRow(c, origin, filtersApplied || undefined)
-      );
-      const ownershipSlug = ownershipFilter
-        ? `_${ownershipFilter.replace(/_/g, " ")}`.replace(/\s+/g, "_")
-        : "";
-      await downloadExcelExport(
-        rows,
-        `${sectorNameSlug}_All_Companies${ownershipSlug}`
-      );
-    } finally {
-      setAllExporting(false);
-    }
-  }, [sectorNameSlug, ownershipFilter, allCompaniesCurrentFilters]);
 
   // Only block rendering for critical errors (auth/not found)
   if (error) {
@@ -3608,6 +4053,117 @@ const SectorDetailPage = ({
       }
     };
 
+    // Generate pagination buttons
+    const generatePaginationButtons = () => {
+      const buttons = [];
+      const currentPage = pagination.curPage;
+      const totalPages = pagination.pageTotal;
+
+      // Previous button
+      buttons.push(
+        <button
+          key="prev"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={!pagination.prevPage}
+        >
+          &lt;
+        </button>
+      );
+
+      // Page numbers
+      if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i++) {
+          buttons.push(
+            <button
+              key={i}
+              className={`pagination-button ${
+                i === currentPage ? "active" : ""
+              }`}
+              onClick={() => handlePageChange(i)}
+            >
+              {i.toString()}
+            </button>
+          );
+        }
+      } else {
+        // Show first page
+        buttons.push(
+          <button
+            key={1}
+            className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
+            onClick={() => handlePageChange(1)}
+          >
+            1
+          </button>
+        );
+
+        if (currentPage > 3) {
+          buttons.push(
+            <span key="ellipsis1" className="pagination-ellipsis">
+              ...
+            </span>
+          );
+        }
+
+        // Show current page and neighbors
+        for (
+          let i = Math.max(2, currentPage - 1);
+          i <= Math.min(totalPages - 1, currentPage + 1);
+          i++
+        ) {
+          if (i > 1 && i < totalPages) {
+            buttons.push(
+              <button
+                key={i}
+                className={`pagination-button ${
+                  i === currentPage ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(i)}
+              >
+                {i.toString()}
+              </button>
+            );
+          }
+        }
+
+        if (currentPage < totalPages - 2) {
+          buttons.push(
+            <span key="ellipsis2" className="pagination-ellipsis">
+              ...
+            </span>
+          );
+        }
+
+        // Show last page
+        buttons.push(
+          <button
+            key={totalPages}
+            className={`pagination-button ${
+              currentPage === totalPages ? "active" : ""
+            }`}
+            onClick={() => handlePageChange(totalPages)}
+          >
+            {totalPages.toString()}
+          </button>
+        );
+      }
+
+      // Next button
+      buttons.push(
+        <button
+          key="next"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={!pagination.nextPage}
+        >
+          &gt;
+        </button>
+      );
+
+      return buttons;
+    };
+
     return (
       <div className="space-y-6">
         {/* Filters Section */}
@@ -4263,15 +4819,15 @@ const SectorDetailPage = ({
                     targetCounterparty?.new_company;
                   const targetCounterpartyId =
                     event.target_counterparty?.new_company_counterparty;
-                  const targetName = target?.name || "Not Available";
+                  const targetName = target?.name || "-";
                   const targetHref = targetCounterpartyId
                     ? `/company/${targetCounterpartyId}`
                     : "";
                   const targetCountry = (target?._location?.Country ?? 
-                                        target?.country) || "Not Available";
+                                        target?.country) || "-";
 
                   const formatDate = (dateString: string) => {
-                    if (!dateString) return "Not available";
+                    if (!dateString) return "-";
                     try {
                       return new Date(dateString).toLocaleDateString("en-US", {
                         year: "numeric",
@@ -4287,9 +4843,9 @@ const SectorDetailPage = ({
                     amount: string | undefined,
                     currency: string | undefined
                   ) => {
-                    if (!amount || !currency) return "Not available";
+                    if (!amount || !currency) return "-";
                     const n = Number(amount);
-                    if (Number.isNaN(n)) return "Not available";
+                    if (Number.isNaN(n)) return "-";
                     return `${currency}${n.toLocaleString(undefined, {
                       maximumFractionDigits: 3,
                     })}m`;
@@ -4311,7 +4867,7 @@ const SectorDetailPage = ({
                     hrefBase: "/sector/" | "/sub-sector/" = "/sector/"
                   ): React.ReactNode => {
                     if (!Array.isArray(sectors) || sectors.length === 0) {
-                      return "Not available";
+                      return "-";
                     }
                     const nodes: React.ReactNode[] = [];
                     sectors.forEach((sector, index) => {
@@ -4347,7 +4903,7 @@ const SectorDetailPage = ({
                         nodes.push(<span key={`sep-${index}`}>, </span>);
                       }
                     });
-                    return nodes.length > 0 ? nodes : "Not available";
+                    return nodes.length > 0 ? nodes : "-";
                   };
 
                   const fundingStage =
@@ -4394,7 +4950,7 @@ const SectorDetailPage = ({
                             href={`/corporate-event/${event.id}`}
                             className="font-medium text-blue-600 underline hover:text-blue-800"
                           >
-                            {event.description || "Not Available"}
+                            {event.description || "-"}
                           </a>
                         </div>
                         <div className="text-xs text-slate-600">
@@ -4476,7 +5032,7 @@ const SectorDetailPage = ({
                               if (list.length === 0) {
                                 return (
                                   <>
-                                    <strong>Buyer(s):</strong> Not Available
+                                    <strong>Buyer(s):</strong> -
                                   </>
                                 );
                               }
@@ -4661,7 +5217,7 @@ const SectorDetailPage = ({
                               )}
                             </span>
                           ) : (
-                            "Not Available"
+                            "-"
                           )}
                         </div>
                         <div className="text-xs text-slate-600">
@@ -4710,7 +5266,7 @@ const SectorDetailPage = ({
                                   </span>
                                 );
                               })
-                            : "Not Available"}
+                            : "-"}
                         </div>
                       </td>
                       {/* Sectors */}
@@ -4733,14 +5289,11 @@ const SectorDetailPage = ({
         )}
 
         {/* Pagination */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-          <CompactPagination
-            curPage={pagination.curPage}
-            pageTotal={pagination.pageTotal}
-            onPageChange={handlePageChange}
-            disabled={loading}
-          />
-        </div>
+        {pagination.pageTotal > 1 && (
+          <div className="flex gap-2 justify-center items-center mt-6">
+            {generatePaginationButtons()}
+          </div>
+        )}
 
         {/* CSS for pagination */}
         <style jsx>{`
@@ -4931,7 +5484,7 @@ const SectorDetailPage = ({
     };
 
     const formatDate = (dateString: string) => {
-      if (!dateString) return "Not available";
+      if (!dateString) return "-";
       try {
         return new Date(dateString).toLocaleDateString("en-US", {
           year: "numeric",
@@ -4946,22 +5499,22 @@ const SectorDetailPage = ({
     const formatSectors = (
       sectors: Array<Array<{ sector_name: string }>> | undefined
     ) => {
-      if (!sectors || sectors.length === 0) return "Not available";
+      if (!sectors || sectors.length === 0) return "-";
       const allSectors = sectors
         .flat()
         .filter((s) => s && s.sector_name)
         .map((s) => s.sector_name);
-      return allSectors.length > 0 ? allSectors.join(", ") : "Not available";
+      return allSectors.length > 0 ? allSectors.join(", ") : "-";
     };
 
     const formatCompanies = (
       companies: ContentArticle["companies_mentioned"] | undefined
     ) => {
-      if (!companies || companies.length === 0) return "Not available";
+      if (!companies || companies.length === 0) return "-";
       const validCompanies = companies
         .filter((c) => c && c.name)
         .map((c) => c.name);
-      return validCompanies.length > 0 ? validCompanies.join(", ") : "Not available";
+      return validCompanies.length > 0 ? validCompanies.join(", ") : "-";
     };
 
     const badgeClassFor = (contentType?: string): string => {
@@ -4974,6 +5527,110 @@ const SectorDetailPage = ({
       if (t === "hot take") return "badge badge-hot-take";
       if (t === "executive interview") return "badge badge-executive-interview";
       return "badge";
+    };
+
+    const generatePaginationButtons = () => {
+      const buttons = [];
+      const currentPage = pagination.curPage;
+      const totalPages = pagination.pageTotal;
+
+      buttons.push(
+        <button
+          key="prev"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={!pagination.prevPage}
+        >
+          &lt;
+        </button>
+      );
+
+      if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i++) {
+          buttons.push(
+            <button
+              key={i}
+              className={`pagination-button ${
+                i === currentPage ? "active" : ""
+              }`}
+              onClick={() => handlePageChange(i)}
+            >
+              {i.toString()}
+            </button>
+          );
+        }
+      } else {
+        buttons.push(
+          <button
+            key={1}
+            className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
+            onClick={() => handlePageChange(1)}
+          >
+            1
+          </button>
+        );
+
+        if (currentPage > 3) {
+          buttons.push(
+            <span key="ellipsis1" className="pagination-ellipsis">
+              ...
+            </span>
+          );
+        }
+
+        for (
+          let i = Math.max(2, currentPage - 1);
+          i <= Math.min(totalPages - 1, currentPage + 1);
+          i++
+        ) {
+          if (i > 1 && i < totalPages) {
+            buttons.push(
+              <button
+                key={i}
+                className={`pagination-button ${
+                  i === currentPage ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(i)}
+              >
+                {i.toString()}
+              </button>
+            );
+          }
+        }
+
+        if (currentPage < totalPages - 2) {
+          buttons.push(
+            <span key="ellipsis2" className="pagination-ellipsis">
+              ...
+            </span>
+          );
+        }
+
+        buttons.push(
+          <button
+            key={totalPages}
+            className={`pagination-button ${
+              currentPage === totalPages ? "active" : ""
+            }`}
+            onClick={() => handlePageChange(totalPages)}
+          >
+            {totalPages.toString()}
+          </button>
+        );
+      }
+
+      buttons.push(
+        <button
+          key="next"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={!pagination.nextPage}
+        >
+          &gt;
+        </button>
+      );
+
+      return buttons;
     };
 
     return (
@@ -5065,7 +5722,7 @@ const SectorDetailPage = ({
                   }}
                 >
                   <h3 className="article-title">
-                    {article.Headline || "Not Available"}
+                    {article.Headline || "-"}
                   </h3>
                   <p className="article-date">
                     {formatDate(article.Publication_Date)}
@@ -5106,14 +5763,11 @@ const SectorDetailPage = ({
         )}
 
         {/* Pagination */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-          <CompactPagination
-            curPage={pagination.curPage}
-            pageTotal={pagination.pageTotal}
-            onPageChange={handlePageChange}
-            disabled={loading}
-          />
-        </div>
+        {pagination.pageTotal > 1 && (
+          <div className="flex gap-2 justify-center items-center mt-6">
+            {generatePaginationButtons()}
+          </div>
+        )}
 
         {/* CSS Styles */}
         <style jsx>{`
@@ -5328,10 +5982,7 @@ const SectorDetailPage = ({
             {/* Top Row - Changed from grid to flex */}
             <div className="flex flex-col lg:flex-row gap-6">
               <div className="lg:w-1/2">
-                <RecentInsightsCard
-                  articles={insightsArticles}
-                  loading={!overviewDataLoaded}
-                />
+                <RecentInsightsCard sectorId={sectorId} />
               </div>
               <div className="lg:w-1/2">
                 {recentTransactions.length > 0 ? (
@@ -5371,6 +6022,7 @@ const SectorDetailPage = ({
                   badgeLabel="Strategic Acquirer"
                   mostRecentHeader="Most Recent Acquisition"
                   showBadge={false}
+                  onViewAll={() => goToMostActiveSubTab("strategics")}
                 />
               ) : overviewDataLoaded ? (
                 <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
@@ -5402,6 +6054,7 @@ const SectorDetailPage = ({
                   badgeLabel="Private Equity"
                   mostRecentHeader="Most Recent Investment"
                   showBadge={false}
+                  onViewAll={() => goToMostActiveSubTab("pe")}
                 />
               ) : overviewDataLoaded ? (
                 <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
@@ -5432,8 +6085,6 @@ const SectorDetailPage = ({
               <MarketMapGrid
                 companies={marketMapCompanies}
                 counts={marketMapCounts}
-                onExportBucket={handleExportBucket}
-                exportingBucket={mmExportingBucket}
               />
             ) : overviewDataLoaded ? (
               <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
@@ -5535,317 +6186,62 @@ const SectorDetailPage = ({
             )}
           </div>
         ) : activeTab === "all" ? (
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
-              <div className="px-5 py-4 border-b border-slate-100">
-                <div className="flex justify-between items-center gap-3">
-                  <div className="flex gap-3 items-center text-xl">
-                    <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
-                      <svg
-                        className="w-4 h-4 text-indigo-600"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M3 12h18M3 6h18M3 18h18" />
-                      </svg>
-                    </span>
-                    <span className="text-slate-900">All Companies</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-600">
-                      {allCompaniesOwnershipCounts.totalCount.toLocaleString()} matches
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowAllCompaniesColumnsModal((v) => !v)}
-                      aria-pressed={showAllCompaniesColumnsModal}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors duration-150 ${
-                        showAllCompaniesColumnsModal
-                          ? "border-slate-900 bg-slate-900 text-white"
-                          : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
-                      }`}
-                    >
-                      <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
-                        <path d="M0 1h14M0 5h10M0 9h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                      Columns {allCompaniesColumnsCount}/{ALL_COMPANY_COLUMN_KEYS.length}
-                    </button>
-                    <button
-                      onClick={handleExportAllCompanies}
-                      disabled={allExporting}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors duration-150 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
-                      </svg>
-                      {allExporting ? "Exporting…" : "Export CSV"}
-                    </button>
-                  </div>
+          !Number.isNaN(Number(sectorId)) && Number(sectorId) > 0 ? (
+            <div className="space-y-4">
+              {ownershipFilter && (
+                <div className="px-3 py-2 bg-blue-50 rounded border border-blue-200">
+                  <span className="text-sm text-blue-900">
+                    Viewing a pre-filtered list:{" "}
+                    <strong>
+                      {ownershipFilter === "public"
+                        ? "Public Companies"
+                        : ownershipFilter === "private_equity_owned"
+                        ? "Private Equity Owned"
+                        : ownershipFilter === "venture_capital_backed"
+                        ? "Venture Capital Backed"
+                        : "Private Companies"}
+                    </strong>
+                  </span>
+                  <button
+                    onClick={() => {
+                      try {
+                        if (typeof window !== "undefined") {
+                          const url = new URL(window.location.href);
+                          url.searchParams.delete("ownership");
+                          url.searchParams.set("tab", "all");
+                          window.history.replaceState({}, "", url.toString());
+                        }
+                      } finally {
+                        setOwnershipFilter(null);
+                      }
+                    }}
+                    className="ml-3 text-sm font-semibold text-blue-700 underline hover:text-blue-900"
+                  >
+                    Clear filter
+                  </button>
                 </div>
-              </div>
-              <div className="px-5 pt-2 pb-1">
-                <CompaniesSearchDashboard
-                  key={`${sectorId}-${ownershipFilter ?? "all"}`}
-                  embedded
-                  forcedPrimarySectorIds={forcedPrimarySectorIds}
-                  initialOwnershipTab={initialAllCompaniesOwnershipTab}
-                  ownershipCounts={allCompaniesOwnershipCounts}
-                  onSearch={handleAllCompaniesSearch}
-                />
-              </div>
-              <div className="px-5 py-4">
-                <CompaniesDataTable
-                  companies={allCompanies as CompanyRow[]}
-                  loading={allCompaniesLoading}
-                  error={allCompaniesError}
-                  columnStorageKey={SECTOR_ALL_COMPANIES_COLUMNS_STORAGE_KEY}
-                  defaultColumnKeys={DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS}
-                  onApiColumnsChange={handleAllCompaniesApiColumnsChange}
-                  onRefetch={refetchAllCompaniesFirstPage}
-                  onSortChange={handleAllCompaniesSortChange}
-                  syncSortFromFilters={{
-                    sort_column: allCompaniesCurrentFilters?.sort_column,
-                    sort_direction: allCompaniesCurrentFilters?.sort_direction,
-                  }}
-                  externalShowColumnsModal={showAllCompaniesColumnsModal}
-                  externalSetShowColumnsModal={setShowAllCompaniesColumnsModal}
-                  onColumnsCountChange={setAllCompaniesColumnsCount}
-                  hideSelection
-                  emptyMessage="No companies found for this sector."
-                />
-              </div>
+              )}
+              <ScopedCompaniesPanel
+                primarySectorId={Number(sectorId)}
+                fixedOwnershipTypeIds={
+                  ownershipFilter
+                    ? OWNERSHIP_URL_FILTER_MAP[ownershipFilter]
+                    : undefined
+                }
+                hideOwnershipTabs={Boolean(ownershipFilter)}
+                embedded
+              />
             </div>
-            {allCompaniesPagination.pageTotal > 1 && (
-              <div className="flex gap-2 justify-center items-center">
-                <button
-                  disabled={!allCompaniesPagination.prevPage}
-                  onClick={() =>
-                    allCompaniesPagination.prevPage &&
-                    fetchAllCompaniesForSector(allCompaniesPagination.prevPage)
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm text-slate-600">
-                  Page {allCompaniesPagination.curPage} of{" "}
-                  {allCompaniesPagination.pageTotal}
-                </span>
-                <button
-                  disabled={!allCompaniesPagination.nextPage}
-                  onClick={() =>
-                    allCompaniesPagination.nextPage &&
-                    fetchAllCompaniesForSector(allCompaniesPagination.nextPage)
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  Next →
-                </button>
-              </div>
-            )}
-          </div>
+          ) : null
         ) : activeTab === "public" ? (
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
-              <div className="px-5 py-4 border-b border-slate-100">
-                <div className="flex justify-between items-center">
-                  <div className="flex gap-3 items-center text-xl">
-                    <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
-                      <svg
-                        className="w-4 h-4 text-indigo-600"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M3 12h18M3 6h18M3 18h18" />
-                      </svg>
-                    </span>
-                    <span className="text-slate-900">Public Companies</span>
-                  </div>
-                  <div className="text-sm text-slate-600">
-                    {publicCompaniesPagination.itemsReceived.toLocaleString()}{" "}
-                    total
-                  </div>
-                </div>
-              </div>
-              <div className="px-5 py-4">
-                {publicCompaniesLoading ? (
-                  <div className="py-10 text-center text-slate-500">
-                    Loading companies...
-                  </div>
-                ) : publicCompaniesError ? (
-                  <div className="py-4 text-center text-red-600">
-                    {publicCompaniesError}
-                  </div>
-                ) : publicCompanies.length === 0 ? (
-                  <div className="py-10 text-center text-slate-500">
-                    No companies found for this sector.
-                  </div>
-                ) : (
-                  <div className="overflow-x-hidden">
-                    <table className="w-full text-sm table-fixed">
-                      <thead className="bg-slate-50/80">
-                        <tr className="hover:bg-slate-50/80">
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[8%]">
-                            Logo
-                          </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[17%]">
-                            Name
-                          </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[20%]">
-                            Description
-                          </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[16%]">
-                            Primary Sector(s)
-                          </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
-                            Sub-Sector(s)
-                          </th>
-                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
-                            LinkedIn Members
-                          </th>
-                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
-                            Country
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {publicCompanies.map((c) => {
-                          const primaryDisplay = parseSectorList(c.primary_sectors);
-                          const secondaryDisplay = parseSectorList(
-                            c.secondary_sectors
-                          );
-                          const expanded = !!publicExpandedDescriptions[c.id];
-                          return (
-                            <tr key={c.id} className="hover:bg-slate-50/50">
-                              <td className="py-3 pr-4">
-                                {c.linkedin_logo ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={`data:image/jpeg;base64,${c.linkedin_logo}`}
-                                    alt={`${c.name} logo`}
-                                    className="object-contain w-12 h-8 rounded"
-                                    onError={(e) => {
-                                      (
-                                        e.target as HTMLImageElement
-                                      ).style.display = "none";
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="flex justify-center items-center w-12 h-8 text-[10px] text-slate-500 bg-slate-100 rounded">
-                                    No Logo
-                                  </div>
-                                )}
-                              </td>
-                              <td className="py-3 pr-4 align-middle whitespace-normal break-words">
-                                <a
-                                  href={`/company/${c.id}`}
-                                  className="font-medium text-blue-600 underline"
-                                >
-                                  {c.name}
-                                </a>
-                              </td>
-                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
-                                {c.description ? (
-                                  <>
-                                    <div
-                                      style={
-                                        expanded
-                                          ? {}
-                                          : {
-                                              display: "-webkit-box",
-                                              WebkitLineClamp: 4,
-                                              WebkitBoxOrient: "vertical",
-                                              overflow: "hidden",
-                                              textOverflow: "ellipsis",
-                                              minHeight: "5rem",
-                                            }
-                                      }
-                                    >
-                                      {c.description}
-                                    </div>
-                                    {c.description.length > 160 && (
-                                      <button
-                                        className="mt-1 text-xs text-blue-600 underline hover:text-blue-800"
-                                        onClick={() =>
-                                          setPublicExpandedDescriptions(
-                                            (prev) => ({
-                                              ...prev,
-                                              [c.id]: !expanded,
-                                            })
-                                          )
-                                        }
-                                      >
-                                        {expanded ? "Read Less" : "Read More"}
-                                      </button>
-                                    )}
-                                  </>
-                                ) : (
-                                  "N/A"
-                                )}
-                              </td>
-                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {renderSectorLinks(primaryDisplay, "/sector/")}
-                              </td>
-                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {renderSectorLinks(
-                                  secondaryDisplay,
-                                  "/sub-sector/"
-                                )}
-                              </td>
-                              <td className="py-3 pr-4 text-center text-slate-700">
-                                {typeof c.linkedin_members === "number"
-                                  ? c.linkedin_members.toLocaleString()
-                                  : "0"}
-                              </td>
-                              <td className="py-3 pr-4 text-center text-slate-700">
-                                {c.country || "N/A"}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-            {publicCompaniesPagination.pageTotal > 1 && (
-              <div className="flex gap-2 justify-center items-center">
-                <button
-                  disabled={!publicCompaniesPagination.prevPage}
-                  onClick={() =>
-                    publicCompaniesPagination.prevPage &&
-                    fetchPublicCompaniesForSector(
-                      publicCompaniesPagination.prevPage
-                    )
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm text-slate-600">
-                  Page {publicCompaniesPagination.curPage} of{" "}
-                  {publicCompaniesPagination.pageTotal}
-                </span>
-                <button
-                  disabled={!publicCompaniesPagination.nextPage}
-                  onClick={() =>
-                    publicCompaniesPagination.nextPage &&
-                    fetchPublicCompaniesForSector(
-                      publicCompaniesPagination.nextPage
-                    )
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  Next →
-                </button>
-              </div>
-            )}
-          </div>
+          !Number.isNaN(Number(sectorId)) && Number(sectorId) > 0 ? (
+            <ScopedCompaniesPanel
+              primarySectorId={Number(sectorId)}
+              fixedOwnershipTypeIds={[7]}
+              hideOwnershipTabs
+              embedded
+            />
+          ) : null
         ) : activeTab === "subsectors" ? (
           <div className="space-y-4">
             <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
@@ -5900,6 +6296,19 @@ const SectorDetailPage = ({
               </div>
             </div>
           </div>
+        ) : activeTab === "most_active" ? (
+          <MostActiveTab
+            sectorId={sectorId}
+            sectorImportance={
+              sectorData?.Sector?.Sector_importance ||
+              toStringSafe(
+                (sectorData as unknown as { Sector_importance?: unknown })
+                  ?.Sector_importance
+              )
+            }
+            activeSubTab={mostActiveSubTab}
+            setActiveSubTab={setMostActiveSubTab}
+          />
         ) : activeTab === "transactions" ? (
           <SectorTransactionsTab sectorId={sectorId} />
         ) : activeTab === "insights" ? (
@@ -5917,12 +6326,6 @@ const SectorDetailPage = ({
           </div>
         )}
       </main>
-      <ExportLimitModal
-        isOpen={mmShowExportLimitModal}
-        onClose={() => setMmShowExportLimitModal(false)}
-        exportsLeft={mmExportsLeft}
-        totalExports={EXPORT_LIMIT}
-      />
       <Footer />
     </div>
   );

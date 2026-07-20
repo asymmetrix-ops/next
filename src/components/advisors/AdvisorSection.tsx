@@ -35,12 +35,7 @@ import {
 } from "@/components/advisors/advisorsTableSort";
 import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
 import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
-import { buildNamedSectorItems } from "@/components/search/searchEntityLinkUtils";
-import {
-  splitCommaSeparatedValues,
-} from "@/components/search/searchMultiValueUtils";
-import { useSectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
-import type { SectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
+import { buildAdvisorSectorItems } from "@/components/search/searchEntityLinkUtils";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
 import { readLogoFromRecord } from "@/lib/companyLogo";
@@ -173,7 +168,6 @@ export const AdvisorSection = ({
   );
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
-  const sectorMaps = useSectorNameIdMaps();
   const selectionEnabled = isSearchTableSelectionEnabled({
     selectedEntityIds,
     onToggleEntitySelection,
@@ -368,7 +362,11 @@ export const AdvisorSection = ({
           escapeCsvField(`${baseUrl}/advisor/${advisor.id}`),
           escapeCsvField(advisor.description ?? ""),
           String(advisor.events_advised ?? 0),
-          escapeCsvField(advisor.sectors ?? ""),
+          escapeCsvField(
+            Array.isArray(advisor.sectors)
+              ? advisor.sectors.map((sector) => sector.name).filter(Boolean).join(", ")
+              : ""
+          ),
           escapeCsvField(advisor.country ?? ""),
         ].join(",")
       );
@@ -401,8 +399,7 @@ export const AdvisorSection = ({
 
   const renderAdvisorCell = (
     columnKey: string,
-    advisor: Advisor,
-    sectorMaps?: SectorNameIdMaps
+    advisor: Advisor
   ): React.ReactNode => {
     switch (columnKey) {
       case "name": {
@@ -438,11 +435,11 @@ export const AdvisorSection = ({
       case "sectors":
         return (
           <SearchEntityMultiValueCell
-            items={buildNamedSectorItems(
-              splitCommaSeparatedValues(advisor.sectors || ""),
-              "sector",
-              sectorMaps
+            items={buildAdvisorSectorItems(
+              advisor.sectors,
+              `advisor-${advisor.id ?? "row"}`
             )}
+            maxVisible={10}
           />
         );
       case "linkedin_members":
@@ -710,7 +707,7 @@ export const AdvisorSection = ({
                         ),
                       }}
                     >
-                      {renderAdvisorCell(column.key, advisor, sectorMaps)}
+                      {renderAdvisorCell(column.key, advisor)}
                     </td>
                   ))}
                 </tr>
