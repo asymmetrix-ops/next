@@ -850,10 +850,8 @@ export default function HomeUserPage() {
   const [searchPageType, setSearchPageType] = useState<SearchPageType | null>(
     null
   );
-  const [popupFiltering, setPopupFiltering] = useState(false);
   const [searchLoadingSources, setSearchLoadingSources] = useState(false);
   const searchAbortRef = useRef<AbortController | null>(null);
-  const popupAbortRef = useRef<AbortController | null>(null);
   const searchRunIdRef = useRef(0);
   const loggedSearchRunIdRef = useRef(0);
 
@@ -897,7 +895,9 @@ export default function HomeUserPage() {
     setSearchLoading(true);
     setSearchLoadingSources(true);
     setSearchError(null);
-    setSearchOpen(true);
+    if (!searchPopupOpen) {
+      setSearchOpen(true);
+    }
     setSearchResults([]);
 
     searchRunIdRef.current += 1;
@@ -964,107 +964,9 @@ export default function HomeUserPage() {
       ac.abort();
       searchAbortRef.current = null;
     };
-  }, [searchQuery, mergeResults, isTrialActive, user?.id]);
+  }, [searchQuery, mergeResults, isTrialActive, user?.id, searchPopupOpen]);
 
   const [popupDisplayedCount, setPopupDisplayedCount] = useState(25);
-  const popupQueryRef = useRef("");
-
-  const handleLoadMoreInPopup = useCallback(() => {
-    setPopupDisplayedCount((prev) => prev + 25);
-  }, []);
-
-  const openSearchPopup = useCallback(() => {
-    setPopupResults(searchResults);
-    setPopupDisplayedCount(25);
-    setSearchPageType(null);
-    setSearchPopupOpen(true);
-    popupQueryRef.current = searchQuery;
-  }, [searchResults, searchQuery]);
-
-  const closeSearchPopup = useCallback(() => {
-    popupAbortRef.current?.abort();
-    popupAbortRef.current = null;
-    setPopupFiltering(false);
-    setSearchPopupOpen(false);
-    setSearchPageType(null);
-  }, []);
-
-  const handleSearchFilterChange = useCallback(
-    (pageType: SearchPageType | null) => {
-      popupAbortRef.current?.abort();
-      popupAbortRef.current = null;
-
-      setSearchPageType(pageType);
-      popupQueryRef.current = searchQuery;
-      const q = searchQuery.trim();
-      setPopupDisplayedCount(25);
-      if (!q || q.length < 2) {
-        setPopupResults([]);
-        setPopupFiltering(false);
-        return;
-      }
-
-      // For "All", just mirror the main progressive results (and let the effect keep it updated)
-      if (pageType === null) {
-        setPopupResults(searchResults);
-        setPopupFiltering(false);
-        setSearchPagination({
-          current_page: 1,
-          per_page: 25,
-          total_results: searchResults.length,
-          total_pages: Math.max(1, Math.ceil(searchResults.length / 25)),
-          next_page: searchResults.length > 25 ? 2 : null,
-          prev_page: null,
-          pages_left: Math.max(0, Math.ceil(searchResults.length / 25) - 1),
-        });
-        return;
-      }
-
-      setPopupFiltering(true);
-      // Critical: clear stale results so we don't "carry over" from the previous tab.
-      setPopupResults([]);
-
-      const ac = new AbortController();
-      popupAbortRef.current = ac;
-
-      const allResultsRef = { current: [] as GlobalSearchResult[] };
-      fetchGlobalSearchProgressive(q, pageType, {
-        signal: ac.signal,
-        onBatch: (items) => {
-          if (ac.signal.aborted) return;
-          const merged = mergeResults(allResultsRef.current, items);
-          allResultsRef.current = merged;
-          setPopupResults(merged);
-        },
-        onComplete: () => {
-          if (ac.signal.aborted) return;
-          setPopupResults(sortSearchResults(allResultsRef.current));
-          const total = allResultsRef.current.length;
-          const perPage = 25;
-          const totalPages = Math.max(1, Math.ceil(total / perPage));
-          setSearchPagination({
-            current_page: 1,
-            per_page: perPage,
-            total_results: total,
-            total_pages: totalPages,
-            next_page: totalPages > 1 ? 2 : null,
-            prev_page: null,
-            pages_left: Math.max(0, totalPages - 1),
-          });
-          setPopupFiltering(false);
-        },
-        onError: (_source, err) => {
-          const name =
-            err && typeof err === "object"
-              ? String((err as { name?: unknown }).name)
-              : "";
-          if (name === "AbortError") return;
-          setPopupFiltering(false);
-        },
-      });
-    },
-    [searchQuery, mergeResults, searchResults]
-  );
 
   const matchesPopupFilter = useCallback(
     (result: GlobalSearchResult, pageType: SearchPageType | null) => {
@@ -1084,33 +986,40 @@ export default function HomeUserPage() {
     []
   );
 
-  useEffect(() => {
-    if (!searchPopupOpen || searchPageType !== null) return;
+  const handleLoadMoreInPopup = useCallback(() => {
+    setPopupDisplayedCount((prev) => prev + 25);
+  }, []);
+
+  const openSearchPopup = useCallback(() => {
     setPopupResults(searchResults);
     setPopupDisplayedCount(25);
-  }, [searchPopupOpen, searchPageType, searchResults]);
+    setSearchPageType(null);
+    setSearchOpen(false);
+    setSearchPopupOpen(true);
+  }, [searchResults]);
+
+  const closeSearchPopup = useCallback(() => {
+    setSearchPopupOpen(false);
+    setSearchPageType(null);
+  }, []);
+
+  const handleSearchFilterChange = useCallback(
+    (pageType: SearchPageType | null) => {
+      setSearchPageType(pageType);
+      setPopupDisplayedCount(25);
+    },
+    []
+  );
 
   useEffect(() => {
-    if (!searchPopupOpen || searchPageType === null) return;
-    const q = searchQuery.trim();
-    if (q.length < 2) {
-      // If the user clears the query while a filtered search is in-flight,
-      // abort and reset so the UI doesn't get "stuck" in loading/disabled state.
-      popupAbortRef.current?.abort();
-      popupAbortRef.current = null;
-      setPopupFiltering(false);
-      setPopupResults([]);
-      setPopupDisplayedCount(25);
-      popupQueryRef.current = searchQuery;
-      return;
-    }
-    if (searchQuery === popupQueryRef.current) return;
-    popupQueryRef.current = searchQuery;
-    const t = window.setTimeout(() => {
-      handleSearchFilterChange(searchPageType);
-    }, 250);
-    return () => window.clearTimeout(t);
-  }, [searchPopupOpen, searchQuery, searchPageType, handleSearchFilterChange]);
+    if (!searchPopupOpen) return;
+    setPopupResults(searchResults);
+  }, [searchPopupOpen, searchResults]);
+
+  useEffect(() => {
+    if (!searchPopupOpen) return;
+    setPopupDisplayedCount(25);
+  }, [searchPopupOpen, searchQuery]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -1758,7 +1667,7 @@ export default function HomeUserPage() {
               }}
             />
 
-            {searchOpen && !isTrialActive && searchQuery.trim().length >= 2 && (
+            {searchOpen && !searchPopupOpen && !isTrialActive && searchQuery.trim().length >= 2 && (
               <div className="absolute z-50 mt-2 w-full bg-white rounded-lg border-2 border-blue-200 shadow-lg">
                 {searchLoading && searchResults.length === 0 ? (
                   <div className="px-3 py-3 text-xs text-gray-600">
@@ -1974,11 +1883,10 @@ export default function HomeUserPage() {
                     key={pt}
                     type="button"
                     onClick={() => handleSearchFilterChange(pt)}
-                    disabled={popupFiltering}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
                       searchPageType === pt
                         ? "bg-gray-900 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     {SEARCH_PAGE_TYPE_LABELS[pt]}
@@ -1994,15 +1902,11 @@ export default function HomeUserPage() {
                           matchesPopupFilter(r, searchPageType)
                         );
                   const displayed = visibleResults.slice(0, popupDisplayedCount);
-                  const allTabLoading =
-                    searchPageType === null &&
+                  const popupSearchLoading =
                     searchQuery.trim().length >= 2 &&
                     (searchLoading || searchLoadingSources);
 
-                  if (
-                    (popupFiltering || allTabLoading) &&
-                    visibleResults.length === 0
-                  ) {
+                  if (popupSearchLoading && visibleResults.length === 0) {
                     return (
                       <div className="flex items-center justify-center py-12">
                         <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
@@ -2024,7 +1928,7 @@ export default function HomeUserPage() {
                   }
                   return (
                     <>
-                      {(popupFiltering || allTabLoading) && (
+                      {(popupSearchLoading && visibleResults.length > 0) && (
                         <div className="pb-2 text-xs text-gray-500">
                           Loading more results…
                         </div>
