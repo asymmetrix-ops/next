@@ -174,6 +174,19 @@ export const BUYER_INVESTOR_TYPE_OPTIONS = [
   { value: "other_strategic", label: "Other Strategic" },
 ];
 
+export const DEFAULT_PRODUCT_TYPE_OPTIONS = [
+  "Data",
+  "Research",
+  "Software",
+  "News / Other Media",
+  "Events",
+  "Consulting",
+  "Training",
+  "Executive Networks",
+  "Expert Networks",
+  "Other",
+];
+
 export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "event", name: "Event" },
   { id: "location", name: "Location" },
@@ -190,6 +203,7 @@ export function buildCorporateEventsFilterDefs({
   primarySectors,
   secondarySectors,
   fundingStages,
+  productTypes = DEFAULT_PRODUCT_TYPE_OPTIONS,
   portfolioEntityOptions = [],
 }: {
   continentalRegions: string[];
@@ -200,6 +214,7 @@ export function buildCorporateEventsFilterDefs({
   primarySectors: PrimarySector[];
   secondarySectors: SecondarySector[];
   fundingStages: string[];
+  productTypes?: string[];
   portfolioEntityOptions?: string[];
 }): FilterDef[] {
   const overrides: Record<string, Partial<FilterDef>> = {
@@ -216,6 +231,7 @@ export function buildCorporateEventsFilterDefs({
     city: { options: cities.map((c) => c.City) },
     primary_sector: { options: primarySectors.map((s) => s.sector_name) },
     secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
+    product_type: { options: productTypes },
     portfolio_entity: { options: portfolioEntityOptions },
   };
 

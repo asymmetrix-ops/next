@@ -26,6 +26,7 @@ import {
   CORPORATE_EVENT_DEAL_TAB_ORDER,
   type CorporateEventDealTab,
   type CorporateEventsSummaryStats,
+  DEFAULT_PRODUCT_TYPE_OPTIONS,
   type PrimarySector,
   type SecondarySector,
 } from "@/components/corporate-events/corporateEventsFilterConfig";
@@ -93,6 +94,9 @@ export const CorporateEventsDashboard = ({
   );
   const { countries, provinces, cities } = useLocationFilterOptions(filterBarState);
   const [fundingStages, setFundingStages] = useState<string[]>([]);
+  const [productTypes, setProductTypes] = useState<string[]>(
+    DEFAULT_PRODUCT_TYPE_OPTIONS
+  );
   const [portfolioEntityOptions, setPortfolioEntityOptions] = useState<string[]>(
     []
   );
@@ -136,6 +140,12 @@ export const CorporateEventsDashboard = ({
         }
       })
       .catch(console.error);
+    locationsService
+      .getProductTypes()
+      .then((types) => {
+        if (types.length > 0) setProductTypes(types);
+      })
+      .catch(console.error);
     fetchUserPortfolioData()
       .then(({ items }) => {
         const typeLabel: Record<string, string> = {
@@ -176,6 +186,7 @@ export const CorporateEventsDashboard = ({
         primarySectors,
         secondarySectors,
         fundingStages,
+        productTypes,
         portfolioEntityOptions,
       }),
     [
@@ -187,6 +198,7 @@ export const CorporateEventsDashboard = ({
       primarySectors,
       secondarySectors,
       fundingStages,
+      productTypes,
       portfolioEntityOptions,
     ]
   );

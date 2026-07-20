@@ -122,6 +122,7 @@ function buildFiltersFromFilterBar(args: {
     filter_individual_ids: [],
     EV_min: "0",
     EV_max: "0",
+    Product_Types: [],
   };
 
   let hasPriorClause = false;
@@ -203,6 +204,10 @@ function buildFiltersFromFilterBar(args: {
       filters.filter_investor_ids = parsed.filter_investor_ids;
       filters.filter_sector_ids = parsed.filter_sector_ids;
       filters.filter_individual_ids = parsed.filter_individual_ids;
+      continue;
+    }
+    if (item.id === "product_type" && Array.isArray(v) && v.length > 0) {
+      filters.Product_Types = v as string[];
     }
   }
 
@@ -232,6 +237,7 @@ export const createDefaultCorporateEventFilters =
     filter_individual_ids: [],
     EV_min: "0",
     EV_max: "0",
+    Product_Types: [],
   });
 
 export function buildCorporateEventsSearchPayload(args: {
@@ -348,6 +354,11 @@ function appendSharedCorporateEventFilterParams(
   if (filters.Buyer_Investor_Types && filters.Buyer_Investor_Types.length > 0) {
     filters.Buyer_Investor_Types.forEach((type) =>
       params.append("Buyer_Investor_Types[]", type)
+    );
+  }
+  if (filters.Product_Types && filters.Product_Types.length > 0) {
+    filters.Product_Types.forEach((productType) =>
+      params.append("Product_Types[]", productType)
     );
   }
   if (filters.Date_start) {

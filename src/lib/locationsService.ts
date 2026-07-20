@@ -444,6 +444,37 @@ class LocationsService {
     return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
   }
 
+  // Product type labels used by Corporate Events filters.
+  async getProductTypes(): Promise<string[]> {
+    const url = `${BASE_URL}get_product_types`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch product types: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = (await response.json()) as {
+      product_types?: unknown;
+    };
+    const raw = Array.isArray(data?.product_types) ? data.product_types : [];
+    const values = raw
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((value): value is string => value.length > 0);
+
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+  }
+
   // Investor type options used by Investors page filters.
   async getInvestorTypes(): Promise<InvestorType[]> {
     return this.fetchFirstOk<InvestorType[]>(
