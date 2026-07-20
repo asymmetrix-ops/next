@@ -193,6 +193,40 @@ export function parseInsightsArticlesPage(
   };
 }
 
+/** Fetch sector-profile overview I&A (no corporate event context). */
+export async function fetchSectorProfileInsightsArticles(args: {
+  sectorId: number;
+  sectorImportance?: string;
+  token?: string | null;
+  page?: number;
+}): Promise<ContentArticle[]> {
+  const page = Math.max(1, args.page ?? 1);
+  const params = new URLSearchParams();
+
+  if ((args.sectorImportance || "").toLowerCase().includes("secondary")) {
+    params.append("Secondary_sectors_ids[]", String(args.sectorId));
+  } else {
+    params.append("primary_sectors_ids[]", String(args.sectorId));
+  }
+  params.append("page", String(page));
+
+  const url = `${SECTOR_INSIGHTS_ARTICLES_API}?${params.toString()}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...(args.token ? { Authorization: `Bearer ${args.token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    return [];
+  }
+
+  const data = (await res.json()) as ContentArticle[] | PaginatedArticlesPayload;
+  return parseInsightsArticlesPage(data, page).articles;
+}
+
 export async function fetchSectorInsightsArticles(args: {
   primarySectorIds: number[];
   corporateEventId: number;
