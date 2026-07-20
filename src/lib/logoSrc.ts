@@ -21,6 +21,7 @@ export function buildLogoSrc(raw?: string | null): string | undefined {
 
   const compact = value
     .replace(/\\r\\n|\\n|\\r/g, "")
+    .replace(/\r\n|\n|\r/g, "")
     .replace(/\s+/g, "");
   if (!compact || !/^[A-Za-z0-9+/=]+$/.test(compact)) return undefined;
 

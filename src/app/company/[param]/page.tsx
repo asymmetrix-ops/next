@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -1196,10 +1196,38 @@ const getYearFoundedDisplay = (company: Company): string => {
 };
 
 // Company Logo Component
-const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
+const CompanyLogo = ({
+  logo,
+  fallbackLogo,
+  name,
+}: {
+  logo?: string | null;
+  fallbackLogo?: string | null;
+  name: string;
+}) => {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+
+  const candidates = useMemo(() => {
+    const out: string[] = [];
+    for (const raw of [logo, fallbackLogo]) {
+      const resolved = resolveCompanyLogoSrc(raw);
+      if (resolved && !out.includes(resolved)) out.push(resolved);
+    }
+    return out;
+  }, [logo, fallbackLogo]);
+
+  const src =
+    candidates.find((candidate) => candidate !== failedSrc) ?? null;
+
+  useEffect(() => {
+    setFailedSrc(null);
+  }, [candidates]);
+
   const logoStyle = {
     objectFit: "contain" as const,
     borderRadius: "8px",
+    width: 80,
+    height: 60,
   };
 
   const placeholderStyle = {
@@ -1214,15 +1242,15 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
     color: "#718096",
   };
 
-  if (logo) {
+  if (src) {
     return (
-      <Image
-        src={`data:image/jpeg;base64,${logo}`}
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
         alt={`${name} logo`}
-        width={80}
-        height={60}
         className="company-logo"
         style={logoStyle}
+        onError={() => setFailedSrc(src)}
       />
     );
   }
@@ -3768,8 +3796,8 @@ const CompanyDetail = () => {
           {/* Left: logo + name */}
           <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0, flex: 1 }}>
                   <CompanyLogo
-                    logo={
-                      companyLinkedIn?.profile?.logo ??
+                    logo={companyLinkedIn?.profile?.logo}
+                    fallbackLogo={
                       company._linkedin_data_of_new_company?.linkedin_logo
                     }
                     name={company.name}

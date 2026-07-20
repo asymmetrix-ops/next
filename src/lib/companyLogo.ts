@@ -31,6 +31,9 @@ function stripBase64Noise(value: string): string {
     .replace(/\\r\\n/g, "")
     .replace(/\\n/g, "")
     .replace(/\\r/g, "")
+    .replace(/\r\n/g, "")
+    .replace(/\n/g, "")
+    .replace(/\r/g, "")
     .replace(/\s+/g, "");
 }
 
