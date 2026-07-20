@@ -14,7 +14,9 @@ import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import type { AdvisorListItem, AdvisorsSearchFilters } from "@/app/advisors/actions";
 import {
   createDefaultAdvisorFilters,
+  advisorsFiltersToSearchParams,
 } from "@/lib/advisorsFilterPayload";
+import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
 import {
   ADVISORS_COLUMN_CATEGORIES,
   CANONICAL_ADVISOR_COLUMN_KEYS,
@@ -38,9 +40,6 @@ import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdenti
 import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
 import { readLogoFromRecord } from "@/lib/companyLogo";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
-import { exportAdvisorsList } from "@/lib/listExport/advisorsListExport";
-import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
-import { checkExportLimit } from "@/utils/exportLimitCheck";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import {
   isSearchTableSelectionEnabled,
@@ -56,6 +55,7 @@ import {
   getStickyColumnStyle,
   SearchTablePinIndicator,
 } from "@/components/search/searchTableUtils";
+import CompactPagination from "@/components/ui/CompactPagination";
 
 export type Advisor = AdvisorListItem;
 export type Filters = AdvisorsSearchFilters;
@@ -70,7 +70,7 @@ interface AdvisorColumnDefinition {
 }
 
 const ALL_ADVISOR_COLUMNS: AdvisorColumnDefinition[] = [
-  { key: "name", label: "Advisor", minWidth: 220 },
+  { key: "name", label: "Advisor", wrap: true, minWidth: 280 },
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "events_advised", label: "# Corporate Events Advised", minWidth: 150 },
   { key: "sectors", label: "Advised D&A Sectors", wrap: true, minWidth: 180 },
@@ -93,6 +93,14 @@ function getValidColumnKeys(keys: string[]): string[] {
   );
 }
 
+function escapeCsvField(value: string): string {
+  const s = String(value ?? "").trim();
+  if (s.includes('"') || s.includes("\n") || s.includes(",")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
 export const AdvisorSection = ({
   advisors,
   loading,
@@ -105,7 +113,6 @@ export const AdvisorSection = ({
   externalSetShowColumnsModal,
   onColumnsCountChange,
   onRegisterExportCSV,
-  onExportingChange,
   isPortfolioOnlyFilter = false,
   sortColumnKey = null,
   sortDirection = "desc",
@@ -136,8 +143,7 @@ export const AdvisorSection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
-  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
-  onExportingChange?: (exporting: boolean) => void;
+  onRegisterExportCSV?: (fn: () => void) => void;
   isPortfolioOnlyFilter?: boolean;
   sortColumnKey?: string | null;
   sortDirection?: "asc" | "desc";
@@ -147,6 +153,7 @@ export const AdvisorSection = ({
   onClearSelection?: () => void;
 }) => {
   const router = useRouter();
+  const sectionRef = useRef<HTMLDivElement>(null);
   const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal =
@@ -267,12 +274,23 @@ export const AdvisorSection = ({
     [router]
   );
 
+  const pageTotal =
+    pagination.pageTotal ||
+    (pagination.nextPage != null
+      ? Math.max(pagination.nextPage, pagination.curPage + 1)
+      : 1);
+
   const handlePageChange = useCallback(
     (page: number) => {
+      if (loading || page < 1 || page > pageTotal || page === pagination.curPage) {
+        return;
+      }
+
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       const filters = currentFilters ?? createDefaultAdvisorFilters();
       void fetchAdvisors(page, { ...filters, page });
     },
-    [currentFilters, fetchAdvisors]
+    [currentFilters, fetchAdvisors, loading, pageTotal, pagination.curPage]
   );
 
   const handleSortColumn = useCallback(
@@ -300,48 +318,74 @@ export const AdvisorSection = ({
     [frozenColumnKeys]
   );
 
-  const [exporting, setExporting] = useState(false);
+  const exportToCsv = useCallback(async () => {
+    const filters = currentFilters ?? createDefaultAdvisorFilters();
+    const itemsTotal = pagination.itemsTotal;
+    if (itemsTotal <= 0) return;
 
-  const handleListExport = useCallback(
-    async (mode: ListExportMode, scope: ListExportRequest["scope"]) => {
-      try {
-        const limitCheck = await checkExportLimit();
-        if (!limitCheck.canExport) return;
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = advisorsFiltersToSearchParams({
+        ...filters,
+        page: 1,
+        per_page: itemsTotal,
+      });
+      const url = `${ADVISORS_API_BASE}/get_all_advisors_list?${params.toString()}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+      if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
 
-        setExporting(true);
-        await exportAdvisorsList(
-          {
-            mode,
-            scope,
-            selectedIds:
-              scope === "selected" ? selectedIdList : undefined,
-          },
-          currentFilters ?? createDefaultAdvisorFilters(),
-          selectedColumnKeys
-        );
-      } catch (exportError) {
-        console.error("Advisor export failed:", exportError);
-      } finally {
-        setExporting(false);
-      }
-    },
-    [currentFilters, selectedColumnKeys, selectedIdList]
-  );
-
-  const handleExportRequest = useCallback(
-    async (request: ListExportRequest) => {
-      await handleListExport(request.mode, request.scope);
-    },
-    [handleListExport]
-  );
+      const raw = (await response.json()) as {
+        items?: Advisor[];
+        result1?: { items?: Advisor[] };
+        Advisors_companies?: { items?: Advisor[] };
+      };
+      const allAdvisors =
+        raw.items ?? raw.result1?.items ?? raw.Advisors_companies?.items ?? [];
+      const baseUrl = window.location.origin;
+      const headers = [
+        "Advisor Name",
+        "Asymmetrix link",
+        "Description",
+        "Number of corporate events advised",
+        "Advised sectors",
+        "Country",
+      ];
+      const rows = allAdvisors.map((advisor) =>
+        [
+          escapeCsvField(advisor.name ?? ""),
+          escapeCsvField(`${baseUrl}/advisor/${advisor.id}`),
+          escapeCsvField(advisor.description ?? ""),
+          String(advisor.events_advised ?? 0),
+          escapeCsvField(
+            Array.isArray(advisor.sectors)
+              ? advisor.sectors.map((sector) => sector.name).filter(Boolean).join(", ")
+              : ""
+          ),
+          escapeCsvField(advisor.country ?? ""),
+        ].join(",")
+      );
+      const csv = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const urlObj = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = urlObj;
+      a.download = `advisors-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(urlObj);
+    } catch (exportError) {
+      console.error("Export CSV failed:", exportError);
+    }
+  }, [currentFilters, pagination.itemsTotal]);
 
   useEffect(() => {
-    onExportingChange?.(exporting);
-  }, [exporting, onExportingChange]);
-
-  useEffect(() => {
-    onRegisterExportCSV?.(handleExportRequest);
-  }, [handleExportRequest, onRegisterExportCSV]);
+    onRegisterExportCSV?.(exportToCsv);
+  }, [exportToCsv, onRegisterExportCSV]);
 
   const columnsModalInitial = useMemo(
     () => advisorColumnKeysToVisibility(selectedColumnKeys),
@@ -422,110 +466,6 @@ export const AdvisorSection = ({
     }
   };
 
-  const generatePaginationButtons = () => {
-    const buttons: React.ReactNode[] = [];
-    const maxVisible = 7;
-    const totalPages =
-      pagination.pageTotal ||
-      (pagination.nextPage != null
-        ? Math.max(pagination.nextPage, pagination.curPage + 1)
-        : 0);
-    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
-    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
-
-    if (totalPages <= 1) return buttons;
-
-    buttons.push(
-      <button
-        key="previous"
-        type="button"
-        className="pagination-button pagination-nav"
-        onClick={() => handlePageChange(prevPage)}
-        disabled={pagination.curPage <= 1}
-      >
-        Previous
-      </button>
-    );
-
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
-            onClick={() => handlePageChange(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-    } else {
-      buttons.push(
-        <button
-          key={1}
-          type="button"
-          className={`pagination-button ${pagination.curPage === 1 ? "active" : ""}`}
-          onClick={() => handlePageChange(1)}
-        >
-          1
-        </button>
-      );
-      if (pagination.curPage > 3) {
-        buttons.push(
-          <span key="ellipsis1" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-      const start = Math.max(2, pagination.curPage - 1);
-      const end = Math.min(totalPages - 1, pagination.curPage + 1);
-      for (let i = start; i <= end; i++) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
-            onClick={() => handlePageChange(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-      if (pagination.curPage < totalPages - 2) {
-        buttons.push(
-          <span key="ellipsis2" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-      buttons.push(
-        <button
-          key={totalPages}
-          type="button"
-          className={`pagination-button ${totalPages === pagination.curPage ? "active" : ""}`}
-          onClick={() => handlePageChange(totalPages)}
-        >
-          {totalPages}
-        </button>
-      );
-    }
-
-    buttons.push(
-      <button
-        key="next"
-        type="button"
-        className="pagination-button pagination-nav"
-        onClick={() => handlePageChange(nextPage)}
-        disabled={pagination.curPage >= totalPages}
-      >
-        Next
-      </button>
-    );
-
-    return buttons;
-  };
-
   const columnsModalLayer =
     showColumnsModal &&
     (
@@ -593,14 +533,12 @@ export const AdvisorSection = ({
   }
 
   return (
-    <div className="company-section">
+    <div className="company-section" ref={sectionRef}>
       {selectionEnabled && selectedEntityIds!.size > 0 && onClearSelection && (
         <BulkPortfolioActionToolbar
           entityType="advisor"
           entityIds={selectedIdList}
           onClearSelection={onClearSelection}
-          exporting={exporting}
-          onExport={(mode) => handleListExport(mode, "selected")}
         />
       )}
       <div className="company-table-scroll">
@@ -780,7 +718,14 @@ export const AdvisorSection = ({
         </table>
       </div>
 
-      <div className="pagination">{generatePaginationButtons()}</div>
+      <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+        <CompactPagination
+          curPage={pagination.curPage}
+          pageTotal={pageTotal}
+          onPageChange={handlePageChange}
+          disabled={loading}
+        />
+      </div>
       {columnsModalLayer}
       <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
     </div>
