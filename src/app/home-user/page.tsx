@@ -32,6 +32,8 @@ import {
   CorporateEventTargetLink,
   CountryFlagImg,
 } from "@/components/corporate-events/CorporateEventPartyLink";
+import { hasInsightSummary } from "@/lib/insightSummary";
+import { InsightSummaryModal } from "@/components/insights/InsightSummaryModal";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -136,6 +138,8 @@ interface InsightArticle {
   }>;
   Transaction_status?: string;
   transaction_status?: string;
+  /** Summary bullets — may be HTML string, plain string, or array of strings */
+  summary?: unknown;
   hq_country_iso2?: string | null;
   hqCountryIso2?: string | null;
   Company_of_Focus?: Array<{
@@ -828,6 +832,9 @@ export default function HomeUserPage() {
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
+  );
+  const [summaryArticle, setSummaryArticle] = useState<InsightArticle | null>(
+    null
   );
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -2469,25 +2476,36 @@ export default function HomeUserPage() {
                           </p>
                         ) : null}
 
-                        <a
-                          href={href}
-                          className="inline-flex items-center gap-1 mt-3 text-sm font-medium text-blue-600 hover:text-blue-800"
-                          onClick={(e) => {
-                            if (
-                              e.defaultPrevented ||
-                              e.button !== 0 ||
-                              e.metaKey ||
-                              e.ctrlKey ||
-                              e.shiftKey ||
-                              e.altKey
-                            )
-                              return;
-                            e.preventDefault();
-                            router.push(href);
-                          }}
-                        >
-                          Read full article <span aria-hidden="true">→</span>
-                        </a>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+                          <a
+                            href={href}
+                            className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+                            onClick={(e) => {
+                              if (
+                                e.defaultPrevented ||
+                                e.button !== 0 ||
+                                e.metaKey ||
+                                e.ctrlKey ||
+                                e.shiftKey ||
+                                e.altKey
+                              )
+                                return;
+                              e.preventDefault();
+                              router.push(href);
+                            }}
+                          >
+                            Read full article <span aria-hidden="true">→</span>
+                          </a>
+                          {hasInsightSummary(article.summary) ? (
+                            <button
+                              type="button"
+                              onClick={() => setSummaryArticle(article)}
+                              className="inline-flex items-center rounded border border-gray-300 px-2 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                              View summary
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                     );
                   })}
@@ -3630,6 +3648,14 @@ export default function HomeUserPage() {
         </div>
       </main>
       <Footer />
+      {summaryArticle ? (
+        <InsightSummaryModal
+          article={summaryArticle}
+          onClose={() => setSummaryArticle(null)}
+          articleHref={`/article/${summaryArticle.id}?from=home`}
+          footerLinkLabel="Read full article →"
+        />
+      ) : null}
     </div>
   );
 }

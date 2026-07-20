@@ -7,77 +7,9 @@
 import React, { useState, useCallback } from "react";
 import Link from "next/link";
 import { ContentArticle } from "@/types/insightsAnalysis";
+import { hasInsightSummary } from "@/lib/insightSummary";
+import { InsightSummaryModal } from "@/components/insights/InsightSummaryModal";
 import { LinkPanel, LinkedH, Pill, T } from "./primitives";
-
-// ── Summary parsing (mirrors article page logic) ──────────────────────────────
-function extractSummaryItemsFromHtml(html: string): string[] {
-  const trimmed = (html || "").trim();
-  if (!trimmed) return [];
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(
-      `<div id="__sr__">${trimmed}</div>`,
-      "text/html"
-    );
-    const root = doc.getElementById("__sr__");
-    if (!root) return [trimmed];
-    const liEls = Array.from(root.querySelectorAll("li"));
-    if (liEls.length > 0)
-      return liEls.map((li) => (li.innerHTML || "").trim()).filter(Boolean);
-    const pEls = Array.from(root.querySelectorAll("p"));
-    if (pEls.length > 0)
-      return pEls.map((p) => (p.innerHTML || "").trim()).filter(Boolean);
-    const children = Array.from(root.children);
-    if (children.length > 0)
-      return children.map((el) => (el.innerHTML || "").trim()).filter(Boolean);
-    const text = (root.textContent || "").trim();
-    return text ? [text] : [];
-  } catch {
-    return [trimmed];
-  }
-}
-
-function parseSummaryItems(val: unknown): string[] {
-  if (val === null || val === undefined) return [];
-  if (Array.isArray(val)) {
-    const items = (val as unknown[])
-      .map((x) => (typeof x === "string" ? x : String(x)))
-      .map((s) => s.trim())
-      .filter(Boolean);
-    return items
-      .flatMap((s) => (s.includes("<") ? extractSummaryItemsFromHtml(s) : [s]))
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-  if (typeof val === "string") {
-    const trimmed = val.trim();
-    if (!trimmed) return [];
-    try {
-      const parsed: unknown = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) return parseSummaryItems(parsed);
-    } catch { /* not JSON */ }
-    const htmlItems = extractSummaryItemsFromHtml(trimmed);
-    if (htmlItems.length > 1) return htmlItems;
-    if (htmlItems.length === 1) {
-      const lines = htmlItems[0]
-        .split(/\r?\n+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (lines.length > 1) return lines;
-      return htmlItems;
-    }
-    const lines = trimmed
-      .split(/\r?\n+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    return lines.length > 0 ? lines : [trimmed];
-  }
-  return [];
-}
-
-function hasSummary(article: ContentArticle): boolean {
-  return parseSummaryItems(article.summary).length > 0;
-}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function badgeTone(
@@ -188,151 +120,6 @@ function InsightRowPlaceholder({ isLast = false }: { isLast?: boolean }) {
   );
 }
 
-// ── Summary modal ─────────────────────────────────────────────────────────────
-function SummaryModal({
-  article,
-  onClose,
-}: {
-  article: ContentArticle;
-  onClose: () => void;
-}) {
-  const items = parseSummaryItems(article.summary);
-  const headline = article.Headline?.trim() || "";
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(15,17,21,0.45)",
-        zIndex: 1200,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: T.panel,
-          borderRadius: 12,
-          padding: "24px 28px",
-          width: "100%",
-          maxWidth: 560,
-          maxHeight: "80vh",
-          overflowY: "auto",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.22)",
-          fontFamily: T.sans,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: 18,
-            gap: 12,
-          }}
-        >
-          <Link
-            href={`/article/${article.id}`}
-            prefetch={false}
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: T.ink,
-              lineHeight: 1.45,
-              flex: 1,
-              textDecoration: "none",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = T.azure;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = T.ink;
-            }}
-          >
-            {headline}
-          </Link>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 20,
-              color: T.muted,
-              lineHeight: 1,
-              padding: "0 4px",
-              flexShrink: 0,
-            }}
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Summary label */}
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            color: T.muted,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-            marginBottom: 12,
-          }}
-        >
-          Summary
-        </div>
-
-        {/* Bullet items */}
-        <ul
-          style={{
-            margin: 0,
-            paddingLeft: 20,
-            listStyleType: "disc",
-            listStylePosition: "outside",
-          }}
-        >
-          {items.map((item, i) => (
-            <li
-              key={i}
-              style={{
-                fontSize: 13,
-                lineHeight: 1.6,
-                color: T.body,
-                marginBottom: i < items.length - 1 ? 10 : 0,
-                display: "list-item",
-              }}
-              dangerouslySetInnerHTML={{ __html: item }}
-            />
-          ))}
-        </ul>
-
-        {/* Footer link */}
-        <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${T.hair}` }}>
-          <Link
-            href={`/article/${article.id}`}
-            prefetch={false}
-            style={{
-              color: T.azure,
-              fontSize: 13,
-              fontWeight: 500,
-              textDecoration: "none",
-            }}
-          >
-            Open full report →
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── article row ──────────────────────────────────────────────────────────────
 function ArticleRow({
   article,
@@ -350,7 +137,7 @@ function ArticleRow({
   const date = article.Publication_Date ? formatDate(article.Publication_Date) : "";
   const headline = decodeHtmlEntities(article.Headline?.trim() || "");
   const strapline = decodeHtmlEntities(article.Strapline?.trim() || "");
-  const showSummaryBtn = hasSummary(article);
+  const showSummaryBtn = hasInsightSummary(article.summary);
 
   return (
     <div style={insightsRowGridStyle(isLast)}>
@@ -545,7 +332,10 @@ export function InsightsCard({
   return (
     <>
     {summaryArticle && (
-      <SummaryModal article={summaryArticle} onClose={handleCloseModal} />
+      <InsightSummaryModal
+        article={summaryArticle}
+        onClose={handleCloseModal}
+      />
     )}
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH>{title}</LinkedH>
