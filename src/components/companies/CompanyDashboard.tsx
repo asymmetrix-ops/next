@@ -46,7 +46,8 @@ import {
   SEARCH_DASHBOARD_TITLE,
   SearchListTabs,
 } from "@/components/search/searchDashboardLayout";
-import McpGuestFlagCompanyButton from "@/components/mcp-guest/McpGuestFlagCompanyButton";
+import { McpGuestTrackerToolbarActions } from "@/components/mcp-guest/McpGuestTrackerToolbarActions";
+import { MCP_GUEST_TRACKER_TITLE } from "@/lib/mcpGuest";
 
 export type CompanyDashboardProps = {
   onSearch?: (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => void;
@@ -418,11 +419,11 @@ export const CompanyDashboard = ({
         >
           {!hidePageHeader && (
           <div>
-            <div style={SEARCH_DASHBOARD_EYEBROW}>
-              {guestMode ? "MCP Guest" : "Companies"}
-            </div>
+            {!guestMode && (
+              <div style={SEARCH_DASHBOARD_EYEBROW}>Companies</div>
+            )}
             <h1 style={SEARCH_DASHBOARD_TITLE}>
-              {guestMode ? "MCP companies" : "Company search"}
+              {guestMode ? MCP_GUEST_TRACKER_TITLE : "Company search"}
               <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
                 {matchCount.toLocaleString()} matches
               </span>
@@ -436,9 +437,11 @@ export const CompanyDashboard = ({
               style={{
                 ...SEARCH_DASHBOARD_ACTIONS,
                 marginLeft: hidePageHeader ? "auto" : undefined,
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
               }}
             >
-              <McpGuestFlagCompanyButton />
+              <McpGuestTrackerToolbarActions />
             </div>
           ) : (
           <div
@@ -511,30 +514,7 @@ export const CompanyDashboard = ({
         )}
       </div>
 
-      {guestMode ? (
-        <div
-          style={{
-            background: "#fff",
-            borderTop: "1px solid #e2e8f0",
-            borderBottom: "1px solid #e2e8f0",
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              padding: `12px ${horizontalPad} 14px`,
-              fontSize: 13,
-              color: "#64748b",
-            }}
-          >
-            Showing companies with{" "}
-            <strong style={{ color: "#0f172a" }}>MCP = Yes</strong> only. Filters,
-            exports, and company profiles are not available in guest view. Use{" "}
-            <strong style={{ color: "#0f172a" }}>Flag a company</strong> if one
-            is missing from this list.
-          </div>
-        </div>
-      ) : (
+      {!guestMode && (
       /* ── Filter bar card ── */
       <div
         style={{

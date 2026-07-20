@@ -10,6 +10,8 @@ import {
   ACCESS_DENIED_PATH,
   MCP_GUEST_ALLOWED_PATH,
   MCP_GUEST_ENTRY_PATH,
+  MCP_GUEST_TRACKER_REQUEST_TITLE,
+  MCP_GUEST_TRACKER_TITLE,
 } from "@/lib/mcpGuest";
 import {
   fetchMcpGuestRequestStatus,
@@ -167,8 +169,8 @@ export default function McpGuestSignInFlow({
           {step === "email"
             ? "Enter your work email to check your access status and sign in."
             : step === "approved"
-              ? "Your access request was approved. Sign in with a one-time password."
-              : "We found your MCP Guest access request."}
+              ? `Your access to ${MCP_GUEST_TRACKER_TITLE} was approved. Sign in with a one-time password.`
+              : `We found your access request for ${MCP_GUEST_TRACKER_TITLE}.`}
         </p>
       </div>
 
@@ -222,7 +224,7 @@ export default function McpGuestSignInFlow({
               Request in review
             </h2>
             <p className="text-gray-600 leading-relaxed">
-              Your MCP Guest access request for{" "}
+              Your access request for{" "}
               <strong>{companyLabel}</strong> is being reviewed. We&apos;ll email
               you once a decision has been made.
             </p>
@@ -235,7 +237,7 @@ export default function McpGuestSignInFlow({
               Request not approved
             </h2>
             <p className="text-gray-600 leading-relaxed">
-              Sorry, your MCP Guest access request for{" "}
+              Sorry, your access request for{" "}
               <strong>{companyLabel}</strong> was not approved. If you believe
               this is an error, contact{" "}
               <a
@@ -253,9 +255,9 @@ export default function McpGuestSignInFlow({
           <form onSubmit={handleSignIn} className="space-y-6">
             <div className="p-5 bg-green-50 rounded-lg border border-green-100">
               <p className="text-sm text-gray-700 leading-relaxed">
-                Your MCP Guest access for <strong>{companyLabel}</strong> has been
-                approved. Send a one-time password to your email, then sign in
-                below.
+                Your access to <strong>{companyLabel}</strong> for{" "}
+                {MCP_GUEST_TRACKER_TITLE} has been approved. Send a one-time
+                password to your email, then sign in below.
               </p>
             </div>
 
@@ -325,7 +327,7 @@ export default function McpGuestSignInFlow({
         <p className="mt-6 text-sm text-center text-gray-600">
           New here?{" "}
           <Link href={MCP_GUEST_ENTRY_PATH} className="text-blue-600 hover:underline">
-            Request MCP Guest access
+            {MCP_GUEST_TRACKER_REQUEST_TITLE}
           </Link>
         </p>
       )}

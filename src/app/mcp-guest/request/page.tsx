@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import McpGuestPageShell from "@/components/mcp-guest/McpGuestPageShell";
 import McpGuestRequestForm from "@/components/mcp-guest/McpGuestRequestForm";
-import { MCP_GUEST_OTP_LOGIN_PATH } from "@/lib/mcpGuest";
+import { MCP_GUEST_OTP_LOGIN_PATH, MCP_GUEST_TRACKER_REQUEST_TITLE } from "@/lib/mcpGuest";
 
 function McpGuestRequestContent() {
   const searchParams = useSearchParams();
@@ -33,7 +33,7 @@ export default function McpGuestRequestPage() {
     <McpGuestPageShell>
       <div className="mb-8 text-center">
         <h1 className="mb-2 text-3xl font-bold text-gray-900">
-          Request MCP Guest access
+          {MCP_GUEST_TRACKER_REQUEST_TITLE}
         </h1>
         <p className="text-gray-600">
           Tell us a bit about yourself. We&apos;ll review your request and

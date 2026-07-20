@@ -344,17 +344,7 @@ const Header = () => {
 
             {/* Desktop Navigation */}
             <nav style={styles.navDesktop} className="nav-desktop">
-              {isMcpGuest ? (
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: "#0f172a",
-                  }}
-                >
-                  MCP Guest
-                </span>
-              ) : (
+              {!isMcpGuest &&
               navItems.map((item) => {
                 const href = getNavHref(item);
                 const isActive = isNavItemActive(pathname, item, href);
@@ -389,8 +379,7 @@ const Header = () => {
                     {item}
                   </Link>
                 );
-              })
-              )}
+              })}
             </nav>
           </div>
 

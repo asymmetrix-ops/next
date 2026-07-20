@@ -1,6 +1,7 @@
 "use client";
 
 import McpGuestCalendlyEmbed from "@/components/mcp-guest/McpGuestCalendlyEmbed";
+import { MCP_GUEST_TRACKER_TITLE } from "@/lib/mcpGuest";
 
 type McpGuestSalesConversionPanelProps = {
   compact?: boolean;
@@ -113,7 +114,7 @@ export function McpGuestSalesConversionModal({
               cursor: "pointer",
             }}
           >
-            Back to MCP companies
+            Back to {MCP_GUEST_TRACKER_TITLE}
           </button>
         </div>
       </div>
