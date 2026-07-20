@@ -1,63 +1,42 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
-const EMAIL_ANALYTICS_DCP_LIST_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_delivery_log/dcp_list";
+const DCP_OUTREACH_BY_COMPANY_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_delivery_log/dcp_outreach_by_company";
 
-const DCP_FETCH_PER_PAGE = 100;
-const DCP_COMPANY_PAGE_SIZE = 25;
+const DCP_PER_PAGE = 25;
 
 type DcpEngagementFilter = "all" | "outreach_sent";
 
-type EADcpListItem = {
-  id: number;
+type DcpEmailLog = {
+  log_id: number;
   recipient_email: string;
-  company_id: number;
-  company_name: string;
   status: string;
   sent_at: number;
   delivered_at: number | null;
   opened_at: number;
   clicked_at: number | null;
   clicks: number;
-  failed_reason: string;
-  was_delivered: boolean;
-  was_opened: boolean;
-  was_clicked: boolean;
-  was_responded: boolean;
-  responded_at: number | null;
-  has_contributed_data: boolean;
-  contributed_at: number | null;
 };
 
-type EADcpListMeta = {
-  page: number;
-  per_page: number;
-  total_count: number;
-};
-
-type EADcpSummary = {
-  total_companies_sent: number;
-  total_opened: number;
-  total_contributed: number;
-  outreach_sent_count: number;
-};
-
-type DcpCompanyGroup = {
-  key: string;
+type DcpCompanyRow = {
   company_id: number;
   company_name: string;
-  recipient_email: string;
-  emails: EADcpListItem[];
-  email_count: number;
+  company_url: string;
+  emails_sent_count: number;
   last_sent_at: number;
   was_opened: boolean;
   was_clicked: boolean;
-  was_responded: boolean;
-  has_contributed_data: boolean;
-  total_clicks: number;
+  contributed: boolean;
+  emails: DcpEmailLog[];
+};
+
+type DcpTotals = {
+  total_companies_emailed: number;
+  total_opened: number;
+  total_contributed: number;
 };
 
 type DcpOutreachTabProps = {
@@ -96,50 +75,74 @@ function formatTimestamp(ts: number | null): string {
   }
 }
 
-function dcpEffectiveSentAt(item: EADcpListItem): number {
-  return item.sent_at || item.delivered_at || item.opened_at || 0;
+function dcpParseEmails(value: unknown): DcpEmailLog[] {
+  let raw: unknown = value;
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      raw = JSON.parse(raw) as unknown;
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
+    .map((r) => ({
+      log_id: dcpNum(r.log_id ?? r.id),
+      recipient_email: String(r.recipient_email ?? ""),
+      status: String(r.status ?? ""),
+      sent_at: dcpNum(r.sent_at),
+      delivered_at: dcpOptionalTs(r.delivered_at),
+      opened_at: dcpNum(r.opened_at),
+      clicked_at: dcpOptionalTs(r.clicked_at),
+      clicks: dcpNum(r.clicks),
+    }))
+    .sort(
+      (a, b) =>
+        (b.sent_at || b.delivered_at || b.opened_at || b.clicked_at || 0) -
+        (a.sent_at || a.delivered_at || a.opened_at || a.clicked_at || 0)
+    );
 }
 
-function normalizeDcpListItem(row: unknown): EADcpListItem {
+function dcpEffectiveSentAt(email: DcpEmailLog): number {
+  return email.sent_at || email.delivered_at || email.opened_at || email.clicked_at || 0;
+}
+
+function dcpEffectiveLastSentAt(
+  lastSentAt: number,
+  emails: DcpEmailLog[]
+): number {
+  if (lastSentAt > 0) return lastSentAt;
+  return emails.reduce(
+    (max, email) => Math.max(max, dcpEffectiveSentAt(email)),
+    0
+  );
+}
+
+function normalizeDcpCompanyRow(row: unknown): DcpCompanyRow {
   const r = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
-  const contributed = Boolean(
-    r.has_contributed_data ??
-      r.has_contributed ??
-      r.contributed_data ??
-      r.data_contributed
-  );
-  const responded = Boolean(
-    r.was_responded ??
-      r.has_responded ??
-      (dcpOptionalTs(r.responded_at) != null)
-  );
+  const emails = dcpParseEmails(r.emails);
+  const lastSentAt = dcpNum(r.last_sent_at);
 
   return {
-    id: dcpNum(r.id),
-    recipient_email: String(r.recipient_email ?? ""),
-    company_id: dcpNum(r.company_id ?? r.companies_id),
-    company_name: String(r.company_name ?? r.company ?? ""),
-    status: String(r.status ?? ""),
-    sent_at: dcpNum(r.sent_at),
-    delivered_at: dcpOptionalTs(r.delivered_at),
-    opened_at: dcpNum(r.opened_at),
-    clicked_at: dcpOptionalTs(r.clicked_at),
-    clicks: dcpNum(r.clicks),
-    failed_reason: String(r.failed_reason ?? ""),
-    was_delivered: Boolean(r.was_delivered),
+    company_id: dcpNum(r.company_id),
+    company_name: String(r.company_name ?? ""),
+    company_url: String(r.company_url ?? ""),
+    emails_sent_count: dcpNum(r.emails_sent_count) || emails.length,
+    last_sent_at: dcpEffectiveLastSentAt(lastSentAt, emails),
     was_opened: Boolean(r.was_opened),
     was_clicked: Boolean(r.was_clicked),
-    was_responded: responded,
-    responded_at: dcpOptionalTs(r.responded_at),
-    has_contributed_data: contributed,
-    contributed_at: dcpOptionalTs(r.contributed_at ?? r.data_contributed_at),
+    contributed: Boolean(r.contributed),
+    emails,
   };
 }
 
-function normalizeDcpList(json: unknown): {
-  items: EADcpListItem[];
-  meta: EADcpListMeta;
-  summary: EADcpSummary | null;
+function normalizeDcpOutreachResponse(json: unknown): {
+  companies: DcpCompanyRow[];
+  page: number;
+  perPage: number;
+  totals: DcpTotals;
 } {
   const root =
     json && typeof json === "object" ? (json as Record<string, unknown>) : {};
@@ -149,152 +152,40 @@ function normalizeDcpList(json: unknown): {
       : root;
 
   const results = Array.isArray(response.results) ? response.results : [];
-  const items = results.map(normalizeDcpListItem);
-
-  const summaryRaw =
-    (response.summary && typeof response.summary === "object"
-      ? response.summary
-      : response.stats && typeof response.stats === "object"
-      ? response.stats
-      : null) as Record<string, unknown> | null;
-
-  const summary = summaryRaw
-    ? {
-        total_companies_sent: dcpNum(
-          summaryRaw.total_companies_sent ??
-            summaryRaw.companies_sent ??
-            summaryRaw.total_sent
-        ),
-        total_opened: dcpNum(
-          summaryRaw.total_opened ?? summaryRaw.companies_opened
-        ),
-        total_contributed: dcpNum(
-          summaryRaw.total_contributed ??
-            summaryRaw.companies_contributed ??
-            summaryRaw.contributed_count
-        ),
-        outreach_sent_count: dcpNum(
-          summaryRaw.outreach_sent_count ?? summaryRaw.outreach_sent
-        ),
-      }
-    : null;
+  const totalsRaw =
+    response.totals && typeof response.totals === "object"
+      ? (response.totals as Record<string, unknown>)
+      : {};
 
   return {
-    items,
-    meta: {
-      page: dcpNum(response.page) || 1,
-      per_page: dcpNum(response.per_page) || DCP_FETCH_PER_PAGE,
-      total_count: dcpNum(response.total_count),
+    companies: results.map(normalizeDcpCompanyRow),
+    page: Math.max(1, dcpNum(response.page) || 1),
+    perPage: Math.max(1, dcpNum(response.per_page) || DCP_PER_PAGE),
+    totals: {
+      total_companies_emailed: dcpNum(totalsRaw.total_companies_emailed),
+      total_opened: dcpNum(totalsRaw.total_opened),
+      total_contributed: dcpNum(totalsRaw.total_contributed),
     },
-    summary,
   };
 }
 
-function emailAnalyticsDcpQueryParams(
+function dcpOutreachQueryParams(
   dateFrom: string,
   dateTo: string,
-  recipientEmail: string,
+  companyName: string,
+  outreachSentOnly: boolean,
   page: number,
   perPage: number
 ): string {
   const params = new URLSearchParams({
     date_from: dateFrom,
     date_to: dateTo,
-    recipient_email: recipientEmail,
+    company_name: companyName,
+    outreach_sent_only: outreachSentOnly ? "true" : "false",
     page: String(page),
     per_page: String(perPage),
   });
   return params.toString();
-}
-
-function dcpGroupKey(item: EADcpListItem): string {
-  if (item.company_id > 0) return `company:${item.company_id}`;
-  const email = item.recipient_email.trim().toLowerCase();
-  if (email) return `email:${email}`;
-  return `record:${item.id}`;
-}
-
-function dcpGroupLabel(item: EADcpListItem): {
-  company_name: string;
-  recipient_email: string;
-} {
-  const company_name =
-    item.company_name.trim() ||
-    (item.recipient_email.includes("@")
-      ? item.recipient_email.split("@")[1] ?? item.recipient_email
-      : "Unknown company");
-  return {
-    company_name,
-    recipient_email: item.recipient_email.trim(),
-  };
-}
-
-function buildDcpCompanyGroups(items: EADcpListItem[]): DcpCompanyGroup[] {
-  const map = new Map<string, DcpCompanyGroup>();
-
-  for (const item of items) {
-    const key = dcpGroupKey(item);
-    const label = dcpGroupLabel(item);
-    const sentAt = dcpEffectiveSentAt(item);
-    const existing = map.get(key);
-
-    if (!existing) {
-      map.set(key, {
-        key,
-        company_id: item.company_id,
-        company_name: label.company_name,
-        recipient_email: label.recipient_email,
-        emails: [item],
-        email_count: 1,
-        last_sent_at: sentAt,
-        was_opened: item.was_opened,
-        was_clicked: item.was_clicked,
-        was_responded: item.was_responded,
-        has_contributed_data: item.has_contributed_data,
-        total_clicks: item.clicks,
-      });
-      continue;
-    }
-
-    existing.emails.push(item);
-    existing.email_count += 1;
-    existing.last_sent_at = Math.max(existing.last_sent_at, sentAt);
-    existing.was_opened = existing.was_opened || item.was_opened;
-    existing.was_clicked = existing.was_clicked || item.was_clicked;
-    existing.was_responded = existing.was_responded || item.was_responded;
-    existing.has_contributed_data =
-      existing.has_contributed_data || item.has_contributed_data;
-    existing.total_clicks += item.clicks;
-    if (item.company_name.trim()) {
-      existing.company_name = item.company_name.trim();
-    }
-    if (item.recipient_email.trim()) {
-      existing.recipient_email = item.recipient_email.trim();
-    }
-    if (item.company_id > 0) {
-      existing.company_id = item.company_id;
-    }
-  }
-
-  return Array.from(map.values())
-    .map((group) => ({
-      ...group,
-      emails: group.emails.sort(
-        (a, b) => dcpEffectiveSentAt(b) - dcpEffectiveSentAt(a)
-      ),
-    }))
-    .sort((a, b) => b.last_sent_at - a.last_sent_at);
-}
-
-function computeDcpSummary(groups: DcpCompanyGroup[]): EADcpSummary {
-  return {
-    total_companies_sent: groups.length,
-    total_opened: groups.filter((g) => g.was_opened).length,
-    total_contributed: groups.filter((g) => g.has_contributed_data).length,
-    outreach_sent_count: groups.filter(
-      (g) => g.email_count > 0 && !g.has_contributed_data
-    ).length,
-  };
 }
 
 function dcpBoolBadge(value: boolean): { label: string; cls: string } {
@@ -322,26 +213,50 @@ function DcpStatusBadge({
   );
 }
 
+function dcpStatusBadge(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized === "sent") {
+    return { label: "Sent", cls: "bg-green-50 text-green-700" };
+  }
+  if (normalized === "failed") {
+    return { label: "Failed", cls: "bg-red-50 text-red-700" };
+  }
+  return {
+    label: status || "—",
+    cls: "bg-gray-100 text-gray-700",
+  };
+}
+
 export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
-  const [items, setItems] = useState<EADcpListItem[]>([]);
-  const [meta, setMeta] = useState<EADcpListMeta>({
-    page: 1,
-    per_page: DCP_FETCH_PER_PAGE,
-    total_count: 0,
+  const [companies, setCompanies] = useState<DcpCompanyRow[]>([]);
+  const [totals, setTotals] = useState<DcpTotals>({
+    total_companies_emailed: 0,
+    total_opened: 0,
+    total_contributed: 0,
   });
-  const [apiSummary, setApiSummary] = useState<EADcpSummary | null>(null);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(DCP_PER_PAGE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [recipientEmail, setRecipientEmail] = useState("");
-  const [recipientInput, setRecipientInput] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [companyNameInput, setCompanyNameInput] = useState("");
   const [engagementFilter, setEngagementFilter] =
     useState<DcpEngagementFilter>("all");
-  const [companyPage, setCompanyPage] = useState(1);
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
-  const fetchAllDcpItems = useCallback(async () => {
+  const outreachSentOnly = engagementFilter === "outreach_sent";
+  const outreachSentCount = Math.max(
+    0,
+    totals.total_companies_emailed - totals.total_contributed
+  );
+  const listTotal = outreachSentOnly
+    ? outreachSentCount
+    : totals.total_companies_emailed;
+  const totalPages = Math.max(1, Math.ceil(listTotal / perPage));
+
+  const fetchOutreach = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -350,19 +265,15 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
           ? localStorage.getItem("asymmetrix_auth_token")
           : "";
 
-      const collected: EADcpListItem[] = [];
-      let page = 1;
-      let totalCount = 0;
-      let summary: EADcpSummary | null = null;
-
-      while (true) {
+      const load = async (outreachOnly: boolean) => {
         const res = await fetch(
-          `${EMAIL_ANALYTICS_DCP_LIST_URL}?${emailAnalyticsDcpQueryParams(
+          `${DCP_OUTREACH_BY_COMPANY_URL}?${dcpOutreachQueryParams(
             dateFrom,
             dateTo,
-            recipientEmail,
+            companyName,
+            outreachOnly,
             page,
-            DCP_FETCH_PER_PAGE
+            DCP_PER_PAGE
           )}`,
           {
             method: "GET",
@@ -376,101 +287,79 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
           const text = await res.text().catch(() => "");
           throw new Error(`${res.status} ${text}`);
         }
-        const json = await res.json();
-        const parsed = normalizeDcpList(json);
-        collected.push(...parsed.items);
-        totalCount = parsed.meta.total_count;
-        if (page === 1) {
-          summary = parsed.summary;
-          setMeta(parsed.meta);
-        }
-        if (
-          collected.length >= totalCount ||
-          parsed.items.length === 0 ||
-          page >= 50
-        ) {
-          break;
-        }
-        page += 1;
+        return res.json();
+      };
+
+      let json: unknown;
+      try {
+        json = await load(outreachSentOnly);
+      } catch (firstError) {
+        if (!outreachSentOnly) throw firstError;
+        json = await load(false);
       }
 
-      setItems(collected);
-      setApiSummary(summary);
-      setMeta((prev) => ({ ...prev, total_count: totalCount || collected.length }));
-      setCompanyPage(1);
-      setExpandedKeys(new Set());
+      const parsed = normalizeDcpOutreachResponse(json);
+      const companies =
+        outreachSentOnly && parsed.companies.some((c) => c.contributed)
+          ? parsed.companies.filter((c) => !c.contributed)
+          : parsed.companies;
+
+      setCompanies(companies);
+      setTotals(parsed.totals);
+      setPage(parsed.page);
+      setPerPage(parsed.perPage);
+      setExpandedIds(new Set());
     } catch (e) {
-      setItems([]);
-      setApiSummary(null);
-      setMeta({ page: 1, per_page: DCP_FETCH_PER_PAGE, total_count: 0 });
+      setCompanies([]);
+      setTotals({
+        total_companies_emailed: 0,
+        total_opened: 0,
+        total_contributed: 0,
+      });
       setError(
         e instanceof Error ? e.message : "Failed to load DCP outreach history"
       );
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, recipientEmail]);
+  }, [dateFrom, dateTo, companyName, outreachSentOnly, page]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setRecipientEmail(recipientInput.trim());
+      setCompanyName(companyNameInput.trim());
+      setPage(1);
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [recipientInput]);
+  }, [companyNameInput]);
 
   useEffect(() => {
-    fetchAllDcpItems();
-  }, [fetchAllDcpItems]);
-
-  const allGroups = useMemo(() => buildDcpCompanyGroups(items), [items]);
-
-  const filteredGroups = useMemo(() => {
-    if (engagementFilter !== "outreach_sent") return allGroups;
-    return allGroups.filter(
-      (group) => group.email_count > 0 && !group.has_contributed_data
-    );
-  }, [allGroups, engagementFilter]);
-
-  const summary = useMemo(() => {
-    if (apiSummary && apiSummary.total_companies_sent > 0) {
-      return apiSummary;
-    }
-    return computeDcpSummary(allGroups);
-  }, [allGroups, apiSummary]);
+    fetchOutreach();
+  }, [fetchOutreach]);
 
   useEffect(() => {
-    onCompanyCountChange?.(summary.total_companies_sent);
-  }, [onCompanyCountChange, summary.total_companies_sent]);
-
-  const companyTotalPages = Math.max(
-    1,
-    Math.ceil(filteredGroups.length / DCP_COMPANY_PAGE_SIZE)
-  );
-  const pagedGroups = filteredGroups.slice(
-    (companyPage - 1) * DCP_COMPANY_PAGE_SIZE,
-    companyPage * DCP_COMPANY_PAGE_SIZE
-  );
+    onCompanyCountChange?.(totals.total_companies_emailed);
+  }, [onCompanyCountChange, totals.total_companies_emailed]);
 
   const openRatePct =
-    summary.total_companies_sent > 0
+    totals.total_companies_emailed > 0
       ? (
-          (summary.total_opened / summary.total_companies_sent) *
+          (totals.total_opened / totals.total_companies_emailed) *
           100
         ).toFixed(1)
       : "0.0";
   const contributionRatePct =
-    summary.total_companies_sent > 0
+    totals.total_companies_emailed > 0
       ? (
-          (summary.total_contributed / summary.total_companies_sent) *
+          (totals.total_contributed / totals.total_companies_emailed) *
           100
         ).toFixed(1)
       : "0.0";
 
-  function toggleExpanded(key: string) {
-    setExpandedKeys((prev) => {
+  function toggleExpanded(companyId: number) {
+    setExpandedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(companyId)) next.delete(companyId);
+      else next.add(companyId);
       return next;
     });
   }
@@ -487,23 +376,20 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
         <div className="rounded border px-4 py-3">
           <div className="text-xs text-gray-500 mb-1">Companies emailed</div>
           <div className="text-2xl font-medium text-gray-900">
-            {summary.total_companies_sent.toLocaleString()}
-          </div>
-          <div className="text-xs text-gray-400 mt-1">
-            {meta.total_count.toLocaleString()} delivery records
+            {totals.total_companies_emailed.toLocaleString()}
           </div>
         </div>
         <div className="rounded border px-4 py-3">
           <div className="text-xs text-gray-500 mb-1">Opened email</div>
           <div className="text-2xl font-medium text-green-700">
-            {summary.total_opened.toLocaleString()}
+            {totals.total_opened.toLocaleString()}
           </div>
           <div className="text-xs text-gray-400 mt-1">{openRatePct}% open rate</div>
         </div>
         <div className="rounded border px-4 py-3">
           <div className="text-xs text-gray-500 mb-1">Contributed data</div>
           <div className="text-2xl font-medium text-blue-700">
-            {summary.total_contributed.toLocaleString()}
+            {totals.total_contributed.toLocaleString()}
           </div>
           <div className="text-xs text-gray-400 mt-1">
             {contributionRatePct}% contribution rate
@@ -512,7 +398,7 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
         <div className="rounded border px-4 py-3">
           <div className="text-xs text-gray-500 mb-1">Outreach sent (no data)</div>
           <div className="text-2xl font-medium text-amber-700">
-            {summary.outreach_sent_count.toLocaleString()}
+            {outreachSentCount.toLocaleString()}
           </div>
           <div className="text-xs text-gray-400 mt-1">
             emailed, awaiting contribution
@@ -533,7 +419,7 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
             type="button"
             onClick={() => {
               setEngagementFilter(value);
-              setCompanyPage(1);
+              setPage(1);
             }}
             className={`text-xs rounded-full px-3 py-1 border ${
               engagementFilter === value
@@ -545,8 +431,8 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
             <span className="ml-1 opacity-70">
               (
               {value === "all"
-                ? summary.total_companies_sent
-                : summary.outreach_sent_count}
+                ? totals.total_companies_emailed
+                : outreachSentCount}
               )
             </span>
           </button>
@@ -557,7 +443,10 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
         <input
           type="date"
           value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
+          onChange={(e) => {
+            setDateFrom(e.target.value);
+            setPage(1);
+          }}
           className="text-sm border rounded px-2 py-1.5"
           aria-label="Date from"
         />
@@ -565,25 +454,29 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
         <input
           type="date"
           value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
+          onChange={(e) => {
+            setDateTo(e.target.value);
+            setPage(1);
+          }}
           className="text-sm border rounded px-2 py-1.5"
           aria-label="Date to"
         />
         <input
           type="search"
-          value={recipientInput}
-          onChange={(e) => setRecipientInput(e.target.value)}
-          placeholder="Filter by recipient email…"
+          value={companyNameInput}
+          onChange={(e) => setCompanyNameInput(e.target.value)}
+          placeholder="Filter by company name…"
           className="text-sm border rounded px-2 py-1.5 min-w-[220px]"
         />
-        {(dateFrom || dateTo || recipientInput) && (
+        {(dateFrom || dateTo || companyNameInput) && (
           <button
             type="button"
             onClick={() => {
               setDateFrom("");
               setDateTo("");
-              setRecipientInput("");
-              setRecipientEmail("");
+              setCompanyNameInput("");
+              setCompanyName("");
+              setPage(1);
             }}
             className="text-xs text-gray-500 hover:text-gray-800 underline"
           >
@@ -592,7 +485,7 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
         )}
         <button
           type="button"
-          onClick={fetchAllDcpItems}
+          onClick={fetchOutreach}
           disabled={loading}
           className="ml-auto text-sm border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
         >
@@ -610,12 +503,11 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
                 {[
                   "",
                   "Company",
-                  "Contact email",
+                  "Website",
                   "Emails sent",
                   "Last sent",
                   "Opened",
                   "Clicked",
-                  "Responded",
                   "Contributed",
                 ].map((h) => (
                   <th
@@ -628,25 +520,25 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
               </tr>
             </thead>
             <tbody>
-              {pagedGroups.length === 0 ? (
+              {companies.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={8}
                     className="text-center py-8 text-sm text-gray-500"
                   >
                     No DCP outreach records match this filter.
                   </td>
                 </tr>
               ) : (
-                pagedGroups.map((group) => {
-                  const expanded = expandedKeys.has(group.key);
+                companies.map((company) => {
+                  const expanded = expandedIds.has(company.company_id);
                   return (
-                    <Fragment key={group.key}>
+                    <Fragment key={company.company_id}>
                       <tr className="border-b border-gray-100">
                         <td className="px-3 py-2">
                           <button
                             type="button"
-                            onClick={() => toggleExpanded(group.key)}
+                            onClick={() => toggleExpanded(company.company_id)}
                             className="text-gray-500 hover:text-gray-900"
                             aria-label={expanded ? "Collapse" : "Expand"}
                           >
@@ -654,38 +546,42 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
                           </button>
                         </td>
                         <td className="px-3 py-2 text-gray-900">
-                          {group.company_id > 0 ? (
-                            <Link
-                              href={`/company/${group.company_id}`}
+                          <Link
+                            href={`/company/${company.company_id}`}
+                            className="text-blue-600 hover:underline"
+                          >
+                            {company.company_name || `Company #${company.company_id}`}
+                          </Link>
+                        </td>
+                        <td className="px-3 py-2 text-gray-700 max-w-[180px] truncate">
+                          {company.company_url ? (
+                            <a
+                              href={company.company_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               className="text-blue-600 hover:underline"
                             >
-                              {group.company_name}
-                            </Link>
+                              {company.company_url.replace(/^https?:\/\//, "")}
+                            </a>
                           ) : (
-                            group.company_name
+                            "—"
                           )}
                         </td>
                         <td className="px-3 py-2 text-gray-700">
-                          {group.recipient_email || "—"}
-                        </td>
-                        <td className="px-3 py-2 text-gray-700">
-                          {group.email_count}
+                          {company.emails_sent_count}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap text-gray-700">
-                          {formatTimestamp(group.last_sent_at || null)}
+                          {formatTimestamp(company.last_sent_at || null)}
                         </td>
                         <td className="px-3 py-2">
-                          <DcpStatusBadge value={group.was_opened} />
+                          <DcpStatusBadge value={company.was_opened} />
                         </td>
                         <td className="px-3 py-2">
-                          <DcpStatusBadge value={group.was_clicked} />
-                        </td>
-                        <td className="px-3 py-2">
-                          <DcpStatusBadge value={group.was_responded} />
+                          <DcpStatusBadge value={company.was_clicked} />
                         </td>
                         <td className="px-3 py-2">
                           <DcpStatusBadge
-                            value={group.has_contributed_data}
+                            value={company.contributed}
                             positiveLabel="Contributed"
                             negativeLabel="None"
                           />
@@ -693,7 +589,7 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
                       </tr>
                       {expanded ? (
                         <tr className="bg-gray-50">
-                          <td colSpan={9} className="px-3 py-3">
+                          <td colSpan={8} className="px-3 py-3">
                             <div className="text-xs font-medium text-gray-500 mb-2">
                               Email history
                             </div>
@@ -701,13 +597,12 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
                               <thead>
                                 <tr className="border-b border-gray-200">
                                   {[
+                                    "Recipient",
                                     "Sent",
                                     "Delivered",
                                     "Opened",
                                     "Clicked",
                                     "Clicks",
-                                    "Responded",
-                                    "Contributed",
                                     "Status",
                                   ].map((h) => (
                                     <th
@@ -720,47 +615,54 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
                                 </tr>
                               </thead>
                               <tbody>
-                                {group.emails.map((email) => (
-                                  <tr
-                                    key={email.id}
-                                    className="border-b border-gray-100 last:border-0"
-                                  >
-                                    <td className="px-2 py-1 whitespace-nowrap">
-                                      {formatTimestamp(
-                                        dcpEffectiveSentAt(email) || null
-                                      )}
-                                    </td>
-                                    <td className="px-2 py-1 whitespace-nowrap">
-                                      {formatTimestamp(email.delivered_at)}
-                                    </td>
-                                    <td className="px-2 py-1 whitespace-nowrap">
-                                      {formatTimestamp(
-                                        email.opened_at || null
-                                      )}
-                                    </td>
-                                    <td className="px-2 py-1 whitespace-nowrap">
-                                      {formatTimestamp(email.clicked_at)}
-                                    </td>
-                                    <td className="px-2 py-1">{email.clicks}</td>
-                                    <td className="px-2 py-1">
-                                      <DcpStatusBadge
-                                        value={email.was_responded}
-                                      />
-                                    </td>
-                                    <td className="px-2 py-1">
-                                      <DcpStatusBadge
-                                        value={email.has_contributed_data}
-                                        positiveLabel="Yes"
-                                        negativeLabel="No"
-                                      />
-                                    </td>
-                                    <td className="px-2 py-1">
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">
-                                        {email.status || "—"}
-                                      </span>
+                                {company.emails.length === 0 ? (
+                                  <tr>
+                                    <td
+                                      colSpan={7}
+                                      className="px-2 py-2 text-gray-500"
+                                    >
+                                      No email records for this company.
                                     </td>
                                   </tr>
-                                ))}
+                                ) : (
+                                  company.emails.map((email) => {
+                                    const statusBadge = dcpStatusBadge(email.status);
+                                    return (
+                                      <tr
+                                        key={email.log_id}
+                                        className="border-b border-gray-100 last:border-0"
+                                      >
+                                        <td className="px-2 py-1 text-gray-900">
+                                          {email.recipient_email || "—"}
+                                        </td>
+                                        <td className="px-2 py-1 whitespace-nowrap">
+                                          {formatTimestamp(
+                                            dcpEffectiveSentAt(email) || null
+                                          )}
+                                        </td>
+                                        <td className="px-2 py-1 whitespace-nowrap">
+                                          {formatTimestamp(email.delivered_at)}
+                                        </td>
+                                        <td className="px-2 py-1 whitespace-nowrap">
+                                          {formatTimestamp(
+                                            email.opened_at || null
+                                          )}
+                                        </td>
+                                        <td className="px-2 py-1 whitespace-nowrap">
+                                          {formatTimestamp(email.clicked_at)}
+                                        </td>
+                                        <td className="px-2 py-1">{email.clicks}</td>
+                                        <td className="px-2 py-1">
+                                          <span
+                                            className={`inline-flex items-center px-1.5 py-0.5 rounded ${statusBadge.cls}`}
+                                          >
+                                            {statusBadge.label}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
+                                )}
                               </tbody>
                             </table>
                           </td>
@@ -775,27 +677,25 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
         )}
       </div>
 
-      {filteredGroups.length > 0 && companyTotalPages > 1 ? (
+      {listTotal > 0 && totalPages > 1 ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
           <span>
-            Showing page {companyPage} of {companyTotalPages} (
-            {filteredGroups.length.toLocaleString()} companies)
+            Showing page {page} of {totalPages} (
+            {listTotal.toLocaleString()} companies)
           </span>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setCompanyPage((p) => Math.max(1, p - 1))}
-              disabled={loading || companyPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={loading || page <= 1}
               className="border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
             >
               Prev
             </button>
             <button
               type="button"
-              onClick={() =>
-                setCompanyPage((p) => Math.min(companyTotalPages, p + 1))
-              }
-              disabled={loading || companyPage >= companyTotalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={loading || page >= totalPages}
               className="border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
             >
               Next
