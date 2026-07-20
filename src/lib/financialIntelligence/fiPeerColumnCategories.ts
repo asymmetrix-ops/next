@@ -22,8 +22,8 @@ const FI_PEER_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
     name: "Subscription Metrics",
     description: "Subscription and expansion metrics.",
     columns: [
-      { id: "recurring_revenue", columnKey: "recurring_revenue", label: "Recurring Revenue", type: "percent", defaultVisible: false },
-      { id: "arr_m", columnKey: "arr_m", label: "ARR (m)", type: "currency", defaultVisible: false },
+      { id: "subscription_revenue_pc", columnKey: "subscription_revenue_pc", label: "Subscription revenue %", type: "percent", defaultVisible: false },
+      { id: "subscription_revenue_m", columnKey: "subscription_revenue_m", label: "Subscription revenue (m)", type: "currency", defaultVisible: false },
       { id: "churn", columnKey: "churn", label: "Churn", type: "percent", defaultVisible: false },
       { id: "grr", columnKey: "grr", label: "GRR", type: "percent", defaultVisible: false },
       { id: "nrr", columnKey: "nrr", label: "NRR", type: "percent", defaultVisible: false },

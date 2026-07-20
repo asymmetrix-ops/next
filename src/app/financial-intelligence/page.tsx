@@ -586,7 +586,6 @@ export default function FinancialIntelligencePage() {
           targetId={target?.company_id ?? null}
           targetName={target?.company_name ?? null}
           targetLogo={target?.company_logo ?? null}
-          targetUrl={target?.url ?? null}
           loading={loading}
           onSelectTarget={selectTarget}
           onClearTarget={clearTarget}

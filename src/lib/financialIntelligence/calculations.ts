@@ -11,13 +11,13 @@ export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
   { key: "rule_of_40", label: "Rule of 40", higherIsBetter: true, format: "percent" },
   {
     key: "subscription_revenue_pc",
-    label: "Recurring Revenue",
+    label: "Subscription revenue %",
     higherIsBetter: true,
     format: "percent",
   },
   {
     key: "subscription_revenue_m",
-    label: "ARR (m)",
+    label: "Subscription revenue (m)",
     higherIsBetter: true,
     format: "currency",
   },
@@ -85,12 +85,6 @@ export const FI_BENCHMARK_SECTIONS: Array<{
       "revenue_m_usd",
       "ebitda_m_usd",
       "ev_usd",
-      "revenue_multiple",
-      "rev_growth_pc",
-      "ebitda_margin",
-      "rule_of_40",
-      "ev_revenue_x",
-      "ev_ebitda_x",
     ],
   },
   {
@@ -121,6 +115,10 @@ export const FI_BENCHMARK_SECTIONS: Array<{
     ],
   },
 ];
+
+export const FI_BENCHMARK_SCORECARD_KEYS: FiMetricKey[] = FI_BENCHMARK_SECTIONS.flatMap(
+  (section) => section.keys
+);
 
 export function toMillions(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value)) return null;
@@ -305,6 +303,7 @@ export function computeCompositePercentile(
   const scores: number[] = [];
 
   for (const metric of FI_BENCHMARK_METRICS) {
+    if (!FI_BENCHMARK_SCORECARD_KEYS.includes(metric.key)) continue;
     const targetValue = getMetricValue(target, metric.key);
     if (targetValue == null) continue;
 

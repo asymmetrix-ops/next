@@ -2,6 +2,7 @@ import type { FinRow } from "@/app/financials-tsx/types";
 import type { SectorMedian } from "@/app/financials-tsx/types";
 import {
   FI_BENCHMARK_METRICS,
+  FI_BENCHMARK_SCORECARD_KEYS,
   computeDistributionStats,
   computePercentile,
   computeRank,
@@ -118,8 +119,8 @@ export function mapCompanyToFinRow(
     trend: [],
     rule_of_40: ruleOf40 ?? undefined,
     financial_year: row.financial_year ? String(row.financial_year) : undefined,
-    recurring_revenue: row.subscription_revenue_pc ?? undefined,
-    arr_m: toMillions(row.subscription_revenue_m) ?? undefined,
+    subscription_revenue_pc: row.subscription_revenue_pc ?? undefined,
+    subscription_revenue_m: toMillions(row.subscription_revenue_m) ?? undefined,
     churn: row.churn_pc ?? undefined,
     grr: row.grr_pc ?? undefined,
     nrr: row.nrr ?? undefined,
@@ -168,7 +169,9 @@ export function buildBenchmarkMetricRows(
   allowedSources: FiMetricSourceType[] = DEFAULT_FI_SOURCE_TYPES,
   aggregateMode: FiPeerAggregateMode = "median"
 ): FiBenchmarkMetricRow[] {
-  return FI_BENCHMARK_METRICS.map((metric) => {
+  return FI_BENCHMARK_METRICS.filter((metric) =>
+    FI_BENCHMARK_SCORECARD_KEYS.includes(metric.key)
+  ).map((metric) => {
     const targetValue = getMetricValue(target, metric.key);
     const peerValues = peers
       .map((peer) => getPeerMetricValueForCalc(peer, metric.key, allowedSources))

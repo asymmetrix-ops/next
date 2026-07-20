@@ -32,8 +32,8 @@ export interface FinRow {
   rev_multiple: number;
   trend: number[];
   // optional extended columns
-  recurring_revenue?: number;
-  arr_m?: number;
+  subscription_revenue_pc?: number;
+  subscription_revenue_m?: number;
   churn?: number;
   grr?: number;
   nrr?: number;

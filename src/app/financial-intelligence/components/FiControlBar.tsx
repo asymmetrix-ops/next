@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { FilterDef, FilterState } from "@/app/financials-tsx/types";
 import { FIN_FILTER_DEFS } from "@/app/financials-tsx/financials-data";
 import {
@@ -363,7 +364,6 @@ export interface FiControlBarProps {
   targetId: number | null;
   targetName: string | null;
   targetLogo: string | null;
-  targetUrl: string | null;
   loading: boolean;
   onSelectTarget: (companyId: number, meta?: FiCompanySearchHit) => void;
   onClearTarget: () => void;
@@ -395,7 +395,6 @@ export function FiControlBar({
   targetId,
   targetName,
   targetLogo,
-  targetUrl,
   loading,
   onSelectTarget,
   onClearTarget,
@@ -612,26 +611,18 @@ export function FiControlBar({
             {targetId && targetName ? (
               <>
                 <CompanyAvatar name={targetName} logo={targetLogo} />
-                {targetUrl ? (
-                  <a
-                    href={targetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      fontWeight: 700,
-                      fontSize: "var(--fs-14)",
-                      color: "var(--fg-1)",
-                      textDecoration: "none",
-                    }}
-                  >
-                    {targetName}
-                  </a>
-                ) : (
-                  <span style={{ fontWeight: 700, fontSize: "var(--fs-14)", color: "var(--fg-1)" }}>
-                    {targetName}
-                  </span>
-                )}
+                <Link
+                  href={`/new_company/${targetId}`}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "var(--fs-14)",
+                    color: "var(--fg-1)",
+                    textDecoration: "none",
+                  }}
+                >
+                  {targetName}
+                </Link>
               </>
             ) : (
               <span style={{ fontSize: "var(--fs-13)", color: "var(--fg-3)", fontWeight: 500 }}>
