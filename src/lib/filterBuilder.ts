@@ -186,7 +186,7 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
           ? `nc.ownership_type_id IN (${(val as number[]).join(",")})`
           : `nc.ownership_type_id = ${Number(val)}`;
       case "transaction_status":
-        return `LOWER(nc."Transaction_status") = LOWER(${esc(String(val))})`;
+        return `LOWER(ts.label) = LOWER(${esc(String(val))})`;
 
       case "portfolio_companies": {
         const ids = Array.isArray(val) ? (val as number[]) : [];
