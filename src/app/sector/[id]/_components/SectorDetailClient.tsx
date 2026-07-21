@@ -49,14 +49,13 @@ import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesAp
 import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
+import { SEARCH_MULTI_VALUE_STYLES } from "@/components/search/SearchEntityMultiValueCell";
 import {
-  SearchEntityMultiValueCell,
-  SEARCH_MULTI_VALUE_STYLES,
-} from "@/components/search/SearchEntityMultiValueCell";
-import {
-  buildAdvisorSectorItems,
+  parseAdvisedEntities,
   parseAdvisorSectors,
+  type AdvisedEntityRef,
 } from "@/components/search/searchEntityLinkUtils";
+import { AdvisedEntitiesList } from "@/components/advisors/AdvisedEntitiesList";
 import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
 import {
   advisorSearchPayloadToSearchParams,
@@ -1356,6 +1355,8 @@ interface AdvisorEntity {
   country?: string;
   sectors: Array<{ id: number; name: string }>;
   sectorsCount?: number;
+  advisedEntities: AdvisedEntityRef[];
+  advisedEntitiesCount?: number;
   logoUrl?: string;
 }
 
@@ -1504,21 +1505,6 @@ function MostActiveFullTable({
   );
 }
 
-function AdvisedSectorsCell({
-  sectors,
-}: {
-  sectors: Array<{ id: number; name: string }>;
-}) {
-  if (sectors.length === 0) return <span>-</span>;
-
-  return (
-    <SearchEntityMultiValueCell
-      items={buildAdvisorSectorItems(sectors, "sector-advisor")}
-      maxVisible={10}
-    />
-  );
-}
-
 function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
   if (items.length === 0) {
     return (
@@ -1549,7 +1535,7 @@ function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
                 Total No. Deals Advised
               </th>
               <th className="py-3 px-4 text-left font-semibold text-slate-600">
-                Sectors Covered
+                Companies Advised
               </th>
             </tr>
           </thead>
@@ -1595,7 +1581,7 @@ function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-slate-700 max-w-[360px]">
-                    <AdvisedSectorsCell sectors={it.sectors} />
+                    <AdvisedEntitiesList items={it.advisedEntities} />
                   </td>
                 </tr>
               );
@@ -1763,6 +1749,17 @@ function mapAdvisorEntities(raw: unknown): AdvisorEntity[] {
         getFirstMatchingNumber(obj, ["sectors_count", "sectorsCount"]) ??
         sectors.length;
 
+      const advisedEntitiesValue = getFirstMatchingValue(obj, [
+        "advised_entities",
+        "advisedEntities",
+      ]);
+      const advisedEntities = parseAdvisedEntities(advisedEntitiesValue);
+      const advisedEntitiesCount =
+        getFirstMatchingNumber(obj, [
+          "advised_entities_count",
+          "advisedEntitiesCount",
+        ]) ?? advisedEntities.length;
+
       return {
         id: getFirstMatchingNumber(obj, ["id", "advisor_id", "company_id"]),
         name,
@@ -1771,6 +1768,8 @@ function mapAdvisorEntities(raw: unknown): AdvisorEntity[] {
           getFirstMatchingNumber(obj, ["events_advised", "events_cnt_sector"]) ?? 0,
         sectors,
         sectorsCount,
+        advisedEntities,
+        advisedEntitiesCount,
         logoUrl: logoUrl || undefined,
       } as AdvisorEntity;
     })

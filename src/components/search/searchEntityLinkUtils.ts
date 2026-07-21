@@ -131,3 +131,66 @@ export function buildSectorItemsFromUnknown(
     ];
   });
 }
+
+export type AdvisedEntityRef = {
+  role?: string;
+  company_id?: number;
+  company_name: string;
+  corporate_event_id: number;
+};
+
+export function parseAdvisedEntities(value: unknown): AdvisedEntityRef[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const rec = item as Record<string, unknown>;
+    const companyName = String(
+      rec.company_name ?? rec.companyName ?? rec.name ?? ""
+    ).trim();
+    const eventIdRaw = rec.corporate_event_id ?? rec.corporateEventId ?? rec.event_id;
+    const eventId =
+      typeof eventIdRaw === "number"
+        ? eventIdRaw
+        : typeof eventIdRaw === "string" && eventIdRaw.trim() !== ""
+        ? Number(eventIdRaw)
+        : undefined;
+    if (!companyName || !eventId || !Number.isFinite(eventId)) return [];
+
+    const companyIdRaw = rec.company_id ?? rec.companyId;
+    const companyId =
+      typeof companyIdRaw === "number"
+        ? companyIdRaw
+        : typeof companyIdRaw === "string" && companyIdRaw.trim() !== ""
+        ? Number(companyIdRaw)
+        : undefined;
+    const role =
+      typeof rec.role === "string" && rec.role.trim() ? rec.role.trim() : undefined;
+
+    return [
+      {
+        role,
+        company_id: companyId,
+        company_name: companyName,
+        corporate_event_id: eventId,
+      },
+    ];
+  });
+}
+
+export function buildAdvisedEntityItems(
+  entities: AdvisedEntityRef[],
+  keyPrefix = "advised-entity"
+): SearchMultiValueItem[] {
+  return entities.flatMap((entity, index) => {
+    const name = entity.company_name.trim();
+    if (!name || !entity.corporate_event_id) return [];
+    return [
+      {
+        name,
+        href: `/corporate-event/${entity.corporate_event_id}`,
+        key: `${keyPrefix}-${entity.corporate_event_id}-${index}`,
+      },
+    ];
+  });
+}
