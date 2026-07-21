@@ -1494,7 +1494,6 @@ const CompanyDetail = () => {
   };
 
 
-  // Fetch company with intelligent fallbacks (GET first, then POST with common payload keys)
   const requestCompany = useCallback(
     async (id: string): Promise<CompanyResponse> => {
       const token = localStorage.getItem("asymmetrix_auth_token");
@@ -1504,57 +1503,29 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `${COMPANIES_API_BASE}/get_company_profile/${id}`;
+      const endpoint = `${COMPANIES_API_BASE}/Get_new_company/${id}`;
 
-      // Attempt 1: Standard GET
-      const getResponse = await fetch(endpoint, {
+      const response = await fetch(endpoint, {
         method: "GET",
         headers,
         credentials: "include",
       });
-      if (getResponse.status === 401) {
+      if (response.status === 401) {
         throw new Error("Authentication required");
       }
-      if (getResponse.ok) {
-        return (await Promise.race([
-          getResponse.json(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Request timed out")), 20000)
-          ),
-        ])) as CompanyResponse;
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(
+          `API request failed: ${response.status} ${response.statusText} ${errorText}`
+        );
       }
 
-      // Attempt 2..N: POST with typical id keys, in case backend expects a body
-      const candidateBodies = [
-        { new_company_id: Number(id) },
-        { company_id: Number(id) },
-        { id: Number(id) },
-      ];
-      for (const body of candidateBodies) {
-        const postResponse = await fetch(endpoint, {
-          method: "POST",
-          headers,
-          credentials: "include",
-          body: JSON.stringify(body),
-        });
-        if (postResponse.status === 401) {
-          throw new Error("Authentication required");
-        }
-        if (postResponse.ok) {
-          return (await Promise.race([
-            postResponse.json(),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("Request timed out")), 20000)
-            ),
-          ])) as CompanyResponse;
-        }
-      }
-
-      // If we reached here, throw a detailed error
-      const errorText = await getResponse.text().catch(() => "");
-      throw new Error(
-        `API request failed: ${getResponse.status} ${getResponse.statusText} ${errorText}`
-      );
+      return (await Promise.race([
+        response.json(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Request timed out")), 20000)
+        ),
+      ])) as CompanyResponse;
     },
     []
   );
@@ -1851,7 +1822,7 @@ const CompanyDetail = () => {
         try {
           data = await requestCompany(companyId);
         } catch (apiErr) {
-          // If the GET/POST attempts failed, rethrow with a nicer message
+          // If the GET request failed, rethrow with a nicer message
           const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
           if (msg.includes("404")) {
             throw new Error("Company not found");
