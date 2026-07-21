@@ -57,20 +57,24 @@ function getAllExportApiColumns(): string[] {
   );
 }
 
+function normalizeSelectedCompanyIds(selectedIds: number[]): number[] {
+  return selectedIds
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0);
+}
+
 function buildSelectedCompaniesFilters(
   filters: CompanySearchPayload,
   selectedIds: number[]
 ): CompanySearchPayload {
-  const safeIds = selectedIds.filter((id) => Number.isFinite(id) && id > 0);
-  const idSql =
-    safeIds.length === 1
-      ? `nc.id = ${safeIds[0]}`
-      : `nc.id IN (${safeIds.join(",")})`;
-  const existingSql = filters.filters_sql?.trim();
+  const safeIds = normalizeSelectedCompanyIds(selectedIds);
+  if (safeIds.length === 0) {
+    return filters;
+  }
 
   return {
     ...filters,
-    filters_sql: existingSql ? `(${existingSql}) AND (${idSql})` : idSql,
+    company_ids: safeIds,
     Offset: 1,
     Per_page: Math.min(Math.max(safeIds.length, 1), EXPORT_PER_PAGE),
   };
@@ -220,10 +224,21 @@ function appendUniqueItems(
   return added;
 }
 
+function computeInitialPageLimit(expectedTotalCount?: number): number {
+  if (expectedTotalCount && expectedTotalCount > 0) {
+    return Math.min(
+      Math.ceil(expectedTotalCount / EXPORT_PER_PAGE),
+      MAX_EXPORT_PAGES
+    );
+  }
+  return MAX_EXPORT_PAGES;
+}
+
 function resolveExportPageLimit(
   expectedTotalCount: number | undefined,
   apiTotalCount: number,
-  pageTotal: number
+  pageTotal: number,
+  listPerPage = 20
 ): number {
   const totalItems =
     expectedTotalCount && expectedTotalCount > 0
@@ -237,7 +252,20 @@ function resolveExportPageLimit(
   }
 
   if (pageTotal > 0) {
-    return Math.min(pageTotal, MAX_EXPORT_PAGES);
+    const pagesIfItemCount = Math.ceil(pageTotal / EXPORT_PER_PAGE);
+    const pagesIfListPages = Math.ceil(
+      (pageTotal * Math.max(listPerPage, 1)) / EXPORT_PER_PAGE
+    );
+
+    // API sometimes puts total item count in pageTotal — never treat that as page count.
+    if (pageTotal > MAX_EXPORT_PAGES) {
+      return Math.min(pagesIfItemCount, MAX_EXPORT_PAGES);
+    }
+
+    return Math.min(
+      Math.max(pagesIfListPages, pagesIfItemCount),
+      MAX_EXPORT_PAGES
+    );
   }
 
   return MAX_EXPORT_PAGES;
@@ -246,18 +274,20 @@ function resolveExportPageLimit(
 async function fetchCompaniesPage(
   filters: CompanySearchPayload,
   page: number,
-  apiColumns: string[]
+  apiColumns: string[],
+  perPage: number = EXPORT_PER_PAGE
 ): Promise<{
   items: Record<string, unknown>[];
   pageTotal: number;
   curPage: number;
   nextPage: number | null;
   totalCount: number;
+  perPage: number;
 }> {
   const token = getAuthToken();
   const params = companySearchPayloadToSearchParams(
     { ...filters, columns: apiColumns },
-    { page, perPage: EXPORT_PER_PAGE }
+    { page, perPage }
   );
   const url = `${COMPANIES_API_BASE}/Get_new_companies?${params.toString()}`;
   const response = await fetch(url, {
@@ -281,6 +311,7 @@ async function fetchCompaniesPage(
     curPage,
     nextPage,
     totalCount = 0,
+    perPage: responsePerPage,
   } = normalized.result1;
 
   return {
@@ -289,46 +320,63 @@ async function fetchCompaniesPage(
     curPage,
     nextPage,
     totalCount,
+    perPage: responsePerPage || perPage,
   };
+}
+
+async function fetchSelectedCompaniesForExport(
+  filters: CompanySearchPayload,
+  selectedIds: number[]
+): Promise<Record<string, unknown>[]> {
+  const token = getAuthToken();
+  if (!token) throw new Error("Authentication required");
+
+  const safeIds = normalizeSelectedCompanyIds(selectedIds);
+  if (safeIds.length === 0) return [];
+
+  const apiColumns = getAllExportApiColumns();
+  const exportFilters = buildSelectedCompaniesFilters(filters, safeIds);
+  const perPage = Math.min(Math.max(safeIds.length, 1), EXPORT_PER_PAGE);
+  const result = await fetchCompaniesPage(
+    exportFilters,
+    1,
+    apiColumns,
+    perPage
+  );
+
+  return orderRowsBySelectedIds(result.items, safeIds);
 }
 
 async function fetchAllCompaniesForExport(
   filters: CompanySearchPayload,
-  selectedIds?: number[],
   expectedTotalCount?: number
 ): Promise<Record<string, unknown>[]> {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
 
   const apiColumns = getAllExportApiColumns();
-  const exportFilters =
-    selectedIds && selectedIds.length > 0
-      ? buildSelectedCompaniesFilters(filters, selectedIds)
-      : filters;
-  const rowLimit =
-    selectedIds && selectedIds.length > 0
-      ? selectedIds.length
-      : expectedTotalCount && expectedTotalCount > 0
-        ? expectedTotalCount
-        : 0;
-
   let page = 1;
   const allItems: Record<string, unknown>[] = [];
   const seenIds = new Set<number>();
-  let pageLimit = MAX_EXPORT_PAGES;
-  let resolvedTotalCount = rowLimit;
+  let resolvedTotalCount =
+    expectedTotalCount && expectedTotalCount > 0 ? expectedTotalCount : 0;
+  let pageLimit = computeInitialPageLimit(expectedTotalCount);
 
   while (page <= pageLimit) {
-    const result = await fetchCompaniesPage(exportFilters, page, apiColumns);
+    const result = await fetchCompaniesPage(filters, page, apiColumns);
 
     if (page === 1) {
       if (!resolvedTotalCount && result.totalCount > 0) {
         resolvedTotalCount = result.totalCount;
       }
-      pageLimit = resolveExportPageLimit(
-        resolvedTotalCount || undefined,
-        result.totalCount,
-        result.pageTotal
+      pageLimit = Math.min(
+        pageLimit,
+        resolveExportPageLimit(
+          resolvedTotalCount || undefined,
+          result.totalCount,
+          result.pageTotal,
+          result.perPage
+        )
       );
     }
 
@@ -341,12 +389,11 @@ async function fetchAllCompaniesForExport(
 
     if (result.items.length < EXPORT_PER_PAGE) break;
     if (result.nextPage == null) break;
+    if (result.curPage >= pageLimit) break;
 
-    page = result.nextPage > page ? result.nextPage : page + 1;
-  }
-
-  if (selectedIds && selectedIds.length > 0) {
-    return orderRowsBySelectedIds(allItems, selectedIds);
+    const nextPage = result.nextPage > page ? result.nextPage : page + 1;
+    if (nextPage <= page) break;
+    page = nextPage;
   }
 
   return allItems;
@@ -358,20 +405,15 @@ export async function exportCompaniesList(
   visibleColumnKeys: string[],
   expectedTotalCount?: number
 ): Promise<void> {
-  const selectedIds =
-    request.scope === "selected" ? request.selectedIds ?? [] : undefined;
+  let rows: Record<string, unknown>[];
 
-  if (request.scope === "selected" && (!selectedIds || selectedIds.length === 0)) {
-    return;
+  if (request.scope === "selected") {
+    const selectedIds = normalizeSelectedCompanyIds(request.selectedIds ?? []);
+    if (selectedIds.length === 0) return;
+    rows = await fetchSelectedCompaniesForExport(filters, selectedIds);
+  } else {
+    rows = await fetchAllCompaniesForExport(filters, expectedTotalCount);
   }
-
-  const rows = await fetchAllCompaniesForExport(
-    filters,
-    selectedIds,
-    request.scope === "full_list"
-      ? expectedTotalCount
-      : selectedIds?.length
-  );
 
   await runGenericListExport({
     request,

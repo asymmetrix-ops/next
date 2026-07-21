@@ -1270,8 +1270,12 @@ export const CompanySection = ({
 
   // Handle CSV export using backend endpoint and include active filters
   const handleListExport = useCallback(
-    async (mode: ListExportMode, scope: ListExportRequest["scope"]) => {
+    async (request: ListExportRequest) => {
       if (readOnlyGuestMode || exportInFlightRef.current) return;
+
+      exportInFlightRef.current = true;
+      setExporting(true);
+
       try {
         const limitCheck = await checkExportLimit();
         if (!limitCheck.canExport) {
@@ -1280,9 +1284,7 @@ export const CompanySection = ({
           return;
         }
 
-        exportInFlightRef.current = true;
-        setExporting(true);
-
+        const { mode, scope } = request;
         const exportTotalCount =
           pagination.totalCount || ownershipCounts.totalCount || 0;
         if (scope === "full_list" && exportTotalCount <= 0) {
@@ -1290,20 +1292,22 @@ export const CompanySection = ({
           return;
         }
 
+        const selectedIdsForExport =
+          scope === "selected"
+            ? request.selectedIds?.length
+              ? request.selectedIds
+              : Array.from(selectedCompanyIds)
+            : undefined;
+
         await exportCompaniesList(
           {
             mode,
             scope,
-            selectedIds:
-              scope === "selected"
-                ? Array.from(selectedCompanyIds)
-                : undefined,
+            selectedIds: selectedIdsForExport,
           },
           currentFilters ?? createDefaultFilters(),
           selectedColumnKeys,
-          scope === "full_list"
-            ? exportTotalCount
-            : undefined
+          scope === "full_list" ? exportTotalCount : undefined
         );
       } catch (exportError) {
         console.error("Companies export failed:", exportError);
@@ -1323,13 +1327,14 @@ export const CompanySection = ({
   );
 
   const handleSelectedListExport = useCallback(
-    (mode: ListExportMode) => handleListExport(mode, "selected"),
+    (mode: ListExportMode) =>
+      handleListExport({ mode, scope: "selected" }),
     [handleListExport]
   );
 
   const handleExportRequest = useCallback(
     async (request: ListExportRequest) => {
-      await handleListExport(request.mode, request.scope);
+      await handleListExport(request);
     },
     [handleListExport]
   );

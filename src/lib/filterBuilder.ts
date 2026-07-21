@@ -284,6 +284,8 @@ export interface CompanySearchPayload {
   /** Top-level date-added range — handled by Xano, not filters_sql. */
   created_at_from?: string;
   created_at_to?: string;
+  /** Restrict results to specific company IDs (e.g. exporting a row selection). AND'd with filters_sql. */
+  company_ids?: number[];
 }
 
 export function buildApiPayload(

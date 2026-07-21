@@ -7,9 +7,9 @@ const BANNER_LIGHT_BLUE = "FF2DB7FF";
 const WHITE = "FFFFFFFF";
 
 const LOGO_PATH = "/exports/asymmetrix-export-logo.png";
-/** Reference logo image is 935x381px (~2.45:1 aspect ratio). */
-const LOGO_ASPECT_RATIO = 381 / 935;
-const LOGO_HEIGHT_PX = 44;
+/** Transparent-background crop (icon + wordmark only, no baked-in backdrop): 801x185px. */
+const LOGO_ASPECT_RATIO = 185 / 801;
+const LOGO_HEIGHT_PX = 38;
 const LOGO_WIDTH_PX = Math.round(LOGO_HEIGHT_PX / LOGO_ASPECT_RATIO);
 
 /** Excel row height is in points; 1pt ≈ 1.333px. Taller navy rows give the logo room to breathe. */
@@ -83,13 +83,24 @@ function groupColumnsForDirectory(
   return { left, right };
 }
 
+/**
+ * We don't hide unused columns like the reference template does, so the
+ * banner fill must extend well past the last data column or it visually stops
+ * abruptly and looks unfinished/unstyled beyond the data.
+ */
+const BANNER_MIN_FILL_COLUMNS_ALL = 52; // column AZ — All columns export
+const BANNER_MIN_FILL_COLUMNS_VISIBLE = 48; // column AV — Visible columns export
+
 async function applyBanner(
   worksheet: import("exceljs").Worksheet,
   totalColumns: number,
-  workbook: import("exceljs").Workbook
+  workbook: import("exceljs").Workbook,
+  minFillColumns: number = BANNER_MIN_FILL_COLUMNS_ALL
 ): Promise<void> {
+  const fillColumns = Math.max(totalColumns, minFillColumns);
+
   const fillRow = (rowNum: number, argb: string) => {
-    for (let col = 1; col <= totalColumns; col += 1) {
+    for (let col = 1; col <= fillColumns; col += 1) {
       worksheet.getCell(rowNum, col).fill = {
         type: "pattern",
         pattern: "solid",
@@ -110,7 +121,7 @@ async function applyBanner(
   fillRow(5, BANNER_LIGHT_BLUE);
   worksheet.getRow(6).height = 6;
 
-  worksheet.mergeCells(1, 1, 3, totalColumns);
+  worksheet.mergeCells(1, 1, 3, fillColumns);
 
   const logoBase64 = await loadLogoBase64();
   if (!logoBase64) return;
@@ -120,9 +131,9 @@ async function applyBanner(
     extension: "png",
   });
 
-  // Navy block is ~72px tall (3 rows @ 24pt); center the 44px-tall logo within it.
+  // Navy block is ~96px tall (3 rows @ 24pt); center the logo within it.
   worksheet.addImage(imageId, {
-    tl: { col: 0.2, row: 0.55 },
+    tl: { col: 0.2, row: 0.85 },
     ext: { width: LOGO_WIDTH_PX, height: LOGO_HEIGHT_PX },
   });
 }
@@ -294,11 +305,21 @@ export async function buildAllColumnsWorkbook(
 
   const directorySheet = workbook.addWorksheet("Directory");
   buildDirectorySheet(directorySheet, input.entitySheetName, input.columns);
-  await applyBanner(directorySheet, 5, workbook);
+  await applyBanner(
+    directorySheet,
+    5,
+    workbook,
+    BANNER_MIN_FILL_COLUMNS_ALL
+  );
 
   const entitySheet = workbook.addWorksheet(input.entitySheetName);
   buildEntitySheet(entitySheet, input.columns, input.rows);
-  await applyBanner(entitySheet, input.columns.length + DATA_COL_OFFSET, workbook);
+  await applyBanner(
+    entitySheet,
+    input.columns.length + DATA_COL_OFFSET,
+    workbook,
+    BANNER_MIN_FILL_COLUMNS_ALL
+  );
 
   const buffer = await workbook.xlsx.writeBuffer();
   return buffer as ArrayBuffer;
@@ -312,7 +333,12 @@ export async function buildVisibleColumnsWorkbook(
 
   const entitySheet = workbook.addWorksheet(input.entitySheetName);
   buildEntitySheet(entitySheet, input.columns, input.rows);
-  await applyBanner(entitySheet, input.columns.length + DATA_COL_OFFSET, workbook);
+  await applyBanner(
+    entitySheet,
+    input.columns.length + DATA_COL_OFFSET,
+    workbook,
+    BANNER_MIN_FILL_COLUMNS_VISIBLE
+  );
 
   const buffer = await workbook.xlsx.writeBuffer();
   return buffer as ArrayBuffer;
