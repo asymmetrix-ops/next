@@ -15,14 +15,17 @@ type Props = {
   productRows: ProductBarRow[];
   revenueRows: RevenueModelRow[];
   dataRows: DataMixRow[];
+  mcpStatus?: boolean | null;
 };
 
 export function ProductAttributesCard({
   productRows,
   revenueRows,
   dataRows,
+  mcpStatus = null,
 }: Props) {
-  const showProductType = productRows.length > 0;
+  const showProductType =
+    productRows.length > 0 || typeof mcpStatus === "boolean";
   const showRevenueModel = revenueRows.length > 0;
   const showDataCollection = dataRows.length > 0;
 
@@ -44,6 +47,7 @@ export function ProductAttributesCard({
           variant="product_type"
           productRows={productRows}
           dataRows={dataRows}
+          mcpStatus={mcpStatus}
           fillGridCell={false}
         />
       )}

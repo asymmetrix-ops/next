@@ -77,6 +77,10 @@ import {
   type CompanyAiRiskData,
 } from "@/lib/companyAiRisks";
 import { fetchCompanyProductUsers } from "@/lib/companyProductUsers";
+import {
+  isCompanyMcpPopulated,
+  readCompanyMcpStatus,
+} from "@/lib/companyMcp";
 import { ContentArticle } from "@/types/insightsAnalysis";
 import { parseInsightsArticlesPage } from "@/lib/sectorInsightsArticles";
 // Investor classification rule constants (module scope; stable across renders)
@@ -536,6 +540,8 @@ interface Company {
   product_users?: string[] | string | null;
   /** Optional: structured Product & users segments (accordion); merged from API root or Company */
   product_and_users?: ProductAndUsersEntry[];
+  /** MCP server availability when API provides it */
+  has_mcp?: boolean;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -552,6 +558,7 @@ interface CompanyResponse {
   Data_Collection_Method?: CompanyDataCollectionMethodItem[] | string;
   Revenue_Model_?: CompanyRevenueModelItem[] | string;
   last_investment?: LastInvestment | null;
+  has_mcp?: boolean;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -1838,6 +1845,8 @@ const CompanyDetail = () => {
 
         // Removed additional verbose logging
 
+        const mcpStatus = readCompanyMcpStatus(data.Company, data);
+
         // Use actual investor data from API
         const enrichedCompany = {
           ...data.Company,
@@ -1922,6 +1931,7 @@ const CompanyDetail = () => {
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
               .Lifecycle_stage ||
             undefined,
+          ...(isCompanyMcpPopulated(mcpStatus) ? { has_mcp: mcpStatus } : {}),
           employees_deduped:
             (data as unknown as { employees_deduped?: EmployeeCount[] })
               .employees_deduped ??
@@ -3354,6 +3364,9 @@ const CompanyDetail = () => {
 
   const productDataToggleDataRows = dataCollectionMethodRows;
 
+  const companyMcpStatus = readCompanyMcpStatus(company);
+  const showCompanyMcp = isCompanyMcpPopulated(companyMcpStatus);
+
   /** Dynamic grid rows — cards pack upward when optional sections are hidden */
   const PRODUCT_ROW_START = showInsights ? 3 : 2;
   /** Col 3 row 2 is always subscription/other metrics; headcount stacks below. */
@@ -3361,7 +3374,7 @@ const CompanyDetail = () => {
   const rightRailHeadcountRow = showInsights
     ? PRODUCT_ROW_START
     : FINANCE_SECONDARY_ROW + 1;
-  const showProductType = productTypeRows.length > 0;
+  const showProductType = productTypeRows.length > 0 || showCompanyMcp;
   const showRevenueModel = revenueModelRows.length > 0;
   const showCoreProducts =
     coreProductsSections.length > 0 || usersUseCaseSections.length > 0;
@@ -4393,6 +4406,7 @@ const CompanyDetail = () => {
                     weight: r.value,
                   }))}
                   dataRows={productDataToggleDataRows}
+                  mcpStatus={companyMcpStatus}
                 />
               </div>
             )}
