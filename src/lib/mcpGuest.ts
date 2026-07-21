@@ -34,15 +34,9 @@ export const MCP_GUEST_CALENDLY_URL =
   process.env.NEXT_PUBLIC_MCP_GUEST_CALENDLY_URL ||
   "https://calendly.com/d/cvxj-zdj-nss/intro-call-with-asymmetrix";
 
-const MCP_GUEST_SUPPORT_EMAIL = "asymmetrix@asymmetrixintelligence.com";
+const MCP_GUEST_HONOR_EMAIL = "h.crean@asymmetrixintelligence.com";
 
-export const MCP_GUEST_CONTRIBUTE_MAILTO = `mailto:${MCP_GUEST_SUPPORT_EMAIL}?subject=${encodeURIComponent(
-  "Contribute Company Data"
-)}&body=${encodeURIComponent(
-  "Please describe the data you would like to contribute for your company."
-)}`;
-
-export const MCP_GUEST_SUBSCRIPTION_MAILTO = `mailto:${MCP_GUEST_SUPPORT_EMAIL}?subject=${encodeURIComponent(
+export const MCP_GUEST_SUBSCRIPTION_MAILTO = `mailto:${MCP_GUEST_HONOR_EMAIL}?subject=${encodeURIComponent(
   "Asymmetrix subscription inquiry"
 )}&body=${encodeURIComponent(
   "Please share how we can help with an Asymmetrix subscription."

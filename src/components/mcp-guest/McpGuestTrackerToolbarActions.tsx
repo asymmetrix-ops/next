@@ -1,16 +1,20 @@
 "use client";
 
-import Link from "next/link";
-import {
-  MCP_GUEST_CONTRIBUTE_MAILTO,
-  MCP_GUEST_CONVERSION_PATH,
-  MCP_GUEST_SUBSCRIPTION_MAILTO,
-} from "@/lib/mcpGuest";
-import { SEARCH_HEADER_ACTION_BUTTON_STYLE } from "@/components/search/searchHeaderActions";
+import { MCP_GUEST_SUBSCRIPTION_MAILTO } from "@/lib/mcpGuest";
 import McpGuestFlagCompanyButton from "@/components/mcp-guest/McpGuestFlagCompanyButton";
 
-const outlineLinkStyle: React.CSSProperties = {
-  ...SEARCH_HEADER_ACTION_BUTTON_STYLE,
+const subscriptionLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  height: 36,
+  padding: "0 14px",
+  fontSize: 13,
+  fontWeight: 600,
+  color: "#fff",
+  backgroundColor: "hsl(228 85% 63%)",
+  border: "none",
+  borderRadius: 8,
+  cursor: "pointer",
   textDecoration: "none",
   whiteSpace: "nowrap",
 };
@@ -18,13 +22,7 @@ const outlineLinkStyle: React.CSSProperties = {
 export function McpGuestTrackerToolbarActions() {
   return (
     <>
-      <Link href={MCP_GUEST_CONVERSION_PATH} style={outlineLinkStyle}>
-        Book a call with sales
-      </Link>
-      <a href={MCP_GUEST_CONTRIBUTE_MAILTO} style={outlineLinkStyle}>
-        Contribute data on your company
-      </a>
-      <a href={MCP_GUEST_SUBSCRIPTION_MAILTO} style={outlineLinkStyle}>
+      <a href={MCP_GUEST_SUBSCRIPTION_MAILTO} style={subscriptionLinkStyle}>
         Inquire about a subscription to Asymmetrix
       </a>
       <McpGuestFlagCompanyButton />
