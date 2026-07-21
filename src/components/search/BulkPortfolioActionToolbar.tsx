@@ -208,7 +208,7 @@ export function BulkPortfolioActionToolbar({
 
         {onExport && (
           <SearchExportMenu
-            label="Export CSV"
+            label="Export"
             compact
             exporting={exporting}
             disabled={submitting}

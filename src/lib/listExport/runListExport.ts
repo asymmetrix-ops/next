@@ -39,7 +39,10 @@ export async function runGenericListExport(
   if (columns.length === 0 || rows.length === 0) return;
 
   const dataRows = rows.map((row) =>
-    columns.map((column) => getCellValue(row, column))
+    columns.map((column) => {
+      const value = getCellValue(row, column);
+      return value == null || value.trim() === "" ? "-" : value;
+    })
   );
 
   if (request.mode === "all_columns") {
