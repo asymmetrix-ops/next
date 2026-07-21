@@ -152,6 +152,21 @@ export function buildAdvisorFiltersSql(
   return result;
 }
 
+export function deriveAdvisorSectorParams(
+  primarySectorIds?: number[],
+  secondarySectorIds?: number[]
+): Pick<AdvisorSearchPayload, "Primary_ids_str" | "Secondary_ids_str" | "need_sector_count"> {
+  const primaryIds = (primarySectorIds ?? []).filter((id) => id > 0);
+  const secondaryIds = (secondarySectorIds ?? []).filter((id) => id > 0);
+
+  return {
+    Primary_ids_str: primaryIds.join(","),
+    Secondary_ids_str: secondaryIds.join(","),
+    need_sector_count:
+      primaryIds.length > 0 || secondaryIds.length > 0 ? "1" : "0",
+  };
+}
+
 export function buildAdvisorSearchPayloadFromClauses(
   clauses: AdvisorFilterClause[],
   options: {
@@ -174,15 +189,20 @@ export function buildAdvisorSearchPayloadFromClauses(
   const locClauses = clauses.filter((clause) =>
     EVENTS_LOC_FILTER_TYPES.has(clause.type)
   );
+  const sectorParams = deriveAdvisorSectorParams(
+    options.primarySectorIds,
+    options.secondarySectorIds
+  );
 
   return {
     filters_sql: buildAdvisorFiltersSql(mainClauses, linkedinAlias),
     events_loc_filter_sql: buildAdvisorFiltersSql(locClauses, linkedinAlias),
-    Primary_ids_str: (options.primarySectorIds ?? []).join(","),
-    Secondary_ids_str: (options.secondarySectorIds ?? []).join(","),
+    ...sectorParams,
     advisor_role_ids_str: "",
     need_geo_count: options.needGeoCount ? "1" : "0",
-    need_sector_count: options.needSectorCount ? "1" : "0",
+    need_sector_count: options.needSectorCount
+      ? "1"
+      : sectorParams.need_sector_count,
     page,
     per_page: perPage,
     portfolio_only: Boolean(options.portfolioOnly),

@@ -58,6 +58,10 @@ import {
   parseAdvisorSectors,
 } from "@/components/search/searchEntityLinkUtils";
 import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
+import {
+  advisorSearchPayloadToSearchParams,
+  buildAdvisorSearchPayloadFromClauses,
+} from "@/lib/advisorFilterBuilder";
 
 const SECTOR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
 
@@ -1995,16 +1999,20 @@ function MostActiveTab({
           return;
         }
 
-        const qs = new URLSearchParams();
-        qs.set("page", String(page));
-        qs.set("per_page", "25");
-        qs.set("portfolio_only", "false");
-        qs.set("include_sectors", "true");
-        if ((sectorImportance || "").toLowerCase().includes("secondary")) {
-          qs.append("Secondary_sectors_ids[]", String(sectorIdNum));
-        } else {
-          qs.append("primary_sectors_ids[]", String(sectorIdNum));
-        }
+        const isSecondarySector = (sectorImportance || "")
+          .toLowerCase()
+          .includes("secondary");
+        const qs = advisorSearchPayloadToSearchParams({
+          ...buildAdvisorSearchPayloadFromClauses([], {
+            page,
+            perPage: 25,
+            portfolioOnly: false,
+            primarySectorIds: isSecondarySector ? [] : [sectorIdNum],
+            secondarySectorIds: isSecondarySector ? [sectorIdNum] : [],
+            endpoint: "sql_advisors_list",
+          }),
+          include_sectors: true,
+        });
 
         const resp = await fetch(
           `${ADVISORS_API_BASE}/get_all_advisors_list?${qs.toString()}`,
