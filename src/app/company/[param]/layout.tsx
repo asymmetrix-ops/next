@@ -11,7 +11,7 @@ async function fetchCompanyMeta(
 ): Promise<{ name?: string; description?: string; logo?: string } | null> {
   try {
     const res = await fetch(
-      `${COMPANIES_API_BASE}/Get_new_company/${id}`,
+      `${COMPANIES_API_BASE}/get_company_profile/${id}`,
       { next: { revalidate: 300 } }
     );
     if (!res.ok) return null;

@@ -489,7 +489,7 @@ interface Company {
   /** LinkedIn 1y headcount growth % (root or Company). */
   linkedin_growth_1y_pct?: number | string | null;
   _companies_employees_count_monthly: EmployeeCount[];
-  /** Root-level headcount history from Get_new_company (fallback when monthly array is empty) */
+  /** Root-level headcount history from get_company_profile (fallback when monthly array is empty) */
   employees_deduped?: EmployeeCount[];
   Lifecycle_stage: LifecycleStage;
   // Optional list of former names from API
@@ -559,7 +559,7 @@ interface CompanyResponse {
   new_sectors_data?: Array<{
     sectors_payload?: string | unknown;
   }>;
-  /** Headcount history at API root (Get_new_company) */
+  /** Headcount history at API root (get_company_profile) */
   employees_deduped?: EmployeeCount[];
   product_and_users?: ProductAndUsersEntry[];
   Managmant_Roles_current?: ManagementRoleRecord[];
@@ -596,7 +596,7 @@ type RawSubsidiaryRecord = SubsidiaryRecord & {
   };
 };
 
-/** Normalize subsidiary shape from Get_new_company (linkedin_data vs legacy fields). */
+/** Normalize subsidiary shape from get_company_profile (linkedin_data vs legacy fields). */
 function normalizeSubsidiaryRecord(sub: RawSubsidiaryRecord): SubsidiaryRecord {
   const ld = sub.linkedin_data;
   const legacy = sub._linkedin_data_of_new_company;
@@ -656,7 +656,7 @@ function mergeHaveSubsidiariesCompanies(
   };
 }
 
-/** Get_new_company subsidiaries omit YoY growth; batch-fetch from get_company_table_data. */
+/** get_company_profile subsidiaries omit YoY growth; batch-fetch from get_company_table_data. */
 async function enrichSubsidiariesLinkedInGrowth(
   subsidiaries: SubsidiaryRecord[],
   token: string
@@ -874,7 +874,7 @@ function parseEmployeeSeriesDate(iso: string): number {
   return 0;
 }
 
-/** Employee headcount history — root `employees_deduped` from Get_new_company. */
+/** Employee headcount history — root `employees_deduped` from get_company_profile. */
 function resolveEmployeeTimeSeries(
   company: Pick<Company, "employees_deduped">
 ): EmployeeCount[] {
@@ -1504,7 +1504,7 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `${COMPANIES_API_BASE}/Get_new_company/${id}`;
+      const endpoint = `${COMPANIES_API_BASE}/get_company_profile/${id}`;
 
       // Attempt 1: Standard GET
       const getResponse = await fetch(endpoint, {

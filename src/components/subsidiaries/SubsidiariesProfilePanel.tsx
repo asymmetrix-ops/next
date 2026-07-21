@@ -39,7 +39,7 @@ export type SubsidiaryProfileRecord = {
     linkedin_employee?: number | null;
     linkedin_logo?: string;
   };
-  /** Nested LinkedIn payload on Get_new_company subsidiaries */
+  /** Nested LinkedIn payload on get_company_profile subsidiaries */
   linkedin_data?: {
     linkedin_growth_1y_pct?: number | string | null;
     LinkedIn_Growth_1y_Pct?: number | string | null;
