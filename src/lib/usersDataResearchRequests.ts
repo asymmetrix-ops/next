@@ -1,6 +1,6 @@
 export const USERS_DATA_RESEARCH_REQUESTS_URL =
   process.env.USERS_DATA_RESEARCH_REQUESTS_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:XlV_SpG5/users_data_research_requests";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:XlV_SpG5:v1/users_data_research_requests";
 
 export const MCP_GUEST_COMPANY_FLAG_TYPE = "MCP Company Flag";
 

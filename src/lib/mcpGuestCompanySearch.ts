@@ -1,5 +1,5 @@
 const COMPANY_SEARCH_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_search";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_search";
 
 export interface McpGuestCompanyOption {
   id: number;

@@ -1,7 +1,7 @@
 import { assertWorkEmail } from "@/lib/workEmail";
 
 const MCP_GUEST_REQUEST_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:UXwnqlMz:develop/mcp_guest_request";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:UXwnqlMz/mcp_guest_request";
 
 export type McpGuestRequestStatus =
   | "not_submitted"
@@ -28,7 +28,7 @@ export interface McpGuestCompanyOption {
 }
 
 const MCP_GUEST_COMPANIES_SEARCH_API =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/companies/search";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/companies/search";
 
 export async function searchMcpGuestCompanies(
   query: string

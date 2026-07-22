@@ -7,8 +7,8 @@ export { USERS_DATA_RESEARCH_REQUESTS_URL } from "@/lib/usersDataResearchRequest
 
 export const MCP_GUEST_FLAG_IMAGE_API =
   process.env.MCP_GUEST_FLAG_IMAGE_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR:v1/images";
 
 export const MCP_GUEST_AUTH_ME_API =
   process.env.MCP_GUEST_AUTH_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:v1";
