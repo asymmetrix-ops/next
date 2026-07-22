@@ -5,7 +5,6 @@
     FiBenchmarkMetricRow,
     FiCompanyRow,
     FiHeadlineMetric,
-    FiMetricDirectionHint,
     FiMetricFormat,
     FiMetricKey,
   } from "@/lib/financialIntelligence/types";
@@ -45,15 +44,6 @@
     );
   }
 
-  function metricDirectionLabel(
-    higherIsBetter: boolean,
-    directionHint?: FiMetricDirectionHint
-  ): string {
-    if (higherIsBetter) return "↑ better";
-    if (directionHint === "lower_better") return "↓ lower better";
-    return "↓ cheaper";
-  }
-
   function fmtDelta(
     delta: number | null,
     format: FiMetricFormat,
@@ -64,7 +54,7 @@
     const sign = delta > 0 ? "+" : "";
     let text: string;
     if (format === "percent") text = `${sign}${delta.toFixed(1)}pts vs ${aggregateNoun}`;
-    else if (format === "currency") text = `${sign}$${Math.abs(delta).toFixed(0)}m vs ${aggregateNoun}`;
+    else if (format === "currency") text = `${sign}$${Math.abs(delta).toFixed(1)}m vs ${aggregateNoun}`;
     else if (format === "currency_k") text = `${sign}$${Math.abs(Math.round(delta / 1000))}k vs ${aggregateNoun}`;
     else if (format === "count") text = `${sign}${Math.round(delta).toLocaleString()} vs ${aggregateNoun}`;
     else text = `${sign}${delta.toFixed(1)}x vs ${aggregateNoun}`;
@@ -83,7 +73,7 @@
     if (format === "percent") {
       text = `(${sign}${Math.abs(delta).toFixed(1)}pts)`;
     } else if (format === "currency") {
-      text = `(${sign}${Math.abs(delta).toFixed(0)}m)`;
+      text = `(${sign}$${Math.abs(delta).toFixed(1)}m)`;
     } else if (format === "currency_k") {
       text = `(${sign}$${Math.abs(Math.round(delta / 1000))}k)`;
     } else if (format === "count") {
@@ -97,7 +87,7 @@
 
   function fmtSigned(delta: number, format: FiMetricFormat): string {
     const sign = delta > 0 ? "+" : "";
-    if (format === "currency") return `${sign}$${Math.abs(delta).toFixed(0)}m`;
+    if (format === "currency") return `${sign}$${Math.abs(delta).toFixed(1)}m`;
     if (format === "currency_k") return `${sign}$${Math.abs(Math.round(delta / 1000))}k`;
     if (format === "count") return `${sign}${Math.round(delta).toLocaleString()}`;
     if (format === "percent") return `${sign}${delta.toFixed(1)}%`;
@@ -654,9 +644,6 @@
                 </span>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {row.label}
-                </span>
-                <span style={{ fontSize: 10, color: "var(--fg-4)", fontWeight: 500, flexShrink: 0 }}>
-                  {metricDirectionLabel(row.higherIsBetter, row.directionHint)}
                 </span>
               </div>
             </div>
