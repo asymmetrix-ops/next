@@ -2,7 +2,13 @@ import {
   CONTRIBUTOR_ACCESS_MESSAGE,
   isContributorUser,
 } from "@/lib/userStatus";
-import { MCP_GUEST_ROLE } from "@/lib/mcpGuest";
+import {
+  MCP_GUEST_ROLE,
+  isContributorSession,
+  isMcpGuestSession,
+} from "@/lib/mcpGuest";
+import { verifyMcpGuestOtp } from "@/lib/mcpGuestAuth";
+import { MCP_GUEST_AUTH_ME_URL } from "@/lib/mcpGuestAuthServer";
 
 interface AuthUser {
   id: string;
@@ -137,6 +143,76 @@ class AuthService {
     } catch (error) {
       console.error("AuthService - Error fetching user data:", error);
       user = { id: "user", email: "user@example.com" };
+    }
+
+    this.setAuth(token, user);
+    return { token, user };
+  }
+
+  // MCP Guest OTP login
+  async loginMcpGuestWithOtp(
+    email: string,
+    otp: string
+  ): Promise<LoginResponse> {
+    const data = await verifyMcpGuestOtp(email, otp);
+    const token = data.authToken || data.token;
+    if (!token) {
+      throw new Error("MCP Guest login failed");
+    }
+
+    let user: AuthUser;
+    if (data.user && typeof data.user === "object") {
+      user = {
+        id: String(data.user.id ?? "user"),
+        email: String(data.user.email ?? email),
+        name: data.user.name,
+        roles: data.user.roles,
+        Status: data.user.Status,
+        status: data.user.status ?? data.user.role ?? MCP_GUEST_ROLE,
+        role: data.user.role ?? MCP_GUEST_ROLE,
+      };
+    } else {
+      try {
+        const userResponse = await fetch(MCP_GUEST_AUTH_ME_URL, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (userResponse.ok) {
+          user = await userResponse.json();
+        } else {
+          user = {
+            id: "user",
+            email: email.trim().toLowerCase(),
+            role: MCP_GUEST_ROLE,
+            status: MCP_GUEST_ROLE,
+          };
+        }
+      } catch (error) {
+        console.error("AuthService - Error fetching MCP Guest user data:", error);
+        user = {
+          id: "user",
+          email: email.trim().toLowerCase(),
+          role: MCP_GUEST_ROLE,
+          status: MCP_GUEST_ROLE,
+        };
+      }
+    }
+
+    if (isContributorSession(token, user)) {
+      throw new Error("Access denied");
+    }
+
+    if (!isMcpGuestSession(token, user)) {
+      user = {
+        ...user,
+        role: MCP_GUEST_ROLE,
+        status: MCP_GUEST_ROLE,
+        Status: MCP_GUEST_ROLE,
+      };
     }
 
     this.setAuth(token, user);

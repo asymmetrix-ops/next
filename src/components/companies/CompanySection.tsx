@@ -8,6 +8,7 @@ import React, {
   useRef,
 } from "react";
 import { useRouter } from "next/navigation";
+import { McpGuestSalesConversionModal } from "@/components/mcp-guest/McpGuestSalesConversionPanel";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
 import {
@@ -441,7 +442,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
               logo={readLogoFromRecord(company, getFieldAliasesForColumn("logo"))}
               subtitle={subtitle}
               href={readOnlyGuestMode ? undefined : `/company/${company.id}`}
-              readOnly={readOnlyGuestMode}
+              readOnly={false}
               onClick={(e) => {
                 if (
                   e.defaultPrevented ||
@@ -919,6 +920,7 @@ export const CompanySection = ({
     ? "company-section company-section-embedded"
     : "company-section";
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
+  const [showSalesConversion, setShowSalesConversion] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal = externalShowColumnsModal !== undefined ? externalShowColumnsModal : internalShowColumnsModal;
@@ -1536,7 +1538,10 @@ export const CompanySection = ({
 
   const handleCompanyClick = useCallback(
     (companyId: number) => {
-      if (readOnlyGuestMode) return;
+      if (readOnlyGuestMode) {
+        setShowSalesConversion(true);
+        return;
+      }
       router.push(`/company/${companyId}`);
     },
     [router, readOnlyGuestMode]
@@ -2296,6 +2301,10 @@ export const CompanySection = ({
       onClose: () => setShowExportLimitModal(false),
       exportsLeft: exportsLeft,
       totalExports: EXPORT_LIMIT,
+    }),
+    React.createElement(McpGuestSalesConversionModal, {
+      open: showSalesConversion,
+      onClose: () => setShowSalesConversion(false),
     }),
     React.createElement("style", {
       dangerouslySetInnerHTML: { __html: style },

@@ -5,6 +5,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import PageSkeleton from "@/components/PageSkeleton";
 import ProspectConversionCard from "@/components/ProspectConversionCard";
 import { GET_ACCESS_PATH } from "@/lib/prospect";
+import { MCP_GUEST_PUBLIC_PATHS } from "@/lib/mcpGuest";
 
 const PUBLIC_PATHS = [
   "/",
@@ -14,7 +15,8 @@ const PUBLIC_PATHS = [
   "/forgot-password",
   "/reset-password",
   GET_ACCESS_PATH,
-  "/mcp-guest/login",
+  "/access-denied",
+  ...MCP_GUEST_PUBLIC_PATHS,
 ];
 
 /**

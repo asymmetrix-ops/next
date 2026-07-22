@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { GET_ACCESS_PATH } from "@/lib/prospect";
+import { MCP_GUEST_PUBLIC_PATHS } from "@/lib/mcpGuest";
 
 // Routes that should remain accessible even when the user is not authenticated
 // or their token has expired.
@@ -15,7 +16,8 @@ const PUBLIC_PATHS = [
   "/forgot-password",
   "/reset-password",
   GET_ACCESS_PATH,
-  "/mcp-guest/login",
+  "/access-denied",
+  ...MCP_GUEST_PUBLIC_PATHS,
 ];
 
 export default function AuthRouteGuard() {

@@ -9,7 +9,12 @@ import React, {
 } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
+import {
+  ACCESS_DENIED_PATH,
+  MCP_GUEST_ALLOWED_PATH,
+} from "@/lib/mcpGuest";
 import { buildMcpGuestCompaniesFilters, buildMcpGuestCompaniesCountsFilters } from "@/lib/companiesFilterPayload";
 import { CompanyDashboard } from "@/components/companies/CompanyDashboard";
 import {
@@ -192,7 +197,8 @@ const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
 };
 
 function CompaniesPageInner() {
-  const { isMcpGuest, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { isMcpGuest, isContributor, loading: authLoading } = useAuth();
   const {
     companies,
     loading,
@@ -239,12 +245,29 @@ function CompaniesPageInner() {
   );
 
   useEffect(() => {
+    if (authLoading) return;
+
+    if (isContributor) {
+      router.replace(ACCESS_DENIED_PATH);
+      return;
+    }
+
+    if (isMcpGuest && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.toString()) {
+        router.replace(MCP_GUEST_ALLOWED_PATH);
+        return;
+      }
+    }
+
+    if (isMcpGuest) return;
+
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const s = params?.get?.("search") || undefined;
       setInitialSearch(s);
     }
-  }, []);
+  }, [authLoading, isContributor, isMcpGuest, router]);
 
   const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [columnsCount, setColumnsCount] = useState(
@@ -268,7 +291,7 @@ function CompaniesPageInner() {
       <CompanyDashboard
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
-        initialSearch={initialSearch}
+        initialSearch={isMcpGuest ? undefined : initialSearch}
         ownershipCounts={ownershipCounts}
         onColumnsClick={
           isMcpGuest ? undefined : () => setShowColumnsModal((v) => !v)
@@ -315,7 +338,7 @@ function CompaniesPageInner() {
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
         readOnlyGuestMode={isMcpGuest}
       />
-      <Footer />
+      {!isMcpGuest && <Footer />}
     </div>
   );
 }
