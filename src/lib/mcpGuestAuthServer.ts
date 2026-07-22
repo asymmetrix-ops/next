@@ -14,7 +14,7 @@ export function normalizeMcpGuestEmail(email: string): string {
 export async function fetchMcpGuestAuthMe(
   token: string
 ): Promise<Record<string, unknown> | null> {
-  const response = await fetch(MCP_GUEST_AUTH_ME_URL, {
+  let response = await fetch(MCP_GUEST_AUTH_ME_URL, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -22,6 +22,17 @@ export async function fetchMcpGuestAuthMe(
     },
     cache: "no-store",
   });
+
+  if (response.status === 401) {
+    response = await fetch(MCP_GUEST_AUTH_ME_URL, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: token,
+      },
+      cache: "no-store",
+    });
+  }
 
   if (!response.ok) return null;
 

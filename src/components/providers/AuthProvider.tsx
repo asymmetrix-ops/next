@@ -15,7 +15,6 @@ import {
   AUTH_PATH_EXCLUSIONS,
   dispatchUnauthorized,
 } from "@/lib/authEvents";
-import { isContributorSession } from "@/lib/userStatus";
 import { isMcpGuestSession } from "@/lib/mcpGuest";
 
 interface AuthUser {
@@ -87,37 +86,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const token = authService.getToken();
-        const userData = authService.getUser();
 
         if (token) {
-          authService.ensureAuthCookie();
-          const contributor = isContributorSession(token, userData);
-          setIsContributor(contributor);
-          setIsAuthenticated(true);
-          setUser(userData || { id: "user", email: "user@example.com" });
-          setIsMcpGuest(isMcpGuestSession(token, userData));
+          const session = await authService.validateStoredSession();
 
-          if (contributor) {
-            return;
-          }
+          if (session) {
+            setIsContributor(session.isContributor);
+            setIsAuthenticated(true);
+            setUser(session.user);
+            setIsMcpGuest(session.isMcpGuest);
 
-          const t = getTrialInfo(token, userData);
-          setTrial(t);
-
-          const hasStatus = !!(
-            userData &&
-            (userData.Status || userData.status || userData.role)
-          );
-          if (!hasStatus) {
-            const refreshed = await authService.fetchMe();
-            if (refreshed) {
-              setUser(refreshed);
-              const t2 = getTrialInfo(token, refreshed);
-              setTrial(t2);
-              setIsMcpGuest(isMcpGuestSession(token, refreshed));
-            } else if (isContributorSession(token, null)) {
-              setIsContributor(true);
+            if (session.isContributor) {
+              return;
             }
+
+            const t = getTrialInfo(token, session.user);
+            setTrial(t);
+          } else {
+            setIsAuthenticated(false);
+            setUser(null);
+            setIsContributor(false);
+            setIsMcpGuest(false);
+            setTrial({
+              isTrial: false,
+              isTrialActive: false,
+              isTrialExpired: false,
+            });
           }
         } else {
           setIsAuthenticated(false);

@@ -26,13 +26,16 @@ export const MCP_GUEST_REQUEST_PATH = MCP_TRACKER_ENTRY_PATH;
 /** Legacy request URL — kept for bookmarks and old links */
 export const MCP_GUEST_LEGACY_REQUEST_PATH = "/mcp-guest/request";
 
-/** Email + status check + OTP sign-in for approved guests */
+/** Canonical guest sign-in — email status check, then OTP verify before token is issued */
 export const MCP_GUEST_SIGN_IN_PATH = "/mcp-guest/sign-in";
 
-/** OTP sign-in entry (e.g. links from approval emails) */
-export const MCP_GUEST_OTP_LOGIN_PATH = "/mcp-guest/login?otp=true";
+/** Same as MCP_GUEST_SIGN_IN_PATH — kept for existing email/link references */
+export const MCP_GUEST_OTP_LOGIN_PATH = MCP_GUEST_SIGN_IN_PATH;
 
-/** Legacy URL — redirects to the request entry page unless ?otp=true */
+/**
+ * Legacy URL from early emails. `?otp=true` only selects the sign-in page (UI);
+ * it does NOT authenticate. `/mcp-guest/login?otp=true` redirects to sign-in.
+ */
 export const MCP_GUEST_LOGIN_PATH = "/mcp-guest/login";
 
 export const MCP_GUEST_CONVERSION_PATH = "/mcp-guest/upgrade";

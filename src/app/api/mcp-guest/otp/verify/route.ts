@@ -98,8 +98,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Xano otp_login only returns { token } — trust a successful OTP exchange
-    // unless we can positively identify a blocked role (e.g. Contributor).
+    // Token is only returned after Xano otp_login validates email + OTP.
+    // This route never treats query params as proof of auth — only this response.
     if (user && !isMcpGuestSession(token, user)) {
       return NextResponse.json(
         buildOtpLoginResponse(token, email, data, {

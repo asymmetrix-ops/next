@@ -219,57 +219,6 @@ class AuthService {
     return { token, user };
   }
 
-  // MCP Guest signup/login — email only, no password
-  async signupMcpGuest(email: string): Promise<LoginResponse> {
-    const normalizedEmail = (email || "").trim().toLowerCase();
-    const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
-
-    const response = await fetch(`${apiUrl}/auth/signup`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: "",
-        email: normalizedEmail,
-        password: "",
-        role: MCP_GUEST_ROLE,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("MCP Guest sign in failed");
-    }
-
-    const data = await response.json();
-    const token = data.authToken || data.token;
-
-    let user: AuthUser;
-    try {
-      const userResponse = await fetch(`${apiUrl}/auth/me`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (userResponse.ok) {
-        user = await userResponse.json();
-      } else {
-        user = { id: "user", email: normalizedEmail, role: MCP_GUEST_ROLE };
-      }
-    } catch (error) {
-      console.error("AuthService - Error fetching MCP Guest user data:", error);
-      user = { id: "user", email: normalizedEmail, role: MCP_GUEST_ROLE };
-    }
-
-    this.setAuth(token, user);
-    return { token, user };
-  }
-
   // Fetch current user via internal /api/auth-me (enforces contributor block)
   async fetchMe(): Promise<AuthUser | null> {
     const token = this.getToken();
@@ -293,6 +242,72 @@ class AuthService {
       console.error("AuthService - fetchMe failed", e);
       return null;
     }
+  }
+
+  /** Validate MCP Guest session against live Xano auth/me — rejects stale or deleted users. */
+  async fetchMcpGuestMe(): Promise<AuthUser | null> {
+    const token = this.getToken();
+    if (!token) return null;
+    try {
+      const userResponse = await fetch("/api/mcp-guest/auth/me", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "x-asym-token": token,
+        },
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!userResponse.ok) return null;
+      const userData = (await userResponse.json()) as AuthUser;
+      if (!isMcpGuestSession(token, userData)) return null;
+      this.setUser(userData);
+      return userData;
+    } catch (e) {
+      console.error("AuthService - fetchMcpGuestMe failed", e);
+      return null;
+    }
+  }
+
+  /** Resolve session from server — never trust localStorage alone. */
+  async validateStoredSession(): Promise<{
+    user: AuthUser;
+    isMcpGuest: boolean;
+    isContributor: boolean;
+  } | null> {
+    const token = this.getToken();
+    if (!token) return null;
+
+    this.ensureAuthCookie();
+
+    const cachedUser = this.getUser();
+    const mcpGuestCandidate = isMcpGuestSession(token, cachedUser);
+
+    let user: AuthUser | null = null;
+    if (mcpGuestCandidate) {
+      user = await this.fetchMcpGuestMe();
+    } else {
+      user = await this.fetchMe();
+      if (!user && isMcpGuestSession(token, null)) {
+        user = await this.fetchMcpGuestMe();
+      }
+    }
+
+    if (!user) {
+      this.logout();
+      return null;
+    }
+
+    const contributor = isContributorSession(token, user);
+    if (contributor) {
+      return { user, isMcpGuest: false, isContributor: true };
+    }
+
+    return {
+      user,
+      isMcpGuest: isMcpGuestSession(token, user),
+      isContributor: false,
+    };
   }
 
   // Register new user
