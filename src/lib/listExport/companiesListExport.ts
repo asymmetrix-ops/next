@@ -129,7 +129,8 @@ function toPlainText(value: unknown): string {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string") {
     const trimmed = value.trim();
-    return trimmed === "" ? EMPTY_DISPLAY : trimmed;
+    if (!trimmed || trimmed === "[]" || trimmed === "{}") return EMPTY_DISPLAY;
+    return trimmed;
   }
   if (Array.isArray(value)) {
     const text = value
@@ -191,9 +192,7 @@ function getCompanyCellValue(
 
   if (LIST_JSON_COLUMN_KEYS.has(column.key)) {
     const parsed = parseListField(raw);
-    if (parsed.length > 0) {
-      return toPlainText(parsed);
-    }
+    return parsed.length > 0 ? toPlainText(parsed) : EMPTY_DISPLAY;
   }
 
   const columnType = (COLUMN_TYPE_BY_KEY.get(column.key) ??

@@ -40,6 +40,10 @@ export const SEARCH_BULK_TOOLBAR_STYLES = `
       align-items: center;
       gap: 10px 14px;
     }
+    .search-bulk-action-toolbar-export {
+      margin-left: auto;
+      display: inline-flex;
+    }
     .search-bulk-action-toolbar-group {
       display: flex;
       flex-wrap: wrap;

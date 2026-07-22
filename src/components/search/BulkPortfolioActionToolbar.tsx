@@ -206,16 +206,6 @@ export function BulkPortfolioActionToolbar({
           </button>
         </div>
 
-        {onExport && (
-          <SearchExportMenu
-            label="Export"
-            compact
-            exporting={exporting}
-            disabled={submitting}
-            onExport={onExport}
-          />
-        )}
-
         <div className="search-bulk-action-toolbar-group">
           <label className="search-bulk-action-toolbar-label" htmlFor="bulk-new-list">
             Create new list
@@ -241,6 +231,18 @@ export function BulkPortfolioActionToolbar({
             Create &amp; add
           </button>
         </div>
+
+        {onExport && (
+          <div className="search-bulk-action-toolbar-export">
+            <SearchExportMenu
+              label="Export"
+              compact
+              exporting={exporting}
+              disabled={submitting}
+              onExport={onExport}
+            />
+          </div>
+        )}
       </div>
 
       {submitting && progress && progress.total > 0 && (
