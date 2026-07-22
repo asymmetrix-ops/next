@@ -7,13 +7,15 @@ const BANNER_LIGHT_BLUE = "FF2DB7FF";
 const WHITE = "FFFFFFFF";
 
 const LOGO_PATH = "/exports/asymmetrix-export-logo.png";
-/** Transparent-background crop (icon + wordmark only, no baked-in backdrop): 801x185px. */
-const LOGO_ASPECT_RATIO = 185 / 801;
-const LOGO_HEIGHT_PX = 38;
-const LOGO_WIDTH_PX = Math.round(LOGO_HEIGHT_PX / LOGO_ASPECT_RATIO);
+/** Official brand asset (navy card + white icon/wordmark baked in), matching the reference export: 935x381px. */
+const LOGO_ASPECT_RATIO = 381 / 935;
 
 /** Excel row height is in points; 1pt ≈ 1.333px. Taller navy rows give the logo room to breathe. */
 const BANNER_NAVY_ROW_HEIGHT_PT = 24;
+const PT_TO_PX = 1.333;
+/** Fill the full navy banner block height (3 rows), same as the reference sheet's flush logo placement. */
+const LOGO_HEIGHT_PX = Math.round(BANNER_NAVY_ROW_HEIGHT_PT * 3 * PT_TO_PX);
+const LOGO_WIDTH_PX = Math.round(LOGO_HEIGHT_PX / LOGO_ASPECT_RATIO);
 
 /** Banner rows 1-3 (navy), row 4 (blue stripe), row 5 (light-blue stripe), row 6 (blank gap). */
 const BANNER_ROW_COUNT = 6;
@@ -131,9 +133,9 @@ async function applyBanner(
     extension: "png",
   });
 
-  // Navy block is ~96px tall (3 rows @ 24pt); center the logo within it.
+  // Flush top-left, filling the full navy banner block — matches the reference sheet's logo placement.
   worksheet.addImage(imageId, {
-    tl: { col: 0.2, row: 0.85 },
+    tl: { col: 0, row: 0 },
     ext: { width: LOGO_WIDTH_PX, height: LOGO_HEIGHT_PX },
   });
 }

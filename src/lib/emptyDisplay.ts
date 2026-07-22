@@ -9,6 +9,8 @@ const LEGACY_EMPTY_VALUES = new Set([
   "n/a",
   "na",
   "not available",
+  "[]",
+  "{}",
 ]);
 
 function legacyEmptyKey(text: string): string {
