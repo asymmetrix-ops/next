@@ -193,6 +193,8 @@ function buildDirectorySheet(
 ): void {
   const { left, right } = groupColumnsForDirectory(columns);
 
+  worksheet.properties.defaultRowHeight = 14.4;
+
   worksheet.columns = [
     { width: 3 },
     { width: 28 },
@@ -263,6 +265,9 @@ function buildEntitySheet(
   columns: ExportColumnDef[],
   rows: string[][]
 ): void {
+  // Match the reference template's default row height (14.4pt).
+  worksheet.properties.defaultRowHeight = 14.4;
+
   worksheet.columns = [
     { width: 3 },
     ...columns.map(() => ({ width: 18 })),
