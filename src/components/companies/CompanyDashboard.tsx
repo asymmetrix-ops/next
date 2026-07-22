@@ -43,7 +43,7 @@ import {
 } from "@/components/search/searchDashboardLayout";
 import { useLocationFilterOptions } from "@/components/search/useLocationFilterOptions";
 import { McpGuestTrackerToolbarActions } from "@/components/mcp-guest/McpGuestTrackerToolbarActions";
-import { MCP_GUEST_TRACKER_TITLE } from "@/lib/mcpGuest";
+import { MCP_GUEST_TRACKER_SUBTITLE, MCP_GUEST_TRACKER_TITLE } from "@/lib/mcpGuest";
 
 export type CompanyDashboardProps = {
   onSearch?: (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => void;
@@ -397,6 +397,19 @@ export const CompanyDashboard = ({
                 {matchCount.toLocaleString()} matches
               </span>
             </h1>
+            {guestMode ? (
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  maxWidth: 640,
+                  fontSize: 15,
+                  lineHeight: 1.5,
+                  color: "#64748b",
+                }}
+              >
+                {MCP_GUEST_TRACKER_SUBTITLE}
+              </p>
+            ) : null}
           </div>
           )}
 

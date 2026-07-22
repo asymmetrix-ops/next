@@ -10,6 +10,7 @@ import {
   MCP_GUEST_OTP_LOGIN_PATH,
   MCP_GUEST_PUBLIC_PATHS,
   MCP_GUEST_SESSION_PATHS,
+  isMcpGuestMarketingPath,
 } from "@/lib/mcpGuest";
 
 function isMcpGuestPublicPath(pathname: string): boolean {
@@ -51,16 +52,20 @@ export default function TrialRouteGuard() {
     }
 
     if (isMcpGuest) {
+      if (isMcpGuestMarketingPath(pathname)) {
+        return;
+      }
+
       const isCompanyDetailPath =
         /^\/company\//.test(pathname) || /^\/new_company\//.test(pathname);
 
       if (isCompanyDetailPath) {
-        router.replace(MCP_GUEST_CONVERSION_PATH);
+        router.replace(`${MCP_GUEST_ALLOWED_PATH}?book=1`);
         return;
       }
 
       if (!isMcpGuestSessionPath(pathname)) {
-        router.replace(MCP_GUEST_CONVERSION_PATH);
+        router.replace(`${MCP_GUEST_ALLOWED_PATH}?book=1`);
       }
       return;
     }

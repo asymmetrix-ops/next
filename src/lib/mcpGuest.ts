@@ -4,6 +4,9 @@ export const MCP_GUEST_ROLE = "MCP Guest";
 
 export const MCP_GUEST_TRACKER_TITLE = "Data & Analytics MCP Release Tracker";
 
+export const MCP_GUEST_TRACKER_SUBTITLE =
+  "Our database of Data & Analytics companies who have launched an MCP";
+
 export const MCP_GUEST_TRACKER_REQUEST_TITLE =
   "Request access to Asymmetrix's Data & Analytics MCP Tracker";
 
@@ -53,10 +56,30 @@ export const MCP_GUEST_PUBLIC_PATHS = [
   MCP_GUEST_LOGIN_PATH,
 ] as const;
 
-export const MCP_GUEST_SESSION_PATHS = [
-  MCP_GUEST_ALLOWED_PATH,
+/** Marketing and auth entry pages — MCP guest sessions must not hijack these. */
+export const MCP_GUEST_MARKETING_PATHS = [
+  "/",
+  "/about-us",
+  "/privacy",
+  "/login",
+  "/forgot-password",
+  "/reset-password",
+  "/get-access",
+  ACCESS_DENIED_PATH,
+  MCP_TRACKER_ENTRY_PATH,
+  MCP_GUEST_LEGACY_REQUEST_PATH,
+  MCP_GUEST_SIGN_IN_PATH,
+  MCP_GUEST_LOGIN_PATH,
   MCP_GUEST_CONVERSION_PATH,
 ] as const;
+
+export function isMcpGuestMarketingPath(pathname: string): boolean {
+  return MCP_GUEST_MARKETING_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`)
+  );
+}
+
+export const MCP_GUEST_SESSION_PATHS = [MCP_GUEST_ALLOWED_PATH] as const;
 
 export const MCP_GUEST_LOCKED_FILTER = {
   id: "has_mcp",
