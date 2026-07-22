@@ -14,9 +14,14 @@ export const ACCESS_DENIED_PATH = "/access-denied";
 export const MCP_GUEST_ALLOWED_PATH = "/companies";
 
 /** Primary public link to share — request access form */
-export const MCP_GUEST_ENTRY_PATH = "/mcp-guest/request";
+export const MCP_TRACKER_ENTRY_PATH = "/mcp-tracker";
 
-export const MCP_GUEST_REQUEST_PATH = MCP_GUEST_ENTRY_PATH;
+export const MCP_GUEST_ENTRY_PATH = MCP_TRACKER_ENTRY_PATH;
+
+export const MCP_GUEST_REQUEST_PATH = MCP_TRACKER_ENTRY_PATH;
+
+/** Legacy request URL — kept for bookmarks and old links */
+export const MCP_GUEST_LEGACY_REQUEST_PATH = "/mcp-guest/request";
 
 /** Email + status check + OTP sign-in for approved guests */
 export const MCP_GUEST_SIGN_IN_PATH = "/mcp-guest/sign-in";
