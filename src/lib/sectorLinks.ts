@@ -112,10 +112,11 @@ export function buildSectorNameLookup(
     Sector_importance?: string;
     sector_id?: number;
     id?: number;
-  }>
+  } | null | undefined>
 ): SectorNameLookup {
   const map: SectorNameLookup = {};
   for (const sector of sectors) {
+    if (!sector) continue;
     const name = sector.sector_name?.trim();
     const id = extractSectorId(sector);
     if (!name || !id) continue;
