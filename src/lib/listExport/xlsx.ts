@@ -10,11 +10,11 @@ const LOGO_PATH = "/exports/asymmetrix-export-logo.png";
 /** Official brand asset (navy card + white icon/wordmark baked in), matching the reference export: 935x381px. */
 const LOGO_ASPECT_RATIO = 381 / 935;
 
-/** Excel row height is in points; 1pt ≈ 1.333px. Taller navy rows give the logo room to breathe. */
-const BANNER_NAVY_ROW_HEIGHT_PT = 24;
+/** Reference template row height (matches sheetFormatPr defaultRowHeight="14.4"); rows 1-3 use this default (no override). */
+const DEFAULT_ROW_HEIGHT_PT = 14.4;
 const PT_TO_PX = 1.333;
-/** Fill the full navy banner block height (3 rows), same as the reference sheet's flush logo placement. */
-const LOGO_HEIGHT_PX = Math.round(BANNER_NAVY_ROW_HEIGHT_PT * 3 * PT_TO_PX);
+/** Fill the full navy banner block height (rows 1-3 at the default row height), matching the reference sheet's flush logo placement. */
+const LOGO_HEIGHT_PX = Math.round(DEFAULT_ROW_HEIGHT_PT * 3 * PT_TO_PX);
 const LOGO_WIDTH_PX = Math.round(LOGO_HEIGHT_PX / LOGO_ASPECT_RATIO);
 
 /** Banner rows 1-3 (navy), row 4 (blue stripe), row 5 (light-blue stripe), row 6 (blank gap). */
@@ -111,9 +111,11 @@ async function applyBanner(
     }
   };
 
-  worksheet.getRow(1).height = BANNER_NAVY_ROW_HEIGHT_PT;
-  worksheet.getRow(2).height = BANNER_NAVY_ROW_HEIGHT_PT;
-  worksheet.getRow(3).height = BANNER_NAVY_ROW_HEIGHT_PT;
+  // Explicit height on every banner row (not just a sheet-wide default) so
+  // Excel, Google Sheets, and LibreOffice all render it identically.
+  worksheet.getRow(1).height = DEFAULT_ROW_HEIGHT_PT;
+  worksheet.getRow(2).height = DEFAULT_ROW_HEIGHT_PT;
+  worksheet.getRow(3).height = DEFAULT_ROW_HEIGHT_PT;
   fillRow(1, BANNER_NAVY);
   fillRow(2, BANNER_NAVY);
   fillRow(3, BANNER_NAVY);
@@ -184,6 +186,10 @@ function applyCategoryAndHeaderRows(
     };
   }
   closeCategoryGroup(DATA_COL_OFFSET + columns.length);
+
+  // Explicit height (not a sheet-wide default) for consistent cross-app rendering.
+  worksheet.getRow(categoryRowNum).height = DEFAULT_ROW_HEIGHT_PT;
+  worksheet.getRow(headerRowNum).height = DEFAULT_ROW_HEIGHT_PT;
 }
 
 function buildDirectorySheet(
@@ -257,7 +263,11 @@ function buildDirectorySheet(
   writeColumn(leftEntries, 2);
   writeColumn(rightEntries, 4);
 
-  void rowCount;
+  // Explicit height on every content row (not a sheet-wide default) for
+  // consistent cross-app rendering — matches the entity sheet exactly.
+  for (let i = 0; i < rowCount; i += 1) {
+    worksheet.getRow(CATEGORY_HEADER_ROW + i).height = DEFAULT_ROW_HEIGHT_PT;
+  }
 }
 
 function buildEntitySheet(
@@ -281,6 +291,8 @@ function buildEntitySheet(
     for (let c = 0; c < rowValues.length; c += 1) {
       worksheet.getCell(rowNum, DATA_COL_OFFSET + c + 1).value = rowValues[c];
     }
+    // Explicit height (not a sheet-wide default) for consistent cross-app rendering.
+    worksheet.getRow(rowNum).height = DEFAULT_ROW_HEIGHT_PT;
   }
 
   worksheet.views = [
@@ -290,6 +302,40 @@ function buildEntitySheet(
       ySplit: COLUMN_HEADER_ROW,
     },
   ];
+}
+
+/**
+ * ExcelJS always writes `customHeight="1"` on `<sheetFormatPr>` whenever
+ * `defaultRowHeight` differs from its own internal default of 15 — even
+ * though our value (14.4) matches the reference template's *actual*
+ * (unflagged) default. That stray flag makes Google Sheets treat 14.4pt as
+ * a "custom" measurement and convert it to 19.2px instead of respecting the
+ * plain default the way it does for the reference file. Strip the flag
+ * from `sheetFormatPr` only (row-level `customHeight` on rows 4-6 is left
+ * untouched) so imported behavior matches the reference exactly.
+ */
+async function stripSheetFormatCustomHeightFlag(
+  buffer: ArrayBuffer
+): Promise<ArrayBuffer> {
+  const JSZip = (await import("jszip")).default;
+  const zip = await JSZip.loadAsync(buffer);
+  const sheetPaths = Object.keys(zip.files).filter((name) =>
+    /^xl\/worksheets\/sheet\d+\.xml$/.test(name)
+  );
+
+  for (const path of sheetPaths) {
+    const xml = await zip.file(path)?.async("string");
+    if (!xml) continue;
+    const patched = xml.replace(
+      /(<sheetFormatPr\b[^>]*?)\s+customHeight="1"([^>]*>)/,
+      "$1$2"
+    );
+    if (patched !== xml) {
+      zip.file(path, patched);
+    }
+  }
+
+  return zip.generateAsync({ type: "arraybuffer" });
 }
 
 export interface AllColumnsWorkbookInput {
@@ -329,7 +375,7 @@ export async function buildAllColumnsWorkbook(
   );
 
   const buffer = await workbook.xlsx.writeBuffer();
-  return buffer as ArrayBuffer;
+  return stripSheetFormatCustomHeightFlag(buffer as ArrayBuffer);
 }
 
 export async function buildVisibleColumnsWorkbook(
@@ -348,7 +394,7 @@ export async function buildVisibleColumnsWorkbook(
   );
 
   const buffer = await workbook.xlsx.writeBuffer();
-  return buffer as ArrayBuffer;
+  return stripSheetFormatCustomHeightFlag(buffer as ArrayBuffer);
 }
 
 export async function downloadXlsxBuffer(

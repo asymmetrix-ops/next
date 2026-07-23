@@ -12,7 +12,7 @@ import {
 } from "@/lib/individualsFilterPayload";
 import { readFieldValue } from "./readFieldValue";
 import { runGenericListExport } from "./runListExport";
-import type { ExportColumnDef, ListExportRequest } from "./types";
+import { EXPORT_ALL_ENTITIES_CAP, type ExportColumnDef, type ListExportRequest } from "./types";
 
 const INDIVIDUALS_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
@@ -127,9 +127,11 @@ async function fetchAllIndividualsForExport(
     allItems.push(...items);
     pageTotal = data.totalPages || 1;
     page += 1;
-  } while (page <= pageTotal);
+  } while (page <= pageTotal && allItems.length < EXPORT_ALL_ENTITIES_CAP);
 
-  if (!selectedIds || selectedIds.length === 0) return allItems;
+  if (!selectedIds || selectedIds.length === 0) {
+    return allItems.slice(0, EXPORT_ALL_ENTITIES_CAP);
+  }
 
   const selectedSet = new Set(selectedIds);
   return allItems.filter((item) => selectedSet.has(getIndividualId(item)));
