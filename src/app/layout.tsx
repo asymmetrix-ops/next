@@ -48,11 +48,11 @@ export const metadata: Metadata = {
     title: "Asymmetrix - Data & Analytics Demystified",
     description:
       "Providing critical intelligence to stakeholders in the Data & Analytics industry",
-    url: "https://asymmetrix.info",
+    url: "https://www.asymmetrixintelligence.com",
     siteName: "Asymmetrix",
     images: [
       {
-        url: "https://asymmetrix.info/og-image.jpg",
+        url: "/images/asymmetrix-video-thumbnail.png",
         width: 1200,
         height: 630,
         alt: "Asymmetrix - Data & Analytics Demystified",
@@ -66,7 +66,7 @@ export const metadata: Metadata = {
     title: "Asymmetrix - Data & Analytics Demystified",
     description:
       "Providing critical intelligence to stakeholders in the Data & Analytics industry",
-    images: ["https://asymmetrix.info/og-image.jpg"],
+    images: ["/images/asymmetrix-video-thumbnail.png"],
   },
   robots: {
     index: true,
