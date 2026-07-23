@@ -33,6 +33,12 @@ import {
 } from "@/lib/companyLinkedIn";
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import { ExpandableText } from "@/components/common/ExpandableText";
+import {
+  formatCompanyMcpDisplay,
+  isCompanyMcpPopulated,
+  readCompanyMcpStatus,
+  type CompanyMcpData,
+} from "@/lib/companyMcp";
 
 type ManagementRole = ManagementRoleLike & {
   id: number;
@@ -443,6 +449,8 @@ interface Company {
   new_sectors_data?: Array<{
     sectors_payload?: string | unknown;
   }>;
+  has_mcp?: boolean;
+  mcp_data?: CompanyMcpData;
 }
 
 interface CompanyResponse {
@@ -480,6 +488,8 @@ interface CompanyResponse {
   };
   /** Deduplicated employee history (preferred for LinkedIn employee chart); may be omitted from nested `Company` */
   employees_deduped?: EmployeeCount[];
+  has_mcp?: boolean;
+  mcp_data?: CompanyMcpData;
 }
 
 /** Prefer API root `employees_deduped`, then Company.`employees_deduped`, then legacy `_companies_employees_count_monthly`. */
@@ -1272,6 +1282,8 @@ const CompanyDetail = () => {
 
         // Removed additional verbose logging
 
+        const mcpStatus = readCompanyMcpStatus(data.Company, data);
+
         // Use actual investor data from API
         const enrichedCompany = {
           ...data.Company,
@@ -1356,6 +1368,10 @@ const CompanyDetail = () => {
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
               .Lifecycle_stage ||
             undefined,
+          ...(isCompanyMcpPopulated(mcpStatus) ? { has_mcp: mcpStatus } : {}),
+          mcp_data:
+            (data as { mcp_data?: CompanyMcpData }).mcp_data ??
+            data.Company?.mcp_data,
         };
 
         // Parse optional ebitda_data with display strings
@@ -2146,12 +2162,19 @@ const CompanyDetail = () => {
     }))
     .filter((item) => item.label);
 
-  const companyAttributeSections = [
-    {
-      title: "Product Type",
-      valueHeader: "% of revenue",
-      rows: productTypeRows,
-    },
+  const companyMcpStatus = readCompanyMcpStatus(company);
+  const showCompanyMcp = isCompanyMcpPopulated(companyMcpStatus);
+
+  const productTypeSection =
+    productTypeRows.length > 0
+      ? {
+          title: "Product Type",
+          valueHeader: "% of revenue",
+          rows: productTypeRows,
+        }
+      : null;
+
+  const otherAttributeSections = [
     {
       title: "Data Collection Method",
       valueHeader: "Predominance",
@@ -2163,6 +2186,18 @@ const CompanyDetail = () => {
       rows: revenueModelRows,
     },
   ].filter((section) => section.rows.length > 0);
+
+  const showAttributeCards =
+    productTypeSection !== null || showCompanyMcp || otherAttributeSections.length > 0;
+
+  const attributeCardStyle = {
+    padding: "16px",
+    backgroundColor: "#ffffff",
+    borderRadius: "8px",
+    border: "1px solid #e2e8f0",
+    flex: "1 1 200px",
+    minWidth: 0,
+  } as const;
 
   const styles = {
     container: {
@@ -2565,6 +2600,8 @@ const CompanyDetail = () => {
     .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
     .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
     .pill-green { background-color: #dcfce7; color: #15803d; }
+    .pill-neutral { background-color: #f1f5f9; color: #64748b; }
+    .mcp-status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 12px; font-weight: 600; border-radius: 999px; }
     /* Management card hover effects */
     .management-card:hover {
       background-color: #e6f0ff !important;
@@ -3212,73 +3249,203 @@ const CompanyDetail = () => {
                     )}
                   </div>
 
-                  {companyAttributeSections.length > 0 && (
+                  {showAttributeCards && (
                     <div
                       style={{
-                        padding: "16px",
-                        backgroundColor: "#f9fafb",
-                        borderRadius: "8px",
-                        border: "1px solid #e2e8f0",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "14px",
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "14px",
-                        }}
-                      >
-                        {companyAttributeSections.map((section) => (
-                          <div key={section.title}>
-                            <div
-                              style={{
-                                fontSize: "14px",
-                                fontWeight: 600,
-                                color: "#334155",
-                                marginBottom: "8px",
-                              }}
-                            >
-                              {section.title}
-                            </div>
-                            <div style={{ overflowX: "auto" }}>
-                              <table
+                      {(productTypeSection || showCompanyMcp) && (
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "12px",
+                            flexWrap: "wrap",
+                            alignItems: "stretch",
+                          }}
+                        >
+                          {productTypeSection && (
+                            <div style={attributeCardStyle}>
+                              <div
                                 style={{
-                                  width: "100%",
-                                  borderCollapse: "collapse",
                                   fontSize: "14px",
+                                  fontWeight: 600,
+                                  color: "#334155",
+                                  marginBottom: "8px",
                                 }}
                               >
-                                <tbody>
-                                  {section.rows.map((row) => (
-                                    <tr key={`${section.title}-${row.label}`}>
-                                      <td
-                                        style={{
-                                          padding: "7px 0",
-                                          borderBottom: "1px solid #f1f5f9",
-                                          color: "#1e293b",
-                                        }}
-                                      >
-                                        {row.label}
-                                      </td>
-                                      <td
-                                        style={{
-                                          padding: "7px 0",
-                                          borderBottom: "1px solid #f1f5f9",
-                                          textAlign: "right",
-                                          color: "#475569",
-                                          whiteSpace: "nowrap",
-                                        }}
-                                      >
-                                        {row.value}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                {productTypeSection.title}
+                              </div>
+                              <div style={{ overflowX: "auto" }}>
+                                <table
+                                  style={{
+                                    width: "100%",
+                                    borderCollapse: "collapse",
+                                    fontSize: "14px",
+                                  }}
+                                >
+                                  <tbody>
+                                    {productTypeSection.rows.map((row) => (
+                                      <tr key={`${productTypeSection.title}-${row.label}`}>
+                                        <td
+                                          style={{
+                                            padding: "7px 0",
+                                            borderBottom: "1px solid #f1f5f9",
+                                            color: "#1e293b",
+                                          }}
+                                        >
+                                          {row.label}
+                                        </td>
+                                        <td
+                                          style={{
+                                            padding: "7px 0",
+                                            borderBottom: "1px solid #f1f5f9",
+                                            textAlign: "right",
+                                            color: "#475569",
+                                            whiteSpace: "nowrap",
+                                          }}
+                                        >
+                                          {row.value}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
+                          )}
+
+                          {showCompanyMcp && (
+                            <div style={attributeCardStyle}>
+                              <div
+                                style={{
+                                  fontSize: "14px",
+                                  fontWeight: 600,
+                                  color: "#334155",
+                                  marginBottom: "8px",
+                                }}
+                              >
+                                MCP
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: "12px",
+                                  padding: "7px 0",
+                                  borderTop: "1px solid #f1f5f9",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: "14px",
+                                    color: "#1e293b",
+                                  }}
+                                >
+                                  MCP Implemented
+                                </span>
+                                <span
+                                  className={`mcp-status-badge ${
+                                    companyMcpStatus ? "pill-green" : "pill-neutral"
+                                  }`}
+                                >
+                                  {companyMcpStatus ? (
+                                    <svg
+                                      width="12"
+                                      height="12"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="3"
+                                      aria-hidden="true"
+                                    >
+                                      <path
+                                        d="M20 6L9 17l-5-5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      />
+                                    </svg>
+                                  ) : null}
+                                  {formatCompanyMcpDisplay(companyMcpStatus)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {otherAttributeSections.length > 0 && (
+                        <div
+                          style={{
+                            padding: "16px",
+                            backgroundColor: "#f9fafb",
+                            borderRadius: "8px",
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "14px",
+                            }}
+                          >
+                            {otherAttributeSections.map((section) => (
+                              <div key={section.title}>
+                                <div
+                                  style={{
+                                    fontSize: "14px",
+                                    fontWeight: 600,
+                                    color: "#334155",
+                                    marginBottom: "8px",
+                                  }}
+                                >
+                                  {section.title}
+                                </div>
+                                <div style={{ overflowX: "auto" }}>
+                                  <table
+                                    style={{
+                                      width: "100%",
+                                      borderCollapse: "collapse",
+                                      fontSize: "14px",
+                                    }}
+                                  >
+                                    <tbody>
+                                      {section.rows.map((row) => (
+                                        <tr key={`${section.title}-${row.label}`}>
+                                          <td
+                                            style={{
+                                              padding: "7px 0",
+                                              borderBottom: "1px solid #f1f5f9",
+                                              color: "#1e293b",
+                                            }}
+                                          >
+                                            {row.label}
+                                          </td>
+                                          <td
+                                            style={{
+                                              padding: "7px 0",
+                                              borderBottom: "1px solid #f1f5f9",
+                                              textAlign: "right",
+                                              color: "#475569",
+                                              whiteSpace: "nowrap",
+                                            }}
+                                          >
+                                            {row.value}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
 

@@ -80,6 +80,7 @@ import { fetchCompanyProductUsers } from "@/lib/companyProductUsers";
 import {
   isCompanyMcpPopulated,
   readCompanyMcpStatus,
+  type CompanyMcpData,
 } from "@/lib/companyMcp";
 import { ContentArticle } from "@/types/insightsAnalysis";
 import { parseInsightsArticlesPage } from "@/lib/sectorInsightsArticles";
@@ -542,6 +543,7 @@ interface Company {
   product_and_users?: ProductAndUsersEntry[];
   /** MCP server availability when API provides it */
   has_mcp?: boolean;
+  mcp_data?: CompanyMcpData;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -559,6 +561,7 @@ interface CompanyResponse {
   Revenue_Model_?: CompanyRevenueModelItem[] | string;
   last_investment?: LastInvestment | null;
   has_mcp?: boolean;
+  mcp_data?: CompanyMcpData;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -1932,6 +1935,9 @@ const CompanyDetail = () => {
               .Lifecycle_stage ||
             undefined,
           ...(isCompanyMcpPopulated(mcpStatus) ? { has_mcp: mcpStatus } : {}),
+          mcp_data:
+            (data as { mcp_data?: CompanyMcpData }).mcp_data ??
+            data.Company?.mcp_data,
           employees_deduped:
             (data as unknown as { employees_deduped?: EmployeeCount[] })
               .employees_deduped ??
@@ -3374,13 +3380,16 @@ const CompanyDetail = () => {
   const rightRailHeadcountRow = showInsights
     ? PRODUCT_ROW_START
     : FINANCE_SECONDARY_ROW + 1;
-  const showProductType = productTypeRows.length > 0 || showCompanyMcp;
+  const showProductType = productTypeRows.length > 0;
   const showRevenueModel = revenueModelRows.length > 0;
   const showCoreProducts =
     coreProductsSections.length > 0 || usersUseCaseSections.length > 0;
   const showDataCollection = dataCollectionMethodRows.length > 0;
   const showProductAttributes =
-    showProductType || showRevenueModel || showDataCollection;
+    showProductType ||
+    showCompanyMcp ||
+    showRevenueModel ||
+    showDataCollection;
   const showAiRisk = aiRiskData != null && aiRiskData.axes.length > 0;
   const showCorporateEvents =
     corporateEventsLoading || ceTotal > 0 || corporateEvents.length > 0;

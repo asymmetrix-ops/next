@@ -4,6 +4,7 @@
  * as three distinct stacked cards in the left column.
  */
 import React from "react";
+import { McpStatusCard } from "./McpStatusCard";
 import { ProductDataToggleCard } from "./ProductDataToggleCard";
 import { RevenueModelCard } from "./RevenueModelCard";
 import type { ProductBarRow } from "./ProductDataToggleCard";
@@ -24,12 +25,14 @@ export function ProductAttributesCard({
   dataRows,
   mcpStatus = null,
 }: Props) {
-  const showProductType =
-    productRows.length > 0 || typeof mcpStatus === "boolean";
+  const showProductType = productRows.length > 0;
+  const showMcp = typeof mcpStatus === "boolean";
   const showRevenueModel = revenueRows.length > 0;
   const showDataCollection = dataRows.length > 0;
 
-  if (!showProductType && !showRevenueModel && !showDataCollection) return null;
+  if (!showProductType && !showMcp && !showRevenueModel && !showDataCollection) {
+    return null;
+  }
 
   return (
     <div
@@ -42,14 +45,28 @@ export function ProductAttributesCard({
         width: "100%",
       }}
     >
-      {showProductType && (
-        <ProductDataToggleCard
-          variant="product_type"
-          productRows={productRows}
-          dataRows={dataRows}
-          mcpStatus={mcpStatus}
-          fillGridCell={false}
-        />
+      {(showProductType || showMcp) && (
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+            alignItems: "stretch",
+            width: "100%",
+          }}
+        >
+          {showProductType ? (
+            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+              <ProductDataToggleCard
+                variant="product_type"
+                productRows={productRows}
+                dataRows={dataRows}
+                fillGridCell={false}
+              />
+            </div>
+          ) : null}
+          {showMcp ? <McpStatusCard status={mcpStatus} /> : null}
+        </div>
       )}
       {showRevenueModel && (
         <RevenueModelCard rows={revenueRows} fillGridCell={false} />
