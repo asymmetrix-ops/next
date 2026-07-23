@@ -7,15 +7,18 @@ const BANNER_LIGHT_BLUE = "FF2DB7FF";
 const WHITE = "FFFFFFFF";
 
 const LOGO_PATH = "/exports/asymmetrix-export-logo.png";
-/** Official brand asset (navy card + white icon/wordmark baked in), matching the reference export: 935x381px. */
-const LOGO_ASPECT_RATIO = 381 / 935;
 
-/** Reference template row height (matches sheetFormatPr defaultRowHeight="14.4"); rows 1-3 use this default (no override). */
+/** Reference template row height (matches sheetFormatPr defaultRowHeight="14.4"). */
 const DEFAULT_ROW_HEIGHT_PT = 14.4;
-const PT_TO_PX = 1.333;
-/** Fill the full navy banner block height (rows 1-3 at the default row height), matching the reference sheet's flush logo placement. */
-const LOGO_HEIGHT_PX = Math.round(DEFAULT_ROW_HEIGHT_PT * 3 * PT_TO_PX);
-const LOGO_WIDTH_PX = Math.round(LOGO_HEIGHT_PX / LOGO_ASPECT_RATIO);
+
+/** Logo anchor + extent copied from the reference export (rows 1–3, cols A–B). */
+const LOGO_ANCHOR_BR_COL = 1;
+const LOGO_ANCHOR_BR_COL_OFF_EMU = 1_125_214;
+const LOGO_ANCHOR_BR_ROW = 3;
+const LOGO_EXT_CX_EMU = 1_353_814;
+const LOGO_EXT_CY_EMU = 548_640;
+/** Reference spacer column width (column A). */
+const SPACER_COL_WIDTH = 3.332_031_25;
 
 /** Banner rows 1-3 (navy), row 4 (blue stripe), row 5 (light-blue stripe), row 6 (blank gap). */
 const BANNER_ROW_COUNT = 6;
@@ -127,6 +130,10 @@ async function applyBanner(
 
   worksheet.mergeCells(1, 1, 3, fillColumns);
 
+  // Match the reference template's spacer width so the logo anchor lands
+  // identically (ExcelJS's approximate col→px math otherwise drifts).
+  worksheet.getColumn(1).width = SPACER_COL_WIDTH;
+
   const logoBase64 = await loadLogoBase64();
   if (!logoBase64) return;
 
@@ -135,11 +142,17 @@ async function applyBanner(
     extension: "png",
   });
 
-  // Flush top-left, filling the full navy banner block — matches the reference sheet's logo placement.
+  // Transparent wordmark/icon over the navy cell fill (not an opaque card).
+  // Anchor values copied verbatim from the reference export template.
   worksheet.addImage(imageId, {
-    tl: { col: 0, row: 0 },
-    ext: { width: LOGO_WIDTH_PX, height: LOGO_HEIGHT_PX },
-  });
+    tl: { nativeCol: 0, nativeColOff: 0, nativeRow: 0, nativeRowOff: 0 },
+    br: {
+      nativeCol: LOGO_ANCHOR_BR_COL,
+      nativeColOff: LOGO_ANCHOR_BR_COL_OFF_EMU,
+      nativeRow: LOGO_ANCHOR_BR_ROW,
+      nativeRowOff: 0,
+    },
+  } as unknown as Parameters<typeof worksheet.addImage>[1]);
 }
 
 function applyCategoryAndHeaderRows(
@@ -202,11 +215,11 @@ function buildDirectorySheet(
   worksheet.properties.defaultRowHeight = 14.4;
 
   worksheet.columns = [
-    { width: 3 },
+    { width: SPACER_COL_WIDTH },
     { width: 28 },
-    { width: 3 },
+    { width: SPACER_COL_WIDTH },
     { width: 28 },
-    { width: 3 },
+    { width: SPACER_COL_WIDTH },
   ];
 
   type DirEntry =
@@ -279,7 +292,7 @@ function buildEntitySheet(
   worksheet.properties.defaultRowHeight = 14.4;
 
   worksheet.columns = [
-    { width: 3 },
+    { width: SPACER_COL_WIDTH },
     ...columns.map(() => ({ width: 18 })),
   ];
 
@@ -305,30 +318,64 @@ function buildEntitySheet(
 }
 
 /**
- * ExcelJS always writes `customHeight="1"` on `<sheetFormatPr>` whenever
- * `defaultRowHeight` differs from its own internal default of 15 — even
- * though our value (14.4) matches the reference template's *actual*
- * (unflagged) default. That stray flag makes Google Sheets treat 14.4pt as
- * a "custom" measurement and convert it to 19.2px instead of respecting the
- * plain default the way it does for the reference file. Strip the flag
- * from `sheetFormatPr` only (row-level `customHeight` on rows 4-6 is left
- * untouched) so imported behavior matches the reference exactly.
+ * Post-processes ExcelJS's raw XLSX output to fix two things ExcelJS's
+ * public API can't express:
+ *
+ * 1. `customHeight="1"` on `<sheetFormatPr>` — ExcelJS always writes this
+ *    whenever `defaultRowHeight` differs from its own internal default of
+ *    15, even though our value (14.4) matches the reference template's
+ *    *actual* (unflagged) default. That stray flag makes Google Sheets
+ *    treat 14.4pt as a "custom" measurement and convert it to 19.2px
+ *    instead of respecting it plainly. Stripped from `sheetFormatPr` only
+ *    (row-level `customHeight` on rows 4-6/data rows is left untouched).
+ *
+ * 2. Logo `<xdr:pic>` extent — ExcelJS writes `<a:ext cx="0" cy="0"/>`.
+ *    Patch in the reference template's fixed EMU size so Google Sheets
+ *    renders the transparent wordmark at exactly 57.6px tall (3×14.4pt),
+ *    flush with the navy banner and not bleeding into the blue stripe.
  */
-async function stripSheetFormatCustomHeightFlag(
+async function patchGeneratedWorkbookXml(
   buffer: ArrayBuffer
 ): Promise<ArrayBuffer> {
   const JSZip = (await import("jszip")).default;
   const zip = await JSZip.loadAsync(buffer);
+
   const sheetPaths = Object.keys(zip.files).filter((name) =>
     /^xl\/worksheets\/sheet\d+\.xml$/.test(name)
   );
-
   for (const path of sheetPaths) {
     const xml = await zip.file(path)?.async("string");
     if (!xml) continue;
     const patched = xml.replace(
       /(<sheetFormatPr\b[^>]*?)\s+customHeight="1"([^>]*>)/,
       "$1$2"
+    );
+    if (patched !== xml) {
+      zip.file(path, patched);
+    }
+  }
+
+  const drawingPaths = Object.keys(zip.files).filter((name) =>
+    /^xl\/drawings\/drawing\d+\.xml$/.test(name)
+  );
+  for (const path of drawingPaths) {
+    const xml = await zip.file(path)?.async("string");
+    if (!xml) continue;
+    let patched = xml;
+    // Banner logo: top-left anchor at row/col 0 with a picture inside.
+    patched = patched.replace(
+      new RegExp(
+        String.raw`(<xdr:twoCellAnchor[^>]*>[\s\S]*?<xdr:row>0</xdr:row>[\s\S]*?<xdr:pic>[\s\S]*?<a:ext cx=")\d+(" cy=")\d+("\/>)`,
+        "g"
+      ),
+      `$1${LOGO_EXT_CX_EMU}$2${LOGO_EXT_CY_EMU}$3`
+    );
+    patched = patched.replace(
+      new RegExp(
+        String.raw`(<xdr:twoCellAnchor[^>]*>[\s\S]*?<xdr:row>0</xdr:row>[\s\S]*?<xdr:pic>[\s\S]*?<xdr:to>[\s\S]*?<xdr:colOff>)\d+(</xdr:colOff>)`,
+        "g"
+      ),
+      `$1${LOGO_ANCHOR_BR_COL_OFF_EMU}$2`
     );
     if (patched !== xml) {
       zip.file(path, patched);
@@ -375,7 +422,7 @@ export async function buildAllColumnsWorkbook(
   );
 
   const buffer = await workbook.xlsx.writeBuffer();
-  return stripSheetFormatCustomHeightFlag(buffer as ArrayBuffer);
+  return patchGeneratedWorkbookXml(buffer as ArrayBuffer);
 }
 
 export async function buildVisibleColumnsWorkbook(
@@ -394,7 +441,7 @@ export async function buildVisibleColumnsWorkbook(
   );
 
   const buffer = await workbook.xlsx.writeBuffer();
-  return stripSheetFormatCustomHeightFlag(buffer as ArrayBuffer);
+  return patchGeneratedWorkbookXml(buffer as ArrayBuffer);
 }
 
 export async function downloadXlsxBuffer(
