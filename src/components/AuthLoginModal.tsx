@@ -3,19 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
-import { CONTRIBUTOR_ACCESS_MESSAGE } from "@/lib/userStatus";
+import { CONTRIBUTOR_ACCESS_MESSAGE, isContributorCrmPath } from "@/lib/userStatus";
 import { trackError, trackLogin } from "@/lib/tracking";
 
 export default function AuthLoginModal() {
   const { showLoginModal, login } = useAuth();
+  const pathname = usePathname();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  if (!showLoginModal) return null;
+  if (!showLoginModal || isContributorCrmPath(pathname)) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

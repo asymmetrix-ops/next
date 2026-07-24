@@ -7,6 +7,7 @@ import {
   buildTeamLoginPath,
   contributorAccessService,
   isAdminUser,
+  syncAdminSessionFromMainApp,
 } from "@/lib/contributorCrm/auth";
 
 function ContributorAdminRouteGuardInner({
@@ -20,29 +21,48 @@ function ContributorAdminRouteGuardInner({
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    const token = authService.getAuthToken();
-    const user = authService.getUser();
+    let cancelled = false;
 
-    if (!token || !user) {
-      const query = searchParams.toString();
-      const returnPath = `${pathname}${query ? `?${query}` : ""}`;
-      router.replace(
-        `${buildTeamLoginPath()}?redirect=${encodeURIComponent(returnPath)}`
-      );
-      return;
-    }
+    const verifyAccess = async () => {
+      let token = authService.getAuthToken();
+      let user = authService.getUser();
 
-    if (!isAdminUser(user)) {
-      const boundCompanyId = contributorAccessService.getCompanyId();
-      router.replace(
-        boundCompanyId != null
-          ? `/contributor-crm/${boundCompanyId}`
-          : "/contributor-crm/home-user"
-      );
-      return;
-    }
+      if (!token || !user) {
+        const synced = await syncAdminSessionFromMainApp();
+        if (cancelled) return;
+        if (synced) {
+          token = authService.getAuthToken();
+          user = authService.getUser();
+        }
+      }
 
-    setAllowed(true);
+      if (!token || !user) {
+        const query = searchParams.toString();
+        const returnPath = `${pathname}${query ? `?${query}` : ""}`;
+        router.replace(
+          `${buildTeamLoginPath()}?redirect=${encodeURIComponent(returnPath)}`
+        );
+        return;
+      }
+
+      if (!isAdminUser(user)) {
+        const boundCompanyId = contributorAccessService.getCompanyId();
+        router.replace(
+          boundCompanyId != null
+            ? `/contributor-crm/${boundCompanyId}`
+            : "/contributor-crm/home-user"
+        );
+        return;
+      }
+
+      setAllowed(true);
+    };
+
+    void verifyAccess();
+
+    return () => {
+      cancelled = true;
+    };
   }, [pathname, router, searchParams]);
 
   if (!allowed) {

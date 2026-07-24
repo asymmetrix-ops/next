@@ -1,12 +1,16 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { NavHeader } from "@/components/contributor-crm/NavHeader";
 import { useAuth } from "@/components/contributor-crm/providers/AuthProvider";
-import { authService, isAdminUser } from "@/lib/contributorCrm/auth";
+import {
+  authService,
+  isAdminUser,
+  syncAdminSessionFromMainApp,
+} from "@/lib/contributorCrm/auth";
 import { trackError, trackLogin } from "@/lib/tracking";
 
 function TeamLoginPageInner() {
@@ -16,8 +20,39 @@ function TeamLoginPageInner() {
     password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [checkingExistingSession, setCheckingExistingSession] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const bootstrapSession = async () => {
+      const requestedRedirect = searchParams.get("redirect");
+      const safeRedirect =
+        requestedRedirect &&
+        requestedRedirect.startsWith("/contributor-crm/internal-crm")
+          ? requestedRedirect
+          : "/contributor-crm/internal-crm";
+
+      const synced = await syncAdminSessionFromMainApp();
+      if (cancelled) return;
+
+      const user = authService.getUser();
+      if ((synced || (authService.getAuthToken() && user && isAdminUser(user))) && user) {
+        router.replace(safeRedirect);
+        return;
+      }
+
+      setCheckingExistingSession(false);
+    };
+
+    void bootstrapSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +95,9 @@ function TeamLoginPageInner() {
 
       {/* Main Content */}
       <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
+        {checkingExistingSession ? (
+          <div className="text-sm text-gray-500">Checking session…</div>
+        ) : (
         <div className="px-6 w-full max-w-md">
           <div className="mb-8 text-center">
             <h1 className="mb-2 text-3xl font-bold text-gray-900">Team Login</h1>
@@ -124,6 +162,7 @@ function TeamLoginPageInner() {
             Client? <Link href="/contributor-crm/login" className="font-medium text-blue-600 hover:text-blue-700">Log in here</Link>.
           </p>
         </div>
+        )}
       </div>
     </div>
   );

@@ -165,6 +165,38 @@ export function isAdminUser(user: User | null | undefined): boolean {
   return getUserStatus(user) === "admin";
 }
 
+/** Reuse the main app admin session for contributor CRM internal tools. */
+export async function syncAdminSessionFromMainApp(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+
+  const existingToken = getStoredToken();
+  const existingUser = getStoredUser();
+  if (existingToken && existingUser && isAdminUser(existingUser)) {
+    return true;
+  }
+
+  const { authService: mainAuthService } = await import("@/lib/auth");
+  const { isAdminUser: isMainAdminUser } = await import("@/lib/userStatus");
+  const mainToken = mainAuthService.getToken();
+  const mainUser = mainAuthService.getUser();
+  if (!mainToken || !mainUser || !isMainAdminUser(mainUser)) {
+    return false;
+  }
+
+  try {
+    const { fetchMe } = await import("@/lib/contributorCrm/api");
+    const userData = await fetchMe(mainToken);
+    if (!isAdminUser(userData)) {
+      return false;
+    }
+    authService.setAuthToken(mainToken);
+    authService.setUser(userData);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const contributorAccessService = {
   getLoginEmail(): string | null {
     if (typeof window === "undefined") return null;
