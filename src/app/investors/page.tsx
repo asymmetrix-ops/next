@@ -32,6 +32,7 @@ import {
   getInvestorServerSortDefaultDirection,
 } from "@/components/investors/investorsTableSort";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
+import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useInvestorsAPI = () => {
   const [investors, setInvestors] = useState<Investor[]>([]);
@@ -180,6 +181,10 @@ function InvestorsPageInner() {
   >(undefined);
   const [sortColumnKey, setSortColumnKey] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const exportCSVRef = useRef<
+    ((request: ListExportRequest) => Promise<void>) | null
+  >(null);
+  const [exporting, setExporting] = useState(false);
 
   const mergeSortIntoFilters = useCallback(
     (filters: Filters): Filters => {
@@ -286,6 +291,10 @@ function InvestorsPageInner() {
         typeCounts={typeCounts}
         investorTypes={investorTypes}
         onColumnsClick={() => setShowColumnsModal((value) => !value)}
+        onExport={(mode) =>
+          exportCSVRef.current?.({ mode, scope: "full_list" })
+        }
+        exporting={exporting}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
       />
@@ -300,6 +309,10 @@ function InvestorsPageInner() {
         externalShowColumnsModal={showColumnsModal}
         externalSetShowColumnsModal={setShowColumnsModal}
         onColumnsCountChange={setColumnsCount}
+        onRegisterExportCSV={(fn) => {
+          exportCSVRef.current = fn;
+        }}
+        onExportingChange={setExporting}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
         sortColumnKey={sortColumnKey}
         sortDirection={sortDirection}
