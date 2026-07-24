@@ -21,6 +21,15 @@ export interface GenericListExportInput {
     }>;
     visibleColumnKeys: string[];
     extraLeadingColumns?: ExportColumnDef[];
+    /** When set, used for `all_columns` mode instead of `categories`. */
+    allColumnsCategories?: Array<{
+      name: string;
+      columns: Array<{
+        columnKey: string;
+        label: string;
+        type: string;
+      }>;
+    }>;
   };
   rows: Record<string, unknown>[];
   getEntityName: (row: Record<string, unknown>) => string;
@@ -34,9 +43,17 @@ export async function runGenericListExport(
   input: GenericListExportInput
 ): Promise<void> {
   const { request, config, rows, getCellValue } = input;
-  const columns = buildExportColumnList(request.mode, config);
+  const columnCategories =
+    request.mode === "all_columns" && config.allColumnsCategories
+      ? config.allColumnsCategories
+      : config.categories;
+  const columns = buildExportColumnList(request.mode, {
+    categories: columnCategories,
+    visibleColumnKeys: config.visibleColumnKeys,
+    extraLeadingColumns: config.extraLeadingColumns,
+  });
 
-  if (columns.length === 0 || rows.length === 0) return;
+  if (columns.length === 0) return;
 
   const dataRows = rows.map((row) =>
     columns.map((column) => {

@@ -149,6 +149,7 @@ export const IndividualSection = ({
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const exportInFlightRef = useRef(false);
   const selectionEnabled = isSearchTableSelectionEnabled({
     selectedEntityIds,
     onToggleEntitySelection,
@@ -409,34 +410,64 @@ export const IndividualSection = ({
   };
 
   const handleListExport = useCallback(
-    async (mode: ListExportMode, scope: ListExportRequest["scope"]) => {
+    async (request: ListExportRequest) => {
+      if (exportInFlightRef.current) return;
+
+      exportInFlightRef.current = true;
+      setExporting(true);
+
       try {
         const limitCheck = await checkExportLimit();
         if (!limitCheck.canExport) return;
 
-        setExporting(true);
+        const { mode, scope } = request;
+        const exportTotalCount = pagination.itemsTotal || 0;
+        if (scope === "full_list" && exportTotalCount <= 0) {
+          console.error("Individuals export aborted: match count is not available yet.");
+          return;
+        }
+
+        const selectedIdsForExport =
+          scope === "selected"
+            ? request.selectedIds?.length
+              ? request.selectedIds
+              : selectedIdList
+            : undefined;
+
         await exportIndividualsList(
           {
             mode,
             scope,
-            selectedIds:
-              scope === "selected" ? selectedIdList : undefined,
+            selectedIds: selectedIdsForExport,
           },
           currentFilters ?? createDefaultIndividualFilters(),
-          selectedColumnKeys
+          selectedColumnKeys,
+          scope === "full_list" ? exportTotalCount : undefined
         );
       } catch (exportError) {
         console.error("Individual export failed:", exportError);
       } finally {
+        exportInFlightRef.current = false;
         setExporting(false);
       }
     },
-    [currentFilters, selectedColumnKeys, selectedIdList]
+    [
+      currentFilters,
+      pagination.itemsTotal,
+      selectedColumnKeys,
+      selectedIdList,
+    ]
+  );
+
+  const handleSelectedListExport = useCallback(
+    (mode: ListExportMode) =>
+      handleListExport({ mode, scope: "selected" }),
+    [handleListExport]
   );
 
   const handleExportRequest = useCallback(
     async (request: ListExportRequest) => {
-      await handleListExport(request.mode, request.scope);
+      await handleListExport(request);
     },
     [handleListExport]
   );
@@ -623,7 +654,7 @@ export const IndividualSection = ({
           entityIds={selectedIdList}
           onClearSelection={onClearSelection}
           exporting={exporting}
-          onExport={(mode) => handleListExport(mode, "selected")}
+          onExport={handleSelectedListExport}
         />
       )}
       <div className="company-table-scroll">

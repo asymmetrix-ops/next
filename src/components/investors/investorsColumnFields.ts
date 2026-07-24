@@ -6,6 +6,7 @@ export const INVESTOR_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = 
   type: ["investor_type"],
   description: ["description"],
   portfolio_companies: ["number_of_active_investments"],
+  events_advised: ["total_investments", "number_of_investments", "events_advised"],
   primary_sectors: ["da_primary_sector_names", "primary_sectors"],
   linkedin_members: ["linkedin_members"],
   country: ["country", "hq", "hq_country"],

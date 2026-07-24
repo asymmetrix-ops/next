@@ -171,6 +171,72 @@ export const INVESTORS_COLUMN_CATEGORIES: InvestorColumnCategory[] = [
   },
 ];
 
+/** Reference all-columns export layout (Directory + Investors sheets). */
+export const INVESTORS_EXPORT_CATEGORIES: InvestorColumnCategory[] = [
+  {
+    id: "identity",
+    name: "Identity",
+    columns: [
+      {
+        id: "name",
+        columnKey: "name",
+        label: "Name",
+        type: "text",
+        locked: true,
+        defaultVisible: true,
+      },
+      {
+        id: "website",
+        columnKey: "website",
+        label: "Website",
+        type: "url",
+        defaultVisible: false,
+      },
+    ],
+  },
+  {
+    id: "overview",
+    name: "Overview",
+    columns: [
+      {
+        id: "description",
+        columnKey: "description",
+        label: "Description",
+        type: "paragraph",
+        defaultVisible: true,
+      },
+      {
+        id: "events_advised",
+        columnKey: "events_advised",
+        label: "# Corporate Events Advised",
+        type: "number",
+        defaultVisible: true,
+      },
+      {
+        id: "primary_sectors",
+        columnKey: "primary_sectors",
+        label: "Advised D&A Sectors",
+        type: "text",
+        defaultVisible: true,
+      },
+      {
+        id: "linkedin_members",
+        columnKey: "linkedin_members",
+        label: "LinkedIn Members",
+        type: "number",
+        defaultVisible: true,
+      },
+      {
+        id: "country",
+        columnKey: "country",
+        label: "Country",
+        type: "text",
+        defaultVisible: true,
+      },
+    ],
+  },
+];
+
 export const ALL_INVESTORS_COLUMN_META = INVESTORS_COLUMN_CATEGORIES.flatMap(
   (category) => category.columns
 );

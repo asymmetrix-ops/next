@@ -21,6 +21,8 @@ export interface AdvisorSectorItem {
 export interface AdvisorListItem {
   id: number;
   name: string;
+  url?: string;
+  website?: string;
   description?: string;
   events_advised?: number;
   sectors?: AdvisorSectorItem[];

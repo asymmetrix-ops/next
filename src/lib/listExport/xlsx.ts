@@ -203,6 +203,18 @@ function applyCategoryAndHeaderRows(
   closeCategoryGroup(DATA_COL_OFFSET + columns.length);
 }
 
+/** 1-based column index → Excel column letter (1 = A, 2 = B, …). */
+function columnIndexToLetter(index: number): string {
+  let letter = "";
+  let n = index;
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    letter = String.fromCharCode(65 + rem) + letter;
+    n = Math.floor((n - 1) / 26);
+  }
+  return letter;
+}
+
 function buildDirectorySheet(
   worksheet: import("exceljs").Worksheet,
   entitySheetName: string,
@@ -239,7 +251,7 @@ function buildDirectorySheet(
       entries.push({
         kind: "column",
         column,
-        headerColLetter: worksheet.getColumn(colIndex).letter ?? "",
+        headerColLetter: columnIndexToLetter(colIndex),
       });
     }
     return entries;
