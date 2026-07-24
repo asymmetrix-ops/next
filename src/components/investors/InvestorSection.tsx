@@ -39,6 +39,9 @@ import { useSectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import type { SectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
+import { exportInvestorsList } from "@/lib/listExport/investorsListExport";
+import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
+import { checkExportLimit } from "@/utils/exportLimitCheck";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import {
   isSearchTableSelectionEnabled,
@@ -54,7 +57,6 @@ import {
   getStickyColumnStyle,
   SearchTablePinIndicator,
 } from "@/components/search/searchTableUtils";
-import CompactPagination from "@/components/ui/CompactPagination";
 import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 
@@ -111,7 +113,7 @@ const formatTimeSinceLastInvestment = (investor: Investor): string => {
 };
 
 const ALL_INVESTOR_COLUMNS: InvestorColumnDefinition[] = [
-  { key: "name", label: "Name", wrap: true, minWidth: 280 },
+  { key: "name", label: "Name", minWidth: 220 },
   { key: "type", label: "Type", minWidth: 140 },
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "portfolio_companies", label: "Current D&A Portfolio Companies", minWidth: 160 },
@@ -292,6 +294,8 @@ export const InvestorSection = ({
   externalShowColumnsModal,
   externalSetShowColumnsModal,
   onColumnsCountChange,
+  onRegisterExportCSV,
+  onExportingChange,
   isPortfolioOnlyFilter = false,
   sortColumnKey = null,
   sortDirection = "desc",
@@ -322,6 +326,8 @@ export const InvestorSection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
+  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
+  onExportingChange?: (exporting: boolean) => void;
   isPortfolioOnlyFilter?: boolean;
   sortColumnKey?: string | null;
   sortDirection?: "asc" | "desc";
@@ -331,7 +337,6 @@ export const InvestorSection = ({
   onClearSelection?: () => void;
 }) => {
   const router = useRouter();
-  const sectionRef = useRef<HTMLDivElement>(null);
   const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal =
@@ -346,6 +351,8 @@ export const InvestorSection = ({
   );
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const exportInFlightRef = useRef(false);
   const sectorMaps = useSectorNameIdMaps();
   const selectionEnabled = isSearchTableSelectionEnabled({
     selectedEntityIds,
@@ -453,23 +460,12 @@ export const InvestorSection = ({
     [router]
   );
 
-  const pageTotal =
-    pagination.pageTotal ||
-    (pagination.nextPage != null
-      ? Math.max(pagination.nextPage, pagination.curPage + 1)
-      : 1);
-
   const handlePageChange = useCallback(
     (page: number) => {
-      if (loading || page < 1 || page > pageTotal || page === pagination.curPage) {
-        return;
-      }
-
-      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       const filters = currentFilters ?? createDefaultInvestorFilters();
       void fetchInvestors(page, { ...filters, page });
     },
-    [currentFilters, fetchInvestors, loading, pageTotal, pagination.curPage]
+    [currentFilters, fetchInvestors]
   );
 
   const handleSortColumn = useCallback(
@@ -506,6 +502,185 @@ export const InvestorSection = ({
     (columnKey: string) => filterPinnedColumnKeys.includes(columnKey),
     [filterPinnedColumnKeys]
   );
+
+  const handleListExport = useCallback(
+    async (request: ListExportRequest) => {
+      if (exportInFlightRef.current) return;
+
+      exportInFlightRef.current = true;
+      setExporting(true);
+
+      try {
+        const limitCheck = await checkExportLimit();
+        if (!limitCheck.canExport) return;
+
+        const { mode, scope } = request;
+        const exportTotalCount = pagination.itemsTotal || 0;
+        if (scope === "full_list" && exportTotalCount <= 0) {
+          console.error("Investors export aborted: match count is not available yet.");
+          return;
+        }
+
+        const selectedIdsForExport =
+          scope === "selected"
+            ? request.selectedIds?.length
+              ? request.selectedIds
+              : selectedIdList
+            : undefined;
+
+        await exportInvestorsList(
+          {
+            mode,
+            scope,
+            selectedIds: selectedIdsForExport,
+          },
+          currentFilters ?? createDefaultInvestorFilters(),
+          selectedColumnKeys,
+          scope === "full_list" ? exportTotalCount : undefined
+        );
+      } catch (exportError) {
+        console.error("Investor export failed:", exportError);
+      } finally {
+        exportInFlightRef.current = false;
+        setExporting(false);
+      }
+    },
+    [
+      currentFilters,
+      pagination.itemsTotal,
+      selectedColumnKeys,
+      selectedIdList,
+    ]
+  );
+
+  const handleSelectedListExport = useCallback(
+    (mode: ListExportMode) =>
+      handleListExport({ mode, scope: "selected" }),
+    [handleListExport]
+  );
+
+  const handleExportRequest = useCallback(
+    async (request: ListExportRequest) => {
+      await handleListExport(request);
+    },
+    [handleListExport]
+  );
+
+  useEffect(() => {
+    onExportingChange?.(exporting);
+  }, [exporting, onExportingChange]);
+
+  useEffect(() => {
+    onRegisterExportCSV?.(handleExportRequest);
+  }, [handleExportRequest, onRegisterExportCSV]);
+
+  const generatePaginationButtons = () => {
+    const buttons: React.ReactNode[] = [];
+    const maxVisible = 7;
+    const totalPages =
+      pagination.pageTotal ||
+      (pagination.nextPage != null
+        ? Math.max(pagination.nextPage, pagination.curPage + 1)
+        : 0);
+    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
+    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
+
+    if (totalPages <= 1) return buttons;
+
+    buttons.push(
+      <button
+        key="previous"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(prevPage)}
+        disabled={pagination.curPage <= 1}
+      >
+        Previous
+      </button>
+    );
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
+    } else {
+      buttons.push(
+        <button
+          key={1}
+          type="button"
+          className={`pagination-button ${pagination.curPage === 1 ? "active" : ""}`}
+          onClick={() => handlePageChange(1)}
+        >
+          1
+        </button>
+      );
+
+      if (pagination.curPage > 3) {
+        buttons.push(
+          <span key="ellipsis1" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+
+      const start = Math.max(2, pagination.curPage - 1);
+      const end = Math.min(totalPages - 1, pagination.curPage + 1);
+      for (let i = start; i <= end; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
+
+      if (pagination.curPage < totalPages - 2) {
+        buttons.push(
+          <span key="ellipsis2" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+
+      buttons.push(
+        <button
+          key={totalPages}
+          type="button"
+          className={`pagination-button ${totalPages === pagination.curPage ? "active" : ""}`}
+          onClick={() => handlePageChange(totalPages)}
+        >
+          {totalPages}
+        </button>
+      );
+    }
+
+    buttons.push(
+      <button
+        key="next"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(nextPage)}
+        disabled={pagination.curPage >= totalPages}
+      >
+        Next
+      </button>
+    );
+
+    return buttons;
+  };
 
   const columnsModalLayer =
     showColumnsModal &&
@@ -574,12 +749,14 @@ export const InvestorSection = ({
   }
 
   return (
-    <div className="company-section" ref={sectionRef}>
+    <div className="company-section">
       {selectionEnabled && selectedEntityIds!.size > 0 && onClearSelection && (
         <BulkPortfolioActionToolbar
           entityType="investor"
           entityIds={selectedIdList}
           onClearSelection={onClearSelection}
+          exporting={exporting}
+          onExport={handleSelectedListExport}
         />
       )}
       <div className="company-table-scroll">
@@ -767,14 +944,7 @@ export const InvestorSection = ({
         </table>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-        <CompactPagination
-          curPage={pagination.curPage}
-          pageTotal={pageTotal}
-          onPageChange={handlePageChange}
-          disabled={loading}
-        />
-      </div>
+      <div className="pagination">{generatePaginationButtons()}</div>
       {columnsModalLayer}
       <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
     </div>
