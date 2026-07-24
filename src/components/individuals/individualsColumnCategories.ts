@@ -44,8 +44,8 @@ export const INDIVIDUALS_COLUMN_CATEGORIES: IndividualColumnCategory[] = [
     ],
   },
   {
-    id: "default",
-    name: "Default",
+    id: "overview",
+    name: "Overview",
     columns: [
       {
         id: "current_company",

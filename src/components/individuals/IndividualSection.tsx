@@ -40,6 +40,9 @@ import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMult
 import { namesToMultiValueItems } from "@/components/search/searchMultiValueUtils";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
+import { exportIndividualsList } from "@/lib/listExport/individualsListExport";
+import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
+import { checkExportLimit } from "@/utils/exportLimitCheck";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import {
   isSearchTableSelectionEnabled,
@@ -55,7 +58,6 @@ import {
   getStickyColumnStyle,
   SearchTablePinIndicator,
 } from "@/components/search/searchTableUtils";
-import CompactPagination from "@/components/ui/CompactPagination";
 
 export type Filters = IndividualsSearchFilters;
 
@@ -69,7 +71,7 @@ interface IndividualColumnDefinition {
 }
 
 const ALL_INDIVIDUAL_COLUMNS: IndividualColumnDefinition[] = [
-  { key: "name", label: "Name", wrap: true, minWidth: 280 },
+  { key: "name", label: "Name", minWidth: 220 },
   { key: "current_company", label: "Current Companies", minWidth: 180 },
   { key: "current_roles", label: "Current Roles", wrap: true, minWidth: 180 },
   { key: "location", label: "Location", wrap: true, minWidth: 200 },
@@ -97,6 +99,8 @@ export const IndividualSection = ({
   externalShowColumnsModal,
   externalSetShowColumnsModal,
   onColumnsCountChange,
+  onRegisterExportCSV,
+  onExportingChange,
   isPortfolioOnlyFilter = false,
   selectedEntityIds,
   onToggleEntitySelection,
@@ -119,12 +123,13 @@ export const IndividualSection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
+  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
+  onExportingChange?: (exporting: boolean) => void;
   isPortfolioOnlyFilter?: boolean;
 } & SearchTableSelectionProps & {
   onClearSelection?: () => void;
 }) => {
   const router = useRouter();
-  const sectionRef = useRef<HTMLDivElement>(null);
   const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal =
@@ -143,6 +148,8 @@ export const IndividualSection = ({
   } | null>(null);
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const exportInFlightRef = useRef(false);
   const selectionEnabled = isSearchTableSelectionEnabled({
     selectedEntityIds,
     onToggleEntitySelection,
@@ -263,23 +270,12 @@ export const IndividualSection = ({
     [router]
   );
 
-  const pageTotal =
-    pagination.pageTotal ||
-    (pagination.nextPage != null
-      ? Math.max(pagination.nextPage, pagination.curPage + 1)
-      : 1);
-
   const handlePageChange = useCallback(
     (page: number) => {
-      if (loading || page < 1 || page > pageTotal || page === pagination.curPage) {
-        return;
-      }
-
-      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       const filters = currentFilters ?? createDefaultIndividualFilters();
       void fetchIndividuals(page, { ...filters, page });
     },
-    [currentFilters, fetchIndividuals, loading, pageTotal, pagination.curPage]
+    [currentFilters, fetchIndividuals]
   );
 
   const handleSortColumn = useCallback((columnKey: string) => {
@@ -331,7 +327,6 @@ export const IndividualSection = ({
           <SearchEntityIdentityCell
             name={name}
             subtitle={subtitle}
-            hideAvatar
             href={id ? `/individual/${id}` : undefined}
             onClick={(e) => {
               if (
@@ -414,6 +409,177 @@ export const IndividualSection = ({
     }
   };
 
+  const handleListExport = useCallback(
+    async (request: ListExportRequest) => {
+      if (exportInFlightRef.current) return;
+
+      exportInFlightRef.current = true;
+      setExporting(true);
+
+      try {
+        const limitCheck = await checkExportLimit();
+        if (!limitCheck.canExport) return;
+
+        const { mode, scope } = request;
+        const exportTotalCount = pagination.itemsTotal || 0;
+        if (scope === "full_list" && exportTotalCount <= 0) {
+          console.error("Individuals export aborted: match count is not available yet.");
+          return;
+        }
+
+        const selectedIdsForExport =
+          scope === "selected"
+            ? request.selectedIds?.length
+              ? request.selectedIds
+              : selectedIdList
+            : undefined;
+
+        await exportIndividualsList(
+          {
+            mode,
+            scope,
+            selectedIds: selectedIdsForExport,
+          },
+          currentFilters ?? createDefaultIndividualFilters(),
+          selectedColumnKeys,
+          scope === "full_list" ? exportTotalCount : undefined
+        );
+      } catch (exportError) {
+        console.error("Individual export failed:", exportError);
+      } finally {
+        exportInFlightRef.current = false;
+        setExporting(false);
+      }
+    },
+    [
+      currentFilters,
+      pagination.itemsTotal,
+      selectedColumnKeys,
+      selectedIdList,
+    ]
+  );
+
+  const handleSelectedListExport = useCallback(
+    (mode: ListExportMode) =>
+      handleListExport({ mode, scope: "selected" }),
+    [handleListExport]
+  );
+
+  const handleExportRequest = useCallback(
+    async (request: ListExportRequest) => {
+      await handleListExport(request);
+    },
+    [handleListExport]
+  );
+
+  useEffect(() => {
+    onExportingChange?.(exporting);
+  }, [exporting, onExportingChange]);
+
+  useEffect(() => {
+    onRegisterExportCSV?.(handleExportRequest);
+  }, [handleExportRequest, onRegisterExportCSV]);
+
+  const generatePaginationButtons = () => {
+    const buttons: React.ReactNode[] = [];
+    const maxVisible = 7;
+    const totalPages = pagination.pageTotal || 0;
+    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
+    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
+
+    if (totalPages <= 1) return buttons;
+
+    buttons.push(
+      <button
+        key="previous"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(prevPage)}
+        disabled={pagination.curPage <= 1}
+      >
+        Previous
+      </button>
+    );
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
+    } else {
+      buttons.push(
+        <button
+          key={1}
+          type="button"
+          className={`pagination-button ${pagination.curPage === 1 ? "active" : ""}`}
+          onClick={() => handlePageChange(1)}
+        >
+          1
+        </button>
+      );
+      if (pagination.curPage > 3) {
+        buttons.push(
+          <span key="ellipsis1" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+      const start = Math.max(2, pagination.curPage - 1);
+      const end = Math.min(totalPages - 1, pagination.curPage + 1);
+      for (let i = start; i <= end; i++) {
+        buttons.push(
+          <button
+            key={i}
+            type="button"
+            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
+      if (pagination.curPage < totalPages - 2) {
+        buttons.push(
+          <span key="ellipsis2" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+      buttons.push(
+        <button
+          key={totalPages}
+          type="button"
+          className={`pagination-button ${totalPages === pagination.curPage ? "active" : ""}`}
+          onClick={() => handlePageChange(totalPages)}
+        >
+          {totalPages}
+        </button>
+      );
+    }
+
+    buttons.push(
+      <button
+        key="next"
+        type="button"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(nextPage)}
+        disabled={pagination.curPage >= totalPages}
+      >
+        Next
+      </button>
+    );
+
+    return buttons;
+  };
+
   const columnsModalLayer =
     showColumnsModal &&
     (
@@ -481,12 +647,14 @@ export const IndividualSection = ({
   }
 
   return (
-    <div className="company-section" ref={sectionRef}>
+    <div className="company-section">
       {selectionEnabled && selectedEntityIds!.size > 0 && onClearSelection && (
         <BulkPortfolioActionToolbar
           entityType="individual"
           entityIds={selectedIdList}
           onClearSelection={onClearSelection}
+          exporting={exporting}
+          onExport={handleSelectedListExport}
         />
       )}
       <div className="company-table-scroll">
@@ -666,14 +834,7 @@ export const IndividualSection = ({
         </table>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-        <CompactPagination
-          curPage={pagination.curPage}
-          pageTotal={pageTotal}
-          onPageChange={handlePageChange}
-          disabled={loading}
-        />
-      </div>
+      <div className="pagination">{generatePaginationButtons()}</div>
       {columnsModalLayer}
       <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
     </div>
