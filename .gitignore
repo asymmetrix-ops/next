@@ -98,6 +98,7 @@ jspm_packages/
 .tern-port
 
 # Exclude embedded git repositories
-asymmetrix-vue-backup/ 
+asymmetrix-vue-backup/
+src/app/admin/outreach_crm/
 # Sentry Config File
 .env.sentry-build-plugin

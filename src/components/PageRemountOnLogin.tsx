@@ -16,6 +16,7 @@ const PUBLIC_PATHS = [
   "/reset-password",
   GET_ACCESS_PATH,
   "/access-denied",
+  "/contributor-crm",
   ...MCP_GUEST_PUBLIC_PATHS,
 ];
 

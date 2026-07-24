@@ -26,11 +26,5 @@
       "path": "/api/cron/warm-individuals",
       "schedule": "0 5,6 * * 1-5"
     }
-  ],
-  "rewrites": [
-    {
-      "source": "/contributor-crm/:path*",
-      "destination": "https://outreach-crm-taupe.vercel.app/contributor-crm/:path*"
-    }
   ]
 }

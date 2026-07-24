@@ -38,7 +38,10 @@ export default function TrialRouteGuard() {
     if (!pathname || loading) return;
 
     if (isAuthenticated && isContributor) {
-      if (pathname !== ACCESS_DENIED_PATH) {
+      const onContributorCrm =
+        pathname === "/contributor-crm" ||
+        pathname.startsWith("/contributor-crm/");
+      if (!onContributorCrm && pathname !== ACCESS_DENIED_PATH) {
         router.replace(ACCESS_DENIED_PATH);
       }
       return;
