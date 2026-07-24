@@ -759,6 +759,40 @@ export const InvestorSection = ({
           onExport={handleSelectedListExport}
         />
       )}
+      <div className="company-cards">
+        {investors.length === 0 ? (
+          <div className="loading">No investors found.</div>
+        ) : (
+          investors.map((investor, index) => {
+            return (
+              <div className="company-card" key={`card-${investor.original_new_company_id ?? investor.id ?? index}`}>
+                <div className="company-card-header">
+                  {renderInvestorCell("name", investor, index, handleInvestorClick, sectorMaps)}
+                </div>
+                <div className="company-card-content">
+                  {selectedColumns
+                    .filter((column) => column.key !== "name")
+                    .map((column) => (
+                      <div className="company-card-row" key={column.key}>
+                        <span className="company-card-label">{column.label}</span>
+                        <span className="company-card-value">
+                          {renderInvestorCell(
+                            column.key,
+                            investor,
+                            index,
+                            handleInvestorClick,
+                            sectorMaps
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>

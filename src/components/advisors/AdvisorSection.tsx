@@ -634,6 +634,32 @@ export const AdvisorSection = ({
           onExport={handleSelectedListExport}
         />
       )}
+      <div className="company-cards">
+        {advisors.length === 0 ? (
+          <div className="loading">No advisors found.</div>
+        ) : (
+          advisors.map((advisor, index) => (
+            <div className="company-card" key={`card-${advisor.id ?? index}`}>
+              <div className="company-card-header">
+                {renderAdvisorCell("name", advisor)}
+              </div>
+              <div className="company-card-content">
+                {selectedColumns
+                  .filter((column) => column.key !== "name")
+                  .map((column) => (
+                    <div className="company-card-row" key={column.key}>
+                      <span className="company-card-label">{column.label}</span>
+                      <span className="company-card-value">
+                        {renderAdvisorCell(column.key, advisor)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>

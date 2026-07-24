@@ -600,78 +600,90 @@ export const SEARCH_TABLE_STYLES = `
     .company-cards {
       display: none;
       flex-direction: column;
-      gap: 12px;
-      padding: 12px;
+      gap: 14px;
+      padding: 4px 2px 16px;
     }
     .company-card {
       background: #fff;
-      border-radius: 8px;
-      padding: 12px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
       border: 1px solid #e2e8f0;
     }
     .company-card-header {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #eef2f6;
     }
     .company-card-logo {
-      width: 50px;
-      height: 35px;
+      width: 44px;
+      height: 44px;
       object-fit: contain;
-      border-radius: 6px;
+      border-radius: 8px;
       flex-shrink: 0;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
     }
     .company-card-logo-placeholder {
-      width: 50px;
-      height: 35px;
-      background-color: #f7fafc;
-      border-radius: 6px;
+      width: 44px;
+      height: 44px;
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 8px;
-      color: #718096;
+      color: #94a3b8;
       flex-shrink: 0;
     }
     .company-card-name {
-      color: #0075df;
-      text-decoration: underline;
+      color: #0f172a;
+      text-decoration: none;
       cursor: pointer;
-      font-weight: 600;
-      font-size: 16px;
+      font-weight: 700;
+      font-size: 17px;
       line-height: 1.3;
       flex: 1;
+      word-break: break-word;
     }
     .company-card-content {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 12px;
     }
     .company-card-row {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
       align-items: flex-start;
+      gap: 3px;
       font-size: 14px;
-      line-height: 1.4;
+      line-height: 1.45;
     }
     .company-card-label {
-      color: #4a5568;
-      font-weight: 500;
-      min-width: 80px;
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
       flex-shrink: 0;
     }
     .company-card-value {
-      color: #000;
-      text-align: right;
+      color: #1e293b;
+      text-align: left;
       flex: 1;
       word-break: break-word;
+      width: 100%;
     }
     .company-card-description {
-      color: #000;
-      line-height: 1.4;
-      margin-top: 8px;
+      color: #334155;
+      line-height: 1.55;
+      margin-top: 4px;
+      padding-top: 12px;
+      border-top: 1px solid #eef2f6;
       font-size: 14px;
     }
     .company-card-description-truncated {
@@ -689,7 +701,25 @@ export const SEARCH_TABLE_STYLES = `
       margin-top: 4px;
       display: block;
     }
-    
+    .company-card .company-table-entity-name-cell {
+      gap: 12px;
+    }
+    .company-card .company-table-entity-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #0f172a;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+    }
+    .company-card .company-table-entity-subtitle {
+      white-space: normal;
+      font-size: 12px;
+    }
+    .company-card .company-follow-cell {
+      justify-content: flex-start;
+    }
+
     @media (max-width: 768px) {
       .company-table {
         display: none;
@@ -697,8 +727,27 @@ export const SEARCH_TABLE_STYLES = `
       .company-cards {
         display: flex;
       }
+      .search-dashboard-inner,
+      .search-dashboard-filter-inner {
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+      }
+      .search-dashboard-header-row {
+        gap: 10px !important;
+        margin-bottom: 12px !important;
+      }
+      .search-dashboard-actions {
+        width: 100%;
+        justify-content: flex-start !important;
+        flex-wrap: wrap;
+      }
+      .company-section {
+        padding: 10px 10px 24px;
+      }
       .pagination {
         gap: 4px;
+        flex-wrap: wrap;
+        padding: 12px 4px 4px;
       }
       .pagination-button {
         padding: 8px 10px;

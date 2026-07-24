@@ -657,6 +657,32 @@ export const IndividualSection = ({
           onExport={handleSelectedListExport}
         />
       )}
+      <div className="company-cards">
+        {sortedIndividuals.length === 0 ? (
+          <div className="loading">No individuals found.</div>
+        ) : (
+          sortedIndividuals.map((individual, index) => (
+            <div className="company-card" key={`card-${individual.id ?? index}`}>
+              <div className="company-card-header">
+                {renderIndividualCell("name", individual)}
+              </div>
+              <div className="company-card-content">
+                {selectedColumns
+                  .filter((column) => column.key !== "name")
+                  .map((column) => (
+                    <div className="company-card-row" key={column.key}>
+                      <span className="company-card-label">{column.label}</span>
+                      <span className="company-card-value">
+                        {renderIndividualCell(column.key, individual)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>

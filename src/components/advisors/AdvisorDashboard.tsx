@@ -298,8 +298,8 @@ export const AdvisorDashboard = ({
 
   return (
     <div style={SEARCH_DASHBOARD_SHELL}>
-      <div style={SEARCH_DASHBOARD_INNER}>
-        <div style={SEARCH_DASHBOARD_HEADER_ROW}>
+      <div className="search-dashboard-inner" style={SEARCH_DASHBOARD_INNER}>
+        <div className="search-dashboard-header-row" style={SEARCH_DASHBOARD_HEADER_ROW}>
           <div>
             <div style={SEARCH_DASHBOARD_EYEBROW}>Advisors</div>
             <h1 style={SEARCH_DASHBOARD_TITLE}>
@@ -310,7 +310,7 @@ export const AdvisorDashboard = ({
             </h1>
           </div>
 
-          <div style={SEARCH_DASHBOARD_ACTIONS}>
+          <div className="search-dashboard-actions" style={SEARCH_DASHBOARD_ACTIONS}>
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
@@ -340,7 +340,7 @@ export const AdvisorDashboard = ({
       </div>
 
       <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
-        <div style={SEARCH_DASHBOARD_FILTER_INNER}>
+        <div className="search-dashboard-filter-inner" style={SEARCH_DASHBOARD_FILTER_INNER}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={FILTER_CATEGORIES}

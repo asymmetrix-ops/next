@@ -679,6 +679,32 @@ export const CorporateEventsSearchSection = ({
 
   return (
     <div className="company-section corporate-events-list-section" ref={sectionRef}>
+      <div className="company-cards">
+        {sortedEvents.length === 0 ? (
+          <div className="loading">No corporate events found.</div>
+        ) : (
+          sortedEvents.map((event, index) => (
+            <div className="company-card" key={`card-${event.id ?? index}`}>
+              <div className="company-card-header">
+                {renderEventCell("description", event)}
+              </div>
+              <div className="company-card-content">
+                {selectedColumns
+                  .filter((column) => column.key !== "description")
+                  .map((column) => (
+                    <div className="company-card-row" key={column.key}>
+                      <span className="company-card-label">{column.label}</span>
+                      <span className="company-card-value">
+                        {renderEventCell(column.key, event)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>

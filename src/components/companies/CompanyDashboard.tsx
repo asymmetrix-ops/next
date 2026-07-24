@@ -380,10 +380,14 @@ export const CompanyDashboard = ({
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: OWNERSHIP_OTHER_TOOLTIP_STYLES }} />
-      <div style={{ width: "100%", padding: `${topPad} ${horizontalPad} 0` }}>
+      <div
+        className="search-dashboard-inner"
+        style={{ width: "100%", padding: `${topPad} ${horizontalPad} 0` }}
+      >
 
         {/* ── Header row: eyebrow + title + action buttons ── */}
         <div
+          className="search-dashboard-header-row"
           style={{
             ...SEARCH_DASHBOARD_HEADER_ROW,
             marginBottom: embedded ? 12 : 18,
@@ -420,6 +424,7 @@ export const CompanyDashboard = ({
           {/* Action buttons */}
           {guestMode ? (
             <div
+              className="search-dashboard-actions"
               style={{
                 ...SEARCH_DASHBOARD_ACTIONS,
                 marginLeft: hidePageHeader ? "auto" : undefined,
@@ -431,6 +436,7 @@ export const CompanyDashboard = ({
             </div>
           ) : (
           <div
+            className="search-dashboard-actions"
             style={{
               ...SEARCH_DASHBOARD_ACTIONS,
               marginLeft: hidePageHeader ? "auto" : undefined,
@@ -509,7 +515,10 @@ export const CompanyDashboard = ({
           borderBottom: "1px solid #e2e8f0",
         }}
       >
-        <div style={{ width: "100%", padding: `10px ${horizontalPad} 12px` }}>
+        <div
+          className="search-dashboard-filter-inner"
+          style={{ width: "100%", padding: `10px ${horizontalPad} 12px` }}
+        >
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={FILTER_CATEGORIES}
