@@ -157,41 +157,13 @@ async function applyBanner(
   } as unknown as Parameters<typeof worksheet.addImage>[1]);
 }
 
-function applyCategoryAndHeaderRows(
+function applyHeaderRow(
   worksheet: import("exceljs").Worksheet,
-  columns: ExportColumnDef[]
+  columns: ExportColumnDef[],
+  headerRowNum: number
 ): void {
-  const categoryRowNum = CATEGORY_HEADER_ROW;
-  const headerRowNum = COLUMN_HEADER_ROW;
-
-  let currentCategory = "";
-  let categoryStartCol = DATA_COL_OFFSET + 1;
-
-  const closeCategoryGroup = (endCol: number) => {
-    if (!currentCategory) return;
-    if (endCol > categoryStartCol) {
-      worksheet.mergeCells(
-        categoryRowNum,
-        categoryStartCol,
-        categoryRowNum,
-        endCol
-      );
-    }
-  };
-
   for (let i = 0; i < columns.length; i += 1) {
     const col = DATA_COL_OFFSET + i + 1;
-    const category = exportCategoryLabel(columns[i].categoryName);
-
-    if (category !== currentCategory) {
-      closeCategoryGroup(col - 1);
-      currentCategory = category;
-      categoryStartCol = col;
-      const cell = worksheet.getCell(categoryRowNum, col);
-      cell.value = category;
-      cell.font = { bold: true, size: 11 };
-    }
-
     const headerCell = worksheet.getCell(headerRowNum, col);
     headerCell.value = columns[i].label;
     headerCell.font = { bold: true, size: 11 };
@@ -200,7 +172,52 @@ function applyCategoryAndHeaderRows(
       bottom: { style: "thin", color: { argb: "FFD0D0D0" } },
     };
   }
-  closeCategoryGroup(DATA_COL_OFFSET + columns.length);
+}
+
+function applyCategoryAndHeaderRows(
+  worksheet: import("exceljs").Worksheet,
+  columns: ExportColumnDef[],
+  options: { includeCategoryRow?: boolean } = {}
+): { headerRowNum: number; dataStartRow: number } {
+  const includeCategoryRow = options.includeCategoryRow !== false;
+  const headerRowNum = includeCategoryRow ? COLUMN_HEADER_ROW : CATEGORY_HEADER_ROW;
+  const dataStartRow = includeCategoryRow ? DATA_START_ROW : COLUMN_HEADER_ROW;
+
+  if (includeCategoryRow) {
+    const categoryRowNum = CATEGORY_HEADER_ROW;
+    let currentCategory = "";
+    let categoryStartCol = DATA_COL_OFFSET + 1;
+
+    const closeCategoryGroup = (endCol: number) => {
+      if (!currentCategory) return;
+      if (endCol > categoryStartCol) {
+        worksheet.mergeCells(
+          categoryRowNum,
+          categoryStartCol,
+          categoryRowNum,
+          endCol
+        );
+      }
+    };
+
+    for (let i = 0; i < columns.length; i += 1) {
+      const col = DATA_COL_OFFSET + i + 1;
+      const category = exportCategoryLabel(columns[i].categoryName);
+
+      if (category !== currentCategory) {
+        closeCategoryGroup(col - 1);
+        currentCategory = category;
+        categoryStartCol = col;
+        const cell = worksheet.getCell(categoryRowNum, col);
+        cell.value = category;
+        cell.font = { bold: true, size: 11 };
+      }
+    }
+    closeCategoryGroup(DATA_COL_OFFSET + columns.length);
+  }
+
+  applyHeaderRow(worksheet, columns, headerRowNum);
+  return { headerRowNum, dataStartRow };
 }
 
 /** 1-based column index → Excel column letter (1 = A, 2 = B, …). */
@@ -289,7 +306,8 @@ function buildDirectorySheet(
 function buildEntitySheet(
   worksheet: import("exceljs").Worksheet,
   columns: ExportColumnDef[],
-  rows: string[][]
+  rows: string[][],
+  options: { includeCategoryRow?: boolean } = {}
 ): void {
   // Match the reference template's default row height (14.4pt).
   worksheet.properties.defaultRowHeight = 14.4;
@@ -299,10 +317,14 @@ function buildEntitySheet(
     ...columns.map(() => ({ width: 18 })),
   ];
 
-  applyCategoryAndHeaderRows(worksheet, columns);
+  const { headerRowNum, dataStartRow } = applyCategoryAndHeaderRows(
+    worksheet,
+    columns,
+    options
+  );
 
   for (let r = 0; r < rows.length; r += 1) {
-    const rowNum = DATA_START_ROW + r;
+    const rowNum = dataStartRow + r;
     const rowValues = rows[r];
     for (let c = 0; c < rowValues.length; c += 1) {
       worksheet.getCell(rowNum, DATA_COL_OFFSET + c + 1).value = rowValues[c];
@@ -313,7 +335,7 @@ function buildEntitySheet(
     {
       state: "frozen",
       xSplit: DATA_COL_OFFSET + 2,
-      ySplit: COLUMN_HEADER_ROW,
+      ySplit: headerRowNum,
     },
   ];
 }
@@ -433,7 +455,9 @@ export async function buildVisibleColumnsWorkbook(
   const workbook = new ExcelJS.Workbook();
 
   const entitySheet = workbook.addWorksheet(input.entitySheetName);
-  buildEntitySheet(entitySheet, input.columns, input.rows);
+  buildEntitySheet(entitySheet, input.columns, input.rows, {
+    includeCategoryRow: false,
+  });
   await applyBanner(
     entitySheet,
     input.columns.length + DATA_COL_OFFSET,
@@ -464,11 +488,20 @@ export async function downloadXlsxBuffer(
   URL.revokeObjectURL(url);
 }
 
+/** All-columns entity sheet layout (category row + header row). */
 export const EXPORT_SHEET_LAYOUT = {
   BANNER_ROW_COUNT,
   CATEGORY_HEADER_ROW,
   COLUMN_HEADER_ROW,
   DATA_START_ROW,
+  DATA_COL_OFFSET,
+};
+
+/** Visible-columns export: no category row — headers on row 7, data from row 8. */
+export const EXPORT_SHEET_LAYOUT_VISIBLE = {
+  BANNER_ROW_COUNT,
+  COLUMN_HEADER_ROW: CATEGORY_HEADER_ROW,
+  DATA_START_ROW: COLUMN_HEADER_ROW,
   DATA_COL_OFFSET,
 };
 
