@@ -97,6 +97,7 @@ export function normalizeCompanySearchPayload(
     columns: filters.columns ?? [],
     has_financial_filters: Boolean(filters.has_financial_filters),
     has_year_filter: Boolean(filters.has_year_filter),
+    company_ids: filters.company_ids ?? [],
     ...pickCompanyDateAddedParams(filters),
   };
 }
@@ -617,6 +618,8 @@ function appendSharedCompanyFilterParams(
   if (payload.created_at_to?.trim()) {
     params.append("created_at_to", payload.created_at_to.trim());
   }
+
+  params.append("company_ids", JSON.stringify(payload.company_ids ?? []));
 
   (payload.columns ?? []).forEach((col) => {
     params.append("columns[]", col);

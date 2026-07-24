@@ -272,6 +272,8 @@ export function deriveBackendSignals(clauses: FilterClause[]) {
 export interface CompanySearchPayload {
   query?: string | null;
   columns?: string[];
+  /** When exporting a selected subset, restrict the search to these company IDs. */
+  company_ids?: number[];
   Offset?: number;
   Per_page?: number;
   filters_sql?: string | null;
