@@ -7063,8 +7063,9 @@ function SuggestBasicCompanyChangeForm({
           field_name: "Company Profile",
           notes: "",
         });
-      } catch {
+      } catch (notificationError) {
         // Change request saved; notification failure should not block the contributor.
+        console.error("Data contribution notification failed:", notificationError);
       }
 
       setSubmitting(false);
@@ -9117,8 +9118,9 @@ function ContributeFinancialMetricsTab({
           field_name: `Financial Metrics (${selectedYearLabel})`,
           notes: notes.trim(),
         });
-      } catch {
+      } catch (notificationError) {
         // Change request saved; notification failure should not block the contributor.
+        console.error("Data contribution notification failed:", notificationError);
       }
 
       setSubmitting(false);

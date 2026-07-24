@@ -816,45 +816,24 @@ export type DataContributionNotificationPayload = {
 
 /** Notify reviewers when a contributor submits data for review. */
 export async function notifyDataContribution(
-  token: string | null | undefined,
+  _token: string | null | undefined,
   payload: DataContributionNotificationPayload
 ): Promise<void> {
-  if (!token) {
-    const res = await fetch(
-      contributorApiPath("/notifications/data-contribution"),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    if (!res.ok) {
-      throw new Error(
-        await readContributorApiError(
-          res,
-          `Failed to send data contribution notification (${res.status})`
-        )
-      );
-    }
-    return;
-  }
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  };
-  headers.Authorization = `Bearer ${token}`;
-
-  const res = await fetch(`${FIN_METRICS_BASE}/notifications/data-contribution`, {
+  // Always use the Next.js proxy so Xano is called with the service account.
+  // Contributor JWTs can submit change requests but cannot send review emails.
+  const res = await fetch(contributorApiPath("/notifications/data-contribution"), {
     method: "POST",
-    headers,
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Failed to send data contribution notification (${res.status})`);
+    throw new Error(
+      await readContributorApiError(
+        res,
+        `Failed to send data contribution notification (${res.status})`
+      )
+    );
   }
 }
 
