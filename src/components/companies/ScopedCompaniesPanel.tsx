@@ -8,6 +8,7 @@ import {
 } from "@/app/companies/actions";
 import { CompanyDashboard } from "@/components/companies/CompanyDashboard";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
+import type { ListExportRequest } from "@/lib/listExport/types";
 import {
   CompanySection,
   createDefaultFilters,
@@ -241,7 +242,10 @@ export function ScopedCompaniesPanel({
   const [columnsCount, setColumnsCount] = useState(
     DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS.length
   );
-  const exportCSVRef = useRef<(() => void) | null>(null);
+  const exportCSVRef = useRef<
+    ((request: ListExportRequest) => Promise<void>) | null
+  >(null);
+  const [exporting, setExporting] = useState(false);
   const filtersKey = useMemo(
     () => JSON.stringify(currentFilters ?? {}),
     [currentFilters]
@@ -312,7 +316,10 @@ export function ScopedCompaniesPanel({
         onFilterColumnsChange={handleFilterColumnsChange}
         ownershipCounts={ownershipCounts}
         onColumnsClick={() => setShowColumnsModal((v) => !v)}
-        onExportCSVClick={() => exportCSVRef.current?.()}
+        onExport={(mode) =>
+          exportCSVRef.current?.({ mode, scope: "full_list" })
+        }
+        exporting={exporting}
         columnsCount={columnsCount}
         columnsActive={showColumnsModal}
         hidePageHeader={embedded}
@@ -340,6 +347,7 @@ export function ScopedCompaniesPanel({
         onRegisterExportCSV={(fn) => {
           exportCSVRef.current = fn;
         }}
+        onExportingChange={setExporting}
         selectedCompanyIds={selectedCompanyIds}
         onToggleCompanySelection={toggleCompanySelection}
         onTogglePageSelection={togglePageSelection}
