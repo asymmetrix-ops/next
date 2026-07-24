@@ -29,7 +29,8 @@ function TeamLoginPageInner() {
       const userId = Number(user?.id) || 0;
       const requestedRedirect = searchParams.get("redirect");
       const safeRedirect =
-        requestedRedirect && requestedRedirect.startsWith("/")
+        requestedRedirect &&
+        requestedRedirect.startsWith("/contributor-crm/internal-crm")
           ? requestedRedirect
           : null;
       trackLogin(userId);

@@ -70,7 +70,11 @@ function ContributorCrmPageInner() {
       router.replace(`/contributor-crm/${boundCompanyId}`);
       return;
     }
-    router.replace("/contributor-crm/internal-crm");
+    if (user && isAdminUser(user)) {
+      router.replace("/contributor-crm/internal-crm");
+      return;
+    }
+    router.replace("/contributor-crm/home-user");
   }, [invitedCompanyId, router, shouldOpenReview]);
 
   return (

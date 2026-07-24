@@ -76,8 +76,8 @@ function InternalCrmPageInner() {
   const autoReviewHandledRef = useRef(false);
   const teamLoginPath = useMemo(() => {
     const query = searchParams.toString();
-    const redirect = `/internal-crm${query ? `?${query}` : ""}`;
-    return `/team-login?redirect=${encodeURIComponent(redirect)}`;
+    const redirect = `/contributor-crm/internal-crm${query ? `?${query}` : ""}`;
+    return `/contributor-crm/team-login?redirect=${encodeURIComponent(redirect)}`;
   }, [searchParams]);
   const [data, setData] = useState<GetFinMetricsCompaniesResponse | null>(
     null
@@ -238,6 +238,10 @@ function InternalCrmPageInner() {
     const token = authService.getAuthToken();
     if (!token) {
       router.replace(teamLoginPath);
+      return;
+    }
+    const user = authService.getUser();
+    if (!user || !isAdminUser(user)) {
       return;
     }
 
