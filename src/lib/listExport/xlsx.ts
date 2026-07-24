@@ -10,6 +10,8 @@ const LOGO_PATH = "/exports/asymmetrix-export-logo.png";
 
 /** Reference template row height (matches sheetFormatPr defaultRowHeight="14.4"). */
 const DEFAULT_ROW_HEIGHT_PT = 14.4;
+/** Blue / light-blue stripe rows + blank gap beneath the banner. */
+const BANNER_STRIPE_ROW_HEIGHT_PT = 6;
 
 /** Logo anchor + extent copied from the reference export (rows 1–3, cols A–B). */
 const LOGO_ANCHOR_BR_COL = 1;
@@ -102,6 +104,8 @@ async function applyBanner(
   workbook: import("exceljs").Workbook,
   minFillColumns: number = BANNER_MIN_FILL_COLUMNS_ALL
 ): Promise<void> {
+  worksheet.properties.defaultRowHeight = DEFAULT_ROW_HEIGHT_PT;
+
   const fillColumns = Math.max(totalColumns, minFillColumns);
 
   const fillRow = (rowNum: number, argb: string) => {
@@ -114,19 +118,17 @@ async function applyBanner(
     }
   };
 
-  // Explicit height on every banner row (not just a sheet-wide default) so
-  // Excel, Google Sheets, and LibreOffice all render it identically.
-  worksheet.getRow(1).height = DEFAULT_ROW_HEIGHT_PT;
-  worksheet.getRow(2).height = DEFAULT_ROW_HEIGHT_PT;
-  worksheet.getRow(3).height = DEFAULT_ROW_HEIGHT_PT;
+  // Rows 1–3 and all content rows inherit defaultRowHeight (14.4pt).
+  // Only rows 4–6 get an explicit height — matching the reference export,
+  // where customHeight on every row makes Google Sheets render 14.4pt as 19.2px.
   fillRow(1, BANNER_NAVY);
   fillRow(2, BANNER_NAVY);
   fillRow(3, BANNER_NAVY);
-  worksheet.getRow(4).height = 6;
+  worksheet.getRow(4).height = BANNER_STRIPE_ROW_HEIGHT_PT;
   fillRow(4, BANNER_BLUE);
-  worksheet.getRow(5).height = 6;
+  worksheet.getRow(5).height = BANNER_STRIPE_ROW_HEIGHT_PT;
   fillRow(5, BANNER_LIGHT_BLUE);
-  worksheet.getRow(6).height = 6;
+  worksheet.getRow(6).height = BANNER_STRIPE_ROW_HEIGHT_PT;
 
   worksheet.mergeCells(1, 1, 3, fillColumns);
 
@@ -199,10 +201,6 @@ function applyCategoryAndHeaderRows(
     };
   }
   closeCategoryGroup(DATA_COL_OFFSET + columns.length);
-
-  // Explicit height (not a sheet-wide default) for consistent cross-app rendering.
-  worksheet.getRow(categoryRowNum).height = DEFAULT_ROW_HEIGHT_PT;
-  worksheet.getRow(headerRowNum).height = DEFAULT_ROW_HEIGHT_PT;
 }
 
 function buildDirectorySheet(
@@ -250,7 +248,6 @@ function buildDirectorySheet(
   // Row 7: first category label for each column already appears via entries below (row 8+)
   const leftEntries = toEntries(left);
   const rightEntries = toEntries(right);
-  const rowCount = Math.max(leftEntries.length, rightEntries.length);
 
   const writeColumn = (entries: DirEntry[], col: number) => {
     for (let i = 0; i < entries.length; i += 1) {
@@ -275,12 +272,6 @@ function buildDirectorySheet(
 
   writeColumn(leftEntries, 2);
   writeColumn(rightEntries, 4);
-
-  // Explicit height on every content row (not a sheet-wide default) for
-  // consistent cross-app rendering — matches the entity sheet exactly.
-  for (let i = 0; i < rowCount; i += 1) {
-    worksheet.getRow(CATEGORY_HEADER_ROW + i).height = DEFAULT_ROW_HEIGHT_PT;
-  }
 }
 
 function buildEntitySheet(
@@ -304,8 +295,6 @@ function buildEntitySheet(
     for (let c = 0; c < rowValues.length; c += 1) {
       worksheet.getCell(rowNum, DATA_COL_OFFSET + c + 1).value = rowValues[c];
     }
-    // Explicit height (not a sheet-wide default) for consistent cross-app rendering.
-    worksheet.getRow(rowNum).height = DEFAULT_ROW_HEIGHT_PT;
   }
 
   worksheet.views = [
