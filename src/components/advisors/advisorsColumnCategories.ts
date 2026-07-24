@@ -27,10 +27,17 @@ export const ADVISORS_COLUMN_CATEGORIES: AdvisorColumnCategory[] = [
       {
         id: "name",
         columnKey: "name",
-        label: "Advisor",
+        label: "Name",
         type: "text",
         locked: true,
         defaultVisible: true,
+      },
+      {
+        id: "website",
+        columnKey: "website",
+        label: "Website",
+        type: "text",
+        defaultVisible: false,
       },
     ],
   },
@@ -48,8 +55,8 @@ export const ADVISORS_COLUMN_CATEGORIES: AdvisorColumnCategory[] = [
     ],
   },
   {
-    id: "default",
-    name: "Default",
+    id: "overview",
+    name: "Overview",
     columns: [
       {
         id: "description",

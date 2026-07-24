@@ -10,7 +10,6 @@ import {
 import { mapCountsToAdvisorsRoleCounts } from "@/components/advisors/advisorsFilterConfig";
 import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
 import { readLogoFromRecord } from "@/lib/companyLogo";
-import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
 
 export type { AdvisorsSearchFilters };
 
@@ -22,6 +21,8 @@ export interface AdvisorSectorItem {
 export interface AdvisorListItem {
   id: number;
   name: string;
+  url?: string;
+  website?: string;
   description?: string;
   events_advised?: number;
   sectors?: AdvisorSectorItem[];
@@ -42,6 +43,9 @@ export interface AdvisorsListResponse {
   pageTotal: number;
   roleCounts: ReturnType<typeof mapCountsToAdvisorsRoleCounts>;
 }
+
+const ADVISORS_API_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop";
 
 function normalizeAdvisorListItem(item: AdvisorListItem): AdvisorListItem {
   const logo = readLogoFromRecord(item, getAdvisorFieldAliasesForColumn("logo"));
