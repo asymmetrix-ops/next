@@ -1,3 +1,5 @@
+import type { OutreachImportRow } from "@/lib/contributorCrm/outreachImport";
+
 const API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 const AUTH_LOGIN_URL = `${API_BASE}/auth/login`;
@@ -661,6 +663,29 @@ export async function updateFinMetricsWorkflow(
     const text = await res.text();
     throw new Error(text || `Failed to update workflow (${res.status})`);
   }
+}
+
+export type { OutreachImportRow } from "@/lib/contributorCrm/outreachImport";
+
+export async function importOutreachRows(
+  token: string,
+  rows: OutreachImportRow[]
+): Promise<unknown> {
+  const res = await fetch(`${FIN_METRICS_BASE}/outreach/import_rows`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ rows }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Failed to import outreach rows (${res.status})`);
+  }
+
+  return res.json().catch(() => ({}));
 }
 
 export async function saveCompanyContactEmail(

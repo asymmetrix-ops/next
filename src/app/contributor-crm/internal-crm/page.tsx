@@ -15,6 +15,7 @@ import {
 import { ChangeReviewModal } from "@/components/contributor-crm/ChangeReviewModal";
 import { EmailBuilderModal } from "@/components/contributor-crm/EmailBuilderModal";
 import { FinMetricsReviewModal } from "@/components/contributor-crm/FinMetricsReviewModal";
+import { SequenceImportModal } from "@/components/contributor-crm/SequenceImportModal";
 
 function formatDate(ms: number | null | undefined): string {
   if (ms == null) return "—";
@@ -98,6 +99,7 @@ function InternalCrmPageInner() {
   const [fmReviewReadOnly, setFmReviewReadOnly] = useState(false);
   const [savingIds, setSavingIds] = useState<number[]>([]);
   const [exporting, setExporting] = useState(false);
+  const [sequenceModalOpen, setSequenceModalOpen] = useState(false);
   /** `false` = no pending company change requests; omit key = unknown (use workflow flags). */
   const [companyChangeReviewPendingById, setCompanyChangeReviewPendingById] = useState<
     Record<number, boolean>
@@ -508,6 +510,13 @@ function InternalCrmPageInner() {
           )}
           <button
             type="button"
+            onClick={() => setSequenceModalOpen(true)}
+            className="px-3 py-2 rounded-md border border-blue-200 bg-blue-50 text-xs font-medium text-blue-700 hover:bg-blue-100"
+          >
+            Sequence
+          </button>
+          <button
+            type="button"
             onClick={() => void exportCsv()}
             disabled={exporting || loading || !data?.total}
             className="px-3 py-2 rounded-md border border-gray-200 bg-white text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -769,6 +778,15 @@ function InternalCrmPageInner() {
         <EmailBuilderModal
           row={emailBuilderRow}
           onClose={() => setEmailBuilderRow(null)}
+        />
+      )}
+
+      {sequenceModalOpen && (
+        <SequenceImportModal
+          onClose={() => setSequenceModalOpen(false)}
+          onImported={() => {
+            void fetchData();
+          }}
         />
       )}
     </div>
