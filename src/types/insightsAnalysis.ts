@@ -56,7 +56,7 @@ export interface InsightsAnalysisFilters {
   search_query: string;
   Content_Type?: string;
   content_type?: string;
-  Transaction_status?: number;
+  Transaction_status?: string;
   primary_sectors_ids: number[];
   Secondary_sectors_ids: number[];
   Countries: string[];
@@ -64,8 +64,11 @@ export interface InsightsAnalysisFilters {
   Cities: string[];
   Offset: number;
   Per_page: number;
+  user_id?: number | null;
+  portfolio_only?: boolean;
+  show_followed?: boolean;
   /** When set, filters articles to this company (Get_All_Content_Articles company_id). */
-  company_id?: number;
+  company_id?: number | null;
 }
 
 // Types for API integration
