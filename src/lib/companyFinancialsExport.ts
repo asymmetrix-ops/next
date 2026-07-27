@@ -7,6 +7,8 @@ import {
   FINANCIALS_CARD_DEFS,
   formatFiscalYearHeader,
   getVisibleFinancialsCellDisplay,
+  getVisibleYoyValue,
+  getYoyComparisonYears,
   type CompanyFinancialsViewModel,
   type FinancialsCardDef,
 } from "@/lib/companyFinancialMetricsCard";
@@ -22,14 +24,16 @@ function slugify(value: string): string {
 function buildFinancialsCsv(
   model: CompanyFinancialsViewModel,
   cardIds: FinancialsCardDef["id"][],
-  allowedSources: FiMetricSourceType[] | null,
+  allowedSources: FiMetricSourceType[],
   companyName: string
 ): string {
+  const yoyYears = getYoyComparisonYears(model.years);
   const headers = [
     "Company",
     "Card",
     "Metric",
     ...model.years.map((year) => formatFiscalYearHeader(year)),
+    ...(yoyYears ? ["YoY"] : []),
     "Data Source",
   ];
 
@@ -40,11 +44,10 @@ function buildFinancialsCsv(
       const yearValues = model.years.map((year) => {
         const cell = metric.cellsByYear[year];
         if (!cell) return "-";
-        if (allowedSources) {
-          return getVisibleFinancialsCellDisplay(cell, allowedSources);
-        }
-        return cell.display;
+        return getVisibleFinancialsCellDisplay(cell, allowedSources);
       });
+
+      const yoyValue = getVisibleYoyValue(metric, model.years, allowedSources);
 
       const sourceTypes = model.years
         .map((year) => metric.cellsByYear[year]?.sourceType ?? "")
@@ -56,6 +59,7 @@ function buildFinancialsCsv(
         card.title,
         metric.label,
         ...yearValues,
+        ...(yoyYears ? [yoyValue?.display ?? "-"] : []),
         sourceTypes,
       ]);
     }
@@ -64,61 +68,29 @@ function buildFinancialsCsv(
   return buildCsvContent(headers, rows);
 }
 
-function exportFinancialsCsv(
+/** Exports the current filtered view (respects active data source toggles). */
+export function exportFinancialMetricsView(
   model: CompanyFinancialsViewModel,
-  cardIds: FinancialsCardDef["id"][],
-  allowedSources: FiMetricSourceType[] | null,
+  allowedSources: FiMetricSourceType[],
   companyName: string,
-  filename: string
+  cardIds: FinancialsCardDef["id"][] = FINANCIALS_CARD_DEFS.map((card) => card.id)
 ): void {
+  const scopeLabel =
+    cardIds.length === 1
+      ? slugify(
+          FINANCIALS_CARD_DEFS.find((card) => card.id === cardIds[0])?.title ??
+            cardIds[0]
+        )
+      : "all";
+
   const content = buildFinancialsCsv(
     model,
     cardIds,
     allowedSources,
     companyName
   );
-  downloadCsvContent(content, filename);
-}
-
-export function exportAllFinancialMetrics(
-  model: CompanyFinancialsViewModel,
-  companyName: string
-): void {
-  exportFinancialsCsv(
-    model,
-    FINANCIALS_CARD_DEFS.map((card) => card.id),
-    null,
-    companyName,
-    `company-financials-all-${slugify(companyName)}`
-  );
-}
-
-export function exportCurrentFinancialView(
-  model: CompanyFinancialsViewModel,
-  allowedSources: FiMetricSourceType[],
-  companyName: string
-): void {
-  exportFinancialsCsv(
-    model,
-    FINANCIALS_CARD_DEFS.map((card) => card.id),
-    allowedSources,
-    companyName,
-    `company-financials-filtered-${slugify(companyName)}`
-  );
-}
-
-export function exportFinancialCard(
-  model: CompanyFinancialsViewModel,
-  cardId: FinancialsCardDef["id"],
-  allowedSources: FiMetricSourceType[] | null,
-  companyName: string
-): void {
-  const card = FINANCIALS_CARD_DEFS.find((item) => item.id === cardId);
-  exportFinancialsCsv(
-    model,
-    [cardId],
-    allowedSources,
-    companyName,
-    `company-financials-${slugify(card?.title ?? cardId)}-${slugify(companyName)}`
+  downloadCsvContent(
+    content,
+    `company-financials-${scopeLabel}-${slugify(companyName)}`
   );
 }

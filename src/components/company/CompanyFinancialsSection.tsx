@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ArrowUpTrayIcon,
   ChevronDownIcon,
@@ -14,7 +14,6 @@ import {
   tableColHeaderBarStyle,
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
-import { SourceTypeDot } from "@/app/financial-intelligence/components/SourceTypeValue";
 import {
   DEFAULT_FI_SOURCE_TYPES,
   FI_SOURCE_TYPES,
@@ -27,16 +26,15 @@ import {
   buildCompanyFinancialsViewModel,
   formatFiscalYearHeader,
   getVisibleFinancialsCellDisplay,
+  getVisibleYoyValue,
+  getYoyComparisonYears,
   type CompanyFinancialMetricsCardRow,
   type CompanyFinancialsViewModel,
   type FinancialsCardDef,
   type FinancialsCellValue,
+  type FinancialsYoyValue,
 } from "@/lib/companyFinancialMetricsCard";
-import {
-  exportAllFinancialMetrics,
-  exportCurrentFinancialView,
-  exportFinancialCard,
-} from "@/lib/companyFinancialsExport";
+import { exportFinancialMetricsView } from "@/lib/companyFinancialsExport";
 
 type Props = {
   rows: CompanyFinancialMetricsCardRow[];
@@ -44,129 +42,40 @@ type Props = {
   companyName: string;
 };
 
-type ExportMenuScope = "global" | FinancialsCardDef["id"];
-
-function ExportMenu({
-  scope,
-  onExportAll,
-  onExportScoped,
-  scopedLabel,
-  scopedDescription,
+function ExportButton({
+  label,
+  onClick,
+  compact = false,
 }: {
-  scope: ExportMenuScope;
-  onExportAll: () => void;
-  onExportScoped: () => void;
-  scopedLabel: string;
-  scopedDescription: string;
+  label: string;
+  onClick: () => void;
+  compact?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  const buttonLabel = scope === "global" ? "Export all metrics" : "Export";
-
   return (
-    <div ref={rootRef} style={{ position: "relative" }}>
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          padding: scope === "global" ? "8px 12px" : "6px 10px",
-          borderRadius: T.r,
-          border: `1px solid ${T.hair}`,
-          background: T.panel,
-          color: T.body,
-          fontFamily: T.sans,
-          fontSize: 12.5,
-          fontWeight: 500,
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-        }}
-      >
-        <ArrowUpTrayIcon width={14} height={14} aria-hidden />
-        {buttonLabel}
-        <ChevronDownIcon width={12} height={12} aria-hidden />
-      </button>
-      {open ? (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            right: 0,
-            minWidth: 240,
-            background: T.panel,
-            border: `1px solid ${T.hair}`,
-            borderRadius: T.rLg,
-            boxShadow: "0 10px 30px rgba(15,17,21,0.08)",
-            zIndex: 20,
-            overflow: "hidden",
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              onExportAll();
-              setOpen(false);
-            }}
-            style={exportMenuItemStyle}
-          >
-            <span style={{ fontWeight: 600, color: T.ink }}>Export all metrics</span>
-            <span style={exportMenuSubtextStyle}>
-              {scope === "global"
-                ? "Every card in this section"
-                : "Every card in this section"}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onExportScoped();
-              setOpen(false);
-            }}
-            style={exportMenuItemStyle}
-          >
-            <span style={{ fontWeight: 600, color: T.ink }}>{scopedLabel}</span>
-            <span style={exportMenuSubtextStyle}>{scopedDescription}</span>
-          </button>
-        </div>
-      ) : null}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: compact ? "6px 10px" : "8px 12px",
+        borderRadius: T.r,
+        border: `1px solid ${T.hair}`,
+        background: T.panel,
+        color: T.body,
+        fontFamily: T.sans,
+        fontSize: 12.5,
+        fontWeight: 500,
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <ArrowUpTrayIcon width={14} height={14} aria-hidden />
+      {label}
+    </button>
   );
 }
-
-const exportMenuItemStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-start",
-  gap: 2,
-  width: "100%",
-  padding: "12px 14px",
-  border: "none",
-  background: "transparent",
-  textAlign: "left",
-  cursor: "pointer",
-  fontFamily: T.sans,
-  fontSize: 12.5,
-};
-
-const exportMenuSubtextStyle: React.CSSProperties = {
-  color: T.muted,
-  fontSize: 11.5,
-  lineHeight: 1.35,
-};
 
 function SourceLegend({
   allowedSources,
@@ -178,88 +87,74 @@ function SourceLegend({
   disabled?: boolean;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        gap: 16,
-      }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <div
-          style={{
-            ...tableColHeaderStyle,
-            marginBottom: 10,
-          }}
-        >
-          Data Source
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          {FI_SOURCE_TYPES_UI_ORDER.map((type) => {
-            const checked = allowedSources.includes(type);
-            const isDisabled =
-              disabled || (checked && allowedSources.length <= 1);
-            return (
-              <label
-                key={type}
+    <div style={{ minWidth: 0 }}>
+      <div
+        style={{
+          ...tableColHeaderStyle,
+          marginBottom: 10,
+        }}
+      >
+        Data Source
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        {FI_SOURCE_TYPES_UI_ORDER.map((type) => {
+          const checked = allowedSources.includes(type);
+          const isDisabled =
+            disabled || (checked && allowedSources.length <= 1);
+          return (
+            <label
+              key={type}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                padding: "10px 14px",
+                borderRadius: T.rLg,
+                border: `1px solid ${T.hair}`,
+                background: T.panel,
+                minWidth: 180,
+                cursor: isDisabled ? "not-allowed" : "pointer",
+                opacity: isDisabled && !checked ? 0.55 : 1,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={isDisabled}
+                onChange={() => onToggleSourceType(type)}
                 style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  padding: "10px 14px",
-                  borderRadius: T.rLg,
-                  border: `1px solid ${T.hair}`,
-                  background: T.panel,
-                  minWidth: 180,
-                  cursor: isDisabled ? "not-allowed" : "pointer",
-                  opacity: isDisabled && !checked ? 0.55 : 1,
+                  marginTop: 3,
+                  accentColor: sourceTypeColor(type),
+                  flexShrink: 0,
                 }}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={isDisabled}
-                  onChange={() => onToggleSourceType(type)}
+              />
+              <span style={{ minWidth: 0 }}>
+                <span
                   style={{
-                    marginTop: 3,
-                    accentColor: sourceTypeColor(type),
-                    flexShrink: 0,
+                    fontFamily: T.sans,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: sourceTypeColor(type),
                   }}
-                />
-                <span style={{ minWidth: 0 }}>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontFamily: T.sans,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: sourceTypeColor(type),
-                    }}
-                  >
-                    <SourceTypeDot type={type} size={8} />
-                    {type}
-                  </span>
-                  <span
-                    style={{
-                      display: "block",
-                      marginTop: 2,
-                      fontFamily: T.sans,
-                      fontSize: 11.5,
-                      color: T.muted,
-                      lineHeight: 1.35,
-                    }}
-                  >
-                    {SOURCE_TYPE_DESCRIPTIONS[type]}
-                  </span>
+                >
+                  {type}
                 </span>
-              </label>
-            );
-          })}
-        </div>
+                <span
+                  style={{
+                    display: "block",
+                    marginTop: 2,
+                    fontFamily: T.sans,
+                    fontSize: 11.5,
+                    color: T.muted,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {SOURCE_TYPE_DESCRIPTIONS[type]}
+                </span>
+              </span>
+            </label>
+          );
+        })}
       </div>
     </div>
   );
@@ -278,21 +173,44 @@ function MetricValueCell({
   return (
     <span
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
         fontFamily: T.sans,
         fontSize: 13,
         fontWeight: display === "-" ? 400 : 600,
         color: display === "-" ? T.muted : color,
         minWidth: 0,
+        textAlign: "center",
       }}
     >
       {display}
-      {display !== "-" && cell.sourceType ? (
-        <SourceTypeDot type={cell.sourceType} size={7} />
-      ) : null}
+    </span>
+  );
+}
+
+function YoyCell({ value }: { value: FinancialsYoyValue | null }) {
+  if (!value) {
+    return (
+      <span style={{ fontFamily: T.sans, fontSize: 13, color: T.muted }}>-</span>
+    );
+  }
+
+  const color =
+    value.sentiment === "positive"
+      ? T.up
+      : value.sentiment === "negative"
+        ? T.down
+        : T.muted;
+
+  return (
+    <span
+      style={{
+        fontFamily: T.sans,
+        fontSize: 13,
+        fontWeight: 600,
+        color,
+        textAlign: "center",
+      }}
+    >
+      {value.display}
     </span>
   );
 }
@@ -305,6 +223,7 @@ function FinancialsMetricsCard({
   model,
   collapsed,
   onToggleCollapsed,
+  showYoy,
 }: {
   card: CompanyFinancialsViewModel["cards"][number];
   years: number[];
@@ -313,8 +232,11 @@ function FinancialsMetricsCard({
   model: CompanyFinancialsViewModel;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  showYoy: boolean;
 }) {
-  const gridTemplate = `minmax(180px, 1.4fr) repeat(${years.length}, minmax(88px, 1fr))`;
+  const gridTemplate = showYoy
+    ? `minmax(180px, 1.4fr) repeat(${years.length}, minmax(88px, 1fr)) minmax(72px, 0.7fr)`
+    : `minmax(180px, 1.4fr) repeat(${years.length}, minmax(88px, 1fr))`;
 
   return (
     <LinkPanel style={{ marginBottom: 16 }}>
@@ -350,14 +272,17 @@ function FinancialsMetricsCard({
             {card.metrics.length} metrics
           </span>
         </button>
-        <ExportMenu
-          scope={card.id}
-          onExportAll={() => exportAllFinancialMetrics(model, companyName)}
-          onExportScoped={() =>
-            exportFinancialCard(model, card.id, null, companyName)
+        <ExportButton
+          compact
+          label="Export"
+          onClick={() =>
+            exportFinancialMetricsView(
+              model,
+              allowedSources,
+              companyName,
+              [card.id]
+            )
           }
-          scopedLabel="Export this card only"
-          scopedDescription={`${card.title} — ${card.metrics.length} metrics`}
         />
       </div>
 
@@ -375,6 +300,7 @@ function FinancialsMetricsCard({
                 {formatFiscalYearHeader(year)}
               </span>
             ))}
+            {showYoy ? <span style={{ textAlign: "center" }}>YoY</span> : null}
           </div>
           {card.metrics.map((metric, index) => (
             <div
@@ -412,6 +338,13 @@ function FinancialsMetricsCard({
                   />
                 </div>
               ))}
+              {showYoy ? (
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <YoyCell
+                    value={getVisibleYoyValue(metric, years, allowedSources)}
+                  />
+                </div>
+              ) : null}
             </div>
           ))}
         </>
@@ -436,6 +369,7 @@ export function CompanyFinancialsSection({ rows, loading, companyName }: Props) 
     () => buildCompanyFinancialsViewModel(rows),
     [rows]
   );
+  const showYoy = getYoyComparisonYears(model.years) != null;
 
   const toggleSourceType = useCallback((type: FiMetricSourceType) => {
     setAllowedSources((prev) => {
@@ -505,14 +439,11 @@ export function CompanyFinancialsSection({ rows, loading, companyName }: Props) 
           />
         </div>
         <div style={{ flexShrink: 0, paddingTop: 24 }}>
-          <ExportMenu
-            scope="global"
-            onExportAll={() => exportAllFinancialMetrics(model, companyName)}
-            onExportScoped={() =>
-              exportCurrentFinancialView(model, allowedSources, companyName)
+          <ExportButton
+            label="Export all metrics"
+            onClick={() =>
+              exportFinancialMetricsView(model, allowedSources, companyName)
             }
-            scopedLabel="Export current view"
-            scopedDescription="Only values visible with current data source filters"
           />
         </div>
       </div>
@@ -527,6 +458,7 @@ export function CompanyFinancialsSection({ rows, loading, companyName }: Props) 
           model={model}
           collapsed={collapsedCards[card.id]}
           onToggleCollapsed={() => toggleCard(card.id)}
+          showYoy={showYoy}
         />
       ))}
     </div>
