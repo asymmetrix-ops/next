@@ -12,7 +12,7 @@ export type OutreachImportRow = {
 };
 
 export type ParsedEmailTemplate = {
-  round: 2 | 3;
+  round: 1 | 2 | 3;
   headline: string;
   body: string;
   from_email: string;
@@ -28,7 +28,8 @@ const COMPANY_SHEET_NAMES = ["company analysis list", "companies", "sheet1"];
 const BODY_SHEET_NAME = "body";
 const DEFAULT_FROM_EMAIL = "asymmetrix@asymmetrixintelligence.com";
 
-const ROUND_HEADLINES: Record<2 | 3, string> = {
+const ROUND_HEADLINES: Record<1 | 2 | 3, string> = {
+  1: "DCP Outreach — Round 1",
   2: "DCP Outreach — Round 2",
   3: "DCP Outreach — Round 3",
 };
@@ -43,6 +44,48 @@ function normalizeSheetName(value: string): string {
 
 function todayPublicationDate(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+export function timestampToPublicationDate(
+  ts: number | null | undefined
+): string | null {
+  if (ts == null || !Number.isFinite(ts)) return null;
+  return new Date(ts).toISOString().slice(0, 10);
+}
+
+export function deriveRoundPublicationDates(
+  rows: OutreachImportRow[]
+): Partial<Record<1 | 2 | 3, string>> {
+  const result: Partial<Record<1 | 2 | 3, string>> = {};
+  const keys: Record<1 | 2 | 3, keyof OutreachImportRow> = {
+    1: "round1_sent_at",
+    2: "round2_sent_at",
+    3: "round3_sent_at",
+  };
+
+  for (const round of [1, 2, 3] as const) {
+    const timestamps = rows
+      .map((row) => row[keys[round]] as number | null)
+      .filter((ts): ts is number => ts != null && Number.isFinite(ts));
+    if (timestamps.length > 0) {
+      const date = timestampToPublicationDate(Math.min(...timestamps));
+      if (date) result[round] = date;
+    }
+  }
+
+  return result;
+}
+
+export function applyPublicationDatesToTemplates(
+  templates: ParsedEmailTemplate[],
+  rows: OutreachImportRow[]
+): ParsedEmailTemplate[] {
+  const dates = deriveRoundPublicationDates(rows);
+  return templates.map((template) => ({
+    ...template,
+    publication_date:
+      dates[template.round] ?? template.publication_date ?? todayPublicationDate(),
+  }));
 }
 
 function parseCsvLine(line: string): string[] {
@@ -160,8 +203,9 @@ function parseWorksheetRows(sheet: ExcelWorksheet): Record<string, unknown>[] {
   return rows;
 }
 
-function findRoundColumnIndex(headers: string[], round: 2 | 3): number | null {
-  const pattern = round === 2 ? /round\s*2/i : /round\s*3/i;
+function findRoundColumnIndex(headers: string[], round: 1 | 2 | 3): number | null {
+  const pattern =
+    round === 1 ? /round\s*1/i : round === 2 ? /round\s*2/i : /round\s*3/i;
   const index = headers.findIndex((header) => pattern.test(header));
   return index >= 0 ? index : null;
 }
@@ -188,10 +232,9 @@ function parseBodySheet(sheet: ExcelWorksheet): ParsedEmailTemplate[] {
     });
   });
 
-  const publicationDate = todayPublicationDate();
   const templates: ParsedEmailTemplate[] = [];
 
-  for (const round of [2, 3] as const) {
+  for (const round of [1, 2, 3] as const) {
     const columnIndex = findRoundColumnIndex(headers, round);
     if (columnIndex == null) continue;
 
@@ -204,7 +247,7 @@ function parseBodySheet(sheet: ExcelWorksheet): ParsedEmailTemplate[] {
       headline: ROUND_HEADLINES[round],
       body,
       from_email: DEFAULT_FROM_EMAIL,
-      publication_date: publicationDate,
+      publication_date: "",
     });
   }
 
@@ -320,7 +363,10 @@ export async function parseOutreachImportFile(
       throw new Error("No valid rows found. Check column headers and data.");
     }
 
-    return { rows, emailTemplates };
+    return {
+      rows,
+      emailTemplates: applyPublicationDatesToTemplates(emailTemplates, rows),
+    };
   }
 
   throw new Error("Unsupported file type. Upload a .csv or .xlsx file.");

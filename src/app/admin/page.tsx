@@ -18,6 +18,15 @@ import {
   type UserEmailItem,
 } from "@/lib/api";
 import { authService } from "@/lib/auth";
+import {
+  CONTRIBUTION_EMAIL_ENTITY_TYPE,
+  coerceEmailContentRound,
+  formatEmailPublicationDate,
+  normalizeEmailEntityType,
+  todayEmailPublicationDate,
+  type EmailContentEntityType,
+  type EmailContentRound,
+} from "@/lib/contributorCrm/api";
 import { locationsService } from "@/lib/locationsService";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useRouter } from "next/navigation";
@@ -786,11 +795,10 @@ function matchAdminExtraFromEmail(fe: string): UserEmailItem | null {
 function EmailsTab() {
   const apiAuthToken = authService.getToken();
 
-  type EmailEntityType = "" | "contributon_email" | "client";
+  type EmailEntityType = "" | EmailContentEntityType;
 
   function coerceEmailEntityType(value: unknown): EmailEntityType {
-    const raw = String(value ?? "").trim();
-    return raw === "contributon_email" || raw === "client" ? raw : "";
+    return normalizeEmailEntityType(value);
   }
 
   const [bodyHtml, setBodyHtml] = useState<string>("<p></p>");
@@ -798,6 +806,10 @@ function EmailsTab() {
   const [html, setHtml] = useState("");
   const [subject, setSubject] = useState("");
   const [entityType, setEntityType] = useState<EmailEntityType>("client");
+  const [round, setRound] = useState<EmailContentRound>(1);
+  const [publicationDate, setPublicationDate] = useState<string>(
+    todayEmailPublicationDate()
+  );
   const [singleRecipient, setSingleRecipient] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [fromDirectoryUser, setFromDirectoryUser] =
@@ -863,6 +875,7 @@ function EmailsTab() {
     Headline?: string | null;
     Body?: string | null;
     entity_type?: EmailEntityType | null;
+    round?: EmailContentRound | number | null;
     from_email?: string | null;
     Publication_Date?: unknown;
     created_at?: number;
@@ -906,6 +919,22 @@ function EmailsTab() {
     () => isStandaloneEmailDocument(bodyHtml),
     [bodyHtml]
   );
+
+
+  function buildEmailContentFields() {
+    const fields: Record<string, unknown> = {
+      entity_type: entityType,
+      from_email: senderField.email.trim(),
+      Publication_Date:
+        entityType === CONTRIBUTION_EMAIL_ENTITY_TYPE
+          ? publicationDate
+          : null,
+    };
+    if (entityType === CONTRIBUTION_EMAIL_ENTITY_TYPE) {
+      fields.round = round;
+    }
+    return fields;
+  }
 
   const loadTemplates = useCallback(
     async (filterEntityType: EmailEntityType) => {
@@ -1104,6 +1133,11 @@ function EmailsTab() {
             if (t) {
               setSubject(String(t.Headline ?? ""));
               setEntityType(coerceEmailEntityType(t.entity_type));
+              setRound(coerceEmailContentRound(t.round) ?? 1);
+              setPublicationDate(
+                formatEmailPublicationDate(t.Publication_Date) ??
+                  todayEmailPublicationDate()
+              );
               const fe = String(t.from_email ?? "").trim();
               const domainLc =
                 ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN.toLowerCase();
@@ -1215,10 +1249,39 @@ function EmailsTab() {
           }}
         >
           <option value="">Choose entity type</option>
-          <option value="contributon_email">contributon_email</option>
+          <option value="contribution_email">contribution_email</option>
           <option value="client">client</option>
         </select>
       </div>
+
+      {entityType === CONTRIBUTION_EMAIL_ENTITY_TYPE && (
+        <div className="mb-3">
+          <label className="block mb-1 text-sm font-medium">Round</label>
+          <select
+            className="p-2 w-full border"
+            value={round}
+            onChange={(e) =>
+              setRound(Number(e.target.value) as EmailContentRound)
+            }
+          >
+            <option value={1}>Round 1</option>
+            <option value={2}>Round 2</option>
+            <option value={3}>Round 3</option>
+          </select>
+        </div>
+      )}
+
+      {entityType === CONTRIBUTION_EMAIL_ENTITY_TYPE && (
+        <div className="mb-3">
+          <label className="block mb-1 text-sm font-medium">Run date</label>
+          <input
+            type="date"
+            className="p-2 w-full border"
+            value={publicationDate}
+            onChange={(e) => setPublicationDate(e.target.value)}
+          />
+        </div>
+      )}
 
       <div className="mt-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -1358,11 +1421,9 @@ function EmailsTab() {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      Publication_Date: null,
                       Headline: subjectTrimmed,
                       Body: brandedHtml,
-                      entity_type: entityType,
-                      from_email: senderField.email.trim(),
+                      ...buildEmailContentFields(),
                     }),
                   });
                   if (!res.ok) {
@@ -1398,11 +1459,9 @@ function EmailsTab() {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      Publication_Date: null,
                       Headline: subjectTrimmed,
                       Body: brandedHtml,
-                      entity_type: entityType,
-                      from_email: senderField.email.trim(),
+                      ...buildEmailContentFields(),
                     }),
                   });
                   if (!res.ok) {
@@ -1462,11 +1521,9 @@ function EmailsTab() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       email_content_id: idNum,
-                      Publication_Date: null,
                       Headline: subjectTrimmed,
                       Body: brandedHtml,
-                      entity_type: entityType,
-                      from_email: senderField.email.trim(),
+                      ...buildEmailContentFields(),
                     }),
                   });
                   if (!res.ok) {
@@ -1505,11 +1562,9 @@ function EmailsTab() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       email_content_id: idNum,
-                      Publication_Date: null,
                       Headline: subjectTrimmed,
                       Body: brandedHtml,
-                      entity_type: entityType,
-                      from_email: senderField.email.trim(),
+                      ...buildEmailContentFields(),
                     }),
                   });
                   if (!res.ok) {

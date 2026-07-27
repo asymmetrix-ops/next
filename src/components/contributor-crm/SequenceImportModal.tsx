@@ -77,6 +77,7 @@ export function SequenceImportModal({
             subject: template.headline,
           }),
           from_email: template.from_email,
+          round: template.round,
         });
       }
 
@@ -117,7 +118,7 @@ export function SequenceImportModal({
               Import outreach sequence
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              Drop an Excel file with company rows and a Body tab for Round 2/3 copy.
+              Drop an Excel file with company rows and a Body tab for Round 1/2/3 copy.
             </p>
           </div>
           <button
@@ -198,7 +199,7 @@ export function SequenceImportModal({
               ))}
             </div>
             <p className="mt-2 text-[11px] text-gray-500">
-              The Body tab should include Round 2 and Round 3 columns. Date columns
+              The Body tab should include Round 1, Round 2, and Round 3 columns. Date columns
               accept timestamps, Excel dates, or readable date strings.
             </p>
           </div>
@@ -233,6 +234,9 @@ export function SequenceImportModal({
                     </div>
                     <div className="mt-1 line-clamp-3 whitespace-pre-wrap text-[10px] text-gray-500">
                       {template.body}
+                    </div>
+                    <div className="mt-1 text-[10px] text-gray-400">
+                      Run date: {template.publication_date}
                     </div>
                   </div>
                 ))}

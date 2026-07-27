@@ -15,7 +15,9 @@ import {
 import {
   createCrmEmail,
   createEmailContent,
+  CONTRIBUTION_EMAIL_ENTITY_TYPE,
   getEmailTemplates,
+  todayEmailPublicationDate,
   getUserEmails,
   type EmailTemplateItem,
   type FinMetricsCompanyItem,
@@ -166,7 +168,7 @@ export function EmailBuilderModal({ row, onClose }: EmailBuilderModalProps) {
 
   useEffect(() => {
     if (!token) return;
-    getEmailTemplates(token, "contributon_email")
+    getEmailTemplates(token, CONTRIBUTION_EMAIL_ENTITY_TYPE)
       .then(setTemplates)
       .catch(() => setTemplates([]))
       .finally(() => setLoadingTemplates(false));
@@ -376,8 +378,9 @@ export function EmailBuilderModal({ row, onClose }: EmailBuilderModalProps) {
       const created = await createEmailContent(token, {
         Headline: subject,
         Body: body,
-        Publication_Date: null,
-        entity_type: "contributon_email",
+        Publication_Date: todayEmailPublicationDate(),
+        entity_type: CONTRIBUTION_EMAIL_ENTITY_TYPE,
+        round: 1,
       });
       await createCrmEmail(token, {
         from: fromEmail,
@@ -467,16 +470,18 @@ export function EmailBuilderModal({ row, onClose }: EmailBuilderModalProps) {
         const created = await createEmailContent(token, {
           Headline: subject,
           Body: resolvedBody,
-          Publication_Date: null,
-          entity_type: "contributon_email",
+          Publication_Date: todayEmailPublicationDate(),
+          entity_type: CONTRIBUTION_EMAIL_ENTITY_TYPE,
+          round: 1,
         });
         emailContentId = created.id;
       } else {
         const created = await createEmailContent(token, {
           Headline: subject,
           Body: resolvedBody,
-          Publication_Date: null,
-          entity_type: "contributon_email",
+          Publication_Date: todayEmailPublicationDate(),
+          entity_type: CONTRIBUTION_EMAIL_ENTITY_TYPE,
+          round: 1,
         });
         emailContentId = created.id;
       }

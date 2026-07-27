@@ -1086,7 +1086,6 @@ export async function getCompanyByUrl(
 
 // Email builder: images + email content (different API base)
 const EMAIL_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR";
-const EMAIL_API_DEVELOP_BASE = `${EMAIL_API_BASE}:develop`;
 
 export async function uploadImageToXano(
   token: string,
@@ -1119,13 +1118,60 @@ export async function uploadImageToXano(
   return path;
 }
 
+export const CONTRIBUTION_EMAIL_ENTITY_TYPE = "contribution_email" as const;
+
+export type EmailContentEntityType =
+  | typeof CONTRIBUTION_EMAIL_ENTITY_TYPE
+  | "client";
+
+export type EmailContentRound = 1 | 2 | 3;
+
 export type EmailTemplateItem = {
   id: number;
   Headline?: string;
   Body?: string;
   Publication_Date?: number | null;
+  entity_type?: EmailContentEntityType | string | null;
+  round?: EmailContentRound | number | null;
+  from_email?: string | null;
   created_at?: number;
 };
+
+export function normalizeEmailEntityType(
+  value: unknown
+): EmailContentEntityType | "" {
+  const raw = String(value ?? "").trim();
+  if (raw === "contribution_email" || raw === "contributon_email") {
+    return CONTRIBUTION_EMAIL_ENTITY_TYPE;
+  }
+  if (raw === "client") return "client";
+  return "";
+}
+
+export function formatEmailPublicationDate(
+  value: unknown
+): string | null {
+  if (value == null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return new Date(value).toISOString().slice(0, 10);
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const parsed = Date.parse(trimmed);
+  if (Number.isNaN(parsed)) return null;
+  return new Date(parsed).toISOString().slice(0, 10);
+}
+
+export function todayEmailPublicationDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function coerceEmailContentRound(value: unknown): EmailContentRound | null {
+  const num = Number(value);
+  if (num === 1 || num === 2 || num === 3) return num;
+  return null;
+}
 
 export async function getEmailTemplates(
   token: string,
@@ -1156,10 +1202,17 @@ export async function createEmailContent(
   payload: {
     Headline: string;
     Body: string;
-    Publication_Date?: null;
+    Publication_Date?: string | null;
     entity_type?: string;
+    round?: EmailContentRound;
+    from_email?: string;
   }
 ): Promise<EmailTemplateItem> {
+  const entityType = payload.entity_type
+    ? normalizeEmailEntityType(payload.entity_type) || payload.entity_type
+    : undefined;
+  const publicationDate = formatEmailPublicationDate(payload.Publication_Date);
+
   const res = await fetch(`${EMAIL_API_BASE}/email_content`, {
     method: "POST",
     headers: {
@@ -1167,10 +1220,12 @@ export async function createEmailContent(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      Publication_Date: payload.Publication_Date ?? null,
+      Publication_Date: publicationDate,
       Headline: payload.Headline,
       Body: payload.Body,
-      ...(payload.entity_type ? { entity_type: payload.entity_type } : {}),
+      ...(entityType ? { entity_type: entityType } : {}),
+      ...(payload.round != null ? { round: payload.round } : {}),
+      ...(payload.from_email ? { from_email: payload.from_email } : {}),
     }),
   });
   if (!res.ok) {
@@ -1187,15 +1242,23 @@ export async function createDcpOutreachEmailContent(
     Headline: string;
     Body: string;
     from_email: string;
+    round: EmailContentRound;
   }
 ): Promise<EmailTemplateItem> {
-  const res = await fetch(`${EMAIL_API_DEVELOP_BASE}/email_content`, {
+  const res = await fetch(`${EMAIL_API_BASE}/email_content`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      Publication_Date: payload.Publication_Date,
+      Headline: payload.Headline,
+      Body: payload.Body,
+      from_email: payload.from_email,
+      entity_type: CONTRIBUTION_EMAIL_ENTITY_TYPE,
+      round: payload.round,
+    }),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -1207,15 +1270,39 @@ export async function createDcpOutreachEmailContent(
 export async function updateEmailContent(
   token: string,
   id: number,
-  payload: { Publication_Date?: number | null; Headline: string; Body: string }
+  payload: {
+    Publication_Date?: string | number | null;
+    Headline: string;
+    Body: string;
+    entity_type?: string;
+    round?: EmailContentRound;
+    from_email?: string;
+  }
 ): Promise<EmailTemplateItem> {
+  const entityType = payload.entity_type
+    ? normalizeEmailEntityType(payload.entity_type) || payload.entity_type
+    : undefined;
+  const publicationDate =
+    payload.Publication_Date === undefined
+      ? undefined
+      : formatEmailPublicationDate(payload.Publication_Date);
+
   const res = await fetch(`${EMAIL_API_BASE}/email_content/${id}`, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...(publicationDate !== undefined
+        ? { Publication_Date: publicationDate }
+        : {}),
+      Headline: payload.Headline,
+      Body: payload.Body,
+      ...(entityType ? { entity_type: entityType } : {}),
+      ...(payload.round != null ? { round: payload.round } : {}),
+      ...(payload.from_email ? { from_email: payload.from_email } : {}),
+    }),
   });
   if (!res.ok) {
     const text = await res.text();

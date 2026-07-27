@@ -8,6 +8,15 @@ import type { EditorRef } from "react-email-editor";
 import { BasicUsersMultiSelect } from "@/components/ui/BasicUsersMultiSelect";
 import { authService } from "@/lib/auth";
 import type { BasicUserItem } from "@/lib/api";
+import {
+  CONTRIBUTION_EMAIL_ENTITY_TYPE,
+  coerceEmailContentRound,
+  formatEmailPublicationDate,
+  normalizeEmailEntityType,
+  todayEmailPublicationDate,
+  type EmailContentEntityType,
+  type EmailContentRound,
+} from "@/lib/contributorCrm/api";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JSONTemplate = any;
 
@@ -35,13 +44,14 @@ function embedDesignInHtml(html: string, design: object): string {
   return `${comment}\n${stripped}`;
 }
 
-type EntityType = "" | "contributon_email" | "client";
+type EntityType = "" | EmailContentEntityType;
 
 interface Template {
   id: number;
   Headline?: string | null;
   Body?: string | null;
-  entity_type?: EntityType | null;
+  entity_type?: EntityType | string | null;
+  round?: EmailContentRound | number | null;
   from_email?: string | null;
   Publication_Date?: unknown;
 }
@@ -54,6 +64,37 @@ function getToken() {
 function authHeaders(): Record<string, string> {
   const t = getToken();
   return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
+function buildEmailContentPayload(input: {
+  headline: string;
+  bodyHtml: string;
+  entityType: EntityType;
+  round: EmailContentRound;
+  publicationDate: string;
+  fromEmail: string;
+  templateId?: number;
+}) {
+  const payload: Record<string, unknown> = {
+    Headline: input.headline,
+    Body: input.bodyHtml,
+    entity_type: input.entityType,
+    from_email: input.fromEmail.trim(),
+    Publication_Date:
+      input.entityType === CONTRIBUTION_EMAIL_ENTITY_TYPE
+        ? input.publicationDate
+        : null,
+  };
+
+  if (input.templateId) {
+    payload.email_content_id = input.templateId;
+  }
+
+  if (input.entityType === CONTRIBUTION_EMAIL_ENTITY_TYPE) {
+    payload.round = input.round;
+  }
+
+  return payload;
 }
 
 export default function EmailEditorPage() {
@@ -72,6 +113,10 @@ export default function EmailEditorPage() {
   // Form fields
   const [headline, setHeadline] = useState("");
   const [entityType, setEntityType] = useState<EntityType>("client");
+  const [round, setRound] = useState<EmailContentRound>(1);
+  const [publicationDate, setPublicationDate] = useState<string>(
+    todayEmailPublicationDate()
+  );
   const [fromEmail, setFromEmail] = useState("");
   const [existingBody, setExistingBody] = useState<string | null>(null);
   const [recipients, setRecipients] = useState<BasicUserItem[]>([]);
@@ -89,10 +134,11 @@ export default function EmailEditorPage() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as Template;
         setHeadline(String(data.Headline ?? ""));
-        setEntityType(
-          data.entity_type === "contributon_email" || data.entity_type === "client"
-            ? data.entity_type
-            : "client"
+        setEntityType(normalizeEmailEntityType(data.entity_type) || "client");
+        setRound(coerceEmailContentRound(data.round) ?? 1);
+        setPublicationDate(
+          formatEmailPublicationDate(data.Publication_Date) ??
+            todayEmailPublicationDate()
         );
         setFromEmail(String(data.from_email ?? ""));
         setExistingBody(String(data.Body ?? ""));
@@ -149,13 +195,16 @@ export default function EmailEditorPage() {
             const res = await fetch(EMAIL_CONTENT_URL, {
               method: "POST",
               headers: { "Content-Type": "application/json", ...authHeaders() },
-              body: JSON.stringify({
-                Publication_Date: null,
-                Headline: headlineTrimmed,
-                Body: bodyHtml,
-                entity_type: entityType,
-                from_email: fromEmail.trim(),
-              }),
+              body: JSON.stringify(
+                buildEmailContentPayload({
+                  headline: headlineTrimmed,
+                  bodyHtml,
+                  entityType,
+                  round,
+                  publicationDate,
+                  fromEmail,
+                })
+              ),
             });
             if (!res.ok) throw new Error(`Save failed (${res.status})`);
             const json = await res.json().catch(() => null);
@@ -170,14 +219,17 @@ export default function EmailEditorPage() {
             const res = await fetch(`${EMAIL_CONTENT_URL}/${templateId}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json", ...authHeaders() },
-              body: JSON.stringify({
-                email_content_id: templateId,
-                Publication_Date: null,
-                Headline: headlineTrimmed,
-                Body: bodyHtml,
-                entity_type: entityType,
-                from_email: fromEmail.trim(),
-              }),
+              body: JSON.stringify(
+                buildEmailContentPayload({
+                  headline: headlineTrimmed,
+                  bodyHtml,
+                  entityType,
+                  round,
+                  publicationDate,
+                  fromEmail,
+                  templateId,
+                })
+              ),
             });
             if (!res.ok) throw new Error(`Save failed (${res.status})`);
             savedId = templateId;
@@ -212,7 +264,7 @@ export default function EmailEditorPage() {
         }
       });
     },
-    [headline, entityType, fromEmail, recipients, isNew, templateId, router]
+    [headline, entityType, round, publicationDate, fromEmail, recipients, isNew, templateId, router]
   );
 
   const projectId = Number(process.env.NEXT_PUBLIC_UNLAYER_PROJECT_ID ?? "0") || undefined;
@@ -241,17 +293,39 @@ export default function EmailEditorPage() {
         <select
           value={entityType}
           onChange={(e) =>
-            setEntityType(
-              e.target.value === "contributon_email" || e.target.value === "client"
-                ? e.target.value
-                : "client"
-            )
+            setEntityType(normalizeEmailEntityType(e.target.value) || "client")
           }
           className="h-9 rounded border border-gray-300 px-2 text-sm focus:outline-none"
         >
           <option value="client">client</option>
-          <option value="contributon_email">contributon_email</option>
+          <option value={CONTRIBUTION_EMAIL_ENTITY_TYPE}>
+            contribution_email
+          </option>
         </select>
+
+        {entityType === CONTRIBUTION_EMAIL_ENTITY_TYPE && (
+          <>
+            <select
+              value={round}
+              onChange={(e) =>
+                setRound(Number(e.target.value) as EmailContentRound)
+              }
+              className="h-9 rounded border border-gray-300 px-2 text-sm focus:outline-none"
+              aria-label="Round"
+            >
+              <option value={1}>Round 1</option>
+              <option value={2}>Round 2</option>
+              <option value={3}>Round 3</option>
+            </select>
+            <input
+              type="date"
+              value={publicationDate}
+              onChange={(e) => setPublicationDate(e.target.value)}
+              className="h-9 rounded border border-gray-300 px-2 text-sm focus:outline-none"
+              aria-label="Run date"
+            />
+          </>
+        )}
 
         <input
           type="email"
