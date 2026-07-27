@@ -93,6 +93,8 @@ export function CorporateEventOverviewCard({
   sourceUrl,
   fillGridCell = false,
 }: CorporateEventOverviewCardProps) {
+  const isPartnership = /partnership/i.test(dealType || "");
+
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
     { k: "Sector(s)", v: <SectorTags sectors={primarySectors} tone="coral" /> },
     {
@@ -109,11 +111,12 @@ export function CorporateEventOverviewCard({
     {
       k: "Deal stage",
       v: dealStage?.trim() ? displayText(dealStage) : faintDash(),
-      show: Boolean(dealStage?.trim()),
+      show: Boolean(dealStage?.trim()) && !isPartnership,
     },
     {
       k: "Investment amount (m)",
       v: amountLine(investmentAmount, investmentCurrency),
+      show: !isPartnership,
     },
     {
       k: "Enterprise value (m)",
@@ -127,6 +130,7 @@ export function CorporateEventOverviewCard({
           ) : null}
         </span>
       ),
+      show: !isPartnership,
     },
     {
       k: "Source",
