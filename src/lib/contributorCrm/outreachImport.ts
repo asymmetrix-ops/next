@@ -7,8 +7,11 @@ export type OutreachImportRow = {
   ceo_last_name: string;
   ceo_email: string;
   round1_sent_at: number | null;
+  round1_to_be_sent: number | null;
   round2_sent_at: number | null;
+  round2_to_be_sent: number | null;
   round3_sent_at: number | null;
+  round3_to_be_sent: number | null;
 };
 
 export type ParsedEmailTemplate = {
@@ -57,15 +60,15 @@ export function deriveRoundPublicationDates(
   rows: OutreachImportRow[]
 ): Partial<Record<1 | 2 | 3, string>> {
   const result: Partial<Record<1 | 2 | 3, string>> = {};
-  const keys: Record<1 | 2 | 3, keyof OutreachImportRow> = {
-    1: "round1_sent_at",
-    2: "round2_sent_at",
-    3: "round3_sent_at",
+  const keys: Record<1 | 2 | 3, (keyof OutreachImportRow)[]> = {
+    1: ["round1_sent_at", "round1_to_be_sent"],
+    2: ["round2_sent_at", "round2_to_be_sent"],
+    3: ["round3_sent_at", "round3_to_be_sent"],
   };
 
   for (const round of [1, 2, 3] as const) {
     const timestamps = rows
-      .map((row) => row[keys[round]] as number | null)
+      .flatMap((row) => keys[round].map((key) => row[key] as number | null))
       .filter((ts): ts is number => ts != null && Number.isFinite(ts));
     if (timestamps.length > 0) {
       const date = timestampToPublicationDate(Math.min(...timestamps));
@@ -323,6 +326,50 @@ function fieldAsTimestamp(raw: Record<string, unknown>, keys: string[]): number 
   return parseTimestamp(getField(raw, keys));
 }
 
+function startOfTodayMs(): number {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+}
+
+/** Past dates → sent_at; today/future → to_be_sent. Round 1 sets both sent fields. */
+function assignRound1Date(timestamp: number | null): Pick<
+  OutreachImportRow,
+  "round1_sent_at" | "round1_to_be_sent"
+> {
+  if (timestamp == null) {
+    return { round1_sent_at: null, round1_to_be_sent: null };
+  }
+  return { round1_sent_at: timestamp, round1_to_be_sent: timestamp };
+}
+
+function assignRound2Date(timestamp: number | null): Pick<
+  OutreachImportRow,
+  "round2_sent_at" | "round2_to_be_sent"
+> {
+  if (timestamp == null) {
+    return { round2_sent_at: null, round2_to_be_sent: null };
+  }
+  const isScheduled = timestamp >= startOfTodayMs();
+  return {
+    round2_sent_at: isScheduled ? null : timestamp,
+    round2_to_be_sent: isScheduled ? timestamp : null,
+  };
+}
+
+function assignRound3Date(timestamp: number | null): Pick<
+  OutreachImportRow,
+  "round3_sent_at" | "round3_to_be_sent"
+> {
+  if (timestamp == null) {
+    return { round3_sent_at: null, round3_to_be_sent: null };
+  }
+  const isScheduled = timestamp >= startOfTodayMs();
+  return {
+    round3_sent_at: isScheduled ? null : timestamp,
+    round3_to_be_sent: isScheduled ? timestamp : null,
+  };
+}
+
 export function mapToOutreachRow(
   raw: Record<string, unknown>
 ): OutreachImportRow | null {
@@ -332,28 +379,30 @@ export function mapToOutreachRow(
   ]);
   if (!company_name_text) return null;
 
+  const round1 = assignRound1Date(
+    fieldAsTimestamp(raw, [
+      "round1_sent_at",
+      "contacted_round_one",
+      "round_one",
+      "round_1",
+    ])
+  );
+  const round2 = assignRound2Date(
+    fieldAsTimestamp(raw, ["round2_sent_at", "round_two", "round_2"])
+  );
+  const round3 = assignRound3Date(
+    fieldAsTimestamp(raw, ["round3_sent_at", "round_three", "round_3"])
+  );
+
   return {
     company_name_text,
     website: fieldAsString(raw, ["website", "company_website"]),
     ceo_first_name: fieldAsString(raw, ["ceo_first_name", "first_name"]),
     ceo_last_name: fieldAsString(raw, ["ceo_last_name", "last_name"]),
     ceo_email: fieldAsString(raw, ["ceo_email", "email"]),
-    round1_sent_at: fieldAsTimestamp(raw, [
-      "round1_sent_at",
-      "contacted_round_one",
-      "round_one",
-      "round_1",
-    ]),
-    round2_sent_at: fieldAsTimestamp(raw, [
-      "round2_sent_at",
-      "round_two",
-      "round_2",
-    ]),
-    round3_sent_at: fieldAsTimestamp(raw, [
-      "round3_sent_at",
-      "round_three",
-      "round_3",
-    ]),
+    ...round1,
+    ...round2,
+    ...round3,
   };
 }
 
@@ -400,7 +449,7 @@ export const OUTREACH_IMPORT_COLUMNS = [
   "Company Name / company_name_text",
   "Company Website / website",
   "Email / ceo_email",
-  "Contacted Round One / round1_sent_at",
-  "Round Two / round2_sent_at",
-  "Round Three / round3_sent_at",
+  "Contacted Round One → round1_sent_at + round1_to_be_sent",
+  "Round Two → round2_to_be_sent if today/future, else round2_sent_at",
+  "Round Three → round3_to_be_sent if today/future, else round3_sent_at",
 ] as const;
