@@ -31,11 +31,11 @@ export async function getContributorServiceToken(): Promise<string> {
     return cachedToken;
   }
 
-  const email = process.env.CONTRIBUTOR_SERVICE_EMAIL?.trim();
-  const password = process.env.CONTRIBUTOR_SERVICE_PASSWORD;
+  const email = process.env.CRON_AUTH_EMAIL?.trim();
+  const password = process.env.CRON_AUTH_PASSWORD;
   if (!email || !password) {
     throw new Error(
-      "Contributor service credentials are not configured. Set CONTRIBUTOR_SERVICE_EMAIL and CONTRIBUTOR_SERVICE_PASSWORD in .env.local."
+      "Contributor service credentials are not configured. Set CRON_AUTH_EMAIL and CRON_AUTH_PASSWORD."
     );
   }
 
