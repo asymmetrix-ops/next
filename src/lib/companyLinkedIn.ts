@@ -23,7 +23,9 @@ export interface EmployeeTimeSeriesPoint {
 }
 
 export function getCompanyLinkedInApiBase(): string {
-  return "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  return process.env.NEXT_PUBLIC_ENVIRONMENT === "develop"
+    ? "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop"
+    : "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
 }
 
 export function mapLinkedInHistoryToTimeSeries(
@@ -36,24 +38,6 @@ export function mapLinkedInHistoryToTimeSeries(
       employees_count: item.employee_count ?? 0,
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
-}
-
-/** Latest LinkedIn headcount snapshot for a calendar/fiscal year. */
-export function resolveLinkedInEmployeeCountForYear(
-  year: number,
-  employeeHistory: EmployeeTimeSeriesPoint[]
-): number | null {
-  if (!Number.isFinite(year) || employeeHistory.length === 0) return null;
-
-  const pointsInYear = employeeHistory.filter((point) => {
-    const pointYear = new Date(point.date).getFullYear();
-    return pointYear === year;
-  });
-  if (pointsInYear.length === 0) return null;
-
-  pointsInYear.sort((a, b) => a.date.localeCompare(b.date));
-  const count = pointsInYear[pointsInYear.length - 1]?.employees_count;
-  return typeof count === "number" && count > 0 ? count : null;
 }
 
 /** Headline count: prefer LinkedIn profile snapshot over last history point. */
@@ -79,18 +63,14 @@ export async function fetchCompanyLinkedIn(
   newCompanyId: string | number,
   token?: string | null
 ): Promise<CompanyLinkedInResponse> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
   const response = await fetch(
-    `/api/company-linkedin/${encodeURIComponent(String(newCompanyId))}`,
+    `${getCompanyLinkedInApiBase()}/get_company_linkedin/${newCompanyId}`,
     {
       method: "GET",
-      headers,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       credentials: "include",
     }
   );

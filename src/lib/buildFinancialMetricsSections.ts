@@ -20,10 +20,11 @@ type FinancialMetricsPayload = {
   Rule_of_40?: number | string | null;
   Rule_of_40_source_label?: string | null;
   Rule_of_40_source?: number | string | null;
-  ARR_pc?: number | null;
-  ARR_m?: number | null;
-  ARR_source_label?: string | null;
-  ARR_source?: number | string | null;
+  Subscription_revenue_pc?: number | null;
+  Subscription_revenue_m?: number | null;
+  Subscription_revenue_source_label?: string | null;
+  Subscription_revenue_source?: number | string | null;
+  Subscription_revenue_currency_display?: string | null;
   Churn_pc?: number | null;
   Churn_source_label?: string | null;
   Churn_Source?: number | string | null;
@@ -104,6 +105,19 @@ function normalizeCurrencyCode(raw: string): string {
   return trimmed.toUpperCase();
 }
 
+/** Ignore API placeholders like "0" or bare numeric currency ids. */
+function resolveMetricCurrencyDisplay(
+  display?: string | null,
+  fallback?: string
+): string | undefined {
+  if (!display) return fallback;
+  const trimmed = display.trim();
+  if (!trimmed || trimmed === "0" || /^\d+$/.test(trimmed)) {
+    return fallback;
+  }
+  return normalizeCurrencyCode(trimmed);
+}
+
 /** Strip legacy "US$" prefixes from API/display strings. */
 function stripLegacyUsPrefix(value: string): string {
   return value.replace(/US\$\s*/gi, "$");
@@ -133,7 +147,6 @@ type BuildSectionsInput = {
   revenuePlain: string;
   ebitdaPlain: string;
   evPlain: string;
-  currentEmployeeCount: number;
   currencyCode?: string;
   getSourceText: SourceResolver;
   formatPercent: (value?: number | string | null) => string;
@@ -159,7 +172,6 @@ export function buildFinancialMetricsSections({
   revenuePlain,
   ebitdaPlain,
   evPlain,
-  currentEmployeeCount,
   getSourceText,
   formatPercent,
   formatMultiple,
@@ -172,6 +184,14 @@ export function buildFinancialMetricsSections({
   const fm = financialMetrics;
   const src = getSourceText;
   const money = (formatted: string) => appendMetricCurrency(formatted, currencyCode);
+  const subscriptionMoney = (formatted: string) =>
+    appendMetricCurrency(
+      formatted,
+      resolveMetricCurrencyDisplay(
+        fm?.Subscription_revenue_currency_display,
+        currencyCode
+      )
+    );
 
   const mainRows: FinancialMetricRow[] = [];
 
@@ -225,14 +245,20 @@ export function buildFinancialMetricsSections({
 
   const subscriptionRows: FinancialMetricRow[] = [
     row(
-      "Recurring Revenue:",
-      formatPercent(fm?.ARR_pc),
-      src(fm?.ARR_source_label, fm?.ARR_source)
+      "Subscription revenue %:",
+      formatPercent(fm?.Subscription_revenue_pc),
+      src(
+        fm?.Subscription_revenue_source_label,
+        fm?.Subscription_revenue_source
+      )
     ),
     row(
-      "ARR (m):",
-      money(formatPlainNumber(fm?.ARR_m)),
-      src(fm?.ARR_source_label, fm?.ARR_source)
+      "Subscription revenue (m):",
+      subscriptionMoney(formatPlainNumber(fm?.Subscription_revenue_m)),
+      src(
+        fm?.Subscription_revenue_source_label,
+        fm?.Subscription_revenue_source
+      )
     ),
     row(
       "Churn:",
@@ -290,19 +316,17 @@ export function buildFinancialMetricsSections({
       src(fm?.No_of_Clients_source_label, fm?.No_Clients_source)
     ),
     row(
-      "Revenue per client (k):",
+      "Revenue per client:",
       money(formatWholeNumber(fm?.Rev_per_client)),
       src(fm?.Rev_per_client_source_label, fm?.Rev_per_client_source)
     ),
     row(
       "Number of employees:",
-      typeof fm?.No_Employees === "number"
-        ? fm.No_Employees.toLocaleString()
-        : currentEmployeeCount.toLocaleString(),
+      formatWholeNumber(fm?.No_Employees),
       src(fm?.No_Employees_source_label, fm?.No_Employees_source)
     ),
     row(
-      "Revenue per employee (k):",
+      "Revenue per employee:",
       money(formatWholeNumber(fm?.Revenue_per_employee)),
       src(fm?.Revenue_per_employee_source_label, fm?.Rev_per_employee_source)
     ),

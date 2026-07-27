@@ -1,5 +1,4 @@
 import type { ContentArticle } from "@/types/insightsAnalysis";
-import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 
 export const SECTOR_INSIGHTS_ARTICLES_API =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors";
@@ -117,7 +116,7 @@ export function parseInsightsArticlesPage(
     const articles = data.slice(start, start + responsePerPage);
     const showingTo = total > 0 ? Math.min(start + articles.length, total) : 0;
     return {
-      articles: normalizeContentArticles(articles),
+      articles,
       total,
       totalPages: total > 0 ? Math.ceil(total / responsePerPage) : 0,
       showingFrom: total > 0 ? start + 1 : 0,
@@ -182,7 +181,7 @@ export function parseInsightsArticlesPage(
   const hasPrev = data?.prevPage != null;
 
   return {
-    articles: normalizeContentArticles(items),
+    articles: items,
     total,
     totalPages,
     showingFrom,

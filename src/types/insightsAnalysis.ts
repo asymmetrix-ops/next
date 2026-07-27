@@ -18,16 +18,12 @@ export interface ContentArticle {
     id: number;
     name: string;
     locations_id: number;
-    Transaction_status?: string;
     _locations: {
       City: string;
       State__Province__County: string;
       Country: string;
     };
   }>;
-  // Company_of_Focus may arrive as an array of ids or objects; use `any` for flexibility
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Company_of_Focus?: any[];
   Transaction_status?: string;
   Visibility: string;
   /** Summary bullets — may be HTML string, plain string, or array of strings */
@@ -60,6 +56,7 @@ export interface InsightsAnalysisFilters {
   search_query: string;
   Content_Type?: string;
   content_type?: string;
+  Transaction_status?: number;
   primary_sectors_ids: number[];
   Secondary_sectors_ids: number[];
   Countries: string[];
@@ -67,11 +64,8 @@ export interface InsightsAnalysisFilters {
   Cities: string[];
   Offset: number;
   Per_page: number;
-  Transaction_status?: string;
-  company_id?: number | null;
-  user_id?: number | null;
-  portfolio_only?: boolean;
-  show_followed?: boolean;
+  /** When set, filters articles to this company (Get_All_Content_Articles company_id). */
+  company_id?: number;
 }
 
 // Types for API integration

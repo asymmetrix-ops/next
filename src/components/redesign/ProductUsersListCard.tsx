@@ -1,10 +1,14 @@
 "use client";
 /**
- * Core Products & Services — expandable list from CA `company_products_services`
- * or structured `product_and_users` / legacy segment names.
+ * Core Products & Services · Users & Use Cases — tabbed expandable lists.
  */
-import React from "react";
-import { LinkPanel, LinkedH, T } from "./primitives";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  LinkPanel,
+  T,
+  FIN_METRICS_TAB_BAR_STYLE,
+  FIN_METRICS_TAB_STYLE,
+} from "./primitives";
 
 export type ProductUsersSection = {
   title: string;
@@ -14,10 +18,13 @@ export type ProductUsersSection = {
   items?: string[];
 };
 
+type ProductUsersTab = "products" | "useCases";
+
 type Props = {
   /** Legacy flat segment names — converted to expandable rows without body */
   lines?: string[];
   sections?: ProductUsersSection[];
+  useCaseSections?: ProductUsersSection[];
   fillGridCell?: boolean;
 };
 
@@ -146,61 +153,170 @@ function ExpandableRow({
   );
 }
 
+function SectionList({
+  sections,
+  emptyMessage,
+}: {
+  sections: ProductUsersSection[];
+  emptyMessage: string;
+}) {
+  const [open, setOpen] = useState<boolean[]>([]);
+
+  useEffect(() => {
+    setOpen((prev) =>
+      prev.length === sections.length
+        ? prev
+        : Array.from({ length: sections.length }, () => false)
+    );
+  }, [sections.length]);
+
+  if (sections.length === 0) {
+    return (
+      <div
+        style={{
+          padding: "16px",
+          fontSize: 13,
+          color: T.muted,
+          fontFamily: T.sans,
+        }}
+      >
+        {emptyMessage}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: "4px 0 6px" }}>
+      {sections.map((entry, i) => (
+        <ExpandableRow
+          key={`${entry.title}-${i}`}
+          title={entry.title}
+          body={entry.body}
+          items={entry.items}
+          index={i}
+          isOpen={open[i] ?? false}
+          onToggle={(e) => {
+            e.stopPropagation();
+            setOpen((prev) => prev.map((v, idx) => (idx === i ? !v : v)));
+          }}
+          isLast={i === sections.length - 1}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TabHeader({
+  tabs,
+  activeTab,
+  onTabChange,
+}: {
+  tabs: { id: ProductUsersTab; label: string }[];
+  activeTab: ProductUsersTab;
+  onTabChange: (tab: ProductUsersTab) => void;
+}) {
+  return (
+    <div role="tablist" style={FIN_METRICS_TAB_BAR_STYLE}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          flexWrap: "nowrap",
+          minWidth: 0,
+          flex: 1,
+          overflowX: "auto",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}
+        className="fin-tab-scroll"
+      >
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTabChange(tab.id);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              background: "transparent",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              ...FIN_METRICS_TAB_STYLE,
+              color: activeTab === tab.id ? T.ink : T.muted,
+              fontWeight: activeTab === tab.id ? 600 : 500,
+              borderBottom: `2px solid ${activeTab === tab.id ? T.azure : "transparent"}`,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+              transition: "color 120ms, border-color 120ms",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ProductUsersListCard({
   lines = [],
   sections,
+  useCaseSections = [],
   fillGridCell = true,
 }: Props) {
-  const resolvedSections: ProductUsersSection[] = React.useMemo(() => {
+  const productSections: ProductUsersSection[] = useMemo(() => {
     if (Array.isArray(sections) && sections.length > 0) return sections;
     return lines.map((line) => ({ title: line }));
   }, [sections, lines]);
 
-  const [open, setOpen] = React.useState<boolean[]>([]);
+  const useCases = useCaseSections ?? [];
 
-  React.useLayoutEffect(() => {
-    setOpen((prev) =>
-      prev.length === resolvedSections.length
-        ? prev
-        : Array.from({ length: resolvedSections.length }, () => false)
-    );
-  }, [resolvedSections.length]);
+  const tabs: { id: ProductUsersTab; label: string }[] = useMemo(
+    () => [
+      { id: "products", label: "Core Products & Services" },
+      { id: "useCases", label: "Users & Use Cases" },
+    ],
+    []
+  );
 
-  const toggleSection = (i: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setOpen((prev) => prev.map((v, idx) => (idx === i ? !v : v)));
-  };
+  const [activeTab, setActiveTab] = useState<ProductUsersTab>("products");
+
+  useEffect(() => {
+    if (activeTab === "products" && productSections.length === 0 && useCases.length > 0) {
+      setActiveTab("useCases");
+    }
+  }, [activeTab, productSections.length, useCases.length]);
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH>Core Products &amp; Services</LinkedH>
-      <div style={{ paddingBottom: 4, flex: 1, minHeight: 0 }}>
-        {resolvedSections.length > 0 ? (
-          <div style={{ padding: "4px 0 6px" }}>
-            {resolvedSections.map((entry, i) => (
-              <ExpandableRow
-                key={`${entry.title}-${i}`}
-                title={entry.title}
-                body={entry.body}
-                items={entry.items}
-                index={i}
-                isOpen={open[i] ?? false}
-                onToggle={(e) => toggleSection(i, e)}
-                isLast={i === resolvedSections.length - 1}
-              />
-            ))}
-          </div>
+      <TabHeader tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      <div
+        style={{
+          paddingBottom: 4,
+          flex: fillGridCell ? 1 : undefined,
+          minHeight: fillGridCell ? 0 : undefined,
+          display: fillGridCell ? "flex" : undefined,
+          flexDirection: fillGridCell ? "column" : undefined,
+          overflow: fillGridCell ? "auto" : undefined,
+        }}
+      >
+        {activeTab === "products" ? (
+          <SectionList
+            sections={productSections}
+            emptyMessage="No products or services listed."
+          />
         ) : (
-          <div
-            style={{
-              padding: "16px",
-              fontSize: 13,
-              color: T.muted,
-              fontFamily: T.sans,
-            }}
-          >
-            No products or services listed.
-          </div>
+          <SectionList
+            sections={useCases}
+            emptyMessage="No users or use cases listed."
+          />
         )}
       </div>
     </LinkPanel>

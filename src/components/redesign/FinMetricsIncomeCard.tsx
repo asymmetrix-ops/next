@@ -2,21 +2,21 @@
 
 /**
  * FinMetricsIncomeCard — two stacked tab-switching cards (V3 right rail):
- * 1. Financial Metrics · Benchmark vs Peers · Income Statement
+ * 1. Financial Metrics · Income Statement
  * 2. Subscription Metrics · Other Metrics
  */
 import React, { useEffect, useMemo, useState } from "react";
 import {
   LinkPanel,
-  Pill,
   T,
-  KV_LABEL_COL,
   finMetricLabelStyle,
   finMetricRowStyle,
   finMetricPeriodColStyle,
   FIN_METRIC_VALUE_CLASS,
   finMetricValueColStyle,
-  finMetricsBodyPadding,
+  finMetricSourceColStyle,
+  finMetricPeriodSourceColStyle,
+  finMetricsContentXPad,
   finMetricsPeriodHeaderStyle,
   FIN_METRIC_GRID_COLS,
   FIN_METRICS_TAB_BAR_STYLE,
@@ -31,17 +31,11 @@ import type {
   FinancialMetricSection,
   FinancialMetricsCardData,
 } from "@/lib/buildFinancialMetricsSections";
-import {
-  benchmarkDeltaTone,
-  type BenchmarkPeersData,
-} from "@/lib/buildBenchmarkPeersData";
-
-export type PrimaryFinTab = "metrics" | "benchmark" | "income";
+export type PrimaryFinTab = "metrics" | "income";
 export type SecondaryFinTab = "subscription" | "other";
 
 type Props = {
   data: FinancialMetricsCardData;
-  benchmarkData?: BenchmarkPeersData | null;
   hasIncomeStatement?: boolean;
   incomeStatementRows?: IncomeStatementRow[];
   incomeStatementCurrency?: string;
@@ -54,29 +48,21 @@ function PeriodHeader({ period }: { period?: string }) {
   if (!period) return null;
   return (
     <div
+      className="info-row fin-metric-period-header"
       style={{
         display: "grid",
         gridTemplateColumns: GRID_COLS,
         gap: 8,
         alignItems: "center",
-        padding: "4px 12px 3px",
+        padding: `6px ${finMetricsContentXPad}px 4px`,
         background: T.paper,
         borderBottom: `1px solid ${T.hair}`,
         ...finMetricsPeriodHeaderStyle,
       }}
     >
       <span />
-      <span />
-      <span style={finMetricPeriodColStyle}>{period}</span>
-      <span />
-      <span
-        style={{
-          ...finMetricLabelStyle,
-          textAlign: "right",
-          justifySelf: "end",
-          whiteSpace: "nowrap",
-        }}
-      >
+      <span className="fin-metric-period-col" style={finMetricPeriodColStyle}>{period}</span>
+      <span className="fin-metric-period-source-col" style={finMetricPeriodSourceColStyle}>
         Source
       </span>
     </div>
@@ -100,19 +86,10 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
       >
         {row.label}
       </span>
-      <span />
       <span className={FIN_METRIC_VALUE_CLASS} style={finMetricValueColStyle}>
         {row.value}
       </span>
-      <span />
-      <span
-        style={{
-          ...finMetricLabelStyle,
-          textAlign: "right",
-          justifySelf: "end",
-          whiteSpace: "nowrap",
-        }}
-      >
+      <span className="fin-metric-source-col" style={finMetricSourceColStyle}>
         {row.source}
       </span>
     </div>
@@ -134,13 +111,22 @@ function MetricSectionBody({
     />
   ));
 
+  const metricsBody = (
+    <>
+      <PeriodHeader period={section.periodDisplay} />
+      <div
+        style={{
+          padding: `0 ${finMetricsContentXPad}px`,
+          paddingBottom: 4,
+        }}
+      >
+        {rows}
+      </div>
+    </>
+  );
+
   if (!fillAvailable) {
-    return (
-      <>
-        <PeriodHeader period={section.periodDisplay} />
-        <div style={{ padding: finMetricsBodyPadding }}>{rows}</div>
-      </>
-    );
+    return metricsBody;
   }
 
   return (
@@ -153,86 +139,15 @@ function MetricSectionBody({
         overflow: "hidden",
       }}
     >
-      <PeriodHeader period={section.periodDisplay} />
       <div
         style={{
-          padding: finMetricsBodyPadding,
           flex: 1,
           minHeight: 0,
           overflow: "auto",
         }}
       >
-        {rows}
+        {metricsBody}
       </div>
-    </div>
-  );
-}
-
-function BenchmarkTabBody({ data }: { data: BenchmarkPeersData }) {
-  return (
-    <div style={{ padding: finMetricsBodyPadding }}>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: `${KV_LABEL_COL} 1fr 1fr 48px`,
-          gap: 8,
-          padding: "2px 0",
-          borderBottom: `1px solid ${T.hair}`,
-        }}
-      >
-        <div style={finMetricLabelStyle}>Metric</div>
-        <div style={{ ...finMetricLabelStyle, textAlign: "right" }}>{data.companyName}</div>
-        <div style={{ ...finMetricLabelStyle, textAlign: "right" }}>Peer median</div>
-        <div style={{ ...finMetricLabelStyle, textAlign: "center" }}>vs.</div>
-      </div>
-      {data.rows.map((row, i) => {
-        const tone = benchmarkDeltaTone(row.companyValue, row.peerMedian);
-        return (
-          <div
-            key={row.label}
-            style={{
-              display: "grid",
-              gridTemplateColumns: `${KV_LABEL_COL} 1fr 1fr 48px`,
-              gap: 8,
-              padding: "4px 0",
-              borderBottom:
-                i === data.rows.length - 1 ? "none" : `1px solid ${T.hair}`,
-              alignItems: "start",
-            }}
-          >
-            <div style={finMetricLabelStyle}>{row.label}</div>
-            <div
-              className={FIN_METRIC_VALUE_CLASS}
-              style={{ ...finMetricValueColStyle, textAlign: "center" }}
-            >
-              {row.companyValue}
-            </div>
-            <div
-              className={FIN_METRIC_VALUE_CLASS}
-              style={{ ...finMetricValueColStyle, textAlign: "center" }}
-            >
-              {row.peerMedian}
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <Pill tone={tone === "up" ? "up" : tone === "down" ? "down" : "ghost"}>
-                {tone === "up" ? "▲" : tone === "down" ? "▼" : "–"}
-              </Pill>
-            </div>
-          </div>
-        );
-      })}
-      {data.footnote ? (
-        <div
-          style={{
-            marginTop: 10,
-            fontSize: 11,
-            color: T.muted,
-            lineHeight: 1.5,
-          }}
-        >
-          {data.footnote}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -280,13 +195,12 @@ function TabHeader<T extends string>({
       <div
         style={{
           display: "flex",
-          alignItems: "flex-end",
+          alignItems: "center",
           gap: 14,
           flexWrap: "nowrap",
           minWidth: 0,
           flex: 1,
           overflowX: "auto",
-          overflowY: "hidden",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
         }}
@@ -303,13 +217,15 @@ function TabHeader<T extends string>({
               onTabChange(tab.id);
             }}
             style={{
+              display: "flex",
+              alignItems: "center",
               background: "transparent",
               border: "none",
               padding: 0,
-              paddingBottom: 2,
               cursor: "pointer",
               ...FIN_METRICS_TAB_STYLE,
               color: activeTab === tab.id ? T.ink : T.muted,
+              fontWeight: activeTab === tab.id ? 600 : 500,
               borderBottom: `2px solid ${activeTab === tab.id ? T.azure : "transparent"}`,
               whiteSpace: "nowrap",
               flexShrink: 0,
@@ -326,25 +242,8 @@ function TabHeader<T extends string>({
   );
 }
 
-function BenchmarkPlaceholder() {
-  return (
-    <div
-      style={{
-        padding: "16px 12px 14px",
-        fontSize: 13,
-        color: T.muted,
-        lineHeight: 1.55,
-        textAlign: "center",
-      }}
-    >
-      Benchmark vs. Peers is under development.
-    </div>
-  );
-}
-
 function PrimaryFinCard({
   primary,
-  benchmarkData,
   hasIncomeStatement,
   incomeStatementRows,
   incomeStatementCurrency,
@@ -352,7 +251,6 @@ function PrimaryFinCard({
   onViewMore,
 }: {
   primary: FinancialMetricSection;
-  benchmarkData: BenchmarkPeersData | null;
   hasIncomeStatement: boolean;
   incomeStatementRows: IncomeStatementRow[];
   incomeStatementCurrency: string;
@@ -362,7 +260,6 @@ function PrimaryFinCard({
   const tabs = useMemo(() => {
     const list: { id: PrimaryFinTab; label: string }[] = [
       { id: "metrics", label: "Financial Metrics" },
-      { id: "benchmark", label: "Benchmark vs. Peers" },
     ];
     if (hasIncomeStatement) {
       list.push({ id: "income", label: "Income Statement" });
@@ -379,7 +276,7 @@ function PrimaryFinCard({
   }, [tabs, activeTab]);
 
   return (
-    <LinkPanel fillGridCell={fillGridCell}>
+    <LinkPanel fillGridCell={fillGridCell} className="fin-metrics-card--primary">
       <TabHeader
         tabs={tabs}
         activeTab={activeTab}
@@ -395,12 +292,6 @@ function PrimaryFinCard({
       >
       {activeTab === "metrics" ? (
         <MetricSectionBody section={primary} fillAvailable={fillGridCell} />
-      ) : activeTab === "benchmark" ? (
-        benchmarkData ? (
-          <BenchmarkTabBody data={benchmarkData} />
-        ) : (
-          <BenchmarkPlaceholder />
-        )
       ) : activeTab === "income" && hasIncomeStatement ? (
         <div style={fillGridCell ? { flex: 1, minHeight: 0, overflow: "auto" } : undefined}>
           <IncomeStatementTable
@@ -435,7 +326,7 @@ function SecondaryFinCard({
   const [activeTab, setActiveTab] = useState<SecondaryFinTab>("subscription");
 
   return (
-    <LinkPanel fillGridCell={fillGridCell}>
+    <LinkPanel fillGridCell={fillGridCell} className="fin-metrics-card--secondary">
       <TabHeader
         tabs={tabs}
         activeTab={activeTab}
@@ -483,7 +374,6 @@ export function FinMetricsSecondaryCard(
 
 export function FinMetricsIncomeCard({
   data,
-  benchmarkData = null,
   hasIncomeStatement = false,
   incomeStatementRows = [],
   incomeStatementCurrency = "",
@@ -505,7 +395,6 @@ export function FinMetricsIncomeCard({
     >
       <PrimaryFinCard
         primary={data.primary}
-        benchmarkData={benchmarkData}
         hasIncomeStatement={hasIncomeStatement}
         incomeStatementRows={incomeStatementRows}
         incomeStatementCurrency={incomeStatementCurrency}

@@ -271,8 +271,12 @@ export function HeadcountCard({
             <svg
               viewBox={`0 0 ${W} ${H}`}
               width="100%"
-              height="auto"
-              style={{ display: "block", overflow: "visible", aspectRatio: `${W} / ${H}` }}
+              style={{
+                display: "block",
+                overflow: "visible",
+                aspectRatio: `${W} / ${H}`,
+                height: "auto",
+              }}
               onMouseLeave={() => setHoveredIndex(null)}
             >
               <defs>
