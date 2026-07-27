@@ -7,18 +7,21 @@ const DCP_OUTREACH_BY_COMPANY_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_delivery_log/dcp_outreach_by_company";
 
 const DCP_PER_PAGE = 25;
+const DCP_ROUND_KEYS = ["1", "2", "3"] as const;
+const DCP_TOTAL_ROUND_KEYS = ["round_1", "round_2", "round_3"] as const;
 
 type DcpEngagementFilter = "all" | "outreach_sent";
 
-type DcpEmailLog = {
-  log_id: number;
-  recipient_email: string;
-  status: string;
+type DcpRoundLog = {
   sent_at: number;
-  delivered_at: number | null;
   opened_at: number;
-  clicked_at: number | null;
+  was_opened: boolean;
   clicks: number;
+  delivered_at: number | null;
+  clicked_at: number | null;
+  was_clicked: boolean;
+  status: string;
+  recipient_email: string;
 };
 
 type DcpCompanyRow = {
@@ -30,17 +33,41 @@ type DcpCompanyRow = {
   was_opened: boolean;
   was_clicked: boolean;
   contributed: boolean;
-  emails: DcpEmailLog[];
+  rounds: Record<string, DcpRoundLog>;
+  engagement_pattern: string;
+  rounds_opened: number[];
+  opened_round_1: boolean;
+  opened_round_2: boolean;
+  opened_round_3: boolean;
+};
+
+type DcpRoundOpenRate = {
+  sent: number;
+  opened: number;
+  open_rate_pct: number;
 };
 
 type DcpTotals = {
   total_companies_emailed: number;
   total_opened: number;
   total_contributed: number;
+  engagement_patterns: Record<string, number>;
+  round_open_rates: Record<string, DcpRoundOpenRate>;
 };
 
 type DcpOutreachTabProps = {
   onCompanyCountChange?: (count: number) => void;
+};
+
+const DCP_PATTERN_LABELS: Record<string, string> = {
+  never_opened: "Never opened",
+  opened_r1_only: "Opened R1 only",
+  opened_r2_only: "Opened R2 only",
+  opened_r3_only: "Opened R3 only",
+  opened_r1_r2: "Opened R1 & R2",
+  opened_r1_r3: "Opened R1 & R3",
+  opened_r2_r3: "Opened R2 & R3",
+  opened_all: "Opened all rounds",
 };
 
 function dcpNum(value: unknown): number {
@@ -75,66 +102,128 @@ function formatTimestamp(ts: number | null): string {
   }
 }
 
-function dcpParseEmails(value: unknown): DcpEmailLog[] {
+function dcpPatternLabel(pattern: string): string {
+  if (!pattern) return "—";
+  return DCP_PATTERN_LABELS[pattern] ?? pattern.replace(/_/g, " ");
+}
+
+function dcpParseRoundLog(row: Record<string, unknown>): DcpRoundLog {
+  return {
+    sent_at: dcpNum(row.sent_at),
+    opened_at: dcpNum(row.opened_at),
+    was_opened: Boolean(row.was_opened),
+    clicks: dcpNum(row.clicks),
+    delivered_at: dcpOptionalTs(row.delivered_at),
+    clicked_at: dcpOptionalTs(row.clicked_at),
+    was_clicked: Boolean(row.was_clicked),
+    status: String(row.status ?? ""),
+    recipient_email: String(row.recipient_email ?? ""),
+  };
+}
+
+function dcpParseRounds(value: unknown): Record<string, DcpRoundLog> {
   let raw: unknown = value;
   if (typeof raw === "string" && raw.trim()) {
     try {
       raw = JSON.parse(raw) as unknown;
     } catch {
-      return [];
+      return {};
     }
   }
-  if (!Array.isArray(raw)) return [];
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
 
-  return raw
-    .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
-    .map((r) => ({
-      log_id: dcpNum(r.log_id ?? r.id),
-      recipient_email: String(r.recipient_email ?? ""),
-      status: String(r.status ?? ""),
-      sent_at: dcpNum(r.sent_at),
-      delivered_at: dcpOptionalTs(r.delivered_at),
-      opened_at: dcpNum(r.opened_at),
-      clicked_at: dcpOptionalTs(r.clicked_at),
-      clicks: dcpNum(r.clicks),
-    }))
-    .sort(
-      (a, b) =>
-        (b.sent_at || b.delivered_at || b.opened_at || b.clicked_at || 0) -
-        (a.sent_at || a.delivered_at || a.opened_at || a.clicked_at || 0)
-    );
+  const rounds: Record<string, DcpRoundLog> = {};
+  for (const [key, entry] of Object.entries(raw as Record<string, unknown>)) {
+    if (!entry || typeof entry !== "object") continue;
+    rounds[key] = dcpParseRoundLog(entry as Record<string, unknown>);
+  }
+  return rounds;
 }
 
-function dcpEffectiveSentAt(email: DcpEmailLog): number {
-  return email.sent_at || email.delivered_at || email.opened_at || email.clicked_at || 0;
-}
-
-function dcpEffectiveLastSentAt(
-  lastSentAt: number,
-  emails: DcpEmailLog[]
-): number {
-  if (lastSentAt > 0) return lastSentAt;
-  return emails.reduce(
-    (max, email) => Math.max(max, dcpEffectiveSentAt(email)),
+function dcpRoundEffectiveSentAt(round: DcpRoundLog): number {
+  return (
+    round.sent_at ||
+    round.delivered_at ||
+    round.opened_at ||
+    round.clicked_at ||
     0
   );
 }
 
+function dcpRoundsSentCount(rounds: Record<string, DcpRoundLog>): number {
+  return DCP_ROUND_KEYS.filter((key) => {
+    const round = rounds[key];
+    return !!round && dcpRoundEffectiveSentAt(round) > 0;
+  }).length;
+}
+
+function dcpEffectiveLastSentAt(
+  lastSentAt: number,
+  rounds: Record<string, DcpRoundLog>
+): number {
+  if (lastSentAt > 0) return lastSentAt;
+  return DCP_ROUND_KEYS.reduce((max, key) => {
+    const round = rounds[key];
+    return round ? Math.max(max, dcpRoundEffectiveSentAt(round)) : max;
+  }, 0);
+}
+
+function dcpParseRoundsOpened(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => dcpNum(item))
+    .filter((n) => n >= 1 && n <= 3);
+}
+
+function dcpParseEngagementPatterns(
+  value: unknown
+): Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const patterns: Record<string, number> = {};
+  for (const [key, count] of Object.entries(value as Record<string, unknown>)) {
+    patterns[key] = dcpNum(count);
+  }
+  return patterns;
+}
+
+function dcpParseRoundOpenRates(
+  value: unknown
+): Record<string, DcpRoundOpenRate> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const rates: Record<string, DcpRoundOpenRate> = {};
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (!entry || typeof entry !== "object") continue;
+    const row = entry as Record<string, unknown>;
+    rates[key] = {
+      sent: dcpNum(row.sent),
+      opened: dcpNum(row.opened),
+      open_rate_pct: dcpNum(row.open_rate_pct),
+    };
+  }
+  return rates;
+}
+
 function normalizeDcpCompanyRow(row: unknown): DcpCompanyRow {
   const r = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
-  const emails = dcpParseEmails(r.emails);
+  const rounds = dcpParseRounds(r.rounds);
   const lastSentAt = dcpNum(r.last_sent_at);
+  const roundsSentCount = dcpRoundsSentCount(rounds);
 
   return {
     company_id: dcpNum(r.company_id),
     company_name: String(r.company_name ?? ""),
     company_url: String(r.company_url ?? ""),
-    emails_sent_count: dcpNum(r.emails_sent_count) || emails.length,
-    last_sent_at: dcpEffectiveLastSentAt(lastSentAt, emails),
+    emails_sent_count: dcpNum(r.emails_sent_count) || roundsSentCount,
+    last_sent_at: dcpEffectiveLastSentAt(lastSentAt, rounds),
     was_opened: Boolean(r.was_opened),
     was_clicked: Boolean(r.was_clicked),
     contributed: Boolean(r.contributed),
-    emails,
+    rounds,
+    engagement_pattern: String(r.engagement_pattern ?? ""),
+    rounds_opened: dcpParseRoundsOpened(r.rounds_opened),
+    opened_round_1: Boolean(r.opened_round_1),
+    opened_round_2: Boolean(r.opened_round_2),
+    opened_round_3: Boolean(r.opened_round_3),
   };
 }
 
@@ -165,6 +254,10 @@ function normalizeDcpOutreachResponse(json: unknown): {
       total_companies_emailed: dcpNum(totalsRaw.total_companies_emailed),
       total_opened: dcpNum(totalsRaw.total_opened),
       total_contributed: dcpNum(totalsRaw.total_contributed),
+      engagement_patterns: dcpParseEngagementPatterns(
+        totalsRaw.engagement_patterns
+      ),
+      round_open_rates: dcpParseRoundOpenRates(totalsRaw.round_open_rates),
     },
   };
 }
@@ -227,12 +320,109 @@ function dcpStatusBadge(status: string) {
   };
 }
 
+function DcpRoundOpenedBadges({ roundsOpened }: { roundsOpened: number[] }) {
+  if (roundsOpened.length === 0) {
+    return <span className="text-xs text-gray-400">None</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {roundsOpened.map((round) => (
+        <span
+          key={round}
+          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
+        >
+          R{round}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function DcpRoundOpenRateBars({
+  roundOpenRates,
+}: {
+  roundOpenRates: Record<string, DcpRoundOpenRate>;
+}) {
+  const rows = DCP_TOTAL_ROUND_KEYS.map((key) => ({
+    key,
+    label: `Round ${key.replace("round_", "")}`,
+    rate: roundOpenRates[key],
+  })).filter((row) => row.rate && row.rate.sent > 0);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="px-4 py-4 border-b border-gray-100">
+      <h3 className="text-sm font-medium text-gray-900 mb-3">
+        Open rate by round
+      </h3>
+      <div className="grid gap-3 md:grid-cols-3">
+        {rows.map(({ key, label, rate }) => {
+          const pct = Math.min(100, Math.max(0, rate?.open_rate_pct ?? 0));
+          return (
+            <div key={key} className="rounded border px-4 py-3">
+              <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                <span>{label}</span>
+                <span>
+                  {rate?.opened.toLocaleString()} / {rate?.sent.toLocaleString()}
+                </span>
+              </div>
+              <div className="text-lg font-medium text-green-700 mb-2">
+                {pct.toFixed(1)}%
+              </div>
+              <div className="h-2 rounded bg-gray-100 overflow-hidden">
+                <div
+                  className="h-2 rounded bg-green-600"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DcpEngagementPatternBreakdown({
+  patterns,
+}: {
+  patterns: Record<string, number>;
+}) {
+  const rows = Object.entries(patterns)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="px-4 py-4 border-b border-gray-100">
+      <h3 className="text-sm font-medium text-gray-900 mb-3">
+        Engagement patterns
+      </h3>
+      <div className="flex flex-wrap gap-2">
+        {rows.map(([pattern, count]) => (
+          <span
+            key={pattern}
+            className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-700"
+          >
+            <span>{dcpPatternLabel(pattern)}</span>
+            <span className="font-medium text-gray-900">{count}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
   const [companies, setCompanies] = useState<DcpCompanyRow[]>([]);
   const [totals, setTotals] = useState<DcpTotals>({
     total_companies_emailed: 0,
     total_opened: 0,
     total_contributed: 0,
+    engagement_patterns: {},
+    round_open_rates: {},
   });
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(DCP_PER_PAGE);
@@ -315,6 +505,8 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
         total_companies_emailed: 0,
         total_opened: 0,
         total_contributed: 0,
+        engagement_patterns: {},
+        round_open_rates: {},
       });
       setError(
         e instanceof Error ? e.message : "Failed to load DCP outreach history"
@@ -405,6 +597,9 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
           </div>
         </div>
       </div>
+
+      <DcpRoundOpenRateBars roundOpenRates={totals.round_open_rates} />
+      <DcpEngagementPatternBreakdown patterns={totals.engagement_patterns} />
 
       <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-100">
         <span className="text-xs font-medium text-gray-500 mr-1">Show:</span>
@@ -504,8 +699,10 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
                   "",
                   "Company",
                   "Website",
-                  "Emails sent",
+                  "Rounds sent",
                   "Last sent",
+                  "Pattern",
+                  "Rounds opened",
                   "Opened",
                   "Clicked",
                   "Contributed",
@@ -523,7 +720,7 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
               {companies.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={10}
                     className="text-center py-8 text-sm text-gray-500"
                   >
                     No DCP outreach records match this filter.
@@ -532,6 +729,11 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
               ) : (
                 companies.map((company) => {
                   const expanded = expandedIds.has(company.company_id);
+                  const roundRows = DCP_ROUND_KEYS.map((roundKey) => ({
+                    roundKey,
+                    round: company.rounds[roundKey],
+                  })).filter(({ round }) => !!round);
+
                   return (
                     <Fragment key={company.company_id}>
                       <tr className="border-b border-gray-100">
@@ -573,6 +775,14 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
                         <td className="px-3 py-2 whitespace-nowrap text-gray-700">
                           {formatTimestamp(company.last_sent_at || null)}
                         </td>
+                        <td className="px-3 py-2 text-gray-700">
+                          {dcpPatternLabel(company.engagement_pattern)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <DcpRoundOpenedBadges
+                            roundsOpened={company.rounds_opened}
+                          />
+                        </td>
                         <td className="px-3 py-2">
                           <DcpStatusBadge value={company.was_opened} />
                         </td>
@@ -589,14 +799,15 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
                       </tr>
                       {expanded ? (
                         <tr className="bg-gray-50">
-                          <td colSpan={8} className="px-3 py-3">
+                          <td colSpan={10} className="px-3 py-3">
                             <div className="text-xs font-medium text-gray-500 mb-2">
-                              Email history
+                              Round history
                             </div>
                             <table className="w-full text-xs border-collapse">
                               <thead>
                                 <tr className="border-b border-gray-200">
                                   {[
+                                    "Round",
                                     "Recipient",
                                     "Sent",
                                     "Delivered",
@@ -615,43 +826,45 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
                                 </tr>
                               </thead>
                               <tbody>
-                                {company.emails.length === 0 ? (
+                                {roundRows.length === 0 ? (
                                   <tr>
                                     <td
-                                      colSpan={7}
+                                      colSpan={8}
                                       className="px-2 py-2 text-gray-500"
                                     >
-                                      No email records for this company.
+                                      No round records for this company.
                                     </td>
                                   </tr>
                                 ) : (
-                                  company.emails.map((email) => {
-                                    const statusBadge = dcpStatusBadge(email.status);
+                                  roundRows.map(({ roundKey, round }) => {
+                                    if (!round) return null;
+                                    const statusBadge = dcpStatusBadge(round.status);
                                     return (
                                       <tr
-                                        key={email.log_id}
+                                        key={roundKey}
                                         className="border-b border-gray-100 last:border-0"
                                       >
+                                        <td className="px-2 py-1 font-medium text-gray-900">
+                                          R{roundKey}
+                                        </td>
                                         <td className="px-2 py-1 text-gray-900">
-                                          {email.recipient_email || "—"}
+                                          {round.recipient_email || "—"}
                                         </td>
                                         <td className="px-2 py-1 whitespace-nowrap">
                                           {formatTimestamp(
-                                            dcpEffectiveSentAt(email) || null
+                                            dcpRoundEffectiveSentAt(round) || null
                                           )}
                                         </td>
                                         <td className="px-2 py-1 whitespace-nowrap">
-                                          {formatTimestamp(email.delivered_at)}
+                                          {formatTimestamp(round.delivered_at)}
                                         </td>
                                         <td className="px-2 py-1 whitespace-nowrap">
-                                          {formatTimestamp(
-                                            email.opened_at || null
-                                          )}
+                                          {formatTimestamp(round.opened_at || null)}
                                         </td>
                                         <td className="px-2 py-1 whitespace-nowrap">
-                                          {formatTimestamp(email.clicked_at)}
+                                          {formatTimestamp(round.clicked_at)}
                                         </td>
-                                        <td className="px-2 py-1">{email.clicks}</td>
+                                        <td className="px-2 py-1">{round.clicks}</td>
                                         <td className="px-2 py-1">
                                           <span
                                             className={`inline-flex items-center px-1.5 py-0.5 rounded ${statusBadge.cls}`}
