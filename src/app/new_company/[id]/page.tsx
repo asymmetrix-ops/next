@@ -41,7 +41,6 @@ import {
   FinMetricsSecondaryCard,
 } from "@/components/redesign/FinMetricsIncomeCard";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
-import { buildBenchmarkPeersData } from "@/lib/buildBenchmarkPeersData";
 import { EMPTY_DISPLAY, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import {
   isCompanyMcpPopulated,
@@ -702,9 +701,6 @@ const getNumeric = (value?: number | string | null): number | undefined => {
 const OVERVIEW_TAG_CAP = 3;
 
 const INSIGHTS_PREVIEW_COUNT = 2;
-
-/** Design-demo total for empty insights card (matches V3 mock pagination) */
-const INSIGHTS_EMPTY_STATE_DEMO_TOTAL = 17;
 
 // RANGE_DASH moved to InsightsCard component
 
@@ -2352,31 +2348,35 @@ const CompanyDetail = () => {
   // Use API-provided primary sectors only
   const augmentedPrimarySectors = primarySectors;
 
-  const corporateEventPrimarySectorsByCompanyId: Record<number, string[]> =
+  const corporateEventPrimarySectorsByCompanyId: Record<number, CompanySector[]> =
     (() => {
-      const map: Record<number, string[]> = {};
-      if (company?.id) {
-        map[company.id] = augmentedPrimarySectors
-          .map((s) => s.sector_name?.trim())
-          .filter((name): name is string => Boolean(name));
+      const map: Record<number, CompanySector[]> = {};
+      if (company?.id && augmentedPrimarySectors.length > 0) {
+        map[company.id] = augmentedPrimarySectors;
       }
       const subsidiaries =
         company?.have_subsidiaries_companies?.Subsidiaries_companies ?? [];
       for (const sub of subsidiaries) {
         if (!sub?.id || !Array.isArray(sub.sectors_id)) continue;
-        const names = (
+        const primaries = (
           sub.sectors_id as Array<{
             sector_name?: string;
             Sector_importance?: string;
+            sector_id?: number;
+            id?: number;
           }>
         )
           .filter((s) => {
             const importance = String(s?.Sector_importance ?? "Primary").trim();
-            return importance === "Primary";
+            return importance === "Primary" && Boolean(s?.sector_name);
           })
-          .map((s) => String(s?.sector_name ?? "").trim())
-          .filter(Boolean);
-        if (names.length > 0) map[sub.id] = names;
+          .map((s) => ({
+            sector_name: String(s.sector_name).trim(),
+            Sector_importance: "Primary" as const,
+            sector_id: getSectorId(s) ?? 0,
+          }))
+          .filter((s) => Boolean(s.sector_name));
+        if (primaries.length > 0) map[sub.id] = primaries;
       }
       return map;
     })();
@@ -2539,7 +2539,6 @@ const CompanyDetail = () => {
     revenuePlain,
     ebitdaPlain,
     evPlain,
-    currentEmployeeCount,
     currencyCode: metricsCurrencyCode || displayCurrency,
     getSourceText,
     formatPercent,
@@ -2548,10 +2547,6 @@ const CompanyDetail = () => {
     formatWholeNumber,
     getNumeric,
     periodDisplay: financialMetricsPeriodDisplay || undefined,
-  });
-
-  const benchmarkPeersData = buildBenchmarkPeersData({
-    companyName: company.name?.trim() || "Company",
   });
 
   // Determine if there are subsidiaries to display
@@ -4181,7 +4176,6 @@ const CompanyDetail = () => {
                     fetchCompanyArticles(company.id, insightsPage + 1);
                   }
                 }}
-                emptyStateTotal={INSIGHTS_EMPTY_STATE_DEMO_TOTAL}
                 companyId={company.id}
                 companyName={company.name}
               />
@@ -4356,7 +4350,6 @@ const CompanyDetail = () => {
               <FinMetricsPrimaryCard
                 fillGridCell
                 primary={finMetricsData.primary}
-                benchmarkData={benchmarkPeersData}
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
                 incomeStatementCurrency={evCurrency || revenueCurrency || ""}
@@ -4396,7 +4389,6 @@ const CompanyDetail = () => {
             <FinMetricsIncomeCard
               fillGridCell={false}
               data={finMetricsData}
-              benchmarkData={benchmarkPeersData}
               hasIncomeStatement={hasIncomeStatementData}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementCurrency={evCurrency || revenueCurrency || ""}
