@@ -14,6 +14,7 @@ import {
   UserActivityTab,
 } from "./_components/AnalyticsViews";
 import { UnifiedActivityTab } from "./_components/UnifiedActivityTab";
+import { McpAuditTab } from "./_components/McpAuditTab";
 
 type AnalyticsTab =
   | "unified-activity"
@@ -23,7 +24,8 @@ type AnalyticsTab =
   | "platform-wide-search"
   | "company-search"
   | "pdf-export"
-  | "email-analytics";
+  | "email-analytics"
+  | "mcp-audit";
 
 const ALLOWED_ANALYTICS_EMAILS = new Set<string>([
   "j.bochner@asymmetrixintelligence.com",
@@ -171,6 +173,16 @@ export default function AdminAnalyticsPage() {
         >
           Email Analytics
         </button>
+        <button
+          onClick={() => setActiveTab("mcp-audit")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "mcp-audit"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          MCP Usage
+        </button>
       </div>
 
       {activeTab === "unified-activity" && <UnifiedActivityTab />}
@@ -181,6 +193,7 @@ export default function AdminAnalyticsPage() {
       {activeTab === "company-search" && <CompanySearchTab />}
       {activeTab === "pdf-export" && <PdfExportTab />}
       {activeTab === "email-analytics" && <EmailAnalyticsTab />}
+      {activeTab === "mcp-audit" && <McpAuditTab />}
     </div>
   );
 }
