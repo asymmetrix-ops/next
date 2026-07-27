@@ -15,6 +15,9 @@ import {
   type FilterOperator,
 } from "@/lib/filterBuilder";
 
+export const COMPANIES_API_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+
 type SectorRef = { id: number; sector_name: string };
 type OwnershipTypeRef = { id: number; ownership: string };
 
@@ -430,24 +433,6 @@ export function buildCompaniesSearchPayload(args: {
     }
 
     // ── SUBSCRIPTION METRICS ───────────────────────────────────────────────
-    if (item.id === "arr_growth" && hasRangeValue(v)) {
-      pushClause({
-        id: item.key,
-        type: "arr_pc",
-        value: { min: v.min, max: v.max },
-        op,
-      });
-      continue;
-    }
-    if (item.id === "arr" && hasRangeValue(v)) {
-      pushClause({
-        id: item.key,
-        type: "arr_m",
-        value: { min: v.min, max: v.max },
-        op,
-      });
-      continue;
-    }
     if (item.id === "churn" && hasRangeValue(v)) {
       pushClause({
         id: item.key,

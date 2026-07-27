@@ -236,7 +236,7 @@ export function OverviewCard({
       show: hasParent,
       v: parentCompany ? (
         parentCompany.id ? (
-          <Link href={`/new_company/${parentCompany.id}`} prefetch={false} style={{ textDecoration: "none" }}>
+          <Link href={`/company/${parentCompany.id}`} prefetch={false} style={{ textDecoration: "none" }}>
             <Pill tone="neutral">{parentCompany.name}</Pill>
           </Link>
         ) : (

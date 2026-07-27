@@ -1,7 +1,5 @@
 "use client";
 
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
-
 import React, { useMemo, useState } from "react";
 import type { CorporateEventsProfileTokens } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import {
@@ -15,6 +13,13 @@ import {
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
 import { useRightClick } from "@/hooks/useRightClick";
+import {
+  enrichSectorEntries,
+  extractSectorId,
+  getSectorHref,
+  type SectorLinkEntry,
+  type SectorNameLookup,
+} from "@/lib/sectorLinks";
 
 export type SubsidiariesProfileTokens = CorporateEventsProfileTokens & {
   up: string;
@@ -23,13 +28,18 @@ export type SubsidiariesProfileTokens = CorporateEventsProfileTokens & {
 export type SubsidiaryProfileRecord = {
   id: number;
   name: string;
-  sectors_id?: Array<{ sector_name?: string; Sector_importance?: string }>;
+  sectors_id?: Array<{
+    sector_name?: string;
+    Sector_importance?: string;
+    sector_id?: number;
+    id?: number;
+  }>;
   _locations?: { Country?: string };
   _linkedin_data_of_new_company?: {
     linkedin_employee?: number | null;
     linkedin_logo?: string;
   };
-  /** Nested LinkedIn payload on Get_new_company subsidiaries */
+  /** Nested LinkedIn payload on get_company_profile subsidiaries */
   linkedin_data?: {
     linkedin_growth_1y_pct?: number | string | null;
     LinkedIn_Growth_1y_Pct?: number | string | null;
@@ -42,17 +52,15 @@ export type SubsidiaryProfileRecord = {
   linkedin_growth_spark?: number[] | null;
 };
 
-/** Parse a raw YoY growth value (number, percent string, or decimal fraction). */
+/** Parse a raw YoY growth value already in percent points (e.g. 0.7 = 0.7%). */
 export function parseLinkedInGrowthPctValue(raw: unknown): number | null {
   if (typeof raw === "number" && Number.isFinite(raw)) {
-    const pct = Math.abs(raw) <= 1 && raw !== 0 ? raw * 100 : raw;
-    return Math.round(pct * 10) / 10;
+    return Math.round(raw * 10) / 10;
   }
   if (typeof raw === "string" && raw.trim()) {
     const num = Number(raw.replace(/[^0-9.-]/g, ""));
     if (!Number.isFinite(num)) return null;
-    const pct = Math.abs(num) <= 1 && num !== 0 ? num * 100 : num;
-    return Math.round(pct * 10) / 10;
+    return Math.round(num * 10) / 10;
   }
   return null;
 }
@@ -95,6 +103,8 @@ type SubsidiariesProfilePanelProps = {
   maxInitial?: number;
   /** `narrow` = single grid column; fits Revenue-model width */
   layout?: "default" | "narrow";
+  /** Fallback name → id lookup when subsidiary sector refs omit ids. */
+  sectorNameToId?: SectorNameLookup;
 };
 
 const HEADERS = [
@@ -104,12 +114,59 @@ const HEADERS = [
   "Year Acquired",
 ] as const;
 
-function sectorLabel(s: SubsidiaryProfileRecord): string {
-  const raw = s.sectors_id
-    ?.filter((x) => x && typeof x.sector_name === "string")
-    .map((x) => x.sector_name as string);
-  if (!raw?.length) return "-";
-  return raw.slice(0, 3).join(", ");
+function subsidiarySectorEntries(
+  subsidiary: SubsidiaryProfileRecord
+): SectorLinkEntry[] {
+  return (
+    subsidiary.sectors_id
+      ?.filter((x) => x && typeof x.sector_name === "string")
+      .slice(0, 3)
+      .map((sector) => ({
+        name: sector.sector_name!.trim(),
+        id: extractSectorId(sector),
+        importance: sector.Sector_importance ?? "Primary",
+      })) ?? []
+  );
+}
+
+function SubsidiarySectorLinks({
+  subsidiary,
+  sectorNameToId,
+  linkColor,
+  createClickableElement,
+}: {
+  subsidiary: SubsidiaryProfileRecord;
+  sectorNameToId?: SectorNameLookup;
+  linkColor: string;
+  createClickableElement: ReturnType<
+    typeof useRightClick
+  >["createClickableElement"];
+}) {
+  const sectors = enrichSectorEntries(
+    subsidiarySectorEntries(subsidiary),
+    sectorNameToId
+  );
+  if (sectors.length === 0) return <>-</>;
+
+  return (
+    <>
+      {sectors.map((sector, idx) => {
+        const href = getSectorHref(sector);
+        return (
+          <span key={`${sector.name}-${sector.id ?? idx}`}>
+            {href
+              ? createClickableElement(href, sector.name, undefined, {
+                  color: linkColor,
+                  fontWeight: 500,
+                  textDecoration: "underline",
+                })
+              : sector.name}
+            {idx < sectors.length - 1 ? ", " : ""}
+          </span>
+        );
+      })}
+    </>
+  );
 }
 
 function LogoLetter({
@@ -122,7 +179,11 @@ function LogoLetter({
   T: SubsidiariesProfileTokens;
 }) {
   const letter = (name.trim()[0] || "?").toUpperCase();
-  const src = resolveCompanyLogoSrc(logo);
+  const src = logo
+    ? logo.startsWith("data:") || logo.startsWith("http")
+      ? logo
+      : `data:image/jpeg;base64,${logo}`
+    : null;
 
   return (
     <div
@@ -159,6 +220,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
     acquisitionYearByCompanyId = {},
     maxInitial = 3,
     layout = "default",
+    sectorNameToId,
   }) => {
     const narrow = layout === "narrow";
     const headers = narrow
@@ -253,7 +315,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                   }}
                 >
                   {createClickableElement(
-                    `/new_company/${subsidiary.id}`,
+                    `/company/${subsidiary.id}`,
                     subsidiary.name,
                     undefined,
                     {
@@ -296,7 +358,12 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     whiteSpace: narrow ? "nowrap" : undefined,
                   }}
                 >
-                  {sectorLabel(subsidiary)}
+                  <SubsidiarySectorLinks
+                    subsidiary={subsidiary}
+                    sectorNameToId={sectorNameToId}
+                    linkColor={T.azure}
+                    createClickableElement={createClickableElement}
+                  />
                 </div>
                 <div
                   style={{
