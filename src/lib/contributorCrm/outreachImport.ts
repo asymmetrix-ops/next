@@ -286,7 +286,7 @@ async function parseExcelWorkbook(file: File): Promise<{
 
 export function parseTimestamp(value: unknown): number | null {
   if (value == null || value === "") return null;
-  if (value instanceof Date) return value.getTime();
+  if (value instanceof Date) return Math.round(value.getTime());
   if (typeof value === "object" && value && "result" in value) {
     return parseTimestamp((value as { result: unknown }).result);
   }
@@ -307,7 +307,56 @@ export function parseTimestamp(value: unknown): number | null {
   if (!Number.isNaN(num)) return parseTimestamp(num);
 
   const parsed = Date.parse(str);
-  return Number.isNaN(parsed) ? null : parsed;
+  return Number.isNaN(parsed) ? null : Math.round(parsed);
+}
+
+/** True when the timestamp looks like a date-only value (midnight UTC or local). */
+function isDateOnlyTimestamp(ts: number): boolean {
+  const d = new Date(ts);
+  const utcMidnight =
+    d.getUTCHours() === 0 &&
+    d.getUTCMinutes() === 0 &&
+    d.getUTCSeconds() === 0 &&
+    d.getUTCMilliseconds() === 0;
+  const localMidnight =
+    d.getHours() === 0 &&
+    d.getMinutes() === 0 &&
+    d.getSeconds() === 0 &&
+    d.getMilliseconds() === 0;
+  return utcMidnight || localMidnight;
+}
+
+/** Apply the current time-of-day to a date-only timestamp (Unix ms for DB). */
+function applyCurrentTimeToDate(ts: number): number {
+  const d = new Date(ts);
+  const now = new Date();
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds(),
+    now.getMilliseconds()
+  ).getTime();
+}
+
+/** Normalize to integer Unix milliseconds for DB storage (e.g. 1785150291000). */
+export function toDbTimestamp(
+  value: unknown,
+  options: { scheduled?: boolean } = {}
+): number | null {
+  const parsed = parseTimestamp(value);
+  if (parsed == null) return null;
+  if (options.scheduled && isDateOnlyTimestamp(parsed)) {
+    return applyCurrentTimeToDate(parsed);
+  }
+  return parsed;
+}
+
+function startOfDayMs(ts: number): number {
+  const d = new Date(ts);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
 function getField(raw: Record<string, unknown>, keys: string[]): unknown {
@@ -323,7 +372,7 @@ function fieldAsString(raw: Record<string, unknown>, keys: string[]): string {
 }
 
 function fieldAsTimestamp(raw: Record<string, unknown>, keys: string[]): number | null {
-  return parseTimestamp(getField(raw, keys));
+  return toDbTimestamp(getField(raw, keys));
 }
 
 function startOfTodayMs(): number {
@@ -349,10 +398,12 @@ function assignRound2Date(timestamp: number | null): Pick<
   if (timestamp == null) {
     return { round2_sent_at: null, round2_to_be_sent: null };
   }
-  const isScheduled = timestamp >= startOfTodayMs();
+  const isScheduled = startOfDayMs(timestamp) >= startOfTodayMs();
   return {
     round2_sent_at: isScheduled ? null : timestamp,
-    round2_to_be_sent: isScheduled ? timestamp : null,
+    round2_to_be_sent: isScheduled
+      ? toDbTimestamp(timestamp, { scheduled: true })
+      : null,
   };
 }
 
@@ -363,10 +414,12 @@ function assignRound3Date(timestamp: number | null): Pick<
   if (timestamp == null) {
     return { round3_sent_at: null, round3_to_be_sent: null };
   }
-  const isScheduled = timestamp >= startOfTodayMs();
+  const isScheduled = startOfDayMs(timestamp) >= startOfTodayMs();
   return {
     round3_sent_at: isScheduled ? null : timestamp,
-    round3_to_be_sent: isScheduled ? timestamp : null,
+    round3_to_be_sent: isScheduled
+      ? toDbTimestamp(timestamp, { scheduled: true })
+      : null,
   };
 }
 
