@@ -192,7 +192,7 @@ function parseWorksheetRows(sheet: ExcelWorksheet): Record<string, unknown>[] {
     const record: Record<string, unknown> = {};
     headers.forEach((header, index) => {
       if (!header) return;
-      record[header] = cellToText(row.getCell(index + 1).value);
+      record[header] = row.getCell(index + 1).value ?? "";
     });
 
     if (Object.values(record).some((value) => value != null && value !== "")) {
@@ -315,23 +315,45 @@ function getField(raw: Record<string, unknown>, keys: string[]): unknown {
   return undefined;
 }
 
+function fieldAsString(raw: Record<string, unknown>, keys: string[]): string {
+  return cellToText(getField(raw, keys)).trim();
+}
+
+function fieldAsTimestamp(raw: Record<string, unknown>, keys: string[]): number | null {
+  return parseTimestamp(getField(raw, keys));
+}
+
 export function mapToOutreachRow(
   raw: Record<string, unknown>
 ): OutreachImportRow | null {
-  const company_name_text = String(
-    getField(raw, ["company_name_text", "company_name"]) ?? ""
-  ).trim();
+  const company_name_text = fieldAsString(raw, [
+    "company_name_text",
+    "company_name",
+  ]);
   if (!company_name_text) return null;
 
   return {
     company_name_text,
-    website: String(getField(raw, ["website"]) ?? "").trim(),
-    ceo_first_name: String(getField(raw, ["ceo_first_name"]) ?? "").trim(),
-    ceo_last_name: String(getField(raw, ["ceo_last_name"]) ?? "").trim(),
-    ceo_email: String(getField(raw, ["ceo_email"]) ?? "").trim(),
-    round1_sent_at: parseTimestamp(getField(raw, ["round1_sent_at"])),
-    round2_sent_at: parseTimestamp(getField(raw, ["round2_sent_at"])),
-    round3_sent_at: parseTimestamp(getField(raw, ["round3_sent_at"])),
+    website: fieldAsString(raw, ["website", "company_website"]),
+    ceo_first_name: fieldAsString(raw, ["ceo_first_name", "first_name"]),
+    ceo_last_name: fieldAsString(raw, ["ceo_last_name", "last_name"]),
+    ceo_email: fieldAsString(raw, ["ceo_email", "email"]),
+    round1_sent_at: fieldAsTimestamp(raw, [
+      "round1_sent_at",
+      "contacted_round_one",
+      "round_one",
+      "round_1",
+    ]),
+    round2_sent_at: fieldAsTimestamp(raw, [
+      "round2_sent_at",
+      "round_two",
+      "round_2",
+    ]),
+    round3_sent_at: fieldAsTimestamp(raw, [
+      "round3_sent_at",
+      "round_three",
+      "round_3",
+    ]),
   };
 }
 
@@ -373,12 +395,12 @@ export async function parseOutreachImportFile(
 }
 
 export const OUTREACH_IMPORT_COLUMNS = [
-  "company_name_text",
-  "website",
-  "ceo_first_name",
-  "ceo_last_name",
-  "ceo_email",
-  "round1_sent_at",
-  "round2_sent_at",
-  "round3_sent_at",
+  "First Name / ceo_first_name",
+  "Last Name / ceo_last_name",
+  "Company Name / company_name_text",
+  "Company Website / website",
+  "Email / ceo_email",
+  "Contacted Round One / round1_sent_at",
+  "Round Two / round2_sent_at",
+  "Round Three / round3_sent_at",
 ] as const;
