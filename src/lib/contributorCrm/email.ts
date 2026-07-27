@@ -48,6 +48,41 @@ export function sanitizeHtml(html: string): string {
 /**
  * Build full branded email HTML (doctype, head, styles, body wrapper).
  */
+function escapeHtmlText(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** Convert plain-text email copy into paragraph HTML for the branded wrapper. */
+export function plainTextToEmailBodyHtml(text: string): string {
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return "<p></p>";
+
+  return normalized
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return "<p></p>";
+      return `<p>${escapeHtmlText(trimmed)}</p>`;
+    })
+    .join("");
+}
+
+export function buildBrandedEmailHtmlFromPlainText({
+  bodyText,
+  subject,
+}: {
+  bodyText: string;
+  subject: string;
+}): string {
+  return buildBrandedEmailHtml({
+    bodyHtml: plainTextToEmailBodyHtml(bodyText),
+    subject,
+  });
+}
+
 export function buildBrandedEmailHtml({
   bodyHtml,
   subject,

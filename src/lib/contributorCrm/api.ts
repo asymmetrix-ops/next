@@ -1086,6 +1086,7 @@ export async function getCompanyByUrl(
 
 // Email builder: images + email content (different API base)
 const EMAIL_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR";
+const EMAIL_API_DEVELOP_BASE = `${EMAIL_API_BASE}:develop`;
 
 export async function uploadImageToXano(
   token: string,
@@ -1175,6 +1176,30 @@ export async function createEmailContent(
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `Failed to create template (${res.status})`);
+  }
+  return res.json() as Promise<EmailTemplateItem>;
+}
+
+export async function createDcpOutreachEmailContent(
+  token: string,
+  payload: {
+    Publication_Date: string;
+    Headline: string;
+    Body: string;
+    from_email: string;
+  }
+): Promise<EmailTemplateItem> {
+  const res = await fetch(`${EMAIL_API_DEVELOP_BASE}/email_content`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Failed to create outreach email content (${res.status})`);
   }
   return res.json() as Promise<EmailTemplateItem>;
 }

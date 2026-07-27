@@ -2,12 +2,17 @@
 
 import { useCallback, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
-import { importOutreachRows } from "@/lib/contributorCrm/api";
+import {
+  createDcpOutreachEmailContent,
+  importOutreachRows,
+} from "@/lib/contributorCrm/api";
 import { authService } from "@/lib/contributorCrm/auth";
+import { buildBrandedEmailHtmlFromPlainText } from "@/lib/contributorCrm/email";
 import {
   OUTREACH_IMPORT_COLUMNS,
   parseOutreachImportFile,
   type OutreachImportRow,
+  type ParsedEmailTemplate,
 } from "@/lib/contributorCrm/outreachImport";
 
 type SequenceImportModalProps = {
@@ -23,6 +28,7 @@ export function SequenceImportModal({
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [rows, setRows] = useState<OutreachImportRow[]>([]);
+  const [emailTemplates, setEmailTemplates] = useState<ParsedEmailTemplate[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -34,13 +40,16 @@ export function SequenceImportModal({
     setParseError(null);
     setFileName(file.name);
     setRows([]);
+    setEmailTemplates([]);
 
     try {
       const parsed = await parseOutreachImportFile(file);
-      setRows(parsed);
+      setRows(parsed.rows);
+      setEmailTemplates(parsed.emailTemplates);
     } catch (error) {
       setParseError((error as Error).message || "Failed to parse file");
       setRows([]);
+      setEmailTemplates([]);
     } finally {
       setParsing(false);
     }
@@ -59,16 +68,33 @@ export function SequenceImportModal({
 
     setSubmitting(true);
     try {
+      for (const template of emailTemplates) {
+        await createDcpOutreachEmailContent(token, {
+          Publication_Date: template.publication_date,
+          Headline: template.headline,
+          Body: buildBrandedEmailHtmlFromPlainText({
+            bodyText: template.body,
+            subject: template.headline,
+          }),
+          from_email: template.from_email,
+        });
+      }
+
       await importOutreachRows(token, rows);
-      toast.success(`Imported ${rows.length} row${rows.length === 1 ? "" : "s"}`);
+
+      const templateMsg =
+        emailTemplates.length > 0
+          ? ` and ${emailTemplates.length} email template${emailTemplates.length === 1 ? "" : "s"}`
+          : "";
+      toast.success(`Imported ${rows.length} row${rows.length === 1 ? "" : "s"}${templateMsg}`);
       onImported?.();
       onClose();
     } catch (error) {
-      toast.error((error as Error).message || "Failed to import rows");
+      toast.error((error as Error).message || "Failed to import sequence");
     } finally {
       setSubmitting(false);
     }
-  }, [onClose, onImported, rows]);
+  }, [emailTemplates, onClose, onImported, rows]);
 
   return (
     <div
@@ -91,7 +117,7 @@ export function SequenceImportModal({
               Import outreach sequence
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              Drop a CSV or Excel file to import outreach rows.
+              Drop an Excel file with company rows and a Body tab for Round 2/3 copy.
             </p>
           </div>
           <button
@@ -144,7 +170,9 @@ export function SequenceImportModal({
             <p className="text-sm text-gray-700">
               {fileName ? fileName : "Drag and drop a file here"}
             </p>
-            <p className="mt-1 text-xs text-gray-400">CSV or Excel (.xlsx)</p>
+            <p className="mt-1 text-xs text-gray-400">
+              Excel (.xlsx) with Company Analysis List + Body tabs, or CSV
+            </p>
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
@@ -157,7 +185,7 @@ export function SequenceImportModal({
 
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
             <div className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
-              Expected columns
+              Expected company columns
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {OUTREACH_IMPORT_COLUMNS.map((column) => (
@@ -170,7 +198,8 @@ export function SequenceImportModal({
               ))}
             </div>
             <p className="mt-2 text-[11px] text-gray-500">
-              Date columns accept timestamps, Excel dates, or readable date strings.
+              The Body tab should include Round 2 and Round 3 columns. Date columns
+              accept timestamps, Excel dates, or readable date strings.
             </p>
           </div>
 
@@ -181,6 +210,33 @@ export function SequenceImportModal({
           {parseError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
               {parseError}
+            </div>
+          )}
+
+          {emailTemplates.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs text-gray-600">
+                Parsed{" "}
+                <span className="font-medium text-gray-900">
+                  {emailTemplates.length}
+                </span>{" "}
+                email template{emailTemplates.length === 1 ? "" : "s"} from Body tab.
+              </div>
+              <div className="space-y-2">
+                {emailTemplates.map((template) => (
+                  <div
+                    key={template.round}
+                    className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+                  >
+                    <div className="text-[11px] font-medium text-gray-800">
+                      {template.headline}
+                    </div>
+                    <div className="mt-1 line-clamp-3 whitespace-pre-wrap text-[10px] text-gray-500">
+                      {template.body}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -213,7 +269,7 @@ export function SequenceImportModal({
             disabled={submitting || parsing || rows.length === 0}
             className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
           >
-            {submitting ? "Importing…" : "Import rows"}
+            {submitting ? "Importing…" : "Import sequence"}
           </button>
         </div>
       </div>
