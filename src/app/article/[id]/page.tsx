@@ -6,6 +6,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
+import ArticleSeriesNav from "@/components/ArticleSeriesNav";
+import type { ArticleSeries } from "@/types/insightsAnalysis";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -55,6 +57,8 @@ interface ArticleDetail {
     };
     url: string;
   }>;
+  is_series?: boolean;
+  series?: ArticleSeries;
 }
 
 interface CompanyOfFocusOverview {
@@ -1409,6 +1413,14 @@ const ArticleDetailPage = () => {
         <div className="article-layout">
           {/* Left: Main body (2/3) */}
           <div style={styles.card} className="article-main">
+            {article.is_series && article.series && (
+              <ArticleSeriesNav
+                series={article.series}
+                currentArticleId={article.id}
+                placement="top"
+              />
+            )}
+
             {/* Article Header */}
             <h1 style={styles.heading}>{article.Headline}</h1>
             {article.Transaction_status && (

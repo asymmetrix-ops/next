@@ -3,11 +3,14 @@
 import Link from "next/link";
 import type { ArticleSeries, ArticleSeriesPart } from "@/types/insightsAnalysis";
 
-/** Full headline for a series part in the navigation list. */
+/** Short label for a series part link (e.g. "Part 2: Competitive Landscape"). */
 export function formatSeriesPartLabel(part: ArticleSeriesPart): string {
   const headline = (part.headline || "").trim();
-  if (headline) return headline;
-  return `Part ${part.part_number}`;
+  const partMatch = headline.match(/part\s+\d+\s*[–—-]\s*(.+)/i);
+  const subtitle = partMatch?.[1]?.trim();
+  return subtitle
+    ? `Part ${part.part_number}: ${subtitle}`
+    : `Part ${part.part_number}: ${headline || "Untitled"}`;
 }
 
 interface ArticleSeriesNavProps {

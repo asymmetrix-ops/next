@@ -12,6 +12,7 @@ import {
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "../../types/insightsAnalysis";
+import SeriesArticleCard from "@/components/SeriesArticleCard";
 
 // Shared styles object
 const styles = {
@@ -353,72 +354,83 @@ const InsightsAnalysisCards = ({
 
   return (
     <div className="insights-analysis-cards">
-      {articles.map((article: ContentArticle, index: number) => (
-        <a
-          key={article.id || index}
-          href={`/article/${article.id}`}
-          className="article-card"
-          onClick={(e) => {
-            if (
-              e.defaultPrevented ||
-              e.button !== 0 ||
-              e.metaKey ||
-              e.ctrlKey ||
-              e.shiftKey ||
-              e.altKey
-            )
-              return;
-            e.preventDefault();
-            handleArticleClick(article.id);
-          }}
-        >
-          {/* Article Title */}
-          <h3 className="article-title">
-            {article.Headline || "-"}
-          </h3>
+      {articles.map((article: ContentArticle, index: number) =>
+        article.is_series && article.series ? (
+          <SeriesArticleCard
+            key={article.id || index}
+            article={article}
+            formatDate={formatDate}
+            formatSectors={formatSectors}
+            formatCompanies={formatCompanies}
+            badgeClassFor={badgeClassFor}
+          />
+        ) : (
+          <a
+            key={article.id || index}
+            href={`/article/${article.id}`}
+            className="article-card"
+            onClick={(e) => {
+              if (
+                e.defaultPrevented ||
+                e.button !== 0 ||
+                e.metaKey ||
+                e.ctrlKey ||
+                e.shiftKey ||
+                e.altKey
+              )
+                return;
+              e.preventDefault();
+              handleArticleClick(article.id);
+            }}
+          >
+            {/* Article Title */}
+            <h3 className="article-title">
+              {article.Headline || "-"}
+            </h3>
 
-          {/* Transaction Status Badge */}
-          {article.Transaction_status && (
-            <div className="article-transaction-status-row">
-              <span className="badge-transaction-status">
-                {article.Transaction_status}
+            {/* Transaction Status Badge */}
+            {article.Transaction_status && (
+              <div className="article-transaction-status-row">
+                <span className="badge-transaction-status">
+                  {article.Transaction_status}
+                </span>
+              </div>
+            )}
+
+            {/* Date */}
+            <p className="article-date">{formatDate(article.Publication_Date)}</p>
+            {/* Content Type Badge below date */}
+            {article.Content_Type && (
+              <div className="article-badge-row">
+                <span className={badgeClassFor(article.Content_Type)}>
+                  {article.Content_Type}
+                </span>
+              </div>
+            )}
+
+            {/* Strapline/Summary */}
+            <p className="article-summary">
+              {article.Strapline || "No summary available"}
+            </p>
+
+            {/* Companies Section */}
+            <div className="article-meta">
+              <span className="article-meta-label">Companies:</span>
+              <span className="article-meta-value">
+                {formatCompanies(article.companies_mentioned)}
               </span>
             </div>
-          )}
 
-          {/* Date */}
-          <p className="article-date">{formatDate(article.Publication_Date)}</p>
-          {/* Content Type Badge below date */}
-          {article.Content_Type && (
-            <div className="article-badge-row">
-              <span className={badgeClassFor(article.Content_Type)}>
-                {article.Content_Type}
+            {/* Sectors Section */}
+            <div className="article-meta">
+              <span className="article-meta-label">Sectors:</span>
+              <span className="article-meta-value">
+                {formatSectors(article.sectors)}
               </span>
             </div>
-          )}
-
-          {/* Strapline/Summary */}
-          <p className="article-summary">
-            {article.Strapline || "No summary available"}
-          </p>
-
-          {/* Companies Section */}
-          <div className="article-meta">
-            <span className="article-meta-label">Companies:</span>
-            <span className="article-meta-value">
-              {formatCompanies(article.companies_mentioned)}
-            </span>
-          </div>
-
-          {/* Sectors Section */}
-          <div className="article-meta">
-            <span className="article-meta-label">Sectors:</span>
-            <span className="article-meta-value">
-              {formatSectors(article.sectors)}
-            </span>
-          </div>
-        </a>
-      ))}
+          </a>
+        )
+      )}
     </div>
   );
 };
@@ -816,6 +828,78 @@ function InsightsAnalysisPageContent() {
     .article-card:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    .article-card--series {
+      border-color: #c4b5fd;
+      background: linear-gradient(180deg, #ffffff 0%, #faf5ff 100%);
+    }
+    .series-tile-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .series-part-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #5b21b6;
+      background: #ede9fe;
+      border: 1px solid #c4b5fd;
+      border-radius: 9999px;
+      padding: 5px 10px;
+      white-space: nowrap;
+    }
+    .series-tile-controls {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .series-tile-arrow {
+      width: 28px;
+      height: 28px;
+      border-radius: 9999px;
+      border: 1px solid #c4b5fd;
+      background: #ffffff;
+      color: #5b21b6;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .series-tile-arrow:hover:not(:disabled) {
+      background: #ede9fe;
+      border-color: #a78bfa;
+    }
+    .series-tile-arrow:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .series-part-dots {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 0 0 14px 0;
+    }
+    .series-part-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 9999px;
+      background: #ddd6fe;
+    }
+    .series-part-dot.active {
+      background: #7c3aed;
+      transform: scale(1.15);
     }
     .article-title {
       font-size: 18px;
