@@ -71,6 +71,8 @@ export type FinancialsMetricDef = {
   sourceField: keyof CompanyFinancialMetricsCardRow;
   currencyField?: keyof CompanyFinancialMetricsCardRow;
   formattedField?: keyof CompanyFinancialMetricsCardRow;
+  /** When true, a decrease is shown as positive (green), e.g. Churn. */
+  yoyInverse?: boolean;
 };
 
 export type FinancialsCardDef = {
@@ -85,10 +87,19 @@ export type FinancialsCellValue = {
   sourceType: FiMetricSourceType | null;
 };
 
+export type FinancialsYoyValue = {
+  display: string;
+  percentChange: number;
+  /** Visual sentiment after applying inverse rules. */
+  sentiment: "positive" | "negative" | "neutral";
+};
+
 export type FinancialsMetricRow = {
   key: string;
   label: string;
+  yoyInverse?: boolean;
   cellsByYear: Record<number, FinancialsCellValue>;
+  yoy?: FinancialsYoyValue | null;
 };
 
 export type CompanyFinancialsViewModel = {
@@ -156,6 +167,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "Churn_pc",
         sourceField: "Churn_source_label",
+        yoyInverse: true,
       },
       {
         key: "grr",
@@ -356,6 +368,73 @@ function formatMetricValue(
   }
 }
 
+export function computeYoyValue(
+  prior: FinancialsCellValue,
+  current: FinancialsCellValue,
+  inverse = false
+): FinancialsYoyValue | null {
+  if (prior.raw == null || current.raw == null || prior.raw === 0) {
+    return null;
+  }
+
+  const percentChange =
+    ((current.raw - prior.raw) / Math.abs(prior.raw)) * 100;
+  if (!Number.isFinite(percentChange)) return null;
+
+  const rounded =
+    percentChange % 1 === 0
+      ? Math.round(percentChange)
+      : Math.round(percentChange * 10) / 10;
+  const sign = rounded > 0 ? "+" : "";
+  const display = `${sign}${rounded}%`;
+
+  let sentiment: FinancialsYoyValue["sentiment"] = "neutral";
+  if (rounded > 0) {
+    sentiment = inverse ? "negative" : "positive";
+  } else if (rounded < 0) {
+    sentiment = inverse ? "positive" : "negative";
+  }
+
+  return { display, percentChange: rounded, sentiment };
+}
+
+export function getYoyComparisonYears(years: number[]): {
+  priorYear: number;
+  currentYear: number;
+} | null {
+  if (years.length < 2) return null;
+  return {
+    priorYear: years[years.length - 2],
+    currentYear: years[years.length - 1],
+  };
+}
+
+export function getVisibleYoyValue(
+  metric: FinancialsMetricRow,
+  years: number[],
+  allowedSources: FiMetricSourceType[]
+): FinancialsYoyValue | null {
+  const comparison = getYoyComparisonYears(years);
+  if (!comparison) return null;
+
+  const priorCell = metric.cellsByYear[comparison.priorYear];
+  const currentCell = metric.cellsByYear[comparison.currentYear];
+  if (!priorCell || !currentCell) return null;
+
+  if (
+    !isFinancialsCellVisible(priorCell, allowedSources) ||
+    !isFinancialsCellVisible(currentCell, allowedSources)
+  ) {
+    return null;
+  }
+
+  return computeYoyValue(
+    priorCell,
+    currentCell,
+    Boolean(metric.yoyInverse)
+  );
+}
+
 export function resolveFinancialsYears(
   rows: CompanyFinancialMetricsCardRow[]
 ): number[] {
@@ -382,6 +461,8 @@ export function buildCompanyFinancialsViewModel(
     if (year != null) rowsByYear.set(year, row);
   }
 
+  const yoyYears = getYoyComparisonYears(years);
+
   const cards = FINANCIALS_CARD_DEFS.map((card) => ({
     id: card.id,
     title: card.title,
@@ -393,10 +474,22 @@ export function buildCompanyFinancialsViewModel(
           ? formatMetricValue(yearRow, metric)
           : { display: "-", raw: null, sourceType: null };
       }
+
+      const yoy =
+        yoyYears != null
+          ? computeYoyValue(
+              cellsByYear[yoyYears.priorYear],
+              cellsByYear[yoyYears.currentYear],
+              Boolean(metric.yoyInverse)
+            )
+          : null;
+
       return {
         key: metric.key,
         label: metric.label,
+        yoyInverse: metric.yoyInverse,
         cellsByYear,
+        yoy,
       };
     }),
   }));
