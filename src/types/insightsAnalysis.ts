@@ -1,5 +1,19 @@
 // Types for Insights Analysis API integration
 
+export interface ArticleSeriesPart {
+  id: number;
+  part_number: number;
+  headline: string;
+  publication_date: string;
+}
+
+export interface ArticleSeries {
+  series_id: number;
+  current_part: number;
+  total_parts: number;
+  parts: ArticleSeriesPart[];
+}
+
 export interface ContentArticle {
   id: number;
   created_at: number;
@@ -40,6 +54,8 @@ export interface ContentArticle {
     meta: any;
     url?: string;
   }>;
+  is_series?: boolean;
+  series?: ArticleSeries;
 }
 
 export interface InsightsAnalysisResponse {
