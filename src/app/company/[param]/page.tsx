@@ -78,6 +78,11 @@ import {
 } from "@/lib/companyAiRisks";
 import { fetchCompanyProductUsers } from "@/lib/companyProductUsers";
 import {
+  fetchCompanyFinancialMetricsCard,
+  type CompanyFinancialMetricsCardRow,
+} from "@/lib/companyFinancialMetricsCard";
+import { CompanyFinancialsSection } from "@/components/company/CompanyFinancialsSection";
+import {
   isCompanyMcpPopulated,
   readCompanyMcpStatus,
   type CompanyMcpData,
@@ -1325,6 +1330,14 @@ const CompanyDetail = () => {
   const [apiInvestorsLoading, setApiInvestorsLoading] = useState(false);
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [activeProfileTab, setActiveProfileTab] = useState<"Summary" | "Financials">(
+    "Summary"
+  );
+  const [financialMetricsCardRows, setFinancialMetricsCardRows] = useState<
+    CompanyFinancialMetricsCardRow[]
+  >([]);
+  const [financialMetricsCardLoading, setFinancialMetricsCardLoading] =
+    useState(false);
   const [exportingPdfType, setExportingPdfType] =
     useState<CompanyPdfExportType | null>(null);
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
@@ -1739,6 +1752,18 @@ const CompanyDetail = () => {
     }
   }, []);
 
+  const fetchFinancialMetricsCard = useCallback(async (id: string | number) => {
+    setFinancialMetricsCardLoading(true);
+    try {
+      const data = await fetchCompanyFinancialMetricsCard(id);
+      setFinancialMetricsCardRows(data);
+    } catch {
+      setFinancialMetricsCardRows([]);
+    } finally {
+      setFinancialMetricsCardLoading(false);
+    }
+  }, []);
+
   const fetchCompanyAiRisksData = useCallback(async (id: string | number) => {
     setAiRiskData(null);
     try {
@@ -2053,8 +2078,10 @@ const CompanyDetail = () => {
 
     if (companyId) {
       setFinancialMetrics(null);
+      setFinancialMetricsCardRows([]);
       fetchCompanyData();
       fetchFinancialMetrics(companyId);
+      fetchFinancialMetricsCard(companyId);
       fetchCompanyInvestors(companyId);
       fetchCompanyTransactionStatus(companyId);
       fetchCompanyAiRisksData(companyId);
@@ -2076,6 +2103,7 @@ const CompanyDetail = () => {
     fetchCompanyArticles,
     requestCompany,
     fetchFinancialMetrics,
+    fetchFinancialMetricsCard,
     fetchCompanyInvestors,
     fetchCompanyTransactionStatus,
     fetchCompanyAiRisksData,
@@ -3891,27 +3919,49 @@ const CompanyDetail = () => {
                 </div>
               </div>
 
-        {/* Navigation tabs — Summary only until other sections are available */}
+        {/* Navigation tabs */}
         <div style={{ display: "flex", gap: "2px", overflowX: "auto" as const, scrollbarWidth: "none" as const }}>
-          <span
-            style={{
-              padding: "10px 14px",
-              fontFamily: T.sans,
-              fontSize: "13px",
-              fontWeight: 600,
-              color: T.ink,
-              borderBottom: `2px solid ${T.azure}`,
-              marginBottom: "-1px",
-              whiteSpace: "nowrap" as const,
-            }}
-          >
-            Summary
-          </span>
+          {(["Summary", "Financials"] as const).map((tab) => {
+            const active = tab === activeProfileTab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveProfileTab(tab)}
+                style={{
+                  padding: "10px 14px",
+                  fontFamily: T.sans,
+                  fontSize: "13px",
+                  fontWeight: active ? 600 : 500,
+                  color: active ? T.ink : T.muted,
+                  borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
+                  marginBottom: "-1px",
+                  whiteSpace: "nowrap" as const,
+                  transition: "color 120ms",
+                  background: "transparent",
+                  borderTop: "none",
+                  borderLeft: "none",
+                  borderRight: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {tab}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="company-detail-content" style={styles.maxWidth}>
+          {activeProfileTab === "Financials" ? (
+            <CompanyFinancialsSection
+              rows={financialMetricsCardRows}
+              loading={financialMetricsCardLoading}
+              companyName={company.name?.trim() || "Company"}
+            />
+          ) : (
+          <>
           {/* Desktop grid */}
           <div style={styles.responsiveGrid} className="responsiveGrid">
 
@@ -4666,9 +4716,10 @@ const CompanyDetail = () => {
 
           {/* Management: desktop under LinkedIn rail; mobile block above */}
 
-
-        </div>
         <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
+          </>
+          )}
+        </div>
       </main>
       <Footer />
     </div>
