@@ -13,17 +13,17 @@ import { cn } from "@/utils/cn";
 type CountryFlagImgProps = {
   iso2: string | null | undefined;
   className?: string;
+  size?: number;
 };
 
 export const CountryFlagImg: React.FC<CountryFlagImgProps> = ({
   iso2,
   className,
+  size = COUNTRY_FLAG_INLINE_SIZE_PX,
 }) => {
   const countryFlagUrl = getCountryFlagUrl(iso2);
   const countryDisplayName = getCountryDisplayName(iso2);
   if (!countryFlagUrl) return null;
-
-  const size = COUNTRY_FLAG_INLINE_SIZE_PX;
 
   return (
     <img
