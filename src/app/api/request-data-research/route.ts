@@ -7,11 +7,9 @@ import {
   tabToCategory,
   isDataRequestUrlRequired,
 } from "@/lib/requestDataResearch";
+import { USERS_DATA_RESEARCH_REQUESTS_URL } from "@/lib/usersDataResearchRequests";
 
 export const runtime = "nodejs";
-
-const XANO_REQUESTS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:XlV_SpG5:develop/users_data_research_requests";
 
 const AUTH_API_URL =
   process.env.NEXT_PUBLIC_XANO_API_URL ||
@@ -107,7 +105,7 @@ async function postToXano(
   const body = JSON.stringify(payload);
 
   const doPost = (authorization?: string) =>
-    fetch(XANO_REQUESTS_URL, {
+    fetch(USERS_DATA_RESEARCH_REQUESTS_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
