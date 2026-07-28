@@ -118,7 +118,7 @@ export function mapCompanyToFinRow(
     rev_multiple: row.revenue_multiple ?? row.ev_revenue_x ?? 0,
     trend: [],
     rule_of_40: ruleOf40 ?? undefined,
-    financial_year: row.financial_year ? String(row.financial_year) : undefined,
+    financial_year: formatCompanyReportingPeriod(row) ?? undefined,
     subscription_revenue_pc: row.subscription_revenue_pc ?? undefined,
     subscription_revenue_m: toMillions(row.subscription_revenue_m) ?? undefined,
     churn: row.churn_pc ?? undefined,
@@ -300,42 +300,33 @@ const FY_MONTH_ABBREV = [
   "Dec",
 ] as const;
 
+type FiReportingPeriodRow = Pick<
+  FiCompanyRow,
+  "financial_year_value" | "financial_year" | "fy_ye_month"
+>;
+
 export function formatReportingPeriod(
   yearValue: number,
   month?: number | null
 ): string | null {
   if (yearValue <= 0) return null;
   if (month != null && month >= 1 && month <= 12) {
-    return `${FY_MONTH_ABBREV[month - 1]}-${yearValue}`;
+    return `FY${yearValue} (${FY_MONTH_ABBREV[month - 1]})`;
   }
   return `FY${yearValue}`;
 }
 
-const FY_MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-] as const;
-
-function formatFyTooltipLabel(
-  row: Pick<FiCompanyRow, "financial_year_value" | "financial_year" | "fy_ye_month">,
-  includeMonth = false
+/** Canonical FY label for FI tables, tooltips, and mismatch flags. */
+export function formatCompanyReportingPeriod(
+  row: FiReportingPeriodRow,
+  options?: { includeMonth?: boolean }
 ): string | null {
   const year = resolveFinancialYearValue(row);
   if (year <= 0) return null;
-  if (includeMonth && row.fy_ye_month >= 1 && row.fy_ye_month <= 12) {
-    return `FY${year} (${FY_MONTH_NAMES[row.fy_ye_month - 1]})`;
-  }
-  return `FY${year}`;
+  const includeMonth =
+    options?.includeMonth ??
+    (row.fy_ye_month >= 1 && row.fy_ye_month <= 12);
+  return formatReportingPeriod(year, includeMonth ? row.fy_ye_month : null);
 }
 
 export function hasFinancialPeriodMismatch(
@@ -359,11 +350,11 @@ export function yearMismatchTooltip(target: FiCompanyRow, peer: FiCompanyRow): s
   const peerYear = resolveFinancialYearValue(peer);
   const targetYear = resolveFinancialYearValue(target);
   const sameYear = peerYear > 0 && peerYear === targetYear;
-  const peerLabel = formatFyTooltipLabel(peer, sameYear);
-  const targetLabel = formatFyTooltipLabel(target, sameYear);
+  const peerLabel = formatCompanyReportingPeriod(peer, { includeMonth: sameYear });
+  const targetLabel = formatCompanyReportingPeriod(target, { includeMonth: sameYear });
   if (!peerLabel || !targetLabel) return null;
 
-  return `This company's latest financials are from ${peerLabel}; target uses ${targetLabel}`;
+  return `This company's latest financials are from ${peerLabel}; target uses ${targetLabel}.`;
 }
 
 export function vintageTooltip(
@@ -372,16 +363,11 @@ export function vintageTooltip(
   peerMonth?: number | null,
   targetMonth?: number | null
 ): string {
-  const fmtPeriod = (year: number, month?: number | null) => {
-    if (year <= 0) return "unknown period";
-    if (month != null && month >= 1 && month <= 12) {
-      return `FY${year} (YE month ${month})`;
-    }
-    return `FY${year}`;
-  };
-
-  const peerLabel = fmtPeriod(peerYear, peerMonth);
-  const targetLabel = fmtPeriod(targetYear, targetMonth);
+  const sameYear = peerYear > 0 && peerYear === targetYear;
+  const peerLabel =
+    formatReportingPeriod(peerYear, sameYear ? peerMonth : null) ?? "unknown period";
+  const targetLabel =
+    formatReportingPeriod(targetYear, sameYear ? targetMonth : null) ?? "unknown period";
 
   if (peerYear < targetYear) {
     return `This company's latest financials are from ${peerLabel}; target uses ${targetLabel}.`;

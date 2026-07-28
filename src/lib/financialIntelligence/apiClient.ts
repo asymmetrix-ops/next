@@ -7,7 +7,9 @@ import {
 } from "@/lib/companiesFilterPayload";
 import { peersRequestToSearchParams } from "./filterPayload";
 import {
+  companyFinancialMetricsToRawFi,
   extractTargetRow,
+  mergeFiCompanyRows,
   normalizeCompanyRow,
   normalizePeersResponse,
   readApiError,
@@ -22,6 +24,9 @@ import type {
 const FI_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:26OHS3YC:develop";
 
+const COMPANY_FINANCIAL_METRICS_API_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics";
+
 export interface FiCompanySearchHit {
   id: number;
   name: string;
@@ -35,6 +40,65 @@ function getAuthHeaders(): Record<string, string> | null {
     Authorization: `Bearer ${token}`,
     Accept: "application/json",
   };
+}
+
+async function fetchCompanyFinancialMetricsRow(
+  companyId: number,
+  headers: Record<string, string>
+): Promise<Record<string, unknown> | null> {
+  try {
+    const params = new URLSearchParams({ new_company_id: String(companyId) });
+    let response = await fetch(
+      `${COMPANY_FINANCIAL_METRICS_API_BASE}?${params.toString()}`,
+      { method: "GET", headers, cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      const candidateBodies = [
+        { new_company_id: companyId },
+        { company_id: companyId },
+        { id: companyId },
+      ];
+      for (const body of candidateBodies) {
+        const attempt = await fetch(COMPANY_FINANCIAL_METRICS_API_BASE, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify(body),
+        });
+        if (attempt.ok) {
+          response = attempt;
+          break;
+        }
+      }
+    }
+
+    if (!response.ok) return null;
+
+    const payload = await response.json();
+    if (Array.isArray(payload)) {
+      return (payload[0] as Record<string, unknown> | undefined) ?? null;
+    }
+    return payload && typeof payload === "object"
+      ? (payload as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function enrichTargetFromCompanyProfile(
+  row: FiCompanyRow,
+  headers: Record<string, string>
+): Promise<FiCompanyRow> {
+  const profileRaw = await fetchCompanyFinancialMetricsRow(row.company_id, headers);
+  if (!profileRaw) return row;
+
+  const profileRow = normalizeCompanyRow(
+    companyFinancialMetricsToRawFi(profileRaw),
+    row.company_id
+  );
+  return mergeFiCompanyRows(row, profileRow);
 }
 
 export async function fetchFiTarget(
@@ -56,7 +120,7 @@ export async function fetchFiTarget(
     }
 
     const payload = await response.json();
-    const row = normalizeCompanyRow(extractTargetRow(payload, companyId), companyId);
+    let row = normalizeCompanyRow(extractTargetRow(payload, companyId), companyId);
 
     if (!row.company_id) {
       const keys = Object.keys(unwrapPayloadKeys(payload)).join(", ") || "none";
@@ -65,6 +129,8 @@ export async function fetchFiTarget(
         error: `Target API returned no company data (response keys: ${keys}).`,
       };
     }
+
+    row = await enrichTargetFromCompanyProfile(row, headers);
 
     return { ok: true, data: row };
   } catch (err) {

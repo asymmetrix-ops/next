@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import type { FilterDef, FilterState } from "@/app/financials-tsx/types";
 import { FIN_FILTER_DEFS } from "@/app/financials-tsx/financials-data";
 import {
@@ -611,18 +610,15 @@ export function FiControlBar({
             {targetId && targetName ? (
               <>
                 <CompanyAvatar name={targetName} logo={targetLogo} />
-                <Link
-                  href={`/new_company/${targetId}`}
-                  onClick={(e) => e.stopPropagation()}
+                <span
                   style={{
                     fontWeight: 700,
                     fontSize: "var(--fs-14)",
                     color: "var(--fg-1)",
-                    textDecoration: "none",
                   }}
                 >
                   {targetName}
-                </Link>
+                </span>
               </>
             ) : (
               <span style={{ fontSize: "var(--fs-13)", color: "var(--fg-3)", fontWeight: 500 }}>
