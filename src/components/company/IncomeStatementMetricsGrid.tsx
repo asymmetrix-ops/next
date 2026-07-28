@@ -1,155 +1,81 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import {
   T,
   tableColHeaderBarStyle,
 } from "@/components/redesign/primitives";
-import type {
-  IncomeStatementCellValue,
-  IncomeStatementFinancialsViewModel,
-} from "@/lib/incomeStatementFinancials";
-import {
-  resolveIncomeStatementCellDisplay,
-  resolveIncomeStatementMetricYoY,
-} from "@/lib/incomeStatementFinancials";
-import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
-import type { CurrencyDisplayMode } from "@/lib/financialsCurrencyToggle";
-
-function buildIncomeStatementGridTemplate(
-  periodCount: number,
-  includeTrailingColumn: boolean
-): string {
-  const labelCol = "minmax(140px, 1.5fr)";
-  const periodColumns = `repeat(${periodCount}, minmax(0, 1fr))`;
-  const yoyCol = "minmax(56px, 0.8fr)";
-  return includeTrailingColumn
-    ? `${labelCol} ${periodColumns} ${yoyCol}`
-    : `${labelCol} ${periodColumns}`;
-}
-
-const GRID_COLUMN_GAP = 16;
-const GRID_ROW_PADDING = "12px 20px";
-
-function columnKey(
-  model: IncomeStatementFinancialsViewModel,
-  index: number
-): string {
-  return model.columnKeys[index] ?? `col-${index}`;
-}
-
-function YoyValueCell({ value, visible }: { value: string; visible: boolean }) {
-  const display = !visible || value === "-" ? "-" : value;
-  const color =
-    display.startsWith("+")
-      ? T.up
-      : display.startsWith("-") && display !== "-"
-        ? T.down
-        : display === "-"
-          ? T.muted
-          : T.body;
-
-  return (
-    <span
-      style={{
-        fontFamily: T.sans,
-        fontSize: 13,
-        fontWeight: display === "-" ? 400 : 600,
-        color,
-        textAlign: "center",
-      }}
-    >
-      {display}
-    </span>
-  );
-}
+import { formatFiscalYearHeader } from "@/lib/companyFinancialMetricsCard";
+import type { IncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
 
 function ValueCell({
-  cell,
-  visible,
-  currencyMode,
+  value,
+  metricKey,
 }: {
-  cell: IncomeStatementCellValue;
-  visible: boolean;
-  currencyMode: CurrencyDisplayMode;
+  value: string;
+  metricKey: string;
 }) {
-  const resolved = resolveIncomeStatementCellDisplay(cell, currencyMode);
-  const display = !visible && resolved !== "-" ? "-" : resolved;
+  if (metricKey === "revenue_yoy" && value !== "-") {
+    const color =
+      value.startsWith("+")
+        ? T.up
+        : value.startsWith("-")
+          ? T.down
+          : T.body;
+    return (
+      <span
+        style={{
+          fontFamily: T.sans,
+          fontSize: 13,
+          fontWeight: 600,
+          color,
+          textAlign: "center",
+        }}
+      >
+        {value}
+      </span>
+    );
+  }
 
   return (
     <span
-      title={
-        currencyMode === "preferred" ? (cell.fxTooltip ?? undefined) : undefined
-      }
       style={{
         fontFamily: T.sans,
         fontSize: 13,
-        fontWeight: display === "-" ? 400 : 600,
-        color: display === "-" ? T.muted : T.body,
+        fontWeight: value === "-" ? 400 : 600,
+        color: value === "-" ? T.muted : T.body,
         textAlign: "center",
       }}
     >
-      {display}
+      {value}
     </span>
   );
 }
 
 export function IncomeStatementMetricsGrid({
   model,
-  showYoyColumn = false,
-  reserveYoyColumn = false,
-  allowedSources,
-  currencyMode = "preferred",
 }: {
   model: IncomeStatementFinancialsViewModel;
-  showYoyColumn?: boolean;
-  reserveYoyColumn?: boolean;
-  allowedSources: FiMetricSourceType[];
-  currencyMode?: CurrencyDisplayMode;
 }) {
-  const sourceVisible = allowedSources.includes(model.sourceType);
-  const includeYoySpacer = reserveYoyColumn && !showYoyColumn;
-  const periodCount = model.columnLabels.length;
-  const includeTrailingColumn = showYoyColumn || includeYoySpacer;
-
-  const gridTemplate = useMemo(
-    () => buildIncomeStatementGridTemplate(periodCount, includeTrailingColumn),
-    [periodCount, includeTrailingColumn]
-  );
-
-  const gridStyle = useMemo(
-    () => ({
-      display: "grid" as const,
-      gridTemplateColumns: gridTemplate,
-      columnGap: GRID_COLUMN_GAP,
-      alignItems: "center" as const,
-      width: "100%",
-    }),
-    [gridTemplate]
-  );
-
-  const cellAlign = { textAlign: "center" as const, whiteSpace: "nowrap" as const };
+  const columnCount = model.columnLabels.length;
+  const gridTemplate = `minmax(180px, 1.4fr) repeat(${columnCount}, minmax(88px, 1fr))`;
 
   return (
     <div className="income-statement-table" style={{ width: "100%", minWidth: 0 }}>
       <div
         style={{
           ...tableColHeaderBarStyle,
-          ...gridStyle,
-          padding: GRID_ROW_PADDING,
+          gridTemplateColumns: gridTemplate,
         }}
       >
-        <span style={{ whiteSpace: "nowrap" }}>Metric</span>
+        <span>Metric</span>
         {model.columnLabels.map((label, index) => (
-          <span key={columnKey(model, index)} style={cellAlign}>
-            {label}
+          <span key={`${label}-${index}`} style={{ textAlign: "center" }}>
+            {model.years[index] != null
+              ? formatFiscalYearHeader(model.years[index]!)
+              : label}
           </span>
         ))}
-        {showYoyColumn ? (
-          <span style={cellAlign}>YoY</span>
-        ) : includeYoySpacer ? (
-          <span aria-hidden="true" />
-        ) : null}
       </div>
 
       {model.metrics.map((metric, index) => (
@@ -157,12 +83,15 @@ export function IncomeStatementMetricsGrid({
           key={metric.key}
           className="income-statement-row"
           style={{
-            ...gridStyle,
-            padding: GRID_ROW_PADDING,
+            display: "grid",
+            gridTemplateColumns: gridTemplate,
+            alignItems: "center",
+            padding: "12px 16px",
             borderBottom:
               index === model.metrics.length - 1
                 ? "none"
                 : `1px solid ${T.hair}`,
+            minWidth: 0,
           }}
         >
           <span
@@ -171,33 +100,18 @@ export function IncomeStatementMetricsGrid({
               fontSize: 13,
               color: T.body,
               minWidth: 0,
-              whiteSpace: "nowrap",
             }}
           >
             {metric.label}
           </span>
-          {model.columnLabels.map((_, valueIndex) => (
+          {metric.values.map((value, valueIndex) => (
             <div
-              key={`${metric.key}-${columnKey(model, valueIndex)}`}
+              key={`${metric.key}-${valueIndex}`}
               style={{ display: "flex", justifyContent: "center" }}
             >
-              <ValueCell
-                cell={metric.cells[valueIndex] ?? { display: metric.values[valueIndex] ?? "-" }}
-                visible={sourceVisible}
-                currencyMode={currencyMode}
-              />
+              <ValueCell value={value} metricKey={metric.key} />
             </div>
           ))}
-          {showYoyColumn ? (
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <YoyValueCell
-                value={resolveIncomeStatementMetricYoY(metric, currencyMode)}
-                visible={sourceVisible}
-              />
-            </div>
-          ) : includeYoySpacer ? (
-            <div aria-hidden="true" />
-          ) : null}
         </div>
       ))}
     </div>

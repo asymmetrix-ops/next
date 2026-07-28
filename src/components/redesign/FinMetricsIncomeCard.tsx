@@ -26,6 +26,7 @@ import {
   IncomeStatementTable,
   type IncomeStatementRow,
 } from "./IncomeStatementSection";
+import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type {
   FinancialMetricRow,
   FinancialMetricSection,
@@ -39,6 +40,7 @@ type Props = {
   hasIncomeStatement?: boolean;
   incomeStatementRows?: IncomeStatementRow[];
   incomeStatementCurrency?: string;
+  employeeHistory?: EmployeeTimeSeriesPoint[];
   fillGridCell?: boolean;
 };
 
@@ -247,6 +249,7 @@ function PrimaryFinCard({
   hasIncomeStatement,
   incomeStatementRows,
   incomeStatementCurrency,
+  employeeHistory = [],
   fillGridCell = false,
   onViewMore,
 }: {
@@ -254,26 +257,30 @@ function PrimaryFinCard({
   hasIncomeStatement: boolean;
   incomeStatementRows: IncomeStatementRow[];
   incomeStatementCurrency: string;
+  employeeHistory?: EmployeeTimeSeriesPoint[];
   fillGridCell?: boolean;
   onViewMore?: () => void;
 }) {
-  const tabs = useMemo(() => {
-    const list: { id: PrimaryFinTab; label: string }[] = [
-      { id: "metrics", label: "Financial Metrics" },
-    ];
-    if (hasIncomeStatement) {
-      list.push({ id: "income", label: "Income Statement" });
-    }
-    return list;
-  }, [hasIncomeStatement]);
+  const incomeTabLabel = "Income Statement";
 
-  const [activeTab, setActiveTab] = useState<PrimaryFinTab>("metrics");
+  const tabs = useMemo(() => {
+    const list: { id: PrimaryFinTab; label: string }[] = [];
+    if (hasIncomeStatement) {
+      list.push({ id: "income", label: incomeTabLabel });
+    }
+    list.push({ id: "metrics", label: "Financial Metrics" });
+    return list;
+  }, [hasIncomeStatement, incomeTabLabel]);
+
+  const [activeTab, setActiveTab] = useState<PrimaryFinTab>(() =>
+    hasIncomeStatement ? "income" : "metrics"
+  );
 
   useEffect(() => {
     if (!tabs.some((t) => t.id === activeTab)) {
-      setActiveTab("metrics");
+      setActiveTab(hasIncomeStatement ? "income" : "metrics");
     }
-  }, [tabs, activeTab]);
+  }, [tabs, activeTab, hasIncomeStatement]);
 
   return (
     <LinkPanel fillGridCell={fillGridCell} className="fin-metrics-card--primary">
@@ -297,6 +304,7 @@ function PrimaryFinCard({
           <IncomeStatementTable
             rows={incomeStatementRows}
             currency={incomeStatementCurrency}
+            employeeHistory={employeeHistory}
           />
         </div>
       ) : (
@@ -377,6 +385,7 @@ export function FinMetricsIncomeCard({
   hasIncomeStatement = false,
   incomeStatementRows = [],
   incomeStatementCurrency = "",
+  employeeHistory = [],
   fillGridCell = true,
   onViewMore,
 }: Props & { onViewMore?: () => void }) {
@@ -398,6 +407,7 @@ export function FinMetricsIncomeCard({
         hasIncomeStatement={hasIncomeStatement}
         incomeStatementRows={incomeStatementRows}
         incomeStatementCurrency={incomeStatementCurrency}
+        employeeHistory={employeeHistory}
         onViewMore={onViewMore}
       />
       <SecondaryFinCard

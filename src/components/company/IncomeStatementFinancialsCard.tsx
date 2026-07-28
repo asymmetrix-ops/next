@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 import {
   CARD_HEADER_BAR_STYLE,
   CARD_TITLE_STYLE,
@@ -8,35 +9,37 @@ import {
   T,
 } from "@/components/redesign/primitives";
 import type { IncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
-import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
-import type { CurrencyDisplayMode } from "@/lib/financialsCurrencyToggle";
 import { IncomeStatementMetricsGrid } from "./IncomeStatementMetricsGrid";
 
 export function IncomeStatementFinancialsCard({
   model,
-  showYoyColumn = false,
-  reserveYoyColumn = false,
-  allowedSources,
-  currencyMode = "preferred",
 }: {
   model: IncomeStatementFinancialsViewModel;
-  showYoyColumn?: boolean;
-  /** Empty YoY column so year columns line up with metrics cards below. */
-  reserveYoyColumn?: boolean;
-  allowedSources: FiMetricSourceType[];
-  currencyMode?: CurrencyDisplayMode;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
     <LinkPanel style={{ marginBottom: 16 }}>
       <div style={CARD_HEADER_BAR_STYLE}>
-        <div
+        <button
+          type="button"
+          onClick={() => setCollapsed((prev) => !prev)}
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
+            border: "none",
+            background: "transparent",
+            padding: 0,
+            cursor: "pointer",
             minWidth: 0,
           }}
         >
+          {collapsed ? (
+            <ChevronDownIcon width={16} height={16} color={T.muted} aria-hidden />
+          ) : (
+            <ChevronUpIcon width={16} height={16} color={T.muted} aria-hidden />
+          )}
           <span style={CARD_TITLE_STYLE}>{model.title}</span>
           <span
             style={{
@@ -48,15 +51,9 @@ export function IncomeStatementFinancialsCard({
           >
             {model.metrics.length} metrics
           </span>
-        </div>
+        </button>
       </div>
-      <IncomeStatementMetricsGrid
-        model={model}
-        showYoyColumn={showYoyColumn}
-        reserveYoyColumn={reserveYoyColumn}
-        allowedSources={allowedSources}
-        currencyMode={currencyMode}
-      />
+      {!collapsed ? <IncomeStatementMetricsGrid model={model} /> : null}
     </LinkPanel>
   );
 }
