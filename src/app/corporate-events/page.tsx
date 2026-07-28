@@ -23,6 +23,26 @@ import {
 } from "@/components/corporate-events/corporateEventsFilterConfig";
 import { fetchCorporateEventsServer, fetchCorporateEventsCountsServer } from "./actions";
 import type { CorporateEventListItem } from "./actions";
+import type { CorporateEventsSearchFilters } from "@/lib/corporateEventsFilterPayload";
+
+function parseCorporateEventsUrlFilters(): Partial<CorporateEventsSearchFilters> {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  const targetCompanyId = Number.parseInt(
+    params.get("target_company_id") ?? "",
+    10
+  );
+  const newCompanyId = Number.parseInt(params.get("new_company_id") ?? "", 10);
+  return {
+    search_query: params.get("search")?.trim() || "",
+    target_company_id:
+      Number.isFinite(targetCompanyId) && targetCompanyId > 0
+        ? targetCompanyId
+        : 0,
+    new_company_id:
+      Number.isFinite(newCompanyId) && newCompanyId > 0 ? newCompanyId : 0,
+  };
+}
 
 const useCorporateEventsAPI = (userId: number | null) => {
   const [events, setEvents] = useState<CorporateEventListItem[]>([]);
@@ -33,6 +53,12 @@ const useCorporateEventsAPI = (userId: number | null) => {
   const countsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentFiltersRef = useRef<Filters | undefined>(undefined);
   const currentCountsFiltersRef = useRef<Filters | undefined>(undefined);
+  const urlFiltersRef = useRef<Partial<CorporateEventsSearchFilters>>(
+    parseCorporateEventsUrlFilters()
+  );
+  const [urlFiltersReady, setUrlFiltersReady] = useState(
+    typeof window !== "undefined"
+  );
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
     undefined
   );
@@ -49,15 +75,31 @@ const useCorporateEventsAPI = (userId: number | null) => {
   const [summaryStats, setSummaryStats] =
     useState<CorporateEventsSummaryStats>(EMPTY_CORPORATE_EVENTS_SUMMARY_STATS);
 
+  const mergeUrlFilters = useCallback((filters: Filters): Filters => {
+    const urlFilters = urlFiltersRef.current;
+    return {
+      ...filters,
+      target_company_id: urlFilters.target_company_id ?? 0,
+      new_company_id: urlFilters.new_company_id ?? 0,
+    };
+  }, []);
+
+  useEffect(() => {
+    urlFiltersRef.current = parseCorporateEventsUrlFilters();
+    setUrlFiltersReady(true);
+  }, []);
+
   const scheduleCountsFetch = useCallback((countsFilters: Filters) => {
     if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
     countsTimeoutRef.current = setTimeout(() => {
       const countsRequestId = ++lastCountsRequestIdRef.current;
-      void fetchCorporateEventsCountsServer({
-        ...countsFilters,
-        user_id: userId,
-        deal_types: [],
-      })
+      void fetchCorporateEventsCountsServer(
+        mergeUrlFilters({
+          ...countsFilters,
+          user_id: userId,
+          deal_types: [],
+        })
+      )
         .then((countsData) => {
           if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
             return;
@@ -72,7 +114,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
           console.error("Error fetching corporate event counts:", countsError);
         });
     }, 400);
-  }, [userId]);
+  }, [userId, mergeUrlFilters]);
 
   const fetchCorporateEvents = useCallback(
     async (
@@ -101,19 +143,21 @@ const useCorporateEventsAPI = (userId: number | null) => {
         countsFilters ??
         currentCountsFiltersRef.current ??
         filtersToUse;
-      const resolvedFilters: Filters = {
+      const resolvedFilters: Filters = mergeUrlFilters({
         ...filtersToUse,
         user_id: userId,
         Page: page,
-      };
+      });
 
       try {
         if (page === 1 && refreshCounts) {
-          scheduleCountsFetch({
-            ...countsFiltersToUse,
-            user_id: userId,
-            deal_types: [],
-          });
+          scheduleCountsFetch(
+            mergeUrlFilters({
+              ...countsFiltersToUse,
+              user_id: userId,
+              deal_types: [],
+            })
+          );
         }
 
         const data = await fetchCorporateEventsServer(page, resolvedFilters);
@@ -163,14 +207,18 @@ const useCorporateEventsAPI = (userId: number | null) => {
         }
       }
     },
-    [userId, scheduleCountsFetch]
+    [userId, scheduleCountsFetch, mergeUrlFilters]
   );
 
   useEffect(() => {
-    const defaults = createDefaultCorporateEventFilters();
+    if (!urlFiltersReady) return;
+    const defaults = mergeUrlFilters({
+      ...createDefaultCorporateEventFilters(),
+      search_query: urlFiltersRef.current.search_query?.trim() || "",
+    });
     fetchCorporateEvents(1, defaults, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, urlFiltersReady]);
 
   return {
     events,
@@ -214,9 +262,8 @@ function CorporateEventsPageInner() {
   const exportCSVRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    setInitialSearch(params.get("search") || undefined);
+    const urlFilters = parseCorporateEventsUrlFilters();
+    setInitialSearch(urlFilters.search_query || undefined);
   }, []);
 
   const handleSearch = useCallback(

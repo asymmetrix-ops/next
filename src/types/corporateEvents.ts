@@ -35,6 +35,8 @@ export interface CorporateEventsFilters {
   EV_min?: string;
   EV_max?: string;
   Product_Types?: string[];
+  target_company_id?: number;
+  new_company_id?: number;
 }
 
 export interface CorporateEventsStats {

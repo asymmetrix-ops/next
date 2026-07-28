@@ -123,6 +123,8 @@ function buildFiltersFromFilterBar(args: {
     EV_min: "0",
     EV_max: "0",
     Product_Types: [],
+    target_company_id: 0,
+    new_company_id: 0,
   };
 
   let hasPriorClause = false;
@@ -238,6 +240,8 @@ export const createDefaultCorporateEventFilters =
     EV_min: "0",
     EV_max: "0",
     Product_Types: [],
+    target_company_id: 0,
+    new_company_id: 0,
   });
 
 export function buildCorporateEventsSearchPayload(args: {
@@ -310,7 +314,8 @@ function appendSharedCorporateEventFilterParams(
     params.append("user_id", "0");
   }
 
-  params.append("new_company_id", "0");
+  params.append("new_company_id", String(filters.new_company_id ?? 0));
+  params.append("target_company_id", String(filters.target_company_id ?? 0));
 
   if (filters.search_query) {
     params.append("search_query", filters.search_query);
