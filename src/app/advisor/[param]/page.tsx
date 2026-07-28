@@ -22,6 +22,16 @@ import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
+import {
+  fetchCompanyLinkedIn,
+  formatLinkedInEmployeeCountDate,
+  mapLinkedInHistoryToTimeSeries,
+  resolveLinkedInDisplayEmployeeCount,
+  type CompanyLinkedInResponse,
+  type EmployeeTimeSeriesPoint,
+} from "@/lib/companyLinkedIn";
+import { getCompanyProfileUpstreamUrl } from "@/lib/companyProfileApi";
+import { parseLinkedInGrowthPctValue } from "@/components/subsidiaries/SubsidiariesProfilePanel";
 import { AdvisorOverviewCard } from "@/components/advisors/AdvisorOverviewCard";
 import { AdvisorPeopleCard } from "@/components/advisors/AdvisorPeopleCard";
 import {
@@ -29,11 +39,6 @@ import {
   type AdvisorDealEvent,
 } from "@/components/advisors/AdvisorDealsProfilePanel";
 import type { Advisor, AdvisorRoleRef } from "../../../types/advisor";
-
-interface LinkedInHistory {
-  date: string;
-  employees_count: number;
-}
 
 function formatWebsiteDisplayLabel(raw: string): string {
   const trimmed = raw.trim();
@@ -52,7 +57,7 @@ function formatWebsiteDisplayLabel(raw: string): string {
   }
 }
 
-function computeEmployeeYoYFromMonthly(data: LinkedInHistory[]): string | null {
+function computeEmployeeYoYFromMonthly(data: EmployeeTimeSeriesPoint[]): string | null {
   if (!Array.isArray(data) || data.length < 2) return null;
   const sorted = [...data].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -62,7 +67,7 @@ function computeEmployeeYoYFromMonthly(data: LinkedInHistory[]): string | null {
   if (typeof latestCount !== "number" || latestCount <= 0) return null;
   const latestT = new Date(latest.date).getTime();
   const yearMs = 365 * 86_400_000;
-  let best: LinkedInHistory | null = null;
+  let best: EmployeeTimeSeriesPoint | null = null;
   let bestDiff = Infinity;
   for (let i = sorted.length - 2; i >= 0; i--) {
     const row = sorted[i];
@@ -85,7 +90,7 @@ function computeEmployeeYoYFromMonthly(data: LinkedInHistory[]): string | null {
   return `${sign}${rounded}% YoY`;
 }
 
-function resolveChartEmployeeCount(data: LinkedInHistory[]): number {
+function resolveChartEmployeeCount(data: EmployeeTimeSeriesPoint[]): number {
   if (!Array.isArray(data) || data.length === 0) return 0;
   const numericData = data.map((e) => e.employees_count);
   const hasAnyNonZero = numericData.some((v) => v > 0);
@@ -139,7 +144,8 @@ export default function AdvisorProfilePage() {
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
+  const [companyLinkedIn, setCompanyLinkedIn] =
+    useState<CompanyLinkedInResponse | null>(null);
   // Roles fetched from the LinkedIn/company endpoint (includes job titles)
   interface RoleItem {
     id: number;
@@ -421,15 +427,28 @@ export default function AdvisorProfilePage() {
           formatted: hqFormatted,
         },
         linkedin: {
-          logo_base64_jpeg: linkedInNew?.linkedin_logo || linkedInLegacy?.linkedin_logo || null,
+          logo_base64_jpeg:
+            companyLinkedIn?.profile?.logo ||
+            linkedInNew?.linkedin_logo ||
+            linkedInLegacy?.linkedin_logo ||
+            null,
           employee_count:
-            typeof linkedInNew?.linkedin_employee === "number"
+            typeof companyLinkedIn?.profile?.employee_count === "number"
+              ? companyLinkedIn.profile.employee_count
+              : typeof linkedInNew?.linkedin_employee === "number"
               ? linkedInNew.linkedin_employee
               : typeof linkedInLegacy?.LinkedIn_Employee === "number"
               ? linkedInLegacy.LinkedIn_Employee
               : null,
-          employee_count_date: linkedInNew?.linkedin_emp_date || linkedInLegacy?.LinkedIn_Emp__Date || null,
-          linkedin_url: linkedInLegacy?.LinkedIn_URL || null,
+          employee_count_date:
+            companyLinkedIn?.profile?.employee_count_date ||
+            linkedInNew?.linkedin_emp_date ||
+            linkedInLegacy?.LinkedIn_Emp__Date ||
+            null,
+          linkedin_url:
+            companyLinkedIn?.profile?.linkedin_url ||
+            linkedInLegacy?.LinkedIn_URL ||
+            null,
         },
         portfolio_companies_count: advisorData?.Portfolio_companies_count ?? 0,
       },
@@ -443,7 +462,12 @@ export default function AdvisorProfilePage() {
         items: normalizedDeals,
       },
       linkedin_history: {
-        monthly_employee_counts: linkedInHistory.map((x) => ({
+        monthly_employee_counts: (
+          companyLinkedIn?.employee_history &&
+          companyLinkedIn.employee_history.length > 0
+            ? mapLinkedInHistoryToTimeSeries(companyLinkedIn.employee_history)
+            : []
+        ).map((x) => ({
           date: x.date,
           employees_count: x.employees_count,
         })),
@@ -506,13 +530,12 @@ export default function AdvisorProfilePage() {
     }
   };
 
-  // Fetch LinkedIn history data using the same API pattern as company page
-  const fetchLinkedInHistory = useCallback(async () => {
+  const fetchManagementRoles = useCallback(async () => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
-
+      const isDevelop = process.env.NEXT_PUBLIC_ENVIRONMENT === "develop";
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_profile/${advisorId}`,
+        getCompanyProfileUpstreamUrl(String(advisorId), { develop: isDevelop }),
         {
           method: "GET",
           headers: {
@@ -525,28 +548,12 @@ export default function AdvisorProfilePage() {
 
       if (!response.ok) {
         throw new Error(
-          `LinkedIn History API request failed: ${response.statusText}`
+          `Management roles API request failed: ${response.statusText}`
         );
       }
 
       const data = await response.json();
-      console.log("Advisor LinkedIn history API response:", data);
 
-      // Extract employee count data from the same field as company page
-      const employeeData =
-        data.Company?._companies_employees_count_monthly || [];
-
-      // Transform the data to match our interface - same format as company page
-      const historyData = employeeData.map(
-        (item: { date?: string; employees_count?: number }) => ({
-          date: item.date || "",
-          employees_count: item.employees_count || 0,
-        })
-      );
-
-      setLinkedInHistory(historyData);
-
-      // Capture roles (with job titles) if provided by this endpoint
       const currentRoles: RoleItem[] = Array.isArray(
         data.Managmant_Roles_current
       )
@@ -558,15 +565,26 @@ export default function AdvisorProfilePage() {
       setRolesCurrent(currentRoles);
       setRolesPast(pastRoles);
     } catch (err) {
-      console.error("Error fetching advisor LinkedIn history:", err);
+      console.error("Error fetching advisor management roles:", err);
     }
   }, [advisorId]);
 
   useEffect(() => {
-    if (advisorId) {
-      fetchLinkedInHistory();
-    }
-  }, [advisorId, fetchLinkedInHistory]);
+    if (!advisorId) return;
+
+    setCompanyLinkedIn(null);
+    void (async () => {
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const data = await fetchCompanyLinkedIn(advisorId, token);
+        setCompanyLinkedIn(data);
+      } catch (err) {
+        console.warn("Failed to fetch advisor LinkedIn data:", err);
+      }
+    })();
+
+    fetchManagementRoles();
+  }, [advisorId, fetchManagementRoles]);
 
   // Update page title when advisor data is loaded
   useEffect(() => {
@@ -727,9 +745,35 @@ export default function AdvisorProfilePage() {
     }
     return [];
   })();
-  const currentHeadcount = resolveChartEmployeeCount(linkedInHistory);
-  const headcountYoY = computeEmployeeYoYFromMonthly(linkedInHistory);
-  const linkedinUrl = normalizeLinkedInProfileUrl(Advisor.linkedin_data?.LinkedIn_URL);
+  const employeeData =
+    companyLinkedIn?.employee_history && companyLinkedIn.employee_history.length > 0
+      ? mapLinkedInHistoryToTimeSeries(companyLinkedIn.employee_history)
+      : [];
+  const currentHeadcount = resolveLinkedInDisplayEmployeeCount(
+    companyLinkedIn,
+    resolveChartEmployeeCount(employeeData) ||
+      Advisor._linkedin_data_of_new_company?.linkedin_employee ||
+      Advisor.linkedin_data?.LinkedIn_Employee ||
+      0
+  );
+  const headcountYoY = (() => {
+    const liGrowth = parseLinkedInGrowthPctValue(companyLinkedIn?.growth_1y_pct);
+    if (liGrowth !== null) {
+      const rounded = Math.round(liGrowth * 10) / 10;
+      return `${rounded >= 0 ? "+" : ""}${rounded}% YoY`;
+    }
+    return computeEmployeeYoYFromMonthly(employeeData);
+  })();
+  const linkedinUrl = normalizeLinkedInProfileUrl(
+    companyLinkedIn?.profile?.linkedin_url ?? Advisor.linkedin_data?.LinkedIn_URL
+  );
+  const employeeCountAsOf =
+    formatLinkedInEmployeeCountDate(companyLinkedIn?.profile?.employee_count_date) ??
+    (() => {
+      const latest = employeeData[employeeData.length - 1];
+      if (!latest?.date) return undefined;
+      return formatLinkedInEmployeeCountDate(latest.date);
+    })();
 
   const WIDE_ROW_START = 2;
   const dealsGridRow = WIDE_ROW_START;
@@ -816,7 +860,11 @@ export default function AdvisorProfilePage() {
         >
           <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flex: 1 }}>
             <CompanyLogo
-              logo={Advisor._linkedin_data_of_new_company?.linkedin_logo || ""}
+              logo={
+                companyLinkedIn?.profile?.logo ||
+                Advisor._linkedin_data_of_new_company?.linkedin_logo ||
+                ""
+              }
               name={Advisor.name}
             />
             <span
@@ -932,32 +980,19 @@ export default function AdvisorProfilePage() {
               />
             </div>
 
+            {employeeData.length > 0 && (
             <div className="advisor-grid-headcount">
               <HeadcountCard
                 fillGridCell
-                data={linkedInHistory.map((e) => e.employees_count)}
-                dates={linkedInHistory.map((e) => e.date)}
+                data={employeeData.map((e) => e.employees_count)}
+                dates={employeeData.map((e) => e.date)}
                 count={currentHeadcount}
                 yoyLabel={headcountYoY || undefined}
-                asOf={(() => {
-                  const nonZero = linkedInHistory.filter((e) => e.employees_count > 0);
-                  const ref =
-                    nonZero.length > 0
-                      ? nonZero[nonZero.length - 1]
-                      : linkedInHistory[linkedInHistory.length - 1];
-                  if (!ref?.date) return undefined;
-                  try {
-                    return new Date(ref.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      year: "numeric",
-                    });
-                  } catch {
-                    return undefined;
-                  }
-                })()}
+                asOf={employeeCountAsOf}
                 linkedinUrl={linkedinUrl}
               />
             </div>
+            )}
 
             <div className="advisor-grid-deals">
               <LinkPanel fillGridCell className="advisor-deals-v3-card">
