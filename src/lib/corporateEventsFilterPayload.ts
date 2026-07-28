@@ -214,11 +214,17 @@ export function buildCorporateEventsSearchPayload(args: {
   primarySectors: SectorRef[];
   secondarySectors: SectorRef[];
   userId?: number | null;
+  scopedPrimarySectorIds?: number[];
   page?: number;
   perPage?: number;
   dealTabTypes?: readonly string[];
 }): CorporateEventsSearchFilters {
   const filters = buildFiltersFromFilterBar(args);
+  if (args.scopedPrimarySectorIds && args.scopedPrimarySectorIds.length > 0) {
+    filters.primary_sectors_ids = Array.from(
+      new Set([...args.scopedPrimarySectorIds, ...filters.primary_sectors_ids])
+    );
+  }
   if (args.dealTabTypes && args.dealTabTypes.length > 0) {
     return {
       ...filters,
@@ -233,10 +239,16 @@ export function buildCorporateEventsCountsSearchPayload(args: {
   primarySectors: SectorRef[];
   secondarySectors: SectorRef[];
   userId?: number | null;
+  scopedPrimarySectorIds?: number[];
   page?: number;
   perPage?: number;
 }): CorporateEventsSearchFilters {
   const filters = buildFiltersFromFilterBar(args);
+  if (args.scopedPrimarySectorIds && args.scopedPrimarySectorIds.length > 0) {
+    filters.primary_sectors_ids = Array.from(
+      new Set([...args.scopedPrimarySectorIds, ...filters.primary_sectors_ids])
+    );
+  }
   return {
     ...filters,
     deal_types: [],

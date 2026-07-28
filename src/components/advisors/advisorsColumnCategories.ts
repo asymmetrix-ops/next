@@ -114,6 +114,14 @@ export const PROD_DEFAULT_ADVISOR_COLUMN_KEYS = [
   "country",
 ] as const;
 
+/** Default visible columns for sector Most Active Advisors sub-section. */
+export const SECTOR_MOST_ACTIVE_ADVISOR_COLUMN_KEYS = [
+  "name",
+  "country",
+  "events_advised",
+  "sectors",
+] as const;
+
 export const FROZEN_ADVISOR_COLUMN_KEYS = ["name"] as const;
 
 export const DEFAULT_VISIBLE_ADVISOR_COLUMN_KEYS: string[] = [

@@ -9,6 +9,7 @@ import {
 import { CompanyDashboard } from "@/components/companies/CompanyDashboard";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
 import type { ListExportRequest } from "@/lib/listExport/types";
+import type { ColumnStorageScope } from "@/lib/columnPreferencesStorage";
 import {
   CompanySection,
   createDefaultFilters,
@@ -31,6 +32,14 @@ export type ScopedCompaniesPanelProps = {
   hideOwnershipTabs?: boolean;
   excludeFilterIds?: string[];
   embedded?: boolean;
+  enableColumnControl?: boolean;
+  enableFilterControl?: boolean;
+  enableExport?: boolean;
+  enableRowSelection?: boolean;
+  uncappedExport?: boolean;
+  columnsStorageKey?: string;
+  columnsStorageScope?: ColumnStorageScope;
+  defaultColumnKeys?: readonly string[];
 };
 
 function useScopedCompaniesSearch() {
@@ -53,6 +62,7 @@ function useScopedCompaniesSearch() {
     offset: 0,
     perPage: 20,
     pageTotal: 0,
+    totalCount: 0,
   });
   const [ownershipCounts, setOwnershipCounts] =
     useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
@@ -140,6 +150,7 @@ function useScopedCompaniesSearch() {
             offset: data.result1?.offset || 0,
             perPage: data.result1?.perPage || 20,
             pageTotal: data.result1?.pageTotal || 0,
+            totalCount: data.result1?.itemsReceived || 0,
           });
         }
       } catch (err) {
@@ -177,6 +188,14 @@ export function ScopedCompaniesPanel({
   hideOwnershipTabs = false,
   excludeFilterIds = [],
   embedded = false,
+  enableColumnControl = true,
+  enableFilterControl = true,
+  enableExport = true,
+  enableRowSelection = true,
+  uncappedExport = false,
+  columnsStorageKey,
+  columnsStorageScope = "session",
+  defaultColumnKeys = DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS,
 }: ScopedCompaniesPanelProps) {
   const {
     companies,
@@ -231,17 +250,16 @@ export function ScopedCompaniesPanel({
       filters: Array<{ id: string; value: unknown }>;
       ownershipTabActive: boolean;
     }) => {
+      if (!enableColumnControl) return;
       setFilterPinnedColumnKeys(
         getColumnKeysForActiveFilters(filters, ownershipTabActive)
       );
     },
-    []
+    [enableColumnControl]
   );
 
   const [showColumnsModal, setShowColumnsModal] = useState(false);
-  const [columnsCount, setColumnsCount] = useState(
-    DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS.length
-  );
+  const [columnsCount, setColumnsCount] = useState(defaultColumnKeys.length);
   const exportCSVRef = useRef<
     ((request: ListExportRequest) => Promise<void>) | null
   >(null);
@@ -256,6 +274,10 @@ export function ScopedCompaniesPanel({
     togglePageSelection,
     clearSelection,
   } = useEntitySelection(filtersKey);
+
+  const emptySelectionSet = useMemo(() => new Set<number>(), []);
+  const noopToggle = useCallback(() => {}, []);
+  const noopTogglePage = useCallback(() => {}, []);
 
   const matchCountOverride =
     fixedOwnershipTypeIds != null ? pagination.itemsReceived : undefined;
@@ -303,6 +325,12 @@ export function ScopedCompaniesPanel({
     fetchCompanies(1, filters, filters);
   }, [scopeKey, buildScopedFilters, fetchCompanies, primarySectorId, secondarySectorId]);
 
+  const resolvedColumnsStorageKey =
+    columnsStorageKey ??
+    `sector-companies-column-keys-${primarySectorId ?? secondarySectorId ?? "scoped"}-${
+      fixedOwnershipTypeIds?.join("-") ?? "all"
+    }`;
+
   return (
     <div
       className={
@@ -311,26 +339,35 @@ export function ScopedCompaniesPanel({
           : "min-h-screen"
       }
     >
-      <CompanyDashboard
-        onSearch={handleSearch}
-        onFilterColumnsChange={handleFilterColumnsChange}
-        ownershipCounts={ownershipCounts}
-        onColumnsClick={() => setShowColumnsModal((v) => !v)}
-        onExport={(mode) =>
-          exportCSVRef.current?.({ mode, scope: "full_list" })
-        }
-        exporting={exporting}
-        columnsCount={columnsCount}
-        columnsActive={showColumnsModal}
-        hidePageHeader={embedded}
-        hideOwnershipTabs={hideOwnershipTabs || fixedOwnershipTypeIds != null}
-        excludeFilterIds={mergedExcludeFilterIds}
-        matchCountOverride={matchCountOverride}
-        scopedPrimarySectorIds={scopedPrimarySectorIds}
-        scopedSecondarySectorIds={scopedSecondarySectorIds}
-        fixedOwnershipTypeIds={fixedOwnershipTypeIds}
-        embedded={embedded}
-      />
+      {(enableFilterControl || enableColumnControl || enableExport) && (
+        <CompanyDashboard
+          onSearch={enableFilterControl ? handleSearch : undefined}
+          onFilterColumnsChange={handleFilterColumnsChange}
+          ownershipCounts={ownershipCounts}
+          onColumnsClick={
+            enableColumnControl ? () => setShowColumnsModal((v) => !v) : undefined
+          }
+          onExport={
+            enableExport
+              ? (mode) =>
+                  exportCSVRef.current?.({ mode, scope: "full_list" })
+              : undefined
+          }
+          exporting={exporting}
+          columnsCount={columnsCount}
+          columnsActive={showColumnsModal}
+          hidePageHeader={embedded}
+          hideOwnershipTabs={hideOwnershipTabs || fixedOwnershipTypeIds != null}
+          excludeFilterIds={mergedExcludeFilterIds}
+          matchCountOverride={matchCountOverride}
+          scopedPrimarySectorIds={scopedPrimarySectorIds}
+          scopedSecondarySectorIds={scopedSecondarySectorIds}
+          fixedOwnershipTypeIds={fixedOwnershipTypeIds}
+          embedded={embedded}
+          hideFilterBar={!enableFilterControl}
+          selectedCount={enableRowSelection ? selectedCompanyIds.size : 0}
+        />
+      )}
       <CompanySection
         companies={companies}
         loading={loading}
@@ -340,20 +377,37 @@ export function ScopedCompaniesPanel({
         fetchCompanies={fetchCompanies}
         setRequestColumns={setRequestColumns}
         currentFilters={currentFilters}
-        filterPinnedColumnKeys={filterPinnedColumnKeys}
-        externalShowColumnsModal={showColumnsModal}
-        externalSetShowColumnsModal={setShowColumnsModal}
+        filterPinnedColumnKeys={enableColumnControl ? filterPinnedColumnKeys : []}
+        externalShowColumnsModal={enableColumnControl ? showColumnsModal : false}
+        externalSetShowColumnsModal={
+          enableColumnControl ? setShowColumnsModal : undefined
+        }
         onColumnsCountChange={setColumnsCount}
-        onRegisterExportCSV={(fn) => {
-          exportCSVRef.current = fn;
-        }}
+        onRegisterExportCSV={
+          enableExport
+            ? (fn) => {
+                exportCSVRef.current = fn;
+              }
+            : undefined
+        }
         onExportingChange={setExporting}
-        selectedCompanyIds={selectedCompanyIds}
-        onToggleCompanySelection={toggleCompanySelection}
-        onTogglePageSelection={togglePageSelection}
-        onClearSelection={clearSelection}
+        selectedCompanyIds={
+          enableRowSelection ? selectedCompanyIds : emptySelectionSet
+        }
+        onToggleCompanySelection={
+          enableRowSelection ? toggleCompanySelection : noopToggle
+        }
+        onTogglePageSelection={
+          enableRowSelection ? togglePageSelection : noopTogglePage
+        }
+        onClearSelection={enableRowSelection ? clearSelection : () => {}}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
         embedded={embedded}
+        columnsStorageKey={resolvedColumnsStorageKey}
+        columnsStorageScope={columnsStorageScope}
+        defaultColumnKeys={defaultColumnKeys}
+        uncappedExport={uncappedExport}
+        enableColumnControl={enableColumnControl}
       />
     </div>
   );

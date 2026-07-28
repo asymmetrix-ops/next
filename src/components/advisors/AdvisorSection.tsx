@@ -37,6 +37,11 @@ import { buildAdvisorSectorItems } from "@/components/search/searchEntityLinkUti
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
 import { readLogoFromRecord } from "@/lib/companyLogo";
+import {
+  loadStoredColumnKeys,
+  saveStoredColumnKeys,
+  type ColumnStorageScope,
+} from "@/lib/columnPreferencesStorage";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
 import { exportAdvisorsList } from "@/lib/listExport/advisorsListExport";
 import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
@@ -115,6 +120,10 @@ export const AdvisorSection = ({
   onToggleEntitySelection,
   onTogglePageSelection,
   onClearSelection,
+  columnsStorageKey,
+  columnsStorageScope = "local",
+  defaultColumnKeys,
+  enableColumnControl = true,
 }: {
   advisors: Advisor[];
   loading: boolean;
@@ -145,6 +154,10 @@ export const AdvisorSection = ({
   onSortClear?: () => void;
 } & SearchTableSelectionProps & {
   onClearSelection?: () => void;
+  columnsStorageKey?: string;
+  columnsStorageScope?: ColumnStorageScope;
+  defaultColumnKeys?: readonly string[];
+  enableColumnControl?: boolean;
 }) => {
   const router = useRouter();
   const headerDidDragRef = useRef(false);
@@ -156,8 +169,17 @@ export const AdvisorSection = ({
   const setShowColumnsModal =
     externalSetShowColumnsModal ?? setInternalShowColumnsModal;
   const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
+  const resolvedDefaultColumnKeys = useMemo(
+    () =>
+      defaultColumnKeys
+        ? [...defaultColumnKeys]
+        : [...DEFAULT_VISIBLE_ADVISOR_COLUMN_KEYS],
+    [defaultColumnKeys]
+  );
+  const resolvedColumnsStorageKey =
+    columnsStorageKey ?? ADVISORS_COLUMNS_STORAGE_KEY;
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
-    DEFAULT_VISIBLE_ADVISOR_COLUMN_KEYS
+    resolvedDefaultColumnKeys
   );
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
@@ -211,36 +233,45 @@ export const AdvisorSection = ({
   }, [filterPinnedColumnKeys]);
 
   useEffect(() => {
+    if (!enableColumnControl) {
+      setSelectedColumnKeys(getValidColumnKeys([...resolvedDefaultColumnKeys]));
+      setColumnPrefsLoaded(true);
+      return;
+    }
     try {
-      const saved = window.localStorage.getItem(ADVISORS_COLUMNS_STORAGE_KEY);
+      const saved = loadStoredColumnKeys(
+        resolvedColumnsStorageKey,
+        columnsStorageScope
+      );
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSelectedColumnKeys(
-            getValidColumnKeys(
-              parsed.filter((key): key is string => typeof key === "string")
-            )
-          );
-        }
+        setSelectedColumnKeys(getValidColumnKeys(saved));
       }
     } catch (storageError) {
       console.warn("Unable to load advisor column preferences:", storageError);
     } finally {
       setColumnPrefsLoaded(true);
     }
-  }, []);
+  }, [
+    enableColumnControl,
+    resolvedDefaultColumnKeys,
+    resolvedColumnsStorageKey,
+    columnsStorageScope,
+  ]);
 
   useEffect(() => {
-    if (!columnPrefsLoaded) return;
-    try {
-      window.localStorage.setItem(
-        ADVISORS_COLUMNS_STORAGE_KEY,
-        JSON.stringify(selectedColumnKeys)
-      );
-    } catch (storageError) {
-      console.warn("Unable to save advisor column preferences:", storageError);
-    }
-  }, [selectedColumnKeys, columnPrefsLoaded]);
+    if (!columnPrefsLoaded || !enableColumnControl) return;
+    saveStoredColumnKeys(
+      resolvedColumnsStorageKey,
+      columnsStorageScope,
+      selectedColumnKeys
+    );
+  }, [
+    selectedColumnKeys,
+    columnPrefsLoaded,
+    enableColumnControl,
+    resolvedColumnsStorageKey,
+    columnsStorageScope,
+  ]);
 
   const selectedColumns = useMemo(
     () =>
@@ -558,6 +589,7 @@ export const AdvisorSection = ({
   };
 
   const columnsModalLayer =
+    enableColumnControl &&
     showColumnsModal &&
     (
       <>

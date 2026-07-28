@@ -43,9 +43,7 @@ import {
   SEARCH_DASHBOARD_FILTER_INNER,
   SEARCH_DASHBOARD_FILTER_SHELL,
   SEARCH_DASHBOARD_HEADER_ROW,
-  SEARCH_DASHBOARD_INNER,
   SEARCH_DASHBOARD_MATCH_COUNT,
-  SEARCH_DASHBOARD_SHELL,
   SEARCH_DASHBOARD_TITLE,
   SearchListTabs,
 } from "@/components/search/searchDashboardLayout";
@@ -65,6 +63,14 @@ export type AdvisorDashboardProps = {
   exporting?: boolean;
   columnsActive?: boolean;
   columnsCount?: number;
+  hidePageHeader?: boolean;
+  embedded?: boolean;
+  hideFilterBar?: boolean;
+  hideExport?: boolean;
+  hideRoleTabs?: boolean;
+  excludeFilterIds?: string[];
+  scopedPrimarySectorIds?: number[];
+  matchCountOverride?: number;
 };
 
 export const AdvisorDashboard = ({
@@ -77,6 +83,14 @@ export const AdvisorDashboard = ({
   exporting = false,
   columnsActive = false,
   columnsCount = 0,
+  hidePageHeader = false,
+  embedded = false,
+  hideFilterBar = false,
+  hideExport = false,
+  hideRoleTabs = false,
+  excludeFilterIds = [],
+  scopedPrimarySectorIds = [],
+  matchCountOverride,
 }: AdvisorDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
     filters: [],
@@ -173,7 +187,7 @@ export const AdvisorDashboard = ({
         cities,
         primarySectors,
         secondarySectors,
-      }),
+      }).filter((def) => !excludeFilterIds.includes(def.id)),
     [
       continentalRegions,
       subRegions,
@@ -182,6 +196,7 @@ export const AdvisorDashboard = ({
       cities,
       primarySectors,
       secondarySectors,
+      excludeFilterIds,
     ]
   );
 
@@ -203,9 +218,16 @@ export const AdvisorDashboard = ({
       state: filterBarState,
       primarySectors,
       secondarySectors,
+      scopedPrimarySectorIds,
       advisorRoleId: tabConfig?.roleId,
     });
-  }, [filterBarState, primarySectors, secondarySectors, activeAdvisorRoleTab]);
+  }, [
+    filterBarState,
+    primarySectors,
+    secondarySectors,
+    scopedPrimarySectorIds,
+    activeAdvisorRoleTab,
+  ]);
 
   const buildCountsSearchFilters = useCallback(
     (): AdvisorsSearchFilters =>
@@ -213,8 +235,9 @@ export const AdvisorDashboard = ({
         state: filterBarState,
         primarySectors,
         secondarySectors,
+        scopedPrimarySectorIds,
       }),
-    [filterBarState, primarySectors, secondarySectors]
+    [filterBarState, primarySectors, secondarySectors, scopedPrimarySectorIds]
   );
 
   const isPortfolioFilterActive = filterBarState.filters.some(
@@ -291,15 +314,31 @@ export const AdvisorDashboard = ({
   ];
 
   const matchCount =
-    activeAdvisorRoleTab === "all"
+    matchCountOverride ??
+    (activeAdvisorRoleTab === "all"
       ? roleCounts.totalCount
       : roleTabs.find((tab) => tab.id === activeAdvisorRoleTab)?.count ??
-        roleCounts.totalCount;
+        roleCounts.totalCount);
+
+  const horizontalPad = embedded ? "0" : "28px";
+  const topPad = embedded ? "16px" : "20px";
 
   return (
-    <div style={SEARCH_DASHBOARD_SHELL}>
-      <div style={SEARCH_DASHBOARD_INNER}>
-        <div style={SEARCH_DASHBOARD_HEADER_ROW}>
+    <div
+      style={{
+        background: embedded ? "#fff" : undefined,
+        borderBottom: embedded ? "none" : undefined,
+      }}
+    >
+      <div style={{ width: "100%", padding: `${topPad} ${horizontalPad} 0` }}>
+        <div
+          style={{
+            ...SEARCH_DASHBOARD_HEADER_ROW,
+            marginBottom: embedded ? 12 : 18,
+            width: embedded ? "100%" : undefined,
+          }}
+        >
+          {!hidePageHeader && (
           <div>
             <div style={SEARCH_DASHBOARD_EYEBROW}>Advisors</div>
             <h1 style={SEARCH_DASHBOARD_TITLE}>
@@ -309,14 +348,25 @@ export const AdvisorDashboard = ({
               </span>
             </h1>
           </div>
+          )}
 
-          <div style={SEARCH_DASHBOARD_ACTIONS}>
+          <div
+            style={{
+              ...SEARCH_DASHBOARD_ACTIONS,
+              marginLeft: hidePageHeader ? "auto" : undefined,
+              width: hidePageHeader && embedded ? "100%" : undefined,
+              justifyContent: hidePageHeader && embedded ? "flex-end" : undefined,
+            }}
+          >
+            {onColumnsClick && (
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
               total={CANONICAL_ADVISOR_COLUMN_KEYS.length}
               onClick={onColumnsClick}
             />
+            )}
+            {!embedded && (
             <RequestDataResearchButton
               label="Request Advisor Profile"
               context="advisor"
@@ -324,21 +374,26 @@ export const AdvisorDashboard = ({
               className="inline-flex items-center justify-center"
               style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
             />
+            )}
+            {!hideExport && onExport && (
             <SearchExportMenu
               onExport={(mode) => onExport?.(mode)}
               exporting={exporting}
-              disabled={!onExport}
             />
+            )}
           </div>
         </div>
 
+        {!hideRoleTabs && (
         <SearchListTabs
           tabs={roleTabs}
           activeTabId={activeAdvisorRoleTab}
           onTabClick={(tabId) => setActiveAdvisorRoleTab(tabId as AdvisorRoleTab)}
         />
+        )}
       </div>
 
+      {!hideFilterBar && (
       <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
         <div style={SEARCH_DASHBOARD_FILTER_INNER}>
           <CompaniesFilterBar
@@ -353,6 +408,7 @@ export const AdvisorDashboard = ({
           />
         </div>
       </div>
+      )}
     </div>
   );
 };

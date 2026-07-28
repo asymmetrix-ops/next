@@ -59,6 +59,11 @@ import {
 } from "@/components/search/searchTableUtils";
 import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
+import {
+  loadStoredColumnKeys,
+  saveStoredColumnKeys,
+  type ColumnStorageScope,
+} from "@/lib/columnPreferencesStorage";
 
 export type Investor = InvestorListItem;
 export type Filters = InvestorsSearchFilters;
@@ -306,6 +311,10 @@ export const InvestorSection = ({
   onToggleEntitySelection,
   onTogglePageSelection,
   onClearSelection,
+  columnsStorageKey,
+  columnsStorageScope = "local",
+  defaultColumnKeys,
+  enableColumnControl = true,
 }: {
   investors: Investor[];
   loading: boolean;
@@ -336,6 +345,10 @@ export const InvestorSection = ({
   onSortClear?: () => void;
 } & SearchTableSelectionProps & {
   onClearSelection?: () => void;
+  columnsStorageKey?: string;
+  columnsStorageScope?: ColumnStorageScope;
+  defaultColumnKeys?: readonly string[];
+  enableColumnControl?: boolean;
 }) => {
   const router = useRouter();
   const headerDidDragRef = useRef(false);
@@ -347,8 +360,17 @@ export const InvestorSection = ({
   const setShowColumnsModal =
     externalSetShowColumnsModal ?? setInternalShowColumnsModal;
   const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
+  const resolvedDefaultColumnKeys = useMemo(
+    () =>
+      defaultColumnKeys
+        ? [...defaultColumnKeys]
+        : [...DEFAULT_VISIBLE_INVESTOR_COLUMN_KEYS],
+    [defaultColumnKeys]
+  );
+  const resolvedColumnsStorageKey =
+    columnsStorageKey ?? INVESTORS_COLUMNS_STORAGE_KEY;
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
-    DEFAULT_VISIBLE_INVESTOR_COLUMN_KEYS
+    resolvedDefaultColumnKeys
   );
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
@@ -405,36 +427,45 @@ export const InvestorSection = ({
   }, [filterPinnedColumnKeys]);
 
   useEffect(() => {
+    if (!enableColumnControl) {
+      setSelectedColumnKeys(getValidColumnKeys([...resolvedDefaultColumnKeys]));
+      setColumnPrefsLoaded(true);
+      return;
+    }
     try {
-      const saved = window.localStorage.getItem(INVESTORS_COLUMNS_STORAGE_KEY);
+      const saved = loadStoredColumnKeys(
+        resolvedColumnsStorageKey,
+        columnsStorageScope
+      );
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSelectedColumnKeys(
-            getValidColumnKeys(
-              parsed.filter((key): key is string => typeof key === "string")
-            )
-          );
-        }
+        setSelectedColumnKeys(getValidColumnKeys(saved));
       }
     } catch (storageError) {
       console.warn("Unable to load investor column preferences:", storageError);
     } finally {
       setColumnPrefsLoaded(true);
     }
-  }, []);
+  }, [
+    enableColumnControl,
+    resolvedDefaultColumnKeys,
+    resolvedColumnsStorageKey,
+    columnsStorageScope,
+  ]);
 
   useEffect(() => {
-    if (!columnPrefsLoaded) return;
-    try {
-      window.localStorage.setItem(
-        INVESTORS_COLUMNS_STORAGE_KEY,
-        JSON.stringify(selectedColumnKeys)
-      );
-    } catch (storageError) {
-      console.warn("Unable to save investor column preferences:", storageError);
-    }
-  }, [selectedColumnKeys, columnPrefsLoaded]);
+    if (!columnPrefsLoaded || !enableColumnControl) return;
+    saveStoredColumnKeys(
+      resolvedColumnsStorageKey,
+      columnsStorageScope,
+      selectedColumnKeys
+    );
+  }, [
+    selectedColumnKeys,
+    columnPrefsLoaded,
+    enableColumnControl,
+    resolvedColumnsStorageKey,
+    columnsStorageScope,
+  ]);
 
   const selectedColumns = useMemo(
     () =>
@@ -684,6 +715,7 @@ export const InvestorSection = ({
   };
 
   const columnsModalLayer =
+    enableColumnControl &&
     showColumnsModal &&
     (
       <>

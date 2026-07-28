@@ -41,9 +41,7 @@ import {
   SEARCH_DASHBOARD_FILTER_INNER,
   SEARCH_DASHBOARD_FILTER_SHELL,
   SEARCH_DASHBOARD_HEADER_ROW,
-  SEARCH_DASHBOARD_INNER,
   SEARCH_DASHBOARD_MATCH_COUNT,
-  SEARCH_DASHBOARD_SHELL,
   SEARCH_DASHBOARD_TITLE,
   SearchListTabs,
 } from "@/components/search/searchDashboardLayout";
@@ -67,6 +65,15 @@ export type InvestorDashboardProps = {
   columnsCount?: number;
   onExport?: (mode: ListExportMode) => void | Promise<void>;
   exporting?: boolean;
+  hidePageHeader?: boolean;
+  embedded?: boolean;
+  hideFilterBar?: boolean;
+  hideExport?: boolean;
+  hideTypeTabs?: boolean;
+  fixedInvestorTypeTab?: InvestorTypeTab;
+  excludeFilterIds?: string[];
+  scopedPrimarySectorIds?: number[];
+  matchCountOverride?: number;
 };
 
 export const InvestorDashboard = ({
@@ -81,6 +88,15 @@ export const InvestorDashboard = ({
   columnsCount = 0,
   onExport,
   exporting = false,
+  hidePageHeader = false,
+  embedded = false,
+  hideFilterBar = false,
+  hideExport = false,
+  hideTypeTabs = false,
+  fixedInvestorTypeTab,
+  excludeFilterIds = [],
+  scopedPrimarySectorIds = [],
+  matchCountOverride,
 }: InvestorDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
     filters: [],
@@ -89,7 +105,13 @@ export const InvestorDashboard = ({
     filterLogic: "and",
   });
   const [activeInvestorTypeTab, setActiveInvestorTypeTab] =
-    useState<InvestorTypeTab>("all");
+    useState<InvestorTypeTab>(fixedInvestorTypeTab ?? "all");
+
+  useEffect(() => {
+    if (fixedInvestorTypeTab) {
+      setActiveInvestorTypeTab(fixedInvestorTypeTab);
+    }
+  }, [fixedInvestorTypeTab]);
 
   const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
@@ -199,7 +221,7 @@ export const InvestorDashboard = ({
         primarySectors,
         secondarySectors,
         investorTypes,
-      }),
+      }).filter((def) => !excludeFilterIds.includes(def.id)),
     [
       continentalRegions,
       subRegions,
@@ -209,6 +231,7 @@ export const InvestorDashboard = ({
       primarySectors,
       secondarySectors,
       investorTypes,
+      excludeFilterIds,
     ]
   );
 
@@ -229,8 +252,15 @@ export const InvestorDashboard = ({
       secondarySectors,
       investorTypes,
       applyInvestorTypeTabFilter: false,
+      scopedPrimarySectorIds,
     });
-  }, [filterBarState, primarySectors, secondarySectors, investorTypes]);
+  }, [
+    filterBarState,
+    primarySectors,
+    secondarySectors,
+    investorTypes,
+    scopedPrimarySectorIds,
+  ]);
 
   const buildSearchFilters = useCallback((): InvestorsSearchFilters => {
     return buildInvestorsSearchPayload({
@@ -239,6 +269,7 @@ export const InvestorDashboard = ({
       secondarySectors,
       investorTypes,
       investorTypeTab: activeInvestorTypeTab,
+      scopedPrimarySectorIds,
     });
   }, [
     filterBarState,
@@ -246,6 +277,7 @@ export const InvestorDashboard = ({
     secondarySectors,
     investorTypes,
     activeInvestorTypeTab,
+    scopedPrimarySectorIds,
   ]);
 
   const buildGlobalSearchFiltersRef = useRef(buildGlobalSearchFilters);
@@ -320,15 +352,31 @@ export const InvestorDashboard = ({
   ];
 
   const matchCount =
-    activeInvestorTypeTab === "all"
+    matchCountOverride ??
+    (activeInvestorTypeTab === "all"
       ? typeCounts.totalCount
       : investorTypeTabs.find((tab) => tab.id === activeInvestorTypeTab)?.count ??
-        typeCounts.totalCount;
+        typeCounts.totalCount);
+
+  const horizontalPad = embedded ? "0" : "28px";
+  const topPad = embedded ? "16px" : "20px";
 
   return (
-    <div style={SEARCH_DASHBOARD_SHELL}>
-      <div style={SEARCH_DASHBOARD_INNER}>
-        <div style={SEARCH_DASHBOARD_HEADER_ROW}>
+    <div
+      style={{
+        background: embedded ? "#fff" : undefined,
+        borderBottom: embedded ? "none" : undefined,
+      }}
+    >
+      <div style={{ width: "100%", padding: `${topPad} ${horizontalPad} 0` }}>
+        <div
+          style={{
+            ...SEARCH_DASHBOARD_HEADER_ROW,
+            marginBottom: embedded ? 12 : 18,
+            width: embedded ? "100%" : undefined,
+          }}
+        >
+          {!hidePageHeader && (
           <div>
             <div style={SEARCH_DASHBOARD_EYEBROW}>Investors</div>
             <h1 style={SEARCH_DASHBOARD_TITLE}>
@@ -338,19 +386,31 @@ export const InvestorDashboard = ({
               </span>
             </h1>
           </div>
+          )}
 
-          <div style={SEARCH_DASHBOARD_ACTIONS}>
+          <div
+            style={{
+              ...SEARCH_DASHBOARD_ACTIONS,
+              marginLeft: hidePageHeader ? "auto" : undefined,
+              width: hidePageHeader && embedded ? "100%" : undefined,
+              justifyContent: hidePageHeader && embedded ? "flex-end" : undefined,
+            }}
+          >
+            {onColumnsClick && (
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
               total={CANONICAL_INVESTOR_COLUMN_KEYS.length}
               onClick={onColumnsClick}
             />
+            )}
+            {!hideExport && onExport && (
             <SearchExportMenu
               onExport={(mode) => onExport?.(mode)}
               exporting={exporting}
-              disabled={!onExport}
             />
+            )}
+            {!embedded && (
             <RequestDataResearchButton
               label="Request Investor Profile"
               context="investor"
@@ -358,16 +418,20 @@ export const InvestorDashboard = ({
               className="inline-flex items-center justify-center"
               style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
             />
+            )}
           </div>
         </div>
 
+        {!hideTypeTabs && !fixedInvestorTypeTab && (
         <SearchListTabs
           tabs={investorTypeTabs}
           activeTabId={activeInvestorTypeTab}
           onTabClick={(tabId) => setActiveInvestorTypeTab(tabId as InvestorTypeTab)}
         />
+        )}
       </div>
 
+      {!hideFilterBar && (
       <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
         <div style={SEARCH_DASHBOARD_FILTER_INNER}>
           <CompaniesFilterBar
@@ -382,6 +446,7 @@ export const InvestorDashboard = ({
           />
         </div>
       </div>
+      )}
     </div>
   );
 };

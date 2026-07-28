@@ -45,9 +45,7 @@ import {
   SEARCH_DASHBOARD_FILTER_INNER,
   SEARCH_DASHBOARD_FILTER_SHELL,
   SEARCH_DASHBOARD_HEADER_ROW,
-  SEARCH_DASHBOARD_INNER,
   SEARCH_DASHBOARD_MATCH_COUNT,
-  SEARCH_DASHBOARD_SHELL,
   SEARCH_DASHBOARD_TITLE,
   SearchListTabs,
 } from "@/components/search/searchDashboardLayout";
@@ -67,6 +65,14 @@ export type CorporateEventsDashboardProps = {
   onExportCSVClick?: () => void;
   columnsActive?: boolean;
   columnsCount?: number;
+  hidePageHeader?: boolean;
+  embedded?: boolean;
+  hideFilterBar?: boolean;
+  hideExport?: boolean;
+  hideColumns?: boolean;
+  excludeFilterIds?: string[];
+  scopedPrimarySectorIds?: number[];
+  matchCountOverride?: number;
 };
 
 export const CorporateEventsDashboard = ({
@@ -79,6 +85,14 @@ export const CorporateEventsDashboard = ({
   onExportCSVClick,
   columnsActive = false,
   columnsCount = 0,
+  hidePageHeader = false,
+  embedded = false,
+  hideFilterBar = false,
+  hideExport = false,
+  hideColumns = false,
+  excludeFilterIds = [],
+  scopedPrimarySectorIds = [],
+  matchCountOverride,
 }: CorporateEventsDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
     filters: [],
@@ -211,7 +225,7 @@ export const CorporateEventsDashboard = ({
         secondarySectors,
         fundingStages,
         portfolioEntityOptions,
-      }),
+      }).filter((def) => !excludeFilterIds.includes(def.id)),
     [
       continentalRegions,
       subRegions,
@@ -222,6 +236,7 @@ export const CorporateEventsDashboard = ({
       secondarySectors,
       fundingStages,
       portfolioEntityOptions,
+      excludeFilterIds,
     ]
   );
 
@@ -244,9 +259,17 @@ export const CorporateEventsDashboard = ({
       primarySectors,
       secondarySectors,
       userId,
+      scopedPrimarySectorIds,
       dealTabTypes: tabConfig?.dealTypes,
     });
-  }, [filterBarState, primarySectors, secondarySectors, userId, activeDealTab]);
+  }, [
+    filterBarState,
+    primarySectors,
+    secondarySectors,
+    userId,
+    scopedPrimarySectorIds,
+    activeDealTab,
+  ]);
 
   const buildCountsSearchFilters = useCallback(
     (): CorporateEventsSearchFilters =>
@@ -255,8 +278,15 @@ export const CorporateEventsDashboard = ({
         primarySectors,
         secondarySectors,
         userId,
+        scopedPrimarySectorIds,
       }),
-    [filterBarState, primarySectors, secondarySectors, userId]
+    [
+      filterBarState,
+      primarySectors,
+      secondarySectors,
+      userId,
+      scopedPrimarySectorIds,
+    ]
   );
 
   const isPortfolioFilterActive = filterBarState.filters.some(
@@ -335,15 +365,31 @@ export const CorporateEventsDashboard = ({
   ];
 
   const matchCount =
-    activeDealTab === "all"
+    matchCountOverride ??
+    (activeDealTab === "all"
       ? summaryStats.totalCount
       : dealTabs.find((tab) => tab.id === activeDealTab)?.count ??
-        summaryStats.totalCount;
+        summaryStats.totalCount);
+
+  const horizontalPad = embedded ? "0" : "28px";
+  const topPad = embedded ? "16px" : "20px";
 
   return (
-    <div style={SEARCH_DASHBOARD_SHELL}>
-      <div style={SEARCH_DASHBOARD_INNER}>
-        <div style={SEARCH_DASHBOARD_HEADER_ROW}>
+    <div
+      style={{
+        background: embedded ? "#fff" : undefined,
+        borderBottom: embedded ? "none" : undefined,
+      }}
+    >
+      <div style={{ width: "100%", padding: `${topPad} ${horizontalPad} 0` }}>
+        <div
+          style={{
+            ...SEARCH_DASHBOARD_HEADER_ROW,
+            marginBottom: embedded ? 12 : 18,
+            width: embedded ? "100%" : undefined,
+          }}
+        >
+          {!hidePageHeader && (
           <div>
             <div style={SEARCH_DASHBOARD_EYEBROW}>Corporate Events</div>
             <h1 style={SEARCH_DASHBOARD_TITLE}>
@@ -353,14 +399,25 @@ export const CorporateEventsDashboard = ({
               </span>
             </h1>
           </div>
+          )}
 
-          <div style={SEARCH_DASHBOARD_ACTIONS}>
+          <div
+            style={{
+              ...SEARCH_DASHBOARD_ACTIONS,
+              marginLeft: hidePageHeader ? "auto" : undefined,
+              width: hidePageHeader && embedded ? "100%" : undefined,
+              justifyContent: hidePageHeader && embedded ? "flex-end" : undefined,
+            }}
+          >
+            {!hideColumns && onColumnsClick && (
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
               total={CANONICAL_CORPORATE_EVENT_COLUMN_KEYS.length}
               onClick={onColumnsClick}
             />
+            )}
+            {!embedded && (
             <RequestDataResearchButton
               label="Request Corporate Event Profile"
               context="corporate-event"
@@ -368,6 +425,8 @@ export const CorporateEventsDashboard = ({
               className="inline-flex items-center justify-center"
               style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
             />
+            )}
+            {!hideExport && onExportCSVClick && (
             <button
               type="button"
               onClick={onExportCSVClick}
@@ -376,6 +435,7 @@ export const CorporateEventsDashboard = ({
               <SearchExportCsvIcon />
               Export CSV
             </button>
+            )}
           </div>
         </div>
 
@@ -386,6 +446,7 @@ export const CorporateEventsDashboard = ({
         />
       </div>
 
+      {!hideFilterBar && (
       <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
         <div style={SEARCH_DASHBOARD_FILTER_INNER}>
           <CompaniesFilterBar
@@ -400,6 +461,7 @@ export const CorporateEventsDashboard = ({
           />
         </div>
       </div>
+      )}
     </div>
   );
 };

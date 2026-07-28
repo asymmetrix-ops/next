@@ -71,6 +71,7 @@ export function buildInvestorsSearchPayload(args: {
   investorTypeTab?: InvestorTypeTab;
   applyInvestorTypeTabFilter?: boolean;
   investorTypeIds?: number[];
+  scopedPrimarySectorIds?: number[];
   page?: number;
   perPage?: number;
 }): InvestorsSearchFilters {
@@ -82,6 +83,7 @@ export function buildInvestorsSearchPayload(args: {
     investorTypeTab = "all",
     applyInvestorTypeTabFilter = true,
     investorTypeIds,
+    scopedPrimarySectorIds = [],
     page = 1,
     perPage = 50,
   } = args;
@@ -89,7 +91,7 @@ export function buildInvestorsSearchPayload(args: {
   const clauses: InvestorFilterClause[] = [];
   let hasPriorClause = false;
   let portfolioOnly = false;
-  let primarySectorIds: number[] = [];
+  let primarySectorIds: number[] = [...scopedPrimarySectorIds];
   let secondarySectorIds: number[] = [];
 
   const pushClause = (clause: InvestorFilterClause) => {
