@@ -26,6 +26,7 @@ import {
   type DealRadarItem,
 } from "@/lib/dealRadar";
 import { CorporateEventPartyLink, CorporateEventTargetLink, CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -137,21 +138,8 @@ interface InsightArticle {
     Transaction_status?: string;
     hq_country_iso2?: string | null;
     hqCountryIso2?: string | null;
+    hq_iso2?: string | null;
   }>;
-}
-
-function getInsightHqCountryIso2(article: InsightArticle): string | null {
-  const fromArticle = readHqCountryIso2(
-    article as unknown as Record<string, unknown>
-  );
-  if (fromArticle) return fromArticle;
-
-  for (const company of article.Company_of_Focus ?? []) {
-    const iso2 = readHqCountryIso2(company as unknown as Record<string, unknown>);
-    if (iso2) return iso2;
-  }
-
-  return null;
 }
 
 function getInsightTransactionStatus(article: InsightArticle): string {

@@ -3,6 +3,8 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import {
   profileTableCellStyle,
   tableColHeaderBarStyle,
@@ -17,7 +19,9 @@ export type CorporateEventAdvisorRow = {
   role: string;
   advisedName?: string;
   advisedHref?: string;
+  advisedHqIso2?: string | null;
   href?: string;
+  hqIso2?: string | null;
   individuals: Array<{ id: number; name: string }>;
 };
 
@@ -28,6 +32,74 @@ type Props = {
 const ROW_GRID = "minmax(0, 28%) minmax(0, 16%) minmax(0, 24%) minmax(0, 32%)";
 const COL_GAP = 2;
 const ROW_PAD = "6px 10px";
+const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
+
+function renderPartyNameWithFlag({
+  name,
+  href,
+  hqIso2,
+}: {
+  name: string;
+  href?: string;
+  hqIso2?: string | null;
+}) {
+  const flagEl = hqIso2 ? (
+    <CountryFlagImg iso2={hqIso2} size={ENTITY_FLAG_SIZE_PX} />
+  ) : null;
+  const label = (
+    <>
+      <span
+        style={{
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {name}
+      </span>
+      {flagEl}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        prefetch={false}
+        style={{
+          color: T.azure,
+          textDecoration: "underline",
+          fontWeight: 500,
+          fontSize: 12,
+          minWidth: 0,
+          overflow: "hidden",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+        }}
+      >
+        {label}
+      </Link>
+    );
+  }
+
+  return (
+    <span
+      style={{
+        fontSize: 12,
+        minWidth: 0,
+        overflow: "hidden",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        color: T.body,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
 function AdvisorLogo({ logo, name }: { logo?: string; name: string }) {
   const src = resolveCompanyLogoSrc(logo);
@@ -127,36 +199,11 @@ export function CorporateEventAdvisorsPanel({ advisors }: Props) {
                 >
                   <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
                     <AdvisorLogo logo={advisor.logo} name={advisor.name} />
-                    {advisor.href ? (
-                      <Link
-                        href={advisor.href}
-                        prefetch={false}
-                        style={{
-                          color: T.azure,
-                          textDecoration: "underline",
-                          fontWeight: 500,
-                          fontSize: 12,
-                          minWidth: 0,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {advisor.name}
-                      </Link>
-                    ) : (
-                      <span
-                        style={{
-                          fontSize: 12,
-                          minWidth: 0,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {advisor.name}
-                      </span>
-                    )}
+                    {renderPartyNameWithFlag({
+                      name: advisor.name,
+                      href: advisor.href,
+                      hqIso2: advisor.hqIso2,
+                    })}
                   </div>
                   <div
                     style={{
@@ -171,17 +218,13 @@ export function CorporateEventAdvisorsPanel({ advisors }: Props) {
                     {advisor.role || "-"}
                   </div>
                   <div style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {advisor.advisedHref && advisor.advisedName ? (
-                      <Link
-                        href={advisor.advisedHref}
-                        prefetch={false}
-                        style={{ color: T.azure, textDecoration: "underline", fontSize: 12 }}
-                      >
-                        {advisor.advisedName}
-                      </Link>
-                    ) : (
-                      <span style={{ color: T.body, fontSize: 12 }}>{advisor.advisedName || "-"}</span>
-                    )}
+                    {advisor.advisedName
+                      ? renderPartyNameWithFlag({
+                          name: advisor.advisedName,
+                          href: advisor.advisedHref,
+                          hqIso2: advisor.advisedHqIso2,
+                        })
+                      : "-"}
                   </div>
                   <div style={{ color: T.muted, fontSize: 12, minWidth: 0, lineHeight: 1.35 }}>
                     {advisor.individuals.length > 0

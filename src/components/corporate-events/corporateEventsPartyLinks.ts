@@ -1,10 +1,12 @@
 import type { CSSProperties } from "react";
 import type { CorporateEvent } from "@/types/corporateEvents";
+import { readHqCountryIso2 } from "@/lib/dealRadar";
 
 export type EntityLink = {
   id?: number;
   name: string;
   href: string | null;
+  hqIso2?: string | null;
 };
 
 export const SEARCH_ENTITY_LINK_STYLE: CSSProperties = {
@@ -15,6 +17,11 @@ export const SEARCH_ENTITY_LINK_STYLE: CSSProperties = {
 };
 
 type LooseEvent = CorporateEvent & Record<string, unknown>;
+
+function hqIso2From(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  return readHqCountryIso2(value as Record<string, unknown>);
+}
 
 function pageTypeToSegment(
   pageType?: string,
@@ -48,6 +55,8 @@ export function extractTargetLinks(event: CorporateEvent): EntityLink[] {
         name: string;
         page_type?: string;
         route?: string;
+        hq_iso2?: string | null;
+        hq_country_iso2?: string | null;
       }>
     | undefined;
 
@@ -57,17 +66,20 @@ export function extractTargetLinks(event: CorporateEvent): EntityLink[] {
       id: target.id,
       name: target.name,
       href: `/${pageTypeToSegment(target.page_type, target.route)}/${target.id}`,
+      hqIso2: hqIso2From(target),
     }));
   }
 
+  const targetCounterparty = e.target_counterparty as
+    | {
+        new_company?: { name?: string; id?: number };
+        _new_company?: { name?: string; id?: number };
+        new_company_counterparty?: number;
+      }
+    | undefined;
   const legacyTarget =
-    (e.target_counterparty as { new_company?: { name?: string; id?: number }; _new_company?: { name?: string; id?: number } })
-      ?.new_company ||
-    (e.target_counterparty as { _new_company?: { name?: string; id?: number } })
-      ?._new_company;
-  const legacyTargetId = (
-    e.target_counterparty as { new_company_counterparty?: number } | undefined
-  )?.new_company_counterparty;
+    targetCounterparty?.new_company || targetCounterparty?._new_company;
+  const legacyTargetId = targetCounterparty?.new_company_counterparty;
 
   if (legacyTarget?.name && legacyTargetId) {
     return [
@@ -75,6 +87,10 @@ export function extractTargetLinks(event: CorporateEvent): EntityLink[] {
         id: legacyTargetId,
         name: String(legacyTarget.name),
         href: `/company/${legacyTargetId}`,
+        hqIso2:
+          hqIso2From(legacyTarget) ??
+          hqIso2From(targetCounterparty?._new_company) ??
+          hqIso2From(targetCounterparty?.new_company),
       },
     ];
   }
@@ -88,6 +104,7 @@ export function extractTargetLinks(event: CorporateEvent): EntityLink[] {
         id: targetCompany.id,
         name: targetCompany.name,
         href: `/${pageTypeToSegment(targetCompany.page_type)}/${targetCompany.id}`,
+        hqIso2: hqIso2From(targetCompany),
       },
     ];
   }
@@ -99,6 +116,7 @@ export function extractTargetLinks(event: CorporateEvent): EntityLink[] {
         id,
         name: String(legacyTarget.name),
         href: typeof id === "number" ? `/company/${id}` : null,
+        hqIso2: hqIso2From(legacyTarget),
       },
     ];
   }
@@ -143,6 +161,7 @@ export function extractBuyerLinks(event: CorporateEvent): EntityLink[] {
           id: cp.id,
           name: cp.name,
           href: `/${pageType}/${cp.id}`,
+          hqIso2: hqIso2From(cp),
         });
         continue;
       }
@@ -155,6 +174,7 @@ export function extractBuyerLinks(event: CorporateEvent): EntityLink[] {
           id: nc.id,
           name: nc.name,
           href: typeof nc.id === "number" ? `/company/${nc.id}` : null,
+          hqIso2: hqIso2From(nc) ?? hqIso2From(cp),
         });
       }
     }
@@ -174,6 +194,7 @@ export function extractBuyerLinks(event: CorporateEvent): EntityLink[] {
           buyer.page_type === "investor"
             ? `/investors/${buyer.id}`
             : `/company/${buyer.id}`,
+        hqIso2: hqIso2From(buyer),
       });
     }
   }
@@ -199,6 +220,7 @@ export function extractBuyerLinks(event: CorporateEvent): EntityLink[] {
         id: buyer.id,
         name: buyer.name,
         href: `/company/${buyer.id}`,
+        hqIso2: hqIso2From(buyer),
       });
     }
   }
@@ -212,6 +234,7 @@ export function extractBuyerLinks(event: CorporateEvent): EntityLink[] {
         id: nc.id,
         name: nc.name,
         href: typeof nc.id === "number" ? `/company/${nc.id}` : null,
+        hqIso2: hqIso2From(nc) ?? hqIso2From(item),
       });
     }
   }
@@ -245,6 +268,7 @@ export function extractInvestorLinks(event: CorporateEvent): EntityLink[] {
           id: cp.id,
           name: cp.name,
           href: `/investors/${cp.id}`,
+          hqIso2: hqIso2From(cp),
         });
         continue;
       }
@@ -265,6 +289,7 @@ export function extractInvestorLinks(event: CorporateEvent): EntityLink[] {
           id: nc.id,
           name: nc.name,
           href,
+          hqIso2: hqIso2From(nc) ?? hqIso2From(cp),
         });
       }
     }
@@ -277,6 +302,7 @@ export function extractInvestorLinks(event: CorporateEvent): EntityLink[] {
         id: investor.id,
         name: investor.name,
         href: `/investors/${investor.id}`,
+        hqIso2: hqIso2From(investor),
       });
     }
   }
@@ -298,6 +324,7 @@ export function extractInvestorLinks(event: CorporateEvent): EntityLink[] {
         id: investor.id,
         name: investor.name,
         href: `/investors/${investor.id}`,
+        hqIso2: hqIso2From(investor),
       });
     }
   }
@@ -311,6 +338,7 @@ export function extractInvestorLinks(event: CorporateEvent): EntityLink[] {
         id: nc.id,
         name: nc.name,
         href: typeof nc.id === "number" ? `/investors/${nc.id}` : null,
+        hqIso2: hqIso2From(nc) ?? hqIso2From(item),
       });
     }
   }
@@ -339,6 +367,7 @@ export function extractSellerLinks(event: CorporateEvent): EntityLink[] {
         seller.page_type === "investor"
           ? `/investors/${seller.id}`
           : `/company/${seller.id}`,
+      hqIso2: hqIso2From(seller),
     });
   }
 
@@ -367,6 +396,7 @@ export function extractSellerLinks(event: CorporateEvent): EntityLink[] {
           id: cp.id,
           name: cp.name,
           href: `/${pageType}/${cp.id}`,
+          hqIso2: hqIso2From(cp),
         });
         continue;
       }
@@ -403,6 +433,7 @@ export function extractSellerLinks(event: CorporateEvent): EntityLink[] {
         id: nc.id,
         name: nc.name,
         href,
+        hqIso2: hqIso2From(nc) ?? hqIso2From(cp),
       });
     }
   }
