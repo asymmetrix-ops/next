@@ -6,6 +6,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
+import { ScopedSectorStrategicPanel } from "@/components/companies/ScopedSectorStrategicPanel";
 import { ScopedInvestorsPanel } from "@/components/investors/ScopedInvestorsPanel";
 import { ScopedAdvisorsPanel } from "@/components/advisors/ScopedAdvisorsPanel";
 import { ScopedCorporateEventsPanel } from "@/components/corporate-events/ScopedCorporateEventsPanel";
@@ -1317,10 +1318,12 @@ function MostActiveSubTabNav({
 
 function MostActiveTab({
   sectorId,
+  sectorImportance,
   activeSubTab,
   setActiveSubTab,
 }: {
   sectorId: string;
+  sectorImportance?: string;
   activeSubTab: MostActiveSubTabId;
   setActiveSubTab: (id: MostActiveSubTabId) => void;
 }) {
@@ -1342,14 +1345,7 @@ function MostActiveTab({
         </div>
 
         {activeSubTab === "strategics" && (
-          <ScopedCompaniesPanel
-            primarySectorId={sectorIdNum}
-            embedded
-            enableFilterControl={false}
-            enableColumnControl={false}
-            enableExport={false}
-            enableRowSelection={false}
-          />
+          <ScopedSectorStrategicPanel primarySectorId={sectorIdNum} embedded />
         )}
         {activeSubTab === "pe" && (
           <ScopedInvestorsPanel
@@ -1364,7 +1360,10 @@ function MostActiveTab({
           />
         )}
         {activeSubTab === "advisors" && (
-          <ScopedAdvisorsPanel primarySectorId={sectorIdNum} />
+          <ScopedAdvisorsPanel
+            primarySectorId={sectorIdNum}
+            sectorImportance={sectorImportance}
+          />
         )}
       </div>
     </div>
@@ -3609,6 +3608,13 @@ const SectorDetailPage = ({
         ) : activeTab === "most_active" ? (
           <MostActiveTab
             sectorId={sectorId}
+            sectorImportance={
+              sectorData?.Sector?.Sector_importance ||
+              toStringSafe(
+                (sectorData as unknown as { Sector_importance?: unknown })
+                  ?.Sector_importance
+              )
+            }
             activeSubTab={mostActiveSubTab}
             setActiveSubTab={setMostActiveSubTab}
           />

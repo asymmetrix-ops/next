@@ -15,14 +15,8 @@ import type { InvestorTypeTab } from "@/components/investors/investorsFilterConf
 import {
   EMPTY_INVESTOR_TYPE_COUNTS,
   type InvestorsTypeCounts,
-  type InvestorTypeOption,
 } from "@/components/investors/investorsFilterConfig";
-import {
-  fetchInvestorsServer,
-  fetchInvestorTypesServer,
-} from "@/app/investors/actions";
-import type { FilterBarState } from "@/components/companies/CompaniesFilterBar";
-import { buildInvestorsSearchPayload } from "@/lib/investorsFilterPayload";
+import { fetchSectorMostActiveInvestors } from "@/lib/sectorMostActiveClientApi";
 
 export type ScopedInvestorsPanelProps = {
   primarySectorId: number;
@@ -32,12 +26,20 @@ export type ScopedInvestorsPanelProps = {
   defaultColumnKeys?: readonly string[];
 };
 
-function useScopedInvestorsSearch() {
+function investorKindFromTab(
+  tab: Exclude<InvestorTypeTab, "all">
+): "pe" | "venture" {
+  return tab === "venture_capital" ? "venture" : "pe";
+}
+
+function useScopedInvestorsSearch(
+  primarySectorId: number,
+  investorTypeTab: Exclude<InvestorTypeTab, "all">
+) {
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const lastRequestIdRef = useRef(0);
-  const currentFiltersRef = useRef<Filters | undefined>(undefined);
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
     undefined
   );
@@ -48,28 +50,18 @@ function useScopedInvestorsSearch() {
     pageTotal: 0,
     itemsTotal: 0,
   });
-  const [typeCounts, setTypeCounts] =
-    useState<InvestorsTypeCounts>(EMPTY_INVESTOR_TYPE_COUNTS);
-  const [investorTypes, setInvestorTypes] = useState<InvestorTypeOption[]>([]);
+  const [typeCounts] = useState<InvestorsTypeCounts>(EMPTY_INVESTOR_TYPE_COUNTS);
+  const kind = investorKindFromTab(investorTypeTab);
 
   const fetchInvestors = useCallback(
-    async (page: number = 1, filters?: Filters) => {
+    async (page: number = 1) => {
       const requestId = ++lastRequestIdRef.current;
       setLoading(true);
       setError(null);
-
-      if (filters !== undefined) {
-        currentFiltersRef.current = filters;
-        setCurrentFilters(filters);
-      }
-
-      const filtersToUse =
-        filters !== undefined
-          ? filters
-          : currentFiltersRef.current ?? createDefaultInvestorFilters();
+      setCurrentFilters(createDefaultInvestorFilters());
 
       try {
-        const data = await fetchInvestorsServer({ ...filtersToUse, page });
+        const data = await fetchSectorMostActiveInvestors(kind, primarySectorId, page);
 
         if (!data) {
           throw new Error("Failed to fetch investors - authentication required");
@@ -84,9 +76,6 @@ function useScopedInvestorsSearch() {
             pageTotal: data.pageTotal,
             itemsTotal: data.itemsTotal,
           });
-          if (page === 1) {
-            setTypeCounts(data.typeCounts);
-          }
         }
       } catch (err) {
         if (requestId === lastRequestIdRef.current) {
@@ -94,19 +83,15 @@ function useScopedInvestorsSearch() {
             err instanceof Error ? err.message : "Failed to fetch investors"
           );
         }
-        console.error("Error fetching investors:", err);
+        console.error("Error fetching sector investors:", err);
       } finally {
         if (requestId === lastRequestIdRef.current) {
           setLoading(false);
         }
       }
     },
-    []
+    [kind, primarySectorId]
   );
-
-  useEffect(() => {
-    void fetchInvestorTypesServer().then(setInvestorTypes).catch(console.error);
-  }, []);
 
   return {
     investors,
@@ -114,7 +99,6 @@ function useScopedInvestorsSearch() {
     error,
     pagination,
     typeCounts,
-    investorTypes,
     fetchInvestors,
     currentFilters,
   };
@@ -133,10 +117,9 @@ export function ScopedInvestorsPanel({
     error,
     pagination,
     typeCounts,
-    investorTypes,
     fetchInvestors,
     currentFilters,
-  } = useScopedInvestorsSearch();
+  } = useScopedInvestorsSearch(primarySectorId, investorTypeTab);
 
   const scopedPrimarySectorIds = useMemo(
     () => [primarySectorId],
@@ -146,37 +129,14 @@ export function ScopedInvestorsPanel({
   const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [columnsCount, setColumnsCount] = useState(defaultColumnKeys.length);
 
-  const emptyFilterState = useMemo<FilterBarState>(
-    () => ({
-      filters: [],
-      viewId: null,
-      searchText: "",
-      filterLogic: "and",
-    }),
-    []
-  );
-
-  const buildScopedFilters = useCallback((): Filters => {
-    return buildInvestorsSearchPayload({
-      state: emptyFilterState,
-      primarySectors: [],
-      secondarySectors: [],
-      investorTypes,
-      investorTypeTab,
-      scopedPrimarySectorIds,
-    });
-  }, [emptyFilterState, investorTypes, investorTypeTab, scopedPrimarySectorIds]);
-
   const scopeKey = useMemo(
     () => JSON.stringify({ primarySectorId, investorTypeTab }),
     [primarySectorId, investorTypeTab]
   );
 
   useEffect(() => {
-    if (investorTypes.length === 0) return;
-    const filters = buildScopedFilters();
-    fetchInvestors(1, filters);
-  }, [scopeKey, buildScopedFilters, fetchInvestors, investorTypes.length]);
+    fetchInvestors(1);
+  }, [scopeKey, fetchInvestors]);
 
   const resolvedColumnsStorageKey =
     columnsStorageKey ??
@@ -191,7 +151,7 @@ export function ScopedInvestorsPanel({
       }
     >
       <InvestorDashboard
-        investorTypes={investorTypes}
+        investorTypes={[]}
         typeCounts={typeCounts}
         onColumnsClick={() => setShowColumnsModal((v) => !v)}
         columnsActive={showColumnsModal}
