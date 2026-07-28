@@ -7,31 +7,30 @@ import {
   type Advisor,
   type Filters,
 } from "@/components/advisors/AdvisorSection";
-import {
-  buildAdvisorsSearchPayload,
-  createDefaultAdvisorFilters,
-} from "@/lib/advisorsFilterPayload";
+import { createDefaultAdvisorFilters } from "@/lib/advisorsFilterPayload";
 import { SECTOR_MOST_ACTIVE_ADVISOR_COLUMN_KEYS } from "@/components/advisors/advisorsColumnCategories";
 import {
   EMPTY_ADVISORS_ROLE_COUNTS,
   type AdvisorsRoleCounts,
 } from "@/components/advisors/advisorsFilterConfig";
-import { fetchAdvisorsServer } from "@/app/advisors/actions";
-import type { FilterBarState } from "@/components/companies/CompaniesFilterBar";
+import { fetchSectorMostActiveAdvisors } from "@/lib/sectorMostActiveClientApi";
 
 export type ScopedAdvisorsPanelProps = {
   primarySectorId: number;
+  sectorImportance?: string;
   embedded?: boolean;
   columnsStorageKey?: string;
   defaultColumnKeys?: readonly string[];
 };
 
-function useScopedAdvisorsSearch() {
+function useScopedAdvisorsSearch(
+  primarySectorId: number,
+  sectorImportance?: string
+) {
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const lastRequestIdRef = useRef(0);
-  const currentFiltersRef = useRef<Filters | undefined>(undefined);
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
     undefined
   );
@@ -42,27 +41,21 @@ function useScopedAdvisorsSearch() {
     pageTotal: 0,
     itemsTotal: 0,
   });
-  const [roleCounts, setRoleCounts] =
-    useState<AdvisorsRoleCounts>(EMPTY_ADVISORS_ROLE_COUNTS);
+  const [roleCounts] = useState<AdvisorsRoleCounts>(EMPTY_ADVISORS_ROLE_COUNTS);
 
   const fetchAdvisors = useCallback(
-    async (page: number = 1, filters?: Filters) => {
+    async (page: number = 1) => {
       const requestId = ++lastRequestIdRef.current;
       setLoading(true);
       setError(null);
-
-      if (filters !== undefined) {
-        currentFiltersRef.current = filters;
-        setCurrentFilters(filters);
-      }
-
-      const filtersToUse =
-        filters !== undefined
-          ? filters
-          : currentFiltersRef.current ?? createDefaultAdvisorFilters();
+      setCurrentFilters(createDefaultAdvisorFilters());
 
       try {
-        const data = await fetchAdvisorsServer({ ...filtersToUse, page });
+        const data = await fetchSectorMostActiveAdvisors(
+          primarySectorId,
+          page,
+          sectorImportance
+        );
 
         if (!data) {
           throw new Error("Failed to fetch advisors - authentication required");
@@ -77,9 +70,6 @@ function useScopedAdvisorsSearch() {
             pageTotal: data.pageTotal,
             itemsTotal: data.itemsTotal,
           });
-          if (page === 1 && data.roleCounts) {
-            setRoleCounts(data.roleCounts);
-          }
         }
       } catch (err) {
         if (requestId === lastRequestIdRef.current) {
@@ -87,14 +77,14 @@ function useScopedAdvisorsSearch() {
             err instanceof Error ? err.message : "Failed to fetch advisors"
           );
         }
-        console.error("Error fetching advisors:", err);
+        console.error("Error fetching sector advisors:", err);
       } finally {
         if (requestId === lastRequestIdRef.current) {
           setLoading(false);
         }
       }
     },
-    []
+    [primarySectorId, sectorImportance]
   );
 
   return {
@@ -110,6 +100,7 @@ function useScopedAdvisorsSearch() {
 
 export function ScopedAdvisorsPanel({
   primarySectorId,
+  sectorImportance,
   embedded = true,
   columnsStorageKey,
   defaultColumnKeys = SECTOR_MOST_ACTIVE_ADVISOR_COLUMN_KEYS,
@@ -122,7 +113,7 @@ export function ScopedAdvisorsPanel({
     roleCounts,
     fetchAdvisors,
     currentFilters,
-  } = useScopedAdvisorsSearch();
+  } = useScopedAdvisorsSearch(primarySectorId, sectorImportance);
 
   const scopedPrimarySectorIds = useMemo(
     () => [primarySectorId],
@@ -132,29 +123,9 @@ export function ScopedAdvisorsPanel({
   const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [columnsCount, setColumnsCount] = useState(defaultColumnKeys.length);
 
-  const emptyFilterState = useMemo<FilterBarState>(
-    () => ({
-      filters: [],
-      viewId: null,
-      searchText: "",
-      filterLogic: "and",
-    }),
-    []
-  );
-
-  const buildScopedFilters = useCallback((): Filters => {
-    return buildAdvisorsSearchPayload({
-      state: emptyFilterState,
-      primarySectors: [],
-      secondarySectors: [],
-      scopedPrimarySectorIds,
-    });
-  }, [emptyFilterState, scopedPrimarySectorIds]);
-
   useEffect(() => {
-    const filters = buildScopedFilters();
-    fetchAdvisors(1, filters);
-  }, [buildScopedFilters, fetchAdvisors, primarySectorId]);
+    fetchAdvisors(1);
+  }, [fetchAdvisors, primarySectorId, sectorImportance]);
 
   const resolvedColumnsStorageKey =
     columnsStorageKey ?? `sector-advisors-column-keys-${primarySectorId}`;
