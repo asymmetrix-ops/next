@@ -35,11 +35,18 @@ import {
   type FinancialsYoyValue,
 } from "@/lib/companyFinancialMetricsCard";
 import { exportFinancialMetricsView } from "@/lib/companyFinancialsExport";
+import { buildIncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
+import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
+import type { IncomeStatementRow } from "@/components/redesign/IncomeStatementSection";
+import { IncomeStatementFinancialsCard } from "@/components/company/IncomeStatementFinancialsCard";
 
 type Props = {
   rows: CompanyFinancialMetricsCardRow[];
   loading: boolean;
   companyName: string;
+  incomeStatementRows?: IncomeStatementRow[];
+  incomeStatementCurrency?: string;
+  employeeHistory?: EmployeeTimeSeriesPoint[];
 };
 
 function ExportButton({
@@ -353,7 +360,14 @@ function FinancialsMetricsCard({
   );
 }
 
-export function CompanyFinancialsSection({ rows, loading, companyName }: Props) {
+export function CompanyFinancialsSection({
+  rows,
+  loading,
+  companyName,
+  incomeStatementRows = [],
+  incomeStatementCurrency = "",
+  employeeHistory = [],
+}: Props) {
   const [allowedSources, setAllowedSources] = useState<FiMetricSourceType[]>([
     ...DEFAULT_FI_SOURCE_TYPES,
   ]);
@@ -388,7 +402,19 @@ export function CompanyFinancialsSection({ rows, loading, companyName }: Props) 
     setCollapsedCards((prev) => ({ ...prev, [cardId]: !prev[cardId] }));
   }, []);
 
-  if (loading) {
+  const incomeStatementModel = useMemo(
+    () =>
+      buildIncomeStatementFinancialsViewModel(
+        incomeStatementRows,
+        employeeHistory,
+        incomeStatementCurrency
+      ),
+    [incomeStatementRows, employeeHistory, incomeStatementCurrency]
+  );
+
+  const hasIncomeStatement = incomeStatementModel != null;
+
+  if (loading && model.years.length === 0 && !hasIncomeStatement) {
     return (
       <div
         style={{
@@ -404,7 +430,7 @@ export function CompanyFinancialsSection({ rows, loading, companyName }: Props) 
     );
   }
 
-  if (model.years.length === 0) {
+  if (model.years.length === 0 && !hasIncomeStatement) {
     return (
       <div
         style={{
@@ -422,6 +448,12 @@ export function CompanyFinancialsSection({ rows, loading, companyName }: Props) 
 
   return (
     <div style={{ width: "100%", minWidth: 0 }}>
+      {hasIncomeStatement && incomeStatementModel ? (
+        <IncomeStatementFinancialsCard model={incomeStatementModel} />
+      ) : null}
+
+      {model.years.length === 0 ? null : (
+        <>
       <div
         style={{
           display: "flex",
@@ -461,6 +493,8 @@ export function CompanyFinancialsSection({ rows, loading, companyName }: Props) 
           showYoy={showYoy}
         />
       ))}
+        </>
+      )}
     </div>
   );
 }

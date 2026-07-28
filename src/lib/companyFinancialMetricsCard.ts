@@ -5,7 +5,7 @@ import {
 } from "@/lib/financialIntelligence/sourceTypes";
 
 const API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_financial_metrics_card";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics";
 
 export type CompanyFinancialMetricsCardRow = {
   id: number;
@@ -277,6 +277,33 @@ function toNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+type FinancialMetricsApiRow = CompanyFinancialMetricsCardRow & {
+  Financial_Year?: number | string | null;
+};
+
+/** Maps Xano `company_financial_metrics` rows to the card view-model shape. */
+function normalizeFinancialMetricsApiRow(
+  row: FinancialMetricsApiRow
+): CompanyFinancialMetricsCardRow {
+  const calendarYear =
+    toNumber(row.financial_year_text) ??
+    toNumber(row.financial_year_int) ??
+    toNumber(row.Financial_Year);
+
+  return {
+    ...row,
+    financial_year_int: calendarYear,
+    financial_year_text:
+      row.financial_year_text ??
+      (calendarYear != null ? String(calendarYear) : null),
+    period_display: row.period_display ?? undefined,
+  };
+}
+
+function resolveRowYear(row: CompanyFinancialMetricsCardRow): number | null {
+  return toNumber(row.financial_year_int) ?? toNumber(row.financial_year_text);
+}
+
 function formatMillions(value: number, currency?: string | null): string {
   const abs = Math.abs(value);
   let compact: string;
@@ -441,7 +468,7 @@ export function resolveFinancialsYears(
   const years = Array.from(
     new Set(
       rows
-        .map((row) => toNumber(row.financial_year_int))
+        .map((row) => resolveRowYear(row))
         .filter((year): year is number => year != null)
     )
   ).sort((a, b) => a - b);
@@ -457,7 +484,7 @@ export function buildCompanyFinancialsViewModel(
   const years = resolveFinancialsYears(rows);
   const rowsByYear = new Map<number, CompanyFinancialMetricsCardRow>();
   for (const row of rows) {
-    const year = toNumber(row.financial_year_int);
+    const year = resolveRowYear(row);
     if (year != null) rowsByYear.set(year, row);
   }
 
@@ -500,52 +527,35 @@ export function buildCompanyFinancialsViewModel(
 export async function fetchCompanyFinancialMetricsCard(
   companyId: string | number
 ): Promise<CompanyFinancialMetricsCardRow[]> {
+  const numericId = Number(companyId);
+  if (!Number.isFinite(numericId) || numericId <= 0) {
+    return [];
+  }
+
   const token =
     typeof window !== "undefined"
       ? localStorage.getItem("asymmetrix_auth_token")
       : null;
-  if (!token) return [];
 
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
     Accept: "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
   const params = new URLSearchParams();
-  params.append("new_company_id", String(companyId));
+  params.set("new_company_id", String(numericId));
 
-  let res = await fetch(`${API_BASE}?${params.toString()}`, {
+  const res = await fetch(`${API_BASE}?${params.toString()}`, {
     method: "GET",
     headers,
     credentials: "include",
   });
 
-  if (!res.ok) {
-    const candidateBodies = [
-      { new_company_id: Number(companyId) },
-      { company_id: Number(companyId) },
-      { id: Number(companyId) },
-    ];
-    for (const body of candidateBodies) {
-      const attempt = await fetch(API_BASE, {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      if (attempt.ok) {
-        res = attempt;
-        break;
-      }
-    }
-  }
-
   if (!res.ok) return [];
 
   const data = await res.json();
   if (!Array.isArray(data)) return [];
-  return data as CompanyFinancialMetricsCardRow[];
+  return (data as FinancialMetricsApiRow[]).map(normalizeFinancialMetricsApiRow);
 }
 
 export function formatFiscalYearHeader(year: number): string {

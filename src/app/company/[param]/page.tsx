@@ -60,6 +60,15 @@ import {
   FinMetricsSecondaryCard,
 } from "@/components/redesign/FinMetricsIncomeCard";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
+import {
+  hasIncomeStatementValues,
+  normalizeIncomeStatementApiRows,
+  normalizeIncomeStatementRows,
+  resolveIncomeStatementCurrency,
+  type IncomeStatementApiEntry,
+  type NormalizedIncomeStatementRow,
+} from "@/lib/incomeStatement";
+import { fetchCompanyIncomeStatementCard } from "@/lib/companyIncomeStatementCard";
 import { EMPTY_DISPLAY, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import {
   buildSubsidiaryAcquisitionYearMap,
@@ -223,17 +232,6 @@ interface CompanyFinancialMetrics {
   Data_entry_notes?: string | null;
 }
 
-// Income statement types (subset for rendering)
-interface IncomeStatementEntry {
-  id: number;
-  period_display_end_date: string;
-  period_end_date?: string;
-  revenue?: number | null;
-  ebit?: number | null;
-  ebitda?: number | null;
-  // some rows include currency fields for costs; use as proxy for currency
-  cost_of_goods_sold_currency?: string;
-}
 
 // Parent company types (subset)
 interface ParentCompanyItem {
@@ -553,7 +551,7 @@ interface Company {
   has_mcp?: boolean;
   mcp_data?: CompanyMcpData;
   income_statement?: Array<{
-    income_statements?: IncomeStatementEntry[] | string;
+    income_statements?: IncomeStatementApiEntry[] | string;
   }>;
   // Optional new sectors data container from API
   new_sectors_data?: Array<{
@@ -571,7 +569,7 @@ interface CompanyResponse {
   has_mcp?: boolean;
   mcp_data?: CompanyMcpData;
   income_statement?: Array<{
-    income_statements?: IncomeStatementEntry[] | string;
+    income_statements?: IncomeStatementApiEntry[] | string;
   }>;
   // Root-level new sectors data (alternate placement used by backend)
   new_sectors_data?: Array<{
@@ -1341,6 +1339,9 @@ const CompanyDetail = () => {
   >([]);
   const [financialMetricsCardLoading, setFinancialMetricsCardLoading] =
     useState(false);
+  const [incomeStatementApiRows, setIncomeStatementApiRows] = useState<
+    NormalizedIncomeStatementRow[]
+  >([]);
   const [exportingPdfType, setExportingPdfType] =
     useState<CompanyPdfExportType | null>(null);
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
@@ -1691,79 +1692,28 @@ const CompanyDetail = () => {
     setCeShowingTo(0);
   }, [company?.id]);
 
-  // Fetch financial metrics (auth required) with GET + POST fallbacks
-  const fetchFinancialMetrics = useCallback(async (id: string | number) => {
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) {
-        setFinancialMetrics(null);
-        return;
-      }
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      };
-
-      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics`;
-      // Attempt GET with query param
-      const params = new URLSearchParams();
-      params.append("new_company_id", String(id));
-      let res = await fetch(`${base}?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        // Fallback to POST with common id keys
-        const candidateBodies = [
-          { new_company_id: Number(id) },
-          { company_id: Number(id) },
-          { id: Number(id) },
-        ];
-        for (const body of candidateBodies) {
-          const attempt = await fetch(base, {
-            method: "POST",
-            headers,
-            credentials: "include",
-            body: JSON.stringify(body),
-          });
-          if (attempt.ok) {
-            res = attempt;
-            break;
-          }
-        }
-      }
-
-      if (!res.ok) {
-        setFinancialMetrics(null);
-        return;
-      }
-      const data = await res.json();
-      // API may return a single object or an array
-      const payload: CompanyFinancialMetrics | null = Array.isArray(data)
-        ? (data[0] as CompanyFinancialMetrics | undefined) || null
-        : (data as CompanyFinancialMetrics);
-      if (payload && typeof payload === "object") {
-        setFinancialMetrics(payload);
-      } else {
-        setFinancialMetrics(null);
-      }
-    } catch {
-      setFinancialMetrics(null);
-    }
-  }, []);
-
   const fetchFinancialMetricsCard = useCallback(async (id: string | number) => {
     setFinancialMetricsCardLoading(true);
     try {
       const data = await fetchCompanyFinancialMetricsCard(id);
       setFinancialMetricsCardRows(data);
+      setFinancialMetrics(
+        (data[0] as CompanyFinancialMetrics | undefined) ?? null
+      );
     } catch {
       setFinancialMetricsCardRows([]);
+      setFinancialMetrics(null);
     } finally {
       setFinancialMetricsCardLoading(false);
+    }
+  }, []);
+
+  const fetchIncomeStatementCard = useCallback(async (id: string | number) => {
+    try {
+      const data = await fetchCompanyIncomeStatementCard(id);
+      setIncomeStatementApiRows(normalizeIncomeStatementApiRows(data));
+    } catch {
+      setIncomeStatementApiRows([]);
     }
   }, []);
 
@@ -2082,9 +2032,8 @@ const CompanyDetail = () => {
     if (companyId) {
       setFinancialMetrics(null);
       setFinancialMetricsCardRows([]);
+      setIncomeStatementApiRows([]);
       fetchCompanyData();
-      fetchFinancialMetrics(companyId);
-      fetchFinancialMetricsCard(companyId);
       fetchCompanyInvestors(companyId);
       fetchCompanyTransactionStatus(companyId);
       fetchCompanyAiRisksData(companyId);
@@ -2105,7 +2054,6 @@ const CompanyDetail = () => {
     companyId,
     fetchCompanyArticles,
     requestCompany,
-    fetchFinancialMetrics,
     fetchFinancialMetricsCard,
     fetchCompanyInvestors,
     fetchCompanyTransactionStatus,
@@ -2113,6 +2061,15 @@ const CompanyDetail = () => {
     fetchCompanyProductUsersData,
   ]);
 
+
+  useEffect(() => {
+    if (!company?.id || company.id <= 0) return;
+    setIncomeStatementApiRows([]);
+    setFinancialMetrics(null);
+    setFinancialMetricsCardRows([]);
+    fetchIncomeStatementCard(company.id);
+    fetchFinancialMetricsCard(company.id);
+  }, [company?.id, fetchIncomeStatementCard, fetchFinancialMetricsCard]);
 
   // Merge investors found in corporate events into the company's investors list
   useEffect(() => {
@@ -2632,19 +2589,6 @@ const CompanyDetail = () => {
     .join(", ");
 
   // Process financial data
-  // Use revenue currency if valid; otherwise fall back to EV currency (income statement only)
-  const revenueCurrency =
-    normalizeCurrency(
-      company.revenues?.revenues_currency ||
-        company.revenues?._currency?.Currency ||
-        company.revenues?.currency?.Currency
-    ) || undefined;
-  const evCurrency =
-    normalizeCurrency(
-      company.ev_data?._currency?.Currency ||
-        company.ev_data?.currency?.Currency
-    ) || undefined;
-
   const revenuePlain = formatPlainNumber(financialMetrics?.Revenue_m);
   const ebitdaPlain = formatPlainNumber(financialMetrics?.EBITDA_m);
   const evPlain = formatPlainNumber(financialMetrics?.EV);
@@ -2678,64 +2622,21 @@ const CompanyDetail = () => {
     undefined;
   const financialMetricsPeriodDisplay = formatFinancialMetricsPeriod(financialMetrics);
 
-  // Extract last 3 income statement rows (public companies only)
-  const isPublicOwnership = (company._ownership_type?.ownership || "")
-    .toLowerCase()
-    .includes("public");
-  const rawIncomeStatements: IncomeStatementEntry[] = ((
-    company.income_statement || []
-  ).flatMap((block) => {
-    const raw = block?.income_statements as unknown;
-    if (!raw) return [] as IncomeStatementEntry[];
-    if (typeof raw === "string") {
-      try {
-        const decoded = JSON.parse(
-          (raw as string).replace(/\\u0022/g, '"')
-        ) as unknown;
-        return Array.isArray(decoded)
-          ? (decoded as IncomeStatementEntry[])
-          : [];
-      } catch {
-        return [] as IncomeStatementEntry[];
-      }
-    }
-    return (raw as IncomeStatementEntry[]) || [];
-  }) || []) as IncomeStatementEntry[];
-  const normalizedIncomeStatements = rawIncomeStatements
-    .map((row) => ({
-      id: row.id,
-      period_display_end_date: row.period_display_end_date,
-      period_end_date: row.period_end_date,
-      revenue: row.revenue ?? null,
-      ebit: row.ebit ?? null,
-      ebitda: row.ebitda ?? null,
-      cost_of_goods_sold_currency: row.cost_of_goods_sold_currency,
-    }))
-    .sort((a, b) => {
-      // Sort ascending by period_end_date; take the 3 most recent for display
-      const da = a.period_end_date
-        ? Date.parse(a.period_end_date)
-        : Date.parse(
-            (a.period_display_end_date || "").replace(/[^0-9-]/g, "")
-          ) || 0;
-      const db = b.period_end_date
-        ? Date.parse(b.period_end_date)
-        : Date.parse(
-            (b.period_display_end_date || "").replace(/[^0-9-]/g, "")
-          ) || 0;
-      return da - db;
-    })
-    .slice(-3);
-
-  // Show Income Statement only if there is at least one numeric value
-  const hasIncomeStatementData =
-    isPublicOwnership &&
-    normalizedIncomeStatements.some(
-      (row) =>
-        typeof row.revenue === "number" ||
-        typeof row.ebit === "number" ||
-        typeof row.ebitda === "number"
-    );
+  // Extract last 3 income statement rows
+  const profileIncomeStatements = normalizeIncomeStatementRows(
+    company.income_statement
+  );
+  const normalizedIncomeStatements =
+    incomeStatementApiRows.length > 0
+      ? incomeStatementApiRows
+      : profileIncomeStatements;
+  const hasIncomeStatementData = hasIncomeStatementValues(
+    normalizedIncomeStatements
+  );
+  const incomeStatementCurrency = resolveIncomeStatementCurrency(
+    normalizedIncomeStatements,
+    metricsCurrencyCode
+  );
 
   const employeeData =
     companyLinkedIn?.employee_history && companyLinkedIn.employee_history.length > 0
@@ -3972,6 +3873,9 @@ const CompanyDetail = () => {
               rows={financialMetricsCardRows}
               loading={financialMetricsCardLoading}
               companyName={company.name?.trim() || "Company"}
+              incomeStatementRows={normalizedIncomeStatements}
+              incomeStatementCurrency={incomeStatementCurrency}
+              employeeHistory={employeeData}
             />
           ) : (
           <>
@@ -4637,7 +4541,8 @@ const CompanyDetail = () => {
                 primary={finMetricsData.primary}
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
-                incomeStatementCurrency={evCurrency || revenueCurrency || ""}
+                incomeStatementCurrency={incomeStatementCurrency}
+                employeeHistory={employeeData}
               />
             </div>
 
@@ -4678,7 +4583,8 @@ const CompanyDetail = () => {
               data={finMetricsData}
               hasIncomeStatement={hasIncomeStatementData}
               incomeStatementRows={normalizedIncomeStatements}
-              incomeStatementCurrency={evCurrency || revenueCurrency || ""}
+              incomeStatementCurrency={incomeStatementCurrency}
+              employeeHistory={employeeData}
             />
 
             <div style={{ marginTop: 20 }}>
