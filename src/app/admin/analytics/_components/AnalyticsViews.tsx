@@ -186,6 +186,7 @@ type UserActivityRow = {
   user_name: string;
   user_email: string | null;
   company_name: string;
+  seniority_level?: string | null;
   // Newer API fields (as seen in analytics payload)
   sessions_last_24_hours?: number | null;
   page_views_last_24_hours?: number | null;
@@ -304,7 +305,10 @@ export function UserActivityTab() {
     } else {
       setSortCol(col);
       setSortDir(
-        col === "user_name" || col === "user_email" || col === "company_name"
+        col === "user_name" ||
+          col === "user_email" ||
+          col === "company_name" ||
+          col === "seniority_level"
           ? "asc"
           : "desc"
       );
@@ -345,6 +349,8 @@ export function UserActivityTab() {
                   ["user_name", "User Name"],
                   ["user_email", "User Email"],
                   ["company_name", "Company"],
+                  ["seniority_level", "Seniority Level"],
+                  ["last_activity_timestamp", "Last Activity"],
                   ["sessions_last_24_hours", "Sessions 24h"],
                   ["page_views_last_24_hours", "Page Views 24h"],
                   ["sessions_last_7_days", "Sessions 7d"],
@@ -355,7 +361,6 @@ export function UserActivityTab() {
                   ["page_views_last_90_days", "Page Views 90d"],
                   ["total_sessions", "Total Sessions"],
                   ["total_page_views", "Total Page Views"],
-                  ["last_activity_timestamp", "Last Activity"],
                 ] as [SortColumn, string][]
               ).map(([key, label]) => (
                 <th key={key} className="px-3 py-2 text-left whitespace-nowrap">
@@ -378,14 +383,14 @@ export function UserActivityTab() {
           <tbody>
             {loadingUa && (
               <tr>
-                <td className="px-3 py-3 text-center" colSpan={15}>
+                <td className="px-3 py-3 text-center" colSpan={16}>
                   Loading…
                 </td>
               </tr>
             )}
             {errorUa && !loadingUa && (
               <tr>
-                <td className="px-3 py-3 text-red-700 bg-red-50" colSpan={15}>
+                <td className="px-3 py-3 text-red-700 bg-red-50" colSpan={16}>
                   {errorUa}
                 </td>
               </tr>
@@ -394,7 +399,7 @@ export function UserActivityTab() {
               <tr>
                 <td
                   className="px-3 py-3 text-center text-gray-500"
-                  colSpan={15}
+                  colSpan={16}
                 >
                   No results
                 </td>
@@ -411,6 +416,10 @@ export function UserActivityTab() {
                   <td className="px-3 py-2">{r.user_name}</td>
                   <td className="px-3 py-2">{r.user_email || "—"}</td>
                   <td className="px-3 py-2">{r.company_name}</td>
+                  <td className="px-3 py-2">{r.seniority_level || "—"}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {formatTimestamp(r.last_activity_timestamp)}
+                  </td>
                   <td className="px-3 py-2">
                     {formatMetric(r.sessions_last_24_hours)}
                   </td>
@@ -440,9 +449,6 @@ export function UserActivityTab() {
                   </td>
                   <td className="px-3 py-2">
                     {formatMetric(r.total_page_views)}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {formatTimestamp(r.last_activity_timestamp)}
                   </td>
                 </tr>
               ))}
