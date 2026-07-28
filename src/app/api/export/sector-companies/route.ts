@@ -15,7 +15,7 @@ const COL_WIDTHS: Record<string, number> = {
   'Asymmetrix URL': 45,
   'Description': 80,
   'Primary Sector(s)': 35,
-  'Sub-Sector(s)': 40,
+  'Secondary Sector(s)': 40,
   'LinkedIn Members': 22,
   'Country': 26,
   'Filters Applied': 60,
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
       set('Asymmetrix URL', data.asymmetrixUrl);
       set('Description', data.description);
       set('Primary Sector(s)', data.primarySectors);
-      set('Sub-Sector(s)', data.subSectors);
+      set('Secondary Sector(s)', data.subSectors);
       // LinkedIn Members — right-align numeric values
       const linkedinCol = colMap['LinkedIn Members'];
       if (linkedinCol) {

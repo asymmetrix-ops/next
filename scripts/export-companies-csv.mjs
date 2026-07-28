@@ -256,7 +256,7 @@ const COLUMNS = [
   { header: "City", section: "Company", value: (c) => safe(c.city), description: "City of HQ." },
   { header: "Lifecycle Stage", section: "Company", value: (c) => safe(c.Lifecycle_stage?.Lifecycle_Stage), description: "e.g. Pre-seed, Seed, Series A, Series B etc, Growth, Buyout" },
   { header: "Primary Sectors", section: "Company", value: (c) => formatSectors(c.primary_sectors), description: "Primary Data & Analytics industry sectors the company operates in." },
-  { header: "Secondary Sectors", section: "Company", value: (c) => formatSectors(c.secondary_sectors), description: "Secondary Data & Analytics sub-sectors" },
+  { header: "Secondary Sectors", section: "Company", value: (c) => formatSectors(c.secondary_sectors), description: "Secondary Data & Analytics secondary sectors" },
   { header: "Parent Company", section: "Company", value: (c) => formatParents(c.have_parent_company), description: "Name of the parent company, if a subsidiary or acquired" },
 
   { header: "Revenue (m)", section: "Financial", value: (c) => safe(c.revenue_m), description: "Annual revenue in millions." },

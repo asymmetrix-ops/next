@@ -99,7 +99,7 @@ Companies (src/app/companies/page.tsx)
 
 Company profile (src/app/company/[param]/page.tsx)
 
-- Overview: sectors (primary/derived from sub-sectors), year founded (intelligent extraction), website, ownership, HQ, lifecycle stage, investors.
+- Overview: sectors (primary/derived from secondary sectors), year founded (intelligent extraction), website, ownership, HQ, lifecycle stage, investors.
 - Financial metrics: revenue, EBITDA, EV (currency-aware). LinkedIn employee chart.
 - Management: current and past roles with links to individuals.
 - Subsidiaries (table with logo, description, sectors, LinkedIn members, country) with expand/collapse.
@@ -152,7 +152,7 @@ Corporate event detail (src/app/corporate-event/[id]/page.tsx)
 
 - Event header: description, report-incorrect-data mailto.
 - Key facts: deal type, announced/closed dates, investment amount, enterprise value (currency formatted).
-- Sectors (primary derived via sub-sector mapping) and sub-sectors.
+- Sectors (primary derived via secondary sector mapping) and secondary sectors.
 - Counterparties: table/cards with logo, company, type, announcement URL, individuals. Links to investor/company/individuals when applicable.
 - Advisors: table/cards with advisor, role, advising (links), announcement URL.
 

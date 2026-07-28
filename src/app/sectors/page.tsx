@@ -148,7 +148,7 @@ const SectorCard = ({
               flexShrink: 0,
             },
           },
-          `${formatNumber(sector.Number_of_Sub_Sectors || 0)} sub-sectors`
+          `${formatNumber(sector.Number_of_Sub_Sectors || 0)} secondary sectors`
         )
       )
     ),
@@ -521,7 +521,7 @@ const SectorsSection = () => {
               handleSearch();
             }
           },
-          placeholder: "Search sectors or sub-sectors",
+          placeholder: "Search sectors or secondary sectors",
           style: {
             padding: "8px 12px",
             borderRadius: "8px",
@@ -595,7 +595,7 @@ const SectorsSection = () => {
         React.createElement(
           "option",
           { value: "Number_of_Sub_Sectors" },
-          "Number of Sub-Sectors"
+          "Number of Secondary Sectors"
         ),
         React.createElement(
           "option",

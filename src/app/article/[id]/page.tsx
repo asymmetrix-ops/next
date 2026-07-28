@@ -2550,7 +2550,7 @@ const ArticleDetailPage = () => {
                         }}
                         title={
                           href.startsWith("/sub-sector/")
-                            ? "Open sub-sector page"
+                            ? "Open secondary sector page"
                             : "Open sector page"
                         }
                         prefetch={false}

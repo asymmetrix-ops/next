@@ -98,7 +98,7 @@ export function CorporateEventOverviewCard({
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
     { k: "Sector(s)", v: <SectorTags sectors={primarySectors} tone="coral" /> },
     {
-      k: "Sub-sector(s)",
+      k: "Secondary Sector(s)",
       v: <SubSectorTags sectors={subSectors} />,
       show: subSectors.length > 0,
     },

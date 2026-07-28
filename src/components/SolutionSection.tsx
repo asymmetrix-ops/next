@@ -65,8 +65,8 @@ const SolutionSection = () => {
       description: "Data & Analytics sector",
       metric:
         sectorsCount !== null
-          ? `${formatCount(sectorsCount)}+ sub-sectors`
-          : "700+ sub-sectors",
+          ? `${formatCount(sectorsCount)}+ secondary sectors`
+          : "700+ secondary sectors",
     },
     {
       icon: (

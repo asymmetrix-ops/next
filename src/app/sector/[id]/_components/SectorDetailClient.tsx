@@ -853,7 +853,7 @@ const TABS = [
   { id: "overview", name: "Overview" },
   { id: "public", name: "Public Companies" },
   { id: "most_active", name: "Most Active" },
-  { id: "subsectors", name: "Sub-Sectors" },
+  { id: "subsectors", name: "Secondary Sectors" },
   { id: "transactions", name: "Transactions" },
   { id: "insights", name: "Insights & Analysis" },
   { id: "all", name: "All Companies" },
@@ -3489,7 +3489,7 @@ const SectorDetailPage = ({
       setSubSectors(mapped);
     } catch (e) {
       setSubSectorsError(
-        e instanceof Error ? e.message : "Failed to fetch sub-sectors"
+        e instanceof Error ? e.message : "Failed to fetch secondary sectors"
       );
     } finally {
       setSubSectorsLoading(false);
@@ -6723,7 +6723,7 @@ const SectorDetailPage = ({
                             Primary Sector(s)
                           </th>
                           <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
-                            Sub-Sector(s)
+                            Secondary Sector(s)
                           </th>
                           <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
                             LinkedIn Members
@@ -6884,7 +6884,7 @@ const SectorDetailPage = ({
                         <path d="M3 12h18M3 6h18M3 18h18" />
                       </svg>
                     </span>
-                    <span className="text-slate-900">Sub-Sectors</span>
+                    <span className="text-slate-900">Secondary Sectors</span>
                   </div>
                   <div className="text-sm text-slate-600">
                     {subSectors.length.toLocaleString()} total
@@ -6894,7 +6894,7 @@ const SectorDetailPage = ({
               <div className="px-5 py-4">
                 {subSectorsLoading ? (
                   <div className="py-10 text-center text-slate-500">
-                    Loading sub-sectors...
+                    Loading secondary sectors...
                   </div>
                 ) : subSectorsError ? (
                   <div className="py-4 text-center text-red-600">
@@ -6902,7 +6902,7 @@ const SectorDetailPage = ({
                   </div>
                 ) : subSectors.length === 0 ? (
                   <div className="py-10 text-center text-slate-500">
-                    No sub-sectors found.
+                    No secondary sectors found.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

@@ -2039,7 +2039,7 @@ const SubSectorPage = () => {
           return;
         }
         if (Number.isNaN(subSectorId) || subSectorId <= 0) {
-          setCompaniesError("Invalid sub-sector id");
+          setCompaniesError("Invalid secondary sector id");
           return;
         }
 
@@ -2281,7 +2281,7 @@ const SubSectorPage = () => {
           return;
         }
         if (Number.isNaN(subSectorId) || subSectorId <= 0) {
-          setInsightsError("Invalid sub-sector id");
+          setInsightsError("Invalid secondary sector id");
           return;
         }
         const params = new URLSearchParams();
@@ -2343,7 +2343,7 @@ const SubSectorPage = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-slate-900">
-                  {subSectorName || "Sub-Sector"}
+                  {subSectorName || "Secondary Sector"}
                 </h1>
               </div>
             </div>
@@ -2353,7 +2353,7 @@ const SubSectorPage = () => {
                   followKey="followed_sectors"
                   entityId={subSectorId}
                   entityType="sector"
-                  label="Sub-Sector"
+                  label="Secondary Sector"
                 />
               )}
               <div className="text-sm text-right text-slate-700 whitespace-normal">
@@ -2902,7 +2902,7 @@ const SubSectorPage = () => {
                   </div>
                 ) : companies.length === 0 ? (
                   <div className="py-10 text-center text-slate-500">
-                    No companies found for this sub-sector.
+                    No companies found for this secondary sector.
                   </div>
                 ) : (
                   <div className="overflow-x-hidden">
