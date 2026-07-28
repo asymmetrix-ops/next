@@ -36,6 +36,22 @@ export interface ContentArticle {
       City: string;
       State__Province__County: string;
       Country: string;
+      iso2?: string;
+    };
+    hq_iso2?: string | null;
+    hq_country?: string | null;
+  }>;
+  companies_of_focus?: Array<{
+    id: number;
+    name: string;
+    locations_id?: number;
+    hq_iso2?: string | null;
+    hq_country?: string | null;
+    _locations?: {
+      City?: string;
+      State__Province__County?: string;
+      Country?: string;
+      iso2?: string;
     };
   }>;
   Transaction_status?: string;

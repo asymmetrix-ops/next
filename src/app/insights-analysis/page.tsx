@@ -13,6 +13,11 @@ import {
   InsightsAnalysisFilters,
 } from "../../types/insightsAnalysis";
 import SeriesArticleCard from "@/components/SeriesArticleCard";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
+import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
+
+const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
 // Shared styles object
 const styles = {
@@ -385,7 +390,17 @@ const InsightsAnalysisCards = ({
           >
             {/* Article Title */}
             <h3 className="article-title">
-              {article.Headline || "-"}
+              <span className="article-title-inner">
+                {article.Headline || "-"}
+                {(() => {
+                  const hqCountryIso2 = getInsightHqCountryIso2(
+                    article as unknown as Record<string, unknown>
+                  );
+                  return hqCountryIso2 ? (
+                    <CountryFlagImg iso2={hqCountryIso2} size={INSIGHT_FLAG_SIZE_PX} />
+                  ) : null;
+                })()}
+              </span>
             </h3>
 
             {/* Transaction Status Badge */}
@@ -907,6 +922,11 @@ function InsightsAnalysisPageContent() {
       color: #1a202c;
       margin: 0 0 8px 0;
       line-height: 1.3;
+    }
+    .article-title-inner {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
     .article-content-type {
       display: inline-block;

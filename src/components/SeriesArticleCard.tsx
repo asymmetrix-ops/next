@@ -3,6 +3,11 @@
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ContentArticle } from "@/types/insightsAnalysis";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
+import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
+
+const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
 interface SeriesArticleCardProps {
   article: ContentArticle;
@@ -80,6 +85,9 @@ export function SeriesArticleCard({
   const displayHeadline = activePart?.headline || article.Headline;
   const displayDate =
     activePart?.publication_date || article.Publication_Date;
+  const hqCountryIso2 = getInsightHqCountryIso2(
+    article as unknown as Record<string, unknown>
+  );
 
   return (
     <a
@@ -116,7 +124,14 @@ export function SeriesArticleCard({
         )}
       </div>
 
-      <h3 className="article-title">{displayHeadline || "-"}</h3>
+      <h3 className="article-title">
+        <span className="article-title-inner">
+          {displayHeadline || "-"}
+          {hqCountryIso2 ? (
+            <CountryFlagImg iso2={hqCountryIso2} size={INSIGHT_FLAG_SIZE_PX} />
+          ) : null}
+        </span>
+      </h3>
 
       {article.Transaction_status && (
         <div className="article-transaction-status-row">

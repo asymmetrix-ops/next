@@ -8,6 +8,11 @@ import Footer from "@/components/Footer";
 import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
 import type { ArticleSeries } from "@/types/insightsAnalysis";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
+import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
+
+const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -29,6 +34,19 @@ interface ArticleDetail {
     Sector_importance: string;
   }>;
   companies_mentioned: Array<{ id: number; name: string }>;
+  companies_of_focus?: Array<{
+    id: number;
+    name: string;
+    hq_iso2?: string | null;
+    hq_country?: string | null;
+    locations_id?: number;
+    _locations?: {
+      City?: string;
+      State__Province__County?: string;
+      Country?: string;
+      iso2?: string;
+    };
+  }>;
   Transaction_status?: string;
   Visibility: string;
   Related_Corporate_Event?: Array<{
@@ -587,6 +605,23 @@ const ArticleDetailPage = () => {
           tryParse<Array<{ id: number; name: string }>>(
             raw.companies_mentioned
           ) || [],
+        companies_of_focus:
+          tryParse<
+            Array<{
+              id: number;
+              name: string;
+              hq_iso2?: string | null;
+              hq_country?: string | null;
+              locations_id?: number;
+              _locations?: {
+                City?: string;
+                State__Province__County?: string;
+                Country?: string;
+                iso2?: string;
+              };
+            }>
+          >(raw.companies_of_focus) ||
+          (Array.isArray(raw.companies_of_focus) ? raw.companies_of_focus : []),
         Related_Corporate_Event:
           tryParse<
             Array<{
@@ -1401,6 +1436,7 @@ const ArticleDetailPage = () => {
       (article.companies_mentioned && article.companies_mentioned.length > 0) ||
         (companyOfFocusCompanyId != null && companyOfFocusCompanyId > 0)
     );
+  const hqCountryIso2 = getInsightHqCountryIso2(article);
 
   return (
     <div style={styles.container}>
@@ -1422,7 +1458,20 @@ const ArticleDetailPage = () => {
             )}
 
             {/* Article Header */}
-            <h1 style={styles.heading}>{article.Headline}</h1>
+            <h1
+              style={{
+                ...styles.heading,
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 8,
+              }}
+            >
+              {article.Headline}
+              {hqCountryIso2 ? (
+                <CountryFlagImg iso2={hqCountryIso2} size={ARTICLE_FLAG_SIZE_PX} />
+              ) : null}
+            </h1>
             {article.Transaction_status && (
               <div style={{ marginBottom: 16 }}>
                 <span style={styles.transactionStatusBadge}>
@@ -1780,12 +1829,20 @@ const ArticleDetailPage = () => {
                                 style={{
                                   ...styles.companyTag,
                                   textDecoration: "none",
-                                  display: "inline-block",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
                                   marginBottom: 4,
                                 }}
                                 prefetch={false}
                               >
                                 {companyOfFocus.name}
+                                {hqCountryIso2 ? (
+                                  <CountryFlagImg
+                                    iso2={hqCountryIso2}
+                                    size={ARTICLE_FLAG_SIZE_PX}
+                                  />
+                                ) : null}
                               </Link>
                             </span>
                           </div>

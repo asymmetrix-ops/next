@@ -2,15 +2,31 @@
 
 import React, { useCallback, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import type { SearchMultiValueItem } from "@/components/search/searchMultiValueUtils";
 
 const DEFAULT_MAX_VISIBLE = 10;
+const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
 type SearchEntityMultiValueCellProps = {
   items: SearchMultiValueItem[];
   maxVisible?: number;
   onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 };
+
+function renderEntityLabel(item: SearchMultiValueItem) {
+  const flagEl = item.hqIso2 ? (
+    <CountryFlagImg iso2={item.hqIso2} size={ENTITY_FLAG_SIZE_PX} />
+  ) : null;
+
+  return (
+    <span className="search-multi-value-label">
+      {item.name}
+      {flagEl}
+    </span>
+  );
+}
 
 function renderInlineValue(
   item: SearchMultiValueItem,
@@ -29,12 +45,12 @@ function renderInlineValue(
           }
         }}
       >
-        {item.name}
+        {renderEntityLabel(item)}
       </a>
     );
   }
 
-  return <span>{item.name}</span>;
+  return renderEntityLabel(item);
 }
 
 export function SearchEntityMultiValueCell({
@@ -164,6 +180,12 @@ export const SEARCH_MULTI_VALUE_STYLES = `
     text-decoration: underline;
     font-weight: 500;
     cursor: pointer;
+  }
+  .search-multi-value-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    vertical-align: middle;
   }
   .search-multi-value-link:hover {
     color: #005bb5;
