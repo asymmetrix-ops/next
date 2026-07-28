@@ -412,13 +412,18 @@ function coerceCompanyNotInDbEntry(
   return { company_name, website, verdict, confidence, reasoning };
 }
 
+function isUncertainVerdict(verdict: string | null): boolean {
+  return verdict === "uncertain" || verdict === "maybe_da";
+}
+
 function sortCompaniesNotInDb(
   entries: ChangeRequestCompanyNotInDb[]
 ): ChangeRequestCompanyNotInDb[] {
   const rank = (verdict: string | null) => {
     if (verdict === "da") return 0;
-    if (verdict === "not_da") return 1;
-    return 2;
+    if (isUncertainVerdict(verdict)) return 1;
+    if (verdict === "not_da") return 2;
+    return 3;
   };
   return [...entries].sort((a, b) => rank(a.verdict) - rank(b.verdict));
 }
