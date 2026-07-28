@@ -1,529 +1,483 @@
-  "use client";
+"use client";
 
-  import { useEffect, useMemo, useRef, useState } from "react";
-  import EmailEditor from "react-email-editor";
-  import SearchableSelect from "@/components/ui/SearchableSelect";
-  import { locationsService } from "@/lib/locationsService";
-  import { useAuth } from "@/components/providers/AuthProvider";
-  import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
-  type SourceIdList = number[];
+import { CompetitorsTab } from "./analytics/_components/AnalyticsViews";
+import { ChangeStateTab } from "./_components/ChangeStatePanel";
+import { CompanyAnalysisTab } from "./_components/CompanyAnalysisTab";
+import SearchableSelect from "@/components/ui/SearchableSelect";
+import { SearchableUserEmailSelect } from "@/components/SearchableUserEmailSelect";
+import { BasicUsersMultiSelect } from "@/components/ui/BasicUsersMultiSelect";
+import TiptapSimpleEditor from "@/components/ui/TiptapSimpleEditor";
+import { ContentEditableEmailEditor } from "@/components/ui/ContentEditableEmailEditor";
+import {
+  ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN,
+  getUserEmails,
+  type BasicUserItem,
+  type UserEmailItem,
+} from "@/lib/api";
+import { authService } from "@/lib/auth";
+import {
+  CONTRIBUTION_EMAIL_ENTITY_TYPE,
+  coerceEmailContentRound,
+  formatEmailPublicationDate,
+  normalizeEmailEntityType,
+  todayEmailPublicationDate,
+  type EmailContentEntityType,
+  type EmailContentRound,
+} from "@/lib/contributorCrm/api";
+import { locationsService } from "@/lib/locationsService";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { useRouter } from "next/navigation";
+import { fetchCompaniesServer } from "@/app/companies/actions";
 
-  interface FieldValue<T = unknown> {
-    value: T;
-    source_ids?: SourceIdList;
-    as_of?: string;
+type SourceIdList = number[];
+
+async function searchCompaniesForMention(
+  query: string
+): Promise<Array<{ id: number; name: string }>> {
+  const q = query.trim();
+  if (!q) return [];
+  try {
+    const res = await fetchCompaniesServer(1, { query: q });
+    const items = res?.result1?.items ?? [];
+    return items.map((c) => ({ id: c.id, name: c.name }));
+  } catch {
+    return [];
   }
+}
 
-  type CompanySection = Record<string, FieldValue<unknown>>;
+interface FieldValue<T = unknown> {
+  value: T;
+  source_ids?: SourceIdList;
+  as_of?: string;
+}
 
-  interface MVAStage {
-    stage: string;
-    summary: string;
-  }
+type CompanySection = Record<string, FieldValue<unknown>>;
 
-  type FinancialsValue = number | string | undefined;
+interface MVAStage {
+  stage: string;
+  summary: string;
+}
 
-  type FinancialsEntry =
-    | number
-    | {
-        low?: number;
-        mid?: number;
-        high?: number;
-        method?: string;
-        [k: string]: FinancialsValue;
-      };
+type FinancialsValue = number | string | undefined;
 
-  type FinancialsEst = Record<string, FinancialsEntry>;
-
-  interface MetaSection {
-    queries_used?: string[];
-    [k: string]: unknown;
-  }
-
-  interface ValuationReport {
-    citations?: unknown[];
-    company?: CompanySection;
-    debug?: {
-      company_raw?: CompanySection;
-      mva_stages?: MVAStage[];
-      [k: string]: unknown;
+type FinancialsEntry =
+  | number
+  | {
+      low?: number;
+      mid?: number;
+      high?: number;
+      method?: string;
+      [k: string]: FinancialsValue;
     };
-    financials_est?: FinancialsEst;
-    meta?: MetaSection;
-    rendered_report_markdown?: string;
+
+type FinancialsEst = Record<string, FinancialsEntry>;
+
+interface MetaSection {
+  queries_used?: string[];
+  [k: string]: unknown;
+}
+
+interface ValuationReport {
+  citations?: unknown[];
+  company?: CompanySection;
+  debug?: {
+    company_raw?: CompanySection;
+    mva_stages?: MVAStage[];
     [k: string]: unknown;
+  };
+  financials_est?: FinancialsEst;
+  meta?: MetaSection;
+  rendered_report_markdown?: string;
+  [k: string]: unknown;
+}
+
+export default function AdminPage() {
+  const router = useRouter();
+  const { user, isAuthenticated, loading } = useAuth();
+  const [activeTab, setActiveTab] = useState<
+    | "valuation"
+    | "emails"
+    | "content"
+    | "sectors"
+    | "competitors"
+    | "changeState"
+    | "companyAnalysis"
+  >("valuation");
+
+  // Only authenticated users with admin role may access; others are redirected.
+  const isAdmin = useMemo(() => {
+    if (!user) return false;
+    const status = (
+      user.Status ??
+      user.status ??
+      user.role ??
+      ""
+    ).toString().toLowerCase();
+    if (status === "admin") return true;
+    const roles = (user.roles ?? []).map((r) => String(r).toLowerCase());
+    return roles.includes("admin");
+  }, [user]);
+
+  const canAccessAdmin = !loading && !!user && isAuthenticated && isAdmin;
+
+  useEffect(() => {
+    if (loading) return;
+    if (!isAuthenticated) {
+      router.replace("/login");
+      return;
+    }
+    if (!isAdmin) {
+      router.replace("/");
+    }
+  }, [isAuthenticated, isAdmin, loading, router]);
+
+  const [name, setName] = useState("");
+  const [domain, setDomain] = useState("");
+  const defaultPrompt = `You are the Multi-Stage Valuation Agent (MVA). Perform a multi-stage valuation analysis of the target company using public sources.
+Output strict JSON with keys: stages (array of {stage, summary}), and company (same schema as below, with source_ids).
+Stages: Stage 0 Company Overview; Stage 1 Revenue Estimation; Stage 2 Recurring Revenue %; Stage 3 GRR; Stage 4 NRR; Stage 5 New Clients Revenue Growth %;
+Stage 6 EBITDA Margin %; Stage 7 Rule of 40; Stage 8 Valuation Estimate; Stage 9 Validation; Stage 10 Update.
+All asserted company.* fields must have >=1 source_ids from the citations. Leave null if not supported.
+Schema: {
+  "stages": [{"stage": string, "summary": string}],
+  "company": {
+    "name": {"value": string|null, "source_ids": [int]},
+    "domain": {"value": string|null, "source_ids": [int]},
+    "one_liner": {"value": string|null, "source_ids": [int]},
+    "founded_year": {"value": int|null, "source_ids": [int]},
+    "ownership": {"value": string|null, "source_ids": [int]},
+    "hq": {"value": string|null, "source_ids": [int]},
+    "ceo": {"value": string|null, "source_ids": [int]},
+    "employees": {"value": int|null, "as_of": string|null, "source_ids": [int]},
+    "clients": {"value": string|null, "source_ids": [int]},
+    "products": {"value": [string], "source_ids": [int]}
+  }
+}
+Target company: {query} ({domain})`;
+  const [prompt, setPrompt] = useState<string>(defaultPrompt);
+  const [result, setResult] = useState<ValuationReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setResult(null);
+    setSubmitting(true);
+    try {
+      const payload: Record<string, unknown> = { name, domain };
+      if (prompt.trim() !== defaultPrompt.trim()) {
+        (payload as { [k: string]: unknown }).ai_prompt = prompt;
+      }
+
+      const res = await fetch("/api/valuation-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Request failed");
+      }
+      setResult(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unexpected error");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  export default function AdminPage() {
-    const router = useRouter();
-    const { user, isAuthenticated, loading } = useAuth();
-
-    const hasAccess = useMemo(() => {
-      if (!user) return false;
-      const normalizedStatus = (
-        user.Status ||
-        user.status ||
-        user.role ||
-        ""
-      ).toString();
-      if (normalizedStatus.toLowerCase() === "admin") return true;
-      const roles = user.roles || [];
-      return roles.map((r) => r.toLowerCase()).includes("admin");
-    }, [user]);
-
-    useEffect(() => {
-      if (!loading) {
-        if (!isAuthenticated) {
-          router.replace("/login");
-        } else if (!hasAccess) {
-          router.replace("/");
-        }
-      }
-    }, [isAuthenticated, hasAccess, loading, router]);
-
-    const [name, setName] = useState("");
-    const [domain, setDomain] = useState("");
-    const defaultPrompt = `You are the Multi-Stage Valuation Agent (MVA). Perform a multi-stage valuation analysis of the target company using public sources.
-  Output strict JSON with keys: stages (array of {stage, summary}), and company (same schema as below, with source_ids).
-  Stages: Stage 0 Company Overview; Stage 1 Revenue Estimation; Stage 2 Recurring Revenue %; Stage 3 GRR; Stage 4 NRR; Stage 5 New Clients Revenue Growth %;
-  Stage 6 EBITDA Margin %; Stage 7 Rule of 40; Stage 8 Valuation Estimate; Stage 9 Validation; Stage 10 Update.
-  All asserted company.* fields must have >=1 source_ids from the citations. Leave null if not supported.
-  Schema: {
-    "stages": [{"stage": string, "summary": string}],
-    "company": {
-      "name": {"value": string|null, "source_ids": [int]},
-      "domain": {"value": string|null, "source_ids": [int]},
-      "one_liner": {"value": string|null, "source_ids": [int]},
-      "founded_year": {"value": int|null, "source_ids": [int]},
-      "ownership": {"value": string|null, "source_ids": [int]},
-      "hq": {"value": string|null, "source_ids": [int]},
-      "ceo": {"value": string|null, "source_ids": [int]},
-      "employees": {"value": int|null, "as_of": string|null, "source_ids": [int]},
-      "clients": {"value": string|null, "source_ids": [int]},
-      "products": {"value": [string], "source_ids": [int]}
-    }
-  }
-  Target company: {query} ({domain})`;
-    const [prompt, setPrompt] = useState<string>(defaultPrompt);
-    const [result, setResult] = useState<ValuationReport | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [submitting, setSubmitting] = useState(false);
-    const [activeTab, setActiveTab] = useState<
-      | "valuation"
-      | "emails"
-      | "content"
-      | "sectors"
-      | "company_searches"
-      | "descriptions"
-    >("valuation");
-
-    async function onSubmit(e: React.FormEvent) {
-      e.preventDefault();
-      setError(null);
-      setResult(null);
-      setSubmitting(true);
-      try {
-        const payload: Record<string, unknown> = { name, domain };
-        if (prompt.trim() !== defaultPrompt.trim()) {
-          (payload as { [k: string]: unknown }).ai_prompt = prompt;
-        }
-
-        const res = await fetch("/api/valuation-report", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data?.error || "Request failed");
-        }
-        setResult(data);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Unexpected error");
-      } finally {
-        setSubmitting(false);
-      }
-    }
-
-    if (loading || !isAuthenticated || !hasAccess) {
-      return (
-        <div className="flex justify-center items-center min-h-screen">
-          <div>Loading…</div>
-        </div>
-      );
-    }
-
+  if (!canAccessAdmin) {
     return (
-      <div className="px-4 py-10 mx-auto max-w-5xl">
-        <h1 className="mb-6 text-2xl font-semibold">Admin</h1>
+      <div className="flex justify-center items-center min-h-screen">
+        <div>{loading ? "Loading…" : "Access denied."}</div>
+      </div>
+    );
+  }
 
-        <div className="flex gap-4 mb-6 border-b">
-          <button
-            onClick={() => setActiveTab("valuation")}
-            className={`px-3 py-2 -mb-px border-b-2 ${
-              activeTab === "valuation"
-                ? "border-black font-medium"
-                : "border-transparent text-gray-500"
-            }`}
+  return (
+    <div className="px-4 py-10 w-full max-w-none min-h-screen">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold">Admin</h1>
+        <div className="flex gap-2">
+          <Link
+            href="/admin/data-entry"
+            className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md"
           >
-            Valuation Report
-          </button>
-          <button
-            onClick={() => setActiveTab("emails")}
-            className={`px-3 py-2 -mb-px border-b-2 ${
-              activeTab === "emails"
-                ? "border-black font-medium"
-                : "border-transparent text-gray-500"
-            }`}
+            Companies Data Entry
+          </Link>
+          <Link
+            href="/admin/data-entry/ce"
+            className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md"
           >
-            Emails
-          </button>
-          <button
-            onClick={() => setActiveTab("content")}
-            className={`px-3 py-2 -mb-px border-b-2 ${
-              activeTab === "content"
-                ? "border-black font-medium"
-                : "border-transparent text-gray-500"
-            }`}
-          >
-            Content
-          </button>
-          <button
-            onClick={() => setActiveTab("sectors")}
-            className={`px-3 py-2 -mb-px border-b-2 ${
-              activeTab === "sectors"
-                ? "border-black font-medium"
-                : "border-transparent text-gray-500"
-            }`}
-          >
-            Sectors
-          </button>
-          <button
-            onClick={() => setActiveTab("company_searches")}
-            className={`px-3 py-2 -mb-px border-b-2 ${
-              activeTab === "company_searches"
-                ? "border-black font-medium"
-                : "border-transparent text-gray-500"
-            }`}
-          >
-            Company Searches
-          </button>
-          <button
-            onClick={() => setActiveTab("descriptions")}
-            className={`px-3 py-2 -mb-px border-b-2 ${
-              activeTab === "descriptions"
-                ? "border-black font-medium"
-                : "border-transparent text-gray-500"
-            }`}
-          >
-            Descriptions
-          </button>
+            CE Data Entry
+          </Link>
         </div>
+      </div>
 
-        {activeTab === "valuation" && (
-          <>
-            <h2 className="mb-6 text-xl font-semibold">Valuation Report</h2>
-            <form onSubmit={onSubmit} className="mb-8 space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="block mb-1 text-sm font-medium">Name</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Bloomberg L.P."
-                    className="px-3 py-2 w-full rounded border"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1 text-sm font-medium">Domain</label>
-                  <input
-                    type="text"
-                    value={domain}
-                    onChange={(e) => setDomain(e.target.value)}
-                    placeholder="bloomberg.com"
-                    className="px-3 py-2 w-full rounded border"
-                    required
-                  />
-                </div>
+      <div className="flex gap-4 mb-6 border-b">
+        <button
+          onClick={() => setActiveTab("valuation")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "valuation"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Valuation Report
+        </button>
+        <button
+          onClick={() => setActiveTab("emails")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "emails"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Emails
+        </button>
+        <button
+          onClick={() => setActiveTab("content")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "content"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Content
+        </button>
+        <button
+          onClick={() => setActiveTab("sectors")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "sectors"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Sectors
+        </button>
+        <button
+          onClick={() => setActiveTab("competitors")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "competitors"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Competitors
+        </button>
+        <button
+          onClick={() => setActiveTab("changeState")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "changeState"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Change State
+        </button>
+        <button
+          onClick={() => setActiveTab("companyAnalysis")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "companyAnalysis"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Company Analysis
+        </button>
+      </div>
+
+      {activeTab === "valuation" && (
+        <div>
+          <h2 className="mb-4 text-xl font-semibold">Valuation Report</h2>
+          <form onSubmit={onSubmit} className="mb-8 space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="block mb-1 text-sm font-medium">Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Bloomberg L.P."
+                  className="px-3 py-2 w-full rounded border"
+                  required
+                />
               </div>
               <div>
-                <label className="block mb-1 text-sm font-medium">
-                  Prompt (optional)
-                </label>
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="px-3 py-2 w-full font-mono text-sm rounded border min-h-48"
+                <label className="block mb-1 text-sm font-medium">Domain</label>
+                <input
+                  type="text"
+                  value={domain}
+                  onChange={(e) => setDomain(e.target.value)}
+                  placeholder="bloomberg.com"
+                  className="px-3 py-2 w-full rounded border"
+                  required
                 />
-                <p className="mt-1 text-xs text-gray-500">
-                  If unchanged, the prompt will not be sent.
-                </p>
               </div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center px-4 py-2 text-white bg-black rounded disabled:opacity-50"
-              >
-                {submitting ? "Querying…" : "Query"}
-              </button>
-            </form>
-
-            {error && (
-              <div className="p-3 mb-6 text-red-700 bg-red-50 rounded border border-red-300">
-                {error}
-              </div>
-            )}
-
-            {result && <ResultView data={result} />}
-          </>
-        )}
-        {activeTab === "emails" && <EmailsTab />}
-        {activeTab === "content" && <ContentTab />}
-        {activeTab === "sectors" && <SectorsTab />}
-        {activeTab === "company_searches" && <CompanySearchesTab />}
-        {activeTab === "descriptions" && <DescriptionsTab />}
-      </div>
-    );
-  }
-
-  type CompanySearchesRow = {
-    query: string | null;
-    filters_used: string;
-    search_count: number;
-    unique_users: number;
-    unique_sessions: number;
-  };
-
-  function CompanySearchesTab() {
-    const [rows, setRows] = useState<CompanySearchesRow[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [filterQuery, setFilterQuery] = useState("");
-    const [minSearchCount, setMinSearchCount] = useState<number>(0);
-
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/company-searches", {
-          method: "GET",
-          cache: "no-store",
-        });
-        const data = (await res.json().catch(() => null)) as unknown;
-        if (!res.ok) {
-          const msg =
-            typeof (data as { error?: unknown })?.error === "string"
-              ? String((data as { error?: unknown }).error)
-              : "Request failed";
-          throw new Error(msg);
-        }
-        setRows(Array.isArray(data) ? (data as CompanySearchesRow[]) : []);
-      } catch (e) {
-        setRows([]);
-        setError(e instanceof Error ? e.message : "Unexpected error");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    useEffect(() => {
-      load();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const filtered = useMemo(() => {
-      const q = filterQuery.trim().toLowerCase();
-      return rows
-        .filter((r) => (Number(r.search_count) || 0) >= (minSearchCount || 0))
-        .filter((r) => {
-          if (!q) return true;
-          const query = String(r.query ?? "").toLowerCase();
-          const filters = String(r.filters_used ?? "").toLowerCase();
-          return query.includes(q) || filters.includes(q);
-        })
-        .sort((a, b) => (Number(b.search_count) || 0) - (Number(a.search_count) || 0));
-    }, [rows, filterQuery, minSearchCount]);
-
-    const totalSearches = useMemo(() => {
-      return filtered.reduce((sum, r) => sum + (Number(r.search_count) || 0), 0);
-    }, [filtered]);
-
-    const prettyFilters = (raw: string) => {
-      const txt = String(raw ?? "");
-      if (!txt.trim()) return "{}";
-      try {
-        const parsed = JSON.parse(txt) as unknown;
-        return JSON.stringify(parsed, null, 2);
-      } catch {
-        return txt;
-      }
-    };
-
-    return (
-      <div>
-        <h2 className="mb-4 text-xl font-semibold">Company Searches</h2>
-
-        <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-end">
-          <div className="flex-1">
-            <label className="block mb-1 text-sm font-medium">
-              Filter (query / filters)
-            </label>
-            <input
-              value={filterQuery}
-              onChange={(e) => setFilterQuery(e.target.value)}
-              placeholder="e.g. s&p global"
-              className="px-3 py-2 w-full rounded border"
-            />
-          </div>
-          <div className="w-full md:w-48">
-            <label className="block mb-1 text-sm font-medium">
-              Min search count
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={Number.isFinite(minSearchCount) ? minSearchCount : 0}
-              onChange={(e) => setMinSearchCount(Number(e.target.value) || 0)}
-              className="px-3 py-2 w-full rounded border"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={load}
-              disabled={loading}
-              className="px-4 py-2 bg-gray-100 rounded border disabled:opacity-50"
-            >
-              {loading ? "Loading…" : "Refresh"}
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="p-3 mb-4 text-red-700 bg-red-50 rounded border border-red-300">
-            {error}
-          </div>
-        )}
-
-        <div className="flex gap-4 items-center mb-3 text-sm text-gray-700">
-          <div>
-            <span className="font-medium">{filtered.length}</span> rows
-          </div>
-          <div>
-            <span className="font-medium">{totalSearches}</span> total searches
-          </div>
-        </div>
-
-        <div className="overflow-x-auto bg-white rounded border">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="p-3 text-left">Query</th>
-                <th className="p-3 text-left">Filters used</th>
-                <th className="p-3 text-right">Search count</th>
-                <th className="p-3 text-right">Unique users</th>
-                <th className="p-3 text-right">Unique sessions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && rows.length === 0 ? (
-                <tr>
-                  <td className="p-3 text-gray-500" colSpan={5}>
-                    Loading…
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td className="p-3 text-gray-500" colSpan={5}>
-                    No results.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((r, idx) => (
-                  <tr key={`${r.query ?? "null"}-${idx}`} className="border-t">
-                    <td className="p-3 align-top">
-                      {r.query ? (
-                        <span className="font-medium">{r.query}</span>
-                      ) : (
-                        <span className="text-gray-500">(empty)</span>
-                      )}
-                    </td>
-                    <td className="p-3 align-top">
-                      <pre className="overflow-auto p-2 max-h-40 text-xs whitespace-pre-wrap bg-gray-50 rounded border">
-                        {prettyFilters(r.filters_used)}
-                      </pre>
-                    </td>
-                    <td className="p-3 text-right align-top tabular-nums">
-                      {Number(r.search_count) || 0}
-                    </td>
-                    <td className="p-3 text-right align-top tabular-nums">
-                      {Number(r.unique_users) || 0}
-                    </td>
-                    <td className="p-3 text-right align-top tabular-nums">
-                      {Number(r.unique_sessions) || 0}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  }
-
-  function Section({
-    title,
-    children,
-  }: {
-    title: string;
-    children: React.ReactNode;
-  }) {
-    return (
-      <div className="mb-8">
-        <h2 className="mb-3 text-xl font-semibold">{title}</h2>
-        <div className="p-4 bg-white rounded border">{children}</div>
-      </div>
-    );
-  }
-
-  function KeyValue({ label, value }: { label: string; value: unknown }) {
-    return (
-      <div className="flex gap-2 py-1">
-        <div className="font-medium min-w-48">{label}</div>
-        <div className="flex-1 break-words">
-          {Array.isArray(value) ? value.join(", ") : String(value)}
-        </div>
-      </div>
-    );
-  }
-
-  function ResultView({ data }: { data: ValuationReport }) {
-    const {
-      company,
-      financials_est,
-      debug,
-      citations,
-      meta,
-      rendered_report_markdown,
-    } = data || {};
-
-    return (
-      <div className="space-y-8">
-        {rendered_report_markdown && (
-          <Section title="Rendered Report">
-            <pre className="text-sm whitespace-pre-wrap break-words">
-              {rendered_report_markdown}
-            </pre>
-          </Section>
-        )}
-
-        {company && (
-          <Section title="Company">
+            </div>
             <div>
-              {Object.entries(company as CompanySection).map(([k, v]) => (
+              <label className="block mb-1 text-sm font-medium">
+                Prompt (optional)
+              </label>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="px-3 py-2 w-full font-mono text-sm rounded border min-h-48"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                If unchanged, the prompt will not be sent.
+              </p>
+            </div>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center px-4 py-2 text-white bg-black rounded disabled:opacity-50"
+            >
+              {submitting ? "Querying…" : "Query"}
+            </button>
+          </form>
+
+          {error && (
+            <div className="p-3 mb-6 text-red-700 bg-red-50 rounded border border-red-300">
+              {error}
+            </div>
+          )}
+
+          {result && <ResultView data={result} />}
+        </div>
+      )}
+
+      {activeTab === "emails" && <EmailsTab />}
+      {activeTab === "content" && <ContentTab />}
+      {activeTab === "sectors" && <SectorsTab />}
+      {activeTab === "competitors" && <CompetitorsTab />}
+      {activeTab === "changeState" && <ChangeStateTab />}
+      {activeTab === "companyAnalysis" && <CompanyAnalysisTab />}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-8">
+      <h2 className="mb-3 text-xl font-semibold">{title}</h2>
+      <div className="p-4 bg-white rounded border">{children}</div>
+    </div>
+  );
+}
+
+function KeyValue({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div className="flex gap-2 py-1">
+      <div className="font-medium min-w-48">{label}</div>
+      <div className="flex-1 break-words">
+        {Array.isArray(value) ? value.join(", ") : String(value)}
+      </div>
+    </div>
+  );
+}
+
+function ResultView({ data }: { data: ValuationReport }) {
+  const {
+    company,
+    financials_est,
+    debug,
+    citations,
+    meta,
+    rendered_report_markdown,
+  } = data || {};
+
+  return (
+    <div className="space-y-8">
+      {rendered_report_markdown && (
+        <Section title="Rendered Report">
+          <pre className="text-sm whitespace-pre-wrap break-words">
+            {rendered_report_markdown}
+          </pre>
+        </Section>
+      )}
+
+      {company && (
+        <Section title="Company">
+          <div>
+            {Object.entries(company as CompanySection).map(([k, v]) => (
+              <div
+                key={k}
+                className="py-2 border-b border-gray-100 last:border-b-0"
+              >
+                <div className="text-sm text-gray-500">{k}</div>
+                <KeyValue label="value" value={(v as FieldValue).value} />
+                {(v as FieldValue).as_of && (
+                  <KeyValue label="as_of" value={(v as FieldValue).as_of} />
+                )}
+                {(v as FieldValue).source_ids && (
+                  <KeyValue
+                    label="source_ids"
+                    value={(v as FieldValue).source_ids}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {financials_est && (
+        <Section title="Financials (Estimated)">
+          <div>
+            {Object.entries(financials_est as FinancialsEst).map(([k, v]) => (
+              <div
+                key={k}
+                className="py-2 border-b border-gray-100 last:border-b-0"
+              >
+                <div className="text-sm text-gray-500">{k}</div>
+                {typeof v === "object" && v !== null ? (
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                    {Object.entries(v as Record<string, FinancialsValue>).map(
+                      ([kk, vv]) => (
+                        <KeyValue key={kk} label={kk} value={vv} />
+                      )
+                    )}
+                  </div>
+                ) : (
+                  <KeyValue label={k} value={v} />
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {debug?.mva_stages && Array.isArray(debug.mva_stages) && (
+        <Section title="MVA Stages">
+          <ol className="ml-6 space-y-2 list-decimal">
+            {(debug.mva_stages as MVAStage[]).map((s, idx) => (
+              <li key={idx} className="p-3 rounded border">
+                <div className="font-medium">{s.stage}</div>
+                <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {s.summary}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Section>
+      )}
+
+      {debug?.company_raw && (
+        <Section title="Debug: Company Raw">
+          <div>
+            {Object.entries(debug.company_raw as CompanySection).map(
+              ([k, v]) => (
                 <div
                   key={k}
                   className="py-2 border-b border-gray-100 last:border-b-0"
@@ -540,418 +494,917 @@
                     />
                   )}
                 </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {financials_est && (
-          <Section title="Financials (Estimated)">
-            <div>
-              {Object.entries(financials_est as FinancialsEst).map(([k, v]) => (
-                <div
-                  key={k}
-                  className="py-2 border-b border-gray-100 last:border-b-0"
-                >
-                  <div className="text-sm text-gray-500">{k}</div>
-                  {typeof v === "object" && v !== null ? (
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                      {Object.entries(v as Record<string, FinancialsValue>).map(
-                        ([kk, vv]) => (
-                          <KeyValue key={kk} label={kk} value={vv} />
-                        )
-                      )}
-                    </div>
-                  ) : (
-                    <KeyValue label={k} value={v} />
-                  )}
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {debug?.mva_stages && Array.isArray(debug.mva_stages) && (
-          <Section title="MVA Stages">
-            <ol className="ml-6 space-y-2 list-decimal">
-              {(debug.mva_stages as MVAStage[]).map((s, idx) => (
-                <li key={idx} className="p-3 rounded border">
-                  <div className="font-medium">{s.stage}</div>
-                  <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {s.summary}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </Section>
-        )}
-
-        {debug?.company_raw && (
-          <Section title="Debug: Company Raw">
-            <div>
-              {Object.entries(debug.company_raw as CompanySection).map(
-                ([k, v]) => (
-                  <div
-                    key={k}
-                    className="py-2 border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="text-sm text-gray-500">{k}</div>
-                    <KeyValue label="value" value={(v as FieldValue).value} />
-                    {(v as FieldValue).as_of && (
-                      <KeyValue label="as_of" value={(v as FieldValue).as_of} />
-                    )}
-                    {(v as FieldValue).source_ids && (
-                      <KeyValue
-                        label="source_ids"
-                        value={(v as FieldValue).source_ids}
-                      />
-                    )}
-                  </div>
-                )
-              )}
-            </div>
-          </Section>
-        )}
-
-        {(meta?.queries_used || meta) && (
-          <Section title="Meta">
-            {meta?.queries_used && (
-              <div className="mb-4">
-                <div className="mb-2 font-medium">Queries Used</div>
-                <ul className="ml-6 space-y-1 list-disc">
-                  {(meta.queries_used as string[]).map((q, i) => (
-                    <li key={i} className="text-sm break-words">
-                      {q}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              )
             )}
-            <pre className="p-3 text-xs whitespace-pre-wrap break-words bg-gray-50 rounded border">
-              {JSON.stringify(meta, null, 2)}
-            </pre>
-          </Section>
-        )}
+          </div>
+        </Section>
+      )}
 
-        {Array.isArray(citations) && (
-          <Section title="Citations">
-            {citations.length === 0 ? (
-              <div className="text-sm text-gray-600">No citations.</div>
-            ) : (
+      {(meta?.queries_used || meta) && (
+        <Section title="Meta">
+          {meta?.queries_used && (
+            <div className="mb-4">
+              <div className="mb-2 font-medium">Queries Used</div>
               <ul className="ml-6 space-y-1 list-disc">
-                {(citations as unknown[]).map((c, i) => (
+                {(meta.queries_used as string[]).map((q, i) => (
                   <li key={i} className="text-sm break-words">
-                    {JSON.stringify(c)}
+                    {q}
                   </li>
                 ))}
               </ul>
-            )}
-          </Section>
-        )}
-
-        <Section title="Raw JSON">
+            </div>
+          )}
           <pre className="p-3 text-xs whitespace-pre-wrap break-words bg-gray-50 rounded border">
-            {JSON.stringify(data, null, 2)}
+            {JSON.stringify(meta, null, 2)}
           </pre>
         </Section>
-      </div>
-    );
-  }
+      )}
 
-  function sanitizeHtml(input: string): string {
-    let out = input;
-    // Remove script tags entirely
-    out = out.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
-    // Drop on* event handler attributes
-    out = out.replace(/\son\w+=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-    // Neutralize javascript: URLs
-    out = out.replace(
-      /(href|src)\s*=\s*("javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi,
-      '$1="#"'
+      {Array.isArray(citations) && (
+        <Section title="Citations">
+          {citations.length === 0 ? (
+            <div className="text-sm text-gray-600">No citations.</div>
+          ) : (
+            <ul className="ml-6 space-y-1 list-disc">
+              {(citations as unknown[]).map((c, i) => (
+                <li key={i} className="text-sm break-words">
+                  {JSON.stringify(c)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      )}
+
+      <Section title="Raw JSON">
+        <pre className="p-3 text-xs whitespace-pre-wrap break-words bg-gray-50 rounded border">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      </Section>
+    </div>
+  );
+}
+
+function sanitizeHtml(input: string): string {
+  let out = input;
+  // Remove script tags entirely
+  out = out.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
+  out = out.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "");
+  // Drop on* event handler attributes
+  out = out.replace(/\son\w+=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+  // Neutralize javascript: URLs
+  out = out.replace(
+    /(href|src)\s*=\s*("javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi,
+    '$1="#"'
+  );
+  return out;
+}
+
+/** Sanitize full email HTML while keeping layout styles intact. */
+function sanitizeEmailDocumentHtml(input: string): string {
+  let out = input;
+  // Only strip actual script execution — preserve on* handlers (onerror/onload used
+  // for image fallbacks in admin-authored templates)
+  out = out.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
+  out = out.replace(
+    /(href|src)\s*=\s*("javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi,
+    '$1="#"'
+  );
+  return out;
+}
+
+/** Full email documents — not editable in Tiptap without losing layout. */
+function isStandaloneEmailDocument(html: string): boolean {
+  const trimmed = html.trim();
+  if (/^<!doctype\s+html/i.test(trimmed) || /^<html[\s>]/i.test(trimmed)) {
+    return true;
+  }
+  if (/<head[\s>]/i.test(trimmed) && /<style[\s>]/i.test(trimmed)) {
+    return true;
+  }
+  if (
+    /(?:id|class)=["'][^"']*\bu_body\b/i.test(trimmed) ||
+    /class=["'][^"']*\bu_row\b/i.test(trimmed)
+  ) {
+    return true;
+  }
+  if (/<style[\s>]/i.test(trimmed) && /<table[\s>]/i.test(trimmed)) {
+    return true;
+  }
+  if (
+    /role=["']presentation["']/i.test(trimmed) &&
+    !/class=["'][^"']*\bcontainer\b/i.test(trimmed)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function isHiddenEmailPreheader(el: Element): boolean {
+  const style = (el.getAttribute("style") || "").toLowerCase().replace(/\s/g, "");
+  return (
+    style.includes("display:none") ||
+    style.includes("max-height:0") ||
+    style.includes("opacity:0") ||
+    style.includes("overflow:hidden")
+  );
+}
+
+/** Pull editable inner HTML from a stored template Body (visual editor mode). */
+function extractInnerContentForEditor(fullHtml: string): string {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(fullHtml, "text/html");
+
+    const container = doc.querySelector(
+      'table.container, .container table, table[class*="container"]'
     );
+    if (container) {
+      const td = container.querySelector("td");
+      if (td) return td.innerHTML.trim();
+    }
+
+    const mainTable = doc.querySelector(
+      'table[role="presentation"][style*="max-width:600"], table[role="presentation"][style*="max-width: 600"]'
+    );
+    if (mainTable) return mainTable.outerHTML.trim();
+
+    const visibleDivs = Array.from(doc.body?.querySelectorAll("div") ?? []).filter(
+      (div) => !isHiddenEmailPreheader(div)
+    );
+    if (visibleDivs.length === 1) {
+      return visibleDivs[0]!.innerHTML.trim();
+    }
+
+    return doc.body?.innerHTML.trim() || fullHtml;
+  } catch {
+    const containerMatch = fullHtml.match(
+      /<table[^>]*class="container"[^>]*>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<\/table>/i
+    );
+    if (containerMatch?.[1]) return containerMatch[1].trim();
+    return fullHtml;
+  }
+}
+
+function resolveEmailBodyHtml(params: {
+  bodyHtml: string;
+  subject: string;
+}): string {
+  const subjectTrimmed = params.subject.trim();
+  if (isStandaloneEmailDocument(params.bodyHtml)) {
+    let out = sanitizeEmailDocumentHtml(params.bodyHtml);
+    if (subjectTrimmed && /<title[\s>]/i.test(out)) {
+      const safeTitle = subjectTrimmed
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      out = out.replace(/<title[\s\S]*?<\/title>/i, `<title>${safeTitle}</title>`);
+    }
     return out;
   }
+  return buildBrandedEmailHtml({
+    bodyHtml: `<div>${sanitizeHtml(params.bodyHtml)}</div>`,
+    subject: subjectTrimmed,
+  });
+}
 
-  function buildBrandedEmailHtml(params: {
-    bodyHtml: string;
-    subject: string;
-  }): string {
-    const { bodyHtml, subject } = params;
-    return `<!doctype html>
-  <html lang="en">
-    <head>
-      <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <title>${
-        subject ? subject.replace(/</g, "&lt;").replace(/>/g, "&gt;") : ""
-      }</title>
-      <style>
-        /* Fonts */
-        body { margin:0; padding:0; background:#ffffff; color:#333333; font-family: Arial, sans-serif; }
-        a { color:#1a73e8; text-decoration:none; }
-        h2 { font-size:22px; line-height:1.3; font-weight:600; margin:24px 0 8px; }
+function escapeHtmlText(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
-        /* Layout */
-        table { border-collapse:collapse; }
-        .full { width:100%; }
-        .container { max-width:720px; margin:0 auto; padding:16px 24px; }
+function renderSummaryText(input: string): string {
+  return escapeHtmlText(input).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
 
-        /* Tables as cards */
-        .card { border:1px solid #e5e7eb; border-radius:6px; }
-        .card table { width:100%; border-collapse:separate; border-spacing:0; }
-        .card th { font:600 14px Arial, sans-serif; text-align:left; padding:12px; background:#f8fafc; border-bottom:1px solid #e5e7eb; color:#111827; }
-        .card td { font-size:14px; line-height:1.5; padding:12px; border-top:1px solid #e5e7eb; color:#333333; }
-        .col-date { width:110px; }
+function buildBrandedEmailHtml(params: {
+  bodyHtml: string;
+  subject: string;
+}): string {
+  const { bodyHtml, subject } = params;
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${
+      subject ? subject.replace(/</g, "&lt;").replace(/>/g, "&gt;") : ""
+    }</title>
+    <style>
+      /* Fonts */
+      body { margin:0; padding:0; background:#ffffff; color:#333333; font-family: Arial, sans-serif; }
+      a { color:#1a73e8; text-decoration:none; }
+      h2 { font-size:22px; line-height:1.3; font-weight:600; margin:24px 0 8px; }
 
-        /* Badges */
-        .badge { font-size:11px; font-weight:700; text-transform:uppercase; display:inline-block; padding:2px 8px; border-radius:9999px; border:1px solid transparent; }
-        .badge.hot-take { background:#FFF7ED; border-color:#F5D6B3; color:#8B5E2B; }
-        .badge.company-analysis { background:#EEF2FF; border-color:#C7D2FE; color:#3E4AC9; }
-        .badge.deal-brief { background:#F0F9FF; border-color:#BAE6FD; color:#0F4C81; }
-        .badge.market-map { background:#F0FDF4; border-color:#BBF7D0; color:#166534; }
-        .badge.default { background:#F3F4F6; border-color:#E5E7EB; color:#374151; }
+      /* Layout */
+      table { border-collapse:collapse; }
+      .full { width:100%; }
+      .container { max-width:720px; margin:0 auto; padding:16px 24px; }
 
-        /* Stack for mobile */
-        @media (max-width:600px) {
-          .stack thead { display:none !important; }
-          .stack td, .stack th, .stack .stack-col { display:block !important; width:100% !important; }
-        }
-      </style>
-    </head>
-    <body>
-      <table role="presentation" class="full" width="100%">
-        <tr>
-          <td align="center">
-            <table role="presentation" class="container" width="100%">
-              <tr>
-                <td>
-                  ${bodyHtml}
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-  </html>`;
+      /* Tables as cards */
+      .card { border:1px solid #e5e7eb; border-radius:6px; }
+      .card table { width:100%; border-collapse:separate; border-spacing:0; }
+      .card th { font:600 14px Arial, sans-serif; text-align:left; padding:12px; background:#f8fafc; border-bottom:1px solid #e5e7eb; color:#111827; }
+      .card td { font-size:14px; line-height:1.5; padding:12px; border-top:1px solid #e5e7eb; color:#333333; }
+      .col-date { width:110px; }
+      .asymmetrix-key-point { background-color:#fff3bf; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
+      .asymmetrix-highlight { background-color:#fff3bf; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
+      .asymmetrix-highlight-section { background-color:#fff3bf;padding:8px 10px;margin:10px 0;border-radius:4px; }
+      .asymmetrix-highlight-section > :first-child { margin-top:0 !important; }
+      .asymmetrix-highlight-section > :last-child { margin-bottom:0 !important; }
+
+      /* Badges */
+      .badge { font-size:11px; font-weight:700; text-transform:uppercase; display:inline-block; padding:2px 8px; border-radius:9999px; border:1px solid transparent; }
+      .badge.hot-take { background:#FFF7ED; border-color:#F5D6B3; color:#8B5E2B; }
+      .badge.company-analysis { background:#EEF2FF; border-color:#C7D2FE; color:#3E4AC9; }
+      .badge.deal-brief { background:#F0F9FF; border-color:#BAE6FD; color:#0F4C81; }
+      .badge.market-map { background:#F0FDF4; border-color:#BBF7D0; color:#166534; }
+      .badge.default { background:#F3F4F6; border-color:#E5E7EB; color:#374151; }
+
+      /* Stack for mobile */
+      @media (max-width:600px) {
+        .stack thead { display:none !important; }
+        .stack td, .stack th, .stack .stack-col { display:block !important; width:100% !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <table role="presentation" class="full" width="100%">
+      <tr>
+        <td align="center">
+          <table role="presentation" class="container" width="100%">
+            <tr>
+              <td>
+                ${bodyHtml}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+const ADMIN_FROM_EXTRA_OPTIONS: UserEmailItem[] = [
+  {
+    name: "Asymmetrix",
+    email: `asymmetrix${ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN}`,
+  },
+];
+
+const ADMIN_DEFAULT_FROM_USER: UserEmailItem | null =
+  ADMIN_FROM_EXTRA_OPTIONS[0] ?? null;
+
+function adminEmailLocalPart(value: string): string {
+  return value.trim().split("@")[0]?.trim() ?? "";
+}
+
+/** Manual From row: local part + fixed asymmetrix intelligence domain. */
+function adminSenderEmailFromLocalPart(local: string): string {
+  const lp = adminEmailLocalPart(local);
+  return lp ? `${lp}${ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN}` : "";
+}
+
+/**
+ * Pass local part to `getUserEmails`; empty input uses bare hostname so `user_emails`
+ * gets an initial directory query (see `buildUserEmailsApiQuery` in api.ts).
+ */
+function adminUserEmailsSearchQuery(normalizedLocal: string): string {
+  const lp = adminEmailLocalPart(normalizedLocal);
+  return lp || ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN.slice(1);
+}
+
+function isAdminDirectorySenderEmail(user: UserEmailItem): boolean {
+  return user.email
+    .toLowerCase()
+    .endsWith(ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN.toLowerCase());
+}
+
+function matchAdminExtraFromEmail(fe: string): UserEmailItem | null {
+  const lc = fe.trim().toLowerCase();
+  return (
+    ADMIN_FROM_EXTRA_OPTIONS.find((o) => o.email.toLowerCase() === lc) ?? null
+  );
+}
+
+function EmailsTab() {
+  const apiAuthToken = authService.getToken();
+
+  type EmailEntityType = "" | EmailContentEntityType;
+
+  function coerceEmailEntityType(value: unknown): EmailEntityType {
+    return normalizeEmailEntityType(value);
   }
 
-  // Removed Quill props; using react-email-editor
+  const [bodyHtml, setBodyHtml] = useState<string>("<p></p>");
+  const [bodyEditMode, setBodyEditMode] = useState<"visual" | "html">("visual");
+  const [html, setHtml] = useState("");
+  const [subject, setSubject] = useState("");
+  const [entityType, setEntityType] = useState<EmailEntityType>("client");
+  const [round, setRound] = useState<EmailContentRound>(1);
+  const [publicationDate, setPublicationDate] = useState<string>(
+    todayEmailPublicationDate()
+  );
+  const [singleRecipient, setSingleRecipient] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [fromDirectoryUser, setFromDirectoryUser] =
+    useState<UserEmailItem | null>(() => ADMIN_DEFAULT_FROM_USER);
+  const [fromManualLocal, setFromManualLocal] = useState("");
+  const [selectedBasicUsers, setSelectedBasicUsers] = useState<BasicUserItem[]>(
+    []
+  );
 
-  function EmailsTab() {
-    const editorContainerRef = useRef<HTMLDivElement | null>(null);
-    const unlayerRef = useRef<unknown>(null);
-    const [html, setHtml] = useState("");
-    const [subject, setSubject] = useState("");
-    const [singleRecipient, setSingleRecipient] = useState(false);
-    const [recipientEmail, setRecipientEmail] = useState("");
-    const [sending, setSending] = useState(false);
-    const [editorReady, setEditorReady] = useState(false);
-    const [pendingHtml, setPendingHtml] = useState<string | null>(null);
-    interface EmailTemplate {
-      id: number;
-      Headline?: string | null;
-      Body?: string | null;
-      Publication_Date?: unknown;
-      created_at?: number;
+  const senderField = useMemo(() => {
+    const manualEmail = adminSenderEmailFromLocalPart(fromManualLocal);
+    const email =
+      manualEmail || fromDirectoryUser?.email?.trim() || "";
+    const directoryName = fromManualLocal.trim()
+      ? undefined
+      : fromDirectoryUser?.name;
+    return { email, directoryName };
+  }, [fromDirectoryUser, fromManualLocal]);
+  const [sending, setSending] = useState(false);
+  const EMAIL_PREVIEW_STORAGE_KEY = "asymmetrix_email_preview_v1";
+
+  const EMAIL_CONTENT_URL =
+    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content";
+  const XANO_IMAGE_UPLOAD_URL =
+    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images";
+
+  async function uploadImageToXano(file: File): Promise<string> {
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    if (!token) throw new Error("Authentication required");
+    const fd = new FormData();
+    // Match Content tab upload shape (Xano expects "img")
+    fd.append("img", file, file.name);
+
+    const resp = await fetch(XANO_IMAGE_UPLOAD_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: fd,
+    });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      throw new Error(`Image upload failed: ${resp.status} ${txt}`);
     }
-    const [templates, setTemplates] = useState<EmailTemplate[]>([]);
-    const [templatesLoading, setTemplatesLoading] = useState(false);
-    const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
+    const json = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
+    const urlCandidate =
+      (json as { url?: string }).url ||
+      (json as { file?: { url?: string } }).file?.url ||
+      (json as { image?: { url?: string } }).image?.url ||
+      (json as { path?: string }).path ||
+      (json as { file?: { path?: string } }).file?.path ||
+      "";
+    const url =
+      urlCandidate && urlCandidate.startsWith("/vault/")
+        ? `https://xdil-abvj-o7rq.e2.xano.io${urlCandidate}`
+        : urlCandidate;
+    if (!url) throw new Error("Image upload response missing url");
+    return url;
+  }
 
-    function loadHtmlIntoEditor(rawHtml: string) {
-      const editorRef = unlayerRef.current as {
-        editor?: { loadDesign?: (design: unknown) => void };
-        loadDesign?: (design: unknown) => void;
-      } | null;
-      const design = {
-        body: {
-          rows: [
-            {
-              cells: [1],
-              columns: [
-                {
-                  contents: [
-                    {
-                      type: "html",
-                      values: { html: rawHtml },
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-          values: { backgroundColor: "#ffffff", contentWidth: "600px" },
-        },
-      };
-      // Try editor property first (standard react-email-editor pattern), then direct
-      const loadFn = editorRef?.editor?.loadDesign ?? editorRef?.loadDesign;
-      loadFn?.(design as unknown);
+  interface EmailTemplate {
+    id: number;
+    Headline?: string | null;
+    Body?: string | null;
+    entity_type?: EmailEntityType | null;
+    round?: EmailContentRound | number | null;
+    from_email?: string | null;
+    Publication_Date?: unknown;
+    created_at?: number;
+  }
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
+
+  function loadTemplateBody(rawBody: string) {
+    const body = String(rawBody ?? "").trim();
+    if (!body) {
+      setBodyEditMode("visual");
+      setBodyHtml("<p></p>");
+      return;
     }
+    if (isStandaloneEmailDocument(body)) {
+      setBodyEditMode("visual");
+      setBodyHtml(body);
+      return;
+    }
+    setBodyEditMode("visual");
+    setBodyHtml(extractInnerContentForEditor(body) || "<p></p>");
+  }
 
-    useEffect(() => {
-      if (editorReady && pendingHtml) {
-        loadHtmlIntoEditor(pendingHtml);
-        setPendingHtml(null);
-      }
-    }, [editorReady, pendingHtml]);
+  const buildCurrentEmailHtml = (subjectOverride?: string) =>
+    resolveEmailBodyHtml({
+      bodyHtml,
+      subject: (subjectOverride ?? subject).trim(),
+    });
 
-    // Load templates on mount
-    useEffect(() => {
-      let cancelled = false;
-      async function loadTemplates() {
-        try {
-          setTemplatesLoading(true);
-          const res = await fetch(
-            "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR:develop/email_content",
-            { method: "GET", headers: { "Content-Type": "application/json" } }
-          );
-          const data = await res.json();
-          if (!cancelled && Array.isArray(data)) {
-            setTemplates(data as EmailTemplate[]);
-          }
-        } catch {
-          // ignore
-        } finally {
-          if (!cancelled) setTemplatesLoading(false);
-        }
-      }
-      loadTemplates();
-      return () => {
-        cancelled = true;
-      };
-    }, []);
+  const emailPreviewHtml = useMemo(
+    () =>
+      resolveEmailBodyHtml({
+        bodyHtml,
+        subject: subject.trim(),
+      }),
+    [bodyHtml, subject]
+  );
 
-    // no image click handler with EmailEditor
+  const bodyRequiresHtmlMode = useMemo(
+    () => isStandaloneEmailDocument(bodyHtml),
+    [bodyHtml]
+  );
 
-    const handleExport = async () => {
-      const exported = await new Promise<{ html?: string }>((resolve) => {
-        const editorRef = unlayerRef.current as {
-          editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
-          exportHtml?: (cb: (d: { html?: string }) => void) => void;
-        } | null;
-        const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
-        exportFn?.((d) => resolve(d));
-      });
-      const rawHtml = exported?.html || "";
-      const sanitized = sanitizeHtml(rawHtml);
-      const branded = buildBrandedEmailHtml({
-        bodyHtml: `<div>${sanitized}</div>`,
-        subject,
-      });
-      setHtml(branded);
+
+  function buildEmailContentFields() {
+    const fields: Record<string, unknown> = {
+      entity_type: entityType,
+      from_email: senderField.email.trim(),
+      Publication_Date:
+        entityType === CONTRIBUTION_EMAIL_ENTITY_TYPE
+          ? publicationDate
+          : null,
     };
+    if (entityType === CONTRIBUTION_EMAIL_ENTITY_TYPE) {
+      fields.round = round;
+    }
+    return fields;
+  }
 
-    const handleCopy = async () => {
-      if (!html) return;
+  const loadTemplates = useCallback(
+    async (filterEntityType: EmailEntityType) => {
+      const entityFilter = filterEntityType || "client";
       try {
-        await navigator.clipboard.writeText(html);
-      } catch {}
+        setTemplatesLoading(true);
+        const url = `${EMAIL_CONTENT_URL}?entity_type=${encodeURIComponent(entityFilter)}`;
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(apiAuthToken
+              ? { Authorization: `Bearer ${apiAuthToken}` }
+              : {}),
+          },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setTemplates(data as EmailTemplate[]);
+        }
+      } catch {
+        // ignore
+      } finally {
+        setTemplatesLoading(false);
+      }
+    },
+    [apiAuthToken]
+  );
+
+  useEffect(() => {
+    void loadTemplates(entityType);
+  }, [entityType, loadTemplates]);
+
+  const handleExport = () => {
+    setHtml(buildCurrentEmailHtml(subject));
+  };
+
+  const handleCopy = async () => {
+    if (!html) return;
+    try {
+      await navigator.clipboard.writeText(html);
+    } catch {}
+  };
+
+  const openEmailPreview = () => {
+    const subjectTrimmed = subject.trim();
+    if (!subjectTrimmed) return;
+    const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
+    setHtml(brandedHtml);
+    try {
+      localStorage.setItem(
+        EMAIL_PREVIEW_STORAGE_KEY,
+        JSON.stringify({
+          created_at: Date.now(),
+          subject: subjectTrimmed,
+          html: brandedHtml,
+          from: senderField.email.trim()
+            ? {
+                name:
+                  senderField.directoryName ??
+                  senderField.email.split("@")[0] ??
+                  senderField.email,
+                email: senderField.email.trim(),
+              }
+            : "",
+          to: singleRecipient ? recipientEmail.trim() : "",
+          basic_users: selectedBasicUsers.map((u) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+          })),
+        })
+      );
+      window.open("/email/preview", "_blank", "noopener,noreferrer");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to open preview");
+    }
+  };
+
+  const SEND_EMAIL_URL =
+    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/send_email";
+
+  function extractEmailContentIdFromResponse(data: unknown): number | null {
+    if (typeof data === "number" && Number.isFinite(data) && data > 0) {
+      return Math.trunc(data);
+    }
+    if (Array.isArray(data) && data.length > 0) {
+      return extractEmailContentIdFromResponse(data[0]);
+    }
+    if (!data || typeof data !== "object") return null;
+    const o = data as Record<string, unknown>;
+    const keys = ["id", "email_content_id", "email_contentId"] as const;
+    for (const k of keys) {
+      const v = o[k];
+      if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+        return Math.trunc(v);
+      }
+      if (typeof v === "string") {
+        const n = parseInt(v, 10);
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+    }
+    return null;
+  }
+
+  async function postSendEmail(emailContentId: number): Promise<void> {
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    const fromTrimmed = senderField.email.trim();
+    const payload = {
+      email_from: fromTrimmed ? fromTrimmed : null,
+      email_content_id: emailContentId,
+      emails_to: selectedBasicUsers
+        .map((u) => u.email.trim())
+        .filter((e) => e.length > 0),
     };
+    const res = await fetch(SEND_EMAIL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error(
+        `Send email failed (${res.status}): ${t || res.statusText}`.trim()
+      );
+    }
+  }
 
-    return (
-      <div>
-        <h2 className="mb-4 text-xl font-semibold">Email Template Builder</h2>
+  return (
+    <div>
+      <h2 className="mb-4 text-xl font-semibold">Email Template Builder</h2>
 
-        <div className="flex gap-3 items-center mb-3">
-          <label className="text-sm font-medium">Single recipient</label>
+      <div className="flex gap-3 items-center mb-3">
+        <label className="text-sm font-medium">Single recipient</label>
+        <input
+          type="checkbox"
+          checked={singleRecipient}
+          onChange={(e) => setSingleRecipient(e.target.checked)}
+        />
+      </div>
+      {singleRecipient && (
+        <div className="mb-3">
+          <label className="block mb-1 text-sm font-medium">
+            Recipient email
+          </label>
           <input
-            type="checkbox"
-            checked={singleRecipient}
-            onChange={(e) => setSingleRecipient(e.target.checked)}
+            type="email"
+            className="p-2 w-full border"
+            placeholder="name@example.com"
+            value={recipientEmail}
+            onChange={(e) => setRecipientEmail(e.target.value)}
           />
         </div>
-        {singleRecipient && (
-          <div className="mb-3">
-            <label className="block mb-1 text-sm font-medium">
-              Recipient email
-            </label>
-            <input
-              type="email"
-              className="p-2 w-full border"
-              placeholder="name@example.com"
-              value={recipientEmail}
-              onChange={(e) => setRecipientEmail(e.target.value)}
-            />
-          </div>
-        )}
+      )}
 
-        <div className="mb-3">
-          <label className="block mb-1 text-sm font-medium">Template</label>
-          <select
-            className="p-2 w-full border"
-            value={selectedTemplateId}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val === "") {
-                setSelectedTemplateId("");
-                return;
-              }
-              const idNum = Number(val);
-              setSelectedTemplateId(idNum);
-              const t = templates.find((x) => x.id === idNum);
-              if (t) {
-                setSubject(String(t.Headline ?? ""));
-                if (t.Body) {
-                  const bodyHtml = String(t.Body);
-                  if (editorReady) {
-                    loadHtmlIntoEditor(bodyHtml);
-                  } else {
-                    setPendingHtml(bodyHtml);
-                  }
+      <div className="mb-3">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <label className="text-sm font-medium">Template</label>
+          <div className="flex items-center gap-2">
+            {selectedTemplateId !== "" && (
+              <Link
+                href={`/admin/email-editor/${selectedTemplateId}`}
+                className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open in Editor ↗
+              </Link>
+            )}
+            <Link
+              href="/admin/email-editor/new"
+              className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              + New template
+            </Link>
+          </div>
+        </div>
+        <select
+          className="p-2 w-full border"
+          value={selectedTemplateId}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "") {
+              setSelectedTemplateId("");
+              return;
+            }
+            const idNum = Number(val);
+            setSelectedTemplateId(idNum);
+            const t = templates.find((x) => x.id === idNum);
+            if (t) {
+              setSubject(String(t.Headline ?? ""));
+              setEntityType(coerceEmailEntityType(t.entity_type));
+              setRound(coerceEmailContentRound(t.round) ?? 1);
+              setPublicationDate(
+                formatEmailPublicationDate(t.Publication_Date) ??
+                  todayEmailPublicationDate()
+              );
+              const fe = String(t.from_email ?? "").trim();
+              const domainLc =
+                ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN.toLowerCase();
+              if (!fe) {
+                setFromDirectoryUser(ADMIN_DEFAULT_FROM_USER);
+                setFromManualLocal("");
+              } else {
+                const extraHit = matchAdminExtraFromEmail(fe);
+                if (extraHit) {
+                  setFromDirectoryUser(extraHit);
+                  setFromManualLocal("");
+                } else if (fe.toLowerCase().endsWith(domainLc)) {
+                  setFromManualLocal(adminEmailLocalPart(fe));
+                  setFromDirectoryUser(null);
+                } else {
+                  setFromDirectoryUser({
+                    name: adminEmailLocalPart(fe) || fe,
+                    email: fe,
+                  });
+                  setFromManualLocal("");
                 }
               }
-            }}
-          >
-            <option value="" disabled={templatesLoading}>
-              {templatesLoading ? "Loading templates..." : "Choose a template"}
+              if (t.Body) {
+                loadTemplateBody(String(t.Body));
+              }
+            }
+          }}
+        >
+          <option value="" disabled={templatesLoading}>
+            {templatesLoading ? "Loading templates..." : "Choose a template"}
+          </option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.Headline ? String(t.Headline) : `Template #${t.id}`}
             </option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.Headline ? String(t.Headline) : `Template #${t.id}`}
-              </option>
-            ))}
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Subject</label>
+        <input
+          type="text"
+          className="p-2 w-full border"
+          placeholder="Email subject"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+        />
+      </div>
+
+      <div className="mb-3 max-w-xl space-y-3">
+        <SearchableUserEmailSelect
+          token={apiAuthToken}
+          fetchUsers={getUserEmails}
+          value={fromDirectoryUser}
+          onChange={(user) => {
+            setFromDirectoryUser(user);
+            if (user) setFromManualLocal("");
+          }}
+          label="From (sender email)"
+          placeholder="Search sender local part…"
+          extraOptions={ADMIN_FROM_EXTRA_OPTIONS}
+          inputSuffix={ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN}
+          normalizeInput={adminEmailLocalPart}
+          searchQuery={adminUserEmailsSearchQuery}
+          optionFilter={isAdminDirectorySenderEmail}
+        />
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            Or enter From email local part manually
+          </label>
+          <div className="flex items-center rounded-md border border-gray-300 bg-white focus-within:ring-1 focus-within:ring-gray-400">
+            <input
+              type="text"
+              autoComplete="off"
+              value={fromManualLocal}
+              onChange={(e) => {
+                const lp = adminEmailLocalPart(e.target.value);
+                setFromManualLocal(lp);
+                if (lp) setFromDirectoryUser(null);
+              }}
+              placeholder="e.g. sender"
+              className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-400"
+            />
+            <span className="shrink-0 pr-3 text-sm text-gray-500">
+              {ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-3 max-w-xl">
+        <BasicUsersMultiSelect
+          token={apiAuthToken}
+          value={selectedBasicUsers}
+          onChange={setSelectedBasicUsers}
+          label="Basic users"
+        />
+      </div>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Entity Type</label>
+        <select
+          className="p-2 w-full border"
+          value={entityType}
+          onChange={(e) => {
+            setEntityType(coerceEmailEntityType(e.target.value));
+            setSelectedTemplateId("");
+          }}
+        >
+          <option value="">Choose entity type</option>
+          <option value="contribution_email">contribution_email</option>
+          <option value="client">client</option>
+        </select>
+      </div>
+
+      {entityType === CONTRIBUTION_EMAIL_ENTITY_TYPE && (
+        <div className="mb-3">
+          <label className="block mb-1 text-sm font-medium">Round</label>
+          <select
+            className="p-2 w-full border"
+            value={round}
+            onChange={(e) =>
+              setRound(Number(e.target.value) as EmailContentRound)
+            }
+          >
+            <option value={1}>Round 1</option>
+            <option value={2}>Round 2</option>
+            <option value={3}>Round 3</option>
           </select>
         </div>
+      )}
 
+      {entityType === CONTRIBUTION_EMAIL_ENTITY_TYPE && (
         <div className="mb-3">
-          <label className="block mb-1 text-sm font-medium">Subject</label>
+          <label className="block mb-1 text-sm font-medium">Run date</label>
           <input
-            type="text"
+            type="date"
             className="p-2 w-full border"
-            placeholder="Email subject"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
+            value={publicationDate}
+            onChange={(e) => setPublicationDate(e.target.value)}
           />
         </div>
+      )}
 
-        <div className="border" ref={editorContainerRef}>
-          <EmailEditor
-            ref={unlayerRef as unknown as never}
-            minHeight={500}
-            onReady={() => setEditorReady(true)}
-          />
+      <div className="mt-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <label className="text-sm font-medium">Body</label>
+          <div className="inline-flex rounded border border-gray-300 bg-gray-50 p-0.5 text-sm">
+            <button
+              type="button"
+              className={[
+                "rounded px-3 py-1",
+                bodyEditMode === "visual"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900",
+              ].join(" ")}
+              onClick={() => setBodyEditMode("visual")}
+            >
+              Visual
+            </button>
+            <button
+              type="button"
+              className={[
+                "rounded px-3 py-1",
+                bodyEditMode === "html"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900",
+              ].join(" ")}
+              onClick={() => setBodyEditMode("html")}
+            >
+              HTML source
+            </button>
+          </div>
         </div>
+        {bodyEditMode === "html" ? (
+          <>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div>
+                <div className="mb-1 text-xs font-medium text-gray-500">
+                  HTML source
+                </div>
+                <textarea
+                  className="w-full rounded border border-gray-300 p-3 font-mono text-xs leading-relaxed"
+                  style={{ minHeight: 560 }}
+                  value={bodyHtml}
+                  onChange={(e) => setBodyHtml(e.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+              <div className="min-h-[560px] overflow-hidden rounded border border-gray-300 bg-[#F8FAFC]">
+                <div className="border-b bg-white px-3 py-2 text-xs font-medium text-gray-600">
+                  Live preview
+                </div>
+                <iframe
+                  title="Email HTML preview"
+                  className="w-full bg-white"
+                  style={{ height: 520 }}
+                  srcDoc={emailPreviewHtml}
+                  sandbox=""
+                />
+              </div>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Edit the HTML on the left; preview updates on the right. Layout
+              styles are preserved when saving.
+            </p>
+          </>
+        ) : bodyRequiresHtmlMode ? (
+          <>
+            <ContentEditableEmailEditor
+              html={bodyHtml}
+              onChangeHtml={setBodyHtml}
+              onUploadImage={uploadImageToXano}
+              minHeightPx={560}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Click text in the preview to edit copy and numbers. Switch to
+              HTML source for structural changes.
+            </p>
+          </>
+        ) : (
+          <>
+            <TiptapSimpleEditor
+              valueHtml={bodyHtml}
+              onChangeHtml={setBodyHtml}
+              onUploadImage={uploadImageToXano}
+              companyMentionSearch={searchCompaniesForMention}
+              placeholder="Write the email body..."
+              minHeightPx={500}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Type <span className="font-medium text-gray-700">@</span> plus a
+              company name to link to its profile. Images are uploaded to Xano
+              and inserted automatically.
+            </p>
+          </>
+        )}
+      </div>
 
-        {/* Image resizing handled in EmailEditor UI */}
-
-        {/* Image upload handled by EmailEditor asset manager or URL blocks */}
-
-        <div className="flex gap-2 mt-4">
-          <button
-            className="px-4 py-2 text-white bg-purple-600 rounded"
-            onClick={handleExport}
-          >
-            Export HTML
-          </button>
-          <button
-            className="px-4 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
-            onClick={handleCopy}
-            disabled={!html}
-          >
-            Copy HTML
-          </button>
-          {selectedTemplateId === "" ? (
+      <div className="flex flex-wrap gap-2 mt-4">
+        <button
+          className="px-4 py-2 text-white bg-purple-600 rounded"
+          onClick={handleExport}
+          type="button"
+        >
+          Export HTML
+        </button>
+        <button
+          className="px-4 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+          onClick={handleCopy}
+          disabled={!html}
+          type="button"
+        >
+          Copy HTML
+        </button>
+        <button
+          className="px-4 py-2 text-white bg-emerald-600 rounded disabled:opacity-50"
+          onClick={openEmailPreview}
+          disabled={!subject.trim()}
+          type="button"
+          title="Preview email in a new tab"
+        >
+          Preview
+        </button>
+        {selectedTemplateId === "" ? (
+          <>
             <button
               className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
               onClick={async () => {
@@ -959,44 +1412,25 @@
                 const subjectTrimmed = subject.trim();
                 if (!subjectTrimmed) return;
 
-                // Build sanitized HTML body from current text and wrap with brand template
-                const exported = await new Promise<{ html?: string }>(
-                  (resolve) => {
-                    const editorRef = unlayerRef.current as {
-                      editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
-                      exportHtml?: (cb: (d: { html?: string }) => void) => void;
-                    } | null;
-                    const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
-                    exportFn?.((d) => resolve(d));
-                  }
-                );
-                const rawHtml = exported?.html || "";
-                const sanitized = sanitizeHtml(rawHtml);
-                const bodyHtml = `<div>${sanitized}</div>`;
-                const brandedHtml = buildBrandedEmailHtml({
-                  bodyHtml,
-                  subject: subjectTrimmed,
-                });
+                const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
                 setHtml(brandedHtml);
 
                 setSending(true);
                 try {
-                  const res = await fetch(
-                    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR:develop/email_content",
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        Publication_Date: null,
-                        Headline: subjectTrimmed,
-                        Body: brandedHtml,
-                      }),
-                    }
-                  );
+                  const res = await fetch(EMAIL_CONTENT_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      Headline: subjectTrimmed,
+                      Body: brandedHtml,
+                      ...buildEmailContentFields(),
+                    }),
+                  });
                   if (!res.ok) {
                     alert("Failed to submit email content");
                   } else {
                     alert("Email content submitted");
+                    await loadTemplates(entityType);
                   }
                 } catch {
                   alert("Network error while submitting content");
@@ -1005,10 +1439,69 @@
                 }
               }}
               disabled={sending || !subject.trim()}
+              type="button"
             >
               Submit
             </button>
-          ) : (
+            <button
+              className="px-4 py-2 text-white bg-indigo-600 rounded disabled:opacity-50"
+              onClick={async () => {
+                if (sending) return;
+                const subjectTrimmed = subject.trim();
+                if (!subjectTrimmed) return;
+
+                const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
+                setHtml(brandedHtml);
+
+                setSending(true);
+                try {
+                  const res = await fetch(EMAIL_CONTENT_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      Headline: subjectTrimmed,
+                      Body: brandedHtml,
+                      ...buildEmailContentFields(),
+                    }),
+                  });
+                  if (!res.ok) {
+                    alert("Failed to submit email content");
+                    return;
+                  }
+                  const json = await res.json().catch(() => null);
+                  await loadTemplates(entityType);
+                  const contentId = extractEmailContentIdFromResponse(json);
+                  if (!contentId) {
+                    alert(
+                      "Email content submitted, but the server did not return a content id. Send was not triggered."
+                    );
+                    return;
+                  }
+                  try {
+                    await postSendEmail(contentId);
+                    alert("Submitted and send requested.");
+                  } catch (err) {
+                    alert(
+                      err instanceof Error
+                        ? err.message
+                        : "Send email failed after submit."
+                    );
+                  }
+                } catch {
+                  alert("Network error while submitting content");
+                } finally {
+                  setSending(false);
+                }
+              }}
+              disabled={sending || !subject.trim()}
+              type="button"
+              title="Submit to Xano, then call send_email"
+            >
+              Save &amp; Send
+            </button>
+          </>
+        ) : (
+          <>
             <button
               className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
               onClick={async () => {
@@ -1017,44 +1510,27 @@
                 if (!idNum) return;
                 const subjectTrimmed = subject.trim();
                 if (!subjectTrimmed) return;
-                const exported = await new Promise<{ html?: string }>(
-                  (resolve) => {
-                    const editorRef = unlayerRef.current as {
-                      editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
-                      exportHtml?: (cb: (d: { html?: string }) => void) => void;
-                    } | null;
-                    const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
-                    exportFn?.((d) => resolve(d));
-                  }
-                );
-                const rawHtml = exported?.html || "";
-                const sanitized = sanitizeHtml(rawHtml);
-                const bodyHtml = `<div>${sanitized}</div>`;
-                const brandedHtml = buildBrandedEmailHtml({
-                  bodyHtml,
-                  subject: subjectTrimmed,
-                });
+
+                const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
                 setHtml(brandedHtml);
 
                 setSending(true);
                 try {
-                  const res = await fetch(
-                    `https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR:develop/email_content/${idNum}`,
-                    {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        email_content_id: idNum,
-                        Publication_Date: null,
-                        Headline: subjectTrimmed,
-                        Body: brandedHtml,
-                      }),
-                    }
-                  );
+                  const res = await fetch(`${EMAIL_CONTENT_URL}/${idNum}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      email_content_id: idNum,
+                      Headline: subjectTrimmed,
+                      Body: brandedHtml,
+                      ...buildEmailContentFields(),
+                    }),
+                  });
                   if (!res.ok) {
                     alert("Failed to save template");
                   } else {
                     alert("Template saved");
+                    await loadTemplates(entityType);
                   }
                 } catch {
                   alert("Network error while saving");
@@ -1063,549 +1539,1640 @@
                 }
               }}
               disabled={sending || !subject.trim()}
+              type="button"
             >
               Save
             </button>
-          )}
-        </div>
+            <button
+              className="px-4 py-2 text-white bg-indigo-600 rounded disabled:opacity-50"
+              onClick={async () => {
+                if (sending) return;
+                const idNum = Number(selectedTemplateId);
+                if (!idNum) return;
+                const subjectTrimmed = subject.trim();
+                if (!subjectTrimmed) return;
 
-        {html && (
-          <div className="mt-6">
-            <h3 className="mb-2 font-semibold">Generated HTML</h3>
-            <pre className="overflow-x-auto p-2 text-sm bg-gray-100 rounded">
-              {html}
-            </pre>
-          </div>
+                const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
+                setHtml(brandedHtml);
+
+                setSending(true);
+                try {
+                  const res = await fetch(`${EMAIL_CONTENT_URL}/${idNum}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      email_content_id: idNum,
+                      Headline: subjectTrimmed,
+                      Body: brandedHtml,
+                      ...buildEmailContentFields(),
+                    }),
+                  });
+                  if (!res.ok) {
+                    alert("Failed to save template");
+                    return;
+                  }
+                  await loadTemplates(entityType);
+                  try {
+                    await postSendEmail(idNum);
+                    alert("Saved and send requested.");
+                  } catch (err) {
+                    alert(
+                      err instanceof Error
+                        ? err.message
+                        : "Send email failed after save."
+                    );
+                  }
+                } catch {
+                  alert("Network error while saving");
+                } finally {
+                  setSending(false);
+                }
+              }}
+              disabled={sending || !subject.trim()}
+              type="button"
+              title="Save template to Xano, then call send_email"
+            >
+              Save &amp; Send
+            </button>
+          </>
         )}
       </div>
-    );
+
+      {html && (
+        <div className="mt-6">
+          <h3 className="mb-2 font-semibold">Generated HTML</h3>
+          <pre className="overflow-x-auto p-2 text-sm bg-gray-100 rounded">
+            {html}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContentTab() {
+  const [html, setHtml] = useState("");
+  const [bodyHtml, setBodyHtml] = useState<string>("<p></p>");
+  const [headline, setHeadline] = useState("");
+  const [strapline, setStrapline] = useState("");
+  const [contentType, setContentType] = useState("");
+  const [contentTypes, setContentTypes] = useState<string[]>([]);
+  const [singleRecipient, setSingleRecipient] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const CONTENT_PREVIEW_STORAGE_KEY = "asymmetrix_content_preview_v1";
+
+  const VISIBILITY_OPTIONS = ["Admin", "Client", "Public"] as const;
+  type Visibility = (typeof VISIBILITY_OPTIONS)[number];
+
+  function coerceVisibility(v: unknown): Visibility {
+    const raw = String(v || "").trim();
+    if (!raw) return "Admin";
+    const lower = raw.toLowerCase();
+    if (lower === "admin") return "Admin";
+    if (lower === "client") return "Client";
+    if (lower === "public") return "Public";
+    // Legacy values
+    if (lower === "published") return "Public";
+    if (lower === "private") return "Client";
+    if (lower === "draft") return "Admin";
+    return "Admin";
   }
 
-  function ContentTab() {
-    // Core fields
-    const [headline, setHeadline] = useState("");
-    const [strapline, setStrapline] = useState("");
-    const [contentType, setContentType] = useState("");
-    const CONTENT_TYPES = [
-      "Company Analysis",
-      "Deal Analysis",
-      "Hot Take",
-      "Executive Interview",
-      "Sector Analysis",
-    ];
-    const [contentTypes] = useState<string[]>(CONTENT_TYPES);
+  const XANO_IMAGE_UPLOAD_URL =
+    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images";
 
-    // Body builder (EmailEditor)
-    const contentUnlayerRef = useRef<unknown>(null);
+  async function uploadImageToXano(file: File): Promise<string> {
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    if (!token) throw new Error("Authentication required");
+    const fd = new FormData();
+    fd.append("img", file, file.name);
 
-    // Sectors
-    const [primarySectors, setPrimarySectors] = useState<
-      Array<{ id: number; sector_name: string }>
-    >([]);
-    const [secondarySectors, setSecondarySectors] = useState<
-      Array<{ id: number; sector_name: string }>
-    >([]);
-    const [selectedPrimarySectorIds, setSelectedPrimarySectorIds] = useState<
-      number[]
-    >([]);
-    const [selectedSecondarySectorIds, setSelectedSecondarySectorIds] = useState<
-      number[]
-    >([]);
-
-    // Companies selection
-    interface SimpleCompany {
-      id: number;
-      name: string;
+    const resp = await fetch(XANO_IMAGE_UPLOAD_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // IMPORTANT: do NOT set Content-Type for multipart/form-data
+      },
+      body: fd,
+    });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      throw new Error(`Image upload failed: ${resp.status} ${txt}`);
     }
-    const [companyQuery, setCompanyQuery] = useState("");
-    const [companyResults, setCompanyResults] = useState<SimpleCompany[]>([]);
-    const [selectedCompanies, setSelectedCompanies] = useState<SimpleCompany[]>(
-      []
-    );
-    const [loadingCompanies, setLoadingCompanies] = useState(false);
+    const json = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
+    const urlCandidate =
+      (json as { url?: string }).url ||
+      (json as { file?: { url?: string } }).file?.url ||
+      (json as { image?: { url?: string } }).image?.url ||
+      (json as { path?: string }).path ||
+      (json as { file?: { path?: string } }).file?.path ||
+      "";
+    const url =
+      urlCandidate && urlCandidate.startsWith("/vault/")
+        ? `https://xdil-abvj-o7rq.e2.xano.io${urlCandidate}`
+        : urlCandidate;
+    if (!url) throw new Error("Image upload response missing url");
+    return url;
+  }
 
-    // Content types are fixed per product spec
+  // Company + sector metadata (for content creation workflows)
+  interface SimpleCompany {
+    id: number;
+    name: string;
+  }
 
-    const TRANSACTION_STATUS_OPTIONS = [
-      "Rumoured in Market",
-      "Transaction anticipated within 18 months",
-      "Reported in Market",
-    ] as const;
-    const [transactionStatus, setTransactionStatus] = useState("");
+  // Company of Focus (multi)
+  const [cofQuery, setCofQuery] = useState("");
+  const [cofResults, setCofResults] = useState<SimpleCompany[]>([]);
+  const [companyOfFocus, setCompanyOfFocus] = useState<SimpleCompany[]>([]);
+  const [cofLoading, setCofLoading] = useState(false);
 
-    // Fetch sectors
-    useEffect(() => {
-      let cancelled = false;
-      const run = async () => {
-        try {
-          const prim = await locationsService.getPrimarySectors();
-          if (!cancelled) setPrimarySectors(prim);
-        } catch {
-          // ignore
-        }
-      };
-      run();
-      return () => {
-        cancelled = true;
-      };
-    }, []);
+  // Companies Mentioned (multi)
+  const [mentionedQuery, setMentionedQuery] = useState("");
+  const [mentionedResults, setMentionedResults] = useState<SimpleCompany[]>([]);
+  const [companiesMentioned, setCompaniesMentioned] = useState<SimpleCompany[]>(
+    []
+  );
+  const [mentionedLoading, setMentionedLoading] = useState(false);
 
-    // When primary sector selection changes, refresh secondary sector options
-    useEffect(() => {
-      let cancelled = false;
-      const run = async () => {
-        try {
-          if (selectedPrimarySectorIds.length === 0) {
-            setSecondarySectors([]);
-            setSelectedSecondarySectorIds([]);
-            return;
-          }
-          const secs = await locationsService.getSecondarySectors(
-            selectedPrimarySectorIds
-          );
-          if (!cancelled) setSecondarySectors(secs);
-        } catch {
-          // ignore
-        }
-      };
-      run();
-      return () => {
-        cancelled = true;
-      };
-    }, [selectedPrimarySectorIds]);
+  // Peers and Competitors (multi)
+  const [peersQuery, setPeersQuery] = useState("");
+  const [peersResults, setPeersResults] = useState<SimpleCompany[]>([]);
+  const [peersAndCompetitors, setPeersAndCompetitors] = useState<
+    SimpleCompany[]
+  >([]);
+  const [peersLoading, setPeersLoading] = useState(false);
 
-    // Company search (same endpoint/shape as Companies list page; filter only by name)
-    const searchCompanies = async () => {
-      if (!companyQuery.trim()) return;
-      try {
-        setLoadingCompanies(true);
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const params = new URLSearchParams();
-        params.append("Offset", "1");
-        params.append("Per_page", "25");
-        params.append("Min_linkedin_members", "0");
-        params.append("Max_linkedin_members", "0");
-        params.append("Horizontals_ids", "");
-        params.append("query", companyQuery.trim());
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies?${params.toString()}`;
-        const resp = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
+  // Potential Acquirers (multi)
+  const [acquirersQuery, setAcquirersQuery] = useState("");
+  const [acquirersResults, setAcquirersResults] = useState<SimpleCompany[]>([]);
+  const [potentialAcquirers, setPotentialAcquirers] = useState<SimpleCompany[]>(
+    []
+  );
+  const [acquirersLoading, setAcquirersLoading] = useState(false);
+
+  // Acquisition Targets (multi)
+  const [targetsQuery, setTargetsQuery] = useState("");
+  const [targetsResults, setTargetsResults] = useState<SimpleCompany[]>([]);
+  const [acquisitionTargets, setAcquisitionTargets] = useState<SimpleCompany[]>(
+    []
+  );
+  const [targetsLoading, setTargetsLoading] = useState(false);
+
+  // Sectors (multi)
+  const [allSectors, setAllSectors] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
+  const [selectedSectorIds, setSelectedSectorIds] = useState<number[]>([]);
+
+  // Related corporate events (multi)
+  type SimpleCorporateEvent = { id: number; label: string };
+  const [corporateEventsQuery, setCorporateEventsQuery] = useState("");
+  const [corporateEventsResults, setCorporateEventsResults] = useState<
+    SimpleCorporateEvent[]
+  >([]);
+  const [selectedCorporateEvents, setSelectedCorporateEvents] = useState<
+    SimpleCorporateEvent[]
+  >([]);
+  const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
+  const corporateEventsDebounceRef = useRef<number | null>(null);
+
+  // Related documents (uploaded to Xano, stored as full file objects)
+  type XanoStoredFile = {
+    access: string;
+    path: string;
+    name: string;
+    type: string;
+    size: number;
+    mime: string;
+    meta: Record<string, unknown>;
+    url?: string;
+  };
+  const [uploadedRelatedFiles, setUploadedRelatedFiles] = useState<XanoStoredFile[]>(
+    []
+  );
+  const [uploadingRelatedFiles, setUploadingRelatedFiles] = useState(false);
+  const relatedFilesInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Summary (array of strings)
+  const [summaryItems, setSummaryItems] = useState<string[]>([]);
+  const [summaryInput, setSummaryInput] = useState("");
+  const summaryInputRef = useRef<HTMLInputElement | null>(null);
+
+  // MP3 uploads (uploaded to Xano, stored as full file objects)
+  const [uploadedMp3Files, setUploadedMp3Files] = useState<XanoStoredFile[]>([]);
+  const [uploadingMp3, setUploadingMp3] = useState(false);
+  const mp3InputRef = useRef<HTMLInputElement | null>(null);
+
+  const XANO_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io";
+  const XANO_FILE_UPLOAD_URL =
+    "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_file";
+  const XANO_MP3_UPLOAD_URL =
+    "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/upload_mp3_file";
+
+  function toVaultPath(v: string): string {
+    const raw = String(v || "").trim();
+    const i = raw.indexOf("/vault/");
+    if (i >= 0) return raw.slice(i);
+    return raw.startsWith("/vault/") ? raw : raw;
+  }
+
+  function toAbsoluteXanoUrl(v: string): string {
+    const raw = String(v || "").trim();
+    if (!raw) return "";
+    if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+    if (raw.startsWith("/vault/")) return `${XANO_BASE_URL}${raw}`;
+    return raw;
+  }
+
+  function coerceXanoStoredFile(json: unknown): XanoStoredFile | null {
+    if (!json || typeof json !== "object") return null;
+    const obj = json as Record<string, unknown>;
+    const candidate =
+      (obj.file as unknown) ||
+      (obj.mp3 as unknown) ||
+      (obj.image as unknown) ||
+      (obj.data as unknown) ||
+      obj;
+    if (!candidate || typeof candidate !== "object") return null;
+    const c = candidate as Record<string, unknown>;
+
+    const access = String(c.access || "public");
+    const path = String(c.path || "");
+    const name = String(c.name || "");
+    const type = String(c.type || "");
+    const size = typeof c.size === "number" ? c.size : Number(c.size) || 0;
+    const mime = String(c.mime || "");
+    const meta =
+      c.meta && typeof c.meta === "object"
+        ? (c.meta as Record<string, unknown>)
+        : { validated: false };
+    const urlRaw = String(c.url || "").trim();
+    const url = urlRaw ? toAbsoluteXanoUrl(urlRaw) : undefined;
+
+    if (!path || !name) return null;
+    return { access, path, name, type, size, mime, meta, ...(url ? { url } : {}) };
+  }
+
+  async function uploadFileToXano(params: {
+    file: File;
+    endpoint: string;
+    fieldName: string;
+  }): Promise<XanoStoredFile> {
+    const { file, endpoint, fieldName } = params;
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    if (!token) throw new Error("Authentication required");
+
+    const fd = new FormData();
+    fd.append(fieldName, file, file.name);
+
+    const resp = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // IMPORTANT: do NOT set Content-Type for multipart/form-data
+      },
+      body: fd,
+    });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      throw new Error(`File upload failed: ${resp.status} ${txt}`);
+    }
+    const json = (await resp.json().catch(() => ({}))) as unknown;
+    const stored = coerceXanoStoredFile(json);
+    if (!stored) throw new Error("Upload response missing stored file object");
+    return stored;
+  }
+
+  const handleRelatedFilesUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingRelatedFiles(true);
+    try {
+      const next: XanoStoredFile[] = [];
+      for (const f of Array.from(files)) {
+        const stored = await uploadFileToXano({
+          file: f,
+          endpoint: XANO_FILE_UPLOAD_URL,
+          fieldName: "file",
         });
-        if (!resp.ok) {
-          setCompanyResults([]);
-          return;
+        next.push(stored);
+      }
+      setUploadedRelatedFiles((prev) => [...prev, ...next]);
+    } catch (err) {
+      console.error("Error uploading related file(s):", err);
+      alert(err instanceof Error ? err.message : "Error uploading related file(s)");
+    } finally {
+      setUploadingRelatedFiles(false);
+      if (relatedFilesInputRef.current) relatedFilesInputRef.current.value = "";
+    }
+  };
+
+  const handleMp3Upload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingMp3(true);
+    try {
+      const newUploads: XanoStoredFile[] = [];
+      for (const file of Array.from(files)) {
+        const stored = await uploadFileToXano({
+          file,
+          endpoint: XANO_MP3_UPLOAD_URL,
+          fieldName: "mp3",
+        });
+        newUploads.push(stored);
+      }
+      setUploadedMp3Files((prev) => [...prev, ...newUploads]);
+    } catch (err) {
+      console.error("Error uploading MP3 file(s):", err);
+      alert(err instanceof Error ? err.message : "Error uploading MP3 file(s)");
+    } finally {
+      setUploadingMp3(false);
+      if (mp3InputRef.current) {
+        mp3InputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeRelatedFile = (index: number) => {
+    setUploadedRelatedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeMp3File = (index: number) => {
+    setUploadedMp3Files((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Content articles for "Edit Content" dropdown
+  // Note: API returns arrays that can be either just IDs or objects
+  interface ContentArticle {
+    id: number;
+    Headline?: string | null;
+    Strapline?: string | null;
+    Body?: string | null;
+    Content_Type?: string | null;
+    Visibility?: string | null;
+    summary?: string[] | null;
+    // Can be array of IDs or array of objects
+    Company_of_Focus?: Array<number | { id: number; company_name?: string; name?: string }> | null;
+    companies_mentioned?: Array<number | { id: number; company_name?: string; name?: string }> | null;
+    Peers_and_Competitors?: Array<number | { id: number; company_name?: string; name?: string }> | null;
+    Potential_Acquirers?: Array<number | { id: number; company_name?: string; name?: string }> | null;
+    Acquisition_Targets?: Array<number | { id: number; company_name?: string; name?: string }> | null;
+    // Sectors come as objects with sector_name (no id)
+    sectors?: Array<{ id?: number; sector_name?: string }> | null;
+    // Can be array of IDs or array of objects
+    Related_Corporate_Event?: Array<number | { id: number; [key: string]: unknown }> | null;
+    Related_Documents?: unknown[] | null;
+    Body_Design?: string | null;
+    Publication_Date?: unknown;
+    created_at?: number;
+    Created_by?: number | null;
+  }
+  const [allContentArticles, setAllContentArticles] = useState<ContentArticle[]>([]);
+  const [contentArticlesLoading, setContentArticlesLoading] = useState(false);
+  const [selectedEditContentId, setSelectedEditContentId] = useState<number | "">("");
+  const [editingContentId, setEditingContentId] = useState<number | null>(null);
+  const [visibility, setVisibility] = useState<Visibility>("Admin");
+
+  // Schedule publication modal
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [scheduleTimezone] = useState("Europe/London");
+  const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
+
+  // Created by (single user from asymmetrix_users)
+  type SimpleUser = { id: number; name: string };
+  const [allUsers, setAllUsers] = useState<SimpleUser[]>([]);
+  const [createdByUserId, setCreatedByUserId] = useState<number | "">("");
+  const [usersLoading, setUsersLoading] = useState(false);
+
+  function parsePositiveCreatorId(v: number | ""): number | null {
+    if (v === "") return null;
+    if (typeof v === "number" && Number.isFinite(v)) {
+      const t = Math.trunc(v);
+      return t > 0 ? t : null;
+    }
+    return null;
+  }
+
+  function extractInnerContent(fullHtml: string): string {
+    // If it's a full HTML document, extract the inner content
+    // Look for the content inside the container table/td
+    try {
+      // Create a temporary DOM parser to extract content safely
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(fullHtml, "text/html");
+
+      // Try to find the container table
+      const container = doc.querySelector(
+        'table.container, .container table, table[class*="container"]'
+      );
+      if (container) {
+        const td = container.querySelector("td");
+        if (td) {
+          return td.innerHTML.trim();
         }
-        const data = await resp.json().catch(() => null);
-        const items: Array<{ id: number; name: string }> =
-          (data?.result1?.items as Array<{ id: number; name: string }>) ||
-          (data?.companies?.items as Array<{ id: number; name: string }>) ||
-          (data?.items as Array<{ id: number; name: string }>) ||
-          [];
-        setCompanyResults(
-          (Array.isArray(items) ? items : [])
-            .map((c) => ({ id: Number(c.id), name: String(c.name || "") }))
-            .filter((c) => c.id && c.name)
-        );
+      }
+
+      // Try to find any div inside body
+      const bodyDiv = doc.body?.querySelector("div");
+      if (bodyDiv) {
+        return bodyDiv.innerHTML.trim();
+      }
+
+      // If no wrapper found, return body content or as-is
+      return doc.body?.innerHTML.trim() || fullHtml;
+    } catch {
+      // Fallback: regex extraction
+      const containerMatch = fullHtml.match(
+        /<table[^>]*class="container"[^>]*>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<\/table>/i
+      );
+      if (containerMatch && containerMatch[1]) {
+        return containerMatch[1].trim();
+      }
+      const divMatch = fullHtml.match(
+        /<body[^>]*>[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>[\s\S]*?<\/body>/i
+      );
+      if (divMatch && divMatch[1]) {
+        return divMatch[1].trim();
+      }
+      return fullHtml;
+    }
+  }
+
+  const UNLAYER_DESIGN_RE = /<!--\s*UNLAYER_DESIGN:([A-Za-z0-9+/=]+)\s*-->/;
+
+  function stripUnlayerDesignComment(bodyHtml: string): string {
+    return bodyHtml.replace(UNLAYER_DESIGN_RE, "").trim();
+  }
+
+  // Fetch content types (same source as Insights & Analysis)
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const values = await locationsService.getContentTypesForArticles();
+        if (!cancelled) setContentTypes(values);
       } catch {
-        setCompanyResults([]);
-      } finally {
-        setLoadingCompanies(false);
+        if (!cancelled) setContentTypes([]);
       }
     };
-
-    // Build JSON payload for copy/preview
-    const [generatedJson, setGeneratedJson] = useState<string>("");
-    const generatePayload = async () => {
-      const exported = await new Promise<{ html?: string }>((resolve) => {
-        const editorRef = contentUnlayerRef.current as {
-          editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
-          exportHtml?: (cb: (d: { html?: string }) => void) => void;
-        } | null;
-        const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
-        exportFn?.((d) => resolve(d));
-      });
-      const rawHtml = exported?.html || "";
-      const sanitized = sanitizeHtml(rawHtml);
-      const bodyHtml = `<div>${sanitized}</div>`;
-      const payload = {
-        Headline: headline.trim() || null,
-        Strapline: strapline.trim() || null,
-        Content_Type: contentType || null,
-        Body: bodyHtml,
-        primary_sectors_ids: selectedPrimarySectorIds,
-        Secondary_sectors_ids: selectedSecondarySectorIds,
-        companies_mentioned: selectedCompanies.map((c) => ({
-          id: c.id,
-          name: c.name,
-        })),
-      } as const;
-      setGeneratedJson(JSON.stringify(payload, null, 2));
+    run();
+    return () => {
+      cancelled = true;
     };
+  }, []);
 
-    // Submit to Xano: create new content. Do NOT set Visibility or Publication_Date
-    const [submittingContent, setSubmittingContent] = useState(false);
-    const submitContent = async () => {
-      if (submittingContent) return;
+  // Fetch users for "Created by" dropdown (via API route to avoid CORS)
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
       try {
-        setSubmittingContent(true);
-        // export HTML from builder
-        const exported = await new Promise<{ html?: string }>((resolve) => {
-          const editorRef = contentUnlayerRef.current as {
-            editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
-            exportHtml?: (cb: (d: { html?: string }) => void) => void;
-          } | null;
-          const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
-          exportFn?.((d) => resolve(d));
-        });
-        const rawHtml = exported?.html || "";
-        const sanitized = sanitizeHtml(rawHtml);
-        const bodyHtml = `<div>${sanitized}</div>`;
-
-        const sectorsCombined = [
-          ...selectedPrimarySectorIds,
-          ...selectedSecondarySectorIds,
-        ];
-        const companiesIds = selectedCompanies.map((c) => c.id);
-
+        setUsersLoading(true);
         const token = localStorage.getItem("asymmetrix_auth_token");
-        const resp = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/new_content",
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const res = await fetch("/api/asymmetrix-users", {
+          method: "GET",
+          headers,
+          credentials: "include",
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json().catch(() => null);
+        if (Array.isArray(data)) {
+          const users: SimpleUser[] = (data as Array<{ id: number; name?: string }>)
+            .map((u) => ({ id: Number(u.id), name: String(u.name ?? "").trim() || `User #${u.id}` }))
+            .filter((u) => u.id && u.name);
+          if (!cancelled) setAllUsers(users);
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setUsersLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch sectors list (primary + secondary combined)
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const prim = await locationsService.getPrimarySectors();
+        const allPrimaryIds = prim.map((p) => p.id);
+        const sec =
+          allPrimaryIds.length > 0
+            ? await locationsService.getSecondarySectors(allPrimaryIds)
+            : [];
+        const combined = [...prim, ...sec];
+        const unique = combined.filter(
+          (s, i, arr) => arr.findIndex((x) => x.id === s.id) === i
+        );
+        if (!cancelled) setAllSectors(unique);
+      } catch {
+        if (!cancelled) setAllSectors([]);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function fetchCompaniesByName(query: string, perPage: number) {
+    const q = query.trim();
+    if (!q) return [];
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      params.append("Offset", "1");
+    params.append("Per_page", String(perPage));
+      params.append("Min_linkedin_members", "0");
+      params.append("Max_linkedin_members", "0");
+      params.append("Horizontals_ids", "");
+    params.append("query", q);
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+    if (!resp.ok) return [];
+      const data = await resp.json().catch(() => null);
+      const items: Array<{ id: number; name: string }> =
+        (data?.result1?.items as Array<{ id: number; name: string }>) ||
+        (data?.companies?.items as Array<{ id: number; name: string }>) ||
+        (data?.items as Array<{ id: number; name: string }>) ||
+        [];
+    return (Array.isArray(items) ? items : [])
+          .map((c) => ({ id: Number(c.id), name: String(c.name || "") }))
+      .filter((c) => c.id && c.name);
+  }
+
+  function mapArticleCompanies(
+    items:
+      | Array<number | { id: number; company_name?: string; name?: string }>
+      | null
+      | undefined
+  ): SimpleCompany[] {
+    if (!Array.isArray(items)) return [];
+    return items.map((c) => {
+      if (typeof c === "number") {
+        return { id: c, name: `Company #${c}` };
+      }
+      return {
+        id: c.id,
+        name: c.company_name || c.name || `Company #${c.id}`,
+      };
+    });
+  }
+
+  const searchCompanyOfFocus = async () => {
+    if (!cofQuery.trim()) return;
+    try {
+      setCofLoading(true);
+      const results = await fetchCompaniesByName(cofQuery, 25);
+      setCofResults(results);
+    } catch {
+      setCofResults([]);
+    } finally {
+      setCofLoading(false);
+    }
+  };
+
+  const searchCompaniesMentioned = async () => {
+    if (!mentionedQuery.trim()) return;
+    try {
+      setMentionedLoading(true);
+      const results = await fetchCompaniesByName(mentionedQuery, 25);
+      setMentionedResults(results);
+    } catch {
+      setMentionedResults([]);
+    } finally {
+      setMentionedLoading(false);
+    }
+  };
+
+  const searchPeersAndCompetitors = async () => {
+    if (!peersQuery.trim()) return;
+    try {
+      setPeersLoading(true);
+      const results = await fetchCompaniesByName(peersQuery, 25);
+      setPeersResults(results);
+    } catch {
+      setPeersResults([]);
+    } finally {
+      setPeersLoading(false);
+    }
+  };
+
+  const searchPotentialAcquirers = async () => {
+    if (!acquirersQuery.trim()) return;
+    try {
+      setAcquirersLoading(true);
+      const results = await fetchCompaniesByName(acquirersQuery, 25);
+      setAcquirersResults(results);
+    } catch {
+      setAcquirersResults([]);
+    } finally {
+      setAcquirersLoading(false);
+    }
+  };
+
+  const searchAcquisitionTargets = async () => {
+    if (!targetsQuery.trim()) return;
+    try {
+      setTargetsLoading(true);
+      const results = await fetchCompaniesByName(targetsQuery, 25);
+      setTargetsResults(results);
+    } catch {
+      setTargetsResults([]);
+    } finally {
+      setTargetsLoading(false);
+    }
+  };
+
+  const searchCorporateEvents = async (query: string) => {
+    const q = query.trim();
+    if (!q) {
+      setCorporateEventsResults([]);
+      return;
+    }
+    try {
+      setCorporateEventsLoading(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      // Corporate Events API expects 0-based page indexing
+      params.append("Page", "0");
+      params.append("Per_page", "25");
+      params.append("search_query", q);
+      const resp = await fetch(`/api/corporate-events?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!resp.ok) {
+        setCorporateEventsResults([]);
+        return;
+      }
+      const json = (await resp.json().catch(() => null)) as
+        | { items?: Array<Record<string, unknown>>; result1?: { items?: Array<Record<string, unknown>> } }
+        | null;
+      const items =
+        (Array.isArray(json?.items) ? json!.items! : []) ||
+        (Array.isArray(json?.result1?.items) ? json!.result1!.items! : []) ||
+        [];
+
+      const mapped = items
+        .map((it) => {
+          const idRaw = (it.id ?? it.corporate_event_id ?? it.corporate_events_id) as
+            | number
+            | string
+            | undefined;
+          const idNum =
+            typeof idRaw === "number"
+              ? idRaw
+              : typeof idRaw === "string"
+              ? parseInt(idRaw, 10)
+              : NaN;
+          if (!Number.isFinite(idNum) || idNum <= 0) return null;
+
+          const dealType = String(it.deal_type ?? it.Deal_type ?? "").trim();
+          const description = String(it.description ?? "").trim();
+
+          // Requirement: show deal type + description in dropdown
+          const label =
+            [dealType || undefined, description || undefined].filter(Boolean).join(" • ") ||
+            `Corporate Event #${idNum}`;
+
+          return { id: idNum, label } satisfies SimpleCorporateEvent;
+        })
+        .filter((x): x is SimpleCorporateEvent => Boolean(x));
+
+      setCorporateEventsResults(mapped);
+    } catch {
+      setCorporateEventsResults([]);
+    } finally {
+      setCorporateEventsLoading(false);
+    }
+  };
+
+  function formatBytes(n: number) {
+    if (!Number.isFinite(n) || n <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+    const v = n / Math.pow(1024, i);
+    return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+  }
+
+  // Fetch all content articles for "Edit Content" dropdown
+  useEffect(() => {
+    let cancelled = false;
+    async function loadContentArticles() {
+      try {
+        setContentArticlesLoading(true);
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const res = await fetch(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content",
           {
-            method: "POST",
+            method: "GET",
             headers: {
               "Content-Type": "application/json",
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify({
-              Headline: headline.trim(),
-              Strapline: strapline.trim(),
-              Content_Type: contentType,
-              Body: bodyHtml,
-              Transaction_status: transactionStatus || null,
-              sectors: sectorsCombined,
-              companies_mentioned: companiesIds,
-              Related_Documents: [],
-              Related_Corporate_Event: [],
-            }),
           }
         );
-        if (!resp.ok) {
-          const txt = await resp.text();
-          alert(`Failed to create content: ${resp.status} ${txt}`);
-          return;
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data)) {
+          setAllContentArticles(data as ContentArticle[]);
         }
-        setTransactionStatus("");
-        alert("Content created successfully");
       } catch {
-        alert("Network error while creating content");
+        // ignore
       } finally {
-        setSubmittingContent(false);
+        if (!cancelled) setContentArticlesLoading(false);
       }
+    }
+    loadContentArticles();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Handler to pre-load content article fields into form
+  const handleEditContentSelect = async (contentId: number) => {
+    const article = allContentArticles.find((c) => c.id === contentId);
+    if (!article) return;
+
+    // Set editing mode
+    setEditingContentId(contentId);
+
+    // Pre-load headline and strapline
+    setHeadline(article.Headline || "");
+    setStrapline(article.Strapline || "");
+
+    // Pre-load content type
+    if (article.Content_Type) {
+      setContentType(article.Content_Type);
+    }
+
+    // Pre-load visibility
+    if (article.Visibility) {
+      setVisibility(coerceVisibility(article.Visibility));
+    }
+
+    // Pre-load Created by (if API returns it)
+    const createdBy = (article as { Created_by?: number | null }).Created_by;
+    if (typeof createdBy === "number" && createdBy > 0) {
+      setCreatedByUserId(createdBy);
+    } else {
+      setCreatedByUserId("");
+    }
+
+    // Pre-load summary array
+    if (Array.isArray(article.summary)) {
+      setSummaryItems(article.summary);
+    } else {
+      setSummaryItems([]);
+    }
+
+    // Pre-load Company of Focus
+    // API can return either array of IDs [4453] or array of objects [{id: 4453, company_name: "..."}]
+    if (Array.isArray(article.Company_of_Focus)) {
+      const companies = mapArticleCompanies(article.Company_of_Focus);
+      setCompanyOfFocus(companies);
+      setCofResults(companies); // Also add to search results so they show up
+    } else {
+      setCompanyOfFocus([]);
+    }
+
+    // Pre-load companies mentioned
+    // API can return either array of IDs or array of objects
+    if (Array.isArray(article.companies_mentioned)) {
+      const companies = mapArticleCompanies(article.companies_mentioned);
+      setCompaniesMentioned(companies);
+      setMentionedResults(companies); // Also add to search results
+    } else {
+      setCompaniesMentioned([]);
+    }
+
+    if (Array.isArray(article.Peers_and_Competitors)) {
+      const companies = mapArticleCompanies(article.Peers_and_Competitors);
+      setPeersAndCompetitors(companies);
+      setPeersResults(companies);
+    } else {
+      setPeersAndCompetitors([]);
+    }
+
+    if (Array.isArray(article.Potential_Acquirers)) {
+      const companies = mapArticleCompanies(article.Potential_Acquirers);
+      setPotentialAcquirers(companies);
+      setAcquirersResults(companies);
+    } else {
+      setPotentialAcquirers([]);
+    }
+
+    if (Array.isArray(article.Acquisition_Targets)) {
+      const companies = mapArticleCompanies(article.Acquisition_Targets);
+      setAcquisitionTargets(companies);
+      setTargetsResults(companies);
+    } else {
+      setAcquisitionTargets([]);
+    }
+
+    // Pre-load sectors
+    // API returns objects with sector_name but no id, need to match with allSectors
+    if (Array.isArray(article.sectors)) {
+      const sectorIds: number[] = [];
+      for (const s of article.sectors) {
+        if (s.id) {
+          // Has id directly
+          sectorIds.push(s.id);
+        } else if (s.sector_name) {
+          // Find matching sector by name
+          const matchingSector = allSectors.find(
+            (sec) => sec.sector_name === s.sector_name
+          );
+          if (matchingSector) {
+            sectorIds.push(matchingSector.id);
+          }
+        }
+      }
+      setSelectedSectorIds(sectorIds);
+    } else {
+      setSelectedSectorIds([]);
+    }
+
+    // Pre-load related corporate events
+    // API can return either array of IDs [2807, 877] or array of objects
+    if (Array.isArray(article.Related_Corporate_Event)) {
+      const events: SimpleCorporateEvent[] = article.Related_Corporate_Event.map((e) => {
+        if (typeof e === "number") {
+          // Just an ID
+          return { id: e, label: `Event #${e}` };
+        } else {
+          // Object with id and possibly label/description
+          return {
+            id: e.id,
+            label: String(e.label || e.description || `Event #${e.id}`).slice(0, 80),
+          };
+        }
+      });
+      setSelectedCorporateEvents(events);
+      setCorporateEventsResults(events); // Also add to search results
+    } else {
+      setSelectedCorporateEvents([]);
+    }
+
+    // Pre-load Related_Documents (keep full file objects; split mp3 vs others)
+    if (Array.isArray(article.Related_Documents)) {
+      const files: XanoStoredFile[] = [];
+      for (const doc of article.Related_Documents) {
+        if (typeof doc === "string") {
+          const raw = doc.trim();
+          if (!raw) continue;
+          const vaultPath = toVaultPath(raw);
+          if (!vaultPath) continue;
+          files.push({
+            access: "public",
+            path: vaultPath,
+            name: decodeURIComponent(vaultPath.split("/").pop() || "Document"),
+            type: "file",
+            size: 0,
+            mime: "",
+            meta: { validated: false },
+            url: toAbsoluteXanoUrl(raw),
+          });
+          continue;
+        }
+        const stored = coerceXanoStoredFile(doc);
+        if (stored) files.push(stored);
+      }
+
+      const mp3s = files.filter(
+        (f) =>
+          (f.mime || "").startsWith("audio/") ||
+          String(f.type || "").toLowerCase() === "mp3"
+      );
+      const others = files.filter((f) => !mp3s.includes(f));
+
+      setUploadedMp3Files(mp3s);
+      setUploadedRelatedFiles(others);
+    } else {
+      setUploadedMp3Files([]);
+      setUploadedRelatedFiles([]);
+    }
+
+    // Pre-load editor: take existing HTML (strip legacy Unlayer marker if present)
+    const rawBody = String(article.Body || "");
+    const cleaned = rawBody ? stripUnlayerDesignComment(rawBody) : "";
+    const nextBodyHtml = cleaned ? extractInnerContent(cleaned) : "";
+    setBodyHtml(nextBodyHtml || "<p></p>");
+    setHtml("");
+  };
+
+  const addSummaryItem = () => {
+    const item = summaryInput.trim();
+    if (!item) return;
+    setSummaryItems([...summaryItems, item]);
+    setSummaryInput("");
+    summaryInputRef.current?.focus();
+  };
+
+  const applyBoldToSummaryInput = () => {
+    const input = summaryInputRef.current;
+    const start = input?.selectionStart ?? summaryInput.length;
+    const end = input?.selectionEnd ?? summaryInput.length;
+    const selected = summaryInput.slice(start, end);
+    const replacement = selected ? `**${selected}**` : "**bold text**";
+    const next =
+      summaryInput.slice(0, start) + replacement + summaryInput.slice(end);
+
+    setSummaryInput(next);
+
+    window.requestAnimationFrame(() => {
+      summaryInputRef.current?.focus();
+      const selectionStart = selected ? start + 2 : start + 2;
+      const selectionEnd = selected
+        ? start + 2 + selected.length
+        : start + replacement.length - 2;
+      summaryInputRef.current?.setSelectionRange(selectionStart, selectionEnd);
+    });
+  };
+
+  const handleExport = async () => {
+    try {
+      const sanitized = sanitizeHtml(bodyHtml);
+      const branded = buildBrandedEmailHtml({
+        bodyHtml: `<div>${sanitized}</div>`,
+        subject: contentType,
+      });
+      setHtml(branded);
+    } catch (err) {
+      console.error("Failed to export HTML:", err);
+      alert("Failed to export HTML. Try again.");
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!html) return;
+    try {
+      await navigator.clipboard.writeText(html);
+    } catch {}
+  };
+
+  const openPreview = () => {
+    const Headline = headline.trim();
+    const Strapline = strapline.trim();
+    const Content_Type = contentType.trim();
+    const Body = `<div>${sanitizeHtml(bodyHtml)}</div>`;
+
+    const relatedDocs = [...uploadedRelatedFiles, ...uploadedMp3Files];
+    const sectorsPreview = selectedSectorIds.map((id) => {
+      const s = allSectors.find((x) => x.id === id);
+      return {
+        id,
+        sector_name: s?.sector_name || String(id),
+        Sector_importance: "Primary",
+      };
+    });
+    const companiesPreview = companiesMentioned.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
+    const peersPreview = peersAndCompetitors.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
+    const acquirersPreview = potentialAcquirers.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
+    const targetsPreview = acquisitionTargets.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
+    const relatedEventsPreview = selectedCorporateEvents.map((e) => ({
+      id: e.id,
+      description: e.label,
+      deal_type: "",
+    }));
+
+    const payload = {
+      id: editingContentId ?? 0,
+      created_at: Date.now(),
+      Publication_Date: new Date().toISOString(),
+      Headline,
+      Strapline,
+      Content_Type,
+      Body,
+      Summary: summaryItems,
+      summary: summaryItems,
+      sectors: sectorsPreview,
+      companies_mentioned: companiesPreview,
+      Peers_and_Competitors: peersPreview,
+      Potential_Acquirers: acquirersPreview,
+      Acquisition_Targets: targetsPreview,
+      Visibility: visibility,
+      Related_Corporate_Event: relatedEventsPreview,
+      ...(relatedDocs.length > 0 ? { Related_Documents: relatedDocs } : {}),
     };
 
-    const copyPayload = async () => {
-      if (!generatedJson) return;
-      try {
-        await navigator.clipboard.writeText(generatedJson);
-      } catch {}
+    try {
+      localStorage.setItem(CONTENT_PREVIEW_STORAGE_KEY, JSON.stringify(payload));
+      window.open("/article/preview", "_blank", "noopener,noreferrer");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to open preview");
+    }
+  };
+
+  const submitNewContent = async () => {
+    if (sending) return;
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    if (!token) {
+      alert("Authentication required");
+      return;
+    }
+
+    const Headline = headline.trim();
+    const Strapline = strapline.trim();
+    const Content_Type = contentType.trim();
+    if (!Headline) {
+      alert("Headline is required");
+      return;
+    }
+    if (!Content_Type) {
+      alert("Content Type is required");
+      return;
+    }
+    const sanitized = sanitizeHtml(bodyHtml);
+    const Body = `<div>${sanitized}</div>`;
+
+    const companyOfFocusIds = companyOfFocus.map((c) => c.id);
+    const companiesMentionedIds = companiesMentioned.map((c) => c.id);
+    const peersAndCompetitorsIds = peersAndCompetitors.map((c) => c.id);
+    const potentialAcquirersIds = potentialAcquirers.map((c) => c.id);
+    const acquisitionTargetsIds = acquisitionTargets.map((c) => c.id);
+    const relatedCorporateEventIds = selectedCorporateEvents.map((e) => e.id);
+
+    const buildJsonPayload = (): Record<string, unknown> => {
+      const payload: Record<string, unknown> = {};
+
+      // For PATCH updates, Xano expects content_id in payload (in addition to URL param)
+      if (editingContentId !== null) {
+        payload.content_id = editingContentId;
+      }
+
+      // Scalars
+      payload.Publication_Date = "";
+      payload.Headline = Headline;
+      payload.Strapline = Strapline;
+      payload.Content_Type = Content_Type;
+      payload.Body = Body;
+      payload.Visibility = visibility;
+
+      // IDs: send as JSON arrays (not "{1,2}" strings)
+      payload.Company_of_Focus = companyOfFocusIds;
+      payload.sectors = selectedSectorIds;
+      payload.companies_mentioned = companiesMentionedIds;
+      payload.Peers_and_Competitors = peersAndCompetitorsIds;
+      payload.Potential_Acquirers = potentialAcquirersIds;
+      payload.Acquisition_Targets = acquisitionTargetsIds;
+      payload.Related_Corporate_Event = relatedCorporateEventIds;
+
+      // Related_Documents: omit entirely if empty
+      const relatedDocs = [...uploadedRelatedFiles, ...uploadedMp3Files];
+      if (relatedDocs.length > 0) {
+        payload.Related_Documents = relatedDocs;
+      }
+
+      // Summary as string (matches your working curl)
+      payload.summary = JSON.stringify(summaryItems);
+
+      // Created by
+      const creatorId = parsePositiveCreatorId(createdByUserId);
+      if (creatorId != null) {
+        payload.Created_by = creatorId;
+      }
+
+      return payload;
     };
 
-    return (
-      <div>
-        <h2 className="mb-4 text-xl font-semibold">Content Builder</h2>
+    setSending(true);
+    try {
+      // Keep UI "Generated HTML" consistent with export button
+      setHtml(
+        buildBrandedEmailHtml({
+          bodyHtml: `<div>${sanitized}</div>`,
+          subject: Content_Type,
+        })
+      );
 
-        <div className="mb-3">
-          <label className="block mb-1 text-sm font-medium">Headline</label>
-          <input
-            type="text"
-            className="p-2 w-full border"
-            placeholder="Enter headline"
-            value={headline}
-            onChange={(e) => setHeadline(e.target.value)}
-          />
-        </div>
+      const isEditing = editingContentId !== null;
+      const apiUrl = isEditing
+        ? `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${editingContentId}`
+        : "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content";
+      const res = await fetch(apiUrl, {
+        method: isEditing ? "PATCH" : "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(buildJsonPayload()),
+      });
+      const text = await res.text().catch(() => "");
 
-        <div className="mb-3">
-          <label className="block mb-1 text-sm font-medium">Strapline</label>
-          <input
-            type="text"
-            className="p-2 w-full border"
-            placeholder="Enter strapline"
-            value={strapline}
-            onChange={(e) => setStrapline(e.target.value)}
-          />
-        </div>
+      if (!res.ok) {
+        throw new Error(`Failed to ${isEditing ? "update" : "create"} content: ${res.status} ${text}`);
+      }
 
-        <div className="mb-3">
-          <label className="block mb-1 text-sm font-medium">Content Type</label>
-          <select
-            className="p-2 w-full border"
-            value={contentType}
-            onChange={(e) => setContentType(e.target.value)}
-          >
-            <option value="">Choose content type</option>
-            {contentTypes.map((ct) => (
-              <option key={ct} value={ct}>
-                {ct}
-              </option>
-            ))}
-          </select>
-        </div>
+      alert(isEditing ? "Content updated successfully" : "Content created successfully");
+      
+      // Refresh content articles list after successful save
+      if (isEditing) {
+        const refreshRes = await fetch(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content",
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        const refreshData = await refreshRes.json();
+        if (Array.isArray(refreshData)) {
+          setAllContentArticles(refreshData as ContentArticle[]);
+        }
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to create content");
+    } finally {
+      setSending(false);
+    }
+  };
 
-        <div className="mb-3">
-          <label className="block mb-1 text-sm font-medium">Transaction Status</label>
-          <select
-            className="p-2 w-full border"
-            value={transactionStatus}
-            onChange={(e) => setTransactionStatus(e.target.value)}
-          >
-            <option value="">— None —</option>
-            {TRANSACTION_STATUS_OPTIONS.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </div>
+  const submitScheduledContent = async () => {
+    if (scheduleSubmitting) return;
+    if (!scheduleDate || !scheduleTime) {
+      alert("Please select a date and time");
+      return;
+    }
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    if (!token) {
+      alert("Authentication required");
+      return;
+    }
 
-        <div className="mt-3 border">
-          <EmailEditor
-            ref={contentUnlayerRef as unknown as never}
-            minHeight={500}
-            onReady={() => {
-              try {
-                const uploadCb = async (
-                  file: File,
-                  done: (data: { url: string }) => void
-                ) => {
-                  try {
-                    const fd = new FormData();
-                    fd.append("img", file);
-                    const token = localStorage.getItem("asymmetrix_auth_token");
-                    const resp = await fetch(
-                      "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR:develop/images",
-                      {
-                        method: "POST",
-                        headers: {
-                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                        },
-                        body: fd,
-                      }
-                    );
-                    const json = await resp
-                      .json()
-                      .catch(() => ({} as Record<string, unknown>));
-                    const urlCandidate = (
-                      json as {
-                        image?: { url?: string };
-                      }
-                    ).image?.url;
-                    if (
-                      resp.ok &&
-                      typeof urlCandidate === "string" &&
-                      urlCandidate
-                    ) {
-                      done({ url: urlCandidate });
-                    } else {
-                      done({ url: "" });
-                    }
-                  } catch {
-                    done({ url: "" });
-                  }
-                };
+    const Headline = headline.trim();
+    const Strapline = strapline.trim();
+    const Content_Type = contentType.trim();
+    if (!Headline) {
+      alert("Headline is required");
+      return;
+    }
+    if (!Content_Type) {
+      alert("Content Type is required");
+      return;
+    }
 
-                // Register on global unlayer API if available
-                const g = (globalThis as unknown as { unlayer?: unknown })
-                  .unlayer as
-                  | {
-                      registerCallback?: (
-                        name: string,
-                        cb: typeof uploadCb
-                      ) => void;
-                    }
-                  | undefined;
-                g?.registerCallback?.("image", uploadCb);
+    // Build ISO timestamp from date + time in the selected timezone
+    let publishAt: string;
+    try {
+      // Create a date string that includes timezone offset by using Intl
+      const localDateTimeStr = `${scheduleDate}T${scheduleTime}:00`;
+      // Get the UTC offset for the chosen timezone at that local time
+      const tzDate = new Date(
+        new Date(localDateTimeStr).toLocaleString("en-US", {
+          timeZone: scheduleTimezone,
+        })
+      );
+      const utcDate = new Date(localDateTimeStr);
+      const offsetMs = utcDate.getTime() - tzDate.getTime();
+      const finalDate = new Date(utcDate.getTime() + offsetMs);
+      publishAt = finalDate.toISOString();
+    } catch {
+      alert("Invalid date/time. Please check your selection.");
+      return;
+    }
 
-                // Also register on the instance as a fallback
-                const editorRef = contentUnlayerRef.current as {
-                  editor?: { registerCallback?: (name: string, cb: typeof uploadCb) => void };
-                  registerCallback?: (name: string, cb: typeof uploadCb) => void;
-                } | null;
-                const registerFn = editorRef?.editor?.registerCallback ?? editorRef?.registerCallback;
-                registerFn?.("image", uploadCb);
-              } catch {}
-            }}
-          />
-        </div>
+    const sanitized = sanitizeHtml(bodyHtml);
+    const Body = `<div>${sanitized}</div>`;
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="block mb-1 text-sm font-medium">
-              Primary Sectors
-            </label>
-            <SearchableSelect
-              options={primarySectors.map((s) => ({
-                value: s.id,
-                label: s.sector_name,
-              }))}
-              value={""}
-              onChange={(value) => {
-                if (
-                  typeof value === "number" &&
-                  !selectedPrimarySectorIds.includes(value)
-                ) {
-                  setSelectedPrimarySectorIds([
-                    ...selectedPrimarySectorIds,
-                    value,
-                  ]);
-                }
-              }}
-              placeholder={"Select Primary Sector"}
-              style={{ width: "100%" }}
-            />
-            {selectedPrimarySectorIds.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {selectedPrimarySectorIds.map((id) => {
-                  const s = primarySectors.find((x) => x.id === id);
-                  return (
-                    <span
-                      key={id}
-                      className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                    >
-                      {s?.sector_name || id}
-                      <button
-                        onClick={() =>
-                          setSelectedPrimarySectorIds(
-                            selectedPrimarySectorIds.filter((x) => x !== id)
-                          )
-                        }
-                        className="font-bold"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+    const companyOfFocusIds = companyOfFocus.map((c) => c.id);
+    const companiesMentionedIds = companiesMentioned.map((c) => c.id);
+    const peersAndCompetitorsIds = peersAndCompetitors.map((c) => c.id);
+    const potentialAcquirersIds = potentialAcquirers.map((c) => c.id);
+    const acquisitionTargetsIds = acquisitionTargets.map((c) => c.id);
+    const relatedCorporateEventIds = selectedCorporateEvents.map((e) => e.id);
+    const relatedDocs = [...uploadedRelatedFiles, ...uploadedMp3Files];
 
-          <div>
-            <label className="block mb-1 text-sm font-medium">
-              Secondary Sectors
-            </label>
-            <SearchableSelect
-              options={secondarySectors.map((s) => ({
-                value: s.id,
-                label: s.sector_name,
-              }))}
-              value={""}
-              onChange={(value) => {
-                if (
-                  typeof value === "number" &&
-                  !selectedSecondarySectorIds.includes(value)
-                ) {
-                  setSelectedSecondarySectorIds([
-                    ...selectedSecondarySectorIds,
-                    value,
-                  ]);
-                }
-              }}
-              placeholder={
-                selectedPrimarySectorIds.length === 0
-                  ? "Select primary sector first"
-                  : "Select Secondary Sector"
-              }
-              disabled={selectedPrimarySectorIds.length === 0}
-              style={{ width: "100%" }}
-            />
-            {selectedSecondarySectorIds.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {selectedSecondarySectorIds.map((id) => {
-                  const s = secondarySectors.find((x) => x.id === id);
-                  return (
-                    <span
-                      key={id}
-                      className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
-                    >
-                      {s?.sector_name || id}
-                      <button
-                        onClick={() =>
-                          setSelectedSecondarySectorIds(
-                            selectedSecondarySectorIds.filter((x) => x !== id)
-                          )
-                        }
-                        className="font-bold"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+    const payload: Record<string, unknown> = {
+      Publication_Date: "",
+      Headline,
+      Strapline,
+      Content_Type,
+      Body,
+      Visibility: visibility,
+      Company_of_Focus: companyOfFocusIds,
+      sectors: selectedSectorIds,
+      companies_mentioned: companiesMentionedIds,
+      Peers_and_Competitors: peersAndCompetitorsIds,
+      Potential_Acquirers: potentialAcquirersIds,
+      Acquisition_Targets: acquisitionTargetsIds,
+      Related_Corporate_Event: relatedCorporateEventIds,
+      summary: JSON.stringify(summaryItems),
+      last_sent_at: null,
+      publish_at: publishAt,
+      public: visibility === "Public",
+    };
 
-        <div className="mt-4">
+    if (relatedDocs.length > 0) {
+      payload.Related_Documents = relatedDocs;
+    }
+
+    const creatorId = parsePositiveCreatorId(createdByUserId);
+    if (creatorId != null) {
+      payload.Created_by = creatorId;
+      payload.created_by = creatorId;
+    }
+
+    setScheduleSubmitting(true);
+    try {
+      const res = await fetch(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+      const text = await res.text().catch(() => "");
+      if (!res.ok) {
+        throw new Error(`Failed to schedule content: ${res.status} ${text}`);
+      }
+      alert(`Content scheduled for publication at ${new Date(publishAt).toLocaleString("en-US", { timeZone: scheduleTimezone })} (${scheduleTimezone})`);
+      setShowScheduleModal(false);
+      setScheduleDate("");
+      setScheduleTime("09:00");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to schedule content");
+    } finally {
+      setScheduleSubmitting(false);
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="mb-4 text-xl font-semibold">Content Template Builder</h2>
+
+      <div className="flex gap-3 items-center mb-3">
+        <label className="text-sm font-medium">Single recipient</label>
+        <input
+          type="checkbox"
+          checked={singleRecipient}
+          onChange={(e) => setSingleRecipient(e.target.checked)}
+        />
+      </div>
+      {singleRecipient && (
+      <div className="mb-3">
           <label className="block mb-1 text-sm font-medium">
-            Companies Mentioned
+            Recipient email
+          </label>
+        <input
+            type="email"
+          className="p-2 w-full border"
+            placeholder="name@example.com"
+            value={recipientEmail}
+            onChange={(e) => setRecipientEmail(e.target.value)}
+        />
+      </div>
+      )}
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Edit Content</label>
+        <SearchableSelect
+          options={allContentArticles.map((c) => ({
+            value: c.id,
+            label: c.Headline ? String(c.Headline) : `Content #${c.id}`,
+          }))}
+          value={selectedEditContentId}
+          onChange={(value) => {
+            if (value === "" || value === null || value === undefined) {
+              setSelectedEditContentId("");
+              setEditingContentId(null);
+              // Reset form to empty state when deselecting
+              setHeadline("");
+              setStrapline("");
+              setContentType("");
+              setVisibility("Admin");
+              setCreatedByUserId("");
+              setSummaryItems([]);
+              setCompanyOfFocus([]);
+              setCompaniesMentioned([]);
+              setPeersAndCompetitors([]);
+              setPotentialAcquirers([]);
+              setAcquisitionTargets([]);
+              setSelectedSectorIds([]);
+              setSelectedCorporateEvents([]);
+              setUploadedMp3Files([]);
+              setUploadedRelatedFiles([]);
+              setBodyHtml("<p></p>");
+              setHtml("");
+              return;
+            }
+            const idNum = typeof value === "number" ? value : Number(value);
+            if (!isNaN(idNum)) {
+              setSelectedEditContentId(idNum);
+              void handleEditContentSelect(idNum);
+            }
+          }}
+          placeholder={
+            contentArticlesLoading
+              ? "Loading content..."
+              : "Search and select content to edit"
+          }
+          disabled={contentArticlesLoading}
+          style={{ width: "100%" }}
+        />
+        {editingContentId && (
+          <div className="mt-1 text-xs text-blue-600">
+            Editing content ID: {editingContentId}
+          </div>
+        )}
+      </div>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Content Type</label>
+        <select
+          className="p-2 w-full border"
+          value={contentType}
+          onChange={(e) => setContentType(e.target.value)}
+        >
+          <option value="">Choose content type</option>
+          {contentTypes.map((ct) => (
+            <option key={ct} value={ct}>
+              {ct}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Visibility</label>
+        <select
+          className="p-2 w-full border"
+          value={visibility}
+          onChange={(e) => setVisibility(coerceVisibility(e.target.value))}
+        >
+          {VISIBILITY_OPTIONS.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Created by</label>
+        <select
+          className="p-2 w-full border"
+          value={createdByUserId === "" ? "" : createdByUserId}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "") {
+              setCreatedByUserId("");
+              return;
+            }
+            const n = parseInt(val, 10);
+            setCreatedByUserId(Number.isFinite(n) && n > 0 ? n : "");
+          }}
+          disabled={usersLoading}
+        >
+          <option value="">
+            {usersLoading ? "Loading users..." : "Choose a user (optional)"}
+          </option>
+          {allUsers.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Company of Focus (select one or more)
           </label>
           <div className="flex gap-2 mb-2">
             <input
               type="text"
-              className="flex-1 p-2 border"
+              className="flex-1 p-2 border rounded"
               placeholder="Search companies by name"
-              value={companyQuery}
-              onChange={(e) => setCompanyQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && searchCompanies()}
+              value={cofQuery}
+              onChange={(e) => setCofQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchCompanyOfFocus()}
             />
             <button
               className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
-              onClick={searchCompanies}
-              disabled={loadingCompanies}
+              onClick={searchCompanyOfFocus}
+              disabled={cofLoading}
             >
-              {loadingCompanies ? "Searching…" : "Search"}
+              {cofLoading ? "Searching…" : "Search"}
             </button>
           </div>
           <SearchableSelect
-            options={companyResults.map((c) => ({ value: c.id, label: c.name }))}
+            options={cofResults.map((c) => ({ value: c.id, label: c.name }))}
             value={""}
             onChange={(value) => {
               if (typeof value === "number") {
-                const found = companyResults.find((c) => c.id === value);
-                if (found && !selectedCompanies.find((c) => c.id === found.id)) {
-                  setSelectedCompanies([...selectedCompanies, found]);
+                const found = cofResults.find((c) => c.id === value);
+                if (found && !companyOfFocus.find((c) => c.id === found.id)) {
+                  setCompanyOfFocus([...companyOfFocus, found]);
                 }
               }
             }}
             placeholder={
-              loadingCompanies
+              cofLoading
                 ? "Loading companies..."
-                : companyResults.length === 0
+                : cofResults.length === 0
                 ? "Search above to load companies"
                 : "Select company to add"
             }
-            disabled={loadingCompanies || companyResults.length === 0}
+            disabled={cofLoading || cofResults.length === 0}
             style={{ width: "100%" }}
           />
-          {selectedCompanies.length > 0 && (
+          {companyOfFocus.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {selectedCompanies.map((c) => (
+              {companyOfFocus.map((c) => (
                 <span
                   key={c.id}
-                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-purple-700 bg-purple-50 rounded"
+                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
                 >
                   {c.name}
                   <button
                     onClick={() =>
-                      setSelectedCompanies(
-                        selectedCompanies.filter((x) => x.id !== c.id)
+                      setCompanyOfFocus(
+                        companyOfFocus.filter((x) => x.id !== c.id)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+      </div>
+
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Companies Mentioned (select one or more)
+          </label>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              className="flex-1 p-2 border rounded"
+              placeholder="Search companies by name"
+              value={mentionedQuery}
+              onChange={(e) => setMentionedQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchCompaniesMentioned()}
+            />
+            <button
+              className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+              onClick={searchCompaniesMentioned}
+              disabled={mentionedLoading}
+            >
+              {mentionedLoading ? "Searching…" : "Search"}
+            </button>
+          </div>
+          <SearchableSelect
+            options={mentionedResults.map((c) => ({
+              value: c.id,
+              label: c.name,
+            }))}
+            value={""}
+            onChange={(value) => {
+              if (typeof value === "number") {
+                const found = mentionedResults.find((c) => c.id === value);
+                if (
+                  found &&
+                  !companiesMentioned.find((c) => c.id === found.id)
+                ) {
+                  setCompaniesMentioned([...companiesMentioned, found]);
+                }
+              }
+            }}
+            placeholder={
+              mentionedLoading
+                ? "Loading companies..."
+                : mentionedResults.length === 0
+                ? "Search above to load companies"
+                : "Select company to add"
+            }
+            disabled={mentionedLoading || mentionedResults.length === 0}
+            style={{ width: "100%" }}
+          />
+          {companiesMentioned.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {companiesMentioned.map((c) => (
+                  <span
+                  key={c.id}
+                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-purple-700 bg-purple-50 rounded"
+                  >
+                  {c.name}
+                    <button
+                      onClick={() =>
+                      setCompaniesMentioned(
+                        companiesMentioned.filter((x) => x.id !== c.id)
+                        )
+                      }
+                      className="font-bold"
+                    >
+                      ×
+                    </button>
+                  </span>
+              ))}
+            </div>
+          )}
+        </div>
+        </div>
+
+      <div className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-2 xl:grid-cols-3">
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Peers and Competitors (select one or more)
+          </label>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              className="flex-1 p-2 border rounded"
+              placeholder="Search companies by name"
+              value={peersQuery}
+              onChange={(e) => setPeersQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchPeersAndCompetitors()}
+            />
+            <button
+              className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+              onClick={searchPeersAndCompetitors}
+              disabled={peersLoading}
+            >
+              {peersLoading ? "Searching…" : "Search"}
+            </button>
+          </div>
+          <SearchableSelect
+            options={peersResults.map((c) => ({ value: c.id, label: c.name }))}
+            value={""}
+            onChange={(value) => {
+              if (typeof value === "number") {
+                const found = peersResults.find((c) => c.id === value);
+                if (
+                  found &&
+                  !peersAndCompetitors.find((c) => c.id === found.id)
+                ) {
+                  setPeersAndCompetitors([...peersAndCompetitors, found]);
+                }
+              }
+            }}
+            placeholder={
+              peersLoading
+                ? "Loading companies..."
+                : peersResults.length === 0
+                ? "Search above to load companies"
+                : "Select company to add"
+            }
+            disabled={peersLoading || peersResults.length === 0}
+            style={{ width: "100%" }}
+          />
+          {peersAndCompetitors.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {peersAndCompetitors.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-sky-700 bg-sky-50 rounded"
+                >
+                  {c.name}
+                  <button
+                    onClick={() =>
+                      setPeersAndCompetitors(
+                        peersAndCompetitors.filter((x) => x.id !== c.id)
                       )
                     }
                     className="font-bold"
@@ -1618,542 +3185,180 @@
           )}
         </div>
 
-        <div className="flex gap-2 mt-4">
-          <button
-            className="px-4 py-2 text-white bg-blue-600 rounded"
-            onClick={generatePayload}
-          >
-            Generate JSON
-          </button>
-          <button
-            className="px-4 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
-            onClick={copyPayload}
-            disabled={!generatedJson}
-          >
-            Copy JSON
-          </button>
-          <button
-            className="px-4 py-2 text-white bg-green-600 rounded disabled:opacity-50"
-            onClick={submitContent}
-            disabled={submittingContent}
-          >
-            {submittingContent ? "Submitting…" : "Submit"}
-          </button>
-        </div>
-
-        {generatedJson && (
-          <div className="mt-6">
-            <h3 className="mb-2 font-semibold">Payload</h3>
-            <pre className="overflow-x-auto p-2 text-sm bg-gray-100 rounded">
-              {generatedJson}
-            </pre>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function SectorsTab() {
-    // Company selection
-    interface SimpleCompany {
-      id: number;
-      name: string;
-    }
-    // Single-tag states
-    const [companyQuery, setCompanyQuery] = useState("");
-    const [companyResults, setCompanyResults] = useState<SimpleCompany[]>([]);
-    const [selectedCompany, setSelectedCompany] = useState<SimpleCompany | null>(
-      null
-    );
-    const [loadingCompanies, setLoadingCompanies] = useState(false);
-
-    // Sectors selection (all sectors, not just primary/secondary split)
-    const [allSectors, setAllSectors] = useState<
-      Array<{ id: number; sector_name: string }>
-    >([]);
-    const [selectedSectorIds, setSelectedSectorIds] = useState<number[]>([]);
-    const [submitting, setSubmitting] = useState(false);
-
-    // Bulk tagging states
-    const [bulkSelectedSectorId, setBulkSelectedSectorId] = useState<number | "">(
-      ""
-    );
-    const [bulkCompanyQuery, setBulkCompanyQuery] = useState("");
-    const [bulkCompanyResults, setBulkCompanyResults] = useState<SimpleCompany[]>(
-      []
-    );
-    const [bulkSelectedCompanies, setBulkSelectedCompanies] = useState<
-      SimpleCompany[]
-    >([]);
-    const [bulkLoadingCompanies, setBulkLoadingCompanies] = useState(false);
-    const [bulkSubmitting, setBulkSubmitting] = useState(false);
-    const [bulkProgress, setBulkProgress] = useState<{
-      total: number;
-      done: number;
-      success: number;
-      failed: number;
-    } | null>(null);
-
-    // Manage by sector: select sector → view companies → untag
-    const [selectedSectorForView, setSelectedSectorForView] = useState<
-      number | ""
-    >("");
-    const [sectorCompanies, setSectorCompanies] = useState<SimpleCompany[]>([]);
-    const [sectorCompaniesLoading, setSectorCompaniesLoading] = useState(false);
-    const [sectorCompaniesPage, setSectorCompaniesPage] = useState(1);
-    const [sectorCompaniesHasMore, setSectorCompaniesHasMore] = useState(false);
-    const [sectorActionBusyId, setSectorActionBusyId] = useState<number | null>(
-      null
-    );
-
-    // Fetch all sectors (combining primary and their secondary sectors)
-    useEffect(() => {
-      let cancelled = false;
-      const run = async () => {
-        try {
-          const prim = await locationsService.getPrimarySectors();
-          if (!cancelled) {
-            // Fetch secondary sectors for all primary sectors
-            const allPrimaryIds = prim.map((p) => p.id);
-            const sec = await locationsService.getSecondarySectors(allPrimaryIds);
-            // Combine and deduplicate by id
-            const combined = [...prim, ...sec];
-            const unique = combined.filter(
-              (s, i, arr) => arr.findIndex((x) => x.id === s.id) === i
-            );
-            setAllSectors(unique);
-          }
-        } catch {
-          // ignore
-        }
-      };
-      run();
-      return () => {
-        cancelled = true;
-      };
-    }, []);
-
-    // Company search
-    const searchCompanies = async () => {
-      if (!companyQuery.trim()) return;
-      try {
-        setLoadingCompanies(true);
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const params = new URLSearchParams();
-        params.append("Offset", "1");
-        params.append("Per_page", "25");
-        params.append("Min_linkedin_members", "0");
-        params.append("Max_linkedin_members", "0");
-        params.append("Horizontals_ids", "");
-        params.append("query", companyQuery.trim());
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies?${params.toString()}`;
-        const resp = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
-        });
-        if (!resp.ok) {
-          setCompanyResults([]);
-          return;
-        }
-        const data = await resp.json().catch(() => null);
-        const items: Array<{ id: number; name: string }> =
-          (data?.result1?.items as Array<{ id: number; name: string }>) ||
-          (data?.companies?.items as Array<{ id: number; name: string }>) ||
-          (data?.items as Array<{ id: number; name: string }>) ||
-          [];
-        setCompanyResults(
-          (Array.isArray(items) ? items : [])
-            .map((c) => ({ id: Number(c.id), name: String(c.name || "") }))
-            .filter((c) => c.id && c.name)
-        );
-      } catch {
-        setCompanyResults([]);
-      } finally {
-        setLoadingCompanies(false);
-      }
-    };
-
-    // Bulk company search
-    const bulkSearchCompanies = async () => {
-      if (!bulkCompanyQuery.trim()) return;
-      try {
-        setBulkLoadingCompanies(true);
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const params = new URLSearchParams();
-        params.append("Offset", "1");
-        params.append("Per_page", "50");
-        params.append("Min_linkedin_members", "0");
-        params.append("Max_linkedin_members", "0");
-        params.append("Horizontals_ids", "");
-        params.append("query", bulkCompanyQuery.trim());
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies?${params.toString()}`;
-        const resp = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
-        });
-        if (!resp.ok) {
-          setBulkCompanyResults([]);
-          return;
-        }
-        const data = await resp.json().catch(() => null);
-        const items: Array<{ id: number; name: string }> =
-          (data?.result1?.items as Array<{ id: number; name: string }>) ||
-          (data?.companies?.items as Array<{ id: number; name: string }>) ||
-          (data?.items as Array<{ id: number; name: string }>) ||
-          [];
-        setBulkCompanyResults(
-          (Array.isArray(items) ? items : [])
-            .map((c) => ({ id: Number(c.id), name: String(c.name || "") }))
-            .filter((c) => c.id && c.name)
-        );
-      } catch {
-        setBulkCompanyResults([]);
-      } finally {
-        setBulkLoadingCompanies(false);
-      }
-    };
-
-    // Submit to API
-    const handleSubmit = async () => {
-      if (!selectedCompany || selectedSectorIds.length === 0 || submitting)
-        return;
-
-      try {
-        setSubmitting(true);
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const payload = {
-          new_company_id: selectedCompany.id,
-          sectors_id: selectedSectorIds,
-        };
-
-        const resp = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/company_with_sectors",
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify(payload),
-          }
-        );
-
-        if (!resp.ok) {
-          const txt = await resp.text();
-          alert(`Failed to tag company: ${resp.status} ${txt}`);
-          return;
-        }
-
-        alert("Company successfully tagged to sectors!");
-        // Reset selections
-        setSelectedCompany(null);
-        setSelectedSectorIds([]);
-        setCompanyResults([]);
-        setCompanyQuery("");
-      } catch {
-        alert("Network error while tagging company");
-      } finally {
-        setSubmitting(false);
-      }
-    };
-
-    // Load companies for a given sector (paginated)
-    const loadSectorCompanies = async (
-      sectorId: number,
-      page: number = 1,
-      append: boolean = false
-    ) => {
-      try {
-        setSectorCompaniesLoading(true);
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const params = new URLSearchParams();
-        params.append("Offset", String(Math.max(1, page)));
-        params.append("Per_page", "50");
-        params.append("Sector_id", String(sectorId));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/Get_Sector_s_new_companies?${params.toString()}`;
-        const resp = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
-        });
-        if (!resp.ok) {
-          if (!append) setSectorCompanies([]);
-          setSectorCompaniesHasMore(false);
-          return;
-        }
-        const data = await resp.json().catch(() => null);
-        // Try common shapes for items and pagination
-        const items: Array<{ id: number; name?: string; Company_name?: string }> =
-          (data?.result1?.items as Array<{
-            id: number;
-            name?: string;
-            Company_name?: string;
-          }>) ||
-          (data?.companies?.items as Array<{
-            id: number;
-            name?: string;
-            Company_name?: string;
-          }>) ||
-          (data?.items as Array<{
-            id: number;
-            name?: string;
-            Company_name?: string;
-          }>) ||
-          [];
-        const mapped = (Array.isArray(items) ? items : [])
-          .map((c) => ({
-            id: Number(c.id),
-            name: String(c.name || c.Company_name || ""),
-          }))
-          .filter((c) => c.id && c.name);
-        setSectorCompanies((prev) => (append ? [...prev, ...mapped] : mapped));
-        // Heuristic: has more if we received a full page
-        setSectorCompaniesHasMore(mapped.length >= 50);
-        if (!append) setSectorCompaniesPage(1);
-      } catch {
-        if (!append) setSectorCompanies([]);
-        setSectorCompaniesHasMore(false);
-      } finally {
-        setSectorCompaniesLoading(false);
-      }
-    };
-
-    const handleSelectSectorForView = (value: unknown) => {
-      if (typeof value === "number") {
-        setSelectedSectorForView(value);
-        loadSectorCompanies(value, 1, false);
-      }
-    };
-
-    const loadMoreSectorCompanies = async () => {
-      if (typeof selectedSectorForView !== "number") return;
-      const nextPage = sectorCompaniesPage + 1;
-      await loadSectorCompanies(selectedSectorForView, nextPage, true);
-      setSectorCompaniesPage(nextPage);
-    };
-
-    // Helper to extract sector ids from company payload in various shapes
-    const extractSectorIds = (input: unknown): number[] => {
-      if (!input || typeof input !== "object") return [];
-      const obj = input as Record<string, unknown>;
-      const candidates = [
-        obj.sectors_id,
-        obj.Sectors_id,
-        (obj as { Company?: Record<string, unknown> }).Company?.sectors_id,
-        (obj as { Company?: Record<string, unknown> }).Company?.Sectors_id,
-        (obj as { new_sectors_data?: unknown }).new_sectors_data,
-        (obj as { Company?: { new_sectors_data?: unknown } }).Company
-          ?.new_sectors_data,
-      ];
-
-      // Handle arrays of objects with id/sector_id
-      for (const cand of candidates) {
-        if (Array.isArray(cand)) {
-          const ids = (cand as Array<unknown>)
-            .map((v) => {
-              if (typeof v === "number") return v;
-              if (typeof v === "string") {
-                const n = parseInt(v, 10);
-                return Number.isFinite(n) ? n : undefined;
-              }
-              if (v && typeof v === "object") {
-                const o = v as {
-                  id?: unknown;
-                  sector_id?: unknown;
-                  Sector_id?: unknown;
-                };
-                const val = (o.sector_id ?? o.Sector_id ?? o.id) as unknown;
-                if (typeof val === "number") return val;
-                if (typeof val === "string") {
-                  const n = parseInt(val, 10);
-                  return Number.isFinite(n) ? n : undefined;
-                }
-              }
-              return undefined;
-            })
-            .filter((x): x is number => typeof x === "number");
-          if (ids.length) return ids;
-        }
-        if (typeof cand === "string") {
-          try {
-            const parsed = JSON.parse(cand) as unknown;
-            if (Array.isArray(parsed)) {
-              const ids = parsed
-                .map((v) => (typeof v === "number" ? v : undefined))
-                .filter((x): x is number => typeof x === "number");
-              if (ids.length) return ids;
-            }
-          } catch {}
-        }
-      }
-      return [];
-    };
-
-    // Untag: remove selected sector from a company by overriding its sectors list
-    const handleUntagFromSector = async (company: SimpleCompany) => {
-      if (typeof selectedSectorForView !== "number") return;
-      if (sectorActionBusyId) return;
-      setSectorActionBusyId(company.id);
-      try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        };
-        // Fetch current company to get all sector ids
-        const getUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${company.id}`;
-        const getRes = await fetch(getUrl, {
-          method: "GET",
-          headers,
-          credentials: "include",
-        });
-        if (!getRes.ok) {
-          const txt = await getRes.text().catch(() => "");
-          alert(`Failed to load company sectors: ${getRes.status} ${txt}`);
-          return;
-        }
-        const companyPayload = await getRes.json().catch(() => ({} as unknown));
-        const currentSectorIds = extractSectorIds(companyPayload);
-        const updatedSectorIds = currentSectorIds.filter(
-          (id) => id !== selectedSectorForView
-        );
-
-        // PUT strict override
-        const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/edit_company_sectors`;
-        const putRes = await fetch(putUrl, {
-          method: "PUT",
-          headers,
-          credentials: "include",
-          body: JSON.stringify({
-            sectors: updatedSectorIds,
-            new_company_id: company.id,
-          }),
-        });
-        if (!putRes.ok) {
-          const txt = await putRes.text().catch(() => "");
-          alert(`Failed to untag company: ${putRes.status} ${txt}`);
-          return;
-        }
-        // Remove company from the visible list after successful untag
-        setSectorCompanies((prev) => prev.filter((c) => c.id !== company.id));
-      } catch {
-        alert("Network error while untagging company");
-      } finally {
-        setSectorActionBusyId(null);
-      }
-    };
-
-    return (
-      <div>
-        <h2 className="mb-4 text-xl font-semibold">Tag Companies to Sectors</h2>
-
-        <div className="mb-4">
-          <label className="block mb-1 text-sm font-medium">Company</label>
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Potential Acquirers (select one or more)
+          </label>
           <div className="flex gap-2 mb-2">
             <input
               type="text"
-              className="flex-1 p-2 rounded border"
+              className="flex-1 p-2 border rounded"
               placeholder="Search companies by name"
-              value={companyQuery}
-              onChange={(e) => setCompanyQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && searchCompanies()}
+              value={acquirersQuery}
+              onChange={(e) => setAcquirersQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchPotentialAcquirers()}
             />
             <button
               className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
-              onClick={searchCompanies}
-              disabled={loadingCompanies}
+              onClick={searchPotentialAcquirers}
+              disabled={acquirersLoading}
             >
-              {loadingCompanies ? "Searching…" : "Search"}
+              {acquirersLoading ? "Searching…" : "Search"}
             </button>
           </div>
           <SearchableSelect
-            options={companyResults.map((c) => ({ value: c.id, label: c.name }))}
-            value={selectedCompany ? selectedCompany.id : ""}
+            options={acquirersResults.map((c) => ({
+              value: c.id,
+              label: c.name,
+            }))}
+            value={""}
             onChange={(value) => {
               if (typeof value === "number") {
-                const found = companyResults.find((c) => c.id === value);
-                if (found) {
-                  setSelectedCompany(found);
+                const found = acquirersResults.find((c) => c.id === value);
+                if (
+                  found &&
+                  !potentialAcquirers.find((c) => c.id === found.id)
+                ) {
+                  setPotentialAcquirers([...potentialAcquirers, found]);
                 }
               }
             }}
             placeholder={
-              loadingCompanies
+              acquirersLoading
                 ? "Loading companies..."
-                : companyResults.length === 0
+                : acquirersResults.length === 0
                 ? "Search above to load companies"
-                : "Select a company"
+                : "Select company to add"
             }
-            disabled={loadingCompanies || companyResults.length === 0}
+            disabled={acquirersLoading || acquirersResults.length === 0}
             style={{ width: "100%" }}
           />
-          {selectedCompany && (
-            <div className="mt-2">
-              <span className="inline-flex gap-2 items-center px-3 py-2 text-sm text-blue-700 bg-blue-50 rounded">
-                {selectedCompany.name}
-                <button
-                  onClick={() => setSelectedCompany(null)}
-                  className="font-bold"
+          {potentialAcquirers.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {potentialAcquirers.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-emerald-700 bg-emerald-50 rounded"
                 >
-                  ×
-                </button>
-              </span>
+                  {c.name}
+                  <button
+                    onClick={() =>
+                      setPotentialAcquirers(
+                        potentialAcquirers.filter((x) => x.id !== c.id)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
             </div>
           )}
         </div>
 
-        <div className="mb-4">
+        <div>
           <label className="block mb-1 text-sm font-medium">
-            Sectors (select multiple)
+            Acquisition Targets (select one or more)
+          </label>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              className="flex-1 p-2 border rounded"
+              placeholder="Search companies by name"
+              value={targetsQuery}
+              onChange={(e) => setTargetsQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchAcquisitionTargets()}
+            />
+            <button
+              className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+              onClick={searchAcquisitionTargets}
+              disabled={targetsLoading}
+            >
+              {targetsLoading ? "Searching…" : "Search"}
+            </button>
+          </div>
+          <SearchableSelect
+            options={targetsResults.map((c) => ({ value: c.id, label: c.name }))}
+            value={""}
+            onChange={(value) => {
+              if (typeof value === "number") {
+                const found = targetsResults.find((c) => c.id === value);
+                if (
+                  found &&
+                  !acquisitionTargets.find((c) => c.id === found.id)
+                ) {
+                  setAcquisitionTargets([...acquisitionTargets, found]);
+                }
+              }
+            }}
+            placeholder={
+              targetsLoading
+                ? "Loading companies..."
+                : targetsResults.length === 0
+                ? "Search above to load companies"
+                : "Select company to add"
+            }
+            disabled={targetsLoading || targetsResults.length === 0}
+            style={{ width: "100%" }}
+          />
+          {acquisitionTargets.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {acquisitionTargets.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-amber-700 bg-amber-50 rounded"
+                >
+                  {c.name}
+                  <button
+                    onClick={() =>
+                      setAcquisitionTargets(
+                        acquisitionTargets.filter((x) => x.id !== c.id)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4">
+          <label className="block mb-1 text-sm font-medium">
+          Sectors (select one or more)
           </label>
           <SearchableSelect
-            options={allSectors.map((s) => ({
+          options={allSectors.map((s) => ({
               value: s.id,
               label: s.sector_name,
             }))}
             value={""}
             onChange={(value) => {
-              if (
-                typeof value === "number" &&
-                !selectedSectorIds.includes(value)
-              ) {
-                setSelectedSectorIds([...selectedSectorIds, value]);
-              }
-            }}
-            placeholder={
-              allSectors.length === 0
-                ? "Loading sectors..."
-                : "Select sectors to tag"
+            if (typeof value === "number" && !selectedSectorIds.includes(value)) {
+              setSelectedSectorIds([...selectedSectorIds, value]);
             }
-            disabled={allSectors.length === 0}
+          }}
+          placeholder={allSectors.length === 0 ? "Loading sectors..." : "Select sectors"}
+          disabled={allSectors.length === 0}
             style={{ width: "100%" }}
           />
-          {selectedSectorIds.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {selectedSectorIds.map((id) => {
-                const s = allSectors.find((x) => x.id === id);
+        {selectedSectorIds.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+            {selectedSectorIds.map((id) => {
+              const s = allSectors.find((x) => x.id === id);
                 return (
                   <span
                     key={id}
-                    className="inline-flex gap-2 items-center px-3 py-2 text-sm text-green-700 bg-green-50 rounded"
+                    className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
                   >
                     {s?.sector_name || id}
                     <button
                       onClick={() =>
-                        setSelectedSectorIds(
-                          selectedSectorIds.filter((x) => x !== id)
-                        )
+                      setSelectedSectorIds(selectedSectorIds.filter((x) => x !== id))
                       }
                       className="font-bold"
                     >
@@ -2164,504 +3369,1256 @@
               })}
             </div>
           )}
-        </div>
+      </div>
 
-        <div className="p-4 bg-gray-50 rounded border">
-          <h3 className="mb-2 text-sm font-semibold">Preview</h3>
-          <div className="text-sm text-gray-700">
-            {selectedCompany && selectedSectorIds.length > 0 ? (
-              <>
-                <p className="mb-1">
-                  <strong>Company:</strong> {selectedCompany.name}
-                </p>
-                <p>
-                  <strong>Tagged Sectors:</strong>{" "}
-                  {selectedSectorIds
-                    .map((id) => {
-                      const s = allSectors.find((x) => x.id === id);
-                      return s?.sector_name || id;
-                    })
-                    .join(", ")}
-                </p>
-              </>
-            ) : (
-              <p className="text-gray-500">
-                Select a company and at least one sector to preview
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <button
-            onClick={handleSubmit}
-            disabled={
-              !selectedCompany || selectedSectorIds.length === 0 || submitting
+      <div className="mt-4">
+        <label className="block mb-1 text-sm font-medium">
+          Related Corporate Events (select one or more)
+        </label>
+        <SearchableSelect
+          options={corporateEventsResults.map((ev) => ({
+            value: ev.id,
+            label: ev.label,
+          }))}
+          value={""}
+          onChange={(value) => {
+            if (typeof value === "number") {
+              const found = corporateEventsResults.find((e) => e.id === value);
+              if (
+                found &&
+                !selectedCorporateEvents.find((e) => e.id === found.id)
+              ) {
+                setSelectedCorporateEvents([...selectedCorporateEvents, found]);
+              }
             }
-            className="px-6 py-3 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitting ? "Submitting..." : "Submit"}
-          </button>
-        </div>
-
-        <div className="pt-8 mt-10 border-t">
-          <h2 className="mb-4 text-xl font-semibold">
-            Bulk Tag Companies to Sector
-          </h2>
-          <div className="mb-4">
-            <label className="block mb-1 text-sm font-medium">Sector</label>
-            <SearchableSelect
-              options={allSectors.map((s) => ({
-                value: s.id,
-                label: s.sector_name,
-              }))}
-              value={bulkSelectedSectorId}
-              onChange={(value) => {
-                if (typeof value === "number") {
-                  setBulkSelectedSectorId(value);
-                }
-              }}
-              placeholder={
-                allSectors.length === 0
-                  ? "Loading sectors..."
-                  : "Select sector to tag companies to"
-              }
-              disabled={allSectors.length === 0}
-              style={{ width: "100%" }}
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block mb-1 text-sm font-medium">Companies</label>
-            <div className="flex gap-2 mb-2">
-              <input
-                type="text"
-                className="flex-1 p-2 rounded border"
-                placeholder="Search companies by name"
-                value={bulkCompanyQuery}
-                onChange={(e) => setBulkCompanyQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && bulkSearchCompanies()}
-              />
-              <button
-                className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
-                onClick={bulkSearchCompanies}
-                disabled={bulkLoadingCompanies}
+          }}
+          onSearchTermChange={(term) => {
+            setCorporateEventsQuery(term);
+            if (corporateEventsDebounceRef.current) {
+              window.clearTimeout(corporateEventsDebounceRef.current);
+            }
+            corporateEventsDebounceRef.current = window.setTimeout(() => {
+              void searchCorporateEvents(term);
+            }, 250);
+          }}
+          placeholder={
+            corporateEventsLoading
+              ? "Searching corporate events..."
+              : "Search corporate events (type to search)"
+          }
+          loading={corporateEventsLoading}
+          loadingText="Searching…"
+          noOptionsText={
+            corporateEventsQuery.trim()
+              ? "No corporate events found"
+              : "Start typing to search corporate events"
+          }
+          disabled={false}
+          style={{ width: "100%" }}
+        />
+        {selectedCorporateEvents.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {selectedCorporateEvents.map((ev) => (
+              <span
+                key={ev.id}
+                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
               >
-                {bulkLoadingCompanies ? "Searching…" : "Search"}
-              </button>
-            </div>
-            <SearchableSelect
-              options={bulkCompanyResults.map((c) => ({
-                value: c.id,
-                label: c.name,
-              }))}
-              value={""}
-              onChange={(value) => {
-                if (typeof value === "number") {
-                  const found = bulkCompanyResults.find((c) => c.id === value);
-                  if (
-                    found &&
-                    !bulkSelectedCompanies.find((c) => c.id === found.id)
-                  ) {
-                    setBulkSelectedCompanies([...bulkSelectedCompanies, found]);
-                  }
-                }
-              }}
-              placeholder={
-                bulkLoadingCompanies
-                  ? "Loading companies..."
-                  : bulkCompanyResults.length === 0
-                  ? "Search above to load companies"
-                  : "Select company to add"
-              }
-              disabled={bulkLoadingCompanies || bulkCompanyResults.length === 0}
-              style={{ width: "100%" }}
-            />
-            {bulkSelectedCompanies.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {bulkSelectedCompanies.map((c) => (
-                  <span
-                    key={c.id}
-                    className="inline-flex gap-2 items-center px-3 py-2 text-sm text-purple-700 bg-purple-50 rounded"
-                  >
-                    {c.name}
-                    <button
-                      onClick={() =>
-                        setBulkSelectedCompanies(
-                          bulkSelectedCompanies.filter((x) => x.id !== c.id)
-                        )
-                      }
-                      className="font-bold"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4">
-            <button
-              className="px-6 py-3 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={async () => {
-                if (
-                  typeof bulkSelectedSectorId !== "number" ||
-                  bulkSelectedCompanies.length === 0 ||
-                  bulkSubmitting
-                ) {
-                  return;
-                }
-                setBulkSubmitting(true);
-                setBulkProgress({
-                  total: bulkSelectedCompanies.length,
-                  done: 0,
-                  success: 0,
-                  failed: 0,
-                });
-                try {
-                  const token = localStorage.getItem("asymmetrix_auth_token");
-                  const headers: Record<string, string> = {
-                    "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                  };
-                  // Process sequentially to avoid rate limits
-                  for (const c of bulkSelectedCompanies) {
-                    try {
-                      // Load current
-                      const getUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${c.id}`;
-                      const getRes = await fetch(getUrl, {
-                        method: "GET",
-                        headers,
-                        credentials: "include",
-                      });
-                      if (!getRes.ok) {
-                        throw new Error(
-                          `GET ${getRes.status} ${await getRes
-                            .text()
-                            .catch(() => "")}`
-                        );
-                      }
-                      const payload = await getRes
-                        .json()
-                        .catch(() => ({} as unknown));
-                      const currentSectorIds = extractSectorIds(payload);
-                      const nextIds = Array.from(
-                        new Set<number>([
-                          ...currentSectorIds,
-                          bulkSelectedSectorId,
-                        ])
-                      );
-                      // Skip update if already present
-                      const needsUpdate =
-                        nextIds.length !== currentSectorIds.length;
-                      if (needsUpdate) {
-                        const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/edit_company_sectors`;
-                        const putRes = await fetch(putUrl, {
-                          method: "PUT",
-                          headers,
-                          credentials: "include",
-                          body: JSON.stringify({
-                            sectors: nextIds,
-                            new_company_id: c.id,
-                          }),
-                        });
-                        if (!putRes.ok) {
-                          throw new Error(
-                            `PUT ${putRes.status} ${await putRes
-                              .text()
-                              .catch(() => "")}`
-                          );
-                        }
-                      }
-                      setBulkProgress((prev) => ({
-                        total: prev?.total || bulkSelectedCompanies.length,
-                        done: (prev?.done || 0) + 1,
-                        success: (prev?.success || 0) + 1,
-                        failed: prev?.failed || 0,
-                      }));
-                    } catch {
-                      setBulkProgress((prev) => ({
-                        total: prev?.total || bulkSelectedCompanies.length,
-                        done: (prev?.done || 0) + 1,
-                        success: prev?.success || 0,
-                        failed: (prev?.failed || 0) + 1,
-                      }));
-                    }
-                  }
-                  alert("Bulk tagging complete");
-                } finally {
-                  setBulkSubmitting(false);
-                }
-              }}
-              disabled={
-                typeof bulkSelectedSectorId !== "number" ||
-                bulkSelectedCompanies.length === 0 ||
-                bulkSubmitting
-              }
-            >
-              {bulkSubmitting ? "Tagging…" : "Tag selected companies"}
-            </button>
-            {bulkProgress && (
-              <div className="mt-2 text-sm text-gray-700">
-                Processed {bulkProgress.done}/{bulkProgress.total} •{" "}
-                {bulkProgress.success} succeeded, {bulkProgress.failed} failed
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="pt-8 mt-10 border-t">
-          <h2 className="mb-4 text-xl font-semibold">Manage by Sector</h2>
-          <div className="mb-4">
-            <label className="block mb-1 text-sm font-medium">Sector</label>
-            <SearchableSelect
-              options={allSectors.map((s) => ({
-                value: s.id,
-                label: s.sector_name,
-              }))}
-              value={selectedSectorForView}
-              onChange={handleSelectSectorForView}
-              placeholder={
-                allSectors.length === 0
-                  ? "Loading sectors..."
-                  : "Select sector to view companies"
-              }
-              disabled={allSectors.length === 0}
-              style={{ width: "100%" }}
-            />
-          </div>
-
-          {typeof selectedSectorForView === "number" && (
-            <div className="p-4 bg-white rounded border">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-sm font-semibold">
-                  Companies in selected sector
-                </h3>
+                {ev.label}
                 <button
-                  className="px-3 py-1 text-sm bg-gray-100 rounded border"
                   onClick={() =>
-                    loadSectorCompanies(selectedSectorForView, 1, false)
+                    setSelectedCorporateEvents(
+                      selectedCorporateEvents.filter((x) => x.id !== ev.id)
+                    )
                   }
-                  disabled={sectorCompaniesLoading}
+                  className="font-bold"
                 >
-                  {sectorCompaniesLoading ? "Refreshing…" : "Refresh"}
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <label className="block mb-1 text-sm font-medium">
+          Related Documents (upload one or more)
+        </label>
+        <input
+          ref={relatedFilesInputRef}
+          type="file"
+          multiple
+          className="block w-full p-2 border rounded bg-white"
+          onChange={(e) => void handleRelatedFilesUpload(e.target.files)}
+          disabled={uploadingRelatedFiles}
+        />
+        {uploadingRelatedFiles && (
+          <div className="mt-2 text-sm text-gray-500">Uploading…</div>
+        )}
+        {uploadedRelatedFiles.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {uploadedRelatedFiles.map((f, idx) => (
+              <div
+                key={`${f.path}-${idx}`}
+                className="flex justify-between items-center p-2 rounded border bg-white"
+              >
+                <div className="text-sm">
+                  <div className="font-medium">{f.name}</div>
+                  <div className="text-xs text-gray-500">
+                    {formatBytes(f.size)} {f.mime ? `• ${f.mime}` : ""}{" "}
+                    {f.type ? `• ${f.type}` : ""}
+                  </div>
+                </div>
+                <button
+                  className="px-3 py-1 text-sm text-white bg-red-600 rounded"
+                  onClick={() => removeRelatedFile(idx)}
+                >
+                  Remove
                 </button>
               </div>
-              {sectorCompaniesLoading && sectorCompanies.length === 0 ? (
-                <div className="text-sm text-gray-500">Loading companies…</div>
-              ) : sectorCompanies.length === 0 ? (
-                <div className="text-sm text-gray-500">
-                  No companies found for this sector.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {sectorCompanies.map((c) => (
-                    <div
-                      key={c.id}
-                      className="flex justify-between items-center p-2 rounded border"
-                    >
-                      <div className="text-sm">{c.name}</div>
-                      <button
-                        className="px-3 py-1 text-sm text-white bg-red-600 rounded disabled:opacity-50"
-                        onClick={() => handleUntagFromSector(c)}
-                        disabled={sectorActionBusyId === c.id}
-                      >
-                        {sectorActionBusyId === c.id ? "Untagging…" : "Untag"}
-                      </button>
-                    </div>
-                  ))}
-                  {sectorCompaniesHasMore && (
-                    <div className="pt-2">
-                      <button
-                        className="px-4 py-2 text-sm bg-gray-100 rounded border disabled:opacity-50"
-                        onClick={loadMoreSectorCompanies}
-                        disabled={sectorCompaniesLoading}
-                      >
-                        {sectorCompaniesLoading ? "Loading…" : "Load more"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <label className="block mb-1 text-sm font-medium">
+          MP3 Upload (upload one or more)
+        </label>
+        <div className="flex gap-2 items-center">
+          <input
+            ref={mp3InputRef}
+            type="file"
+            accept=".mp3,audio/mpeg"
+            multiple
+            className="block flex-1 p-2 border rounded bg-white"
+            onChange={(e) => handleMp3Upload(e.target.files)}
+            disabled={uploadingMp3}
+          />
+          {uploadingMp3 && (
+            <span className="text-sm text-gray-500">Uploading...</span>
           )}
         </div>
+        {uploadedMp3Files.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {uploadedMp3Files.map((mp3, idx) => (
+              <div
+                key={`${mp3.path}-${idx}`}
+                className="flex justify-between items-center p-2 rounded border bg-white"
+              >
+                <div className="text-sm">
+                  <div className="font-medium">{mp3.name}</div>
+                  <div className="text-xs text-gray-500 truncate max-w-xs">
+                    {mp3.url || mp3.path}
+                  </div>
+                </div>
+                <button
+                  className="px-3 py-1 text-sm text-white bg-red-600 rounded"
+                  onClick={() => removeMp3File(idx)}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    );
+
+      <div className="mt-4">
+        <label className="block mb-1 text-sm font-medium">Summary</label>
+        <div className="flex gap-2">
+          <input
+            ref={summaryInputRef}
+            type="text"
+            className="flex-1 p-2 border rounded"
+            placeholder="Enter summary item. Select text and click Bold to highlight it."
+            value={summaryInput}
+            onChange={(e) => setSummaryInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && summaryInput.trim()) {
+                e.preventDefault();
+                addSummaryItem();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="px-3 py-2 font-semibold bg-white rounded border hover:bg-gray-50"
+            onClick={applyBoldToSummaryInput}
+            title="Bold selected summary text"
+          >
+            Bold
+          </button>
+          <button
+            type="button"
+            className="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
+            onClick={addSummaryItem}
+            disabled={!summaryInput.trim()}
+          >
+            Add
+          </button>
+        </div>
+        {summaryItems.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {summaryItems.map((item, idx) => (
+              <div
+                key={`summary-${idx}`}
+                className="flex justify-between items-center p-2 rounded border bg-white"
+              >
+                <div
+                  className="text-sm flex-1"
+                  dangerouslySetInnerHTML={{ __html: renderSummaryText(item) }}
+                />
+                <button
+                  className="px-3 py-1 text-sm text-white bg-red-600 rounded ml-2"
+                  onClick={() =>
+                    setSummaryItems(summaryItems.filter((_, i) => i !== idx))
+                  }
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 mt-4 md:grid-cols-2">
+        <div>
+          <label className="block mb-1 text-sm font-medium">Headline</label>
+          <input
+            type="text"
+            className="p-2 w-full border rounded"
+            placeholder="Enter headline"
+            value={headline}
+            onChange={(e) => setHeadline(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Strapline</label>
+          <input
+            type="text"
+            className="p-2 w-full border rounded"
+            placeholder="Enter strapline"
+            value={strapline}
+            onChange={(e) => setStrapline(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="block mb-1 text-sm font-medium">Body</label>
+        <TiptapSimpleEditor
+          valueHtml={bodyHtml}
+          onChangeHtml={setBodyHtml}
+          onUploadImage={uploadImageToXano}
+          companyMentionSearch={searchCompaniesForMention}
+          placeholder="Write the article body..."
+          minHeightPx={500}
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Type <span className="font-medium text-gray-700">@</span> plus a company name to
+          insert a blue link to its profile (same search as the Companies directory). Images
+          are uploaded to Xano and inserted automatically. Select one or more paragraphs (or
+          headings, lists, etc.), then click{" "}
+          <span className="font-medium text-gray-700">Highlight</span> to mark selected
+          text in yellow.{" "}
+          <span className="font-medium text-gray-700">Key Point</span> also highlights
+          selected text and shows a tooltip on the published article.
+        </p>
+      </div>
+
+      <div className="flex gap-2 mt-4">
+        <button
+          className="px-4 py-2 text-white bg-purple-600 rounded"
+          onClick={handleExport}
+        >
+          Export HTML
+        </button>
+        <button
+          className="px-4 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+          onClick={handleCopy}
+          disabled={!html}
+        >
+          Copy HTML
+        </button>
+        <button
+          className="px-4 py-2 text-white bg-emerald-600 rounded disabled:opacity-50"
+          onClick={openPreview}
+          disabled={!headline.trim() || !contentType.trim()}
+          type="button"
+          title="Preview draft in a new tab"
+        >
+          Preview
+        </button>
+        <button
+          className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
+          onClick={submitNewContent}
+          disabled={sending}
+        >
+          {sending ? "Submitting…" : editingContentId ? "Update Content" : "Create Content"}
+        </button>
+        {!editingContentId && (
+          <button
+            className="px-4 py-2 text-white bg-orange-500 rounded hover:bg-orange-600 disabled:opacity-50"
+            onClick={() => setShowScheduleModal(true)}
+            disabled={sending}
+            type="button"
+            title="Schedule this content for future publication"
+          >
+            Schedule
+          </button>
+        )}
+        {editingContentId && (
+          <button
+            className="px-4 py-2 text-white bg-gray-500 rounded hover:bg-gray-600"
+            onClick={() => {
+              setSelectedEditContentId("");
+              setEditingContentId(null);
+              // Reset form to empty state
+              setHeadline("");
+              setStrapline("");
+              setContentType("");
+              setVisibility("Admin");
+              setCreatedByUserId("");
+              setSummaryItems([]);
+              setCompanyOfFocus([]);
+              setCompaniesMentioned([]);
+              setPeersAndCompetitors([]);
+              setPotentialAcquirers([]);
+              setAcquisitionTargets([]);
+              setSelectedSectorIds([]);
+              setSelectedCorporateEvents([]);
+              setUploadedMp3Files([]);
+              setUploadedRelatedFiles([]);
+              setBodyHtml("<p></p>");
+              setHtml("");
+            }}
+          >
+            Clear / New Content
+          </button>
+        )}
+      </div>
+
+      {html && (
+        <div className="mt-6">
+          <h3 className="mb-2 font-semibold">Generated HTML</h3>
+          <pre className="overflow-x-auto p-2 text-sm bg-gray-100 rounded">
+            {html}
+          </pre>
+        </div>
+      )}
+
+      {/* Schedule Publication Modal */}
+      {showScheduleModal && (
+        <div className="flex fixed inset-0 z-50 justify-center items-center bg-black/50">
+          <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold">Schedule Publication</h3>
+            {visibility === "Public" && (
+              <div className="flex gap-2 items-center p-3 mb-4 text-sm text-orange-800 bg-orange-50 rounded border border-orange-200">
+                <span>⚡</span>
+                <span>
+                  Visibility is <strong>Public</strong> — content will be published with{" "}
+                  <code className="px-1 bg-orange-100 rounded">public: true</code> at the scheduled time.
+                </span>
+              </div>
+            )}
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium">Date</label>
+              <input
+                type="date"
+                className="p-2 w-full rounded border"
+                value={scheduleDate}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={(e) => setScheduleDate(e.target.value)}
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium">Time</label>
+              <input
+                type="time"
+                className="p-2 w-full rounded border"
+                value={scheduleTime}
+                onChange={(e) => setScheduleTime(e.target.value)}
+              />
+            </div>
+            <div className="mb-6">
+              <label className="block mb-1 text-sm font-medium">Time Zone</label>
+              <p className="text-sm text-gray-600">London (Europe/London)</p>
+            </div>
+            {scheduleDate && scheduleTime && (
+              <p className="mb-4 text-sm text-gray-500">
+                Will publish at{" "}
+                <strong>
+                  {scheduleDate} {scheduleTime} {scheduleTimezone}
+                </strong>
+              </p>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-2 rounded border hover:bg-gray-50"
+                onClick={() => {
+                  setShowScheduleModal(false);
+                  setScheduleDate("");
+                  setScheduleTime("09:00");
+                }}
+                disabled={scheduleSubmitting}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 text-white bg-orange-500 rounded hover:bg-orange-600 disabled:opacity-50"
+                onClick={submitScheduledContent}
+                disabled={scheduleSubmitting || !scheduleDate || !scheduleTime}
+                type="button"
+              >
+                {scheduleSubmitting ? "Scheduling…" : "Confirm Schedule"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectorsTab() {
+  // Company selection
+  interface SimpleCompany {
+    id: number;
+    name: string;
   }
+  // Single-tag states
+  const [companyQuery, setCompanyQuery] = useState("");
+  const [companyResults, setCompanyResults] = useState<SimpleCompany[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<SimpleCompany | null>(
+    null
+  );
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
 
-  function normalizeDescriptionText(raw: string): string {
-    const trimmed = raw.trim();
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      if (typeof parsed === "string") return parsed.trim();
-    } catch {
-      // not JSON-encoded
-    }
-    if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
-      return trimmed.slice(1, -1).trim();
-    }
-    return trimmed;
-  }
+  // Sectors selection (all sectors, not just primary/secondary split)
+  const [allSectors, setAllSectors] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
+  const [selectedSectorIds, setSelectedSectorIds] = useState<number[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
-  function DescriptionsTab() {
-    const [companyId, setCompanyId] = useState("");
-    const [description, setDescription] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [approving, setApproving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
+  // Bulk tagging states
+  const [bulkSelectedSectorId, setBulkSelectedSectorId] = useState<number | "">(
+    ""
+  );
+  const [bulkCompanyQuery, setBulkCompanyQuery] = useState("");
+  const [bulkCompanyResults, setBulkCompanyResults] = useState<SimpleCompany[]>(
+    []
+  );
+  const [bulkSelectedCompanies, setBulkSelectedCompanies] = useState<
+    SimpleCompany[]
+  >([]);
+  const [bulkLoadingCompanies, setBulkLoadingCompanies] = useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{
+    total: number;
+    done: number;
+    success: number;
+    failed: number;
+  } | null>(null);
 
-    const reset = () => {
-      setCompanyId("");
-      setDescription(null);
-      setError(null);
-      setSuccess(null);
-    };
+  // Manage by sector: select sector → view companies → untag
+  const [selectedSectorForView, setSelectedSectorForView] = useState<
+    number | ""
+  >("");
+  const [sectorCompanies, setSectorCompanies] = useState<SimpleCompany[]>([]);
+  const [sectorCompaniesLoading, setSectorCompaniesLoading] = useState(false);
+  const [sectorCompaniesPage, setSectorCompaniesPage] = useState(1);
+  const [sectorCompaniesHasMore, setSectorCompaniesHasMore] = useState(false);
+  const [sectorActionBusyId, setSectorActionBusyId] = useState<number | null>(
+    null
+  );
 
-    const fetchDescription = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setError(null);
-      setSuccess(null);
-      setDescription(null);
-
-      const id = parseInt(companyId.trim(), 10);
-      if (!Number.isFinite(id) || id <= 0) {
-        setError("Enter a valid company ID");
-        return;
-      }
-
-      setLoading(true);
+  // Fetch all sectors (combining primary and their secondary sectors)
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
       try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const res = await fetch(`/api/admin/company-description/${id}`, {
-          method: "POST",
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-        if (!res.ok) {
-          const data = (await res.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          throw new Error(data?.error || `Request failed (${res.status})`);
+        const prim = await locationsService.getPrimarySectors();
+        if (!cancelled) {
+          // Fetch secondary sectors for all primary sectors
+          const allPrimaryIds = prim.map((p) => p.id);
+          const sec = await locationsService.getSecondarySectors(allPrimaryIds);
+          // Combine and deduplicate by id
+          const combined = [...prim, ...sec];
+          const unique = combined.filter(
+            (s, i, arr) => arr.findIndex((x) => x.id === s.id) === i
+          );
+          setAllSectors(unique);
         }
-        const text = await res.text();
-        setDescription(normalizeDescriptionText(text));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unexpected error");
-      } finally {
-        setLoading(false);
+      } catch {
+        // ignore
       }
     };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-    const handleApprove = async () => {
-      if (!description) return;
-
-      const id = parseInt(companyId.trim(), 10);
-      if (!Number.isFinite(id) || id <= 0) {
-        setError("Enter a valid company ID");
+  // Company search
+  const searchCompanies = async () => {
+    if (!companyQuery.trim()) return;
+    try {
+      setLoadingCompanies(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      params.append("Offset", "1");
+      params.append("Per_page", "25");
+      params.append("Min_linkedin_members", "0");
+      params.append("Max_linkedin_members", "0");
+      params.append("Horizontals_ids", "");
+      params.append("query", companyQuery.trim());
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        setCompanyResults([]);
         return;
       }
+      const data = await resp.json().catch(() => null);
+      const items: Array<{ id: number; name: string }> =
+        (data?.result1?.items as Array<{ id: number; name: string }>) ||
+        (data?.companies?.items as Array<{ id: number; name: string }>) ||
+        (data?.items as Array<{ id: number; name: string }>) ||
+        [];
+      setCompanyResults(
+        (Array.isArray(items) ? items : [])
+          .map((c) => ({ id: Number(c.id), name: String(c.name || "") }))
+          .filter((c) => c.id && c.name)
+      );
+    } catch {
+      setCompanyResults([]);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
 
-      setApproving(true);
-      setError(null);
-      setSuccess(null);
-      try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const res = await fetch(`/api/admin/edit-company/${id}`, {
-          method: "PATCH",
+  // Bulk company search
+  const bulkSearchCompanies = async () => {
+    if (!bulkCompanyQuery.trim()) return;
+    try {
+      setBulkLoadingCompanies(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      params.append("Offset", "1");
+      params.append("Per_page", "50");
+      params.append("Min_linkedin_members", "0");
+      params.append("Max_linkedin_members", "0");
+      params.append("Horizontals_ids", "");
+      params.append("query", bulkCompanyQuery.trim());
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        setBulkCompanyResults([]);
+        return;
+      }
+      const data = await resp.json().catch(() => null);
+      const items: Array<{ id: number; name: string }> =
+        (data?.result1?.items as Array<{ id: number; name: string }>) ||
+        (data?.companies?.items as Array<{ id: number; name: string }>) ||
+        (data?.items as Array<{ id: number; name: string }>) ||
+        [];
+      setBulkCompanyResults(
+        (Array.isArray(items) ? items : [])
+          .map((c) => ({ id: Number(c.id), name: String(c.name || "") }))
+          .filter((c) => c.id && c.name)
+      );
+    } catch {
+      setBulkCompanyResults([]);
+    } finally {
+      setBulkLoadingCompanies(false);
+    }
+  };
+
+  // Submit to API
+  const handleSubmit = async () => {
+    if (!selectedCompany || selectedSectorIds.length === 0 || submitting)
+      return;
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const payload = {
+        new_company_id: selectedCompany.id,
+        sectors_id: selectedSectorIds,
+      };
+
+      const resp = await fetch(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/company_with_sectors",
+        {
+          method: "PUT",
           headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({
-            new_company_id: id,
-            updates: { description: normalizeDescriptionText(description) },
-          }),
-        });
-        if (!res.ok) {
-          const data = (await res.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          throw new Error(data?.error || `Update failed (${res.status})`);
+          body: JSON.stringify(payload),
         }
-        setSuccess("Description approved and saved.");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unexpected error");
-      } finally {
-        setApproving(false);
+      );
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        alert(`Failed to tag company: ${resp.status} ${txt}`);
+        return;
       }
-    };
 
-    return (
-      <div>
-        <h2 className="mb-4 text-xl font-semibold">Company Descriptions</h2>
-        <form onSubmit={fetchDescription} className="mb-6 space-y-4">
-          <div className="max-w-md">
-            <label className="block mb-1 text-sm font-medium">Company ID</label>
-            <input
-              type="number"
-              value={companyId}
-              onChange={(e) => setCompanyId(e.target.value)}
-              placeholder="10203"
-              className="px-3 py-2 w-full rounded border"
-              min={1}
-            />
-          </div>
+      alert("Company successfully tagged to sectors!");
+      // Reset selections
+      setSelectedCompany(null);
+      setSelectedSectorIds([]);
+      setCompanyResults([]);
+      setCompanyQuery("");
+    } catch {
+      alert("Network error while tagging company");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Load companies for a given sector (paginated)
+  const loadSectorCompanies = async (
+    sectorId: number,
+    page: number = 1,
+    append: boolean = false
+  ) => {
+    try {
+      setSectorCompaniesLoading(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      params.append("Offset", String(Math.max(1, page)));
+      params.append("Per_page", "50");
+      params.append("Sector_id", String(sectorId));
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector_s_new_companies?${params.toString()}`;
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        if (!append) setSectorCompanies([]);
+        setSectorCompaniesHasMore(false);
+        return;
+      }
+      const data = await resp.json().catch(() => null);
+      // Try common shapes for items and pagination
+      const items: Array<{ id: number; name?: string; Company_name?: string }> =
+        (data?.result1?.items as Array<{
+          id: number;
+          name?: string;
+          Company_name?: string;
+        }>) ||
+        (data?.companies?.items as Array<{
+          id: number;
+          name?: string;
+          Company_name?: string;
+        }>) ||
+        (data?.items as Array<{
+          id: number;
+          name?: string;
+          Company_name?: string;
+        }>) ||
+        [];
+      const mapped = (Array.isArray(items) ? items : [])
+        .map((c) => ({
+          id: Number(c.id),
+          name: String(c.name || c.Company_name || ""),
+        }))
+        .filter((c) => c.id && c.name);
+      setSectorCompanies((prev) => (append ? [...prev, ...mapped] : mapped));
+      // Heuristic: has more if we received a full page
+      setSectorCompaniesHasMore(mapped.length >= 50);
+      if (!append) setSectorCompaniesPage(1);
+    } catch {
+      if (!append) setSectorCompanies([]);
+      setSectorCompaniesHasMore(false);
+    } finally {
+      setSectorCompaniesLoading(false);
+    }
+  };
+
+  const handleSelectSectorForView = (value: unknown) => {
+    if (typeof value === "number") {
+      setSelectedSectorForView(value);
+      loadSectorCompanies(value, 1, false);
+    }
+  };
+
+  const loadMoreSectorCompanies = async () => {
+    if (typeof selectedSectorForView !== "number") return;
+    const nextPage = sectorCompaniesPage + 1;
+    await loadSectorCompanies(selectedSectorForView, nextPage, true);
+    setSectorCompaniesPage(nextPage);
+  };
+
+  // Helper to extract sector ids from company payload in various shapes
+  const extractSectorIds = (input: unknown): number[] => {
+    if (!input || typeof input !== "object") return [];
+    const obj = input as Record<string, unknown>;
+    const candidates = [
+      obj.sectors_id,
+      obj.Sectors_id,
+      (obj as { Company?: Record<string, unknown> }).Company?.sectors_id,
+      (obj as { Company?: Record<string, unknown> }).Company?.Sectors_id,
+      (obj as { new_sectors_data?: unknown }).new_sectors_data,
+      (obj as { Company?: { new_sectors_data?: unknown } }).Company
+        ?.new_sectors_data,
+    ];
+
+    // Handle arrays of objects with id/sector_id
+    for (const cand of candidates) {
+      if (Array.isArray(cand)) {
+        const ids = (cand as Array<unknown>)
+          .map((v) => {
+            if (typeof v === "number") return v;
+            if (typeof v === "string") {
+              const n = parseInt(v, 10);
+              return Number.isFinite(n) ? n : undefined;
+            }
+            if (v && typeof v === "object") {
+              const o = v as {
+                id?: unknown;
+                sector_id?: unknown;
+                Sector_id?: unknown;
+              };
+              const val = (o.sector_id ?? o.Sector_id ?? o.id) as unknown;
+              if (typeof val === "number") return val;
+              if (typeof val === "string") {
+                const n = parseInt(val, 10);
+                return Number.isFinite(n) ? n : undefined;
+              }
+            }
+            return undefined;
+          })
+          .filter((x): x is number => typeof x === "number");
+        if (ids.length) return ids;
+      }
+      if (typeof cand === "string") {
+        try {
+          const parsed = JSON.parse(cand) as unknown;
+          if (Array.isArray(parsed)) {
+            const ids = parsed
+              .map((v) => (typeof v === "number" ? v : undefined))
+              .filter((x): x is number => typeof x === "number");
+            if (ids.length) return ids;
+          }
+        } catch {}
+      }
+    }
+    return [];
+  };
+
+  // Untag: remove selected sector from a company by overriding its sectors list
+  const handleUntagFromSector = async (company: SimpleCompany) => {
+    if (typeof selectedSectorForView !== "number") return;
+    if (sectorActionBusyId) return;
+    setSectorActionBusyId(company.id);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+      // Fetch current company to get all sector ids
+      const getUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${company.id}`;
+      const getRes = await fetch(getUrl, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+      if (!getRes.ok) {
+        const txt = await getRes.text().catch(() => "");
+        alert(`Failed to load company sectors: ${getRes.status} ${txt}`);
+        return;
+      }
+      const companyPayload = await getRes.json().catch(() => ({} as unknown));
+      const currentSectorIds = extractSectorIds(companyPayload);
+      const updatedSectorIds = currentSectorIds.filter(
+        (id) => id !== selectedSectorForView
+      );
+
+      // PUT strict override
+      const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/edit_company_sectors`;
+      const putRes = await fetch(putUrl, {
+        method: "PUT",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({
+          sectors: updatedSectorIds,
+          new_company_id: company.id,
+        }),
+      });
+      if (!putRes.ok) {
+        const txt = await putRes.text().catch(() => "");
+        alert(`Failed to untag company: ${putRes.status} ${txt}`);
+        return;
+      }
+      // Remove company from the visible list after successful untag
+      setSectorCompanies((prev) => prev.filter((c) => c.id !== company.id));
+    } catch {
+      alert("Network error while untagging company");
+    } finally {
+      setSectorActionBusyId(null);
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="mb-4 text-xl font-semibold">Tag Companies to Sectors</h2>
+
+      <div className="mb-4">
+        <label className="block mb-1 text-sm font-medium">Company</label>
+        <div className="flex gap-2 mb-2">
+          <input
+            type="text"
+            className="flex-1 p-2 rounded border"
+            placeholder="Search companies by name"
+            value={companyQuery}
+            onChange={(e) => setCompanyQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && searchCompanies()}
+          />
           <button
-            type="submit"
-            disabled={loading || !companyId.trim()}
-            className="px-4 py-2 text-white bg-black rounded disabled:opacity-50"
+            className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+            onClick={searchCompanies}
+            disabled={loadingCompanies}
           >
-            {loading ? "Loading…" : "Fetch Description"}
+            {loadingCompanies ? "Searching…" : "Search"}
           </button>
-        </form>
-
-        {error && (
-          <div className="p-3 mb-4 text-red-700 bg-red-50 rounded border border-red-300">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="p-3 mb-4 text-green-700 bg-green-50 rounded border border-green-300">
-            {success}
-          </div>
-        )}
-
-        {description && (
-          <div className="space-y-4">
-            <div>
-              <label className="block mb-2 text-sm font-medium">
-                Generated Description
-              </label>
-              <div className="p-4 text-sm leading-relaxed whitespace-pre-wrap bg-gray-50 rounded border">
-                {description}
-              </div>
-            </div>
-            <div className="flex gap-3">
+        </div>
+        <SearchableSelect
+          options={companyResults.map((c) => ({ value: c.id, label: c.name }))}
+          value={selectedCompany ? selectedCompany.id : ""}
+          onChange={(value) => {
+            if (typeof value === "number") {
+              const found = companyResults.find((c) => c.id === value);
+              if (found) {
+                setSelectedCompany(found);
+              }
+            }
+          }}
+          placeholder={
+            loadingCompanies
+              ? "Loading companies..."
+              : companyResults.length === 0
+              ? "Search above to load companies"
+              : "Select a company"
+          }
+          disabled={loadingCompanies || companyResults.length === 0}
+          style={{ width: "100%" }}
+        />
+        {selectedCompany && (
+          <div className="mt-2">
+            <span className="inline-flex gap-2 items-center px-3 py-2 text-sm text-blue-700 bg-blue-50 rounded">
+              {selectedCompany.name}
               <button
-                type="button"
-                onClick={handleApprove}
-                disabled={approving}
-                className="px-4 py-2 text-white bg-green-600 rounded disabled:opacity-50"
+                onClick={() => setSelectedCompany(null)}
+                className="font-bold"
               >
-                {approving ? "Saving…" : "Approve"}
+                ×
               </button>
-              <button
-                type="button"
-                onClick={reset}
-                disabled={approving}
-                className="px-4 py-2 text-gray-800 bg-gray-100 rounded border disabled:opacity-50"
-              >
-                Decline
-              </button>
-            </div>
+            </span>
           </div>
         )}
       </div>
-    );
-  }
 
-  //
+      <div className="mb-4">
+        <label className="block mb-1 text-sm font-medium">
+          Sectors (select multiple)
+        </label>
+        <SearchableSelect
+          options={allSectors.map((s) => ({
+            value: s.id,
+            label: s.sector_name,
+          }))}
+          value={""}
+          onChange={(value) => {
+            if (
+              typeof value === "number" &&
+              !selectedSectorIds.includes(value)
+            ) {
+              setSelectedSectorIds([...selectedSectorIds, value]);
+            }
+          }}
+          placeholder={
+            allSectors.length === 0
+              ? "Loading sectors..."
+              : "Select sectors to tag"
+          }
+          disabled={allSectors.length === 0}
+          style={{ width: "100%" }}
+        />
+        {selectedSectorIds.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {selectedSectorIds.map((id) => {
+              const s = allSectors.find((x) => x.id === id);
+              return (
+                <span
+                  key={id}
+                  className="inline-flex gap-2 items-center px-3 py-2 text-sm text-green-700 bg-green-50 rounded"
+                >
+                  {s?.sector_name || id}
+                  <button
+                    onClick={() =>
+                      setSelectedSectorIds(
+                        selectedSectorIds.filter((x) => x !== id)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="p-4 bg-gray-50 rounded border">
+        <h3 className="mb-2 text-sm font-semibold">Preview</h3>
+        <div className="text-sm text-gray-700">
+          {selectedCompany && selectedSectorIds.length > 0 ? (
+            <>
+              <p className="mb-1">
+                <strong>Company:</strong> {selectedCompany.name}
+              </p>
+              <p>
+                <strong>Tagged Sectors:</strong>{" "}
+                {selectedSectorIds
+                  .map((id) => {
+                    const s = allSectors.find((x) => x.id === id);
+                    return s?.sector_name || id;
+                  })
+                  .join(", ")}
+              </p>
+            </>
+          ) : (
+            <p className="text-gray-500">
+              Select a company and at least one sector to preview
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <button
+          onClick={handleSubmit}
+          disabled={
+            !selectedCompany || selectedSectorIds.length === 0 || submitting
+          }
+          className="px-6 py-3 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting ? "Submitting..." : "Submit"}
+        </button>
+      </div>
+
+      <div className="pt-8 mt-10 border-t">
+        <h2 className="mb-4 text-xl font-semibold">
+          Bulk Tag Companies to Sector
+        </h2>
+        <div className="mb-4">
+          <label className="block mb-1 text-sm font-medium">Sector</label>
+          <SearchableSelect
+            options={allSectors.map((s) => ({
+              value: s.id,
+              label: s.sector_name,
+            }))}
+            value={bulkSelectedSectorId}
+            onChange={(value) => {
+              if (typeof value === "number") {
+                setBulkSelectedSectorId(value);
+              }
+            }}
+            placeholder={
+              allSectors.length === 0
+                ? "Loading sectors..."
+                : "Select sector to tag companies to"
+            }
+            disabled={allSectors.length === 0}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-1 text-sm font-medium">Companies</label>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              className="flex-1 p-2 rounded border"
+              placeholder="Search companies by name"
+              value={bulkCompanyQuery}
+              onChange={(e) => setBulkCompanyQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && bulkSearchCompanies()}
+            />
+            <button
+              className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+              onClick={bulkSearchCompanies}
+              disabled={bulkLoadingCompanies}
+            >
+              {bulkLoadingCompanies ? "Searching…" : "Search"}
+            </button>
+          </div>
+          <SearchableSelect
+            options={bulkCompanyResults.map((c) => ({
+              value: c.id,
+              label: c.name,
+            }))}
+            value={""}
+            onChange={(value) => {
+              if (typeof value === "number") {
+                const found = bulkCompanyResults.find((c) => c.id === value);
+                if (
+                  found &&
+                  !bulkSelectedCompanies.find((c) => c.id === found.id)
+                ) {
+                  setBulkSelectedCompanies([...bulkSelectedCompanies, found]);
+                }
+              }
+            }}
+            placeholder={
+              bulkLoadingCompanies
+                ? "Loading companies..."
+                : bulkCompanyResults.length === 0
+                ? "Search above to load companies"
+                : "Select company to add"
+            }
+            disabled={bulkLoadingCompanies || bulkCompanyResults.length === 0}
+            style={{ width: "100%" }}
+          />
+          {bulkSelectedCompanies.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {bulkSelectedCompanies.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex gap-2 items-center px-3 py-2 text-sm text-purple-700 bg-purple-50 rounded"
+                >
+                  {c.name}
+                  <button
+                    onClick={() =>
+                      setBulkSelectedCompanies(
+                        bulkSelectedCompanies.filter((x) => x.id !== c.id)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4">
+          <button
+            className="px-6 py-3 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={async () => {
+              if (
+                typeof bulkSelectedSectorId !== "number" ||
+                bulkSelectedCompanies.length === 0 ||
+                bulkSubmitting
+              ) {
+                return;
+              }
+              setBulkSubmitting(true);
+              setBulkProgress({
+                total: bulkSelectedCompanies.length,
+                done: 0,
+                success: 0,
+                failed: 0,
+              });
+              try {
+                const token = localStorage.getItem("asymmetrix_auth_token");
+                const headers: Record<string, string> = {
+                  "Content-Type": "application/json",
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                };
+                // Process sequentially to avoid rate limits
+                for (const c of bulkSelectedCompanies) {
+                  try {
+                    // Load current sectors to preserve them
+                    const getUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${c.id}`;
+                    const getRes = await fetch(getUrl, {
+                      method: "GET",
+                      headers,
+                      credentials: "include",
+                    });
+                    if (!getRes.ok) {
+                      throw new Error(
+                        `GET ${getRes.status} ${await getRes
+                          .text()
+                          .catch(() => "")}`
+                      );
+                    }
+                    const payload = await getRes
+                      .json()
+                      .catch(() => ({} as unknown));
+                    const currentSectorIds = extractSectorIds(payload);
+                    // Add the bulk sector to existing sectors (deduplicate)
+                    const nextIds = Array.from(
+                      new Set<number>([
+                        ...currentSectorIds,
+                        bulkSelectedSectorId,
+                      ])
+                    );
+                    // Skip update if already present
+                    const needsUpdate =
+                      nextIds.length !== currentSectorIds.length;
+                    if (needsUpdate) {
+                      // Use the same API endpoint as single tag
+                      const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/company_with_sectors`;
+                      const putRes = await fetch(putUrl, {
+                        method: "PUT",
+                        headers,
+                        credentials: "include",
+                        body: JSON.stringify({
+                          new_company_id: c.id,
+                          sectors_id: nextIds,
+                        }),
+                      });
+                      if (!putRes.ok) {
+                        throw new Error(
+                          `PUT ${putRes.status} ${await putRes
+                            .text()
+                            .catch(() => "")}`
+                        );
+                      }
+                    }
+                    setBulkProgress((prev) => ({
+                      total: prev?.total || bulkSelectedCompanies.length,
+                      done: (prev?.done || 0) + 1,
+                      success: (prev?.success || 0) + 1,
+                      failed: prev?.failed || 0,
+                    }));
+                  } catch {
+                    setBulkProgress((prev) => ({
+                      total: prev?.total || bulkSelectedCompanies.length,
+                      done: (prev?.done || 0) + 1,
+                      success: prev?.success || 0,
+                      failed: (prev?.failed || 0) + 1,
+                    }));
+                  }
+                }
+                alert("Bulk tagging complete");
+              } finally {
+                setBulkSubmitting(false);
+              }
+            }}
+            disabled={
+              typeof bulkSelectedSectorId !== "number" ||
+              bulkSelectedCompanies.length === 0 ||
+              bulkSubmitting
+            }
+          >
+            {bulkSubmitting ? "Tagging…" : "Tag selected companies"}
+          </button>
+          {bulkProgress && (
+            <div className="mt-2 text-sm text-gray-700">
+              Processed {bulkProgress.done}/{bulkProgress.total} •{" "}
+              {bulkProgress.success} succeeded, {bulkProgress.failed} failed
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="pt-8 mt-10 border-t">
+        <h2 className="mb-4 text-xl font-semibold">Manage by Sector</h2>
+        <div className="mb-4">
+          <label className="block mb-1 text-sm font-medium">Sector</label>
+          <SearchableSelect
+            options={allSectors.map((s) => ({
+              value: s.id,
+              label: s.sector_name,
+            }))}
+            value={selectedSectorForView}
+            onChange={handleSelectSectorForView}
+            placeholder={
+              allSectors.length === 0
+                ? "Loading sectors..."
+                : "Select sector to view companies"
+            }
+            disabled={allSectors.length === 0}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        {typeof selectedSectorForView === "number" && (
+          <div className="p-4 bg-white rounded border">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold">
+                Companies in selected sector
+              </h3>
+              <button
+                className="px-3 py-1 text-sm bg-gray-100 rounded border"
+                onClick={() =>
+                  loadSectorCompanies(selectedSectorForView, 1, false)
+                }
+                disabled={sectorCompaniesLoading}
+              >
+                {sectorCompaniesLoading ? "Refreshing…" : "Refresh"}
+              </button>
+            </div>
+            {sectorCompaniesLoading && sectorCompanies.length === 0 ? (
+              <div className="text-sm text-gray-500">Loading companies…</div>
+            ) : sectorCompanies.length === 0 ? (
+              <div className="text-sm text-gray-500">
+                No companies found for this sector.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {sectorCompanies.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex justify-between items-center p-2 rounded border"
+                  >
+                    <div className="text-sm">{c.name}</div>
+                    <button
+                      className="px-3 py-1 text-sm text-white bg-red-600 rounded disabled:opacity-50"
+                      onClick={() => handleUntagFromSector(c)}
+                      disabled={sectorActionBusyId === c.id}
+                    >
+                      {sectorActionBusyId === c.id ? "Untagging…" : "Untag"}
+                    </button>
+                  </div>
+                ))}
+                {sectorCompaniesHasMore && (
+                  <div className="pt-2">
+                    <button
+                      className="px-4 py-2 text-sm bg-gray-100 rounded border disabled:opacity-50"
+                      onClick={loadMoreSectorCompanies}
+                      disabled={sectorCompaniesLoading}
+                    >
+                      {sectorCompaniesLoading ? "Loading…" : "Load more"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
