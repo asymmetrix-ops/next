@@ -73,6 +73,7 @@ export type CompanyDashboardProps = {
   fixedOwnershipTypeIds?: number[];
   embedded?: boolean;
   guestMode?: boolean;
+  hideFilterBar?: boolean;
 };
 
 export const CompanyDashboard = ({
@@ -96,6 +97,7 @@ export const CompanyDashboard = ({
   fixedOwnershipTypeIds,
   embedded = false,
   guestMode = false,
+  hideFilterBar = false,
 }: CompanyDashboardProps) => {
   // Unified filter bar state — replaces all the individual selected-* state vars
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
@@ -452,17 +454,20 @@ export const CompanyDashboard = ({
               justifyContent: hidePageHeader && embedded ? "flex-end" : undefined,
             }}
           >
+            {onColumnsClick && (
             <SearchColumnsButton
               active={columnsActive}
               count={columnsCount}
               total={CANONICAL_COMPANY_COLUMN_KEYS.length}
               onClick={onColumnsClick}
             />
+            )}
+            {onExport && (
             <SearchExportMenu
               onExport={(mode) => onExport?.(mode)}
               exporting={exporting}
-              disabled={!onExport}
             />
+            )}
             <button
               onClick={onAddToPortfolioClick}
               disabled={selectedCount === 0}
@@ -514,7 +519,7 @@ export const CompanyDashboard = ({
         )}
       </div>
 
-      {!guestMode && (
+      {!guestMode && !hideFilterBar && (
       /* ── Filter bar card ── */
       <div
         style={{

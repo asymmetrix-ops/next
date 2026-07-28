@@ -255,6 +255,14 @@ export const PROD_DEFAULT_INVESTOR_COLUMN_KEYS = [
   "country",
 ] as const;
 
+/** Default visible columns for sector Most Active Investors sub-sections. */
+export const SECTOR_MOST_ACTIVE_INVESTOR_COLUMN_KEYS = [
+  "name",
+  "total_investments",
+  "years_since_last_investment",
+  "country",
+] as const;
+
 export const FROZEN_INVESTOR_COLUMN_KEYS = ["name"] as const;
 
 export const DEFAULT_VISIBLE_INVESTOR_COLUMN_KEYS: string[] = [

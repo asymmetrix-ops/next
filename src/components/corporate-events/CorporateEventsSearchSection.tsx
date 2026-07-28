@@ -121,6 +121,7 @@ export const CorporateEventsSearchSection = ({
   onColumnsCountChange,
   onRegisterExportCSV,
   isPortfolioOnlyFilter = false,
+  enableColumnControl = true,
 }: {
   events: CorporateEventItem[];
   loading: boolean;
@@ -147,6 +148,7 @@ export const CorporateEventsSearchSection = ({
   onColumnsCountChange?: (count: number) => void;
   onRegisterExportCSV?: (fn: () => void) => void;
   isPortfolioOnlyFilter?: boolean;
+  enableColumnControl?: boolean;
 }) => {
   const router = useRouter();
   const headerDidDragRef = useRef(false);
@@ -201,6 +203,11 @@ export const CorporateEventsSearchSection = ({
   }, [filterPinnedColumnKeys]);
 
   useEffect(() => {
+    if (!enableColumnControl) {
+      setSelectedColumnKeys([...PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS]);
+      setColumnPrefsLoaded(true);
+      return;
+    }
     try {
       const saved = window.localStorage.getItem(CORPORATE_EVENTS_COLUMNS_STORAGE_KEY);
       if (saved) {
@@ -218,10 +225,10 @@ export const CorporateEventsSearchSection = ({
     } finally {
       setColumnPrefsLoaded(true);
     }
-  }, []);
+  }, [enableColumnControl]);
 
   useEffect(() => {
-    if (!columnPrefsLoaded) return;
+    if (!columnPrefsLoaded || !enableColumnControl) return;
     try {
       window.localStorage.setItem(
         CORPORATE_EVENTS_COLUMNS_STORAGE_KEY,
@@ -680,6 +687,7 @@ export const CorporateEventsSearchSection = ({
   };
 
   const columnsModalLayer =
+    enableColumnControl &&
     showColumnsModal &&
     (
       <>

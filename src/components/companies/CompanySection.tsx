@@ -18,6 +18,11 @@ import {
 import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
+import {
+  loadStoredColumnKeys,
+  saveStoredColumnKeys,
+  type ColumnStorageScope,
+} from "@/lib/columnPreferencesStorage";
 import type { CompaniesFilters } from "@/app/companies/actions";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import {
@@ -909,6 +914,11 @@ export const CompanySection = ({
   isPortfolioOnlyFilter = false,
   embedded = false,
   readOnlyGuestMode = false,
+  columnsStorageKey,
+  columnsStorageScope = "local",
+  defaultColumnKeys,
+  uncappedExport = false,
+  enableColumnControl = true,
 }: {
   companies: Company[];
   loading: boolean;
@@ -941,6 +951,11 @@ export const CompanySection = ({
   isPortfolioOnlyFilter?: boolean;
   embedded?: boolean;
   readOnlyGuestMode?: boolean;
+  columnsStorageKey?: string;
+  columnsStorageScope?: ColumnStorageScope;
+  defaultColumnKeys?: readonly string[];
+  uncappedExport?: boolean;
+  enableColumnControl?: boolean;
 }) => {
   const router = useRouter();
   const [showSalesConversion, setShowSalesConversion] = useState(false);
@@ -966,8 +981,17 @@ export const CompanySection = ({
     dir: "asc" | "desc";
   } | null>(null);
   const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
+  const resolvedDefaultColumnKeys = useMemo(
+    () =>
+      defaultColumnKeys
+        ? [...defaultColumnKeys]
+        : [...DEFAULT_COMPANY_COLUMN_KEYS],
+    [defaultColumnKeys]
+  );
+  const resolvedColumnsStorageKey =
+    columnsStorageKey ?? COMPANIES_COLUMNS_STORAGE_KEY;
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
-    DEFAULT_COMPANY_COLUMN_KEYS
+    resolvedDefaultColumnKeys
   );
 
   useEffect(() => {
@@ -1050,38 +1074,51 @@ export const CompanySection = ({
 
   useEffect(() => {
     if (readOnlyGuestMode) {
-      setSelectedColumnKeys([...PROD_DEFAULT_COMPANY_COLUMN_KEYS]);
+      setSelectedColumnKeys([...resolvedDefaultColumnKeys]);
+      setColumnPrefsLoaded(true);
+      return;
+    }
+    if (!enableColumnControl) {
+      setSelectedColumnKeys(getValidColumnKeys([...resolvedDefaultColumnKeys]));
       setColumnPrefsLoaded(true);
       return;
     }
     try {
-      const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
+      const saved = loadStoredColumnKeys(
+        resolvedColumnsStorageKey,
+        columnsStorageScope
+      );
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSelectedColumnKeys(
-            getValidColumnKeys(parsed.filter((key): key is string => typeof key === "string"))
-          );
-        }
+        setSelectedColumnKeys(getValidColumnKeys(saved));
       }
     } catch (error) {
       console.warn("Unable to load company column preferences:", error);
     } finally {
       setColumnPrefsLoaded(true);
     }
-  }, [readOnlyGuestMode]);
+  }, [
+    readOnlyGuestMode,
+    enableColumnControl,
+    resolvedDefaultColumnKeys,
+    resolvedColumnsStorageKey,
+    columnsStorageScope,
+  ]);
 
   useEffect(() => {
-    if (readOnlyGuestMode || !columnPrefsLoaded) return;
-    try {
-      window.localStorage.setItem(
-        COMPANIES_COLUMNS_STORAGE_KEY,
-        JSON.stringify(selectedColumnKeys)
-      );
-    } catch (error) {
-      console.warn("Unable to save company column preferences:", error);
-    }
-  }, [readOnlyGuestMode, columnPrefsLoaded, selectedColumnKeys]);
+    if (readOnlyGuestMode || !columnPrefsLoaded || !enableColumnControl) return;
+    saveStoredColumnKeys(
+      resolvedColumnsStorageKey,
+      columnsStorageScope,
+      selectedColumnKeys
+    );
+  }, [
+    readOnlyGuestMode,
+    columnPrefsLoaded,
+    enableColumnControl,
+    resolvedColumnsStorageKey,
+    columnsStorageScope,
+    selectedColumnKeys,
+  ]);
 
   useEffect(() => {
     if (!columnPrefsLoaded) return;
@@ -1307,7 +1344,8 @@ export const CompanySection = ({
           },
           currentFilters ?? createDefaultFilters(),
           selectedColumnKeys,
-          scope === "full_list" ? exportTotalCount : undefined
+          scope === "full_list" ? exportTotalCount : undefined,
+          uncappedExport
         );
       } catch (exportError) {
         console.error("Companies export failed:", exportError);
@@ -1323,6 +1361,7 @@ export const CompanySection = ({
       selectedCompanyIds,
       pagination.totalCount,
       ownershipCounts.totalCount,
+      uncappedExport,
     ]
   );
 
@@ -1499,7 +1538,8 @@ export const CompanySection = ({
   const style = SEARCH_TABLE_STYLES;
 
   const columnsModalLayer = [
-    !readOnlyGuestMode &&
+    enableColumnControl &&
+      !readOnlyGuestMode &&
       showColumnsModal &&
       React.createElement("div", {
         key: "columns-backdrop",
@@ -1512,7 +1552,8 @@ export const CompanySection = ({
         onClick: () => setShowColumnsModal(false),
         "aria-hidden": true,
       }),
-    !readOnlyGuestMode &&
+    enableColumnControl &&
+      !readOnlyGuestMode &&
       showColumnsModal &&
       React.createElement(ColumnsControlRoom, {
         key: "columns-panel",

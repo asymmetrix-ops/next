@@ -39,17 +39,18 @@ function buildClausesFromFilterBar(args: {
   state: FilterBarState;
   primarySectors: SectorRef[];
   secondarySectors: SectorRef[];
+  scopedPrimarySectorIds?: number[];
 }): {
   clauses: AdvisorFilterClause[];
   portfolioOnly: boolean;
   primarySectorIds: number[];
   secondarySectorIds: number[];
 } {
-  const { state, primarySectors, secondarySectors } = args;
+  const { state, primarySectors, secondarySectors, scopedPrimarySectorIds = [] } = args;
   const clauses: AdvisorFilterClause[] = [];
   let hasPriorClause = false;
   let portfolioOnly = false;
-  let primarySectorIds: number[] = [];
+  let primarySectorIds: number[] = [...scopedPrimarySectorIds];
   let secondarySectorIds: number[] = [];
 
   const pushClause = (clause: AdvisorFilterClause) => {
@@ -172,6 +173,7 @@ export function buildAdvisorsSearchPayload(args: {
   state: FilterBarState;
   primarySectors: SectorRef[];
   secondarySectors: SectorRef[];
+  scopedPrimarySectorIds?: number[];
   page?: number;
   perPage?: number;
   advisorRoleId?: number;
@@ -180,12 +182,18 @@ export function buildAdvisorsSearchPayload(args: {
     state,
     primarySectors,
     secondarySectors,
+    scopedPrimarySectorIds = [],
     page = 1,
     perPage = 25,
     advisorRoleId,
   } = args;
   const { clauses, portfolioOnly, primarySectorIds, secondarySectorIds } =
-    buildClausesFromFilterBar({ state, primarySectors, secondarySectors });
+    buildClausesFromFilterBar({
+      state,
+      primarySectors,
+      secondarySectors,
+      scopedPrimarySectorIds,
+    });
 
   const payload = advisorSearchPayloadToRequestBody(
     buildAdvisorSearchPayloadFromClauses(clauses, {
@@ -211,12 +219,25 @@ export function buildAdvisorsCountsSearchPayload(args: {
   state: FilterBarState;
   primarySectors: SectorRef[];
   secondarySectors: SectorRef[];
+  scopedPrimarySectorIds?: number[];
   page?: number;
   perPage?: number;
 }): AdvisorsSearchFilters {
-  const { state, primarySectors, secondarySectors, page = 1, perPage = 25 } = args;
+  const {
+    state,
+    primarySectors,
+    secondarySectors,
+    scopedPrimarySectorIds = [],
+    page = 1,
+    perPage = 25,
+  } = args;
   const { clauses, portfolioOnly, primarySectorIds, secondarySectorIds } =
-    buildClausesFromFilterBar({ state, primarySectors, secondarySectors });
+    buildClausesFromFilterBar({
+      state,
+      primarySectors,
+      secondarySectors,
+      scopedPrimarySectorIds,
+    });
 
   return advisorSearchPayloadToRequestBody(
     buildAdvisorSearchPayloadFromClauses(clauses, {
