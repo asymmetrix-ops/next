@@ -3542,6 +3542,13 @@ const CompanyDetail = () => {
       max-width: 100%;
     }
     /* overview-card now uses OverviewCard component — legacy overrides removed */
+    .overview-card .overview-kv {
+      align-items: baseline !important;
+    }
+    .overview-card .overview-kv > :first-child,
+    .overview-card .overview-kv > :last-child {
+      line-height: 1.35 !important;
+    }
     /* Hover tooltips for metric values using title attribute */
     .desktop-financial-metrics span[title],
     .mobile-financial-metrics span[title] {

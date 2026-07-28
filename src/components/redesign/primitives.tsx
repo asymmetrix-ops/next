@@ -80,7 +80,7 @@ export const kvValueStyle: React.CSSProperties = {
   fontFamily: T.sans,
   fontVariantNumeric: "tabular-nums",
   fontSize: 13,
-  lineHeight: 1.55,
+  lineHeight: 1.35,
   fontWeight: 400,
 };
 
@@ -570,6 +570,7 @@ export function KV({
 }) {
   return (
     <div
+      className="overview-kv"
       style={{
         display: "grid",
         gridTemplateColumns: `${KV_LABEL_COL} 1fr`,
@@ -577,8 +578,7 @@ export function KV({
         padding: "4px 0",
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
         fontSize: 13,
-        lineHeight: 1.55,
-        alignItems: "start",
+        alignItems: "baseline",
         ...style,
       }}
     >
