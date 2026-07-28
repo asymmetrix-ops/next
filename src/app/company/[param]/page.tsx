@@ -1342,6 +1342,8 @@ const CompanyDetail = () => {
   const [incomeStatementApiRows, setIncomeStatementApiRows] = useState<
     NormalizedIncomeStatementRow[]
   >([]);
+  const [incomeStatementCardLoading, setIncomeStatementCardLoading] =
+    useState(false);
   const [exportingPdfType, setExportingPdfType] =
     useState<CompanyPdfExportType | null>(null);
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
@@ -1709,13 +1711,23 @@ const CompanyDetail = () => {
   }, []);
 
   const fetchIncomeStatementCard = useCallback(async (id: string | number) => {
+    setIncomeStatementCardLoading(true);
     try {
       const data = await fetchCompanyIncomeStatementCard(id);
       setIncomeStatementApiRows(normalizeIncomeStatementApiRows(data));
     } catch {
       setIncomeStatementApiRows([]);
+    } finally {
+      setIncomeStatementCardLoading(false);
     }
   }, []);
+
+  const showFinancialsTab = useMemo(
+    () =>
+      !incomeStatementCardLoading &&
+      hasIncomeStatementValues(incomeStatementApiRows),
+    [incomeStatementCardLoading, incomeStatementApiRows]
+  );
 
   const fetchCompanyAiRisksData = useCallback(async (id: string | number) => {
     setAiRiskData(null);
@@ -2070,6 +2082,12 @@ const CompanyDetail = () => {
     fetchIncomeStatementCard(company.id);
     fetchFinancialMetricsCard(company.id);
   }, [company?.id, fetchIncomeStatementCard, fetchFinancialMetricsCard]);
+
+  useEffect(() => {
+    if (!showFinancialsTab && activeProfileTab === "Financials") {
+      setActiveProfileTab("Summary");
+    }
+  }, [showFinancialsTab, activeProfileTab]);
 
   // Merge investors found in corporate events into the company's investors list
   useEffect(() => {
@@ -3835,7 +3853,10 @@ const CompanyDetail = () => {
 
         {/* Navigation tabs */}
         <div style={{ display: "flex", gap: "2px", overflowX: "auto" as const, scrollbarWidth: "none" as const }}>
-          {(["Summary", "Financials"] as const).map((tab) => {
+          {(showFinancialsTab
+            ? (["Summary", "Financials"] as const)
+            : (["Summary"] as const)
+          ).map((tab) => {
             const active = tab === activeProfileTab;
             return (
               <button

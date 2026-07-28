@@ -130,9 +130,10 @@ export function appendMetricCurrency(
 ): string {
   const value = stripLegacyUsPrefix(formatted.trim());
   if (value === "-") return value;
-  if (!currencyCode) return value;
 
-  const code = normalizeCurrencyCode(currencyCode);
+  const code = resolveMetricCurrencyDisplay(currencyCode);
+  if (!code) return value;
+
   const sym = CURRENCY_SYMBOLS[code];
   if (sym) {
     if (value.startsWith(sym)) return value;
