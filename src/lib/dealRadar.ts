@@ -320,6 +320,10 @@ export const readHqCountryIso2 = (raw: Record<string, unknown>): string | null =
   const locations = raw._locations ?? raw.locations;
   if (locations && typeof locations === "object") {
     const locationRecord = locations as Record<string, unknown>;
+    const iso2FromLocation = normalizeIso2(
+      locationRecord.iso2 ?? locationRecord.ISO2 ?? locationRecord.iso_2
+    );
+    if (iso2FromLocation) return iso2FromLocation;
     const iso2 = readCountryTextAsIso2(
       locationRecord.Country ?? locationRecord.country
     );

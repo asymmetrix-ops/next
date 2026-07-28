@@ -47,7 +47,9 @@ import {
   readCompanyMcpStatus,
 } from "@/lib/companyMcp";
 import CompanyLogo from "@/components/investor/CompanyLogo";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { readEntityLogo } from "@/lib/companyLogo";
+import { readHqCountryIso2, COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 import {
   buildSubsidiaryAcquisitionYearMap,
@@ -76,6 +78,7 @@ interface CompanyLocation {
   City: string;
   State__Province__County: string;
   Country: string;
+  iso2?: string;
 }
 
 interface CompanySector {
@@ -2383,6 +2386,9 @@ const CompanyDetail = () => {
 
   // Process location
   const location = company._locations;
+  const hqCountryIso2 = readHqCountryIso2(
+    company as unknown as Record<string, unknown>
+  );
   const fullAddress = [
     location?.City,
     location?.State__Province__County,
@@ -3573,10 +3579,17 @@ const CompanyDetail = () => {
                     fallback="label"
                   />
                   <span style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
                     fontSize: "24px", fontWeight: 600, color: T.ink,
                     letterSpacing: "-0.4px", lineHeight: 1.2, fontFamily: T.sans,
                   }}>
                     {company.name}
+                    <CountryFlagImg
+                      iso2={hqCountryIso2}
+                      size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.5}
+                    />
                   </span>
                 </div>
 
