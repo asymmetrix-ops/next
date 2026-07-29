@@ -49,6 +49,8 @@ import {
 import { McpGuestTrackerToolbarActions } from "@/components/mcp-guest/McpGuestTrackerToolbarActions";
 import { MCP_GUEST_TRACKER_TITLE } from "@/lib/mcpGuest";
 
+const LOCKED_PRIMARY_SECTOR_FILTER_KEY = "scoped-primary-sector-lock";
+
 export type CompanyDashboardProps = {
   onSearch?: (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => void;
   onFilterColumnsChange?: (payload: {
@@ -74,6 +76,8 @@ export type CompanyDashboardProps = {
   embedded?: boolean;
   guestMode?: boolean;
   hideFilterBar?: boolean;
+  /** When true, injects a non-removable primary sector filter chip for scoped sector pages. */
+  lockPrimarySectorFilter?: boolean;
 };
 
 export const CompanyDashboard = ({
@@ -98,6 +102,7 @@ export const CompanyDashboard = ({
   embedded = false,
   guestMode = false,
   hideFilterBar = false,
+  lockPrimarySectorFilter = false,
 }: CompanyDashboardProps) => {
   // Unified filter bar state — replaces all the individual selected-* state vars
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
@@ -188,6 +193,43 @@ export const CompanyDashboard = ({
       locationsService.getSecondarySectors(ids).then(setSecondarySectors).catch(console.error);
     }
   }, [selectedPrimaryNames, primarySectors]);
+
+  // Inject locked primary sector filter for scoped sector pages (e.g. Public Companies tab).
+  useEffect(() => {
+    if (!lockPrimarySectorFilter || scopedPrimarySectorIds.length === 0) return;
+    const sectorId = scopedPrimarySectorIds[0];
+    const sector = primarySectors.find((s) => s.id === sectorId);
+    if (!sector) return;
+
+    setFilterBarState((prev) => {
+      const existing = prev.filters.find((f) => f.id === "primary_sector");
+      if (existing) {
+        const names = Array.isArray(existing.value) ? (existing.value as string[]) : [];
+        if (names.length === 1 && names[0] === sector.sector_name) {
+          return prev;
+        }
+        return {
+          ...prev,
+          filters: prev.filters.map((f) =>
+            f.id === "primary_sector"
+              ? { ...f, value: [sector.sector_name] }
+              : f
+          ),
+        };
+      }
+      return {
+        ...prev,
+        filters: [
+          {
+            id: "primary_sector",
+            key: LOCKED_PRIMARY_SECTOR_FILTER_KEY,
+            value: [sector.sector_name],
+          },
+          ...prev.filters,
+        ],
+      };
+    });
+  }, [lockPrimarySectorFilter, scopedPrimarySectorIds, primarySectors]);
 
   // ── Build dynamic filter defs from API data ────────────────────────────
   const filterDefs = useMemo(() => {
@@ -535,6 +577,9 @@ export const CompanyDashboard = ({
             state={filterBarState}
             onStateChange={setFilterBarState}
             totalCount={matchCount}
+            nonRemovableFilterIds={
+              lockPrimarySectorFilter ? ["primary_sector"] : undefined
+            }
           />
         </div>
       </div>

@@ -123,6 +123,7 @@ export const CorporateEventsSearchSection = ({
   onRegisterExportCSV,
   isPortfolioOnlyFilter = false,
   enableColumnControl = true,
+  embedded = false,
 }: {
   events: CorporateEventItem[];
   loading: boolean;
@@ -150,8 +151,12 @@ export const CorporateEventsSearchSection = ({
   onRegisterExportCSV?: (fn: () => void) => void;
   isPortfolioOnlyFilter?: boolean;
   enableColumnControl?: boolean;
+  embedded?: boolean;
 }) => {
   const router = useRouter();
+  const sectionClassName = embedded
+    ? "company-section company-section-embedded"
+    : "company-section";
   const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
@@ -732,7 +737,7 @@ export const CorporateEventsSearchSection = ({
 
   if (loading && events.length === 0) {
     return (
-      <div className="company-section">
+      <div className={sectionClassName}>
         <div className="loading">Loading corporate events...</div>
         {columnsModalLayer}
         <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
@@ -742,7 +747,7 @@ export const CorporateEventsSearchSection = ({
 
   if (error) {
     return (
-      <div className="company-section">
+      <div className={sectionClassName}>
         <div className="error">{error}</div>
         {columnsModalLayer}
         <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
@@ -752,7 +757,7 @@ export const CorporateEventsSearchSection = ({
 
   if (events.length === 0 && isPortfolioOnlyFilter) {
     return (
-      <div className="company-section">
+      <div className={sectionClassName}>
         <FollowedOnlyEmptyState entity="corporate events" />
         {columnsModalLayer}
         <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
@@ -761,7 +766,7 @@ export const CorporateEventsSearchSection = ({
   }
 
   return (
-    <div className="company-section">
+    <div className={sectionClassName}>
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>

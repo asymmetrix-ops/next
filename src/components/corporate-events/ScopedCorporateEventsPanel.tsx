@@ -275,34 +275,37 @@ export function ScopedCorporateEventsPanel({
     <div
       className={
         embedded
-          ? "overflow-hidden bg-white rounded-xl border shadow-lg border-slate-200/60 px-5"
+          ? "overflow-hidden bg-white rounded-xl border shadow-lg border-slate-200/60"
           : "min-h-screen"
       }
     >
-      <CorporateEventsDashboard
-        onSearch={handleSearch}
-        onFilterColumnsChange={handleFilterColumnsChange}
-        summaryStats={summaryStats}
-        userId={userId}
-        hidePageHeader={embedded}
-        embedded={embedded}
-        hideExport
-        hideColumns
-        excludeFilterIds={["primary_sector"]}
-        scopedPrimarySectorIds={scopedPrimarySectorIds}
-        matchCountOverride={pagination.itemTotal}
-      />
-      <CorporateEventsSearchSection
-        events={events}
-        loading={loading}
-        error={error}
-        pagination={pagination}
-        fetchCorporateEvents={fetchCorporateEvents}
-        currentFilters={currentFilters}
-        filterPinnedColumnKeys={filterPinnedColumnKeys}
-        isPortfolioOnlyFilter={isPortfolioOnlyFilter}
-        enableColumnControl={false}
-      />
+      <div className={embedded ? "px-5" : undefined}>
+        <CorporateEventsDashboard
+          onSearch={handleSearch}
+          onFilterColumnsChange={handleFilterColumnsChange}
+          summaryStats={summaryStats}
+          userId={userId}
+          hidePageHeader={embedded}
+          embedded={embedded}
+          hideExport
+          hideColumns
+          excludeFilterIds={["primary_sector"]}
+          scopedPrimarySectorIds={scopedPrimarySectorIds}
+          matchCountOverride={pagination.itemTotal}
+        />
+        <CorporateEventsSearchSection
+          events={events}
+          loading={loading}
+          error={error}
+          pagination={pagination}
+          fetchCorporateEvents={fetchCorporateEvents}
+          currentFilters={currentFilters}
+          filterPinnedColumnKeys={filterPinnedColumnKeys}
+          isPortfolioOnlyFilter={isPortfolioOnlyFilter}
+          enableColumnControl={false}
+          embedded={embedded}
+        />
+      </div>
     </div>
   );
 }
