@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
-import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
+import React from "react";
 import {
   CARD_HEADER_BAR_STYLE,
   CARD_TITLE_STYLE,
@@ -13,33 +12,24 @@ import { IncomeStatementMetricsGrid } from "./IncomeStatementMetricsGrid";
 
 export function IncomeStatementFinancialsCard({
   model,
+  gridTemplate,
+  showYoyColumn = false,
 }: {
   model: IncomeStatementFinancialsViewModel;
+  gridTemplate: string;
+  showYoyColumn?: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
-
   return (
     <LinkPanel style={{ marginBottom: 16 }}>
       <div style={CARD_HEADER_BAR_STYLE}>
-        <button
-          type="button"
-          onClick={() => setCollapsed((prev) => !prev)}
+        <div
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
-            border: "none",
-            background: "transparent",
-            padding: 0,
-            cursor: "pointer",
             minWidth: 0,
           }}
         >
-          {collapsed ? (
-            <ChevronDownIcon width={16} height={16} color={T.muted} aria-hidden />
-          ) : (
-            <ChevronUpIcon width={16} height={16} color={T.muted} aria-hidden />
-          )}
           <span style={CARD_TITLE_STYLE}>{model.title}</span>
           <span
             style={{
@@ -51,9 +41,13 @@ export function IncomeStatementFinancialsCard({
           >
             {model.metrics.length} metrics
           </span>
-        </button>
+        </div>
       </div>
-      {!collapsed ? <IncomeStatementMetricsGrid model={model} /> : null}
+      <IncomeStatementMetricsGrid
+        model={model}
+        gridTemplate={gridTemplate}
+        showYoyColumn={showYoyColumn}
+      />
     </LinkPanel>
   );
 }

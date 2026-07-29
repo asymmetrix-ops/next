@@ -55,11 +55,65 @@ const METRIC_SOURCE_FIELD: Partial<
 };
 
 export function parseSourceType(value: unknown): FiMetricSourceType | null {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "public") return "Public";
-  if (normalized === "estimate") return "Estimate";
-  if (normalized === "proprietary") return "Proprietary";
+  if (value == null) return null;
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const normalized = trimmed.toLowerCase();
+    if (normalized === "public") return "Public";
+    if (normalized === "estimate") return "Estimate";
+    if (normalized === "proprietary") return "Proprietary";
+    if (
+      normalized === "model" ||
+      normalized === "modelled" ||
+      normalized === "modeled" ||
+      normalized === "human/model" ||
+      normalized === "human model" ||
+      normalized === "human" ||
+      normalized === "analyst" ||
+      normalized === "analyst-adjusted" ||
+      normalized === "analyst adjusted"
+    ) {
+      return "Estimate";
+    }
+    if (
+      normalized === "company provided" ||
+      normalized === "company_provided" ||
+      normalized === "company-provided" ||
+      normalized === "trusted third party" ||
+      normalized === "trusted_third_party" ||
+      normalized === "trusted-third-party" ||
+      normalized === "third party" ||
+      normalized === "third_party"
+    ) {
+      return "Proprietary";
+    }
+
+    if (/^\d+$/.test(trimmed)) {
+      return parseSourceType(Number.parseInt(trimmed, 10));
+    }
+
+    return null;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    switch (value) {
+      case 1:
+        return "Public";
+      case 2:
+      case 3:
+      case 5:
+        return "Proprietary";
+      case 4:
+      case 6:
+        return "Estimate";
+      default:
+        return null;
+    }
+  }
+
   return null;
 }
 

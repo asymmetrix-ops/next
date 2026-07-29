@@ -189,3 +189,26 @@ export function buildIncomeStatementFinancialsViewModel(
     metrics,
   };
 }
+
+export function remapIncomeStatementToUnifiedYears(
+  model: IncomeStatementFinancialsViewModel,
+  unifiedYears: number[]
+): IncomeStatementFinancialsViewModel {
+  const indexByYear = new Map<number, number>();
+  model.years.forEach((year, index) => {
+    if (year != null) indexByYear.set(year, index);
+  });
+
+  return {
+    ...model,
+    years: unifiedYears,
+    columnLabels: unifiedYears.map((year) => `FY${year}`),
+    metrics: model.metrics.map((metric) => ({
+      ...metric,
+      values: unifiedYears.map((year) => {
+        const index = indexByYear.get(year);
+        return index != null ? (metric.values[index] ?? "-") : "-";
+      }),
+    })),
+  };
+}

@@ -54,12 +54,13 @@ function ValueCell({
 
 export function IncomeStatementMetricsGrid({
   model,
+  gridTemplate,
+  showYoyColumn = false,
 }: {
   model: IncomeStatementFinancialsViewModel;
+  gridTemplate: string;
+  showYoyColumn?: boolean;
 }) {
-  const columnCount = model.columnLabels.length;
-  const gridTemplate = `minmax(180px, 1.4fr) repeat(${columnCount}, minmax(88px, 1fr))`;
-
   return (
     <div className="income-statement-table" style={{ width: "100%", minWidth: 0 }}>
       <div
@@ -69,13 +70,14 @@ export function IncomeStatementMetricsGrid({
         }}
       >
         <span>Metric</span>
-        {model.columnLabels.map((label, index) => (
-          <span key={`${label}-${index}`} style={{ textAlign: "center" }}>
-            {model.years[index] != null
-              ? formatFiscalYearHeader(model.years[index]!)
-              : label}
+        {model.years.map((year, index) => (
+          <span key={`${year}-${index}`} style={{ textAlign: "center" }}>
+            {year != null ? formatFiscalYearHeader(year) : model.columnLabels[index]}
           </span>
         ))}
+        {showYoyColumn ? (
+          <span style={{ textAlign: "center" }}>YoY</span>
+        ) : null}
       </div>
 
       {model.metrics.map((metric, index) => (
@@ -112,6 +114,11 @@ export function IncomeStatementMetricsGrid({
               <ValueCell value={value} metricKey={metric.key} />
             </div>
           ))}
+          {showYoyColumn ? (
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <ValueCell value="-" metricKey={metric.key} />
+            </div>
+          ) : null}
         </div>
       ))}
     </div>
