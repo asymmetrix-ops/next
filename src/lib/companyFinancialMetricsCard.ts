@@ -48,6 +48,8 @@ export type CompanyFinancialMetricsCardRow = {
   EBITDA_margin_source_label?: string | null;
   Rule_of_40?: number | string | null;
   Rule_of_40_source_label?: string | null;
+  Revenue_multiple?: number | string | null;
+  Revenue_multiple_source_label?: string | null;
   EBIT_m?: number | string | null;
   EBIT_currency_display?: string | null;
   EBIT_source_label?: string | null;
@@ -68,7 +70,8 @@ export type FinancialsMetricFormat =
   | "percent"
   | "count"
   | "money_whole"
-  | "plain_number";
+  | "plain_number"
+  | "multiple";
 
 export type FinancialsMetricDef = {
   key: string;
@@ -138,6 +141,21 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         valueField: "EBITDA_m",
         sourceField: "EBITDA_source_label",
         currencyField: "EBITDA_currency_display",
+      },
+      {
+        key: "ev",
+        label: "Enterprise Value (m)",
+        format: "money_millions",
+        valueField: "EV",
+        sourceField: "EV_source_label",
+        currencyField: "EV_currency_display",
+      },
+      {
+        key: "revenue_multiple",
+        label: "Revenue multiple",
+        format: "multiple",
+        valueField: "Revenue_multiple",
+        sourceField: "Revenue_multiple_source_label",
       },
       {
         key: "rev_growth",
@@ -511,6 +529,13 @@ function formatMetricValue(
           raw % 1 === 0
             ? Math.round(raw).toLocaleString("en-US")
             : String(raw),
+        raw,
+        sourceType,
+      };
+    case "multiple":
+      return {
+        display:
+          raw % 1 === 0 ? `${Math.round(raw)}x` : `${raw.toFixed(1)}x`,
         raw,
         sourceType,
       };

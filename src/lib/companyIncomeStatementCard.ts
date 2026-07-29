@@ -68,6 +68,10 @@ const METRIC_FIELD_MAP: Record<string, MetricFieldMapping> = {
     source: "EV_source_label",
     currency: "EV_currency_display",
   },
+  revenue_multiple: {
+    value: "Revenue_multiple",
+    source: "Revenue_multiple_source_label",
+  },
   subscription_revenue_m: {
     value: "Subscription_revenue_m",
     source: "Subscription_revenue_source_label",

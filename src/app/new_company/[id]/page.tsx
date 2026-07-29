@@ -1015,6 +1015,12 @@ const formatPercent = (value?: number | string | null): string => {
   return `${Math.round(n)}%`;
 };
 
+const formatMultiple = (value?: number | string | null): string => {
+  const n = getNumeric(value);
+  if (n === undefined) return "-";
+  return n % 1 === 0 ? `${Math.round(n)}x` : `${n.toFixed(1)}x`;
+};
+
 // Prefer explicit API-provided labels, fallback to legacy numeric/string codes
 const effectiveSourceLabel = (
   label?: string | null,
@@ -2464,7 +2470,6 @@ const CompanyDetail = () => {
 
   const finMetricsData = buildFinancialMetricsSections({
     financialMetrics,
-    hasIncomeStatementData,
     revenuePlain,
     ebitdaPlain,
     currencyCode: metricsCurrencyCode || displayCurrency,
@@ -2472,6 +2477,7 @@ const CompanyDetail = () => {
     formatPercent,
     formatPlainNumber,
     formatWholeNumber,
+    formatMultiple,
     getNumeric,
     periodDisplay: financialMetricsPeriodDisplay || undefined,
   });
