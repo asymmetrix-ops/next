@@ -3,15 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3001",
+    "kill-port": "lsof -ti:3001 | xargs kill -9 2>/dev/null || true",
+    "dev": "npm run kill-port && next dev -p 3001",
     "build": "next build",
-    "start": "next start -p 3001",
+    "start": "npm run kill-port && next start -p 3001",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "clean": "node -e \"const fs = require('fs'); const path = require('path'); ['.next', 'out', '.vercel', 'node_modules/.cache'].forEach(dir => { try { fs.rmSync(path.join(process.cwd(), dir), { recursive: true, force: true }); console.log('Removed ' + dir); } catch(e) { if(e.code !== 'ENOENT') console.log('Not found: ' + dir); } });\""
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",
+    "@relume_io/relume-tailwind": "^1.3.0",
+    "@relume_io/relume-ui": "^1.3.1",
     "@sparticuz/chromium": "^131.0.0",
     "@visx/event": "^3.12.0",
     "@visx/gradient": "^3.12.0",
@@ -50,6 +53,7 @@
     "react-email-editor": "^1.7.8",
     "react-hook-form": "^7.48.0",
     "react-hot-toast": "^2.5.2",
+    "react-icons": "^5.7.0",
     "react-markdown": "^9.0.0",
     "react-query": "^3.39.3",
     "react-quill": "^2.0.0",

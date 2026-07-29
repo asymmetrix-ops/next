@@ -1,0 +1,32 @@
+.landing-rebrand {
+  --asymmetrix-blue: hsl(228, 85%, 63%);
+  --asymmetrix-blue-dark: hsl(228, 85%, 55%);
+  --gradient-hero: linear-gradient(
+    160deg,
+    hsl(218, 64%, 33%) 0%,
+    hsl(226, 84%, 44%) 50.2%,
+    hsl(0, 0%, 0%) 100%
+  );
+}
+
+.landing-rebrand .landing-hero-bg {
+  background: var(--gradient-hero);
+}
+
+.landing-rebrand .bg-background-alternative {
+  background-color: var(--asymmetrix-blue);
+}
+
+.landing-rebrand .hover\:bg-background-alternative:hover {
+  background-color: var(--asymmetrix-blue-dark);
+}
+
+.landing-rebrand .border-border-primary {
+  border-color: var(--asymmetrix-blue);
+}
+
+.landing-rebrand .ring-border-primary,
+.landing-rebrand .focus\:ring-border-primary:focus,
+.landing-rebrand .focus-visible\:ring-border-primary:focus-visible {
+  --tw-ring-color: var(--asymmetrix-blue);
+}
