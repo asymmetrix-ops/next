@@ -16,25 +16,26 @@ import {
   EMPTY_INVESTOR_TYPE_COUNTS,
   type InvestorsTypeCounts,
 } from "@/components/investors/investorsFilterConfig";
-import { fetchSectorMostActiveInvestors } from "@/lib/sectorMostActiveClientApi";
+import {
+  fetchSectorMostActiveInvestors,
+  fetchSectorMostActiveStrategicAsInvestors,
+} from "@/lib/sectorMostActiveClientApi";
+
+export type SectorMostActiveRankedKind = "pe" | "venture" | "strategic";
 
 export type ScopedInvestorsPanelProps = {
   primarySectorId: number;
-  investorTypeTab: Exclude<InvestorTypeTab, "all">;
+  rankedKind: SectorMostActiveRankedKind;
+  investorTypeTab?: Exclude<InvestorTypeTab, "all">;
+  profileHrefPrefix?: string;
   embedded?: boolean;
   columnsStorageKey?: string;
   defaultColumnKeys?: readonly string[];
 };
 
-function investorKindFromTab(
-  tab: Exclude<InvestorTypeTab, "all">
-): "pe" | "venture" {
-  return tab === "venture_capital" ? "venture" : "pe";
-}
-
 function useScopedInvestorsSearch(
   primarySectorId: number,
-  investorTypeTab: Exclude<InvestorTypeTab, "all">
+  rankedKind: SectorMostActiveRankedKind
 ) {
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +52,6 @@ function useScopedInvestorsSearch(
     itemsTotal: 0,
   });
   const [typeCounts] = useState<InvestorsTypeCounts>(EMPTY_INVESTOR_TYPE_COUNTS);
-  const kind = investorKindFromTab(investorTypeTab);
 
   const fetchInvestors = useCallback(
     async (page: number = 1) => {
@@ -61,7 +61,17 @@ function useScopedInvestorsSearch(
       setCurrentFilters(createDefaultInvestorFilters());
 
       try {
-        const data = await fetchSectorMostActiveInvestors(kind, primarySectorId, page);
+        const data =
+          rankedKind === "strategic"
+            ? await fetchSectorMostActiveStrategicAsInvestors(
+                primarySectorId,
+                page
+              )
+            : await fetchSectorMostActiveInvestors(
+                rankedKind,
+                primarySectorId,
+                page
+              );
 
         if (!data) {
           throw new Error("Failed to fetch investors - authentication required");
@@ -90,7 +100,7 @@ function useScopedInvestorsSearch(
         }
       }
     },
-    [kind, primarySectorId]
+    [rankedKind, primarySectorId]
   );
 
   return {
@@ -106,7 +116,9 @@ function useScopedInvestorsSearch(
 
 export function ScopedInvestorsPanel({
   primarySectorId,
+  rankedKind,
   investorTypeTab,
+  profileHrefPrefix = "/investors",
   embedded = true,
   columnsStorageKey,
   defaultColumnKeys = SECTOR_MOST_ACTIVE_INVESTOR_COLUMN_KEYS,
@@ -119,7 +131,7 @@ export function ScopedInvestorsPanel({
     typeCounts,
     fetchInvestors,
     currentFilters,
-  } = useScopedInvestorsSearch(primarySectorId, investorTypeTab);
+  } = useScopedInvestorsSearch(primarySectorId, rankedKind);
 
   const scopedPrimarySectorIds = useMemo(
     () => [primarySectorId],
@@ -129,9 +141,13 @@ export function ScopedInvestorsPanel({
   const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [columnsCount, setColumnsCount] = useState(defaultColumnKeys.length);
 
+  const resolvedInvestorTypeTab: Exclude<InvestorTypeTab, "all"> =
+    investorTypeTab ??
+    (rankedKind === "venture" ? "venture_capital" : "private_equity");
+
   const scopeKey = useMemo(
-    () => JSON.stringify({ primarySectorId, investorTypeTab }),
-    [primarySectorId, investorTypeTab]
+    () => JSON.stringify({ primarySectorId, rankedKind }),
+    [primarySectorId, rankedKind]
   );
 
   useEffect(() => {
@@ -140,7 +156,7 @@ export function ScopedInvestorsPanel({
 
   const resolvedColumnsStorageKey =
     columnsStorageKey ??
-    `sector-investors-column-keys-${primarySectorId}-${investorTypeTab}`;
+    `sector-investors-column-keys-${primarySectorId}-${rankedKind}`;
 
   return (
     <div
@@ -161,7 +177,7 @@ export function ScopedInvestorsPanel({
         hideFilterBar
         hideExport
         hideTypeTabs
-        fixedInvestorTypeTab={investorTypeTab}
+        fixedInvestorTypeTab={resolvedInvestorTypeTab}
         excludeFilterIds={["primary_sector"]}
         scopedPrimarySectorIds={scopedPrimarySectorIds}
         matchCountOverride={pagination.itemsTotal}
@@ -179,6 +195,7 @@ export function ScopedInvestorsPanel({
         columnsStorageKey={resolvedColumnsStorageKey}
         columnsStorageScope="session"
         defaultColumnKeys={defaultColumnKeys}
+        profileHrefPrefix={profileHrefPrefix}
       />
     </div>
   );
