@@ -1529,7 +1529,9 @@ const CompanyDetail = () => {
   const fetchIncomeStatementCard = useCallback(async (id: string | number) => {
     try {
       const data = await fetchCompanyIncomeStatementCard(id);
-      setIncomeStatementApiRows(normalizeIncomeStatementApiRows(data));
+      setIncomeStatementApiRows(
+        normalizeIncomeStatementApiRows(data.incomeStatementRows)
+      );
     } catch {
       setIncomeStatementApiRows([]);
     }
