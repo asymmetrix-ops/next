@@ -64,6 +64,7 @@ import {
   hasIncomeStatementValues,
   normalizeIncomeStatementApiRows,
   normalizeIncomeStatementRows,
+  resolveDisplayIncomeStatementRows,
   resolveIncomeStatementCurrency,
   type IncomeStatementApiEntry,
   type NormalizedIncomeStatementRow,
@@ -1097,8 +1098,8 @@ const normalizeCurrency = (candidate: unknown): string | undefined => {
   if (!candidate) return undefined;
   if (typeof candidate === "string") {
     const trimmed = candidate.trim();
-    // If backend sent an id like "7", ignore it
-    if (/^\d+$/.test(trimmed)) return undefined;
+    // If backend sent an id like "7" or placeholder "0", ignore it
+    if (!trimmed || trimmed === "0" || /^\d+$/.test(trimmed)) return undefined;
     const compact = trimmed.replace(/\s/g, "").toUpperCase();
     if (compact === "US$" || compact === "US") return "USD";
     return trimmed;
@@ -1693,9 +1694,10 @@ const CompanyDetail = () => {
     try {
       const data = await fetchCompanyFinancialMetricsCard(id);
       if (data.length > 0) {
-        setFinancialMetricsCardRows(data);
-        setFinancialMetrics(
-          (data[0] as CompanyFinancialMetrics | undefined) ?? null
+        setFinancialMetricsCardRows((prev) => (prev.length > 0 ? prev : data));
+        setFinancialMetrics((prev) =>
+          prev ??
+          ((data[0] as CompanyFinancialMetrics | undefined) ?? null)
         );
       }
     } catch {
@@ -1726,19 +1728,28 @@ const CompanyDetail = () => {
     }
   }, []);
 
-  const showFinancialsTab = useMemo(
-    () =>
-      !incomeStatementCardLoading &&
-      !financialMetricsCardLoading &&
-      (hasIncomeStatementValues(incomeStatementApiRows) ||
-        hasFinancialMetricsCardData(financialMetricsCardRows)),
-    [
-      incomeStatementCardLoading,
-      financialMetricsCardLoading,
-      incomeStatementApiRows,
-      financialMetricsCardRows,
-    ]
-  );
+  const showFinancialsTab = useMemo(() => {
+    if (!company) return false;
+
+    const displayRows = resolveDisplayIncomeStatementRows({
+      apiRows: incomeStatementApiRows,
+      profileRows: normalizeIncomeStatementRows(company.income_statement),
+      financialMetricsRows: financialMetricsCardRows,
+    });
+    const hasData =
+      hasIncomeStatementValues(displayRows) ||
+      hasFinancialMetricsCardData(financialMetricsCardRows);
+
+    if (hasData) return true;
+    if (incomeStatementCardLoading || financialMetricsCardLoading) return false;
+    return false;
+  }, [
+    company,
+    incomeStatementCardLoading,
+    financialMetricsCardLoading,
+    incomeStatementApiRows,
+    financialMetricsCardRows,
+  ]);
 
   const fetchCompanyAiRisksData = useCallback(async (id: string | number) => {
     setAiRiskData(null);
@@ -2650,14 +2661,15 @@ const CompanyDetail = () => {
     undefined;
   const financialMetricsPeriodDisplay = formatFinancialMetricsPeriod(financialMetrics);
 
-  // Extract last 3 income statement rows
+  // Extract last 3 income statement rows (profile, card API, and financial metrics)
   const profileIncomeStatements = normalizeIncomeStatementRows(
     company.income_statement
   );
-  const normalizedIncomeStatements =
-    incomeStatementApiRows.length > 0
-      ? incomeStatementApiRows
-      : profileIncomeStatements;
+  const normalizedIncomeStatements = resolveDisplayIncomeStatementRows({
+    apiRows: incomeStatementApiRows,
+    profileRows: profileIncomeStatements,
+    financialMetricsRows: financialMetricsCardRows,
+  });
   const hasIncomeStatementData = hasIncomeStatementValues(
     normalizedIncomeStatements
   );
@@ -4571,7 +4583,6 @@ const CompanyDetail = () => {
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
                 incomeStatementCurrency={incomeStatementCurrency}
-                employeeHistory={employeeData}
               />
             </div>
 
@@ -4613,7 +4624,6 @@ const CompanyDetail = () => {
               hasIncomeStatement={hasIncomeStatementData}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementCurrency={incomeStatementCurrency}
-              employeeHistory={employeeData}
             />
 
             <div style={{ marginTop: 20 }}>
