@@ -53,8 +53,12 @@ import {
 import { fetchCompanyIncomeStatementCard } from "@/lib/companyIncomeStatementCard";
 import {
   fetchCompanyFinancialMetricsCard,
+  hasFinancialMetricsCardData,
+  mergeFinancialMetricsCardRows,
   resolveLatestFinancialMetricsRow,
+  type CompanyFinancialMetricsCardRow,
 } from "@/lib/companyFinancialMetricsCard";
+import { CompanyFinancialsSection } from "@/components/company/CompanyFinancialsSection";
 import { EMPTY_DISPLAY, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import {
   isCompanyMcpPopulated,
@@ -1197,6 +1201,13 @@ const CompanyDetail = () => {
   const [incomeStatementApiRows, setIncomeStatementApiRows] = useState<
     NormalizedIncomeStatementRow[]
   >([]);
+  const [financialMetricsCardRows, setFinancialMetricsCardRows] = useState<
+    CompanyFinancialMetricsCardRow[]
+  >([]);
+  const [financialMetricsCardLoading, setFinancialMetricsCardLoading] =
+    useState(false);
+  const [incomeStatementCardLoading, setIncomeStatementCardLoading] =
+    useState(false);
   const [productServicesData, setProductServicesData] = useState<ProductUsersSection[] | null>(null);
   // New investors from company_investors API endpoint
   const [apiInvestors, setApiInvestors] = useState<
@@ -1518,27 +1529,53 @@ const CompanyDetail = () => {
     setInsightsPage(1);
   }, [company?.id]);
 
-  const fetchFinancialMetrics = useCallback(async (id: string | number) => {
+  const fetchFinancialMetricsCard = useCallback(async (id: string | number) => {
+    setFinancialMetricsCardLoading(true);
     try {
-      const rows = await fetchCompanyFinancialMetricsCard(id);
-      setFinancialMetrics(
-        (resolveLatestFinancialMetricsRow(rows) as
-          | CompanyFinancialMetrics
-          | undefined) ?? null
-      );
+      const data = await fetchCompanyFinancialMetricsCard(id);
+      if (data.length > 0) {
+        setFinancialMetricsCardRows((prev) => {
+          const merged = mergeFinancialMetricsCardRows(prev, data);
+          setFinancialMetrics(
+            (resolveLatestFinancialMetricsRow(merged) as
+              | CompanyFinancialMetrics
+              | undefined) ?? null
+          );
+          return merged;
+        });
+      }
     } catch {
       // Non-fatal; keep defaults
+    } finally {
+      setFinancialMetricsCardLoading(false);
     }
   }, []);
 
   const fetchIncomeStatementCard = useCallback(async (id: string | number) => {
+    setIncomeStatementCardLoading(true);
     try {
       const data = await fetchCompanyIncomeStatementCard(id);
       setIncomeStatementApiRows(
         normalizeIncomeStatementApiRows(data.incomeStatementRows)
       );
+      if (data.financialMetricsRows.length > 0) {
+        setFinancialMetricsCardRows((prev) => {
+          const merged = mergeFinancialMetricsCardRows(
+            data.financialMetricsRows,
+            prev
+          );
+          setFinancialMetrics(
+            (resolveLatestFinancialMetricsRow(merged) as
+              | CompanyFinancialMetrics
+              | undefined) ?? null
+          );
+          return merged;
+        });
+      }
     } catch {
       setIncomeStatementApiRows([]);
+    } finally {
+      setIncomeStatementCardLoading(false);
     }
   }, []);
 
@@ -1908,7 +1945,7 @@ const CompanyDetail = () => {
     companyId,
     fetchCompanyArticles,
     requestCompany,
-    fetchFinancialMetrics,
+    fetchFinancialMetricsCard,
     fetchCompanyInvestors,
     fetchCompanyTransactionStatus,
     fetchCompanyAiRisksData,
@@ -1919,9 +1956,39 @@ const CompanyDetail = () => {
   useEffect(() => {
     if (!company?.id || company.id <= 0) return;
     setIncomeStatementApiRows([]);
+    setFinancialMetricsCardRows([]);
     fetchIncomeStatementCard(company.id);
-    fetchFinancialMetrics(company.id);
-  }, [company?.id, fetchIncomeStatementCard, fetchFinancialMetrics]);
+    fetchFinancialMetricsCard(company.id);
+  }, [company?.id, fetchIncomeStatementCard, fetchFinancialMetricsCard]);
+
+  const showFinancialsTab = useMemo(() => {
+    if (!company) return false;
+
+    const displayRows = resolveDisplayIncomeStatementRows({
+      apiRows: incomeStatementApiRows,
+      profileRows: normalizeIncomeStatementRows(company.income_statement),
+      financialMetricsRows: financialMetricsCardRows,
+    });
+    const hasData =
+      hasIncomeStatementValues(displayRows) ||
+      hasFinancialMetricsCardData(financialMetricsCardRows);
+
+    if (hasData) return true;
+    if (incomeStatementCardLoading || financialMetricsCardLoading) return false;
+    return false;
+  }, [
+    company,
+    incomeStatementCardLoading,
+    financialMetricsCardLoading,
+    incomeStatementApiRows,
+    financialMetricsCardRows,
+  ]);
+
+  useEffect(() => {
+    if (!showFinancialsTab && activeProfileTab === "Financials") {
+      setActiveProfileTab("Summary");
+    }
+  }, [showFinancialsTab, activeProfileTab]);
 
   // Merge investors found in corporate events into the company's investors list
   useEffect(() => {
@@ -2452,6 +2519,7 @@ const CompanyDetail = () => {
   const normalizedIncomeStatements = resolveDisplayIncomeStatementRows({
     apiRows: incomeStatementApiRows,
     profileRows: profileIncomeStatements,
+    financialMetricsRows: financialMetricsCardRows,
   });
   const hasIncomeStatementData = hasIncomeStatementValues(
     normalizedIncomeStatements
@@ -3614,7 +3682,9 @@ const CompanyDetail = () => {
                 type="button"
                 onClick={() => {
                   setActiveProfileTab(tab);
-                  if (tab === "Financials") scrollToProfileFinancials();
+                  if (tab === "Financials" && !showFinancialsTab) {
+                    scrollToProfileFinancials();
+                  }
                 }}
                 style={{
                   padding: "10px 14px",
@@ -3641,6 +3711,17 @@ const CompanyDetail = () => {
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="company-detail-content" style={styles.maxWidth}>
+          {activeProfileTab === "Financials" && showFinancialsTab ? (
+            <CompanyFinancialsSection
+              rows={financialMetricsCardRows}
+              loading={financialMetricsCardLoading}
+              companyName={company?.name?.trim() || "Company"}
+              incomeStatementRows={normalizedIncomeStatements}
+              incomeStatementCurrency={incomeStatementCurrency}
+              employeeHistory={employeeData}
+            />
+          ) : (
+          <>
           {/* Desktop grid */}
           <div style={styles.responsiveGrid} className="responsiveGrid">
 
@@ -4398,6 +4479,8 @@ const CompanyDetail = () => {
           {/* Management: desktop under LinkedIn rail; mobile block above */}
 
 
+          </>
+          )}
         </div>
         <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
       </main>
