@@ -2,7 +2,7 @@ import type { IncomeStatementApiEntry } from "@/lib/incomeStatement";
 import type { CompanyFinancialMetricsCardRow } from "@/lib/companyFinancialMetricsCard";
 
 const API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_income_statement_card";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_financials_card";
 
 type CardMetricValue = {
   value?: number | string | null;
@@ -159,11 +159,14 @@ function resolveCellCurrency(cell: CardMetricValue): string | null {
 }
 
 function applyCurrencyFallbacks(row: CompanyFinancialMetricsCardRow): void {
-  const primaryCurrency =
-    row.Revenue_currency_display?.trim() ||
-    row.EBITDA_currency_display?.trim() ||
-    row.EV_currency_display?.trim() ||
-    row.EBIT_currency_display?.trim();
+  const primaryCurrency = [
+    row.Revenue_currency_display,
+    row.EBITDA_currency_display,
+    row.EV_currency_display,
+    row.EBIT_currency_display,
+  ]
+    .map((value) => value?.trim())
+    .find((value) => value && value !== "0" && !/^\d+$/.test(value));
 
   if (!primaryCurrency) return;
 

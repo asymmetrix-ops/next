@@ -12,6 +12,7 @@ export type IncomeStatementApiEntry = {
   FTE_count?: number | string | null;
   Revenue_per_FTE?: number | string | null;
   statement_currency?: string | null;
+  currency?: string | null;
   cost_of_goods_sold_currency?: string | null;
 };
 
@@ -30,6 +31,16 @@ export type NormalizedIncomeStatementRow = {
   revenue_per_fte?: number | null;
   statement_currency?: string;
 };
+
+function sanitizeCurrencyCode(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "0" || /^\d+$/.test(trimmed)) return undefined;
+  if (trimmed.toUpperCase() === "US$" || trimmed.toUpperCase() === "US") {
+    return "USD";
+  }
+  return trimmed.toUpperCase();
+}
 
 function parseNumeric(value?: number | string | null): number | undefined {
   if (value === null || value === undefined) return undefined;
@@ -85,7 +96,10 @@ function normalizeRow(row: IncomeStatementApiEntry): NormalizedIncomeStatementRo
       (revenue != null && fteCount != null && fteCount > 0
         ? revenue / fteCount
         : null),
-    statement_currency: row.statement_currency?.trim() || undefined,
+    statement_currency:
+      sanitizeCurrencyCode(row.statement_currency) ||
+      sanitizeCurrencyCode(row.currency) ||
+      undefined,
   };
 }
 
@@ -177,6 +191,97 @@ export function resolveIncomeStatementCurrency(
   rows: NormalizedIncomeStatementRow[],
   fallback?: string
 ): string {
-  const fromRows = rows.map((row) => row.statement_currency).find(Boolean);
-  return fromRows || fallback?.trim() || "";
+  for (const row of rows) {
+    const code = sanitizeCurrencyCode(row.statement_currency);
+    if (code) return code;
+  }
+  return sanitizeCurrencyCode(fallback) || "";
+}
+
+type FinancialMetricsIncomeRow = {
+  id?: number;
+  financial_year_int?: number | null;
+  financial_year_text?: string | null;
+  Revenue_m?: number | string | null;
+  Revenue_currency_display?: string | null;
+  EBITDA_m?: number | string | null;
+  EBITDA_currency_display?: string | null;
+  EBIT_m?: number | string | null;
+  EBIT_currency_display?: string | null;
+};
+
+function millionsToRaw(value: number | string | null | undefined): number | null {
+  const millions = parseNumeric(value);
+  if (millions == null) return null;
+  return millions * 1_000_000;
+}
+
+/** Builds income-statement-shaped rows from multi-year financial metrics card data. */
+export function buildIncomeStatementFromFinancialMetrics(
+  rows: FinancialMetricsIncomeRow[]
+): NormalizedIncomeStatementRow[] {
+  return rows.flatMap((row, index) => {
+    const year =
+      parseNumeric(row.financial_year_int) ??
+      parseNumeric(row.financial_year_text);
+    if (year == null) return [];
+
+    const revenue = millionsToRaw(row.Revenue_m);
+    const ebit = millionsToRaw(row.EBIT_m);
+    const ebitda = millionsToRaw(row.EBITDA_m);
+    if (revenue == null && ebit == null && ebitda == null) return [];
+
+    return [
+      {
+        id: row.id ?? index,
+        period_type: "fiscal_year",
+        period_year: year,
+        period_display_end_date: `FY${year}`,
+        revenue,
+        ebit,
+        ebitda,
+        statement_currency:
+          sanitizeCurrencyCode(row.Revenue_currency_display) ||
+          sanitizeCurrencyCode(row.EBIT_currency_display) ||
+          sanitizeCurrencyCode(row.EBITDA_currency_display) ||
+          undefined,
+      },
+    ];
+  });
+}
+
+/** Merges profile/API/card sources and returns up to 3 fiscal-year columns. */
+export function resolveDisplayIncomeStatementRows({
+  apiRows = [],
+  profileRows = [],
+  financialMetricsRows = [],
+  limit = 3,
+}: {
+  apiRows?: NormalizedIncomeStatementRow[];
+  profileRows?: NormalizedIncomeStatementRow[];
+  financialMetricsRows?: FinancialMetricsIncomeRow[];
+  limit?: number;
+}): NormalizedIncomeStatementRow[] {
+  const fromMetrics = buildIncomeStatementFromFinancialMetrics(
+    financialMetricsRows
+  );
+  const merged = selectIncomeStatementYearColumns(
+    [...apiRows, ...profileRows, ...fromMetrics],
+    limit
+  );
+  const fallbackCurrency = resolveIncomeStatementCurrency(
+    merged,
+    sanitizeCurrencyCode(
+      financialMetricsRows
+        .map((row) => row.Revenue_currency_display)
+        .find(Boolean)
+    )
+  );
+  if (!fallbackCurrency) return merged;
+
+  return merged.map((row) => ({
+    ...row,
+    statement_currency:
+      sanitizeCurrencyCode(row.statement_currency) || fallbackCurrency,
+  }));
 }

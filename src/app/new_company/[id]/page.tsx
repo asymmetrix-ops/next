@@ -45,6 +45,7 @@ import {
   hasIncomeStatementValues,
   normalizeIncomeStatementApiRows,
   normalizeIncomeStatementRows,
+  resolveDisplayIncomeStatementRows,
   resolveIncomeStatementCurrency,
   type IncomeStatementApiEntry,
   type NormalizedIncomeStatementRow,
@@ -2437,10 +2438,10 @@ const CompanyDetail = () => {
   const profileIncomeStatements = normalizeIncomeStatementRows(
     company.income_statement
   );
-  const normalizedIncomeStatements =
-    incomeStatementApiRows.length > 0
-      ? incomeStatementApiRows
-      : profileIncomeStatements;
+  const normalizedIncomeStatements = resolveDisplayIncomeStatementRows({
+    apiRows: incomeStatementApiRows,
+    profileRows: profileIncomeStatements,
+  });
   const hasIncomeStatementData = hasIncomeStatementValues(
     normalizedIncomeStatements
   );
@@ -4281,7 +4282,6 @@ const CompanyDetail = () => {
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
                 incomeStatementCurrency={incomeStatementCurrency}
-                employeeHistory={employeeData}
               />
             </div>
 
@@ -4321,7 +4321,6 @@ const CompanyDetail = () => {
               hasIncomeStatement={hasIncomeStatementData}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementCurrency={incomeStatementCurrency}
-              employeeHistory={employeeData}
             />
 
               <div style={{ marginTop: 20 }}>

@@ -347,7 +347,7 @@ function resolveRowCurrency(
     row.EBIT_currency_display,
   ]) {
     const trimmed = String(fallback ?? "").trim();
-    if (trimmed) return trimmed;
+    if (trimmed && trimmed !== "0" && !/^\d+$/.test(trimmed)) return trimmed;
   }
 
   return null;
@@ -536,6 +536,19 @@ export function buildCompanyFinancialsViewModel(
   return { years, cards };
 }
 
+function unwrapFinancialMetricsApiRows(data: unknown): FinancialMetricsApiRow[] {
+  if (Array.isArray(data)) {
+    return data as FinancialMetricsApiRow[];
+  }
+  if (typeof data === "object" && data != null) {
+    const wrapped = (data as { financial_metrics?: unknown }).financial_metrics;
+    if (Array.isArray(wrapped)) {
+      return wrapped as FinancialMetricsApiRow[];
+    }
+  }
+  return [];
+}
+
 export async function fetchCompanyFinancialMetricsCard(
   companyId: string | number
 ): Promise<CompanyFinancialMetricsCardRow[]> {
@@ -566,8 +579,7 @@ export async function fetchCompanyFinancialMetricsCard(
   if (!res.ok) return [];
 
   const data = await res.json();
-  if (!Array.isArray(data)) return [];
-  return (data as FinancialMetricsApiRow[]).map(normalizeFinancialMetricsApiRow);
+  return unwrapFinancialMetricsApiRows(data).map(normalizeFinancialMetricsApiRow);
 }
 
 export function formatFiscalYearHeader(year: number): string {

@@ -1,50 +1,177 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import {
   LinkedH,
   T,
+  FIN_METRIC_VALUE_CLASS,
+  finMetricLabelStyle,
+  finMetricValueStyle,
+  finMetricsPeriodHeaderStyle,
 } from "./primitives";
-import { buildIncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
-import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { NormalizedIncomeStatementRow } from "@/lib/incomeStatement";
-import { IncomeStatementMetricsGrid } from "../company/IncomeStatementMetricsGrid";
+import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 
 export type IncomeStatementRow = NormalizedIncomeStatementRow;
 
 type Props = {
   rows: IncomeStatementRow[];
+  /** ISO currency code, e.g. "USD". Applied to value cells. */
   currency?: string;
-  employeeHistory?: EmployeeTimeSeriesPoint[];
 };
 
-export function IncomeStatementTable({
-  rows,
-  currency = "",
-  employeeHistory = [],
-}: Props) {
-  const model = useMemo(
-    () => buildIncomeStatementFinancialsViewModel(rows, employeeHistory, currency),
-    [rows, employeeHistory, currency]
+function formatIncomeValue(
+  value: number | null | undefined,
+  currency?: string
+): string {
+  if (typeof value !== "number") return "-";
+  return appendMetricCurrency(
+    Math.round(value / 1_000_000).toLocaleString(),
+    currency
   );
+}
 
-  if (!model) return null;
-  return <IncomeStatementMetricsGrid model={model} />;
+function incomeMetrics(currency: string) {
+  return [
+    {
+      label: "Revenue (m)",
+      getValue: (row: IncomeStatementRow) =>
+        formatIncomeValue(row.revenue, row.statement_currency || currency),
+    },
+    {
+      label: "EBIT (m)",
+      getValue: (row: IncomeStatementRow) =>
+        formatIncomeValue(row.ebit, row.statement_currency || currency),
+    },
+    {
+      label: "EBITDA (m)",
+      getValue: (row: IncomeStatementRow) =>
+        formatIncomeValue(row.ebitda, row.statement_currency || currency),
+    },
+  ];
+}
+
+function formatPeriod(row: IncomeStatementRow): string {
+  const display = (row.period_display_end_date || "").replace(/[,\s]/g, "");
+  if (display) return display;
+  if (row.period_year != null) return `FY${row.period_year}`;
+  return "-";
+}
+
+function parseIncomeStatementPeriod(row: IncomeStatementRow): number {
+  if (row.period_end_date) {
+    const parsed = Date.parse(row.period_end_date);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (row.period_year != null) return row.period_year;
+  const fromDisplay = Date.parse(
+    (row.period_display_end_date || "").replace(/[^0-9-]/g, "")
+  );
+  return Number.isNaN(fromDisplay) ? 0 : fromDisplay;
+}
+
+/** Oldest → newest (left-to-right in the table). */
+export function sortIncomeStatementRowsAsc(
+  rows: IncomeStatementRow[]
+): IncomeStatementRow[] {
+  return [...rows].sort(
+    (a, b) => parseIncomeStatementPeriod(a) - parseIncomeStatementPeriod(b)
+  );
+}
+
+const thStyle: React.CSSProperties = {
+  ...finMetricsPeriodHeaderStyle,
+  padding: "4px 8px 3px",
+  textAlign: "center",
+  fontWeight: 500,
+  verticalAlign: "bottom",
+};
+
+const tdLabelStyle: React.CSSProperties = {
+  ...finMetricLabelStyle,
+  padding: "4px 8px 4px 0",
+  textAlign: "left",
+  whiteSpace: "normal",
+  lineHeight: 1.35,
+};
+
+const tdValueStyle: React.CSSProperties = {
+  ...finMetricValueStyle,
+  padding: "4px 8px",
+  textAlign: "center",
+};
+
+/** Compact master-style income statement for the profile financial card. */
+export function IncomeStatementTable({ rows, currency = "" }: Props) {
+  const orderedRows = sortIncomeStatementRowsAsc(rows);
+  const metrics = incomeMetrics(currency.trim());
+  if (orderedRows.length === 0) return null;
+
+  return (
+    <div
+      className="income-statement-table"
+      style={{
+        padding: "0 16px 8px",
+        overflowX: "auto",
+      }}
+    >
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          tableLayout: "fixed",
+        }}
+      >
+        <thead>
+          <tr
+            style={{
+              background: T.paper,
+              borderBottom: `1px solid ${T.hair}`,
+            }}
+          >
+            <th style={{ ...thStyle, textAlign: "left", paddingLeft: 0 }} />
+            {orderedRows.map((row) => (
+              <th key={row.id} style={thStyle}>
+                {formatPeriod(row)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {metrics.map((metric, metricIndex) => (
+            <tr
+              key={metric.label}
+              className="income-statement-row"
+              style={{
+                borderBottom:
+                  metricIndex === metrics.length - 1
+                    ? "none"
+                    : `1px solid ${T.hair}`,
+              }}
+            >
+              <td style={tdLabelStyle}>{metric.label}</td>
+              {orderedRows.map((row) => (
+                <td
+                  key={`${row.id}-${metric.label}`}
+                  className={FIN_METRIC_VALUE_CLASS}
+                  style={tdValueStyle}
+                >
+                  {metric.getValue(row)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export function IncomeStatementSection({
   rows,
   currency = "",
-  employeeHistory = [],
 }: Props) {
   const titleCurrency = currency.trim();
-  const model = useMemo(
-    () => buildIncomeStatementFinancialsViewModel(rows, employeeHistory, currency),
-    [rows, employeeHistory, currency]
-  );
-
-  if (!model) return null;
-
   return (
     <div
       style={{
@@ -57,7 +184,7 @@ export function IncomeStatementSection({
       <LinkedH showArrow={false}>
         Income statement{titleCurrency ? ` (${titleCurrency})` : ""}
       </LinkedH>
-      <IncomeStatementMetricsGrid model={model} />
+      <IncomeStatementTable rows={rows} currency={currency} />
     </div>
   );
 }
