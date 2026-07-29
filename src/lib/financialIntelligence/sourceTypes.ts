@@ -24,7 +24,7 @@ export const FI_SOURCE_TYPES_UI_ORDER: FiMetricSourceType[] = [
 ];
 
 export const SOURCE_TYPE_DESCRIPTIONS: Record<FiMetricSourceType, string> = {
-  Proprietary: "Asymmetrix research & primary data",
+  Proprietary: "Exclusive financial data sourced by Asymmetrix",
   Public: "Public filings & disclosures",
   Estimate: "Modelled / estimated figures",
 };
