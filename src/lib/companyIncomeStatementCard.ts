@@ -132,6 +132,36 @@ function isCardResponse(data: unknown): data is CompanyIncomeStatementCardRespon
   );
 }
 
+function resolveCellCurrency(cell: CardMetricValue): string | null {
+  const code = cell.currency_code?.trim();
+  if (code) return code;
+
+  const symbol = cell.currency_symbol?.trim();
+  if (symbol === "$") return "USD";
+  if (symbol === "£") return "GBP";
+  if (symbol === "€") return "EUR";
+  if (symbol === "¥") return "JPY";
+
+  return null;
+}
+
+function applyCurrencyFallbacks(row: CompanyFinancialMetricsCardRow): void {
+  const primaryCurrency =
+    row.Revenue_currency_display?.trim() ||
+    row.EBITDA_currency_display?.trim() ||
+    row.EV_currency_display?.trim() ||
+    row.EBIT_currency_display?.trim();
+
+  if (!primaryCurrency) return;
+
+  if (
+    row.Subscription_revenue_m != null &&
+    !row.Subscription_revenue_currency_display?.trim()
+  ) {
+    row.Subscription_revenue_currency_display = primaryCurrency;
+  }
+}
+
 function applyMetricToRow(
   row: CompanyFinancialMetricsCardRow,
   metric: CardMetric,
@@ -147,9 +177,12 @@ function applyMetricToRow(
     cell.value;
   (row[mapping.source] as CompanyFinancialMetricsCardRow[typeof mapping.source]) =
     cell.source_label ?? null;
-  if (mapping.currency && cell.currency_code) {
-    (row[mapping.currency] as CompanyFinancialMetricsCardRow[typeof mapping.currency]) =
-      cell.currency_code;
+  if (mapping.currency) {
+    const currency = resolveCellCurrency(cell);
+    if (currency) {
+      (row[mapping.currency] as CompanyFinancialMetricsCardRow[typeof mapping.currency]) =
+        currency;
+    }
   }
 }
 
@@ -176,6 +209,8 @@ export function parseCompanyIncomeStatementCardResponse(
     for (const metric of allMetrics) {
       applyMetricToRow(row, metric, year);
     }
+
+    applyCurrencyFallbacks(row);
 
     return row;
   });

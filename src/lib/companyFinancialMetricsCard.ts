@@ -347,6 +347,28 @@ export function resolveFinancialsSourceType(
   return parseSourceType(label);
 }
 
+function resolveRowCurrency(
+  row: CompanyFinancialMetricsCardRow,
+  currencyField?: keyof CompanyFinancialMetricsCardRow
+): string | null {
+  if (currencyField) {
+    const direct = String(row[currencyField] ?? "").trim();
+    if (direct) return direct;
+  }
+
+  for (const fallback of [
+    row.Revenue_currency_display,
+    row.EBITDA_currency_display,
+    row.EV_currency_display,
+    row.EBIT_currency_display,
+  ]) {
+    const trimmed = String(fallback ?? "").trim();
+    if (trimmed) return trimmed;
+  }
+
+  return null;
+}
+
 function formatMetricValue(
   row: CompanyFinancialMetricsCardRow,
   metric: FinancialsMetricDef
@@ -354,7 +376,7 @@ function formatMetricValue(
   const raw = toNumber(row[metric.valueField]);
   const sourceType = resolveFinancialsSourceType(row[metric.sourceField]);
   const currency = metric.currencyField
-    ? String(row[metric.currencyField] ?? "").trim() || null
+    ? resolveRowCurrency(row, metric.currencyField)
     : null;
 
   if (raw == null) {
