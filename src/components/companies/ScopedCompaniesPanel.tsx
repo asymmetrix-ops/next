@@ -239,7 +239,7 @@ export function ScopedCompaniesPanel({
   );
 
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
-    []
+    () => (fixedOwnershipTypeIds != null ? ["ownership"] : [])
   );
 
   const handleFilterColumnsChange = useCallback(
@@ -251,11 +251,13 @@ export function ScopedCompaniesPanel({
       ownershipTabActive: boolean;
     }) => {
       if (!enableColumnControl) return;
-      setFilterPinnedColumnKeys(
-        getColumnKeysForActiveFilters(filters, ownershipTabActive)
-      );
+      const next = getColumnKeysForActiveFilters(filters, ownershipTabActive);
+      if (fixedOwnershipTypeIds != null && !next.includes("ownership")) {
+        next.unshift("ownership");
+      }
+      setFilterPinnedColumnKeys(next);
     },
-    [enableColumnControl]
+    [enableColumnControl, fixedOwnershipTypeIds]
   );
 
   const [showColumnsModal, setShowColumnsModal] = useState(false);

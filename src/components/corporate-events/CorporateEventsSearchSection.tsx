@@ -58,6 +58,7 @@ import {
 import { locationsService } from "@/lib/locationsService";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
+import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { entityLinksToMultiValueItems } from "@/components/search/searchMultiValueUtils";
 import {
   buildStickyColumnOffsets,
@@ -428,6 +429,7 @@ export const CorporateEventsSearchSection = ({
   ): React.ReactNode => (
     <SearchEntityMultiValueCell
       items={entityLinksToMultiValueItems(links, keyPrefix)}
+      flagSize={COUNTRY_FLAG_INLINE_SIZE_PX}
     />
   );
 
@@ -443,7 +445,12 @@ export const CorporateEventsSearchSection = ({
         typeof entry.id === "number" ? `${hrefPrefix}/${entry.id}` : undefined,
       key: `${hrefPrefix}-${entry.id ?? entry.name}-${index}`,
     }));
-    return <SearchEntityMultiValueCell items={items} />;
+    return (
+      <SearchEntityMultiValueCell
+        items={items}
+        flagSize={COUNTRY_FLAG_INLINE_SIZE_PX}
+      />
+    );
   };
 
   const renderPartiesCell = (event: CorporateEventItem) => {
@@ -535,6 +542,19 @@ export const CorporateEventsSearchSection = ({
         return getTargetCountry(event);
       case "parties":
         return renderPartiesCell(event);
+      case "deal_details":
+      case "deal_metrics":
+        return (
+          <CorporateEventDealMetrics
+            dealType={event.deal_type}
+            fundingStage={fundingStage || undefined}
+            isPartnership={isPartnership}
+            amountMillions={event.investment_data?.investment_amount_m}
+            amountCurrency={event.investment_data?.currency?.Currency}
+            evMillions={event.ev_data?.enterprise_value_m}
+            evCurrency={event.ev_data?.currency?.Currency}
+          />
+        );
       case "deal_type":
         return event.deal_type || "-";
       case "funding_stage":
@@ -565,19 +585,6 @@ export const CorporateEventsSearchSection = ({
           "/sub-sector"
         );
       default:
-        if (columnKey === "deal_metrics") {
-          return (
-            <CorporateEventDealMetrics
-              dealType={event.deal_type}
-              fundingStage={fundingStage || undefined}
-              isPartnership={isPartnership}
-              amountMillions={event.investment_data?.investment_amount_m}
-              amountCurrency={event.investment_data?.currency?.Currency}
-              evMillions={event.ev_data?.enterprise_value_m}
-              evCurrency={event.ev_data?.currency?.Currency}
-            />
-          );
-        }
         return "-";
     }
   };

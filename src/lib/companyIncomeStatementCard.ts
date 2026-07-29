@@ -26,6 +26,7 @@ export type CompanyIncomeStatementCardResponse = {
   financial_metrics?: CardMetric[];
   subscription_metrics?: CardMetric[];
   other_metrics?: CardMetric[];
+  income_statement?: IncomeStatementApiEntry[];
 };
 
 export type CompanyIncomeStatementCardResult = {
@@ -124,12 +125,24 @@ const METRIC_FIELD_MAP: Record<string, MetricFieldMapping> = {
 function isCardResponse(data: unknown): data is CompanyIncomeStatementCardResponse {
   if (typeof data !== "object" || data == null) return false;
   const candidate = data as CompanyIncomeStatementCardResponse;
+  if (Array.isArray(candidate.income_statement) && candidate.income_statement.length > 0) {
+    return true;
+  }
   return (
     Array.isArray(candidate.years) &&
     (Array.isArray(candidate.financial_metrics) ||
       Array.isArray(candidate.subscription_metrics) ||
       Array.isArray(candidate.other_metrics))
   );
+}
+
+function mapCardIncomeStatementEntry(
+  entry: IncomeStatementApiEntry & { currency?: string | null }
+): IncomeStatementApiEntry {
+  return {
+    ...entry,
+    statement_currency: entry.statement_currency ?? entry.currency ?? null,
+  };
 }
 
 function resolveCellCurrency(cell: CardMetricValue): string | null {
@@ -261,9 +274,18 @@ export async function fetchCompanyIncomeStatementCard(
   }
 
   if (isCardResponse(data)) {
+    const card = data as CompanyIncomeStatementCardResponse;
+    const incomeStatementRows = Array.isArray(card.income_statement)
+      ? card.income_statement.map((entry) =>
+          mapCardIncomeStatementEntry(
+            entry as IncomeStatementApiEntry & { currency?: string | null }
+          )
+        )
+      : [];
+
     return {
-      incomeStatementRows: [],
-      financialMetricsRows: parseCompanyIncomeStatementCardResponse(data, numericId),
+      incomeStatementRows,
+      financialMetricsRows: parseCompanyIncomeStatementCardResponse(card, numericId),
     };
   }
 

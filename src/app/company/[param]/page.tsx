@@ -1070,13 +1070,6 @@ const formatPercent = (value?: number | string | null): string => {
   return `${Math.round(n)}%`;
 };
 
-const formatMultiple = (value?: number | string | null): string => {
-  const n = getNumeric(value);
-  if (n === undefined) return "-";
-  const rounded = Math.round(n * 10) / 10;
-  return `${rounded.toLocaleString()}x`;
-};
-
 // Prefer explicit API-provided labels, fallback to legacy numeric/string codes
 const effectiveSourceLabel = (
   label?: string | null,
@@ -2627,7 +2620,6 @@ const CompanyDetail = () => {
   // Process financial data
   const revenuePlain = formatPlainNumber(financialMetrics?.Revenue_m);
   const ebitdaPlain = formatPlainNumber(financialMetrics?.EBITDA_m);
-  const evPlain = formatPlainNumber(financialMetrics?.EV);
 
   // Currency suffix to show once in heading (from company_financial_metrics only)
   const metricsCurrencyCode =
@@ -2698,11 +2690,9 @@ const CompanyDetail = () => {
     hasIncomeStatementData,
     revenuePlain,
     ebitdaPlain,
-    evPlain,
     currencyCode: metricsCurrencyCode,
     getSourceText,
     formatPercent,
-    formatMultiple,
     formatPlainNumber,
     formatWholeNumber,
     getNumeric,

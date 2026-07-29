@@ -28,8 +28,44 @@ function formatPeriodHeader(row: NormalizedIncomeStatementRow): string {
   return "-";
 }
 
-function formatRevenueMillions(value: number | null | undefined, currency: string): string {
-  if (typeof value !== "number") return "-";
+function computeMarginPct(
+  numerator: number | null | undefined,
+  revenue: number | null | undefined
+): number | null {
+  if (
+    numerator == null ||
+    revenue == null ||
+    !Number.isFinite(numerator) ||
+    !Number.isFinite(revenue) ||
+    revenue === 0
+  ) {
+    return null;
+  }
+  return (numerator / revenue) * 100;
+}
+
+function formatMarginValue(
+  row: NormalizedIncomeStatementRow,
+  type: "ebitda" | "ebit"
+): string {
+  if (type === "ebitda") {
+    if (row.ebitda == null) return "-";
+    const computed = computeMarginPct(row.ebitda, row.revenue);
+    if (computed != null) return formatPercentValue(computed);
+    return formatPercentValue(row.ebitda_margin_pc);
+  }
+
+  if (row.ebit == null) return "-";
+  const computed = computeMarginPct(row.ebit, row.revenue);
+  if (computed != null) return formatPercentValue(computed);
+  return formatPercentValue(row.ebit_margin_pc);
+}
+
+function formatMoneyMillions(
+  value: number | null | undefined,
+  currency: string
+): string {
+  if (value == null || !Number.isFinite(value)) return "-";
   return appendMetricCurrency(
     Math.round(value / 1_000_000).toLocaleString(),
     currency
@@ -103,7 +139,7 @@ export function buildIncomeStatementFinancialsViewModel(
   const currency = resolveIncomeStatementCurrency(columns, fallbackCurrency);
 
   const revenueValues = columns.map((row) =>
-    formatRevenueMillions(row.revenue, currency)
+    formatMoneyMillions(row.revenue, currency)
   );
   const yoyValues = columns.map((row, index) => {
     if (index === 0) return "-";
@@ -116,22 +152,22 @@ export function buildIncomeStatementFinancialsViewModel(
     {
       key: "ebitda",
       label: "EBITDA",
-      values: columns.map((row) => formatRevenueMillions(row.ebitda, currency)),
+      values: columns.map((row) => formatMoneyMillions(row.ebitda, currency)),
     },
     {
       key: "ebitda_margin",
       label: "EBITDA %",
-      values: columns.map((row) => formatPercentValue(row.ebitda_margin_pc)),
+      values: columns.map((row) => formatMarginValue(row, "ebitda")),
     },
     {
       key: "ebit",
       label: "EBIT",
-      values: columns.map((row) => formatRevenueMillions(row.ebit, currency)),
+      values: columns.map((row) => formatMoneyMillions(row.ebit, currency)),
     },
     {
       key: "ebit_margin",
       label: "EBIT %",
-      values: columns.map((row) => formatPercentValue(row.ebit_margin_pc)),
+      values: columns.map((row) => formatMarginValue(row, "ebit")),
     },
     {
       key: "fte",
