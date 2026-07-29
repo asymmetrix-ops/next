@@ -8,13 +8,13 @@ import { CompanyAvatar } from '@/components/CompanyAvatar';
 function fmtCurrency(v: number | undefined | null, symbol = '$'): string {
   if (v === null || v === undefined) return '—';
   const n = Number(v);
-  if (Math.abs(n) >= 1000) return symbol + (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'b';
-  return symbol + n.toFixed(0) + 'm';
+  if (Math.abs(n) >= 1000) return symbol + Math.round(n / 1000) + 'b';
+  return symbol + Math.round(n) + 'm';
 }
 
 function fmtX(v: number | undefined | null): string {
   if (v === null || v === undefined || !isFinite(v as number)) return '—';
-  return Number(v).toFixed(1) + 'x';
+  return Math.round(Number(v)) + 'x';
 }
 
 // ── Coloring helpers ─────────────────────────────────────────────────────────
@@ -202,7 +202,7 @@ export function Cell({ col, row, tweaks, currencySymbol, isMedian, sectorMedian 
         const n = v as number;
         if (n == null || !Number.isFinite(n)) return <span style={{ color: 'var(--fg-4)' }}>—</span>;
         if (Math.abs(n) >= 1_000_000) {
-          return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${(n / 1_000_000).toFixed(1)}m</span>;
+          return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${Math.round(n / 1_000_000)}m</span>;
         }
         if (Math.abs(n) >= 1000) {
           return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${Math.round(n / 1000)}k</span>;
@@ -220,7 +220,7 @@ export function Cell({ col, row, tweaks, currencySymbol, isMedian, sectorMedian 
         : 'var(--fg-1)';
       return (
         <span style={{ fontVariantNumeric: 'tabular-nums', color: fg, fontWeight: col.delta ? 600 : 500 }}>
-          {sign}{n.toFixed(n % 1 === 0 ? 0 : 1)}%
+          {sign}{Math.round(n)}%
         </span>
       );
     }

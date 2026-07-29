@@ -53,11 +53,11 @@
     if (delta == null || !Number.isFinite(delta)) return { text: "—", positive: null };
     const sign = delta > 0 ? "+" : "";
     let text: string;
-    if (format === "percent") text = `${sign}${delta.toFixed(1)}pts vs ${aggregateNoun}`;
-    else if (format === "currency") text = `${sign}$${Math.abs(delta).toFixed(1)}m vs ${aggregateNoun}`;
+    if (format === "percent") text = `${sign}${Math.round(delta)}pts vs ${aggregateNoun}`;
+    else if (format === "currency") text = `${sign}$${Math.abs(Math.round(delta))}m vs ${aggregateNoun}`;
     else if (format === "currency_k") text = `${sign}$${Math.abs(Math.round(delta / 1000))}k vs ${aggregateNoun}`;
     else if (format === "count") text = `${sign}${Math.round(delta).toLocaleString()} vs ${aggregateNoun}`;
-    else text = `${sign}${delta.toFixed(1)}x vs ${aggregateNoun}`;
+    else text = `${sign}${Math.round(delta)}x vs ${aggregateNoun}`;
     const positive = higherIsBetter ? delta >= 0 : delta <= 0;
     return { text, positive };
   }
@@ -71,15 +71,15 @@
     const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
     let text: string;
     if (format === "percent") {
-      text = `(${sign}${Math.abs(delta).toFixed(1)}pts)`;
+      text = `(${sign}${Math.abs(Math.round(delta))}pts)`;
     } else if (format === "currency") {
-      text = `(${sign}$${Math.abs(delta).toFixed(1)}m)`;
+      text = `(${sign}$${Math.abs(Math.round(delta))}m)`;
     } else if (format === "currency_k") {
       text = `(${sign}$${Math.abs(Math.round(delta / 1000))}k)`;
     } else if (format === "count") {
       text = `(${sign}${Math.abs(Math.round(delta)).toLocaleString()})`;
     } else {
-      text = `(${sign}${Math.abs(delta).toFixed(1)}x)`;
+      text = `(${sign}${Math.abs(Math.round(delta))}x)`;
     }
     const positive = higherIsBetter ? delta >= 0 : delta <= 0;
     return { text, positive };
@@ -87,11 +87,11 @@
 
   function fmtSigned(delta: number, format: FiMetricFormat): string {
     const sign = delta > 0 ? "+" : "";
-    if (format === "currency") return `${sign}$${Math.abs(delta).toFixed(1)}m`;
+    if (format === "currency") return `${sign}$${Math.abs(Math.round(delta))}m`;
     if (format === "currency_k") return `${sign}$${Math.abs(Math.round(delta / 1000))}k`;
     if (format === "count") return `${sign}${Math.round(delta).toLocaleString()}`;
-    if (format === "percent") return `${sign}${delta.toFixed(1)}%`;
-    return `${sign}${delta.toFixed(1)}x`;
+    if (format === "percent") return `${sign}${Math.round(delta)}%`;
+    return `${sign}${Math.round(delta)}x`;
   }
 
   function MetricBreakdown({
@@ -493,7 +493,6 @@
                   value={metric.targetValue}
                   format={metric.format}
                   sourceType={metric.targetSourceType}
-                  dotAfter={false}
                   fontWeight={700}
                   fontSize="var(--fs-28)"
                   justify="flex-start"
