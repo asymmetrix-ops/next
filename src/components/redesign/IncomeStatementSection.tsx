@@ -10,6 +10,7 @@ import {
   finMetricsPeriodHeaderStyle,
 } from "./primitives";
 import type { NormalizedIncomeStatementRow } from "@/lib/incomeStatement";
+import { sortIncomeStatementRowsAsc } from "@/lib/incomeStatement";
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 
 export type IncomeStatementRow = NormalizedIncomeStatementRow;
@@ -56,27 +57,6 @@ function formatPeriod(row: IncomeStatementRow): string {
   if (display) return display;
   if (row.period_year != null) return `FY${row.period_year}`;
   return "-";
-}
-
-function parseIncomeStatementPeriod(row: IncomeStatementRow): number {
-  if (row.period_end_date) {
-    const parsed = Date.parse(row.period_end_date);
-    if (!Number.isNaN(parsed)) return parsed;
-  }
-  if (row.period_year != null) return row.period_year;
-  const fromDisplay = Date.parse(
-    (row.period_display_end_date || "").replace(/[^0-9-]/g, "")
-  );
-  return Number.isNaN(fromDisplay) ? 0 : fromDisplay;
-}
-
-/** Oldest → newest (left-to-right in the table). */
-export function sortIncomeStatementRowsAsc(
-  rows: IncomeStatementRow[]
-): IncomeStatementRow[] {
-  return [...rows].sort(
-    (a, b) => parseIncomeStatementPeriod(a) - parseIncomeStatementPeriod(b)
-  );
 }
 
 const thStyle: React.CSSProperties = {
