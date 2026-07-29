@@ -7,6 +7,7 @@ import {
   sortIncomeStatementRowsAsc,
   type NormalizedIncomeStatementRow,
 } from "@/lib/incomeStatement";
+import { resolveLinkedInEmployeeCountForYear } from "@/lib/companyLinkedIn";
 
 export type IncomeStatementMetricRow = {
   key: string;
@@ -100,16 +101,8 @@ function resolveFteForYear(
 ): number | null {
   if (row.fte_count != null) return row.fte_count;
   const year = row.period_year;
-  if (year == null || employeeHistory.length === 0) return null;
-
-  const pointsInYear = employeeHistory.filter((point) => {
-    const pointYear = new Date(point.date).getFullYear();
-    return pointYear === year;
-  });
-  if (pointsInYear.length === 0) return null;
-
-  pointsInYear.sort((a, b) => a.date.localeCompare(b.date));
-  return pointsInYear[pointsInYear.length - 1]?.employees_count ?? null;
+  if (year == null) return null;
+  return resolveLinkedInEmployeeCountForYear(year, employeeHistory);
 }
 
 function enrichRowWithFte(

@@ -1,4 +1,6 @@
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
+import { resolveLinkedInEmployeeCountForYear } from "@/lib/companyLinkedIn";
 import {
   parseSourceType,
   type FiMetricSourceType,
@@ -344,6 +346,32 @@ export function resolveFinancialMetricsRowYear(
   return toNumber(row.financial_year_int) ?? toNumber(row.financial_year_text);
 }
 
+export function enrichFinancialMetricsRowWithLinkedInEmployees(
+  row: CompanyFinancialMetricsCardRow,
+  year: number,
+  employeeHistory: EmployeeTimeSeriesPoint[]
+): CompanyFinancialMetricsCardRow {
+  const linkedInCount = resolveLinkedInEmployeeCountForYear(year, employeeHistory);
+  if (linkedInCount == null) return row;
+
+  const revenueM = toNumber(row.Revenue_m);
+  const enriched: CompanyFinancialMetricsCardRow = {
+    ...row,
+    No_Employees: linkedInCount,
+    No_Employees_source_label: "LinkedIn",
+  };
+
+  if (revenueM != null && linkedInCount > 0) {
+    const revenuePerEmployee = (revenueM * 1_000_000) / linkedInCount;
+    enriched.Revenue_per_employee = revenuePerEmployee;
+    enriched.Revenue_per_employee_formatted =
+      Math.round(revenuePerEmployee).toLocaleString("en-US");
+    enriched.Revenue_per_employee_source_label = "LinkedIn";
+  }
+
+  return enriched;
+}
+
 function resolveRowYear(row: CompanyFinancialMetricsCardRow): number | null {
   return resolveFinancialMetricsRowYear(row);
 }
@@ -634,7 +662,8 @@ export function resolveFinancialsYears(
 }
 
 export function buildCompanyFinancialsViewModel(
-  rows: CompanyFinancialMetricsCardRow[]
+  rows: CompanyFinancialMetricsCardRow[],
+  employeeHistory: EmployeeTimeSeriesPoint[] = []
 ): CompanyFinancialsViewModel {
   const years = resolveFinancialsYears(rows);
   const rowsByYear = new Map<number, CompanyFinancialMetricsCardRow>();
@@ -651,7 +680,15 @@ export function buildCompanyFinancialsViewModel(
     metrics: card.metrics.map((metric) => {
       const cellsByYear: Record<number, FinancialsCellValue> = {};
       for (const year of years) {
-        const yearRow = rowsByYear.get(year);
+        const rawRow = rowsByYear.get(year);
+        const yearRow =
+          rawRow && employeeHistory.length > 0
+            ? enrichFinancialMetricsRowWithLinkedInEmployees(
+                rawRow,
+                year,
+                employeeHistory
+              )
+            : rawRow;
         cellsByYear[year] = yearRow
           ? formatMetricValue(yearRow, metric)
           : { display: "-", raw: null, sourceType: null };
