@@ -17,7 +17,6 @@ import {
   type ChangeRequestItem,
   type ChangeRequestResponse,
   type ChangeRequestReviewStatus,
-  CHANGE_REQUEST_REVIEW_STATUS_ORDER,
   formatAiReasoningCard,
   formatCompanyNotInDbVerdict,
   getChangeRequestCompanies,
@@ -439,7 +438,6 @@ export function ChangeStateTab() {
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<ChangeStateTabId>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilterId>("all");
-  const [statusSortDir, setStatusSortDir] = useState<"asc" | "desc">("asc");
   /** Gmail-style row selection (current page only; cleared on tab/page change). */
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
@@ -449,23 +447,11 @@ export function ChangeStateTab() {
   }, [page, activeTab, statusFilter]);
 
   const displayItems = useMemo(() => {
-    let list = [...items];
-    if (statusFilter !== "all") {
-      list = list.filter(
-        (item) => getChangeRequestReviewStatus(item) === statusFilter
-      );
-    }
-    list.sort((a, b) => {
-      const cmp =
-        CHANGE_REQUEST_REVIEW_STATUS_ORDER[getChangeRequestReviewStatus(a)] -
-        CHANGE_REQUEST_REVIEW_STATUS_ORDER[getChangeRequestReviewStatus(b)];
-      if (cmp !== 0) {
-        return statusSortDir === "asc" ? cmp : -cmp;
-      }
-      return b.id - a.id;
-    });
-    return list;
-  }, [items, statusFilter, statusSortDir]);
+    if (statusFilter === "all") return items;
+    return items.filter(
+      (item) => getChangeRequestReviewStatus(item) === statusFilter
+    );
+  }, [items, statusFilter]);
 
   const loadItems = useCallback(async (pageNum: number, tab: ChangeStateTabId) => {
     setLoading(true);
@@ -625,10 +611,6 @@ export function ChangeStateTab() {
     if (next === statusFilter) return;
     setStatusFilter(next);
     setPage(1);
-  }
-
-  function toggleStatusSort() {
-    setStatusSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
   }
 
   function isRowSelected(id: number): boolean {
@@ -1015,17 +997,17 @@ export function ChangeStateTab() {
                 </th>
                 {(
                   [
-                    { key: "ID", sortable: false },
-                    { key: "Read", sortable: false },
-                    { key: "Status", sortable: true },
-                    { key: "Created", sortable: false },
-                    { key: "AI Reasoning", sortable: false },
-                    { key: "Companies", sortable: false },
-                    { key: "Added", sortable: false },
-                    { key: "Watch URL", sortable: false },
-                    { key: "Bucket", sortable: false },
+                    "ID",
+                    "Read",
+                    "Status",
+                    "Created",
+                    "AI Reasoning",
+                    "Companies",
+                    "Added",
+                    "Watch URL",
+                    "Bucket",
                   ] as const
-                ).map(({ key: col, sortable }) => (
+                ).map((col) => (
                   <th
                     key={col}
                     className={`py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 ${
@@ -1038,21 +1020,7 @@ export function ChangeStateTab() {
                           : "px-3 sm:px-4"
                     }`}
                   >
-                    {sortable ? (
-                      <button
-                        type="button"
-                        onClick={toggleStatusSort}
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 transition hover:text-gray-700"
-                        aria-label={`Sort by status ${statusSortDir === "asc" ? "descending" : "ascending"}`}
-                      >
-                        {col}
-                        <span className="text-[9px] text-gray-500" aria-hidden>
-                          {statusSortDir === "asc" ? "↑" : "↓"}
-                        </span>
-                      </button>
-                    ) : (
-                      col
-                    )}
+                    {col}
                   </th>
                 ))}
               </tr>
