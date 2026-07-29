@@ -6,6 +6,7 @@ type FinancialMetricsPayload = {
   EBITDA_source_label?: string | null;
   EBITDA_source?: number | string | null;
   EV?: number | null;
+  EV_currency_display?: string | null;
   EV_source_label?: string | null;
   EV_source?: number | string | null;
   Revenue_multiple?: number | null;
@@ -144,7 +145,6 @@ export function appendMetricCurrency(
 
 type BuildSectionsInput = {
   financialMetrics: FinancialMetricsPayload | null;
-  hasIncomeStatementData: boolean;
   revenuePlain: string;
   ebitdaPlain: string;
   currencyCode?: string;
@@ -152,6 +152,7 @@ type BuildSectionsInput = {
   formatPercent: (value?: number | string | null) => string;
   formatPlainNumber: (value?: number | string | null) => string;
   formatWholeNumber: (value?: number | string | null) => string;
+  formatMultiple: (value?: number | string | null) => string;
   getNumeric: (value?: number | string | null) => number | undefined;
   periodDisplay?: string;
 };
@@ -167,13 +168,13 @@ function row(
 /** Assembles PROD-style financial metric sections for the two tabbed cards. */
 export function buildFinancialMetricsSections({
   financialMetrics,
-  hasIncomeStatementData,
   revenuePlain,
   ebitdaPlain,
   getSourceText,
   formatPercent,
   formatPlainNumber,
   formatWholeNumber,
+  formatMultiple,
   getNumeric,
   periodDisplay,
   currencyCode,
@@ -181,6 +182,14 @@ export function buildFinancialMetricsSections({
   const fm = financialMetrics;
   const src = getSourceText;
   const money = (formatted: string) => appendMetricCurrency(formatted, currencyCode);
+  const metricMoney = (
+    formatted: string,
+    currencyDisplay?: string | null
+  ) =>
+    appendMetricCurrency(
+      formatted,
+      resolveMetricCurrencyDisplay(currencyDisplay, currencyCode)
+    );
   const subscriptionMoney = (formatted: string) =>
     appendMetricCurrency(
       formatted,
@@ -190,24 +199,27 @@ export function buildFinancialMetricsSections({
       )
     );
 
-  const mainRows: FinancialMetricRow[] = [];
-
-  if (!hasIncomeStatementData) {
-    mainRows.push(
-      row(
-        "Revenue (m):",
-        money(revenuePlain),
-        src(fm?.Revenue_source_label, fm?.Rev_source)
-      ),
-      row(
-        "EBITDA (m):",
-        money(ebitdaPlain),
-        src(fm?.EBITDA_source_label, fm?.EBITDA_source)
-      )
-    );
-  }
-
-  mainRows.push(
+  const mainRows: FinancialMetricRow[] = [
+    row(
+      "Revenue (m):",
+      money(revenuePlain),
+      src(fm?.Revenue_source_label, fm?.Rev_source)
+    ),
+    row(
+      "EBITDA (m):",
+      money(ebitdaPlain),
+      src(fm?.EBITDA_source_label, fm?.EBITDA_source)
+    ),
+    row(
+      "Enterprise Value (m):",
+      metricMoney(formatPlainNumber(fm?.EV), fm?.EV_currency_display),
+      src(fm?.EV_source_label, fm?.EV_source)
+    ),
+    row(
+      "Revenue multiple:",
+      formatMultiple(fm?.Revenue_multiple),
+      src(fm?.Revenue_multiple_source_label, fm?.Rev_x_source)
+    ),
     row(
       "Revenue Growth:",
       formatPercent(fm?.Rev_Growth_PC),
@@ -216,12 +228,14 @@ export function buildFinancialMetricsSections({
     row(
       "EBITDA margin:",
       (() => {
+        const margin = getNumeric(fm?.EBITDA_margin);
+        if (margin != null) return formatPercent(margin);
         const revenue = getNumeric(fm?.Revenue_m);
         const ebitda = getNumeric(fm?.EBITDA_m);
         if (revenue != null && ebitda != null && revenue !== 0) {
           return formatPercent((ebitda / revenue) * 100);
         }
-        return formatPercent(fm?.EBITDA_margin);
+        return "-";
       })(),
       src(fm?.EBITDA_margin_source_label, fm?.EBITDA_margin_source)
     ),
@@ -234,8 +248,8 @@ export function buildFinancialMetricsSections({
           : "-";
       })(),
       src(fm?.Rule_of_40_source_label, fm?.Rule_of_40_source)
-    )
-  );
+    ),
+  ];
 
   const subscriptionRows: FinancialMetricRow[] = [
     row(
