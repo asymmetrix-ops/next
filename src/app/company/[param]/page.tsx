@@ -90,6 +90,7 @@ import {
 import { fetchCompanyProductUsers } from "@/lib/companyProductUsers";
 import {
   fetchCompanyFinancialMetricsCard,
+  hasFinancialMetricsCardData,
   type CompanyFinancialMetricsCardRow,
 } from "@/lib/companyFinancialMetricsCard";
 import { CompanyFinancialsSection } from "@/components/company/CompanyFinancialsSection";
@@ -1698,13 +1699,14 @@ const CompanyDetail = () => {
     setFinancialMetricsCardLoading(true);
     try {
       const data = await fetchCompanyFinancialMetricsCard(id);
-      setFinancialMetricsCardRows(data);
-      setFinancialMetrics(
-        (data[0] as CompanyFinancialMetrics | undefined) ?? null
-      );
+      if (data.length > 0) {
+        setFinancialMetricsCardRows(data);
+        setFinancialMetrics(
+          (data[0] as CompanyFinancialMetrics | undefined) ?? null
+        );
+      }
     } catch {
-      setFinancialMetricsCardRows([]);
-      setFinancialMetrics(null);
+      // Keep rows from company_income_statement_card when this fallback is empty.
     } finally {
       setFinancialMetricsCardLoading(false);
     }
@@ -1714,7 +1716,16 @@ const CompanyDetail = () => {
     setIncomeStatementCardLoading(true);
     try {
       const data = await fetchCompanyIncomeStatementCard(id);
-      setIncomeStatementApiRows(normalizeIncomeStatementApiRows(data));
+      setIncomeStatementApiRows(
+        normalizeIncomeStatementApiRows(data.incomeStatementRows)
+      );
+      if (data.financialMetricsRows.length > 0) {
+        setFinancialMetricsCardRows(data.financialMetricsRows);
+        setFinancialMetrics(
+          (data.financialMetricsRows[0] as CompanyFinancialMetrics | undefined) ??
+            null
+        );
+      }
     } catch {
       setIncomeStatementApiRows([]);
     } finally {
@@ -1725,8 +1736,15 @@ const CompanyDetail = () => {
   const showFinancialsTab = useMemo(
     () =>
       !incomeStatementCardLoading &&
-      hasIncomeStatementValues(incomeStatementApiRows),
-    [incomeStatementCardLoading, incomeStatementApiRows]
+      !financialMetricsCardLoading &&
+      (hasIncomeStatementValues(incomeStatementApiRows) ||
+        hasFinancialMetricsCardData(financialMetricsCardRows)),
+    [
+      incomeStatementCardLoading,
+      financialMetricsCardLoading,
+      incomeStatementApiRows,
+      financialMetricsCardRows,
+    ]
   );
 
   const fetchCompanyAiRisksData = useCallback(async (id: string | number) => {

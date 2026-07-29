@@ -462,6 +462,12 @@ export function getVisibleYoyValue(
   );
 }
 
+export function hasFinancialMetricsCardData(
+  rows: CompanyFinancialMetricsCardRow[]
+): boolean {
+  return resolveFinancialsYears(rows).length > 0;
+}
+
 export function resolveFinancialsYears(
   rows: CompanyFinancialMetricsCardRow[]
 ): number[] {
