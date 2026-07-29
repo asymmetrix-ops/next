@@ -12,12 +12,13 @@ const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 type SearchEntityMultiValueCellProps = {
   items: SearchMultiValueItem[];
   maxVisible?: number;
+  flagSize?: number;
   onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
-function renderEntityLabel(item: SearchMultiValueItem) {
+function renderEntityLabel(item: SearchMultiValueItem, flagSize: number) {
   const flagEl = item.hqIso2 ? (
-    <CountryFlagImg iso2={item.hqIso2} size={ENTITY_FLAG_SIZE_PX} />
+    <CountryFlagImg iso2={item.hqIso2} size={flagSize} />
   ) : null;
 
   return (
@@ -30,6 +31,7 @@ function renderEntityLabel(item: SearchMultiValueItem) {
 
 function renderInlineValue(
   item: SearchMultiValueItem,
+  flagSize: number,
   onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void
 ) {
   if (item.href) {
@@ -45,17 +47,18 @@ function renderInlineValue(
           }
         }}
       >
-        {renderEntityLabel(item)}
+        {renderEntityLabel(item, flagSize)}
       </a>
     );
   }
 
-  return renderEntityLabel(item);
+  return renderEntityLabel(item, flagSize);
 }
 
 export function SearchEntityMultiValueCell({
   items,
   maxVisible = DEFAULT_MAX_VISIBLE,
+  flagSize = ENTITY_FLAG_SIZE_PX,
   onLinkClick,
 }: SearchEntityMultiValueCellProps) {
   const [open, setOpen] = useState(false);
@@ -116,7 +119,7 @@ export function SearchEntityMultiValueCell({
         {visibleItems.map((item, index) => (
           <React.Fragment key={item.key ?? `visible-${item.name}-${index}`}>
             {index > 0 ? ", " : null}
-            {renderInlineValue(item, onLinkClick)}
+            {renderInlineValue(item, flagSize, onLinkClick)}
           </React.Fragment>
         ))}
         {hiddenCount > 0 ? (
@@ -154,7 +157,7 @@ export function SearchEntityMultiValueCell({
                     key={item.key ?? `popover-${item.name}-${index}`}
                     className="search-multi-value-popover-item"
                   >
-                    {renderInlineValue(item, onLinkClick)}
+                    {renderInlineValue(item, flagSize, onLinkClick)}
                   </div>
                 ))}
               </div>

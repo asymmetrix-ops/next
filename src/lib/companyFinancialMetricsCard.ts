@@ -132,14 +132,6 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         sourceField: "EBITDA_source_label",
         currencyField: "EBITDA_currency_display",
       },
-      {
-        key: "ev",
-        label: "EV",
-        format: "money_millions",
-        valueField: "EV",
-        sourceField: "EV_source_label",
-        currencyField: "EV_currency_display",
-      },
     ],
   },
   {
@@ -306,18 +298,10 @@ function resolveRowYear(row: CompanyFinancialMetricsCardRow): number | null {
 
 function formatMillions(value: number, currency?: string | null): string {
   const abs = Math.abs(value);
-  let compact: string;
-  if (abs >= 1000) {
-    const billions = value / 1000;
-    compact =
-      billions % 1 === 0
-        ? `${Math.round(billions)}b`
-        : `${billions.toFixed(1)}b`;
-  } else if (abs >= 100) {
-    compact = `${Math.round(value)}m`;
-  } else {
-    compact = `${value.toFixed(1)}m`;
-  }
+  const compact =
+    abs >= 100
+      ? `${Math.round(value).toLocaleString("en-US")}m`
+      : `${value.toFixed(1)}m`;
   return appendMetricCurrency(compact, currency ?? undefined);
 }
 

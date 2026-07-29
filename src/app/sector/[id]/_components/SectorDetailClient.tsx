@@ -4311,9 +4311,6 @@ const SectorDetailPage = ({
                 }
                 hideOwnershipTabs={Boolean(ownershipFilter)}
                 embedded
-                enableColumnControl={false}
-                enableFilterControl={false}
-                enableExport={false}
                 columnsStorageScope="session"
               />
             </div>

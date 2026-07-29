@@ -68,11 +68,18 @@ export const CORPORATE_EVENTS_COLUMN_CATEGORIES: CorporateEventColumnCategory[] 
           defaultVisible: true,
         },
         {
+          id: "deal_details",
+          columnKey: "deal_details",
+          label: "Details",
+          type: "text",
+          defaultVisible: true,
+        },
+        {
           id: "deal_type",
           columnKey: "deal_type",
           label: "Deal Type",
           type: "text",
-          defaultVisible: true,
+          defaultVisible: false,
         },
         {
           id: "funding_stage",
@@ -86,7 +93,7 @@ export const CORPORATE_EVENTS_COLUMN_CATEGORIES: CorporateEventColumnCategory[] 
           columnKey: "investment_amount",
           label: "Amount (m)",
           type: "number",
-          defaultVisible: true,
+          defaultVisible: false,
         },
         {
           id: "enterprise_value",
@@ -131,8 +138,7 @@ export const PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS = [
   "announcement_date",
   "target",
   "parties",
-  "deal_type",
-  "investment_amount",
+  "deal_details",
   "advisors",
   "primary_sectors",
   "secondary_sectors",

@@ -147,11 +147,9 @@ type BuildSectionsInput = {
   hasIncomeStatementData: boolean;
   revenuePlain: string;
   ebitdaPlain: string;
-  evPlain: string;
   currencyCode?: string;
   getSourceText: SourceResolver;
   formatPercent: (value?: number | string | null) => string;
-  formatMultiple: (value?: number | string | null) => string;
   formatPlainNumber: (value?: number | string | null) => string;
   formatWholeNumber: (value?: number | string | null) => string;
   getNumeric: (value?: number | string | null) => number | undefined;
@@ -172,10 +170,8 @@ export function buildFinancialMetricsSections({
   hasIncomeStatementData,
   revenuePlain,
   ebitdaPlain,
-  evPlain,
   getSourceText,
   formatPercent,
-  formatMultiple,
   formatPlainNumber,
   formatWholeNumber,
   getNumeric,
@@ -213,23 +209,20 @@ export function buildFinancialMetricsSections({
 
   mainRows.push(
     row(
-      "Enterprise Value (m):",
-      money(evPlain),
-      src(fm?.EV_source_label, fm?.EV_source)
-    ),
-    row(
-      "Revenue multiple:",
-      formatMultiple(fm?.Revenue_multiple),
-      src(fm?.Revenue_multiple_source_label, fm?.Rev_x_source)
-    ),
-    row(
       "Revenue Growth:",
       formatPercent(fm?.Rev_Growth_PC),
       src(fm?.Rev_growth_source_label, fm?.Rev_Growth_source)
     ),
     row(
       "EBITDA margin:",
-      formatPercent(fm?.EBITDA_margin),
+      (() => {
+        const revenue = getNumeric(fm?.Revenue_m);
+        const ebitda = getNumeric(fm?.EBITDA_m);
+        if (revenue != null && ebitda != null && revenue !== 0) {
+          return formatPercent((ebitda / revenue) * 100);
+        }
+        return formatPercent(fm?.EBITDA_margin);
+      })(),
       src(fm?.EBITDA_margin_source_label, fm?.EBITDA_margin_source)
     ),
     row(
