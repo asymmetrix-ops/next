@@ -51,6 +51,18 @@ const METRIC_FIELD_MAP: Record<string, MetricFieldMapping> = {
     source: "EBITDA_source_label",
     currency: "EBITDA_currency_display",
   },
+  rev_growth: {
+    value: "Rev_Growth_PC",
+    source: "Rev_growth_source_label",
+  },
+  ebitda_margin: {
+    value: "EBITDA_margin",
+    source: "EBITDA_margin_source_label",
+  },
+  rule_of_40: {
+    value: "Rule_of_40",
+    source: "Rule_of_40_source_label",
+  },
   ev: {
     value: "EV",
     source: "EV_source_label",

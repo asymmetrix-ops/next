@@ -51,7 +51,10 @@ import {
   type NormalizedIncomeStatementRow,
 } from "@/lib/incomeStatement";
 import { fetchCompanyIncomeStatementCard } from "@/lib/companyIncomeStatementCard";
-import { fetchCompanyFinancialMetricsCard } from "@/lib/companyFinancialMetricsCard";
+import {
+  fetchCompanyFinancialMetricsCard,
+  resolveLatestFinancialMetricsRow,
+} from "@/lib/companyFinancialMetricsCard";
 import { EMPTY_DISPLAY, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import {
   isCompanyMcpPopulated,
@@ -1513,7 +1516,9 @@ const CompanyDetail = () => {
     try {
       const rows = await fetchCompanyFinancialMetricsCard(id);
       setFinancialMetrics(
-        (rows[0] as CompanyFinancialMetrics | undefined) ?? null
+        (resolveLatestFinancialMetricsRow(rows) as
+          | CompanyFinancialMetrics
+          | undefined) ?? null
       );
     } catch {
       // Non-fatal; keep defaults
