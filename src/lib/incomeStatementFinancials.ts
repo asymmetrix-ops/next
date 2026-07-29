@@ -4,6 +4,7 @@ import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import {
   resolveIncomeStatementCurrency,
   selectIncomeStatementYearColumns,
+  sortIncomeStatementRowsAsc,
   type NormalizedIncomeStatementRow,
 } from "@/lib/incomeStatement";
 
@@ -131,8 +132,10 @@ export function buildIncomeStatementFinancialsViewModel(
   employeeHistory: EmployeeTimeSeriesPoint[] = [],
   fallbackCurrency = ""
 ): IncomeStatementFinancialsViewModel | null {
-  const columns = selectIncomeStatementYearColumns(rows, 3).map((row) =>
-    enrichRowWithFte(row, employeeHistory)
+  const columns = sortIncomeStatementRowsAsc(
+    selectIncomeStatementYearColumns(rows, 3).map((row) =>
+      enrichRowWithFte(row, employeeHistory)
+    )
   );
   if (columns.length === 0) return null;
 

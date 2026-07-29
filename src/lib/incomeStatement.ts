@@ -103,11 +103,70 @@ function normalizeRow(row: IncomeStatementApiEntry): NormalizedIncomeStatementRo
   };
 }
 
-function periodSortKey(row: NormalizedIncomeStatementRow): number {
-  if (row.period_end_date) return Date.parse(row.period_end_date) || 0;
-  return (
-    Date.parse((row.period_display_end_date || "").replace(/[^0-9-]/g, "")) || 0
+function parseQuarterYearFromDisplay(display: string): { year: number; quarter: number } | null {
+  const compact = display.replace(/[\s,]/g, "");
+  const match =
+    compact.match(/^Q([1-4])(20\d{2})$/i) ||
+    compact.match(/^Q([1-4])[-/](20\d{2})$/i) ||
+    compact.match(/^Q\s?([1-4])\s?[-/]?\s?(20\d{2})$/i);
+  if (!match) return null;
+  return { quarter: Number(match[1]), year: Number(match[2]) };
+}
+
+function parseFiscalYearFromDisplay(display: string): number | null {
+  const compact = display.replace(/[\s,]/g, "");
+  const fyMatch = compact.match(/^FY(20\d{2})$/i);
+  if (fyMatch) return Number(fyMatch[1]);
+  const yearMatch = compact.match(/\b(20\d{2})\b/);
+  return yearMatch ? Number(yearMatch[1]) : null;
+}
+
+/** Comparable UTC timestamp for column ordering (oldest → newest, left → right). */
+export function incomeStatementPeriodSortKey(
+  row: NormalizedIncomeStatementRow
+): number {
+  if (row.period_end_date) {
+    const parsed = Date.parse(row.period_end_date);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+
+  const display = (row.period_display_end_date || "").trim();
+  if (display) {
+    const quarter = parseQuarterYearFromDisplay(display);
+    if (quarter) {
+      // End-of-quarter month/day for stable ordering vs fiscal years.
+      const monthIndex = quarter.quarter * 3 - 1;
+      return Date.UTC(quarter.year, monthIndex + 1, 0);
+    }
+
+    const fiscalYear = parseFiscalYearFromDisplay(display);
+    if (fiscalYear != null) {
+      return Date.UTC(fiscalYear, 11, 31);
+    }
+  }
+
+  if (row.period_year != null) {
+    const periodType = (row.period_type || "").toLowerCase();
+    if (periodType.includes("quarter")) {
+      return Date.UTC(row.period_year, 11, 31);
+    }
+    return Date.UTC(row.period_year, 11, 31);
+  }
+
+  return 0;
+}
+
+/** Oldest → newest (left-to-right in the table). */
+export function sortIncomeStatementRowsAsc(
+  rows: NormalizedIncomeStatementRow[]
+): NormalizedIncomeStatementRow[] {
+  return [...rows].sort(
+    (a, b) => incomeStatementPeriodSortKey(a) - incomeStatementPeriodSortKey(b)
   );
+}
+
+function periodSortKey(row: NormalizedIncomeStatementRow): number {
+  return incomeStatementPeriodSortKey(row);
 }
 
 /** Parses API income-statement blocks and returns up to 3 most recent periods. */
@@ -115,10 +174,10 @@ export function normalizeIncomeStatementRows(
   blocks: Array<{ income_statements?: IncomeStatementApiEntry[] | string }> | undefined,
   limit = 3
 ): NormalizedIncomeStatementRow[] {
-  return parseIncomeStatementBlocks(blocks)
-    .map(normalizeRow)
-    .sort((a, b) => periodSortKey(a) - periodSortKey(b))
-    .slice(-limit);
+  const sorted = sortIncomeStatementRowsAsc(
+    parseIncomeStatementBlocks(blocks).map(normalizeRow)
+  );
+  return sorted.slice(-limit);
 }
 
 /** Normalizes rows from `company_income_statement_card` (flat array). */
@@ -151,8 +210,10 @@ function resolvePeriodYear(row: NormalizedIncomeStatementRow): number | null {
     const y = new Date(row.period_end_date).getFullYear();
     return Number.isFinite(y) ? y : null;
   }
-  const fromDisplay = (row.period_display_end_date || "").match(/\b(20\d{2})\b/);
-  return fromDisplay ? Number(fromDisplay[1]) : null;
+  const display = (row.period_display_end_date || "").trim();
+  const quarter = parseQuarterYearFromDisplay(display);
+  if (quarter) return quarter.year;
+  return parseFiscalYearFromDisplay(display);
 }
 
 /** Picks up to 3 fiscal-year columns, preferring fiscal_year over quarterly for the same year. */
@@ -181,10 +242,12 @@ export function selectIncomeStatementYearColumns(
     }
   }
 
-  return Array.from(byYear.entries())
-    .sort((a, b) => a[0] - b[0])
-    .slice(-limit)
-    .map(([, row]) => row);
+  return sortIncomeStatementRowsAsc(
+    Array.from(byYear.entries())
+      .sort((a, b) => a[0] - b[0])
+      .slice(-limit)
+      .map(([, row]) => row)
+  );
 }
 
 export function resolveIncomeStatementCurrency(
@@ -279,9 +342,11 @@ export function resolveDisplayIncomeStatementRows({
   );
   if (!fallbackCurrency) return merged;
 
-  return merged.map((row) => ({
-    ...row,
-    statement_currency:
-      sanitizeCurrencyCode(row.statement_currency) || fallbackCurrency,
-  }));
+  return sortIncomeStatementRowsAsc(
+    merged.map((row) => ({
+      ...row,
+      statement_currency:
+        sanitizeCurrencyCode(row.statement_currency) || fallbackCurrency,
+    }))
+  );
 }
