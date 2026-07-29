@@ -92,6 +92,8 @@ import { fetchCompanyProductUsers } from "@/lib/companyProductUsers";
 import {
   fetchCompanyFinancialMetricsCard,
   hasFinancialMetricsCardData,
+  mergeFinancialMetricsCardRows,
+  resolveLatestFinancialMetricsRow,
   type CompanyFinancialMetricsCardRow,
 } from "@/lib/companyFinancialMetricsCard";
 import { CompanyFinancialsSection } from "@/components/company/CompanyFinancialsSection";
@@ -1694,11 +1696,15 @@ const CompanyDetail = () => {
     try {
       const data = await fetchCompanyFinancialMetricsCard(id);
       if (data.length > 0) {
-        setFinancialMetricsCardRows((prev) => (prev.length > 0 ? prev : data));
-        setFinancialMetrics((prev) =>
-          prev ??
-          ((data[0] as CompanyFinancialMetrics | undefined) ?? null)
-        );
+        setFinancialMetricsCardRows((prev) => {
+          const merged = mergeFinancialMetricsCardRows(prev, data);
+          setFinancialMetrics(
+            (resolveLatestFinancialMetricsRow(merged) as
+              | CompanyFinancialMetrics
+              | null) ?? null
+          );
+          return merged;
+        });
       }
     } catch {
       // Keep rows from company_income_statement_card when this fallback is empty.
@@ -1715,11 +1721,18 @@ const CompanyDetail = () => {
         normalizeIncomeStatementApiRows(data.incomeStatementRows)
       );
       if (data.financialMetricsRows.length > 0) {
-        setFinancialMetricsCardRows(data.financialMetricsRows);
-        setFinancialMetrics(
-          (data.financialMetricsRows[0] as CompanyFinancialMetrics | undefined) ??
-            null
-        );
+        setFinancialMetricsCardRows((prev) => {
+          const merged = mergeFinancialMetricsCardRows(
+            data.financialMetricsRows,
+            prev
+          );
+          setFinancialMetrics(
+            (resolveLatestFinancialMetricsRow(merged) as
+              | CompanyFinancialMetrics
+              | null) ?? null
+          );
+          return merged;
+        });
       }
     } catch {
       setIncomeStatementApiRows([]);

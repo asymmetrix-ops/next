@@ -42,6 +42,12 @@ export type CompanyFinancialMetricsCardRow = {
   Price_increase_source_label?: string | null;
   Rev_expansion_pc?: number | string | null;
   Rev_expansion_source_label?: string | null;
+  Rev_Growth_PC?: number | string | null;
+  Rev_growth_source_label?: string | null;
+  EBITDA_margin?: number | string | null;
+  EBITDA_margin_source_label?: string | null;
+  Rule_of_40?: number | string | null;
+  Rule_of_40_source_label?: string | null;
   EBIT_m?: number | string | null;
   EBIT_currency_display?: string | null;
   EBIT_source_label?: string | null;
@@ -61,7 +67,8 @@ export type FinancialsMetricFormat =
   | "money_millions"
   | "percent"
   | "count"
-  | "money_whole";
+  | "money_whole"
+  | "plain_number";
 
 export type FinancialsMetricDef = {
   key: string;
@@ -131,6 +138,27 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         valueField: "EBITDA_m",
         sourceField: "EBITDA_source_label",
         currencyField: "EBITDA_currency_display",
+      },
+      {
+        key: "rev_growth",
+        label: "Revenue Growth",
+        format: "percent",
+        valueField: "Rev_Growth_PC",
+        sourceField: "Rev_growth_source_label",
+      },
+      {
+        key: "ebitda_margin",
+        label: "EBITDA margin",
+        format: "percent",
+        valueField: "EBITDA_margin",
+        sourceField: "EBITDA_margin_source_label",
+      },
+      {
+        key: "rule_of_40",
+        label: "Rule of 40",
+        format: "plain_number",
+        valueField: "Rule_of_40",
+        sourceField: "Rule_of_40_source_label",
       },
     ],
   },
@@ -292,8 +320,89 @@ function normalizeFinancialMetricsApiRow(
   };
 }
 
-function resolveRowYear(row: CompanyFinancialMetricsCardRow): number | null {
+export function resolveFinancialMetricsRowYear(
+  row: CompanyFinancialMetricsCardRow
+): number | null {
   return toNumber(row.financial_year_int) ?? toNumber(row.financial_year_text);
+}
+
+function resolveRowYear(row: CompanyFinancialMetricsCardRow): number | null {
+  return resolveFinancialMetricsRowYear(row);
+}
+
+function hasDefinedMetricValue(value: unknown): boolean {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  return true;
+}
+
+/** Merges per-year rows; overlay values win when both rows define the same field. */
+export function mergeFinancialMetricsCardRows(
+  base: CompanyFinancialMetricsCardRow[],
+  overlay: CompanyFinancialMetricsCardRow[]
+): CompanyFinancialMetricsCardRow[] {
+  const byYear = new Map<number, CompanyFinancialMetricsCardRow>();
+
+  const mergeTwoRows = (
+    primary: CompanyFinancialMetricsCardRow,
+    secondary: CompanyFinancialMetricsCardRow
+  ): CompanyFinancialMetricsCardRow => {
+    const merged: CompanyFinancialMetricsCardRow = { ...secondary, ...primary };
+    const record = merged as Record<string, unknown>;
+    const primaryRecord = primary as Record<string, unknown>;
+    const secondaryRecord = secondary as Record<string, unknown>;
+
+    for (const key of Object.keys({ ...primaryRecord, ...secondaryRecord })) {
+      const primaryValue = primaryRecord[key];
+      const secondaryValue = secondaryRecord[key];
+      record[key] = hasDefinedMetricValue(primaryValue)
+        ? primaryValue
+        : secondaryValue;
+    }
+
+    if (primary.id > 0) merged.id = primary.id;
+    return merged;
+  };
+
+  const upsert = (
+    row: CompanyFinancialMetricsCardRow,
+    preferIncoming: boolean
+  ) => {
+    const year = resolveRowYear(row);
+    if (year == null) return;
+
+    const existing = byYear.get(year);
+    if (!existing) {
+      byYear.set(year, { ...row });
+      return;
+    }
+
+    byYear.set(
+      year,
+      preferIncoming
+        ? mergeTwoRows(row, existing)
+        : mergeTwoRows(existing, row)
+    );
+  };
+
+  for (const row of base) upsert(row, false);
+  for (const row of overlay) upsert(row, true);
+
+  return Array.from(byYear.entries())
+    .sort(([yearA], [yearB]) => yearA - yearB)
+    .map(([, row]) => row);
+}
+
+export function resolveLatestFinancialMetricsRow(
+  rows: CompanyFinancialMetricsCardRow[]
+): CompanyFinancialMetricsCardRow | null {
+  const years = resolveFinancialsYears(rows);
+  if (years.length === 0) return null;
+
+  const latestYear = years[years.length - 1];
+  return (
+    rows.find((row) => resolveRowYear(row) === latestYear) ?? rows[rows.length - 1] ?? null
+  );
 }
 
 function formatMillions(value: number, currency?: string | null): string {
@@ -393,6 +502,15 @@ function formatMetricValue(
           metric.formattedField ? row[metric.formattedField] : null,
           currency
         ),
+        raw,
+        sourceType,
+      };
+    case "plain_number":
+      return {
+        display:
+          raw % 1 === 0
+            ? Math.round(raw).toLocaleString("en-US")
+            : String(raw),
         raw,
         sourceType,
       };
