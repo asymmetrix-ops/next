@@ -11,6 +11,7 @@ import {
   type AdvisedEntityRef,
 } from "@/components/search/searchEntityLinkUtils";
 import { AdvisedEntitiesList } from "@/components/advisors/AdvisedEntitiesList";
+import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
 import {
   advisorSearchPayloadToSearchParams,
@@ -125,78 +126,54 @@ function MostActiveFullTable({
       <div className="company-section company-section-embedded sector-most-active-section">
         <div className="company-table-scroll">
           <table className="company-table">
-        <thead>
-          <tr className="bg-slate-50 border-b border-slate-100">
-            <th className="py-3 px-4 text-left font-semibold text-slate-600 w-10">#</th>
-            <th className="py-3 px-4 text-left font-semibold text-slate-600">{columnOneLabel}</th>
-            <th className="py-3 px-4 text-center font-semibold text-slate-600 w-24">Deals</th>
-            <th className="py-3 px-4 text-left font-semibold text-slate-600">{mostRecentHeader}</th>
-            <th className="py-3 px-4 text-left font-semibold text-slate-600 w-36">Date</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {items.map((it, i) => {
-            const linkUrl = isInvestorTable
-              ? `/investors/${it.id}`
-              : `/company/${it.id}`;
-            return (
-              <tr
-                key={`${it.name}-${i}`}
-                className={`hover:bg-slate-50/60 transition-colors duration-100 ${it.id ? "cursor-pointer" : ""}`}
-                onClick={() => { if (it.id) window.location.href = linkUrl; }}
-              >
-                <td className="py-3 px-4 text-slate-400 font-medium">{i + 1}</td>
-                <td className="py-3 px-4">
-                  <div className="flex items-center gap-3">
-                    {it.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={it.logoUrl}
-                        alt={it.name}
-                        className="w-8 h-8 rounded-lg object-contain flex-shrink-0"
-                        onError={(e) => {
-                          const t = e.target as HTMLImageElement;
-                          t.style.display = "none";
-                          const fb = t.nextElementSibling as HTMLElement | null;
-                          if (fb) fb.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      className={`${it.logoUrl ? "hidden" : "flex"} justify-center items-center w-8 h-8 rounded-lg text-white bg-gradient-to-br flex-shrink-0 ${cls.gradient}`}
-                    >
-                      <BuildingOfficeIcon className="w-4 h-4" />
-                    </div>
-                    {it.id ? (
-                      <a
-                        href={linkUrl}
-                        className="font-medium text-blue-600 hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {it.name}
-                      </a>
-                    ) : (
-                      <span className="font-medium text-slate-900">{it.name}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="py-3 px-4 text-center">
-                  <span
-                    className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold ${cls.countBg}`}
-                  >
-                    {formatNumber(it.count)}
-                  </span>
-                </td>
-                <td className="py-3 px-4 text-slate-700 max-w-[200px] truncate">
-                  {renderMostRecentTargetValue(it)}
-                </td>
-                <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
-                  {it.closedDate || "-"}
-                </td>
+            <thead>
+              <tr>
+                <th className="w-10">#</th>
+                <th>{columnOneLabel}</th>
+                <th className="text-center" style={{ minWidth: 80 }}>
+                  Deals
+                </th>
+                <th>{mostRecentHeader}</th>
+                <th style={{ minWidth: 120 }}>Date</th>
               </tr>
-            );
-          })}
-        </tbody>
+            </thead>
+            <tbody>
+              {items.map((it, i) => {
+                const linkUrl = isInvestorTable
+                  ? `/investors/${it.id}`
+                  : `/company/${it.id}`;
+                return (
+                  <tr
+                    key={`${it.name}-${i}`}
+                    className={it.id ? "cursor-pointer" : undefined}
+                    onClick={() => {
+                      if (it.id) window.location.href = linkUrl;
+                    }}
+                  >
+                    <td className="text-slate-400">{i + 1}</td>
+                    <td>
+                      <SearchEntityIdentityCell
+                        name={it.name}
+                        logo={it.logoUrl}
+                        href={it.id ? linkUrl : undefined}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </td>
+                    <td className="text-center">
+                      <span
+                        className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold ${cls.countBg}`}
+                      >
+                        {formatNumber(it.count)}
+                      </span>
+                    </td>
+                    <td className="company-table-cell-wrap">
+                      {renderMostRecentTargetValue(it)}
+                    </td>
+                    <td>{it.closedDate || "-"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
           </table>
         </div>
       </div>
@@ -221,72 +198,48 @@ function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
 
   return (
     <>
+      <style>{SEARCH_TABLE_STYLES}</style>
       <style>{SEARCH_MULTI_VALUE_STYLES}</style>
       <div className="company-section company-section-embedded sector-most-active-section">
         <div className="company-table-scroll">
           <table className="company-table">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="py-3 px-4 text-left font-semibold text-slate-600 w-10">#</th>
-              <th className="py-3 px-4 text-left font-semibold text-slate-600 w-16">Logo</th>
-              <th className="py-3 px-4 text-left font-semibold text-slate-600">Advisor Name</th>
-              <th className="py-3 px-4 text-left font-semibold text-slate-600">Country</th>
-              <th className="py-3 px-4 text-center font-semibold text-slate-600 w-48">
-                Total No. Deals Advised
-              </th>
-              <th className="py-3 px-4 text-left font-semibold text-slate-600">
-                Companies Advised
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {items.map((it, i) => {
-              const linkUrl = it.id ? `/advisor/${it.id}` : undefined;
-              return (
-                <tr
-                  key={`${it.name}-${i}`}
-                  className="hover:bg-slate-50/60 transition-colors duration-100"
-                >
-                  <td className="py-3 px-4 text-slate-400 font-medium">{i + 1}</td>
-                  <td className="py-3 px-4">
-                    {it.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={it.logoUrl}
-                        alt={it.name}
-                        className="w-8 h-8 rounded-lg object-contain"
-                        loading="lazy"
+            <thead>
+              <tr>
+                <th className="w-10">#</th>
+                <th>Advisor Name</th>
+                <th>Country</th>
+                <th className="text-center" style={{ minWidth: 160 }}>
+                  Total No. Deals Advised
+                </th>
+                <th className="company-table-cell-wrap">Companies Advised</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it, i) => {
+                const linkUrl = it.id ? `/advisor/${it.id}` : undefined;
+                return (
+                  <tr key={`${it.name}-${i}`}>
+                    <td className="text-slate-400">{i + 1}</td>
+                    <td>
+                      <SearchEntityIdentityCell
+                        name={it.name}
+                        logo={it.logoUrl}
+                        href={linkUrl}
                       />
-                    ) : (
-                      <div className="flex justify-center items-center w-8 h-8 rounded-lg text-white bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
-                        <BuildingOfficeIcon className="w-4 h-4" />
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-3 px-4">
-                    {linkUrl ? (
-                      <a href={linkUrl} className="font-medium text-blue-600 hover:underline">
-                        {it.name}
-                      </a>
-                    ) : (
-                      <span className="font-medium text-slate-900">{it.name}</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-slate-700">
-                    {it.country || "-"}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-amber-50 text-amber-700">
-                      {formatNumber(it.totalDealsAdvised)}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-slate-700 max-w-[360px]">
-                    <AdvisedEntitiesList items={it.advisedEntities} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
+                    </td>
+                    <td>{it.country || "-"}</td>
+                    <td className="text-center">
+                      <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-amber-50 text-amber-700">
+                        {formatNumber(it.totalDealsAdvised)}
+                      </span>
+                    </td>
+                    <td className="company-table-cell-wrap">
+                      <AdvisedEntitiesList items={it.advisedEntities} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
           </table>
         </div>
       </div>

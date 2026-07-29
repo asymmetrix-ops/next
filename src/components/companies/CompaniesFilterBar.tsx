@@ -186,6 +186,8 @@ export interface CompaniesFilterBarProps {
   entityLabel?: string;
   portfolioOnlyChipLabel?: string;
   portfolioBooleanDescription?: string;
+  /** Filter type ids that cannot be removed or edited (e.g. scoped sector on sector pages). */
+  nonRemovableFilterIds?: string[];
 }
 
 // ── CSS variables scoped to the component ─────────────────────────────────
@@ -406,8 +408,9 @@ interface ChipProps {
   def: FilterDef;
   value: unknown;
   chipStyle?: "cyan" | "neutral" | "outlined";
-  onEdit: () => void;
-  onRemove: () => void;
+  onEdit?: () => void;
+  onRemove?: () => void;
+  locked?: boolean;
   portfolioOnlyChipLabel?: string;
 }
 
@@ -417,6 +420,7 @@ function Chip({
   chipStyle = "neutral",
   onEdit,
   onRemove,
+  locked = false,
   portfolioOnlyChipLabel,
 }: ChipProps) {
   const [hover, setHover] = useState(false);
@@ -449,7 +453,7 @@ function Chip({
 
   return (
     <span
-      onClick={onEdit}
+      onClick={locked ? undefined : onEdit}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
@@ -460,10 +464,10 @@ function Chip({
         borderRadius: "var(--r-md)",
         fontSize: "var(--fs-13)",
         fontFamily: "var(--font-sans)",
-        cursor: "pointer",
+        cursor: locked ? "default" : "pointer",
         userSelect: "none",
         transition: "box-shadow 120ms",
-        boxShadow: hover ? "0 1px 2px rgba(17,22,29,0.08)" : "none",
+        boxShadow: hover && !locked ? "0 1px 2px rgba(17,22,29,0.08)" : "none",
         height: 30,
       }}
     >
@@ -491,6 +495,7 @@ function Chip({
       >
         {summary}
       </span>
+      {!locked && onRemove && (
       <button
         type="button"
         onClick={(e) => {
@@ -520,6 +525,7 @@ function Chip({
           />
         </svg>
       </button>
+      )}
     </span>
   );
 }
@@ -2366,8 +2372,13 @@ export function CompaniesFilterBar({
   entityLabel = "companies",
   portfolioOnlyChipLabel = "My Portfolio only",
   portfolioBooleanDescription,
+  nonRemovableFilterIds = [],
 }: CompaniesFilterBarProps) {
   const { filters, searchText, filterLogic } = state;
+  const nonRemovableFilterIdSet = useMemo(
+    () => new Set(nonRemovableFilterIds),
+    [nonRemovableFilterIds]
+  );
 
   const setFilterLogic = useCallback(
     (next: FilterCombineLogic) => {
@@ -2449,16 +2460,20 @@ export function CompaniesFilterBar({
 
   const removeFilter = useCallback(
     (instanceKey: string) => {
+      const target = filters.find((f) => f.key === instanceKey);
+      if (target && nonRemovableFilterIdSet.has(target.id)) return;
       setFilters((f) => f.filter((x) => x.key !== instanceKey));
       setEditing((e) => (e === instanceKey ? null : e));
     },
-    [setFilters]
+    [setFilters, filters, nonRemovableFilterIdSet]
   );
 
   const clearAll = useCallback(() => {
-    setFilters([]);
+    setFilters((current) =>
+      current.filter((f) => nonRemovableFilterIdSet.has(f.id))
+    );
     setEditing(null);
-  }, [setFilters]);
+  }, [setFilters, nonRemovableFilterIdSet]);
 
   const editingFilter = filters.find((f) => f.key === editing);
   const editingDef = editingFilter
@@ -2467,10 +2482,20 @@ export function CompaniesFilterBar({
 
   const availableFilterDefs = useMemo(
     () =>
-      filterDefs.filter((def) =>
-        filterDefHasAvailableOptions(def, filters)
-      ),
-    [filterDefs, filters]
+      filterDefs.filter((def) => {
+        if (
+          nonRemovableFilterIdSet.has(def.id) &&
+          filters.some((filter) => filter.id === def.id)
+        ) {
+          return false;
+        }
+        return filterDefHasAvailableOptions(def, filters);
+      }),
+    [filterDefs, filters, nonRemovableFilterIdSet]
+  );
+
+  const hasRemovableFilters = filters.some(
+    (f) => !nonRemovableFilterIdSet.has(f.id)
   );
 
   const editingReservedValues = useMemo(() => {
@@ -2592,6 +2617,7 @@ export function CompaniesFilterBar({
           {filters.map((f, index) => {
             const def = filterDefs.find((d) => d.id === f.id);
             if (!def) return null;
+            const locked = nonRemovableFilterIdSet.has(f.id);
             if (!chipRefs.current[f.key])
               chipRefs.current[f.key] = { current: null } as React.RefObject<HTMLSpanElement>;
             return (
@@ -2599,7 +2625,9 @@ export function CompaniesFilterBar({
                 {index > 0 && (
                   <FilterLogicSeparator
                     logic={f.combineLogic ?? filterLogic}
-                    onToggle={() => toggleFilterCombineLogic(index)}
+                    onToggle={
+                      locked ? undefined : () => toggleFilterCombineLogic(index)
+                    }
                   />
                 )}
                 <span ref={chipRefs.current[f.key]}>
@@ -2607,8 +2635,9 @@ export function CompaniesFilterBar({
                     def={def}
                     value={f.value}
                     chipStyle="cyan"
-                    onEdit={() => setEditing(f.key)}
-                    onRemove={() => removeFilter(f.key)}
+                    locked={locked}
+                    onEdit={locked ? undefined : () => setEditing(f.key)}
+                    onRemove={locked ? undefined : () => removeFilter(f.key)}
                     portfolioOnlyChipLabel={portfolioOnlyChipLabel}
                   />
                 </span>
@@ -2643,7 +2672,7 @@ export function CompaniesFilterBar({
             borderTop: "1px dashed var(--ax-gray-100)",
           }}
         >
-          {filters.length > 0 && (
+          {hasRemovableFilters && (
             <button
               type="button"
               onClick={clearAll}

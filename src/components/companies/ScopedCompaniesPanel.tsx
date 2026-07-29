@@ -40,6 +40,8 @@ export type ScopedCompaniesPanelProps = {
   columnsStorageKey?: string;
   columnsStorageScope?: ColumnStorageScope;
   defaultColumnKeys?: readonly string[];
+  /** Lock primary sector filter chip and primary_sectors column (sector-scoped public lists). */
+  lockSectorScope?: boolean;
 };
 
 function useScopedCompaniesSearch() {
@@ -196,6 +198,7 @@ export function ScopedCompaniesPanel({
   columnsStorageKey,
   columnsStorageScope = "session",
   defaultColumnKeys = DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS,
+  lockSectorScope = false,
 }: ScopedCompaniesPanelProps) {
   const {
     companies,
@@ -219,14 +222,18 @@ export function ScopedCompaniesPanel({
 
   const mergedExcludeFilterIds = useMemo(() => {
     const ids = [...excludeFilterIds];
-    if (primarySectorId != null && !ids.includes("primary_sector")) {
+    if (
+      primarySectorId != null &&
+      !lockSectorScope &&
+      !ids.includes("primary_sector")
+    ) {
       ids.push("primary_sector");
     }
     if (secondarySectorId != null && !ids.includes("secondary_sector")) {
       ids.push("secondary_sector");
     }
     return ids;
-  }, [excludeFilterIds, primarySectorId, secondarySectorId]);
+  }, [excludeFilterIds, primarySectorId, secondarySectorId, lockSectorScope]);
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
 
@@ -239,7 +246,12 @@ export function ScopedCompaniesPanel({
   );
 
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
-    () => (fixedOwnershipTypeIds != null ? ["ownership"] : [])
+    () => {
+      const keys: string[] = [];
+      if (fixedOwnershipTypeIds != null) keys.push("ownership");
+      if (lockSectorScope && primarySectorId != null) keys.push("primary_sectors");
+      return keys;
+    }
   );
 
   const handleFilterColumnsChange = useCallback(
@@ -255,9 +267,12 @@ export function ScopedCompaniesPanel({
       if (fixedOwnershipTypeIds != null && !next.includes("ownership")) {
         next.unshift("ownership");
       }
+      if (lockSectorScope && primarySectorId != null && !next.includes("primary_sectors")) {
+        next.unshift("primary_sectors");
+      }
       setFilterPinnedColumnKeys(next);
     },
-    [enableColumnControl, fixedOwnershipTypeIds]
+    [enableColumnControl, fixedOwnershipTypeIds, lockSectorScope, primarySectorId]
   );
 
   const [showColumnsModal, setShowColumnsModal] = useState(false);
@@ -367,6 +382,7 @@ export function ScopedCompaniesPanel({
           fixedOwnershipTypeIds={fixedOwnershipTypeIds}
           embedded={embedded}
           hideFilterBar={!enableFilterControl}
+          lockPrimarySectorFilter={lockSectorScope}
           selectedCount={enableRowSelection ? selectedCompanyIds.size : 0}
         />
       )}

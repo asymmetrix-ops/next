@@ -3185,11 +3185,9 @@ const SectorDetailPage = ({
                 }
                 hideOwnershipTabs={Boolean(ownershipFilter)}
                 embedded
-                enableColumnControl={false}
-                enableFilterControl={false}
-                enableExport={false}
-                enableRowSelection
+                uncappedExport
                 columnsStorageScope="session"
+                columnsStorageKey={`sector-all-companies-${sectorId}`}
               />
             </div>
           ) : null
@@ -3201,7 +3199,9 @@ const SectorDetailPage = ({
               hideOwnershipTabs
               embedded
               uncappedExport
+              lockSectorScope
               columnsStorageScope="session"
+              columnsStorageKey={`sector-public-companies-${sectorId}`}
             />
           ) : null
         ) : activeTab === "subsectors" ? (

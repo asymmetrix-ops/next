@@ -42,8 +42,6 @@ import {
 import {
   SEARCH_DASHBOARD_ACTIONS,
   SEARCH_DASHBOARD_EYEBROW,
-  SEARCH_DASHBOARD_FILTER_INNER,
-  SEARCH_DASHBOARD_FILTER_SHELL,
   SEARCH_DASHBOARD_HEADER_ROW,
   SEARCH_DASHBOARD_MATCH_COUNT,
   SEARCH_DASHBOARD_TITLE,
@@ -373,15 +371,21 @@ export const CorporateEventsDashboard = ({
 
   const horizontalPad = embedded ? "0" : "28px";
   const topPad = embedded ? "16px" : "20px";
+  const showHeaderActions =
+    Boolean(onColumnsClick && !hideColumns) ||
+    Boolean(onExportCSVClick && !hideExport) ||
+    !embedded;
+  const showHeaderRow = !hidePageHeader || showHeaderActions;
 
   return (
     <div
       style={{
-        background: embedded ? "#fff" : undefined,
-        borderBottom: embedded ? "none" : undefined,
+        background: embedded ? "#fff" : "#f8fafc",
+        borderBottom: embedded ? "none" : "1px solid #e2e8f0",
       }}
     >
       <div style={{ width: "100%", padding: `${topPad} ${horizontalPad} 0` }}>
+        {showHeaderRow && (
         <div
           style={{
             ...SEARCH_DASHBOARD_HEADER_ROW,
@@ -401,6 +405,7 @@ export const CorporateEventsDashboard = ({
           </div>
           )}
 
+          {showHeaderActions && (
           <div
             style={{
               ...SEARCH_DASHBOARD_ACTIONS,
@@ -437,18 +442,28 @@ export const CorporateEventsDashboard = ({
             </button>
             )}
           </div>
+          )}
         </div>
+        )}
 
-        <SearchListTabs
-          tabs={dealTabs}
-          activeTabId={activeDealTab}
-          onTabClick={(tabId) => setActiveDealTab(tabId as CorporateEventDealTab)}
-        />
+        <div style={{ marginBottom: embedded ? 10 : 0 }}>
+          <SearchListTabs
+            tabs={dealTabs}
+            activeTabId={activeDealTab}
+            onTabClick={(tabId) => setActiveDealTab(tabId as CorporateEventDealTab)}
+          />
+        </div>
       </div>
 
       {!hideFilterBar && (
-      <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
-        <div style={SEARCH_DASHBOARD_FILTER_INNER}>
+      <div
+        style={{
+          background: "#fff",
+          borderTop: "1px solid #e2e8f0",
+          borderBottom: "1px solid #e2e8f0",
+        }}
+      >
+        <div style={{ width: "100%", padding: `10px ${horizontalPad} 12px` }}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={FILTER_CATEGORIES}
