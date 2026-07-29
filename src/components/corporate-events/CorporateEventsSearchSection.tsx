@@ -90,6 +90,7 @@ const ALL_CORPORATE_EVENT_COLUMNS: CorporateEventColumnDefinition[] = [
   { key: "target", label: "Target", minWidth: 160 },
   { key: "target_hq", label: "Target HQ", minWidth: 120 },
   { key: "parties", label: "Parties", wrap: true, minWidth: 220 },
+  { key: "deal_details", label: "Details", minWidth: 160 },
   { key: "deal_type", label: "Deal Type", minWidth: 130 },
   { key: "funding_stage", label: "Funding Stage", minWidth: 130 },
   { key: "investment_amount", label: "Amount (m)", minWidth: 120 },
