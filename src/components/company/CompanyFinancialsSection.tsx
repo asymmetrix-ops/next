@@ -1,11 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
-import {
-  ArrowUpTrayIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from "@heroicons/react/24/outline";
+import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import {
   CARD_HEADER_BAR_STYLE,
   CARD_TITLE_STYLE,
@@ -24,18 +20,21 @@ import {
 } from "@/lib/financialIntelligence/sourceTypes";
 import {
   buildCompanyFinancialsViewModel,
+  buildFinancialsTableGridTemplate,
   formatFiscalYearHeader,
   getVisibleFinancialsCellDisplay,
   getVisibleYoyValue,
-  getYoyComparisonYears,
+  resolveUnifiedFinancialYears,
   type CompanyFinancialMetricsCardRow,
   type CompanyFinancialsViewModel,
-  type FinancialsCardDef,
   type FinancialsCellValue,
   type FinancialsYoyValue,
 } from "@/lib/companyFinancialMetricsCard";
 import { exportFinancialMetricsView } from "@/lib/companyFinancialsExport";
-import { buildIncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
+import {
+  buildIncomeStatementFinancialsViewModel,
+  remapIncomeStatementToUnifiedYears,
+} from "@/lib/incomeStatementFinancials";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { IncomeStatementRow } from "@/components/redesign/IncomeStatementSection";
 import { IncomeStatementFinancialsCard } from "@/components/company/IncomeStatementFinancialsCard";
@@ -228,45 +227,28 @@ function FinancialsMetricsCard({
   allowedSources,
   companyName,
   model,
-  collapsed,
-  onToggleCollapsed,
   showYoy,
+  gridTemplate,
 }: {
   card: CompanyFinancialsViewModel["cards"][number];
   years: number[];
   allowedSources: FiMetricSourceType[];
   companyName: string;
   model: CompanyFinancialsViewModel;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
   showYoy: boolean;
+  gridTemplate: string;
 }) {
-  const gridTemplate = showYoy
-    ? `minmax(180px, 1.4fr) repeat(${years.length}, minmax(88px, 1fr)) minmax(72px, 0.7fr)`
-    : `minmax(180px, 1.4fr) repeat(${years.length}, minmax(88px, 1fr))`;
-
   return (
     <LinkPanel style={{ marginBottom: 16 }}>
       <div style={CARD_HEADER_BAR_STYLE}>
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
+        <div
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
-            border: "none",
-            background: "transparent",
-            padding: 0,
-            cursor: "pointer",
             minWidth: 0,
           }}
         >
-          {collapsed ? (
-            <ChevronDownIcon width={16} height={16} color={T.muted} aria-hidden />
-          ) : (
-            <ChevronUpIcon width={16} height={16} color={T.muted} aria-hidden />
-          )}
           <span style={CARD_TITLE_STYLE}>{card.title}</span>
           <span
             style={{
@@ -278,7 +260,7 @@ function FinancialsMetricsCard({
           >
             {card.metrics.length} metrics
           </span>
-        </button>
+        </div>
         <ExportButton
           compact
           label="Export"
@@ -293,69 +275,65 @@ function FinancialsMetricsCard({
         />
       </div>
 
-      {!collapsed ? (
-        <>
-          <div
+      <div
+        style={{
+          ...tableColHeaderBarStyle,
+          gridTemplateColumns: gridTemplate,
+        }}
+      >
+        <span>Metric</span>
+        {years.map((year) => (
+          <span key={year} style={{ textAlign: "center" }}>
+            {formatFiscalYearHeader(year)}
+          </span>
+        ))}
+        {showYoy ? <span style={{ textAlign: "center" }}>YoY</span> : null}
+      </div>
+      {card.metrics.map((metric, index) => (
+        <div
+          key={metric.key}
+          style={{
+            display: "grid",
+            gridTemplateColumns: gridTemplate,
+            alignItems: "center",
+            padding: "12px 16px",
+            borderBottom:
+              index === card.metrics.length - 1
+                ? "none"
+                : `1px solid ${T.hair}`,
+            minWidth: 0,
+          }}
+        >
+          <span
             style={{
-              ...tableColHeaderBarStyle,
-              gridTemplateColumns: gridTemplate,
+              fontFamily: T.sans,
+              fontSize: 13,
+              color: T.body,
+              minWidth: 0,
             }}
           >
-            <span>Metric</span>
-            {years.map((year) => (
-              <span key={year} style={{ textAlign: "center" }}>
-                {formatFiscalYearHeader(year)}
-              </span>
-            ))}
-            {showYoy ? <span style={{ textAlign: "center" }}>YoY</span> : null}
-          </div>
-          {card.metrics.map((metric, index) => (
+            {metric.label}
+          </span>
+          {years.map((year) => (
             <div
-              key={metric.key}
-              style={{
-                display: "grid",
-                gridTemplateColumns: gridTemplate,
-                alignItems: "center",
-                padding: "12px 16px",
-                borderBottom:
-                  index === card.metrics.length - 1
-                    ? "none"
-                    : `1px solid ${T.hair}`,
-                minWidth: 0,
-              }}
+              key={`${metric.key}-${year}`}
+              style={{ display: "flex", justifyContent: "center" }}
             >
-              <span
-                style={{
-                  fontFamily: T.sans,
-                  fontSize: 13,
-                  color: T.body,
-                  minWidth: 0,
-                }}
-              >
-                {metric.label}
-              </span>
-              {years.map((year) => (
-                <div
-                  key={`${metric.key}-${year}`}
-                  style={{ display: "flex", justifyContent: "center" }}
-                >
-                  <MetricValueCell
-                    cell={metric.cellsByYear[year]}
-                    allowedSources={allowedSources}
-                  />
-                </div>
-              ))}
-              {showYoy ? (
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  <YoyCell
-                    value={getVisibleYoyValue(metric, years, allowedSources)}
-                  />
-                </div>
-              ) : null}
+              <MetricValueCell
+                cell={metric.cellsByYear[year] ?? { display: "-", raw: null, sourceType: null }}
+                allowedSources={allowedSources}
+              />
             </div>
           ))}
-        </>
-      ) : null}
+          {showYoy ? (
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <YoyCell
+                value={getVisibleYoyValue(metric, years, allowedSources)}
+              />
+            </div>
+          ) : null}
+        </div>
+      ))}
     </LinkPanel>
   );
 }
@@ -371,19 +349,44 @@ export function CompanyFinancialsSection({
   const [allowedSources, setAllowedSources] = useState<FiMetricSourceType[]>([
     ...DEFAULT_FI_SOURCE_TYPES,
   ]);
-  const [collapsedCards, setCollapsedCards] = useState<
-    Record<FinancialsCardDef["id"], boolean>
-  >({
-    financial: false,
-    subscription: false,
-    other: false,
-  });
 
   const model = useMemo(
     () => buildCompanyFinancialsViewModel(rows, employeeHistory),
     [rows, employeeHistory]
   );
-  const showYoy = getYoyComparisonYears(model.years) != null;
+
+  const incomeStatementModel = useMemo(
+    () =>
+      buildIncomeStatementFinancialsViewModel(
+        incomeStatementRows,
+        employeeHistory,
+        incomeStatementCurrency
+      ),
+    [incomeStatementRows, employeeHistory, incomeStatementCurrency]
+  );
+
+  const unifiedYears = useMemo(
+    () =>
+      resolveUnifiedFinancialYears(
+        model.years,
+        incomeStatementModel?.years ?? []
+      ),
+    [model.years, incomeStatementModel?.years]
+  );
+
+  const showYoy = unifiedYears.length >= 2;
+  const gridTemplate = buildFinancialsTableGridTemplate(
+    unifiedYears.length,
+    showYoy
+  );
+
+  const alignedIncomeStatementModel = useMemo(() => {
+    if (!incomeStatementModel || unifiedYears.length === 0) return null;
+    return remapIncomeStatementToUnifiedYears(
+      incomeStatementModel,
+      unifiedYears
+    );
+  }, [incomeStatementModel, unifiedYears]);
 
   const toggleSourceType = useCallback((type: FiMetricSourceType) => {
     setAllowedSources((prev) => {
@@ -398,23 +401,9 @@ export function CompanyFinancialsSection({
     });
   }, []);
 
-  const toggleCard = useCallback((cardId: FinancialsCardDef["id"]) => {
-    setCollapsedCards((prev) => ({ ...prev, [cardId]: !prev[cardId] }));
-  }, []);
+  const hasIncomeStatement = alignedIncomeStatementModel != null;
 
-  const incomeStatementModel = useMemo(
-    () =>
-      buildIncomeStatementFinancialsViewModel(
-        incomeStatementRows,
-        employeeHistory,
-        incomeStatementCurrency
-      ),
-    [incomeStatementRows, employeeHistory, incomeStatementCurrency]
-  );
-
-  const hasIncomeStatement = incomeStatementModel != null;
-
-  if (loading && model.years.length === 0 && !hasIncomeStatement) {
+  if (loading && unifiedYears.length === 0 && !hasIncomeStatement) {
     return (
       <div
         style={{
@@ -430,7 +419,7 @@ export function CompanyFinancialsSection({
     );
   }
 
-  if (model.years.length === 0 && !hasIncomeStatement) {
+  if (unifiedYears.length === 0 && !hasIncomeStatement) {
     return (
       <div
         style={{
@@ -448,53 +437,56 @@ export function CompanyFinancialsSection({
 
   return (
     <div style={{ width: "100%", minWidth: 0 }}>
-      {hasIncomeStatement && incomeStatementModel ? (
-        <IncomeStatementFinancialsCard model={incomeStatementModel} />
+      {model.years.length > 0 ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 16,
+            marginBottom: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ flex: "1 1 420px", minWidth: 0 }}>
+            <SourceLegend
+              allowedSources={allowedSources}
+              onToggleSourceType={toggleSourceType}
+            />
+          </div>
+          <div style={{ flexShrink: 0, paddingTop: 24 }}>
+            <ExportButton
+              label="Export all metrics"
+              onClick={() =>
+                exportFinancialMetricsView(model, allowedSources, companyName)
+              }
+            />
+          </div>
+        </div>
       ) : null}
 
-      {model.years.length === 0 ? null : (
-        <>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 16,
-          marginBottom: 16,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ flex: "1 1 420px", minWidth: 0 }}>
-          <SourceLegend
-            allowedSources={allowedSources}
-            onToggleSourceType={toggleSourceType}
-          />
-        </div>
-        <div style={{ flexShrink: 0, paddingTop: 24 }}>
-          <ExportButton
-            label="Export all metrics"
-            onClick={() =>
-              exportFinancialMetricsView(model, allowedSources, companyName)
-            }
-          />
-        </div>
-      </div>
-
-      {model.cards.map((card) => (
-        <FinancialsMetricsCard
-          key={card.id}
-          card={card}
-          years={model.years}
-          allowedSources={allowedSources}
-          companyName={companyName}
-          model={model}
-          collapsed={collapsedCards[card.id]}
-          onToggleCollapsed={() => toggleCard(card.id)}
-          showYoy={showYoy}
+      {hasIncomeStatement && alignedIncomeStatementModel ? (
+        <IncomeStatementFinancialsCard
+          model={alignedIncomeStatementModel}
+          gridTemplate={gridTemplate}
+          showYoyColumn={showYoy}
         />
-      ))}
-        </>
-      )}
+      ) : null}
+
+      {model.years.length === 0
+        ? null
+        : model.cards.map((card) => (
+            <FinancialsMetricsCard
+              key={card.id}
+              card={card}
+              years={unifiedYears}
+              allowedSources={allowedSources}
+              companyName={companyName}
+              model={model}
+              showYoy={showYoy}
+              gridTemplate={gridTemplate}
+            />
+          ))}
     </div>
   );
 }

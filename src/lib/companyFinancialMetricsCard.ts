@@ -766,6 +766,31 @@ export function formatFiscalYearHeader(year: number): string {
   return `FY${year}`;
 }
 
+/** Union of income-statement and metrics years, oldest → newest, max 3. */
+export function resolveUnifiedFinancialYears(
+  metricsYears: number[],
+  incomeYears: Array<number | null | undefined> = []
+): number[] {
+  const years = new Set<number>(metricsYears);
+  for (const year of incomeYears) {
+    if (year != null && Number.isFinite(year)) years.add(year);
+  }
+  const sorted = Array.from(years).sort((a, b) => a - b);
+  if (sorted.length <= 3) return sorted;
+  return sorted.slice(-3);
+}
+
+/** Shared grid template so all financial tables align column-for-column. */
+export function buildFinancialsTableGridTemplate(
+  yearCount: number,
+  includeYoyColumn: boolean
+): string {
+  const yearColumns = `repeat(${yearCount}, minmax(88px, 1fr))`;
+  return includeYoyColumn
+    ? `minmax(180px, 1.4fr) ${yearColumns} minmax(72px, 0.7fr)`
+    : `minmax(180px, 1.4fr) ${yearColumns}`;
+}
+
 export function isFinancialsCellVisible(
   cell: FinancialsCellValue,
   allowedSources: FiMetricSourceType[]
