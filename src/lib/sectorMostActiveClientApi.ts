@@ -246,9 +246,7 @@ function mapRankedToInvestors(raw: unknown): InvestorListItem[] {
           ? { display: mapped.closedDate, date: mapped.closedDate }
           : null,
         years_since_last_investment: mapped.closedDate || undefined,
-        description: mapped.mostRecentTarget
-          ? `Most recent: ${mapped.mostRecentTarget}`
-          : undefined,
+        description: mapped.mostRecentTarget || undefined,
       } satisfies InvestorListItem;
     })
     .filter(Boolean) as InvestorListItem[];
@@ -454,6 +452,13 @@ export async function fetchSectorMostActiveInvestors(
   page: number = 1
 ): Promise<SectorPagedResult<InvestorListItem> | null> {
   return fetchSectorRankedPage(kind, sectorId, page);
+}
+
+export async function fetchSectorMostActiveStrategicAsInvestors(
+  sectorId: number,
+  page: number = 1
+): Promise<SectorPagedResult<InvestorListItem> | null> {
+  return fetchSectorRankedPage("strategic", sectorId, page);
 }
 
 export async function fetchSectorMostActiveStrategicAcquirers(

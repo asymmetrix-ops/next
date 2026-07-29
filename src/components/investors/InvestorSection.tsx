@@ -150,7 +150,8 @@ function renderInvestorCell(
   investor: Investor,
   index: number,
   onInvestorClick: (id: number) => void,
-  sectorMaps?: SectorNameIdMaps
+  sectorMaps?: SectorNameIdMaps,
+  profileHrefPrefix = "/investors"
 ): React.ReactNode {
   switch (columnKey) {
     case "name": {
@@ -161,7 +162,7 @@ function renderInvestorCell(
           name={name}
           logo={readLogoFromRecord(investor, getInvestorFieldAliasesForColumn("logo"))}
           subtitle={investor.country?.trim() || undefined}
-          href={id ? `/investors/${id}` : undefined}
+          href={id ? `${profileHrefPrefix}/${id}` : undefined}
           onClick={(e) => {
             if (
               e.defaultPrevented ||
@@ -315,6 +316,7 @@ export const InvestorSection = ({
   columnsStorageScope = "local",
   defaultColumnKeys,
   enableColumnControl = true,
+  profileHrefPrefix = "/investors",
 }: {
   investors: Investor[];
   loading: boolean;
@@ -349,6 +351,7 @@ export const InvestorSection = ({
   columnsStorageScope?: ColumnStorageScope;
   defaultColumnKeys?: readonly string[];
   enableColumnControl?: boolean;
+  profileHrefPrefix?: string;
 }) => {
   const router = useRouter();
   const headerDidDragRef = useRef(false);
@@ -487,9 +490,9 @@ export const InvestorSection = ({
 
   const handleInvestorClick = useCallback(
     (id: number) => {
-      router.push(`/investors/${id}`);
+      router.push(`${profileHrefPrefix}/${id}`);
     },
-    [router]
+    [router, profileHrefPrefix]
   );
 
   const handlePageChange = useCallback(
@@ -965,7 +968,8 @@ export const InvestorSection = ({
                         investor,
                         index,
                         handleInvestorClick,
-                        sectorMaps
+                        sectorMaps,
+                        profileHrefPrefix
                       )}
                     </td>
                   ))}
