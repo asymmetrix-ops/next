@@ -380,8 +380,8 @@ export function CompanyFinancialsSection({
   });
 
   const model = useMemo(
-    () => buildCompanyFinancialsViewModel(rows),
-    [rows]
+    () => buildCompanyFinancialsViewModel(rows, employeeHistory),
+    [rows, employeeHistory]
   );
   const showYoy = getYoyComparisonYears(model.years) != null;
 

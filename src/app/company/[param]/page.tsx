@@ -91,6 +91,7 @@ import {
 import { fetchCompanyProductUsers } from "@/lib/companyProductUsers";
 import {
   fetchCompanyFinancialMetricsCard,
+  enrichFinancialMetricsRowWithLinkedInEmployees,
   hasFinancialMetricsCardData,
   mergeFinancialMetricsCardRows,
   resolveLatestFinancialMetricsRow,
@@ -1044,6 +1045,7 @@ const sourceLabel = (code?: number | string | null): string | undefined => {
     )
       return "Estimate";
     if (normalized === "model") return "Estimate";
+    if (normalized === "linkedin") return "LinkedIn";
     return undefined;
   }
 
@@ -2716,8 +2718,21 @@ const CompanyDetail = () => {
       return formatLinkedInEmployeeCountDate(latest.date);
     })();
 
+  const financialMetricsForDisplay = (() => {
+    if (!financialMetrics) return null;
+    const year =
+      getNumeric(financialMetrics.financial_year_text) ??
+      getNumeric(financialMetrics.Financial_Year);
+    if (year == null || employeeData.length === 0) return financialMetrics;
+    return enrichFinancialMetricsRowWithLinkedInEmployees(
+      financialMetrics as CompanyFinancialMetricsCardRow,
+      year,
+      employeeData
+    ) as CompanyFinancialMetrics;
+  })();
+
   const finMetricsData = buildFinancialMetricsSections({
-    financialMetrics,
+    financialMetrics: financialMetricsForDisplay,
     revenuePlain,
     ebitdaPlain,
     currencyCode: metricsCurrencyCode,
