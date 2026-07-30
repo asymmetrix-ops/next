@@ -5,11 +5,26 @@ export interface EmailAlertFilters {
   individuals?: number[];
   investors?: number[];
   advisors?: number[];
-  /** CE email alert: selected deal types; absent or all values = no filter. */
+  /** CE email alert: selected deal types; absent or empty = no filter. */
   deal_types?: string[];
-  /** CE email alert: selected funding stages; absent or all values = no filter. */
+  /** CE email alert: selected funding stages; absent or empty = no filter. */
   funding_stages?: string[];
 }
+
+/** Filters shape sent to / received from the Xano user_email_alerts API. */
+export interface EmailAlertFiltersWire {
+  companies: number[];
+  sectors: number[];
+  individuals: number[];
+  investors: number[];
+  advisors: number[];
+  /** Empty array = no filter (all included). */
+  deal_types: string[];
+  /** Empty array = no filter (all included). */
+  funding_stages: string[];
+}
+
+export type EmailAlertContentType = "preview" | "full_body" | "digest";
 
 export interface EmailAlert {
   id: number;
@@ -17,9 +32,9 @@ export interface EmailAlert {
   user_id: number;
   item_type: "corporate_events" | "insights_analysis" | "digest" | "deal_radar";
   email_frequency: "as_added" | "daily" | "weekly";
-  day_of_week: string;
+  day_of_week: string | null;
   timezone: string;
-  content_type: string;
+  content_type: EmailAlertContentType;
   is_active: boolean;
   send_time_local: string | null;
   next_run_at_utc?: string | number | null;
