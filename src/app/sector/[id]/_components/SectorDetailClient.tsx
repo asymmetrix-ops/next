@@ -28,6 +28,9 @@ import {
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "@/types/insightsAnalysis";
+import { ExportLimitModal } from "@/components/ExportLimitModal";
+import { exportMarketMapBucket } from "@/lib/listExport/marketMapExport";
+import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 
 // Types for API integration
 interface SectorData {
@@ -1377,9 +1380,13 @@ interface MarketMapCounts {
 function MarketMapGrid({
   companies,
   counts: countsProp,
+  onExportBucket,
+  exportingBucket,
 }: {
   companies: SectorCompany[];
   counts?: MarketMapCounts;
+  onExportBucket?: (bucketType: string, bucketLabel: string) => void;
+  exportingBucket?: string | null;
 }) {
   const labelFor = (type: string) =>
     type === "public"
@@ -1534,12 +1541,24 @@ function MarketMapGrid({
                     {countsProp?.[type as keyof MarketMapCounts] ?? list.length}
                   </span>
                 </div>
-                <a
-                  href={`?tab=all&ownership=${encodeURIComponent(type)}`}
-                  className="flex-shrink-0 px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
-                >
-                  View All
-                </a>
+                <div className="flex flex-shrink-0 gap-2">
+                  {onExportBucket && (
+                    <button
+                      type="button"
+                      onClick={() => onExportBucket(type, titleFor(type))}
+                      disabled={exportingBucket === type}
+                      className="px-3 py-1.5 text-sm border border-green-600 text-green-700 rounded-md hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {exportingBucket === type ? "Exporting..." : "Export"}
+                    </button>
+                  )}
+                  <a
+                    href={`?tab=all&ownership=${encodeURIComponent(type)}`}
+                    className="px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
+                  >
+                    View All
+                  </a>
+                </div>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {list.slice(0, 12).map((company) => (
@@ -1686,6 +1705,9 @@ const SectorDetailPage = ({
   const [subSectors, setSubSectors] = useState<SubSector[]>([]);
   const [subSectorsLoading, setSubSectorsLoading] = useState(false);
   const [subSectorsError, setSubSectorsError] = useState<string | null>(null);
+  const [mmExportingBucket, setMmExportingBucket] = useState<string | null>(null);
+  const [mmShowExportLimitModal, setMmShowExportLimitModal] = useState(false);
+  const [mmExportsLeft, setMmExportsLeft] = useState(0);
 
   // Fetch companies data (include companies whose secondary sectors map to this primary sector)
   const fetchCompanies = useCallback(
@@ -2182,6 +2204,46 @@ const SectorDetailPage = ({
       private: getFirstMatchingNumber(o, ["private_count", "Private_count"]),
     };
   }, [preferredSource]);
+
+  const sectorDisplayName = useMemo(() => {
+    if (!sectorData) return "";
+    return (
+      (sectorData as { sector_name?: string })?.sector_name ||
+      (sectorData as { Sector?: { sector_name?: string } })?.Sector
+        ?.sector_name ||
+      ""
+    );
+  }, [sectorData]);
+
+  const handleExportMarketMapBucket = useCallback(
+    async (bucketType: string, bucketLabel: string) => {
+      const sectorIdNum = Number(sectorId);
+      if (!Number.isFinite(sectorIdNum) || sectorIdNum <= 0) return;
+
+      const limitCheck = await checkExportLimit();
+      if (!limitCheck.canExport) {
+        setMmExportsLeft(limitCheck.exportsLeft);
+        setMmShowExportLimitModal(true);
+        return;
+      }
+
+      setMmExportingBucket(bucketType);
+      try {
+        await exportMarketMapBucket({
+          sectorId: sectorIdNum,
+          sectorName: sectorDisplayName || `sector-${sectorIdNum}`,
+          bucketType,
+          bucketLabel,
+          expectedCount: marketMapCounts?.[bucketType as keyof MarketMapCounts],
+        });
+      } catch (exportError) {
+        console.error("Market map export failed:", exportError);
+      } finally {
+        setMmExportingBucket(null);
+      }
+    },
+    [sectorId, sectorDisplayName, marketMapCounts]
+  );
 
   // Only block rendering for critical errors (auth/not found)
   if (error) {
@@ -3040,6 +3102,8 @@ const SectorDetailPage = ({
               <MarketMapGrid
                 companies={marketMapCompanies}
                 counts={marketMapCounts}
+                onExportBucket={handleExportMarketMapBucket}
+                exportingBucket={mmExportingBucket}
               />
             ) : overviewDataLoaded ? (
               <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
@@ -3288,6 +3352,12 @@ const SectorDetailPage = ({
           </div>
         )}
       </main>
+      <ExportLimitModal
+        isOpen={mmShowExportLimitModal}
+        onClose={() => setMmShowExportLimitModal(false)}
+        exportsLeft={mmExportsLeft}
+        totalExports={EXPORT_LIMIT}
+      />
       <Footer />
     </div>
   );
