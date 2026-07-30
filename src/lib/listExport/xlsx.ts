@@ -79,7 +79,8 @@ function groupColumnsForDirectory(
     if (
       cat === "Financial Metrics" ||
       cat === "Subscription Metrics" ||
-      cat === "Other Metrics"
+      cat === "Other Metrics" ||
+      cat === "Parties"
     ) {
       right.push(column);
     } else {

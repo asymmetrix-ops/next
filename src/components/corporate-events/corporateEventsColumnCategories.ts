@@ -130,7 +130,7 @@ export const CORPORATE_EVENTS_COLUMN_CATEGORIES: CorporateEventColumnCategory[] 
 /**
  * Reference all-columns export layout (Directory + Corporate Events sheets).
  * Category grouping and column order match the Asymmetrix reference export
- * template exactly (Identity → Overview → Parties).
+ * template exactly (Identity → Details → Parties).
  */
 export const CORPORATE_EVENTS_EXPORT_CATEGORIES: CorporateEventColumnCategory[] =
   [
@@ -146,11 +146,18 @@ export const CORPORATE_EVENTS_EXPORT_CATEGORIES: CorporateEventColumnCategory[] 
           locked: true,
           defaultVisible: true,
         },
+        {
+          id: "asymmetrix_url",
+          columnKey: "asymmetrix_url",
+          label: "Asymmetrix URL",
+          type: "text",
+          defaultVisible: true,
+        },
       ],
     },
     {
-      id: "overview",
-      name: "Overview",
+      id: "details",
+      name: "Details",
       columns: [
         {
           id: "deal_type",

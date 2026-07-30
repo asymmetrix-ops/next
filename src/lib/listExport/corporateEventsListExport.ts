@@ -37,21 +37,6 @@ const MAX_EXPORT_PAGES = 500;
 const CORPORATE_EVENTS_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
 
-const EXTRA_CORPORATE_EVENT_COLUMNS: ExportColumnDef[] = [
-  {
-    key: "id",
-    label: "ID",
-    categoryName: "Identity",
-    type: "number",
-  },
-  {
-    key: "asymmetrix_url",
-    label: "Asymmetrix URL",
-    categoryName: "Identity",
-    type: "url",
-  },
-];
-
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("asymmetrix_auth_token");
@@ -187,11 +172,6 @@ function getCorporateEventCellValue(
   column: ExportColumnDef
 ): string {
   const event = row as unknown as CorporateEvent;
-
-  if (column.key === "id") {
-    const id = getEventId(row);
-    return id > 0 ? String(id) : EMPTY_DISPLAY;
-  }
 
   if (column.key === "asymmetrix_url") {
     const id = getEventId(row);
@@ -421,7 +401,6 @@ export async function exportCorporateEventsList(
       categories: CORPORATE_EVENTS_COLUMN_CATEGORIES,
       allColumnsCategories: CORPORATE_EVENTS_EXPORT_CATEGORIES,
       visibleColumnKeys,
-      extraLeadingColumns: EXTRA_CORPORATE_EVENT_COLUMNS,
     },
     rows,
     getEntityName: (row) =>
