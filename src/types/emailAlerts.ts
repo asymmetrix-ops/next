@@ -5,13 +5,17 @@ export interface EmailAlertFilters {
   individuals?: number[];
   investors?: number[];
   advisors?: number[];
+  /** CE email alert: selected deal types; absent or all values = no filter. */
+  deal_types?: string[];
+  /** CE email alert: selected funding stages; absent or all values = no filter. */
+  funding_stages?: string[];
 }
 
 export interface EmailAlert {
   id: number;
   created_at: number;
   user_id: number;
-  item_type: "corporate_events" | "insights_analysis" | "digest";
+  item_type: "corporate_events" | "insights_analysis" | "digest" | "deal_radar";
   email_frequency: "as_added" | "daily" | "weekly";
   day_of_week: string;
   timezone: string;

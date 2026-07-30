@@ -34,10 +34,11 @@ import {
 } from "@/components/corporate-events/corporateEventsFilterConfig";
 import { CANONICAL_CORPORATE_EVENT_COLUMN_KEYS } from "@/components/corporate-events/corporateEventsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
+import { SearchExportMenu } from "@/components/search/SearchExportMenu";
+import type { ListExportMode } from "@/lib/listExport/types";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import {
   SEARCH_HEADER_ACTION_BUTTON_STYLE,
-  SearchExportCsvIcon,
 } from "@/components/search/searchHeaderActions";
 import {
   SEARCH_DASHBOARD_ACTIONS,
@@ -60,7 +61,8 @@ export type CorporateEventsDashboardProps = {
   summaryStats?: CorporateEventsSummaryStats;
   userId?: number | null;
   onColumnsClick?: () => void;
-  onExportCSVClick?: () => void;
+  onExport?: (mode: ListExportMode) => void | Promise<void>;
+  exporting?: boolean;
   columnsActive?: boolean;
   columnsCount?: number;
   hidePageHeader?: boolean;
@@ -80,7 +82,8 @@ export const CorporateEventsDashboard = ({
   summaryStats = EMPTY_CORPORATE_EVENTS_SUMMARY_STATS,
   userId = null,
   onColumnsClick,
-  onExportCSVClick,
+  onExport,
+  exporting = false,
   columnsActive = false,
   columnsCount = 0,
   hidePageHeader = false,
@@ -373,7 +376,7 @@ export const CorporateEventsDashboard = ({
   const topPad = embedded ? "16px" : "20px";
   const showHeaderActions =
     Boolean(onColumnsClick && !hideColumns) ||
-    Boolean(onExportCSVClick && !hideExport) ||
+    Boolean(onExport && !hideExport) ||
     !embedded;
   const showHeaderRow = !hidePageHeader || showHeaderActions;
 
@@ -431,15 +434,11 @@ export const CorporateEventsDashboard = ({
               style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
             />
             )}
-            {!hideExport && onExportCSVClick && (
-            <button
-              type="button"
-              onClick={onExportCSVClick}
-              style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
-            >
-              <SearchExportCsvIcon />
-              Export CSV
-            </button>
+            {!hideExport && onExport && (
+            <SearchExportMenu
+              onExport={(mode) => onExport?.(mode)}
+              exporting={exporting}
+            />
             )}
           </div>
           )}

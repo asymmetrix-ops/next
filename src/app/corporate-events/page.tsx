@@ -23,6 +23,7 @@ import {
 } from "@/components/corporate-events/corporateEventsFilterConfig";
 import { fetchCorporateEventsServer, fetchCorporateEventsCountsServer } from "./actions";
 import type { CorporateEventListItem } from "./actions";
+import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useCorporateEventsAPI = (userId: number | null) => {
   const [events, setEvents] = useState<CorporateEventListItem[]>([]);
@@ -211,7 +212,10 @@ function CorporateEventsPageInner() {
   const [initialSearch, setInitialSearch] = useState<string | undefined>(
     undefined
   );
-  const exportCSVRef = useRef<(() => void) | null>(null);
+  const exportCSVRef = useRef<
+    ((request: ListExportRequest) => Promise<void>) | null
+  >(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -249,7 +253,10 @@ function CorporateEventsPageInner() {
         summaryStats={summaryStats}
         userId={userId}
         onColumnsClick={() => setShowColumnsModal((value) => !value)}
-        onExportCSVClick={() => exportCSVRef.current?.()}
+        onExport={(mode) =>
+          exportCSVRef.current?.({ mode, scope: "full_list" })
+        }
+        exporting={exporting}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
       />
@@ -267,6 +274,7 @@ function CorporateEventsPageInner() {
         onRegisterExportCSV={(fn) => {
           exportCSVRef.current = fn;
         }}
+        onExportingChange={setExporting}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
       />
       <Footer />

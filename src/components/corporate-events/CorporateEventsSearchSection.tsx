@@ -17,7 +17,6 @@ import type {
 } from "@/app/corporate-events/actions";
 import {
   createDefaultCorporateEventFilters,
-  corporateEventsFiltersToSearchParams,
 } from "@/lib/corporateEventsFilterPayload";
 import {
   CORPORATE_EVENTS_COLUMN_CATEGORIES,
@@ -66,10 +65,10 @@ import {
   getStickyColumnStyle,
   SearchTablePinIndicator,
 } from "@/components/search/searchTableUtils";
-import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
-import type { CorporateEvent } from "@/types/corporateEvents";
+import { exportCorporateEventsList } from "@/lib/listExport/corporateEventsListExport";
+import type { ListExportRequest } from "@/lib/listExport/types";
 
 export type CorporateEventItem = CorporateEventListItem;
 export type Filters = CorporateEventsSearchFilters;
@@ -122,6 +121,7 @@ export const CorporateEventsSearchSection = ({
   externalSetShowColumnsModal,
   onColumnsCountChange,
   onRegisterExportCSV,
+  onExportingChange,
   isPortfolioOnlyFilter = false,
   enableColumnControl = true,
   embedded = false,
@@ -149,7 +149,8 @@ export const CorporateEventsSearchSection = ({
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
-  onRegisterExportCSV?: (fn: () => void) => void;
+  onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
+  onExportingChange?: (exporting: boolean) => void;
   isPortfolioOnlyFilter?: boolean;
   enableColumnControl?: boolean;
   embedded?: boolean;
@@ -162,6 +163,8 @@ export const CorporateEventsSearchSection = ({
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const exportInFlightRef = useRef(false);
   const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
     Record<string, string>
   >({});
@@ -382,38 +385,43 @@ export const CorporateEventsSearchSection = ({
     [frozenColumnKeys]
   );
 
-  const exportToCsv = useCallback(async () => {
-    if (events.length === 0) return;
-    const limitCheck = await checkExportLimit();
-    if (!limitCheck.canExport) {
-      setExportsLeft(limitCheck.exportsLeft);
-      setShowExportLimitModal(true);
-      return;
-    }
+  const exportToCsv = useCallback(
+    async (request: ListExportRequest) => {
+      if (exportInFlightRef.current) return;
 
-    try {
-      const filters = currentFilters ?? createDefaultCorporateEventFilters();
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = corporateEventsFiltersToSearchParams({
-        ...filters,
-        Page: 1,
-        Per_page: pagination.itemTotal || events.length,
-      });
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events?${params.toString()}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-      if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
-      const data = (await response.json()) as { items?: CorporateEvent[] };
-      CSVExporter.exportCorporateEvents(data.items ?? events, "corporate_events_filtered");
-    } catch (exportError) {
-      console.error("Export CSV failed:", exportError);
-    }
-  }, [currentFilters, events, pagination.itemTotal]);
+      exportInFlightRef.current = true;
+      setExporting(true);
+
+      try {
+        const limitCheck = await checkExportLimit();
+        if (!limitCheck.canExport) {
+          setExportsLeft(limitCheck.exportsLeft);
+          setShowExportLimitModal(true);
+          return;
+        }
+
+        const exportTotalCount = pagination.itemTotal || events.length;
+        if (exportTotalCount <= 0) return;
+
+        await exportCorporateEventsList(
+          request,
+          currentFilters ?? createDefaultCorporateEventFilters(),
+          selectedColumnKeys,
+          exportTotalCount
+        );
+      } catch (exportError) {
+        console.error("Corporate events export failed:", exportError);
+      } finally {
+        exportInFlightRef.current = false;
+        setExporting(false);
+      }
+    },
+    [currentFilters, events.length, pagination.itemTotal, selectedColumnKeys]
+  );
+
+  useEffect(() => {
+    onExportingChange?.(exporting);
+  }, [exporting, onExportingChange]);
 
   useEffect(() => {
     onRegisterExportCSV?.(exportToCsv);
