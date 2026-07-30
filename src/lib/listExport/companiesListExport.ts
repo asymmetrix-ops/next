@@ -223,51 +223,27 @@ function appendUniqueItems(
   return added;
 }
 
-function computeInitialPageLimit(expectedTotalCount?: number): number {
-  if (expectedTotalCount && expectedTotalCount > 0) {
-    return Math.min(
-      Math.ceil(expectedTotalCount / EXPORT_PER_PAGE),
-      MAX_EXPORT_PAGES
-    );
-  }
-  return MAX_EXPORT_PAGES;
-}
-
 function resolveExportPageLimit(
-  expectedTotalCount: number | undefined,
-  apiTotalCount: number,
+  totalCount: number,
   pageTotal: number,
   listPerPage = 20
 ): number {
-  const totalItems =
-    expectedTotalCount && expectedTotalCount > 0
-      ? expectedTotalCount
-      : apiTotalCount > 0
-        ? apiTotalCount
-        : 0;
-
-  if (totalItems > 0) {
-    return Math.min(Math.ceil(totalItems / EXPORT_PER_PAGE), MAX_EXPORT_PAGES);
+  if (totalCount > 0) {
+    return Math.min(Math.ceil(totalCount / EXPORT_PER_PAGE), MAX_EXPORT_PAGES);
   }
 
-  if (pageTotal > 0) {
-    const pagesIfItemCount = Math.ceil(pageTotal / EXPORT_PER_PAGE);
-    const pagesIfListPages = Math.ceil(
-      (pageTotal * Math.max(listPerPage, 1)) / EXPORT_PER_PAGE
-    );
+  if (pageTotal <= 0) return 1;
 
-    // API sometimes puts total item count in pageTotal — never treat that as page count.
-    if (pageTotal > MAX_EXPORT_PAGES) {
-      return Math.min(pagesIfItemCount, MAX_EXPORT_PAGES);
-    }
-
-    return Math.min(
-      Math.max(pagesIfListPages, pagesIfItemCount),
-      MAX_EXPORT_PAGES
-    );
+  // pageTotal is sometimes total items, sometimes page count
+  if (pageTotal > MAX_EXPORT_PAGES) {
+    return Math.min(Math.ceil(pageTotal / EXPORT_PER_PAGE), MAX_EXPORT_PAGES);
   }
 
-  return MAX_EXPORT_PAGES;
+  const pagesIfItemCount = Math.ceil(pageTotal / EXPORT_PER_PAGE);
+  const pagesIfListPages = Math.ceil(
+    (pageTotal * Math.max(listPerPage, 1)) / EXPORT_PER_PAGE
+  );
+  return Math.min(Math.max(pagesIfItemCount, pagesIfListPages), MAX_EXPORT_PAGES);
 }
 
 async function fetchCompaniesPage(
@@ -357,25 +333,22 @@ async function fetchAllCompaniesForExport(
   let page = 1;
   const allItems: Record<string, unknown>[] = [];
   const seenIds = new Set<number>();
-  let resolvedTotalCount =
-    expectedTotalCount && expectedTotalCount > 0 ? expectedTotalCount : 0;
-  let pageLimit = computeInitialPageLimit(expectedTotalCount);
+  let resolvedTotalCount = 0;
+  let pageLimit = MAX_EXPORT_PAGES;
 
   while (page <= pageLimit) {
     const result = await fetchCompaniesPage(filters, page, apiColumns);
 
     if (page === 1) {
-      if (!resolvedTotalCount && result.totalCount > 0) {
+      if (result.totalCount > 0) {
         resolvedTotalCount = result.totalCount;
+      } else if (expectedTotalCount && expectedTotalCount > 0) {
+        resolvedTotalCount = expectedTotalCount;
       }
-      pageLimit = Math.min(
-        pageLimit,
-        resolveExportPageLimit(
-          resolvedTotalCount || undefined,
-          result.totalCount,
-          result.pageTotal,
-          result.perPage
-        )
+      pageLimit = resolveExportPageLimit(
+        resolvedTotalCount,
+        result.pageTotal,
+        result.perPage
       );
     }
 
@@ -387,13 +360,10 @@ async function fetchAllCompaniesForExport(
     if (allItems.length >= EXPORT_ALL_ENTITIES_CAP) break;
     if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
 
-    if (result.items.length < EXPORT_PER_PAGE) break;
-    if (result.nextPage == null) break;
-    if (result.curPage >= pageLimit) break;
+    const responsePerPage = result.perPage || EXPORT_PER_PAGE;
+    if (result.items.length < responsePerPage) break;
 
-    const nextPage = result.nextPage > page ? result.nextPage : page + 1;
-    if (nextPage <= page) break;
-    page = nextPage;
+    page += 1;
   }
 
   return allItems.slice(0, EXPORT_ALL_ENTITIES_CAP);

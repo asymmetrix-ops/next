@@ -19,6 +19,7 @@ import { DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS } from "@/components/companies/comp
 import { getColumnKeysForActiveFilters } from "@/components/companies/companiesColumnFilterMap";
 import {
   EMPTY_OWNERSHIP_COUNTS,
+  OWNERSHIP_TAB_CONFIG,
   type CompaniesOwnershipCounts,
 } from "@/components/companies/companiesFilterConfig";
 import { buildCompaniesSearchPayload } from "@/lib/companiesFilterPayload";
@@ -53,6 +54,7 @@ function useScopedCompaniesSearch() {
     offset: 0,
     perPage: 20,
     pageTotal: 0,
+    totalCount: 0,
   });
   const [ownershipCounts, setOwnershipCounts] =
     useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
@@ -132,6 +134,7 @@ function useScopedCompaniesSearch() {
 
         if (requestId === lastRequestIdRef.current) {
           setCompanies((data.result1?.items || []) as Company[]);
+          const totalCount = data.result1?.totalCount ?? 0;
           setPagination({
             itemsReceived: data.result1?.itemsReceived || 0,
             curPage: data.result1?.curPage || 1,
@@ -140,6 +143,7 @@ function useScopedCompaniesSearch() {
             offset: data.result1?.offset || 0,
             perPage: data.result1?.perPage || 20,
             pageTotal: data.result1?.pageTotal || 0,
+            totalCount,
           });
         }
       } catch (err) {
@@ -257,8 +261,21 @@ export function ScopedCompaniesPanel({
     clearSelection,
   } = useEntitySelection(filtersKey);
 
-  const matchCountOverride =
-    fixedOwnershipTypeIds != null ? pagination.itemsReceived : undefined;
+  const matchCountOverride = useMemo(() => {
+    if (fixedOwnershipTypeIds == null) return undefined;
+    if (pagination.totalCount > 0) return pagination.totalCount;
+    for (const config of Object.values(OWNERSHIP_TAB_CONFIG)) {
+      if (
+        fixedOwnershipTypeIds.length === config.ownershipTypeIds.length &&
+        fixedOwnershipTypeIds.every((id) =>
+          (config.ownershipTypeIds as readonly number[]).includes(id)
+        )
+      ) {
+        return ownershipCounts[config.countKey];
+      }
+    }
+    return undefined;
+  }, [fixedOwnershipTypeIds, pagination.totalCount, ownershipCounts]);
 
   const emptyFilterState = useMemo<FilterBarState>(
     () => ({

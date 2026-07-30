@@ -1279,8 +1279,11 @@ export const CompanySection = ({
         }
 
         const { mode, scope } = request;
+        const paginationTotal = pagination.totalCount ?? 0;
         const exportTotalCount =
-          pagination.totalCount || ownershipCounts.totalCount || 0;
+          paginationTotal > 0
+            ? paginationTotal
+            : ownershipCounts.totalCount || 0;
         if (scope === "full_list" && exportTotalCount <= 0) {
           console.error("Companies export aborted: match count is not available yet.");
           return;
