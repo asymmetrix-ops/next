@@ -63,14 +63,17 @@ export function IncomeStatementMetricsGrid({
   model,
   gridTemplate,
   showYoyColumn = false,
+  reserveYoyColumn = false,
   allowedSources,
 }: {
   model: IncomeStatementFinancialsViewModel;
   gridTemplate: string;
   showYoyColumn?: boolean;
+  reserveYoyColumn?: boolean;
   allowedSources: FiMetricSourceType[];
 }) {
   const sourceVisible = allowedSources.includes(model.sourceType);
+  const includeYoySpacer = reserveYoyColumn && !showYoyColumn;
   return (
     <div className="income-statement-table" style={{ width: "100%", minWidth: 0 }}>
       <div
@@ -87,6 +90,8 @@ export function IncomeStatementMetricsGrid({
         ))}
         {showYoyColumn ? (
           <span style={{ textAlign: "center" }}>YoY</span>
+        ) : includeYoySpacer ? (
+          <span aria-hidden="true" />
         ) : null}
       </div>
 
@@ -128,6 +133,8 @@ export function IncomeStatementMetricsGrid({
             <div style={{ display: "flex", justifyContent: "center" }}>
               <YoyValueCell value={metric.yoy} visible={sourceVisible} />
             </div>
+          ) : includeYoySpacer ? (
+            <div aria-hidden="true" />
           ) : null}
         </div>
       ))}

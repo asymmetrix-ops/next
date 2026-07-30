@@ -3,9 +3,7 @@ import { formatPercentValue } from "@/lib/companyTableData";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import {
-  INCOME_STATEMENT_DISPLAY_YEAR_COUNT,
   resolveIncomeStatementCurrency,
-  selectIncomeStatementYearColumns,
   sortIncomeStatementRowsAsc,
   type NormalizedIncomeStatementRow,
 } from "@/lib/incomeStatement";
@@ -164,11 +162,10 @@ export function buildIncomeStatementFinancialsViewModel(
   employeeHistory: EmployeeTimeSeriesPoint[] = [],
   fallbackCurrency = ""
 ): IncomeStatementFinancialsViewModel | null {
+  // Rows are already merged/year-deduped via resolveDisplayIncomeStatementRows
+  // on the company page — use them directly so profile-only years (e.g. FY2024) are kept.
   const columns = sortIncomeStatementRowsAsc(
-    selectIncomeStatementYearColumns(
-      rows,
-      INCOME_STATEMENT_DISPLAY_YEAR_COUNT
-    ).map((row) => enrichRowWithFte(row, employeeHistory))
+    rows.map((row) => enrichRowWithFte(row, employeeHistory))
   );
   if (columns.length === 0) return null;
 
@@ -234,5 +231,29 @@ export function buildIncomeStatementFinancialsViewModel(
     columnLabels: columns.map(formatPeriodHeader),
     metrics,
     sourceType: "Public",
+  };
+}
+
+/** Aligns income-statement values to the shared financials table year columns. */
+export function remapIncomeStatementToTableYears(
+  model: IncomeStatementFinancialsViewModel,
+  tableYears: number[]
+): IncomeStatementFinancialsViewModel {
+  const indexByYear = new Map<number, number>();
+  model.years.forEach((year, index) => {
+    if (year != null) indexByYear.set(year, index);
+  });
+
+  return {
+    ...model,
+    years: tableYears,
+    columnLabels: tableYears.map((year) => `FY${year}`),
+    metrics: model.metrics.map((metric) => ({
+      ...metric,
+      values: tableYears.map((year) => {
+        const index = indexByYear.get(year);
+        return index != null ? (metric.values[index] ?? "-") : "-";
+      }),
+    })),
   };
 }

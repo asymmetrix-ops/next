@@ -15,11 +15,14 @@ export function IncomeStatementFinancialsCard({
   model,
   gridTemplate,
   showYoyColumn = false,
+  reserveYoyColumn = false,
   allowedSources,
 }: {
   model: IncomeStatementFinancialsViewModel;
   gridTemplate: string;
   showYoyColumn?: boolean;
+  /** Empty YoY column so year columns line up with metrics cards below. */
+  reserveYoyColumn?: boolean;
   allowedSources: FiMetricSourceType[];
 }) {
   return (
@@ -50,6 +53,7 @@ export function IncomeStatementFinancialsCard({
         model={model}
         gridTemplate={gridTemplate}
         showYoyColumn={showYoyColumn}
+        reserveYoyColumn={reserveYoyColumn}
         allowedSources={allowedSources}
       />
     </LinkPanel>
