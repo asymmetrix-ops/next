@@ -1,5 +1,6 @@
 import type { IncomeStatementApiEntry } from "@/lib/incomeStatement";
 import type { CompanyFinancialMetricsCardRow } from "@/lib/companyFinancialMetricsCard";
+import { resolveFinancialMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 
 const API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_financials_card";
@@ -194,6 +195,16 @@ function applyCurrencyFallbacks(row: CompanyFinancialMetricsCardRow): void {
   }
 }
 
+function resolveCardCellSourceLabel(cell: CardMetricValue): string | null {
+  const resolved = resolveFinancialMetricSourceType(
+    cell.source_label,
+    undefined,
+    cell.color
+  );
+  if (resolved) return resolved;
+  return cell.source_label?.trim() || null;
+}
+
 function applyMetricToRow(
   row: CompanyFinancialMetricsCardRow,
   metric: CardMetric,
@@ -208,7 +219,7 @@ function applyMetricToRow(
   (row[mapping.value] as CompanyFinancialMetricsCardRow[typeof mapping.value]) =
     cell.value;
   (row[mapping.source] as CompanyFinancialMetricsCardRow[typeof mapping.source]) =
-    cell.source_label ?? null;
+    resolveCardCellSourceLabel(cell);
   if (mapping.currency) {
     const currency = resolveCellCurrency(cell);
     if (currency) {

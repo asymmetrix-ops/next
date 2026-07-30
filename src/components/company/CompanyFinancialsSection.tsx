@@ -225,16 +225,12 @@ function FinancialsMetricsCard({
   card,
   years,
   allowedSources,
-  companyName,
-  model,
   showYoy,
   gridTemplate,
 }: {
   card: CompanyFinancialsViewModel["cards"][number];
   years: number[];
   allowedSources: FiMetricSourceType[];
-  companyName: string;
-  model: CompanyFinancialsViewModel;
   showYoy: boolean;
   gridTemplate: string;
 }) {
@@ -261,18 +257,6 @@ function FinancialsMetricsCard({
             {card.metrics.length} metrics
           </span>
         </div>
-        <ExportButton
-          compact
-          label="Export"
-          onClick={() =>
-            exportFinancialMetricsView(
-              model,
-              allowedSources,
-              companyName,
-              [card.id]
-            )
-          }
-        />
       </div>
 
       <div
@@ -401,6 +385,22 @@ export function CompanyFinancialsSection({
     });
   }, []);
 
+  const handleExport = useCallback(async () => {
+    await exportFinancialMetricsView({
+      model,
+      allowedSources,
+      companyName,
+      years: unifiedYears,
+      incomeStatementModel: alignedIncomeStatementModel,
+    });
+  }, [
+    model,
+    allowedSources,
+    companyName,
+    unifiedYears,
+    alignedIncomeStatementModel,
+  ]);
+
   const hasIncomeStatement = alignedIncomeStatementModel != null;
 
   if (loading && unifiedYears.length === 0 && !hasIncomeStatement) {
@@ -437,7 +437,7 @@ export function CompanyFinancialsSection({
 
   return (
     <div style={{ width: "100%", minWidth: 0 }}>
-      {model.years.length > 0 ? (
+      {model.years.length > 0 || hasIncomeStatement ? (
         <div
           style={{
             display: "flex",
@@ -455,12 +455,7 @@ export function CompanyFinancialsSection({
             />
           </div>
           <div style={{ flexShrink: 0, paddingTop: 24 }}>
-            <ExportButton
-              label="Export all metrics"
-              onClick={() =>
-                exportFinancialMetricsView(model, allowedSources, companyName)
-              }
-            />
+            <ExportButton label="Export" onClick={() => void handleExport()} />
           </div>
         </div>
       ) : null}
@@ -469,7 +464,8 @@ export function CompanyFinancialsSection({
         <IncomeStatementFinancialsCard
           model={alignedIncomeStatementModel}
           gridTemplate={gridTemplate}
-          showYoyColumn={showYoy}
+          showYoyColumn={false}
+          allowedSources={allowedSources}
         />
       ) : null}
 
@@ -481,8 +477,6 @@ export function CompanyFinancialsSection({
               card={card}
               years={unifiedYears}
               allowedSources={allowedSources}
-              companyName={companyName}
-              model={model}
               showYoy={showYoy}
               gridTemplate={gridTemplate}
             />

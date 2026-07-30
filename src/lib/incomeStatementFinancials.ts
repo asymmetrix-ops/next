@@ -1,6 +1,7 @@
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import { formatPercentValue } from "@/lib/companyTableData";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
+import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import {
   resolveIncomeStatementCurrency,
   selectIncomeStatementYearColumns,
@@ -21,6 +22,8 @@ export type IncomeStatementFinancialsViewModel = {
   years: (number | null)[];
   columnLabels: string[];
   metrics: IncomeStatementMetricRow[];
+  /** Income statement rows are sourced from public filings. */
+  sourceType: FiMetricSourceType;
 };
 
 function formatPeriodHeader(row: NormalizedIncomeStatementRow): string {
@@ -126,7 +129,7 @@ export function buildIncomeStatementFinancialsViewModel(
   fallbackCurrency = ""
 ): IncomeStatementFinancialsViewModel | null {
   const columns = sortIncomeStatementRowsAsc(
-    selectIncomeStatementYearColumns(rows, 3).map((row) =>
+    selectIncomeStatementYearColumns(rows, 2).map((row) =>
       enrichRowWithFte(row, employeeHistory)
     )
   );
@@ -143,11 +146,11 @@ export function buildIncomeStatementFinancialsViewModel(
   });
 
   const metrics: IncomeStatementMetricRow[] = [
-    { key: "revenue", label: "Revenue", values: revenueValues },
+    { key: "revenue", label: "Revenue (m)", values: revenueValues },
     { key: "revenue_yoy", label: "YoY Growth", values: yoyValues },
     {
       key: "ebitda",
-      label: "EBITDA",
+      label: "EBITDA (m)",
       values: columns.map((row) => formatMoneyMillions(row.ebitda, currency)),
     },
     {
@@ -157,7 +160,7 @@ export function buildIncomeStatementFinancialsViewModel(
     },
     {
       key: "ebit",
-      label: "EBIT",
+      label: "EBIT (m)",
       values: columns.map((row) => formatMoneyMillions(row.ebit, currency)),
     },
     {
@@ -187,6 +190,7 @@ export function buildIncomeStatementFinancialsViewModel(
     years: columns.map((row) => row.period_year ?? null),
     columnLabels: columns.map(formatPeriodHeader),
     metrics,
+    sourceType: "Public",
   };
 }
 

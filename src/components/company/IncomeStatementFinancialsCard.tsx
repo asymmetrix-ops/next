@@ -8,16 +8,19 @@ import {
   T,
 } from "@/components/redesign/primitives";
 import type { IncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
+import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import { IncomeStatementMetricsGrid } from "./IncomeStatementMetricsGrid";
 
 export function IncomeStatementFinancialsCard({
   model,
   gridTemplate,
   showYoyColumn = false,
+  allowedSources,
 }: {
   model: IncomeStatementFinancialsViewModel;
   gridTemplate: string;
   showYoyColumn?: boolean;
+  allowedSources: FiMetricSourceType[];
 }) {
   return (
     <LinkPanel style={{ marginBottom: 16 }}>
@@ -47,6 +50,7 @@ export function IncomeStatementFinancialsCard({
         model={model}
         gridTemplate={gridTemplate}
         showYoyColumn={showYoyColumn}
+        allowedSources={allowedSources}
       />
     </LinkPanel>
   );

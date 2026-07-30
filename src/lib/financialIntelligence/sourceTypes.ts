@@ -54,6 +54,56 @@ const METRIC_SOURCE_FIELD: Partial<
   ev_ebitda_x: "ev_source_type",
 };
 
+const SOURCE_TYPE_BY_COLOR: Record<string, FiMetricSourceType> = {
+  "#2db7ff": "Proprietary",
+  "#0f172a": "Public",
+  "#9ca3af": "Estimate",
+};
+
+/** Resolve a card/API source label, numeric code, or legend color to a filter type. */
+export function resolveFinancialMetricSourceType(
+  label?: unknown,
+  code?: unknown,
+  color?: unknown
+): FiMetricSourceType | null {
+  const fromLabel = parseSourceType(label);
+  if (fromLabel) return fromLabel;
+
+  const fromCode = parseSourceType(code);
+  if (fromCode) return fromCode;
+
+  if (typeof color === "string") {
+    const byColor = SOURCE_TYPE_BY_COLOR[color.trim().toLowerCase()];
+    if (byColor) return byColor;
+  }
+
+  if (typeof label === "string") {
+    const normalized = label.trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === "linkedin") return "Public";
+    if (normalized.includes("public") || normalized.includes("filing")) {
+      return "Public";
+    }
+    if (
+      normalized.includes("proprietary") ||
+      normalized.includes("asymmetrix") ||
+      normalized.includes("company provided") ||
+      normalized.includes("third party")
+    ) {
+      return "Proprietary";
+    }
+    if (
+      normalized.includes("estimate") ||
+      normalized.includes("model") ||
+      normalized.includes("analyst")
+    ) {
+      return "Estimate";
+    }
+  }
+
+  return null;
+}
+
 export function parseSourceType(value: unknown): FiMetricSourceType | null {
   if (value == null) return null;
 
