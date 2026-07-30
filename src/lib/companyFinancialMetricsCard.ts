@@ -2,12 +2,15 @@ import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import { resolveLinkedInEmployeeCountForYear } from "@/lib/companyLinkedIn";
 import {
-  parseSourceType,
+  resolveFinancialMetricSourceType,
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
 
 const API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics";
+
+/** Financials tab and export show the two most recent fiscal years plus YoY. */
+export const FINANCIALS_DISPLAY_YEAR_COUNT = 2;
 
 export type CompanyFinancialMetricsCardRow = {
   id: number;
@@ -18,53 +21,74 @@ export type CompanyFinancialMetricsCardRow = {
   Revenue_m?: number | string | null;
   Revenue_currency_display?: string | null;
   Revenue_source_label?: string | null;
+  Rev_source?: number | string | null;
   EBITDA_m?: number | string | null;
   EBITDA_currency_display?: string | null;
   EBITDA_source_label?: string | null;
+  EBITDA_source?: number | string | null;
   EV?: number | string | null;
   EV_currency_display?: string | null;
   EV_source_label?: string | null;
+  EV_source?: number | string | null;
   Subscription_revenue_m?: number | string | null;
   Subscription_revenue_pc?: number | string | null;
   Subscription_revenue_currency_display?: string | null;
   Subscription_revenue_source_label?: string | null;
+  Subscription_revenue_source?: number | string | null;
   Churn_pc?: number | string | null;
   Churn_source_label?: string | null;
+  Churn_Source?: number | string | null;
   GRR_pc?: number | string | null;
   GRR_source_label?: string | null;
+  GRR_source?: number | string | null;
   NRR?: number | string | null;
   NRR_source_label?: string | null;
+  NRR_source?: number | string | null;
   New_client_growth_pc?: number | string | null;
   New_client_growth_source_label?: string | null;
+  New_Client_Growth_Source?: number | string | null;
   Upsell_pc?: number | string | null;
   Upsell_source_label?: string | null;
+  Upsell_source?: number | string | null;
   Cross_sell_pc?: number | string | null;
   Cross_sell_source_label?: string | null;
+  Cross_sell_source?: number | string | null;
   Price_increase_pc?: number | string | null;
   Price_increase_source_label?: string | null;
+  Price_increase_source?: number | string | null;
   Rev_expansion_pc?: number | string | null;
   Rev_expansion_source_label?: string | null;
+  Rev_expansion_source?: number | string | null;
   Rev_Growth_PC?: number | string | null;
   Rev_growth_source_label?: string | null;
+  Rev_Growth_source?: number | string | null;
   EBITDA_margin?: number | string | null;
   EBITDA_margin_source_label?: string | null;
+  EBITDA_margin_source?: number | string | null;
   Rule_of_40?: number | string | null;
   Rule_of_40_source_label?: string | null;
+  Rule_of_40_source?: number | string | null;
   Revenue_multiple?: number | string | null;
   Revenue_multiple_source_label?: string | null;
+  Rev_x_source?: number | string | null;
   EBIT_m?: number | string | null;
   EBIT_currency_display?: string | null;
   EBIT_source_label?: string | null;
+  EBIT_source?: number | string | null;
   No_of_Clients?: number | string | null;
   No_of_Clients_source_label?: string | null;
+  No_Clients_source?: number | string | null;
   Rev_per_client?: number | string | null;
   Rev_per_client_formatted?: string | null;
   Rev_per_client_source_label?: string | null;
+  Rev_per_client_source?: number | string | null;
   No_Employees?: number | string | null;
   No_Employees_source_label?: string | null;
+  No_Employees_source?: number | string | null;
   Revenue_per_employee?: number | string | null;
   Revenue_per_employee_formatted?: string | null;
   Revenue_per_employee_source_label?: string | null;
+  Rev_per_employee_source?: number | string | null;
 };
 
 export type FinancialsMetricFormat =
@@ -81,6 +105,7 @@ export type FinancialsMetricDef = {
   format: FinancialsMetricFormat;
   valueField: keyof CompanyFinancialMetricsCardRow;
   sourceField: keyof CompanyFinancialMetricsCardRow;
+  sourceCodeField?: keyof CompanyFinancialMetricsCardRow;
   currencyField?: keyof CompanyFinancialMetricsCardRow;
   formattedField?: keyof CompanyFinancialMetricsCardRow;
   /** When true, a decrease is shown as positive (green), e.g. Churn. */
@@ -130,18 +155,20 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
     metrics: [
       {
         key: "revenue",
-        label: "Revenue",
+        label: "Revenue (m)",
         format: "money_millions",
         valueField: "Revenue_m",
         sourceField: "Revenue_source_label",
+        sourceCodeField: "Rev_source",
         currencyField: "Revenue_currency_display",
       },
       {
         key: "ebitda",
-        label: "EBITDA",
+        label: "EBITDA (m)",
         format: "money_millions",
         valueField: "EBITDA_m",
         sourceField: "EBITDA_source_label",
+        sourceCodeField: "EBITDA_source",
         currencyField: "EBITDA_currency_display",
       },
       {
@@ -150,6 +177,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "money_millions",
         valueField: "EV",
         sourceField: "EV_source_label",
+        sourceCodeField: "EV_source",
         currencyField: "EV_currency_display",
       },
       {
@@ -158,6 +186,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "multiple",
         valueField: "Revenue_multiple",
         sourceField: "Revenue_multiple_source_label",
+        sourceCodeField: "Rev_x_source",
       },
       {
         key: "rev_growth",
@@ -165,6 +194,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "Rev_Growth_PC",
         sourceField: "Rev_growth_source_label",
+        sourceCodeField: "Rev_Growth_source",
       },
       {
         key: "ebitda_margin",
@@ -172,6 +202,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "EBITDA_margin",
         sourceField: "EBITDA_margin_source_label",
+        sourceCodeField: "EBITDA_margin_source",
       },
       {
         key: "rule_of_40",
@@ -179,6 +210,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "plain_number",
         valueField: "Rule_of_40",
         sourceField: "Rule_of_40_source_label",
+        sourceCodeField: "Rule_of_40_source",
       },
     ],
   },
@@ -192,6 +224,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "money_millions",
         valueField: "Subscription_revenue_m",
         sourceField: "Subscription_revenue_source_label",
+        sourceCodeField: "Subscription_revenue_source",
         currencyField: "Subscription_revenue_currency_display",
       },
       {
@@ -200,6 +233,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "Subscription_revenue_pc",
         sourceField: "Subscription_revenue_source_label",
+        sourceCodeField: "Subscription_revenue_source",
       },
       {
         key: "churn",
@@ -207,6 +241,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "Churn_pc",
         sourceField: "Churn_source_label",
+        sourceCodeField: "Churn_Source",
         yoyInverse: true,
       },
       {
@@ -215,6 +250,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "GRR_pc",
         sourceField: "GRR_source_label",
+        sourceCodeField: "GRR_source",
       },
       {
         key: "nrr",
@@ -222,6 +258,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "NRR",
         sourceField: "NRR_source_label",
+        sourceCodeField: "NRR_source",
       },
       {
         key: "new_client_growth",
@@ -229,6 +266,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "New_client_growth_pc",
         sourceField: "New_client_growth_source_label",
+        sourceCodeField: "New_Client_Growth_Source",
       },
       {
         key: "upsell",
@@ -236,6 +274,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "Upsell_pc",
         sourceField: "Upsell_source_label",
+        sourceCodeField: "Upsell_source",
       },
       {
         key: "cross_sell",
@@ -243,6 +282,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "Cross_sell_pc",
         sourceField: "Cross_sell_source_label",
+        sourceCodeField: "Cross_sell_source",
       },
       {
         key: "price_increase",
@@ -250,6 +290,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "Price_increase_pc",
         sourceField: "Price_increase_source_label",
+        sourceCodeField: "Price_increase_source",
       },
       {
         key: "rev_expansion",
@@ -257,6 +298,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "percent",
         valueField: "Rev_expansion_pc",
         sourceField: "Rev_expansion_source_label",
+        sourceCodeField: "Rev_expansion_source",
       },
     ],
   },
@@ -270,6 +312,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "money_millions",
         valueField: "EBIT_m",
         sourceField: "EBIT_source_label",
+        sourceCodeField: "EBIT_source",
         currencyField: "EBIT_currency_display",
       },
       {
@@ -278,6 +321,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "count",
         valueField: "No_of_Clients",
         sourceField: "No_of_Clients_source_label",
+        sourceCodeField: "No_Clients_source",
       },
       {
         key: "rev_per_client",
@@ -285,6 +329,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "money_whole",
         valueField: "Rev_per_client",
         sourceField: "Rev_per_client_source_label",
+        sourceCodeField: "Rev_per_client_source",
         currencyField: "Revenue_currency_display",
         formattedField: "Rev_per_client_formatted",
       },
@@ -294,6 +339,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "count",
         valueField: "No_Employees",
         sourceField: "No_Employees_source_label",
+        sourceCodeField: "No_Employees_source",
       },
       {
         key: "rev_per_employee",
@@ -301,6 +347,7 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         format: "money_whole",
         valueField: "Revenue_per_employee",
         sourceField: "Revenue_per_employee_source_label",
+        sourceCodeField: "Rev_per_employee_source",
         currencyField: "Revenue_currency_display",
         formattedField: "Revenue_per_employee_formatted",
       },
@@ -455,8 +502,8 @@ function formatMillions(value: number, currency?: string | null): string {
   const abs = Math.abs(value);
   const compact =
     abs >= 100
-      ? `${Math.round(value).toLocaleString("en-US")}m`
-      : `${value.toFixed(1)}m`;
+      ? Math.round(value).toLocaleString("en-US")
+      : value.toFixed(1);
   return appendMetricCurrency(compact, currency ?? undefined);
 }
 
@@ -480,10 +527,23 @@ function formatMoneyWhole(
   return appendMetricCurrency(formatCountValue(value), currency ?? undefined);
 }
 
+/** Prefer Revenue (m) ÷ clients; API formatted values are often 1000× too large. */
+function resolveRevPerClientDollars(
+  row: CompanyFinancialMetricsCardRow
+): number | null {
+  const revenueM = toNumber(row.Revenue_m);
+  const clients = toNumber(row.No_of_Clients);
+  if (revenueM != null && clients != null && clients > 0) {
+    return (revenueM * 1_000_000) / clients;
+  }
+  return toNumber(row.Rev_per_client);
+}
+
 export function resolveFinancialsSourceType(
-  label: unknown
+  label: unknown,
+  code?: unknown
 ): FiMetricSourceType | null {
-  return parseSourceType(label);
+  return resolveFinancialMetricSourceType(label, code);
 }
 
 function resolveRowCurrency(
@@ -512,8 +572,14 @@ function formatMetricValue(
   row: CompanyFinancialMetricsCardRow,
   metric: FinancialsMetricDef
 ): FinancialsCellValue {
-  const raw = toNumber(row[metric.valueField]);
-  const sourceType = resolveFinancialsSourceType(row[metric.sourceField]);
+  const raw =
+    metric.key === "rev_per_client"
+      ? resolveRevPerClientDollars(row)
+      : toNumber(row[metric.valueField]);
+  const sourceType = resolveFinancialsSourceType(
+    row[metric.sourceField],
+    metric.sourceCodeField ? row[metric.sourceCodeField] : undefined
+  );
   const currency = metric.currencyField
     ? resolveRowCurrency(row, metric.currencyField)
     : null;
@@ -545,7 +611,9 @@ function formatMetricValue(
       return {
         display: formatMoneyWhole(
           raw,
-          metric.formattedField ? row[metric.formattedField] : null,
+          metric.key === "rev_per_client" || !metric.formattedField
+            ? null
+            : row[metric.formattedField],
           currency
         ),
         raw,
@@ -657,8 +725,8 @@ export function resolveFinancialsYears(
   ).sort((a, b) => a - b);
 
   if (years.length === 0) return [];
-  if (years.length <= 3) return years;
-  return years.slice(-3);
+  if (years.length <= FINANCIALS_DISPLAY_YEAR_COUNT) return years;
+  return years.slice(-FINANCIALS_DISPLAY_YEAR_COUNT);
 }
 
 export function buildCompanyFinancialsViewModel(
@@ -766,7 +834,7 @@ export function formatFiscalYearHeader(year: number): string {
   return `FY${year}`;
 }
 
-/** Union of income-statement and metrics years, oldest → newest, max 3. */
+/** Union of income-statement and metrics years, oldest → newest, max 2. */
 export function resolveUnifiedFinancialYears(
   metricsYears: number[],
   incomeYears: Array<number | null | undefined> = []
@@ -776,8 +844,8 @@ export function resolveUnifiedFinancialYears(
     if (year != null && Number.isFinite(year)) years.add(year);
   }
   const sorted = Array.from(years).sort((a, b) => a - b);
-  if (sorted.length <= 3) return sorted;
-  return sorted.slice(-3);
+  if (sorted.length <= FINANCIALS_DISPLAY_YEAR_COUNT) return sorted;
+  return sorted.slice(-FINANCIALS_DISPLAY_YEAR_COUNT);
 }
 
 /** Shared grid template so all financial tables align column-for-column. */

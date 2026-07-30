@@ -216,10 +216,10 @@ function resolvePeriodYear(row: NormalizedIncomeStatementRow): number | null {
   return parseFiscalYearFromDisplay(display);
 }
 
-/** Picks up to 3 fiscal-year columns, preferring fiscal_year over quarterly for the same year. */
+/** Picks up to N fiscal-year columns, preferring fiscal_year over quarterly for the same year. */
 export function selectIncomeStatementYearColumns(
   rows: NormalizedIncomeStatementRow[],
-  limit = 3
+  limit = 2
 ): NormalizedIncomeStatementRow[] {
   const byYear = new Map<number, NormalizedIncomeStatementRow>();
 
