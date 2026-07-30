@@ -34,6 +34,7 @@ import {
   fetchCompaniesClient,
   fetchCompaniesCountsClient,
 } from "@/lib/companiesClientApi";
+import { buildCompaniesSearchPayload } from "@/lib/companiesFilterPayload";
 import { ownershipFilterParamToTab } from "@/lib/companiesSearchFilterConfig";
 import {
   CompaniesDataTable,
@@ -3725,40 +3726,6 @@ const SectorDetailPage = ({
     private: 2,
   };
 
-  // Shared helper: fetch all pages for a given set of query params
-  const fetchAllCompanyPages = async (
-    baseParams: URLSearchParams,
-    token: string | null
-  ): Promise<AllCompanyItem[]> => {
-    const allItems: AllCompanyItem[] = [];
-    let page = 1;
-    let totalPages = 1;
-    do {
-      const params = new URLSearchParams(baseParams.toString());
-      params.set("Offset", String(page));
-      const res = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
-        }
-      );
-      if (!res.ok) break;
-      const data = (await res.json()) as {
-        result1?: { items?: AllCompanyItem[]; pageTotal?: number };
-      };
-      const r1 = data.result1 ?? {};
-      allItems.push(...(r1.items ?? []));
-      totalPages = r1.pageTotal ?? 1;
-      page++;
-    } while (page <= totalPages);
-    return allItems;
-  };
-
   // Build a single export row from an AllCompanyItem (matches API ExportRow shape)
   const buildExportRow = (
     c: AllCompanyItem,
@@ -3792,15 +3759,15 @@ const SectorDetailPage = ({
     rows: ReturnType<typeof buildExportRow>[],
     filename: string
   ) => {
-    const res = await fetch('/api/export/sector-companies', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const res = await fetch("/api/export/sector-companies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rows, filename }),
     });
     if (!res.ok) throw new Error(`Export API failed: ${res.status}`);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `${filename}.xlsx`;
     document.body.appendChild(a);
@@ -3822,14 +3789,23 @@ const SectorDetailPage = ({
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
         const origin = typeof window !== "undefined" ? window.location.origin : "";
-        const params = new URLSearchParams();
-        params.set("Per_page", "500");
-        params.set("Min_linkedin_members", "0");
-        params.set("Max_linkedin_members", "0");
-        params.set("Horizontals_ids", "");
-        params.append("Primary_sectors_ids[]", String(Number(sectorId)));
-        params.append("Ownership_types_ids[]", String(BUCKET_TYPE_IDS[bucketType] ?? 0));
-        const items = await fetchAllCompanyPages(params, token);
+        const items = await fetchAllCompaniesClientPages<AllCompanyItem>(
+          buildCompaniesSearchPayload({
+            state: {
+              filters: [],
+              viewId: null,
+              searchText: "",
+              filterLogic: "and",
+            },
+            primarySectors: [],
+            secondarySectors: [],
+            ownershipTypes: [],
+            ownershipTypeIds: [BUCKET_TYPE_IDS[bucketType] ?? 0],
+            scopedPrimarySectorIds: [Number(sectorId)],
+            perPage: 500,
+          }),
+          { perPage: 500, token }
+        );
         const rows = items.map((c) => buildExportRow(c, origin));
         await downloadExcelExport(rows, `${sectorNameSlug}_${bucketLabel.replace(/\s+/g, "_")}`);
       } finally {

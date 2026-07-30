@@ -88,24 +88,35 @@ export async function fetchCompaniesCountsClient(
 
 export async function fetchAllCompaniesClientPages<T = CompaniesResponse["result1"]["items"][number]>(
   filters: CompaniesFilters,
-  options?: { perPage?: number; token?: string | null }
+  options?: { perPage?: number; token?: string | null; maxPages?: number }
 ): Promise<T[]> {
   const perPage = options?.perPage ?? 500;
+  const maxPages = options?.maxPages ?? 500;
   const allItems: T[] = [];
   let page = 1;
-  let totalPages = 1;
+  let resolvedTotalCount = 0;
 
-  do {
+  while (page <= maxPages) {
     const data = await fetchCompaniesClient(
       page,
       { ...filters, Per_page: perPage },
       options?.token
     );
     if (!data?.result1) break;
-    allItems.push(...((data.result1.items ?? []) as T[]));
-    totalPages = data.result1.pageTotal ?? 1;
-    page++;
-  } while (page <= totalPages);
+
+    const items = (data.result1.items ?? []) as T[];
+    if (page === 1 && (data.result1.totalCount ?? 0) > 0) {
+      resolvedTotalCount = data.result1.totalCount ?? 0;
+    }
+
+    if (items.length === 0) break;
+    allItems.push(...items);
+
+    if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
+    if (items.length < perPage) break;
+
+    page += 1;
+  }
 
   return allItems;
 }
