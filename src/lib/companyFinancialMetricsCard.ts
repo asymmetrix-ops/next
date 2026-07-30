@@ -12,6 +12,9 @@ const API_BASE =
 /** Financials tab and export show the two most recent fiscal years plus YoY. */
 export const FINANCIALS_DISPLAY_YEAR_COUNT = 2;
 
+/** Income statement table may span up to three fiscal-year columns. */
+export const FINANCIALS_TABLE_MAX_YEAR_COLUMNS = 3;
+
 export type CompanyFinancialMetricsCardRow = {
   id: number;
   new_company_id: number;
@@ -832,6 +835,23 @@ export async function fetchCompanyFinancialMetricsCard(
 
 export function formatFiscalYearHeader(year: number): string {
   return `FY${year}`;
+}
+
+/** Union of income-statement and metrics years for shared table column alignment (max 3). */
+export function resolveFinancialsTableColumnYears(
+  incomeYears: Array<number | null | undefined>,
+  metricsYears: number[] = []
+): number[] {
+  const years = new Set<number>();
+  for (const year of incomeYears) {
+    if (year != null && Number.isFinite(year)) years.add(year);
+  }
+  for (const year of metricsYears) {
+    years.add(year);
+  }
+  const sorted = Array.from(years).sort((a, b) => a - b);
+  if (sorted.length <= FINANCIALS_TABLE_MAX_YEAR_COLUMNS) return sorted;
+  return sorted.slice(-FINANCIALS_TABLE_MAX_YEAR_COLUMNS);
 }
 
 /** Union of income-statement and metrics years, oldest → newest, max 2. */

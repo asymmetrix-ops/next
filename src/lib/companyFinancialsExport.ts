@@ -2,6 +2,8 @@ import { downloadXlsxBuffer } from "@/lib/listExport/xlsx";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import type { IncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
 import {
+  FINANCIALS_DISPLAY_YEAR_COUNT,
+  FINANCIALS_TABLE_MAX_YEAR_COLUMNS,
   formatFiscalYearHeader,
   getVisibleFinancialsCellDisplay,
   getVisibleYoyValue,
@@ -11,9 +13,9 @@ import {
 
 const FINANCIALS_TEMPLATE_PATH = "/exports/financials-export-template.xlsx";
 
-/** Column indices on the reference template (1-based): C/D=years, E=YoY, F=source. */
+/** Column indices on the v5 template (1-based): C+ = year columns, F = source. */
 const COL_YEAR_START = 3;
-const COL_YOY = 5;
+const COL_METRICS_YOY = 5;
 const COL_SOURCE = 6;
 
 const CENTER_ALIGN: Partial<import("exceljs").Alignment> = {
@@ -96,32 +98,45 @@ function setCenteredCell(
 function setYearHeaders(
   worksheet: import("exceljs").Worksheet,
   headerRow: number,
-  years: number[]
+  years: number[],
+  options: { yearCount: number; includeYoy: boolean }
 ): void {
-  for (let index = 0; index < 2; index += 1) {
-    const year = years[index];
+  const { yearCount, includeYoy } = options;
+  const exportYears = years.slice(-yearCount);
+  while (exportYears.length < yearCount) exportYears.unshift(NaN);
+
+  for (let index = 0; index < yearCount; index += 1) {
+    const year = exportYears[index];
     setCenteredCell(
       worksheet,
       headerRow,
       COL_YEAR_START + index,
-      year ? formatFiscalYearHeader(year) : ""
+      Number.isFinite(year) ? formatFiscalYearHeader(year) : ""
     );
   }
-  setCenteredCell(worksheet, headerRow, COL_YOY, "YoY");
+
+  if (includeYoy) {
+    setCenteredCell(worksheet, headerRow, COL_METRICS_YOY, "YoY");
+  }
+
   setCenteredCell(worksheet, headerRow, COL_SOURCE, "Source");
 }
 
 function writeYearValues(
   worksheet: import("exceljs").Worksheet,
   row: number,
-  values: string[]
+  values: string[],
+  yearCount: number
 ): void {
-  for (let index = 0; index < 2; index += 1) {
+  const padded = values.slice(-yearCount);
+  while (padded.length < yearCount) padded.unshift("-");
+
+  for (let index = 0; index < yearCount; index += 1) {
     setCenteredCell(
       worksheet,
       row,
       COL_YEAR_START + index,
-      values[index] ?? "-"
+      padded[index] ?? "-"
     );
   }
 }
@@ -155,12 +170,16 @@ function fillCardMetricRow(
     if (!cell) return "-";
     return getVisibleFinancialsCellDisplay(cell, allowedSources);
   });
-  while (yearValues.length < 2) yearValues.unshift("-");
 
-  writeYearValues(worksheet, row, yearValues.slice(-2));
+  writeYearValues(
+    worksheet,
+    row,
+    yearValues,
+    FINANCIALS_DISPLAY_YEAR_COUNT
+  );
 
   const yoy = getVisibleYoyValue(metric, years, allowedSources);
-  setCenteredCell(worksheet, row, COL_YOY, yoy?.display ?? "-");
+  setCenteredCell(worksheet, row, COL_METRICS_YOY, yoy?.display ?? "-");
 
   setCenteredCell(
     worksheet,
@@ -180,7 +199,10 @@ function fillCardSection(
 ): void {
   if (!card) return;
 
-  setYearHeaders(worksheet, headerRow, years);
+  setYearHeaders(worksheet, headerRow, years, {
+    yearCount: FINANCIALS_DISPLAY_YEAR_COUNT,
+    includeYoy: true,
+  });
 
   const metricsByKey = new Map(card.metrics.map((metric) => [metric.key, metric]));
   for (const [key, row] of Object.entries(rowMap)) {
@@ -203,9 +225,12 @@ function fillIncomeStatementSection(
 
   const exportYears = model.years
     .filter((year): year is number => year != null)
-    .slice(-2);
+    .slice(-FINANCIALS_TABLE_MAX_YEAR_COLUMNS);
 
-  setYearHeaders(worksheet, SECTION_HEADER_ROWS.incomeStatement, exportYears);
+  setYearHeaders(worksheet, SECTION_HEADER_ROWS.incomeStatement, exportYears, {
+    yearCount: FINANCIALS_TABLE_MAX_YEAR_COLUMNS,
+    includeYoy: false,
+  });
 
   const sourceVisible = allowedSources.includes(model.sourceType);
   const metricsByKey = new Map(model.metrics.map((metric) => [metric.key, metric]));
@@ -214,37 +239,31 @@ function fillIncomeStatementSection(
     const metric = metricsByKey.get(key);
     if (!metric) continue;
 
-    const values = metric.values.slice(-2);
-    while (values.length < 2) values.unshift("-");
-
+    const values = metric.values.slice(-FINANCIALS_TABLE_MAX_YEAR_COLUMNS);
     const displayValues = sourceVisible ? values : values.map(() => "-");
 
-    writeYearValues(worksheet, row, displayValues);
-    setCenteredCell(
+    writeYearValues(
       worksheet,
       row,
-      COL_YOY,
-      sourceVisible ? metric.yoy : "-"
+      displayValues,
+      FINANCIALS_TABLE_MAX_YEAR_COLUMNS
     );
   }
 
-  if (sourceVisible) {
-    setCenteredCell(
-      worksheet,
-      INCOME_STATEMENT_ROWS.revenue,
-      COL_SOURCE,
-      model.sourceType
-    );
-  } else {
-    setCenteredCell(worksheet, INCOME_STATEMENT_ROWS.revenue, COL_SOURCE, "");
-  }
+  setCenteredCell(
+    worksheet,
+    INCOME_STATEMENT_ROWS.revenue,
+    COL_SOURCE,
+    sourceVisible ? model.sourceType : ""
+  );
 }
 
 export type FinancialMetricsExportInput = {
   model: CompanyFinancialsViewModel;
   allowedSources: FiMetricSourceType[];
   companyName: string;
-  years: number[];
+  /** Shared table years (IS may use up to 3; metric cards use the latest 2). */
+  tableYears: number[];
   incomeStatementModel?: IncomeStatementFinancialsViewModel | null;
 };
 
@@ -252,8 +271,15 @@ export type FinancialMetricsExportInput = {
 export async function exportFinancialMetricsView(
   input: FinancialMetricsExportInput
 ): Promise<void> {
-  const { model, allowedSources, companyName, years, incomeStatementModel } =
-    input;
+  const {
+    model,
+    allowedSources,
+    companyName,
+    tableYears,
+    incomeStatementModel,
+  } = input;
+
+  const metricExportYears = tableYears.slice(-FINANCIALS_DISPLAY_YEAR_COUNT);
 
   const ExcelJS = (await import("exceljs")).default;
   const templateBuffer = await loadFinancialsTemplate();
@@ -278,7 +304,7 @@ export async function exportFinancialMetricsView(
     cardsById.get("financial"),
     FINANCIAL_METRIC_ROWS,
     SECTION_HEADER_ROWS.financial,
-    years,
+    metricExportYears,
     allowedSources
   );
   fillCardSection(
@@ -286,7 +312,7 @@ export async function exportFinancialMetricsView(
     cardsById.get("subscription"),
     SUBSCRIPTION_METRIC_ROWS,
     SECTION_HEADER_ROWS.subscription,
-    years,
+    metricExportYears,
     allowedSources
   );
   fillCardSection(
@@ -294,7 +320,7 @@ export async function exportFinancialMetricsView(
     cardsById.get("other"),
     OTHER_METRIC_ROWS,
     SECTION_HEADER_ROWS.other,
-    years,
+    metricExportYears,
     allowedSources
   );
 

@@ -24,6 +24,7 @@ import {
   formatFiscalYearHeader,
   getVisibleFinancialsCellDisplay,
   getVisibleYoyValue,
+  resolveFinancialsTableColumnYears,
   type CompanyFinancialMetricsCardRow,
   type CompanyFinancialsViewModel,
   type FinancialsCellValue,
@@ -32,6 +33,7 @@ import {
 import { exportFinancialMetricsView } from "@/lib/companyFinancialsExport";
 import {
   buildIncomeStatementFinancialsViewModel,
+  remapIncomeStatementToTableYears,
 } from "@/lib/incomeStatementFinancials";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { IncomeStatementRow } from "@/components/redesign/IncomeStatementSection";
@@ -349,18 +351,29 @@ export function CompanyFinancialsSection({
 
   const metricsYears = model.years;
 
-  const incomeStatementYearCount = incomeStatementModel?.years.length ?? 0;
-  const metricsShowYoy = metricsYears.length >= 2;
-  const incomeStatementShowYoy = incomeStatementYearCount >= 2;
+  const tableYears = useMemo(
+    () =>
+      resolveFinancialsTableColumnYears(
+        incomeStatementModel?.years ?? [],
+        metricsYears
+      ),
+    [incomeStatementModel?.years, metricsYears]
+  );
 
-  const metricsGridTemplate = buildFinancialsTableGridTemplate(
-    metricsYears.length,
-    metricsShowYoy
+  const metricsShowYoy = metricsYears.length >= 2;
+  const hasMetrics = metricsYears.length > 0;
+  const showTableYoyColumn =
+    hasMetrics && tableYears.length >= 2 && metricsShowYoy;
+
+  const gridTemplate = buildFinancialsTableGridTemplate(
+    tableYears.length,
+    showTableYoyColumn
   );
-  const incomeStatementGridTemplate = buildFinancialsTableGridTemplate(
-    incomeStatementYearCount,
-    incomeStatementShowYoy
-  );
+
+  const alignedIncomeStatementModel = useMemo(() => {
+    if (!incomeStatementModel || tableYears.length === 0) return null;
+    return remapIncomeStatementToTableYears(incomeStatementModel, tableYears);
+  }, [incomeStatementModel, tableYears]);
 
   const toggleSourceType = useCallback((type: FiMetricSourceType) => {
     setAllowedSources((prev) => {
@@ -380,13 +393,18 @@ export function CompanyFinancialsSection({
       model,
       allowedSources,
       companyName,
-      years: metricsYears,
-      incomeStatementModel,
+      tableYears,
+      incomeStatementModel: alignedIncomeStatementModel,
     });
-  }, [model, allowedSources, companyName, metricsYears, incomeStatementModel]);
+  }, [
+    model,
+    allowedSources,
+    companyName,
+    tableYears,
+    alignedIncomeStatementModel,
+  ]);
 
-  const hasIncomeStatement = incomeStatementModel != null;
-  const hasMetrics = metricsYears.length > 0;
+  const hasIncomeStatement = alignedIncomeStatementModel != null;
 
   if (loading && !hasMetrics && !hasIncomeStatement) {
     return (
@@ -445,11 +463,12 @@ export function CompanyFinancialsSection({
         </div>
       ) : null}
 
-      {hasIncomeStatement && incomeStatementModel ? (
+      {hasIncomeStatement && alignedIncomeStatementModel ? (
         <IncomeStatementFinancialsCard
-          model={incomeStatementModel}
-          gridTemplate={incomeStatementGridTemplate}
-          showYoyColumn={incomeStatementShowYoy}
+          model={alignedIncomeStatementModel}
+          gridTemplate={gridTemplate}
+          showYoyColumn={false}
+          reserveYoyColumn={showTableYoyColumn}
           allowedSources={allowedSources}
         />
       ) : null}
@@ -460,10 +479,10 @@ export function CompanyFinancialsSection({
             <FinancialsMetricsCard
               key={card.id}
               card={card}
-              years={metricsYears}
+              years={tableYears}
               allowedSources={allowedSources}
-              showYoy={metricsShowYoy}
-              gridTemplate={metricsGridTemplate}
+              showYoy={showTableYoyColumn}
+              gridTemplate={gridTemplate}
             />
           ))}
     </div>
