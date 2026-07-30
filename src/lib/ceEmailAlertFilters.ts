@@ -87,7 +87,7 @@ export function parseCeFilterValues(
   return undefined;
 }
 
-/** Build API arrays: empty = no filter; populated = narrowed selection. */
+/** Pass selected values to the API exactly as chosen in the UI. */
 export function buildCeTypeFilterArraysForApi(
   dealTypes: string[] | undefined,
   fundingStages: string[] | undefined
@@ -95,21 +95,11 @@ export function buildCeTypeFilterArraysForApi(
   const allowedDealTypes = CE_DEAL_TYPE_OPTIONS as readonly string[];
   const allowedFundingStages = CE_FUNDING_STAGE_OPTIONS as readonly string[];
 
-  const deal = (dealTypes ?? []).filter((value) => allowedDealTypes.includes(value));
-  const funding = (fundingStages ?? []).filter((value) =>
-    allowedFundingStages.includes(value)
-  );
-
   return {
-    deal_types:
-      deal.length > 0 && !isAllOptionsSelected(deal, CE_DEAL_TYPE_OPTIONS)
-        ? deal
-        : [],
-    funding_stages:
-      funding.length > 0 &&
-      !isAllOptionsSelected(funding, CE_FUNDING_STAGE_OPTIONS)
-        ? funding
-        : [],
+    deal_types: (dealTypes ?? []).filter((value) => allowedDealTypes.includes(value)),
+    funding_stages: (fundingStages ?? []).filter((value) =>
+      allowedFundingStages.includes(value)
+    ),
   };
 }
 
