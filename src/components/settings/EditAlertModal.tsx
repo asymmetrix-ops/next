@@ -363,8 +363,12 @@ export function EditAlertModal({
           individuals: [...(filters.individuals ?? [])],
           investors: [...(filters.investors ?? [])],
           advisors: [...(filters.advisors ?? [])],
-          deal_types: [...(filters.deal_types ?? [])],
-          funding_stages: [...(filters.funding_stages ?? [])],
+          deal_types: isCorporateEventsEmailAlert(alert.item_type)
+            ? [...(filters.deal_types ?? CE_DEAL_TYPE_OPTIONS)]
+            : [],
+          funding_stages: isCorporateEventsEmailAlert(alert.item_type)
+            ? [...(filters.funding_stages ?? CE_FUNDING_STAGE_OPTIONS)]
+            : [],
         },
       });
     }
@@ -647,6 +651,19 @@ export function EditAlertModal({
                     // If switching to digest and currently on as_added, switch to daily
                     if (newItemType === "digest" && prev.email_frequency === "as_added") {
                       newData.email_frequency = "daily";
+                    }
+                    if (isCorporateEventsEmailAlert(newItemType)) {
+                      newData.filters = {
+                        ...prev.filters,
+                        deal_types:
+                          prev.filters?.deal_types?.length
+                            ? prev.filters.deal_types
+                            : [...CE_DEAL_TYPE_OPTIONS],
+                        funding_stages:
+                          prev.filters?.funding_stages?.length
+                            ? prev.filters.funding_stages
+                            : [...CE_FUNDING_STAGE_OPTIONS],
+                      };
                     }
                     return newData;
                   });
