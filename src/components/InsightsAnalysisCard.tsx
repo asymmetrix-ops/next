@@ -742,7 +742,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
               textDecoration: isClickable ? "underline" : "none",
             }}
           >
-            {isClickable ? "Read More" : "Members only"}
+            {isClickable ? "Read More" : "Subscribers Only"}
           </span>
         </div>
       </div>
