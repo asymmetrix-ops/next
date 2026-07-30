@@ -62,6 +62,57 @@ export function isCorporateEventsEmailAlert(
   return itemType === "corporate_events" || itemType === "digest";
 }
 
+/** Parse API filter value (empty array = no filter). */
+export function parseCeFilterValues(
+  raw: string | string[] | null | undefined
+): string[] | undefined {
+  if (raw == null) return undefined;
+
+  if (Array.isArray(raw)) {
+    const values = raw.filter(
+      (value): value is string => typeof value === "string" && value.trim().length > 0
+    );
+    return values.length > 0 ? values : undefined;
+  }
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    return trimmed
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
+  return undefined;
+}
+
+/** Build API arrays: empty = no filter; populated = narrowed selection. */
+export function buildCeTypeFilterArraysForApi(
+  dealTypes: string[] | undefined,
+  fundingStages: string[] | undefined
+): { deal_types: string[]; funding_stages: string[] } {
+  const allowedDealTypes = CE_DEAL_TYPE_OPTIONS as readonly string[];
+  const allowedFundingStages = CE_FUNDING_STAGE_OPTIONS as readonly string[];
+
+  const deal = (dealTypes ?? []).filter((value) => allowedDealTypes.includes(value));
+  const funding = (fundingStages ?? []).filter((value) =>
+    allowedFundingStages.includes(value)
+  );
+
+  return {
+    deal_types:
+      deal.length > 0 && !isAllOptionsSelected(deal, CE_DEAL_TYPE_OPTIONS)
+        ? deal
+        : [],
+    funding_stages:
+      funding.length > 0 &&
+      !isAllOptionsSelected(funding, CE_FUNDING_STAGE_OPTIONS)
+        ? funding
+        : [],
+  };
+}
+
 export function resolveSelectedStringOptions(
   stored: string[] | undefined,
   allOptions: readonly string[]
@@ -87,9 +138,12 @@ export function normalizeCeTypeFilters(
   raw: EmailAlertFilters | null | undefined
 ): Pick<EmailAlertFilters, "deal_types" | "funding_stages"> {
   return {
-    deal_types: resolveSelectedStringOptions(raw?.deal_types, CE_DEAL_TYPE_OPTIONS),
+    deal_types: resolveSelectedStringOptions(
+      parseCeFilterValues(raw?.deal_types as string | string[] | undefined),
+      CE_DEAL_TYPE_OPTIONS
+    ),
     funding_stages: resolveSelectedStringOptions(
-      raw?.funding_stages,
+      parseCeFilterValues(raw?.funding_stages as string | string[] | undefined),
       CE_FUNDING_STAGE_OPTIONS
     ),
   };
@@ -102,14 +156,16 @@ export function stripCeTypeFiltersIfAllSelected(
   const out: EmailAlertFilters = { ...filters };
 
   if (
-    out.deal_types &&
+    !out.deal_types ||
+    out.deal_types.length === 0 ||
     isAllOptionsSelected(out.deal_types, CE_DEAL_TYPE_OPTIONS)
   ) {
     delete out.deal_types;
   }
 
   if (
-    out.funding_stages &&
+    !out.funding_stages ||
+    out.funding_stages.length === 0 ||
     isAllOptionsSelected(out.funding_stages, CE_FUNDING_STAGE_OPTIONS)
   ) {
     delete out.funding_stages;

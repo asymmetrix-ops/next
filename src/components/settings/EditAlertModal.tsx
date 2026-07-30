@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
-import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters } from "@/types/emailAlerts";
+import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters, EmailAlertContentType } from "@/types/emailAlerts";
 import {
+  CE_DEAL_TYPE_OPTIONS,
+  CE_FUNDING_STAGE_OPTIONS,
   isCorporateEventsEmailAlert,
   normalizeCeTypeFilters,
-  stripCeTypeFiltersIfAllSelected,
 } from "@/lib/ceEmailAlertFilters";
 import { CeEmailTypeFiltersPanel } from "@/components/settings/CeEmailTypeFiltersPanel";
 import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
@@ -146,6 +147,17 @@ function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlert
   };
 }
 
+function resolveFormContentType(
+  itemType: EmailAlert["item_type"] | undefined,
+  emailFrequency: EmailAlert["email_frequency"] | undefined,
+  contentType: EmailAlertContentType | undefined
+): EmailAlertContentType {
+  if (itemType === "insights_analysis" && emailFrequency === "as_added") {
+    return contentType === "full_body" ? "full_body" : "preview";
+  }
+  return "digest";
+}
+
 function hasEntityFilters(raw: EmailAlertFilters | null | undefined): boolean {
   const filters = normalizeEntityFilters(raw);
   return ENTITY_FILTER_KEYS.some((key) => (filters[key]?.length ?? 0) > 0);
@@ -244,9 +256,13 @@ export function EditAlertModal({
     return {
       item_type: alert.item_type,
       email_frequency: alert.email_frequency,
-      day_of_week: alert.day_of_week || "",
+      day_of_week: alert.day_of_week || null,
       timezone: alert.timezone || "Europe/London",
-      content_type: alert.content_type || "",
+      content_type: resolveFormContentType(
+        alert.item_type,
+        alert.email_frequency,
+        alert.content_type
+      ),
       is_active: alert.is_active,
       send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
       filters: { ...initialFilters },
@@ -332,9 +348,13 @@ export function EditAlertModal({
       setFormData({
         item_type: alert.item_type,
         email_frequency: alert.email_frequency,
-        day_of_week: alert.day_of_week || "",
+        day_of_week: alert.day_of_week || null,
         timezone: alert.timezone || "Europe/London",
-        content_type: alert.content_type || "",
+        content_type: resolveFormContentType(
+          alert.item_type,
+          alert.email_frequency,
+          alert.content_type
+        ),
         is_active: alert.is_active,
         send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
         filters: {
@@ -442,21 +462,38 @@ export function EditAlertModal({
           };
     }
 
-    const ceTypeFilters = isCorporateEventsEmailAlert(formData.item_type)
-      ? normalizeCeTypeFilters(formData.filters)
-      : {};
+    const filters: EmailAlertFilters = { ...entityFilters };
 
-    const filters = stripCeTypeFiltersIfAllSelected({
-      ...entityFilters,
-      ...ceTypeFilters,
-    });
+    if (isCorporateEventsEmailAlert(formData.item_type)) {
+      const dealTypes = formData.filters?.deal_types ?? [];
+      const fundingStages = formData.filters?.funding_stages ?? [];
+
+      if (dealTypes.length === 0) {
+        window.alert("Select at least one deal type.");
+        return;
+      }
+      if (fundingStages.length === 0) {
+        window.alert("Select at least one funding stage.");
+        return;
+      }
+
+      filters.deal_types = dealTypes;
+      filters.funding_stages = fundingStages;
+    }
 
     const updatedAlert: EmailAlert = {
       ...alert,
       ...formData,
-      day_of_week: formData.day_of_week || "",
+      day_of_week:
+        formData.email_frequency === "weekly"
+          ? formData.day_of_week || null
+          : null,
       timezone: formData.timezone || "",
-      content_type: formData.content_type || "",
+      content_type: resolveFormContentType(
+        formData.item_type,
+        formData.email_frequency,
+        formData.content_type
+      ),
       send_time_local: formData.send_time_local || null,
       filters,
     } as EmailAlert;
@@ -605,7 +642,7 @@ export function EditAlertModal({
                       newItemType !== "insights_analysis" ||
                       prev.email_frequency !== "as_added"
                     ) {
-                      newData.content_type = "";
+                      newData.content_type = "digest";
                     }
                     // If switching to digest and currently on as_added, switch to daily
                     if (newItemType === "digest" && prev.email_frequency === "as_added") {
@@ -790,8 +827,12 @@ export function EditAlertModal({
                   logic within each filter.
                 </p>
                 <CeEmailTypeFiltersPanel
-                  dealTypes={formData.filters?.deal_types ?? []}
-                  fundingStages={formData.filters?.funding_stages ?? []}
+                  dealTypes={
+                    formData.filters?.deal_types ?? [...CE_DEAL_TYPE_OPTIONS]
+                  }
+                  fundingStages={
+                    formData.filters?.funding_stages ?? [...CE_FUNDING_STAGE_OPTIONS]
+                  }
                   onDealTypesChange={(dealTypes) =>
                     setFormData((prev) => ({
                       ...prev,
@@ -827,11 +868,10 @@ export function EditAlertModal({
                       newFrequency !== "as_added" ||
                       prev.item_type !== "insights_analysis"
                     ) {
-                      newData.content_type = "";
+                      newData.content_type = "digest";
                     }
-                    // Clear day_of_week if not weekly
                     if (newFrequency !== "weekly") {
-                      newData.day_of_week = "";
+                      newData.day_of_week = null;
                     }
                     // Clear send_time_local if as_added
                     if (newFrequency === "as_added") {
@@ -858,7 +898,7 @@ export function EditAlertModal({
                   Day of Week
                 </label>
                 <select
-                  value={formData.day_of_week}
+                  value={formData.day_of_week || ""}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, day_of_week: e.target.value }))
                   }
@@ -928,18 +968,27 @@ export function EditAlertModal({
                 </label>
                 <select
                   value={formData.content_type}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, content_type: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      content_type:
+                        value === "full_body" ? "full_body" : "preview",
+                    }));
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                   required
                 >
-                  <option value="">Select content type</option>
-                  {meta.enums.content_type.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
+                  {meta.enums.content_type
+                    .filter(
+                      (option) =>
+                        option.value === "preview" || option.value === "full_body"
+                    )
+                    .map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                 </select>
               </div>
             )}

@@ -101,7 +101,7 @@ function addDaysToYMD(
   };
 }
 
-function dayOfWeekToIndex(dayOfWeek: string): number | null {
+function dayOfWeekToIndex(dayOfWeek: string | null | undefined): number | null {
   const s = (dayOfWeek || "").toLowerCase().trim();
   const map: Record<string, number> = {
     sunday: 0,
