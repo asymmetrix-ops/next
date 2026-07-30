@@ -24,7 +24,6 @@ import {
   formatFiscalYearHeader,
   getVisibleFinancialsCellDisplay,
   getVisibleYoyValue,
-  resolveUnifiedFinancialYears,
   type CompanyFinancialMetricsCardRow,
   type CompanyFinancialsViewModel,
   type FinancialsCellValue,
@@ -33,7 +32,6 @@ import {
 import { exportFinancialMetricsView } from "@/lib/companyFinancialsExport";
 import {
   buildIncomeStatementFinancialsViewModel,
-  remapIncomeStatementToUnifiedYears,
 } from "@/lib/incomeStatementFinancials";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { IncomeStatementRow } from "@/components/redesign/IncomeStatementSection";
@@ -349,28 +347,20 @@ export function CompanyFinancialsSection({
     [incomeStatementRows, employeeHistory, incomeStatementCurrency]
   );
 
-  const unifiedYears = useMemo(
-    () =>
-      resolveUnifiedFinancialYears(
-        model.years,
-        incomeStatementModel?.years ?? []
-      ),
-    [model.years, incomeStatementModel?.years]
-  );
+  const metricsYears = model.years;
 
-  const showYoy = unifiedYears.length >= 2;
-  const gridTemplate = buildFinancialsTableGridTemplate(
-    unifiedYears.length,
-    showYoy
-  );
+  const incomeStatementYearCount = incomeStatementModel?.years.length ?? 0;
+  const metricsShowYoy = metricsYears.length >= 2;
+  const incomeStatementShowYoy = incomeStatementYearCount >= 2;
 
-  const alignedIncomeStatementModel = useMemo(() => {
-    if (!incomeStatementModel || unifiedYears.length === 0) return null;
-    return remapIncomeStatementToUnifiedYears(
-      incomeStatementModel,
-      unifiedYears
-    );
-  }, [incomeStatementModel, unifiedYears]);
+  const metricsGridTemplate = buildFinancialsTableGridTemplate(
+    metricsYears.length,
+    metricsShowYoy
+  );
+  const incomeStatementGridTemplate = buildFinancialsTableGridTemplate(
+    incomeStatementYearCount,
+    incomeStatementShowYoy
+  );
 
   const toggleSourceType = useCallback((type: FiMetricSourceType) => {
     setAllowedSources((prev) => {
@@ -390,20 +380,15 @@ export function CompanyFinancialsSection({
       model,
       allowedSources,
       companyName,
-      years: unifiedYears,
-      incomeStatementModel: alignedIncomeStatementModel,
+      years: metricsYears,
+      incomeStatementModel,
     });
-  }, [
-    model,
-    allowedSources,
-    companyName,
-    unifiedYears,
-    alignedIncomeStatementModel,
-  ]);
+  }, [model, allowedSources, companyName, metricsYears, incomeStatementModel]);
 
-  const hasIncomeStatement = alignedIncomeStatementModel != null;
+  const hasIncomeStatement = incomeStatementModel != null;
+  const hasMetrics = metricsYears.length > 0;
 
-  if (loading && unifiedYears.length === 0 && !hasIncomeStatement) {
+  if (loading && !hasMetrics && !hasIncomeStatement) {
     return (
       <div
         style={{
@@ -419,7 +404,7 @@ export function CompanyFinancialsSection({
     );
   }
 
-  if (unifiedYears.length === 0 && !hasIncomeStatement) {
+  if (!hasMetrics && !hasIncomeStatement) {
     return (
       <div
         style={{
@@ -437,7 +422,7 @@ export function CompanyFinancialsSection({
 
   return (
     <div style={{ width: "100%", minWidth: 0 }}>
-      {model.years.length > 0 || hasIncomeStatement ? (
+      {hasMetrics || hasIncomeStatement ? (
         <div
           style={{
             display: "flex",
@@ -460,25 +445,25 @@ export function CompanyFinancialsSection({
         </div>
       ) : null}
 
-      {hasIncomeStatement && alignedIncomeStatementModel ? (
+      {hasIncomeStatement && incomeStatementModel ? (
         <IncomeStatementFinancialsCard
-          model={alignedIncomeStatementModel}
-          gridTemplate={gridTemplate}
-          showYoyColumn={false}
+          model={incomeStatementModel}
+          gridTemplate={incomeStatementGridTemplate}
+          showYoyColumn={incomeStatementShowYoy}
           allowedSources={allowedSources}
         />
       ) : null}
 
-      {model.years.length === 0
+      {!hasMetrics
         ? null
         : model.cards.map((card) => (
             <FinancialsMetricsCard
               key={card.id}
               card={card}
-              years={unifiedYears}
+              years={metricsYears}
               allowedSources={allowedSources}
-              showYoy={showYoy}
-              gridTemplate={gridTemplate}
+              showYoy={metricsShowYoy}
+              gridTemplate={metricsGridTemplate}
             />
           ))}
     </div>

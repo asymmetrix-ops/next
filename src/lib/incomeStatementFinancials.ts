@@ -3,6 +3,7 @@ import { formatPercentValue } from "@/lib/companyTableData";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import {
+  INCOME_STATEMENT_DISPLAY_YEAR_COUNT,
   resolveIncomeStatementCurrency,
   selectIncomeStatementYearColumns,
   sortIncomeStatementRowsAsc,
@@ -14,6 +15,7 @@ export type IncomeStatementMetricRow = {
   key: string;
   label: string;
   values: string[];
+  yoy: string;
 };
 
 export type IncomeStatementFinancialsViewModel = {
@@ -49,21 +51,30 @@ function computeMarginPct(
   return (numerator / revenue) * 100;
 }
 
+function resolveMarginPct(
+  row: NormalizedIncomeStatementRow,
+  type: "ebitda" | "ebit"
+): number | null {
+  if (type === "ebitda") {
+    if (row.ebitda == null) return null;
+    const computed = computeMarginPct(row.ebitda, row.revenue);
+    if (computed != null) return computed;
+    return row.ebitda_margin_pc ?? null;
+  }
+
+  if (row.ebit == null) return null;
+  const computed = computeMarginPct(row.ebit, row.revenue);
+  if (computed != null) return computed;
+  return row.ebit_margin_pc ?? null;
+}
+
 function formatMarginValue(
   row: NormalizedIncomeStatementRow,
   type: "ebitda" | "ebit"
 ): string {
-  if (type === "ebitda") {
-    if (row.ebitda == null) return "-";
-    const computed = computeMarginPct(row.ebitda, row.revenue);
-    if (computed != null) return formatPercentValue(computed);
-    return formatPercentValue(row.ebitda_margin_pc);
-  }
-
-  if (row.ebit == null) return "-";
-  const computed = computeMarginPct(row.ebit, row.revenue);
-  if (computed != null) return formatPercentValue(computed);
-  return formatPercentValue(row.ebit_margin_pc);
+  const margin = resolveMarginPct(row, type);
+  if (margin == null) return "-";
+  return formatPercentValue(margin);
 }
 
 function formatMoneyMillions(
@@ -85,7 +96,7 @@ function formatRevenuePerFte(
   return appendMetricCurrency(Math.round(value).toLocaleString(), currency);
 }
 
-function formatYoYGrowth(
+export function formatYoYGrowth(
   current: number | null | undefined,
   prior: number | null | undefined
 ): string {
@@ -96,6 +107,31 @@ function formatYoYGrowth(
   if (!Number.isFinite(pct)) return "-";
   const rounded = Math.round(pct * 10) / 10;
   return `${rounded >= 0 ? "+" : ""}${rounded}%`;
+}
+
+function computeLatestYoY(
+  columns: NormalizedIncomeStatementRow[],
+  rawValue: (row: NormalizedIncomeStatementRow) => number | null | undefined
+): string {
+  if (columns.length < 2) return "-";
+  const prior = rawValue(columns[columns.length - 2]);
+  const current = rawValue(columns[columns.length - 1]);
+  return formatYoYGrowth(current, prior);
+}
+
+function buildMetricRow(
+  key: string,
+  label: string,
+  columns: NormalizedIncomeStatementRow[],
+  formatValue: (row: NormalizedIncomeStatementRow) => string,
+  rawValue: (row: NormalizedIncomeStatementRow) => number | null | undefined
+): IncomeStatementMetricRow {
+  return {
+    key,
+    label,
+    values: columns.map(formatValue),
+    yoy: computeLatestYoY(columns, rawValue),
+  };
 }
 
 function resolveFteForYear(
@@ -129,59 +165,66 @@ export function buildIncomeStatementFinancialsViewModel(
   fallbackCurrency = ""
 ): IncomeStatementFinancialsViewModel | null {
   const columns = sortIncomeStatementRowsAsc(
-    selectIncomeStatementYearColumns(rows, 2).map((row) =>
-      enrichRowWithFte(row, employeeHistory)
-    )
+    selectIncomeStatementYearColumns(
+      rows,
+      INCOME_STATEMENT_DISPLAY_YEAR_COUNT
+    ).map((row) => enrichRowWithFte(row, employeeHistory))
   );
   if (columns.length === 0) return null;
 
   const currency = resolveIncomeStatementCurrency(columns, fallbackCurrency);
 
-  const revenueValues = columns.map((row) =>
-    formatMoneyMillions(row.revenue, currency)
-  );
-  const yoyValues = columns.map((row, index) => {
-    if (index === 0) return "-";
-    return formatYoYGrowth(row.revenue, columns[index - 1]?.revenue);
-  });
-
   const metrics: IncomeStatementMetricRow[] = [
-    { key: "revenue", label: "Revenue (m)", values: revenueValues },
-    { key: "revenue_yoy", label: "YoY Growth", values: yoyValues },
-    {
-      key: "ebitda",
-      label: "EBITDA (m)",
-      values: columns.map((row) => formatMoneyMillions(row.ebitda, currency)),
-    },
-    {
-      key: "ebitda_margin",
-      label: "EBITDA %",
-      values: columns.map((row) => formatMarginValue(row, "ebitda")),
-    },
-    {
-      key: "ebit",
-      label: "EBIT (m)",
-      values: columns.map((row) => formatMoneyMillions(row.ebit, currency)),
-    },
-    {
-      key: "ebit_margin",
-      label: "EBIT %",
-      values: columns.map((row) => formatMarginValue(row, "ebit")),
-    },
-    {
-      key: "fte",
-      label: "FTE",
-      values: columns.map((row) =>
-        row.fte_count != null ? row.fte_count.toLocaleString() : "-"
-      ),
-    },
-    {
-      key: "revenue_per_fte",
-      label: "Revenue / FTE",
-      values: columns.map((row) =>
-        formatRevenuePerFte(row.revenue_per_fte, currency)
-      ),
-    },
+    buildMetricRow(
+      "revenue",
+      "Revenue (m)",
+      columns,
+      (row) => formatMoneyMillions(row.revenue, currency),
+      (row) => row.revenue ?? null
+    ),
+    buildMetricRow(
+      "ebitda",
+      "EBITDA (m)",
+      columns,
+      (row) => formatMoneyMillions(row.ebitda, currency),
+      (row) => row.ebitda ?? null
+    ),
+    buildMetricRow(
+      "ebitda_margin",
+      "EBITDA %",
+      columns,
+      (row) => formatMarginValue(row, "ebitda"),
+      (row) => resolveMarginPct(row, "ebitda")
+    ),
+    buildMetricRow(
+      "ebit",
+      "EBIT (m)",
+      columns,
+      (row) => formatMoneyMillions(row.ebit, currency),
+      (row) => row.ebit ?? null
+    ),
+    buildMetricRow(
+      "ebit_margin",
+      "EBIT %",
+      columns,
+      (row) => formatMarginValue(row, "ebit"),
+      (row) => resolveMarginPct(row, "ebit")
+    ),
+    buildMetricRow(
+      "fte",
+      "FTE",
+      columns,
+      (row) =>
+        row.fte_count != null ? row.fte_count.toLocaleString() : "-",
+      (row) => row.fte_count ?? null
+    ),
+    buildMetricRow(
+      "revenue_per_fte",
+      "Revenue / FTE",
+      columns,
+      (row) => formatRevenuePerFte(row.revenue_per_fte, currency),
+      (row) => row.revenue_per_fte ?? null
+    ),
   ];
 
   return {
@@ -191,28 +234,5 @@ export function buildIncomeStatementFinancialsViewModel(
     columnLabels: columns.map(formatPeriodHeader),
     metrics,
     sourceType: "Public",
-  };
-}
-
-export function remapIncomeStatementToUnifiedYears(
-  model: IncomeStatementFinancialsViewModel,
-  unifiedYears: number[]
-): IncomeStatementFinancialsViewModel {
-  const indexByYear = new Map<number, number>();
-  model.years.forEach((year, index) => {
-    if (year != null) indexByYear.set(year, index);
-  });
-
-  return {
-    ...model,
-    years: unifiedYears,
-    columnLabels: unifiedYears.map((year) => `FY${year}`),
-    metrics: model.metrics.map((metric) => ({
-      ...metric,
-      values: unifiedYears.map((year) => {
-        const index = indexByYear.get(year);
-        return index != null ? (metric.values[index] ?? "-") : "-";
-      }),
-    })),
   };
 }

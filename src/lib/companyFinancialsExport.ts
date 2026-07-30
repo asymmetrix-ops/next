@@ -30,7 +30,6 @@ const SECTION_HEADER_ROWS = {
 
 const INCOME_STATEMENT_ROWS: Record<string, number> = {
   revenue: 8,
-  revenue_yoy: 9,
   ebitda: 10,
   ebitda_margin: 11,
   ebit: 12,
@@ -198,11 +197,15 @@ function fillCardSection(
 function fillIncomeStatementSection(
   worksheet: import("exceljs").Worksheet,
   model: IncomeStatementFinancialsViewModel | null | undefined,
-  years: number[],
   allowedSources: FiMetricSourceType[]
 ): void {
-  setYearHeaders(worksheet, SECTION_HEADER_ROWS.incomeStatement, years);
   if (!model) return;
+
+  const exportYears = model.years
+    .filter((year): year is number => year != null)
+    .slice(-2);
+
+  setYearHeaders(worksheet, SECTION_HEADER_ROWS.incomeStatement, exportYears);
 
   const sourceVisible = allowedSources.includes(model.sourceType);
   const metricsByKey = new Map(model.metrics.map((metric) => [metric.key, metric]));
@@ -217,6 +220,12 @@ function fillIncomeStatementSection(
     const displayValues = sourceVisible ? values : values.map(() => "-");
 
     writeYearValues(worksheet, row, displayValues);
+    setCenteredCell(
+      worksheet,
+      row,
+      COL_YOY,
+      sourceVisible ? metric.yoy : "-"
+    );
   }
 
   if (sourceVisible) {
@@ -259,7 +268,6 @@ export async function exportFinancialMetricsView(
   fillIncomeStatementSection(
     worksheet,
     incomeStatementModel,
-    years,
     allowedSources
   );
 

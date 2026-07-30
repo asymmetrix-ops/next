@@ -9,38 +9,40 @@ import { formatFiscalYearHeader } from "@/lib/companyFinancialMetricsCard";
 import type { IncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 
+function YoyValueCell({ value, visible }: { value: string; visible: boolean }) {
+  const display = !visible || value === "-" ? "-" : value;
+  const color =
+    display.startsWith("+")
+      ? T.up
+      : display.startsWith("-") && display !== "-"
+        ? T.down
+        : display === "-"
+          ? T.muted
+          : T.body;
+
+  return (
+    <span
+      style={{
+        fontFamily: T.sans,
+        fontSize: 13,
+        fontWeight: display === "-" ? 400 : 600,
+        color,
+        textAlign: "center",
+      }}
+    >
+      {display}
+    </span>
+  );
+}
+
 function ValueCell({
   value,
-  metricKey,
   visible,
 }: {
   value: string;
-  metricKey: string;
   visible: boolean;
 }) {
   const display = !visible && value !== "-" ? "-" : value;
-
-  if (metricKey === "revenue_yoy" && display !== "-") {
-    const color =
-      value.startsWith("+")
-        ? T.up
-        : value.startsWith("-")
-          ? T.down
-          : T.body;
-    return (
-      <span
-        style={{
-          fontFamily: T.sans,
-          fontSize: 13,
-          fontWeight: 600,
-          color,
-          textAlign: "center",
-        }}
-      >
-        {display}
-      </span>
-    );
-  }
 
   return (
     <span
@@ -119,16 +121,12 @@ export function IncomeStatementMetricsGrid({
               key={`${metric.key}-${valueIndex}`}
               style={{ display: "flex", justifyContent: "center" }}
             >
-              <ValueCell
-                value={value}
-                metricKey={metric.key}
-                visible={sourceVisible}
-              />
+              <ValueCell value={value} visible={sourceVisible} />
             </div>
           ))}
           {showYoyColumn ? (
             <div style={{ display: "flex", justifyContent: "center" }}>
-              <ValueCell value="-" metricKey={metric.key} visible={sourceVisible} />
+              <YoyValueCell value={metric.yoy} visible={sourceVisible} />
             </div>
           ) : null}
         </div>
