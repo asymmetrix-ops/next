@@ -1,17 +1,29 @@
 import { authService } from "./auth";
 import { isMcpGuestSession, MCP_GUEST_OTP_LOGIN_PATH } from "./mcpGuest";
 import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters } from "@/types/emailAlerts";
+import {
+  normalizeCeTypeFilters,
+  stripCeTypeFiltersIfAllSelected,
+} from "@/lib/ceEmailAlertFilters";
 import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
 
-function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlertFilters {
-  const keys: (keyof EmailAlertFilters)[] = [
+function normalizeEntityFilters(
+  raw: EmailAlertFilters | null | undefined
+): Pick<
+  EmailAlertFilters,
+  "companies" | "sectors" | "individuals" | "investors" | "advisors"
+> {
+  const keys = [
     "companies",
     "sectors",
     "individuals",
     "investors",
     "advisors",
-  ];
-  const out: EmailAlertFilters = {};
+  ] as const;
+  const out: Pick<
+    EmailAlertFilters,
+    "companies" | "sectors" | "individuals" | "investors" | "advisors"
+  > = {};
   for (const key of keys) {
     const val = raw?.[key];
     out[key] = Array.isArray(val)
@@ -19,6 +31,46 @@ function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlert
       : [];
   }
   return out;
+}
+
+function parseStoredFilters(raw: EmailAlertFilters | null | undefined): EmailAlertFilters {
+  const out: EmailAlertFilters = {
+    ...normalizeEntityFilters(raw),
+  };
+
+  if (Array.isArray(raw?.deal_types) && raw.deal_types.length > 0) {
+    out.deal_types = raw.deal_types.filter(
+      (value): value is string => typeof value === "string" && value.length > 0
+    );
+  }
+
+  if (Array.isArray(raw?.funding_stages) && raw.funding_stages.length > 0) {
+    out.funding_stages = raw.funding_stages.filter(
+      (value): value is string => typeof value === "string" && value.length > 0
+    );
+  }
+
+  return out;
+}
+
+function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlertFilters {
+  return {
+    ...normalizeEntityFilters(raw),
+    ...normalizeCeTypeFilters(raw),
+  };
+}
+
+function buildFiltersPayload(filters: EmailAlertFilters | null | undefined): EmailAlertFilters {
+  const normalized = normalizeFilters(filters);
+  return stripCeTypeFiltersIfAllSelected({
+    companies: normalized.companies ?? [],
+    sectors: normalized.sectors ?? [],
+    individuals: normalized.individuals ?? [],
+    investors: normalized.investors ?? [],
+    advisors: normalized.advisors ?? [],
+    deal_types: normalized.deal_types,
+    funding_stages: normalized.funding_stages,
+  });
 }
 
 interface EmailAlertsResponse {
@@ -85,7 +137,7 @@ class EmailAlertsService {
     const rawAlerts = Array.isArray(response) ? response : [];
     const alerts: EmailAlert[] = rawAlerts.map((a) => ({
       ...a,
-      filters: normalizeFilters(a.filters),
+      filters: parseStoredFilters(a.filters),
     }));
 
     // For now, we'll use the hardcoded enums from the user's description
@@ -95,7 +147,8 @@ class EmailAlertsService {
         item_type: [
           { value: "corporate_events", label: "Corporate Events" },
           { value: "insights_analysis", label: "Insights & Analysis" },
-          { value: "digest", label: "Corporate Events and Insights & Analysis" },
+          { value: "deal_radar", label: "Deal Radar" },
+          { value: "digest", label: "Corporate Events, Insights & Analysis, and Deal Radar" },
         ],
         email_frequency: [
           { value: "as_added", label: "As they are added to platform" },
@@ -139,14 +192,7 @@ class EmailAlertsService {
       nextRunAtUtcIso == null ? null : new Date(nextRunAtUtcIso).getTime();
 
 
-    const filters = alert.filters ?? {};
-    const filtersPayload = {
-      companies: filters.companies ?? [],
-      sectors: filters.sectors ?? [],
-      individuals: filters.individuals ?? [],
-      investors: filters.investors ?? [],
-      advisors: filters.advisors ?? [],
-    };
+    const filtersPayload = buildFiltersPayload(alert.filters);
 
     // Build base request body
     const body: Record<string, unknown> = {
@@ -201,14 +247,7 @@ class EmailAlertsService {
     const nextRunAtUtcMs =
       nextRunAtUtcIso == null ? null : new Date(nextRunAtUtcIso).getTime();
 
-    const filters = alert.filters ?? {};
-    const filtersPayload = {
-      companies: filters.companies ?? [],
-      sectors: filters.sectors ?? [],
-      individuals: filters.individuals ?? [],
-      investors: filters.investors ?? [],
-      advisors: filters.advisors ?? [],
-    };
+    const filtersPayload = buildFiltersPayload(alert.filters);
 
     const body: Record<string, unknown> = {
       user_email_alerts_id: alert.id,

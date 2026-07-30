@@ -127,6 +127,127 @@ export const CORPORATE_EVENTS_COLUMN_CATEGORIES: CorporateEventColumnCategory[] 
     },
   ];
 
+/** Reference all-columns export layout (Directory + Corporate Events sheets). */
+export const CORPORATE_EVENTS_EXPORT_CATEGORIES: CorporateEventColumnCategory[] =
+  [
+    {
+      id: "identity",
+      name: "Identity",
+      columns: [
+        {
+          id: "description",
+          columnKey: "description",
+          label: "Event",
+          type: "text",
+          locked: true,
+          defaultVisible: true,
+        },
+      ],
+    },
+    {
+      id: "parties",
+      name: "Parties",
+      columns: [
+        {
+          id: "target",
+          columnKey: "target",
+          label: "Target",
+          type: "text",
+          defaultVisible: true,
+        },
+        {
+          id: "target_hq",
+          columnKey: "target_hq",
+          label: "Target HQ",
+          type: "text",
+          defaultVisible: false,
+        },
+        {
+          id: "investors",
+          columnKey: "investors",
+          label: "Investor(s)",
+          type: "text",
+          defaultVisible: true,
+        },
+        {
+          id: "sellers",
+          columnKey: "sellers",
+          label: "Seller(s)",
+          type: "text",
+          defaultVisible: true,
+        },
+        {
+          id: "advisors",
+          columnKey: "advisors",
+          label: "Advisor(s)",
+          type: "paragraph",
+          defaultVisible: true,
+        },
+      ],
+    },
+    {
+      id: "details",
+      name: "Details",
+      columns: [
+        {
+          id: "deal_type",
+          columnKey: "deal_type",
+          label: "Deal Type",
+          type: "text",
+          defaultVisible: false,
+        },
+        {
+          id: "funding_stage",
+          columnKey: "funding_stage",
+          label: "Funding Stage",
+          type: "text",
+          defaultVisible: false,
+        },
+        {
+          id: "investment_amount",
+          columnKey: "investment_amount",
+          label: "Amount (m)",
+          type: "number",
+          defaultVisible: false,
+        },
+        {
+          id: "enterprise_value",
+          columnKey: "enterprise_value",
+          label: "EV (m)",
+          type: "number",
+          defaultVisible: false,
+        },
+      ],
+    },
+    {
+      id: "overview",
+      name: "Overview",
+      columns: [
+        {
+          id: "announcement_date",
+          columnKey: "announcement_date",
+          label: "Date",
+          type: "date",
+          defaultVisible: true,
+        },
+        {
+          id: "primary_sectors",
+          columnKey: "primary_sectors",
+          label: "Primary Sectors",
+          type: "paragraph",
+          defaultVisible: true,
+        },
+        {
+          id: "secondary_sectors",
+          columnKey: "secondary_sectors",
+          label: "Secondary Sectors",
+          type: "paragraph",
+          defaultVisible: false,
+        },
+      ],
+    },
+  ];
+
 export const ALL_CORPORATE_EVENTS_COLUMN_META =
   CORPORATE_EVENTS_COLUMN_CATEGORIES.flatMap((category) => category.columns);
 

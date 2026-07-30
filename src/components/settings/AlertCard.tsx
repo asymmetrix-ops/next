@@ -2,6 +2,11 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import type { EmailAlert, EmailAlertsMeta } from "@/types/emailAlerts";
+import {
+  isCeDealTypeFilterActive,
+  isCeFundingStageFilterActive,
+  isCorporateEventsEmailAlert,
+} from "@/lib/ceEmailAlertFilters";
 
 interface AlertCardProps {
   alert: EmailAlert;
@@ -150,6 +155,14 @@ export function AlertCard({
     if (f?.individuals?.length) filterParts.push(`${f.individuals.length} individuals`);
     if (f?.investors?.length) filterParts.push(`${f.investors.length} investors`);
     if (f?.advisors?.length) filterParts.push(`${f.advisors.length} advisors`);
+    if (isCorporateEventsEmailAlert(alert.item_type)) {
+      if (isCeDealTypeFilterActive(f?.deal_types)) {
+        filterParts.push(`${f!.deal_types!.length} deal types`);
+      }
+      if (isCeFundingStageFilterActive(f?.funding_stages)) {
+        filterParts.push(`${f!.funding_stages!.length} funding stages`);
+      }
+    }
     parts.push("-");
     parts.push(
       filterParts.length === 0 ? "Filter: All" : `Filter: ${filterParts.join(", ")}`

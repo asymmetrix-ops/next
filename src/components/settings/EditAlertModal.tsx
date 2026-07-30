@@ -2,6 +2,12 @@
 
 import { useMemo, useState, useEffect, useCallback } from "react";
 import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters } from "@/types/emailAlerts";
+import {
+  isCorporateEventsEmailAlert,
+  normalizeCeTypeFilters,
+  stripCeTypeFiltersIfAllSelected,
+} from "@/lib/ceEmailAlertFilters";
+import { CeEmailTypeFiltersPanel } from "@/components/settings/CeEmailTypeFiltersPanel";
 import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
 import { fetchUserPortfolioData, fetchPortfolioDataFromXano } from "@/lib/portfolioData";
 import { fetchUserListsFromXano } from "@/lib/userLists";
@@ -17,7 +23,15 @@ const ENTITY_TO_FILTER_KEY: Record<string, keyof EmailAlertFilters> = {
   sector: "sectors",
 };
 
-const FILTER_KEY_LABEL: Record<keyof EmailAlertFilters, string> = {
+const ENTITY_FILTER_KEYS = [
+  "companies",
+  "sectors",
+  "individuals",
+  "investors",
+  "advisors",
+] as const;
+
+const FILTER_KEY_LABEL: Record<(typeof ENTITY_FILTER_KEYS)[number], string> = {
   companies: "Companies",
   sectors: "Sectors",
   individuals: "Individuals",
@@ -29,7 +43,7 @@ const FILTER_KEY_LABEL: Record<keyof EmailAlertFilters, string> = {
 // EntityCheckboxPanel — reusable grouped checkbox list for portfolio/list rows
 // ---------------------------------------------------------------------------
 
-const FILTER_KEYS = ["companies", "sectors", "individuals", "investors", "advisors"] as const;
+const FILTER_KEYS = ENTITY_FILTER_KEYS;
 
 function EntityCheckboxPanel({
   loading,
@@ -106,23 +120,35 @@ function EntityCheckboxPanel({
   );
 }
 
-/** Normalize filters from API (ensure each key is number[]) and return a clean copy. */
-function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlertFilters {
-  const keys: (keyof EmailAlertFilters)[] = [
-    "companies",
-    "sectors",
-    "individuals",
-    "investors",
-    "advisors",
-  ];
-  const out: EmailAlertFilters = {};
-  for (const key of keys) {
+function normalizeEntityFilters(
+  raw: EmailAlertFilters | null | undefined
+): Pick<
+  EmailAlertFilters,
+  "companies" | "sectors" | "individuals" | "investors" | "advisors"
+> {
+  const out: Pick<
+    EmailAlertFilters,
+    "companies" | "sectors" | "individuals" | "investors" | "advisors"
+  > = {};
+  for (const key of ENTITY_FILTER_KEYS) {
     const val = raw?.[key];
     out[key] = Array.isArray(val)
       ? val.filter((n): n is number => typeof n === "number" && Number.isFinite(n))
       : [];
   }
   return out;
+}
+
+function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlertFilters {
+  return {
+    ...normalizeEntityFilters(raw),
+    ...normalizeCeTypeFilters(raw),
+  };
+}
+
+function hasEntityFilters(raw: EmailAlertFilters | null | undefined): boolean {
+  const filters = normalizeEntityFilters(raw);
+  return ENTITY_FILTER_KEYS.some((key) => (filters[key]?.length ?? 0) > 0);
 }
 
 interface EditAlertModalProps {
@@ -211,9 +237,7 @@ export function EditAlertModal({
   };
 
   const initialFilters = normalizeFilters(alert.filters);
-  const hasInitialFilters = Object.values(initialFilters).some(
-    (arr) => arr.length > 0
-  );
+  const hasInitialEntityFilters = hasEntityFilters(alert.filters);
 
   const [formData, setFormData] = useState<Partial<EmailAlert>>(() => {
     const defaultTime = normalizeTime(meta.defaults.daily_send_time_local) || "09:00";
@@ -235,7 +259,9 @@ export function EditAlertModal({
   const [portfolioLoading, setPortfolioLoading] = useState(false);
 
   // "all" | "portfolio" | "list"
-  const [filterSource, setFilterSource] = useState<FilterSource>(hasInitialFilters ? "portfolio" : "all");
+  const [filterSource, setFilterSource] = useState<FilterSource>(
+    hasInitialEntityFilters ? "portfolio" : "all"
+  );
   // When source != "all": true = include all entities from source, false = pick specific
   const [useAllFromSource, setUseAllFromSource] = useState(false);
 
@@ -299,8 +325,7 @@ export function EditAlertModal({
     if (isOpen) {
       const defaultTime = normalizeTime(meta.defaults.daily_send_time_local) || "09:00";
       const filters = normalizeFilters(alert.filters);
-      const hasFilters = Object.values(filters).some((arr) => arr.length > 0);
-      setFilterSource(hasFilters ? "portfolio" : "all");
+      setFilterSource(hasEntityFilters(alert.filters) ? "portfolio" : "all");
       setUseAllFromSource(false);
       setSelectedListId(null);
       setListRows([]);
@@ -318,6 +343,8 @@ export function EditAlertModal({
           individuals: [...(filters.individuals ?? [])],
           investors: [...(filters.investors ?? [])],
           advisors: [...(filters.advisors ?? [])],
+          deal_types: [...(filters.deal_types ?? [])],
+          funding_stages: [...(filters.funding_stages ?? [])],
         },
       });
     }
@@ -390,11 +417,11 @@ export function EditAlertModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    let filters: EmailAlertFilters;
+    let entityFilters: EmailAlertFilters;
     if (filterSource === "all") {
-      filters = {};
+      entityFilters = {};
     } else if (filterSource === "portfolio") {
-      filters = useAllFromSource
+      entityFilters = useAllFromSource
         ? buildFiltersFromRows(portfolioRows)
         : {
             companies: formData.filters?.companies ?? [],
@@ -404,8 +431,7 @@ export function EditAlertModal({
             advisors: formData.filters?.advisors ?? [],
           };
     } else {
-      // list
-      filters = useAllFromSource
+      entityFilters = useAllFromSource
         ? buildFiltersFromRows(listRows)
         : {
             companies: formData.filters?.companies ?? [],
@@ -415,6 +441,16 @@ export function EditAlertModal({
             advisors: formData.filters?.advisors ?? [],
           };
     }
+
+    const ceTypeFilters = isCorporateEventsEmailAlert(formData.item_type)
+      ? normalizeCeTypeFilters(formData.filters)
+      : {};
+
+    const filters = stripCeTypeFiltersIfAllSelected({
+      ...entityFilters,
+      ...ceTypeFilters,
+    });
+
     const updatedAlert: EmailAlert = {
       ...alert,
       ...formData,
@@ -499,6 +535,7 @@ export function EditAlertModal({
   const isAsAdded = formData.email_frequency === "as_added";
   const showContentType =
     formData.item_type === "insights_analysis" && isAsAdded && !isDigest;
+  const showCeTypeFilters = isCorporateEventsEmailAlert(formData.item_type);
   
   // Filter frequency options: digest only allows daily/weekly
   const availableFrequencies = isDigest
@@ -682,7 +719,15 @@ export function EditAlertModal({
                           setUseAllFromSource(false);
                           setFormData((prev) => ({
                             ...prev,
-                            filters: { companies: [], sectors: [], individuals: [], investors: [], advisors: [] },
+                            filters: {
+                              companies: [],
+                              sectors: [],
+                              individuals: [],
+                              investors: [],
+                              advisors: [],
+                              deal_types: prev.filters?.deal_types,
+                              funding_stages: prev.filters?.funding_stages,
+                            },
                           }));
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
@@ -734,6 +779,34 @@ export function EditAlertModal({
 
               </div>
             </div>
+
+            {showCeTypeFilters && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Corporate event filters
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Deal type and funding stage use AND logic between filters, and OR
+                  logic within each filter.
+                </p>
+                <CeEmailTypeFiltersPanel
+                  dealTypes={formData.filters?.deal_types ?? []}
+                  fundingStages={formData.filters?.funding_stages ?? []}
+                  onDealTypesChange={(dealTypes) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      filters: { ...prev.filters, deal_types: dealTypes },
+                    }))
+                  }
+                  onFundingStagesChange={(fundingStages) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      filters: { ...prev.filters, funding_stages: fundingStages },
+                    }))
+                  }
+                />
+              </div>
+            )}
 
             {/* Email Frequency */}
             <div>

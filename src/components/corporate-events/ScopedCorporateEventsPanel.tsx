@@ -23,6 +23,7 @@ import {
   type CorporateEventListItem,
 } from "@/app/corporate-events/actions";
 import type { FilterBarState } from "@/components/companies/CompaniesFilterBar";
+import type { ListExportRequest } from "@/lib/listExport/types";
 
 export type ScopedCorporateEventsPanelProps = {
   primarySectorId: number;
@@ -208,6 +209,10 @@ export function ScopedCorporateEventsPanel({
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
     []
   );
+  const exportCSVRef = useRef<
+    ((request: ListExportRequest) => Promise<void>) | null
+  >(null);
+  const [exporting, setExporting] = useState(false);
 
   const emptyFilterState = useMemo<FilterBarState>(
     () => ({
@@ -287,8 +292,10 @@ export function ScopedCorporateEventsPanel({
           userId={userId}
           hidePageHeader={embedded}
           embedded={embedded}
-          hideExport
-          hideColumns
+          onExport={(mode) =>
+            exportCSVRef.current?.({ mode, scope: "full_list" })
+          }
+          exporting={exporting}
           excludeFilterIds={["primary_sector"]}
           scopedPrimarySectorIds={scopedPrimarySectorIds}
           matchCountOverride={pagination.itemTotal}
@@ -304,6 +311,10 @@ export function ScopedCorporateEventsPanel({
           isPortfolioOnlyFilter={isPortfolioOnlyFilter}
           enableColumnControl={false}
           embedded={embedded}
+          onRegisterExportCSV={(fn) => {
+            exportCSVRef.current = fn;
+          }}
+          onExportingChange={setExporting}
         />
       </div>
     </div>
