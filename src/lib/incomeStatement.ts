@@ -216,10 +216,13 @@ function resolvePeriodYear(row: NormalizedIncomeStatementRow): number | null {
   return parseFiscalYearFromDisplay(display);
 }
 
+/** Income statement may show up to three fiscal years when available. */
+export const INCOME_STATEMENT_DISPLAY_YEAR_COUNT = 3;
+
 /** Picks up to N fiscal-year columns, preferring fiscal_year over quarterly for the same year. */
 export function selectIncomeStatementYearColumns(
   rows: NormalizedIncomeStatementRow[],
-  limit = 2
+  limit = INCOME_STATEMENT_DISPLAY_YEAR_COUNT
 ): NormalizedIncomeStatementRow[] {
   const byYear = new Map<number, NormalizedIncomeStatementRow>();
 
