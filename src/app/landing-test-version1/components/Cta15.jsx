@@ -18,13 +18,16 @@ export function Cta15() {
               Start with a demo or explore
             </p>
             <div className="mt-6 flex flex-wrap gap-4 md:mt-8">
-              <Button title="Calendly" className="landing-btn-primary">
+              <Button
+                title="Calendly"
+                className="landing-btn-primary h-12 rounded-full px-8"
+              >
                 Calendly
               </Button>
               <Button
                 title="Contact Us"
                 variant="secondary-alt"
-                className="landing-btn-secondary"
+                className="landing-btn-secondary h-12 rounded-full px-8"
               >
                 Contact Us
               </Button>

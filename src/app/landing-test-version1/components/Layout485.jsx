@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import React, { useState } from "react";
 import { DashboardMockup } from "./DashboardMockup";
 
-const buttonClassName = "landing-btn-secondary";
+const buttonClassName = "landing-btn-secondary h-12 rounded-full px-8";
 
 const FEATURES = [
   {

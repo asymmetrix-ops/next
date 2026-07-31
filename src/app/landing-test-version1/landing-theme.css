@@ -154,11 +154,13 @@
   }
 }
 
-/* Segmented control, futuristic take: a glassy recessed track with a
-   glowing gradient pill that SLIDES between tabs (via framer-motion
-   layoutId) rather than a static box appearing/disappearing. Corners are
-   a softer rect (not the full pill radius CTA buttons use) so tabs
-   (navigation) read as a different control family than buttons (actions). */
+/* Segmented control - deliberately the OPPOSITE finish from buttons, not
+   just a smaller version of one: flat, muted fill (no gradient, no glossy
+   highlight, no colored glow), soft-rect corners instead of a full pill.
+   Buttons = gradient + glow + pill = "do this now". Tabs = flat + quiet +
+   soft rect = "pick a view". The sliding highlight (framer-motion
+   layoutId) shows which view is active without borrowing the button
+   language. */
 .landing-rebrand .landing-tab-pill-track {
   position: relative;
   gap: 0.25rem;
@@ -166,8 +168,6 @@
   border-radius: 14px;
   background-color: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .landing-rebrand .landing-tab-pill {
@@ -175,7 +175,7 @@
   z-index: 1;
   border-radius: 10px;
   /* Lighter slate-lavender, legible against navy without competing with
-     the active tab's glowing fill. */
+     the active tab's fill. */
   color: #9ba3c7;
   background-color: transparent;
   transition: color 0.2s ease;
@@ -190,10 +190,8 @@
   inset: 0;
   z-index: -1;
   border-radius: 10px;
-  background-image: linear-gradient(135deg, #7c8cf8 0%, #6a5cf5 60%, #8b5cf6 100%);
-  box-shadow:
-    0 6px 18px -4px rgba(108, 99, 246, 0.65),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  background-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* Primary CTA: glassy gradient with a glossy top highlight and a colored
@@ -252,10 +250,10 @@
   background-color: rgba(255, 255, 255, 0.04);
 }
 
-/* Dark-theme tab triggers (Coverage and Substack filter tabs) - same
-   glass-gradient family as .landing-tab-pill so every tab control on the
-   page reads consistently, even though these are Radix tabs rather than
-   the plain-button tabs that get the sliding motion highlight. */
+/* Dark-theme tab triggers (Coverage and Substack filter tabs) - same flat,
+   quiet family as .landing-tab-pill so every tab control reads as
+   "navigation", never as "action", even though these are Radix tabs
+   rather than the plain-button tabs that get the sliding motion highlight. */
 .landing-rebrand .landing-tab-trigger {
   color: #9ba3c7;
   background-color: transparent;
@@ -269,11 +267,9 @@
 
 .landing-rebrand .landing-tab-trigger[data-state="active"] {
   color: #ffffff;
-  background-image: linear-gradient(135deg, #7c8cf8 0%, #6a5cf5 60%, #8b5cf6 100%);
+  background-color: rgba(255, 255, 255, 0.12);
   border-color: transparent;
-  box-shadow:
-    0 6px 18px -4px rgba(108, 99, 246, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* Persistent floating CTA: same glass-gradient primary button, plus a

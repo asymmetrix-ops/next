@@ -28,14 +28,13 @@ export function Layout184() {
             <Button
               title="Demo"
               variant="secondary-alt"
-              className="landing-btn-secondary"
+              className="landing-btn-secondary h-12 rounded-full px-8"
             >
               Demo
             </Button>
             <Button
               title="Platform Features"
-              variant="link-alt"
-              size="link"
+              className="landing-btn-primary h-12 rounded-full px-8"
               iconRight={<RxChevronRight />}
             >
               Platform Features
