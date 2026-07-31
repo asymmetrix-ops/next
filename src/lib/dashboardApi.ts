@@ -398,7 +398,7 @@ class DashboardApiService {
     }
 
     // Use the same authentication method as dashboard API calls
-    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop";
+    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
     const endpoint = "/Primary_sectors_with_companies_counts";
 
     const authHeaders = authService.getAuthHeaders();
@@ -458,7 +458,7 @@ class DashboardApiService {
 
   async getSectorsOverview(): Promise<ApiResponse<Record<string, unknown>>> {
     // Use the same authentication method as dashboard API calls
-    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop";
+    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
     const endpoint = "/sectors_overview";
 
     const authHeaders = authService.getAuthHeaders();
@@ -513,7 +513,7 @@ class DashboardApiService {
     sectorId: number
   ): Promise<ApiResponse<Record<string, unknown>>> {
     // Use the same authentication method as dashboard API calls
-    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop";
+    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
     const endpoint = `/Get_Sector?Sector_id=${sectorId}`;
 
     const authHeaders = authService.getAuthHeaders();

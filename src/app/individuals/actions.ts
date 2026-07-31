@@ -96,7 +96,7 @@ function mapIndividualsListResponse(
 }
 
 const INDIVIDUALS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
 
 async function resolveAuthToken(authToken?: string | null): Promise<string | null> {
   const explicit = authToken?.trim();
@@ -193,7 +193,7 @@ export async function fetchJobTitlesServer(
     if (!token) return [];
 
     const response = await fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/get_all_job_titles",
+      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_all_job_titles",
       {
         method: "GET",
         headers: {

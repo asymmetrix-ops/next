@@ -622,7 +622,7 @@ const InvestorDetailPage = () => {
         params.append("per_page", "50");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_investors_current_partfolio?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_current_partfolio?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -696,7 +696,7 @@ const InvestorDetailPage = () => {
         params.append("per_page", "50");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_investors_past_portfolio?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_past_portfolio?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -767,7 +767,7 @@ const InvestorDetailPage = () => {
       params.append("new_company_id", investorId);
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/Get_investors_corporate_events?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/Get_investors_corporate_events?${params.toString()}`,
         {
           method: "GET",
           headers: {
@@ -896,7 +896,7 @@ const InvestorDetailPage = () => {
       const token = localStorage.getItem("asymmetrix_auth_token");
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${investorId}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${investorId}`,
         {
           method: "GET",
           headers: {
@@ -941,7 +941,7 @@ const InvestorDetailPage = () => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/investor_portfolio_mix/${encodeURIComponent(investorId)}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/investor_portfolio_mix/${encodeURIComponent(investorId)}`,
         {
           method: "GET",
           headers: {
@@ -1013,7 +1013,7 @@ const InvestorDetailPage = () => {
       params.append("Offset", "1");
       params.append("Per_page", "10");
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop/get_all_individuals?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
         {
           method: "GET",
           headers: {

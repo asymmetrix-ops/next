@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 
 const AUTH_API_URL =
   process.env.NEXT_PUBLIC_XANO_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
 type RequestPayload = {
   tab?: unknown;

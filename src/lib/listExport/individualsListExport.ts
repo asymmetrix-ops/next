@@ -24,7 +24,7 @@ const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
 
 const INDIVIDUALS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
 
 const EXTRA_INDIVIDUAL_COLUMNS: ExportColumnDef[] = [
   {

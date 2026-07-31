@@ -24,7 +24,7 @@ const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
 
 const INVESTORS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm";
 
 const EXTRA_INVESTOR_COLUMNS: ExportColumnDef[] = [
   {

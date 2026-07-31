@@ -23,9 +23,7 @@ export interface EmployeeTimeSeriesPoint {
 }
 
 export function getCompanyLinkedInApiBase(): string {
-  return process.env.NEXT_PUBLIC_ENVIRONMENT === "develop"
-    ? "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop"
-    : "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  return "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
 }
 
 export function mapLinkedInHistoryToTimeSeries(

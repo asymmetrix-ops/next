@@ -62,7 +62,7 @@ async function fetchWithAuthFallback(
 }
 
 const XANO_PORTFOLIO_BASE_URLS = [
-  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop",
+  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R",
 ] as const;
 
 export async function GET() {
@@ -82,7 +82,7 @@ export async function GET() {
 
     const authApiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
     const authResp = await fetchWithAuth(`${authApiUrl}/auth/me`, token, {
       method: "GET",
@@ -193,7 +193,7 @@ export async function POST(req: Request) {
 
     const authApiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
     const authResp = await fetchWithAuth(`${authApiUrl}/auth/me`, token, {
       method: "GET",

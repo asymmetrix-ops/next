@@ -22,7 +22,7 @@ import type {
 } from "./types";
 
 const FI_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:26OHS3YC:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:26OHS3YC";
 
 const COMPANY_FINANCIAL_METRICS_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics";

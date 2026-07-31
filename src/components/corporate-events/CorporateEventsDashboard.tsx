@@ -127,7 +127,7 @@ export const CorporateEventsDashboard = ({
       )
       .catch(console.error);
     fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/funding_stage_options"
+      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
     )
       .then((response) => (response.ok ? response.json() : []))
       .then((data) => {

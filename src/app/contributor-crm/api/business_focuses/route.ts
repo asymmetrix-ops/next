@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const BUSINESS_FOCUSES_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/business_focuses";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/business_focuses";
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");

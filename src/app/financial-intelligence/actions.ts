@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import type { FiLocationRow } from "@/lib/financialIntelligence/types";
 
 const LOCATIONS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
 
 async function getAuthHeaders(): Promise<Record<string, string> | null> {
   const cookieStore = await cookies();

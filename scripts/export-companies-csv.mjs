@@ -391,7 +391,7 @@ async function runLimited(tasks, limit, worker) {
 async function fetchContentDetail(contentId) {
   if (!AUTH_TOKEN) return null;
   if (!contentId) return null;
-  const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/content/${encodeURIComponent(
+  const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${encodeURIComponent(
     String(contentId)
   )}`;
   const res = await fetch(url, {

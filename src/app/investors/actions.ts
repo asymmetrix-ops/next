@@ -52,7 +52,7 @@ export interface InvestorsListResponse {
 }
 
 const INVESTORS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm";
 
 function normalizeInvestorListItem(item: InvestorListItem): InvestorListItem {
   const logo = readLogoFromRecord(item, getInvestorFieldAliasesForColumn("logo"));
@@ -137,7 +137,7 @@ export async function fetchInvestorTypesServer(): Promise<
     if (!token) return [];
 
     const response = await fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/Get_investor_types_for_filter",
+      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/Get_investor_types_for_filter",
       {
         method: "GET",
         headers: {

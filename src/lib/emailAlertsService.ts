@@ -30,7 +30,7 @@ class EmailAlertsService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:1-YVocmu:develop";
+    this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:1-YVocmu";
   }
 
   // Make authenticated API request

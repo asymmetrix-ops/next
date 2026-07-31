@@ -533,9 +533,8 @@ export default function AdvisorProfilePage() {
   const fetchManagementRoles = useCallback(async () => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const isDevelop = process.env.NEXT_PUBLIC_ENVIRONMENT === "develop";
       const response = await fetch(
-        getCompanyProfileUpstreamUrl(String(advisorId), { develop: isDevelop }),
+        getCompanyProfileUpstreamUrl(String(advisorId)),
         {
           method: "GET",
           headers: {

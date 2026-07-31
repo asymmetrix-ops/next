@@ -69,7 +69,7 @@ export interface FinancialScreenerResponse {
 }
 
 const FINANCIAL_SCREENER_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:J8SXS75g:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:J8SXS75g";
 
 export async function fetchFinancialScreenerServer(
   filters: FinancialScreenerFilters = {}
