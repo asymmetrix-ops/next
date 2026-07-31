@@ -78,7 +78,7 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
   ebit_m: ["ebit_m", "EBIT_m"],
   no_of_clients: ["no_clients", "no_of_clients", "No_of_clients"],
   rev_per_client: ["rev_per_client", "Revenue_per_client"],
-  no_employees: ["no_employees", "No_Employees"],
+  no_employees: ["no_employees", "No_Employees", "linkedin_members", "li_emp"],
   rev_per_employee: ["rev_per_employee", "Revenue_per_employee"],
   financial_year: ["financial_year", "Financial_Year"],
   has_mcp: ["has_mcp"],

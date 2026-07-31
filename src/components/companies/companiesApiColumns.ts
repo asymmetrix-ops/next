@@ -71,6 +71,7 @@ export function getApiColumnsForSelectedKeys(selectedKeys: string[]): string[] {
     if (IDENTITY_COLUMN_KEYS.has(key)) continue;
     const apiKey = COLUMN_KEY_TO_API_KEY[key];
     if (apiKey) apiKeys.add(apiKey);
+    if (key === "no_employees") apiKeys.add("linkedin_members");
   }
   return Array.from(apiKeys);
 }
