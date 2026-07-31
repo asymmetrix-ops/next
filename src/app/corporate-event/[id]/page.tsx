@@ -22,6 +22,8 @@ import {
   type CorporateEventTransactionRow,
 } from "@/components/corporate-events/CorporateEventTransactionsPanel";
 import { CorporateEventInsightsPanel } from "@/components/corporate-events/CorporateEventInsightsPanel";
+import { CorporateEventPartyLink } from "@/components/corporate-events/CorporateEventPartyLink";
+import { COUNTRY_FLAG_INLINE_SIZE_PX, readHqCountryIso2 } from "@/lib/dealRadar";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
 import {
   fetchSectorInsightsArticles,
@@ -31,6 +33,12 @@ import {
 } from "@/lib/sectorInsightsArticles";
 
 // Type-safe check for Data & Analytics company flag
+const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
+const RELATED_PARTY_LINK_STYLE: React.CSSProperties = {
+  color: "#2563eb",
+  textDecoration: "underline",
+};
+
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
   if (!candidate || typeof candidate !== "object") return false;
   const obj = candidate as { _is_that_data_analytic_company?: unknown };
@@ -492,6 +500,9 @@ const CorporateEventDetail = ({
       logo,
       individuals,
       href,
+      hqIso2: nc
+        ? readHqCountryIso2(nc as unknown as Record<string, unknown>)
+        : null,
     };
   });
 
@@ -539,8 +550,14 @@ const CorporateEventDetail = ({
       role: a._advisor_role?.counterparty_status || "Advisor",
       advisedName: nc?.name || undefined,
       advisedHref,
+      advisedHqIso2: nc
+        ? readHqCountryIso2(nc as unknown as Record<string, unknown>)
+        : null,
       individuals,
       href: `/advisor/${a._new_company.id}`,
+      hqIso2: readHqCountryIso2(
+        a._new_company as unknown as Record<string, unknown>
+      ),
     };
   });
 
@@ -577,12 +594,17 @@ const CorporateEventDetail = ({
 
         const target =
           targetCompanyId && targetCompanyName ? (
-            <a
+            <CorporateEventPartyLink
+              name={targetCompanyName}
               href={`/company/${targetCompanyId}`}
-              className="text-blue-600 hover:underline"
-            >
-              {targetCompanyName}
-            </a>
+              entity={
+                (typeof e.target === "object" && e.target
+                  ? e.target
+                  : legacyTarget) as Record<string, unknown>
+              }
+              linkStyle={RELATED_PARTY_LINK_STYLE}
+              flagSize={ENTITY_FLAG_SIZE_PX}
+            />
           ) : undefined;
 
         // Investors (new API: `investors`, legacy fallback: infer from `counterparties`)
@@ -601,12 +623,13 @@ const CorporateEventDetail = ({
                 const id = inv?.company_id;
                 const content =
                   typeof id === "number" && name ? (
-                    <a
+                    <CorporateEventPartyLink
+                      name={name}
                       href={`/company/${id}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {name}
-                    </a>
+                      entity={inv as unknown as Record<string, unknown>}
+                      linkStyle={RELATED_PARTY_LINK_STYLE}
+                      flagSize={ENTITY_FLAG_SIZE_PX}
+                    />
                   ) : (
                     <span>{name || "-"}</span>
                   );
@@ -670,19 +693,28 @@ const CorporateEventDetail = ({
                         if (investorId && typeof investorId === "number") {
                           return (
                             <span key={investorId || idx}>
-                              <a
+                              <CorporateEventPartyLink
+                                name={investorName}
                                 href={`/investors/${investorId}`}
-                                className="text-blue-600 hover:underline"
-                              >
-                                {investorName}
-                              </a>
+                                entity={
+                                  (nc ?? c) as unknown as Record<string, unknown>
+                                }
+                                linkStyle={RELATED_PARTY_LINK_STYLE}
+                                flagSize={ENTITY_FLAG_SIZE_PX}
+                              />
                               {idx < investorsArray.length - 1 && ", "}
                       </span>
                             );
                           }
                           return (
                           <span key={idx}>
-                            {investorName}
+                            <CorporateEventPartyLink
+                              name={investorName}
+                              entity={
+                                (nc ?? c) as unknown as Record<string, unknown>
+                              }
+                              flagSize={ENTITY_FLAG_SIZE_PX}
+                            />
                             {idx < investorsArray.length - 1 && ", "}
                             </span>
                           );
@@ -703,19 +735,24 @@ const CorporateEventDetail = ({
                   if (targetId && targetPath) {
                     return (
                       <span key={targetId || idx}>
-                        <a
+                        <CorporateEventPartyLink
+                          name={targetName}
                           href={targetPath}
-                          className="text-blue-600 hover:underline"
-                        >
-                          {targetName}
-                        </a>
+                          entity={target as unknown as Record<string, unknown>}
+                          linkStyle={RELATED_PARTY_LINK_STYLE}
+                          flagSize={ENTITY_FLAG_SIZE_PX}
+                        />
                         {idx < targetsArray.length - 1 && ", "}
                                 </span>
                             );
                           }
                           return (
                     <span key={idx}>
-                      {targetName}
+                      <CorporateEventPartyLink
+                        name={targetName}
+                        entity={target as unknown as Record<string, unknown>}
+                        flagSize={ENTITY_FLAG_SIZE_PX}
+                      />
                       {idx < targetsArray.length - 1 && ", "}
                       </span>
                           );
@@ -725,13 +762,26 @@ const CorporateEventDetail = ({
                     const targetName = e.target_counterparty.new_company.name;
                     const targetId = e.target_counterparty.new_company.id;
                     return targetId ? (
-                      <a
+                      <CorporateEventPartyLink
+                        name={targetName}
                         href={`/company/${targetId}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {targetName}
-                      </a>
-                    ) : targetName;
+                        entity={
+                          e.target_counterparty
+                            .new_company as unknown as Record<string, unknown>
+                        }
+                        linkStyle={RELATED_PARTY_LINK_STYLE}
+                        flagSize={ENTITY_FLAG_SIZE_PX}
+                      />
+                    ) : (
+                      <CorporateEventPartyLink
+                        name={targetName}
+                        entity={
+                          e.target_counterparty
+                            .new_company as unknown as Record<string, unknown>
+                        }
+                        flagSize={ENTITY_FLAG_SIZE_PX}
+                      />
+                    );
                   })()
                 : undefined;
             

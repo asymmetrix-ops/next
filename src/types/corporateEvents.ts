@@ -125,6 +125,8 @@ export interface Target {
   path: string;
   route: string;
   entity_type: string;
+  hq_iso2?: string | null;
+  hq_country?: string | null;
 }
 
 export interface CorporateEvent {

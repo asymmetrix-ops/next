@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { readHqCountryIso2, COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -58,6 +60,7 @@ interface CompanyLocation {
   City: string;
   State__Province__County: string;
   Country: string;
+  iso2?: string;
 }
 
 interface CompanySector {
@@ -1951,6 +1954,9 @@ const CompanyDetail = () => {
 
   // Process location
   const location = company._locations;
+  const hqCountryIso2 = readHqCountryIso2(
+    company as unknown as Record<string, unknown>
+  );
   const fullAddress = [
     location?.City,
     location?.State__Province__County,
@@ -2673,6 +2679,9 @@ const CompanyDetail = () => {
                   <div style={{ minWidth: 0 }}>
                     <div
                       style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
                         fontSize: "22px",
                         fontWeight: 700,
                         color: "#1a202c",
@@ -2680,6 +2689,10 @@ const CompanyDetail = () => {
                       }}
                     >
                       {company.name}
+                      <CountryFlagImg
+                        iso2={hqCountryIso2}
+                        size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.5}
+                      />
                     </div>
                     {formerNameDisplay && (
                       <div style={{ ...styles.formerName, marginTop: "4px" }}>

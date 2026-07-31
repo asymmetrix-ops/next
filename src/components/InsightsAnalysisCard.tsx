@@ -3,6 +3,11 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import type { ContentArticle } from "@/types/insightsAnalysis";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
+import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
+
+const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
 interface InsightsAnalysisCardProps {
   article: ContentArticle;
@@ -395,6 +400,11 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
     [article.Headline]
   );
 
+  const hqCountryIso2 = React.useMemo(
+    () => getInsightHqCountryIso2(article),
+    [article]
+  );
+
   const plainStrapline = React.useMemo(
     () => decodeHtmlEntities(article.Strapline),
     [article.Strapline]
@@ -496,9 +506,16 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                 wordWrap: "break-word",
                 overflowWrap: "break-word",
                 maxWidth: "100%",
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 8,
               }}
             >
               {plainHeadline || "Not available"}
+              {hqCountryIso2 ? (
+                <CountryFlagImg iso2={hqCountryIso2} size={INSIGHT_FLAG_SIZE_PX} />
+              ) : null}
             </h3>
 
             {/* Date */}
@@ -562,9 +579,16 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                   minWidth: 0,
                   wordWrap: "break-word",
                   overflowWrap: "break-word",
+                  display: "flex",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 8,
                 }}
               >
                 {plainHeadline || "Not available"}
+                {hqCountryIso2 ? (
+                  <CountryFlagImg iso2={hqCountryIso2} size={INSIGHT_FLAG_SIZE_PX} />
+                ) : null}
               </h3>
               {effectiveContentType && (
                 <span

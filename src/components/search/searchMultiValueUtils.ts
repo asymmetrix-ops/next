@@ -2,6 +2,7 @@ export type SearchMultiValueItem = {
   name: string;
   href?: string;
   key?: string;
+  hqIso2?: string | null;
 };
 
 export function splitCommaSeparatedValues(text: string): string[] {
@@ -28,7 +29,12 @@ export function namesToMultiValueItems(
 }
 
 export function entityLinksToMultiValueItems(
-  links: Array<{ id?: number; name: string; href?: string | null }>,
+  links: Array<{
+    id?: number;
+    name: string;
+    href?: string | null;
+    hqIso2?: string | null;
+  }>,
   keyPrefix: string
 ): SearchMultiValueItem[] {
   return links.flatMap((link, index) => {
@@ -38,6 +44,7 @@ export function entityLinksToMultiValueItems(
       {
         name: label,
         href: link.href ?? undefined,
+        hqIso2: link.hqIso2,
         key: `${keyPrefix}-${link.id ?? index}-${label}`,
       },
     ];

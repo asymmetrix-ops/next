@@ -298,6 +298,9 @@ const readCountryTextAsIso2 = (value: unknown): string | null => {
 
 export const readHqCountryIso2 = (raw: Record<string, unknown>): string | null => {
   const directKeys = [
+    "hq_iso2",
+    "hqIso2",
+    "HQ_iso2",
     "hq_country_iso2",
     "hqCountryIso2",
     "HQ_country_iso2",
@@ -317,9 +320,14 @@ export const readHqCountryIso2 = (raw: Record<string, unknown>): string | null =
     if (iso2) return iso2;
   }
 
-  const locations = raw._locations ?? raw.locations;
+  const locations =
+    raw._locations ?? raw.locations ?? raw._location ?? raw.location;
   if (locations && typeof locations === "object") {
     const locationRecord = locations as Record<string, unknown>;
+    const iso2FromLocation = normalizeIso2(
+      locationRecord.iso2 ?? locationRecord.ISO2 ?? locationRecord.iso_2
+    );
+    if (iso2FromLocation) return iso2FromLocation;
     const iso2 = readCountryTextAsIso2(
       locationRecord.Country ?? locationRecord.country
     );

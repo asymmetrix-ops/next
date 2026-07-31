@@ -13,17 +13,17 @@ import { cn } from "@/utils/cn";
 type CountryFlagImgProps = {
   iso2: string | null | undefined;
   className?: string;
+  size?: number;
 };
 
 export const CountryFlagImg: React.FC<CountryFlagImgProps> = ({
   iso2,
   className,
+  size = COUNTRY_FLAG_INLINE_SIZE_PX,
 }) => {
   const countryFlagUrl = getCountryFlagUrl(iso2);
   const countryDisplayName = getCountryDisplayName(iso2);
   if (!countryFlagUrl) return null;
-
-  const size = COUNTRY_FLAG_INLINE_SIZE_PX;
 
   return (
     <img
@@ -50,6 +50,9 @@ type CorporateEventPartyLinkProps = {
   href?: string | null;
   linkClassName?: string;
   linkStyle?: React.CSSProperties;
+  entity?: Record<string, unknown> | null;
+  hqIso2?: string | null;
+  flagSize?: number;
 };
 
 export const CorporateEventPartyLink: React.FC<CorporateEventPartyLinkProps> = ({
@@ -57,18 +60,50 @@ export const CorporateEventPartyLink: React.FC<CorporateEventPartyLinkProps> = (
   href,
   linkClassName,
   linkStyle,
+  entity,
+  hqIso2: hqIso2Prop,
+  flagSize = COUNTRY_FLAG_INLINE_SIZE_PX,
 }) => {
+  const resolvedIso2 =
+    hqIso2Prop ?? (entity ? readHqCountryIso2(entity) : null);
+  const flagEl = resolvedIso2 ? (
+    <CountryFlagImg iso2={resolvedIso2} size={flagSize} />
+  ) : null;
+
+  const content = (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        minWidth: 0,
+        verticalAlign: "middle",
+      }}
+    >
+      <span
+        style={{
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {name}
+      </span>
+      {flagEl}
+    </span>
+  );
+
   if (href) {
     return (
       <a href={href} className={linkClassName} style={linkStyle}>
-        {name}
+        {content}
       </a>
     );
   }
 
   return (
     <span className={linkClassName} style={linkStyle}>
-      {name}
+      {content}
     </span>
   );
 };

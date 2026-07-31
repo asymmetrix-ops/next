@@ -2,6 +2,9 @@
 
 import React, { useMemo } from "react";
 import Link from "next/link";
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import {
   profileTableCellStyle,
   tableColHeaderBarStyle,
@@ -15,6 +18,7 @@ export type CorporateEventCounterpartyRow = {
   role: string;
   logo?: string;
   href?: string;
+  hqIso2?: string | null;
   individuals: Array<{ id: number; name: string }>;
 };
 
@@ -22,18 +26,18 @@ type Props = {
   counterparties: CorporateEventCounterpartyRow[];
 };
 
-const ROW_GRID = "minmax(0, 36%) minmax(0, 34%) minmax(0, 30%)";
-const COL_GAP = 12;
-const TYPE_COL_PAD_LEFT = 8;
-const INDIVIDUALS_COL_PAD_LEFT = 16;
+const ROW_GRID = "minmax(0, 36%) minmax(0, 22%) minmax(0, 42%)";
+const COL_GAP = 2;
 const ROW_PAD = "6px 10px";
+const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
 function PartyLogo({ logo, name }: { logo?: string; name: string }) {
-  if (logo) {
+  const src = resolveCompanyLogoSrc(logo);
+  if (src) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={logo}
+        src={src}
         alt={`${name} logo`}
         width={18}
         height={18}
@@ -101,21 +105,8 @@ export function CorporateEventCounterpartiesPanel({ counterparties }: Props) {
               padding: ROW_PAD,
             }}
           >
-            {(["Company", "Type", "Individuals"] as const).map((h, colIndex) => (
-              <div
-                key={h}
-                style={{
-                  ...tableColHeaderStyle,
-                  textAlign: "left",
-                  fontSize: 10,
-                  paddingLeft:
-                    colIndex === 1
-                      ? TYPE_COL_PAD_LEFT
-                      : colIndex === 2
-                        ? INDIVIDUALS_COL_PAD_LEFT
-                        : 0,
-                }}
-              >
+            {(["Company", "Type", "Individuals"] as const).map((h) => (
+              <div key={h} style={{ ...tableColHeaderStyle, textAlign: "left", fontSize: 10 }}>
                 {h}
               </div>
             ))}
@@ -136,16 +127,7 @@ export function CorporateEventCounterpartiesPanel({ counterparties }: Props) {
                     borderBottom: last ? "none" : `1px solid ${T.hair}`,
                   }}
                 >
-                  <div
-                    style={{
-                      minWidth: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      overflow: "hidden",
-                      paddingRight: 4,
-                    }}
-                  >
+                  <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
                     <PartyLogo logo={cp.logo} name={cp.name} />
                     {cp.href ? (
                       <Link
@@ -158,11 +140,24 @@ export function CorporateEventCounterpartiesPanel({ counterparties }: Props) {
                           fontSize: 12,
                           minWidth: 0,
                           overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
                         }}
                       >
-                        {cp.name}
+                        <span
+                          style={{
+                            minWidth: 0,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {cp.name}
+                        </span>
+                        {cp.hqIso2 ? (
+                          <CountryFlagImg iso2={cp.hqIso2} size={ENTITY_FLAG_SIZE_PX} />
+                        ) : null}
                       </Link>
                     ) : (
                       <span
@@ -170,11 +165,23 @@ export function CorporateEventCounterpartiesPanel({ counterparties }: Props) {
                           fontSize: 12,
                           minWidth: 0,
                           overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
                         }}
                       >
-                        {cp.name}
+                        <span
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {cp.name}
+                        </span>
+                        {cp.hqIso2 ? (
+                          <CountryFlagImg iso2={cp.hqIso2} size={ENTITY_FLAG_SIZE_PX} />
+                        ) : null}
                       </span>
                     )}
                   </div>
@@ -186,21 +193,11 @@ export function CorporateEventCounterpartiesPanel({ counterparties }: Props) {
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
-                      paddingLeft: TYPE_COL_PAD_LEFT,
-                      paddingRight: 4,
                     }}
                   >
                     {cp.role || "-"}
                   </div>
-                  <div
-                    style={{
-                      color: T.muted,
-                      fontSize: 12,
-                      minWidth: 0,
-                      lineHeight: 1.35,
-                      paddingLeft: INDIVIDUALS_COL_PAD_LEFT,
-                    }}
-                  >
+                  <div style={{ color: T.muted, fontSize: 12, minWidth: 0, lineHeight: 1.35 }}>
                     {cp.individuals.length > 0
                       ? cp.individuals.map((ind, i) => (
                           <span key={ind.id}>
