@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -10,6 +10,9 @@ import Footer from "@/components/Footer";
 interface Sector {
   id: number;
   sector_name: string;
+  sector_type?: "Primary" | "Secondary" | string;
+  parent_sector_names?: string | null;
+  parent_sector_ids?: string | null;
   Number_of_Companies: number;
   Number_of_Sub_Sectors?: number;
   Number_of_PE: number;
@@ -41,6 +44,139 @@ interface SectorsResponse {
     total_private_companies?: number;
   };
 }
+
+interface ParentSectorRef {
+  id: number | null;
+  name: string;
+}
+
+function isPrimarySector(sector: Sector): boolean {
+  if (sector.sector_type === "Primary") return true;
+  if (sector.sector_type === "Secondary") return false;
+  return (sector.Number_of_Sub_Sectors ?? 0) > 0;
+}
+
+function getSectorPageHref(sector: Sector): string {
+  return isPrimarySector(sector)
+    ? `/sector/${sector.id}`
+    : `/sub-sector/${sector.id}`;
+}
+
+function parseParentSectors(sector: Sector): ParentSectorRef[] {
+  const names =
+    sector.parent_sector_names
+      ?.split(",")
+      .map((name) => name.trim())
+      .filter(Boolean) ?? [];
+  const ids =
+    sector.parent_sector_ids
+      ?.replace(/[{}]/g, "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id && id.toUpperCase() !== "NULL") ?? [];
+
+  return names.map((name, index) => {
+    const parsedId = ids[index] ? Number.parseInt(ids[index], 10) : Number.NaN;
+    return {
+      name,
+      id: Number.isFinite(parsedId) ? parsedId : null,
+    };
+  });
+}
+
+function sortSectorsList(
+  sectors: Sector[],
+  sortField: SortField,
+  sortDirection: SortDirection
+): Sector[] {
+  return [...sectors].sort((a, b) => {
+    let aValue: string | number = a[sortField] ?? 0;
+    let bValue: string | number = b[sortField] ?? 0;
+
+    if (typeof aValue === "string") {
+      aValue = aValue.toLowerCase();
+      bValue = (bValue as string).toLowerCase();
+    }
+
+    if (sortDirection === "asc") {
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    }
+
+    return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+  });
+}
+
+const SectorSearchResults = ({
+  results,
+  searchQuery,
+}: {
+  results: Sector[];
+  searchQuery: string;
+}) => {
+  if (results.length === 0) {
+    return (
+      <div className="search-no-results">
+        No sectors found matching &ldquo;{searchQuery}&rdquo;.
+      </div>
+    );
+  }
+
+  return (
+    <div className="search-results">
+      <p className="search-results-summary">
+        {results.length.toLocaleString()} result
+        {results.length === 1 ? "" : "s"} for &ldquo;{searchQuery}&rdquo;
+      </p>
+      <div className="search-results-table">
+        <div className="search-results-header">
+          <span>Sector</span>
+          <span>Type</span>
+          <span>Primary sector</span>
+          <span>Companies</span>
+        </div>
+        {results.map((sector) => {
+          const isPrimary = isPrimarySector(sector);
+          const parents = parseParentSectors(sector);
+          const href = getSectorPageHref(sector);
+
+          return (
+            <div key={sector.id} className="search-result-row">
+              <a href={href} className="search-result-name">
+                {sector.sector_name || "N/A"}
+              </a>
+              <span
+                className={`search-result-type ${
+                  isPrimary ? "primary" : "secondary"
+                }`}
+              >
+                {isPrimary ? "Primary" : "Secondary"}
+              </span>
+              <span className="search-result-parents">
+                {!isPrimary && parents.length > 0 ? (
+                  parents.map((parent, index) => (
+                    <React.Fragment key={`${parent.id ?? parent.name}-${index}`}>
+                      {index > 0 ? ", " : null}
+                      {parent.id ? (
+                        <a href={`/sector/${parent.id}`}>{parent.name}</a>
+                      ) : (
+                        parent.name
+                      )}
+                    </React.Fragment>
+                  ))
+                ) : (
+                  "—"
+                )}
+              </span>
+              <span className="search-result-companies">
+                {(sector.Number_of_Companies ?? 0).toLocaleString()}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 // Sector Card Component - larger boxes for primary sectors
 const SectorCard = ({
@@ -294,7 +430,6 @@ const SectorCard = ({
 
 const SectorsSection = () => {
   const router = useRouter();
-  const [sectors, setSectors] = useState<Sector[]>([]);
   const [allSectors, setAllSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -304,29 +439,29 @@ const SectorsSection = () => {
   const [searchInput, setSearchInput] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const handleSectorClick = (sectorId: number) => {
-    const basePath = `/sector/${sectorId}`;
-    const href =
-      searchQuery.trim().length > 0 ? `${basePath}?tab=subsectors` : basePath;
-    router.push(href);
-  };
+  const trimmedSearchQuery = searchQuery.trim();
+  const isSearching = trimmedSearchQuery.length > 0;
 
-  // Sort sectors
-  const sortedSectors = [...sectors].sort((a, b) => {
-    let aValue: string | number = a[sortField] ?? 0;
-    let bValue: string | number = b[sortField] ?? 0;
+  const primarySectors = useMemo(
+    () => allSectors.filter(isPrimarySector),
+    [allSectors]
+  );
 
-    if (typeof aValue === "string") {
-      aValue = aValue.toLowerCase();
-      bValue = (bValue as string).toLowerCase();
-    }
+  const sortedPrimarySectors = useMemo(
+    () => sortSectorsList(primarySectors, sortField, sortDirection),
+    [primarySectors, sortField, sortDirection]
+  );
 
-    if (sortDirection === "asc") {
-      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-    } else {
-      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-    }
-  });
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+
+    const query = trimmedSearchQuery.toLowerCase();
+    const matches = allSectors.filter((sector) =>
+      sector.sector_name.toLowerCase().includes(query)
+    );
+
+    return sortSectorsList(matches, sortField, sortDirection);
+  }, [allSectors, isSearching, trimmedSearchQuery, sortField, sortDirection]);
 
   // Fetch sector list from cache only (populated by external cache engine).
   const fetchSectors = async () => {
@@ -339,7 +474,6 @@ const SectorsSection = () => {
       if (response.status === 503) {
         setError("Sector list is not available yet. Please try again later.");
         setAllSectors([]);
-        setSectors([]);
         return;
       }
 
@@ -350,7 +484,6 @@ const SectorsSection = () => {
       const data: SectorsResponse = await response.json();
       const list = data.sectors || [];
       setAllSectors(list);
-      setSectors(list);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch sectors");
       console.error("Error fetching sectors:", err);
@@ -363,22 +496,7 @@ const SectorsSection = () => {
     setSearchQuery(searchInput.trim());
   };
 
-  // Apply search term by filtering the cached list client-side.
   useEffect(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) {
-      setSectors(allSectors);
-      return;
-    }
-
-    setSectors(
-      allSectors.filter((s) => s.sector_name.toLowerCase().includes(q))
-    );
-  }, [searchQuery, allSectors]);
-
-  useEffect(() => {
-    // Note: we intentionally do NOT preload secondary→primary mapping here.
-    // This page doesn't use it directly, and preloading triggers extra Xano requests on every load.
     fetchSectors();
   }, []);
 
@@ -425,6 +543,93 @@ const SectorsSection = () => {
       border-radius: 6px;
       margin-bottom: 16px;
     }
+    .search-results {
+      width: 100%;
+    }
+    .search-results-summary {
+      margin: 0 0 12px;
+      font-size: 14px;
+      color: #4a5568;
+    }
+    .search-results-table {
+      width: 100%;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+      background: white;
+    }
+    .search-results-header,
+    .search-result-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 2fr) 120px minmax(180px, 2fr) 100px;
+      gap: 16px;
+      align-items: center;
+      padding: 12px 16px;
+    }
+    .search-results-header {
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .search-result-row {
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 14px;
+    }
+    .search-result-row:last-child {
+      border-bottom: none;
+    }
+    .search-result-row:hover {
+      background: #f8fafc;
+    }
+    .search-result-name,
+    .search-result-parents a {
+      color: #0075df;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .search-result-name:hover,
+    .search-result-parents a:hover {
+      text-decoration: underline;
+    }
+    .search-result-type {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      width: fit-content;
+    }
+    .search-result-type.primary {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+    .search-result-type.secondary {
+      background: #f5f3ff;
+      color: #6d28d9;
+      border: 1px solid #ddd6fe;
+    }
+    .search-result-parents {
+      color: #334155;
+    }
+    .search-result-companies {
+      color: #1a202c;
+      font-weight: 600;
+    }
+    .search-no-results {
+      padding: 32px 16px;
+      text-align: center;
+      color: #64748b;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }
 
     @media (max-width: 768px) {
       .sectors-section {
@@ -433,6 +638,20 @@ const SectorsSection = () => {
       .sectors-grid {
         grid-template-columns: 1fr;
         gap: 12px;
+      }
+      .search-results-header,
+      .search-result-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .search-results-header {
+        display: none;
+      }
+      .search-result-row {
+        padding: 16px;
+      }
+      .search-result-type {
+        justify-self: start;
       }
     }
     @media (min-width: 769px) and (max-width: 1024px) {
@@ -644,22 +863,23 @@ const SectorsSection = () => {
         sortDirection === "asc" ? "↑ Ascending" : "↓ Descending"
       )
     ),
-    // Sectors Grid (replaces table, shows on all screen sizes)
-    React.createElement(
-      "div",
-      { className: "sectors-grid" },
-      sortedSectors.map((sector) =>
-        React.createElement(SectorCard, {
-          key: sector.id,
-          sector,
-          href:
-            searchQuery.trim().length > 0
-              ? `/sector/${sector.id}?tab=subsectors`
-              : `/sector/${sector.id}`,
-          onClick: () => handleSectorClick(sector.id),
+    isSearching
+      ? React.createElement(SectorSearchResults, {
+          results: searchResults,
+          searchQuery: trimmedSearchQuery,
         })
-      )
-    ),
+      : React.createElement(
+          "div",
+          { className: "sectors-grid" },
+          sortedPrimarySectors.map((sector) =>
+            React.createElement(SectorCard, {
+              key: sector.id,
+              sector,
+              href: `/sector/${sector.id}`,
+              onClick: () => router.push(`/sector/${sector.id}`),
+            })
+          )
+        ),
     React.createElement("style", {
       dangerouslySetInnerHTML: { __html: style },
     })
