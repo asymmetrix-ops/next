@@ -15,8 +15,10 @@ export function Blog16() {
     <section id="relume" className="landing-navy-bg px-[5%] py-16 md:py-24 lg:py-28">
       <div className="container">
         <div className="mb-12 md:mb-18 lg:mb-20">
-          <div className="mx-auto w-full max-w-lg text-center text-text-alternative">
-            <p className="mb-3 font-semibold md:mb-4">Substack</p>
+          <div className="mx-auto flex w-full max-w-lg flex-col items-center text-center text-text-alternative">
+            <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold md:mb-4">
+              Substack
+            </p>
             <h1 className="mb-5 text-6xl font-bold md:mb-6 md:text-9xl lg:text-10xl">
               What&apos;s worth reading
             </h1>

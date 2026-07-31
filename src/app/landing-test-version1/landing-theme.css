@@ -1,10 +1,13 @@
 .landing-rebrand {
   --asymmetrix-blue: hsl(228, 85%, 63%);
   --asymmetrix-blue-dark: hsl(228, 85%, 55%);
+  /* Darker than the original mid-blue stops on purpose: the hero button
+     shares this same blue family, so a mid-tone background left almost no
+     luminance gap between "background" and "clickable button". */
   --gradient-hero: linear-gradient(
     160deg,
-    hsl(218, 64%, 33%) 0%,
-    hsl(226, 84%, 44%) 50.2%,
+    #0f1229 0%,
+    #1e2352 50.2%,
     hsl(0, 0%, 0%) 100%
   );
   --asymmetrix-navy: #000b29;
@@ -90,28 +93,158 @@
   color: #ffffff;
 }
 
+/* Small "eyebrow" section/card labels (About, Coverage, Platform Feature,
+   Substack, per-tab labels...). Plain colored text here was landing
+   directly on busy gradients/glow backgrounds and disappearing - a chip
+   with its own fill guarantees contrast no matter what's behind it. */
+.landing-rebrand .landing-eyebrow-chip {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
 .landing-rebrand .landing-gradient-text {
-  background-image: linear-gradient(120deg, #8fb4ff 0%, #c8a8ff 100%);
+  /* Anchored near-white throughout (not the old pale-blue start) so it
+     stays legible against the vivid blue hero background at every stop -
+     the pale blue was blending into the background behind "Data". */
+  background-image: linear-gradient(120deg, #ffffff 0%, #a9c6ff 45%, #d3a6ff 100%);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
+/* Shine sweep across the hero headline: a duplicate, transparent copy of
+   the title sits on top and clips a moving highlight band to its own
+   glyphs, so the sweep follows the real text wrap instead of being a
+   plain rectangle over the whole hero. */
+.landing-rebrand .landing-shine-overlay {
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.55) 40%,
+    #ffffff 50%,
+    rgba(255, 255, 255, 0.55) 60%,
+    transparent 80%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.55));
+  animation: landing-shine-sweep 3.2s ease-in-out infinite alternate;
+}
+
+@keyframes landing-shine-sweep {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-shine-overlay {
+    animation: none;
+    background-image: none;
+  }
+}
+
+/* Segmented control, futuristic take: a glassy recessed track with a
+   glowing gradient pill that SLIDES between tabs (via framer-motion
+   layoutId) rather than a static box appearing/disappearing. Corners are
+   a softer rect (not the full pill radius CTA buttons use) so tabs
+   (navigation) read as a different control family than buttons (actions). */
 .landing-rebrand .landing-tab-pill-track {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background-color: rgba(255, 255, 255, 0.06);
+  position: relative;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 14px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .landing-rebrand .landing-tab-pill {
-  /* Brighter than --asymmetrix-text-secondary: this pill sits on the
-     hero gradient and the glow blobs, both of which are too bright for
-     the muted secondary color to stay readable. */
-  color: rgba(255, 255, 255, 0.75);
+  position: relative;
+  z-index: 1;
+  border-radius: 10px;
+  /* Lighter slate-lavender, legible against navy without competing with
+     the active tab's glowing fill. */
+  color: #9ba3c7;
+  background-color: transparent;
+  transition: color 0.2s ease;
 }
 
 .landing-rebrand .landing-tab-pill.is-active {
-  background-color: var(--asymmetrix-blue);
   color: #ffffff;
+}
+
+.landing-rebrand .landing-tab-pill-highlight {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 10px;
+  background-image: linear-gradient(135deg, #7c8cf8 0%, #6a5cf5 60%, #8b5cf6 100%);
+  box-shadow:
+    0 6px 18px -4px rgba(108, 99, 246, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* Primary CTA: glassy gradient with a glossy top highlight and a colored
+   glow beneath it, plus a lift-and-brighten hover - reads as a real
+   pressable surface rather than a flat sticker. */
+.landing-rebrand .landing-btn-primary {
+  /* No position here on purpose: this class is also used on the fixed
+     floating CTA, and a two-class selector like this would out-specify
+     Tailwind's single-class `.fixed` utility and silently force it back
+     to `relative`. */
+  background-image: linear-gradient(135deg, #7c8cf8 0%, #6a5cf5 55%, #8b5cf6 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 12px 28px -8px rgba(108, 99, 246, 0.65),
+    0 4px 14px rgba(108, 99, 246, 0.4);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+}
+
+.landing-rebrand .landing-btn-primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 16px 34px -8px rgba(108, 99, 246, 0.75),
+    0 6px 18px rgba(108, 99, 246, 0.5);
+}
+
+/* Secondary CTA: translucent glass fill with a crisp bright edge, instead
+   of a flat outline sitting on the background. Deliberately NO
+   backdrop-filter here - blurring an element that also contains its own
+   text label causes the label itself to render invisible in some engines,
+   which is exactly the "Our Coverage" bug this replaced. */
+.landing-rebrand .landing-btn-secondary {
+  border-color: rgba(255, 255, 255, 0.28);
+  background-color: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.landing-rebrand .landing-btn-secondary:hover {
+  transform: translateY(-1px);
+  background-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.45);
 }
 
 .landing-rebrand .landing-panel {
@@ -119,15 +252,54 @@
   background-color: rgba(255, 255, 255, 0.04);
 }
 
-/* Dark-theme tab triggers, shared by the Coverage and Substack sections */
+/* Dark-theme tab triggers (Coverage and Substack filter tabs) - same
+   glass-gradient family as .landing-tab-pill so every tab control on the
+   page reads consistently, even though these are Radix tabs rather than
+   the plain-button tabs that get the sliding motion highlight. */
 .landing-rebrand .landing-tab-trigger {
-  color: var(--asymmetrix-text-secondary);
+  color: #9ba3c7;
   background-color: transparent;
   border-color: transparent;
+  border-radius: 10px;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .landing-rebrand .landing-tab-trigger[data-state="active"] {
   color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.06);
-  border-color: var(--asymmetrix-blue);
+  background-image: linear-gradient(135deg, #7c8cf8 0%, #6a5cf5 60%, #8b5cf6 100%);
+  border-color: transparent;
+  box-shadow:
+    0 6px 18px -4px rgba(108, 99, 246, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Persistent floating CTA: same glass-gradient primary button, plus a
+   slow breathing glow so it keeps drawing the eye without being frantic. */
+.landing-rebrand .landing-floating-cta {
+  animation: landing-floating-cta-pulse 3s ease-in-out infinite;
+}
+
+@keyframes landing-floating-cta-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      0 12px 28px -8px rgba(108, 99, 246, 0.65),
+      0 4px 14px rgba(108, 99, 246, 0.4);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      0 12px 34px -6px rgba(108, 99, 246, 0.85),
+      0 4px 20px rgba(108, 99, 246, 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-floating-cta {
+    animation: none;
+  }
 }

@@ -69,8 +69,10 @@ export function Coverage() {
       className="landing-navy-bg px-[5%] py-16 md:py-24 lg:py-28"
     >
       <div className="container">
-        <div className="mx-auto mb-12 w-full max-w-lg text-center text-text-alternative md:mb-18 lg:mb-20">
-          <p className="mb-3 font-semibold md:mb-4">Coverage</p>
+        <div className="mx-auto mb-12 flex w-full max-w-lg flex-col items-center text-center text-text-alternative md:mb-18 lg:mb-20">
+          <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold md:mb-4">
+            Coverage
+          </p>
           <h2 className="mb-5 text-5xl font-bold md:mb-6 md:text-7xl lg:text-8xl">
             All of the data tracked in one place
           </h2>
@@ -103,7 +105,9 @@ export function Coverage() {
             >
               <div className="grid grid-cols-1 items-center gap-x-12 gap-y-8 text-text-alternative md:grid-cols-2 md:gap-x-20">
                 <div>
-                  <p className="mb-3 font-semibold md:mb-4">{tab.label}</p>
+                  <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold md:mb-4">
+                    {tab.label}
+                  </p>
                   <h3 className="mb-5 text-3xl font-bold md:mb-6 md:text-4xl lg:text-5xl">
                     {tab.heading}
                   </h3>

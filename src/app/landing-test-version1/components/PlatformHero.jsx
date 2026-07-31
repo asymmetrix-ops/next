@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import React, { useState } from "react";
 import { DashboardMockup } from "./DashboardMockup";
 
@@ -51,25 +52,31 @@ export function PlatformHero() {
     <section className="landing-hero-bg relative overflow-hidden px-[5%] pb-16 pt-16 md:pb-20 md:pt-20">
       <div className="container relative z-10 mx-auto">
         <div className="mx-auto max-w-[56rem] text-center">
-          <span className="landing-trust-pill mb-8 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm">
-            Data & Analytics market intelligence
-          </span>
-
-          <h1 className="text-balance text-5xl font-bold leading-[1.05] text-text-alternative md:text-7xl lg:text-8xl">
-            Intelligence on the{" "}
-            <span className="landing-gradient-text">Data & Analytics Market</span>
-          </h1>
+          <div className="relative">
+            <h1 className="text-balance text-5xl font-bold leading-[1.05] text-text-alternative md:text-7xl lg:text-8xl">
+              Intelligence on the{" "}
+              <span className="landing-gradient-text">
+                Data & Analytics Market
+              </span>
+            </h1>
+            <h1
+              aria-hidden="true"
+              className="landing-shine-overlay pointer-events-none absolute inset-0 select-none text-balance text-5xl font-bold leading-[1.05] md:text-7xl lg:text-8xl"
+            >
+              Intelligence on the Data & Analytics Market
+            </h1>
+          </div>
 
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
             <a
               href="#"
-              className="inline-flex h-12 min-w-[180px] items-center justify-center rounded-full bg-background-alternative px-8 text-sm font-semibold text-text-alternative shadow-lg transition-opacity hover:opacity-90"
+              className="landing-btn-primary inline-flex h-12 min-w-[180px] items-center justify-center rounded-full px-8 text-sm font-semibold text-text-alternative"
             >
               Book a demo
             </a>
             <a
               href="#"
-              className="inline-flex h-12 min-w-[180px] items-center justify-center rounded-full border border-white/30 px-8 text-sm font-semibold text-text-alternative transition-colors hover:bg-white/10"
+              className="landing-btn-secondary inline-flex h-12 min-w-[180px] items-center justify-center rounded-full border px-8 text-sm font-semibold text-text-alternative transition-colors"
             >
               Explore the data
             </a>
@@ -77,22 +84,25 @@ export function PlatformHero() {
         </div>
 
         <div className="mx-auto mt-16 max-w-[80rem]">
-          <p className="landing-text-secondary text-center text-sm font-semibold uppercase tracking-[0.12em]">
-            One integrated data & intelligence platform
-          </p>
-
-          <div className="mt-6 flex justify-center">
-            <div className="landing-tab-pill-track inline-flex rounded-full p-1">
+          <div className="flex justify-center">
+            <div className="landing-tab-pill-track inline-flex">
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={
-                    "landing-tab-pill rounded-full px-5 py-2.5 text-sm font-medium transition-all sm:px-7" +
+                    "landing-tab-pill px-5 py-2.5 text-sm font-medium transition-all sm:px-7" +
                     (activeTab === tab.id ? " is-active" : "")
                   }
                 >
+                  {activeTab === tab.id && (
+                    <motion.span
+                      layoutId="hero-tab-highlight"
+                      className="landing-tab-pill-highlight"
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  )}
                   {tab.label}
                 </button>
               ))}
@@ -102,7 +112,7 @@ export function PlatformHero() {
           <div className="landing-panel mt-8 rounded-[28px] p-6 sm:p-8">
             <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-10">
               <div className="text-left text-text-alternative">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-background-alternative">
+                <p className="landing-eyebrow-chip rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]">
                   {content.eyebrow}
                 </p>
                 <h2 className="mt-3 text-2xl font-bold leading-tight sm:text-3xl">
