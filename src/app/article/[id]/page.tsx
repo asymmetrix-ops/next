@@ -20,6 +20,8 @@ import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
+import ArticleSeriesNav from "@/components/ArticleSeriesNav";
+import type { ArticleSeries } from "@/types/insightsAnalysis";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
@@ -90,6 +92,8 @@ interface ArticleDetail {
       iso2?: string;
     };
   }>;
+  is_series?: boolean;
+  series?: ArticleSeries;
 }
 
 interface CompanyOfFocusOverview {
@@ -1770,6 +1774,14 @@ const ArticleDetailPage = () => {
         <div className="article-layout" style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
           {/* Left: Main body (2/3) */}
           <div style={styles.card} className="article-main">
+            {article.is_series && article.series && (
+              <ArticleSeriesNav
+                series={article.series}
+                currentArticleId={article.id}
+                placement="top"
+              />
+            )}
+
             {/* Article Header */}
             <h1
               style={{

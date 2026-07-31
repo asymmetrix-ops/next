@@ -22,6 +22,7 @@ import {
   parsePrimarySectorIdsFromSearch,
 } from "@/lib/sectorInsightsArticles";
 import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
+import SeriesArticleCard from "@/components/SeriesArticleCard";
 
 // Shared styles object
 const styles = {
@@ -163,18 +164,67 @@ const InsightsAnalysisCards = ({
     return <div className="loading">No articles found.</div>;
   }
 
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-";
+    try {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return "Invalid date";
+    }
+  };
+
+  const formatSectors = (
+    sectors: Array<Array<{ sector_name: string }>> | undefined
+  ) => {
+    if (!sectors || sectors.length === 0) return "-";
+    const allSectors = sectors.flat().map((s) => s.sector_name);
+    return allSectors.join(", ");
+  };
+
+  const formatCompanies = (
+    companies: ContentArticle["companies_mentioned"] | undefined
+  ) => {
+    if (!companies || companies.length === 0) return "-";
+    return companies.map((c) => c.name).join(", ");
+  };
+
+  const badgeClassFor = (contentType?: string): string => {
+    const t = (contentType || "").toLowerCase();
+    if (t === "company analysis") return "badge badge-company-analysis";
+    if (t === "deal analysis") return "badge badge-deal-analysis";
+    if (t === "sector analysis") return "badge badge-sector-analysis";
+    if (t === "hot take") return "badge badge-hot-take";
+    if (t === "executive interview") return "badge badge-executive-interview";
+    return "badge";
+  };
+
   return (
     <div className="insights-analysis-cards cards-grid">
-      {articles.map((article: ContentArticle) => (
-        <InsightsAnalysisCard
-          key={article.id}
-          article={article}
-          showMeta={true}
-          badgeBelowDate={true}
-          showBodyPreview={false}
-          metaStyle="badges"
-        />
-      ))}
+      {articles.map((article: ContentArticle, index: number) =>
+        article.is_series && article.series ? (
+          <SeriesArticleCard
+            key={article.id || index}
+            article={article}
+            formatDate={formatDate}
+            formatSectors={formatSectors}
+            formatCompanies={formatCompanies}
+            badgeClassFor={badgeClassFor}
+          />
+        ) : (
+          <InsightsAnalysisCard
+            key={article.id}
+            article={article}
+            showMeta={true}
+            badgeBelowDate={true}
+            showBodyPreview={false}
+            metaStyle="badges"
+          />
+        )
+      )}
     </div>
   );
 };
@@ -483,6 +533,152 @@ const InsightsAnalysisPageContent = () => {
       width: 100%;
       max-width: 100%;
     }
+
+    .article-card {
+      display: block;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      padding: 16px;
+      border: 1px solid #e2e8f0;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      text-decoration: none;
+      color: inherit;
+    }
+    .article-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    .article-card--series {
+      border-color: #c4b5fd;
+      background: linear-gradient(180deg, #ffffff 0%, #faf5ff 100%);
+    }
+    .series-tile-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .series-part-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #5b21b6;
+      background: #ede9fe;
+      border: 1px solid #c4b5fd;
+      border-radius: 9999px;
+      padding: 5px 10px;
+      white-space: nowrap;
+    }
+    .series-tile-controls {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .series-tile-arrow {
+      width: 28px;
+      height: 28px;
+      border-radius: 9999px;
+      border: 1px solid #c4b5fd;
+      background: #ffffff;
+      color: #5b21b6;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .series-tile-arrow:hover:not(:disabled) {
+      background: #ede9fe;
+      border-color: #a78bfa;
+    }
+    .series-tile-arrow:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .series-part-dots {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 0 0 14px 0;
+    }
+    .series-part-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 9999px;
+      background: #ddd6fe;
+    }
+    .series-part-dot.active {
+      background: #7c3aed;
+      transform: scale(1.15);
+    }
+    .article-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a202c;
+      margin: 0 0 8px 0;
+      line-height: 1.3;
+    }
+    .article-date {
+      font-size: 14px;
+      color: #718096;
+      margin: 0 0 8px 0;
+    }
+    .article-badge-row {
+      margin-bottom: 8px;
+    }
+    .article-summary {
+      font-size: 14px;
+      color: #4a5568;
+      line-height: 1.5;
+      margin: 0 0 12px 0;
+    }
+    .article-meta {
+      font-size: 13px;
+      color: #4a5568;
+      margin-bottom: 6px;
+    }
+    .article-meta-label {
+      font-weight: 600;
+      margin-right: 4px;
+    }
+    .article-transaction-status-row {
+      margin-bottom: 8px;
+    }
+    .badge-transaction-status {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #166534;
+      background: #dcfce7;
+      border: 1px solid #86efac;
+      border-radius: 9999px;
+      padding: 4px 10px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: #edf2f7;
+      color: #2d3748;
+    }
+    .badge-company-analysis { background: #ebf8ff; color: #2b6cb0; }
+    .badge-deal-analysis { background: #fef3c7; color: #92400e; }
+    .badge-sector-analysis { background: #ede9fe; color: #5b21b6; }
+    .badge-hot-take { background: #fee2e2; color: #991b1b; }
+    .badge-executive-interview { background: #d1fae5; color: #065f46; }
 
     /*
       Card Layout Rules (scoped to Insights & Analysis only).
