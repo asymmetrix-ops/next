@@ -4,6 +4,40 @@ import {
   PROD_DEFAULT_COMPANY_COLUMN_KEYS,
 } from "@/components/companies/companiesColumnCategories";
 
+export const PORTFOLIO_INVESTMENT_STATUS_FILTER_ID = "portfolio_investment_status";
+
+export const PORTFOLIO_FILTER_CATEGORY = {
+  id: "portfolio",
+  name: "Portfolio",
+} as const;
+
+import type { FilterDef } from "@/components/companies/CompaniesFilterBar";
+
+export const PORTFOLIO_INVESTMENT_STATUS_FILTER_DEF: FilterDef = {
+  id: PORTFOLIO_INVESTMENT_STATUS_FILTER_ID,
+  label: "Investment status",
+  fullLabel: "Investment status",
+  category: PORTFOLIO_FILTER_CATEGORY.id,
+  type: "Aa",
+  editor: "segmented",
+  options: ["All", "Current", "Past"],
+};
+
+export function parseInvestmentStatusFilter(
+  value: unknown
+): "all" | "current" | "past" {
+  if (value === "Current") return "current";
+  if (value === "Past") return "past";
+  return "all";
+}
+
+export function parseInvestmentStatusFromFilterBar(
+  filters: Array<{ id: string; value: unknown }>
+): "all" | "current" | "past" {
+  const item = filters.find((f) => f.id === PORTFOLIO_INVESTMENT_STATUS_FILTER_ID);
+  return parseInvestmentStatusFilter(item?.value);
+}
+
 export const INVESTMENT_STATUS_COLUMN_KEY = "investment_status";
 
 export const PORTFOLIO_DEFAULT_VISIBLE_COLUMN_KEYS = [

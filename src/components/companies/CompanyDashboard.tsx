@@ -16,6 +16,8 @@ import { fetchUserPortfolioRecord } from "@/lib/portfolioFollow";
 import {
   CompaniesFilterBar,
   FilterBarState,
+  type FilterCategory,
+  type FilterDef,
 } from "@/components/companies/CompaniesFilterBar";
 import { CANONICAL_COMPANY_COLUMN_KEYS } from "@/components/companies/companiesColumnCategories";
 import type { Filters } from "@/components/companies/CompanySection";
@@ -80,6 +82,11 @@ export type CompanyDashboardProps = {
   lockPrimarySectorFilter?: boolean;
   /** Locked scope chips shown in the filter bar (not removable). */
   lockedScopeChips?: Array<{ label: string; value: string }>;
+  /** Extra filter definitions merged into the filter control room (portfolio tab). */
+  extraFilterDefs?: FilterDef[];
+  /** Extra filter categories prepended to the default set. */
+  extraFilterCategories?: FilterCategory[];
+  onFilterBarStateChange?: (state: FilterBarState) => void;
 };
 
 export const CompanyDashboard = ({
@@ -106,6 +113,9 @@ export const CompanyDashboard = ({
   hideFilterBar = false,
   lockPrimarySectorFilter = false,
   lockedScopeChips = [],
+  extraFilterDefs = [],
+  extraFilterCategories = [],
+  onFilterBarStateChange,
 }: CompanyDashboardProps) => {
   // Unified filter bar state — replaces all the individual selected-* state vars
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
@@ -246,9 +256,10 @@ export const CompanyDashboard = ({
       secondarySectors,
       ownershipTypes,
     });
-    if (excludeFilterIds.length === 0) return defs;
+    const merged = [...extraFilterDefs, ...defs];
+    if (excludeFilterIds.length === 0) return merged;
     const excluded = new Set(excludeFilterIds);
-    return defs.filter((def) => !excluded.has(def.id));
+    return merged.filter((def) => !excluded.has(def.id));
   }, [
     continentalRegions,
     subRegions,
@@ -259,7 +270,16 @@ export const CompanyDashboard = ({
     secondarySectors,
     ownershipTypes,
     excludeFilterIds,
+    extraFilterDefs,
   ]);
+
+  const filterCategories = useMemo(
+    () =>
+      extraFilterCategories.length > 0
+        ? [...extraFilterCategories, ...FILTER_CATEGORIES]
+        : FILTER_CATEGORIES,
+    [extraFilterCategories]
+  );
 
   const onFilterColumnsChangeRef = useRef(onFilterColumnsChange);
   onFilterColumnsChangeRef.current = onFilterColumnsChange;
@@ -273,6 +293,10 @@ export const CompanyDashboard = ({
       ownershipTabActive: activeOwnershipTab !== "all",
     });
   }, [filterBarState.filters, activeOwnershipTab]);
+
+  useEffect(() => {
+    onFilterBarStateChange?.(filterBarState);
+  }, [filterBarState, onFilterBarStateChange]);
 
   // ── Auto-search on filter state or ownership tab changes ──────────────
   const buildGlobalSearchFilters = useCallback((): Filters => {
@@ -576,7 +600,7 @@ export const CompanyDashboard = ({
         <div style={{ width: "100%", padding: `10px ${horizontalPad} 12px` }}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
-            filterCategories={FILTER_CATEGORIES}
+            filterCategories={filterCategories}
             state={filterBarState}
             onStateChange={setFilterBarState}
             totalCount={matchCount}

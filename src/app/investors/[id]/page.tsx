@@ -1347,6 +1347,7 @@ const InvestorDetailPage = () => {
             <CompanyLogo
               logo={readEntityLogo(Investor) || ""}
               name={Investor.name}
+              className="investor-profile-header-logo"
             />
             <span
               style={{
