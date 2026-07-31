@@ -57,7 +57,7 @@ export function Footer1() {
                   title="Subscribe"
                   variant="secondary"
                   size="sm"
-                  className="landing-btn-primary text-text-alternative"
+                  className="landing-btn-primary h-12 rounded-full px-6 text-text-alternative"
                 >
                   Subscribe
                 </Button>
