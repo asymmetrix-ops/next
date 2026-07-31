@@ -18,6 +18,14 @@ module.exports = {
           primary: "hsl(228, 85%, 63%)",
         },
       },
+      // The base Relume container caps at 1280px with no wider breakpoint,
+      // so anything past that leaves large empty gutters on big screens.
+      container: {
+        screens: {
+          xl: "1440px",
+          xxl: "1800px",
+        },
+      },
     },
   },
 };
