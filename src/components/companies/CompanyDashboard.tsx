@@ -78,6 +78,8 @@ export type CompanyDashboardProps = {
   hideFilterBar?: boolean;
   /** When true, injects a non-removable primary sector filter chip for scoped sector pages. */
   lockPrimarySectorFilter?: boolean;
+  /** Locked scope chips shown in the filter bar (not removable). */
+  lockedScopeChips?: Array<{ label: string; value: string }>;
 };
 
 export const CompanyDashboard = ({
@@ -103,6 +105,7 @@ export const CompanyDashboard = ({
   guestMode = false,
   hideFilterBar = false,
   lockPrimarySectorFilter = false,
+  lockedScopeChips = [],
 }: CompanyDashboardProps) => {
   // Unified filter bar state — replaces all the individual selected-* state vars
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
@@ -580,6 +583,7 @@ export const CompanyDashboard = ({
             nonRemovableFilterIds={
               lockPrimarySectorFilter ? ["primary_sector"] : undefined
             }
+            lockedScopeChips={lockedScopeChips}
           />
         </div>
       </div>

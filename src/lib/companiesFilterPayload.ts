@@ -98,8 +98,24 @@ export function normalizeCompanySearchPayload(
     has_financial_filters: Boolean(filters.has_financial_filters),
     has_year_filter: Boolean(filters.has_year_filter),
     company_ids: filters.company_ids ?? [],
+    portfolio_mode: Boolean(filters.portfolio_mode),
+    current_portfolio_ids: filters.current_portfolio_ids ?? [],
+    sort_column: filters.sort_column ?? null,
+    sort_direction: filters.sort_direction ?? null,
     ...pickCompanyDateAddedParams(filters),
   };
+}
+
+/** AND-combine non-empty filters_sql fragments. */
+export function andFiltersSql(
+  ...parts: Array<string | null | undefined>
+): string | null {
+  const valid = parts
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part));
+  if (valid.length === 0) return null;
+  if (valid.length === 1) return valid[0];
+  return valid.map((part) => `(${part})`).join(" AND ");
 }
 
 export function buildCompaniesSearchPayload(args: {
@@ -620,6 +636,21 @@ function appendSharedCompanyFilterParams(
   }
 
   params.append("company_ids", JSON.stringify(payload.company_ids ?? []));
+
+  if (payload.portfolio_mode) {
+    params.append("portfolio_mode", "true");
+    params.append(
+      "current_portfolio_ids",
+      JSON.stringify(payload.current_portfolio_ids ?? [])
+    );
+  }
+
+  if (payload.sort_column) {
+    params.append("sort_column", payload.sort_column);
+  }
+  if (payload.sort_direction) {
+    params.append("sort_direction", payload.sort_direction);
+  }
 
   (payload.columns ?? []).forEach((col) => {
     params.append("columns[]", col);
