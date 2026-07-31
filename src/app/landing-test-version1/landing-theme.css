@@ -7,6 +7,10 @@
     hsl(226, 84%, 44%) 50.2%,
     hsl(0, 0%, 0%) 100%
   );
+  --asymmetrix-navy: #000b29;
+  --asymmetrix-near-black: #050827;
+  --asymmetrix-text-secondary: #c7cfea;
+  --asymmetrix-divider: rgba(255, 255, 255, 0.12);
 }
 
 .landing-rebrand .landing-hero-bg {
@@ -29,4 +33,101 @@
 .landing-rebrand .focus\:ring-border-primary:focus,
 .landing-rebrand .focus-visible\:ring-border-primary:focus-visible {
   --tw-ring-color: var(--asymmetrix-blue);
+}
+
+/* Dark section backgrounds used across Platform Features, Coverage, Trusted-by and Footer */
+.landing-rebrand .landing-navy-bg {
+  background-color: var(--asymmetrix-navy);
+}
+
+.landing-rebrand .landing-near-black-bg {
+  background-color: var(--asymmetrix-near-black);
+}
+
+.landing-rebrand .landing-divider {
+  background-color: var(--asymmetrix-divider);
+}
+
+.landing-rebrand .landing-text-secondary {
+  color: var(--asymmetrix-text-secondary);
+}
+
+/* Neon glow border used around the "Book a demo" CTA container */
+.landing-rebrand .landing-glow-border {
+  position: relative;
+  border-radius: 1.5rem;
+  overflow: hidden;
+}
+
+.landing-rebrand .landing-glow-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  padding: 1.5px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    hsl(228, 90%, 68%) 0%,
+    hsl(268, 85%, 66%) 50%,
+    hsl(198, 90%, 60%) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  box-shadow:
+    0 0 40px 4px hsla(228, 85%, 63%, 0.35),
+    0 0 80px 10px hsla(268, 85%, 66%, 0.2);
+}
+
+/* Platform hero: trust pill, gradient headline span, pill tab switcher, panels */
+.landing-rebrand .landing-trust-pill {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.landing-rebrand .landing-gradient-text {
+  background-image: linear-gradient(120deg, #8fb4ff 0%, #c8a8ff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.landing-rebrand .landing-tab-pill-track {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.landing-rebrand .landing-tab-pill {
+  /* Brighter than --asymmetrix-text-secondary: this pill sits on the
+     hero gradient and the glow blobs, both of which are too bright for
+     the muted secondary color to stay readable. */
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.landing-rebrand .landing-tab-pill.is-active {
+  background-color: var(--asymmetrix-blue);
+  color: #ffffff;
+}
+
+.landing-rebrand .landing-panel {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* Dark-theme tab triggers, shared by the Coverage and Substack sections */
+.landing-rebrand .landing-tab-trigger {
+  color: var(--asymmetrix-text-secondary);
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.landing-rebrand .landing-tab-trigger[data-state="active"] {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: var(--asymmetrix-blue);
 }
