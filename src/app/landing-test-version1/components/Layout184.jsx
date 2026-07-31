@@ -9,7 +9,7 @@ export function Layout184() {
     <section id="relume" className="relative px-[5%] py-16 md:py-24 lg:py-28">
       <div className="container relative z-10 max-w-lg">
         <div className="flex flex-col items-center justify-center text-center">
-          <p className="mb-3 font-semibold text-text-alternative md:mb-4">
+          <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold md:mb-4">
             About
           </p>
           <h2 className="mb-5 text-5xl font-bold text-text-alternative md:mb-6 md:text-7xl lg:text-8xl">
@@ -25,7 +25,11 @@ export function Layout184() {
             industry
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-4 md:mt-8">
-            <Button title="Demo" variant="secondary-alt">
+            <Button
+              title="Demo"
+              variant="secondary-alt"
+              className="landing-btn-secondary"
+            >
               Demo
             </Button>
             <Button

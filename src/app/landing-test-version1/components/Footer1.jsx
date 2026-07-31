@@ -53,7 +53,12 @@ export function Footer1() {
                   value={formState.email}
                   onChange={formState.handleSetEmail}
                 />
-                <Button title="Subscribe" variant="secondary" size="sm">
+                <Button
+                  title="Subscribe"
+                  variant="secondary"
+                  size="sm"
+                  className="landing-btn-primary text-text-alternative"
+                >
                   Subscribe
                 </Button>
               </form>

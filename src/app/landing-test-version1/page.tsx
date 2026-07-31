@@ -9,6 +9,7 @@ import { Testimonial1 } from "./components/Testimonial1";
 import { Blog16 } from "./components/Blog16";
 import { Cta15 } from "./components/Cta15";
 import { Footer1 } from "./components/Footer1";
+import { FloatingCta } from "./components/FloatingCta";
 
 export const metadata = {
   title: "Asymmetrix | Landing Test v1",
@@ -30,6 +31,7 @@ export default function LandingTestVersion1Page() {
       <Blog16 />
       <Cta15 />
       <Footer1 />
+      <FloatingCta />
     </div>
   );
 }

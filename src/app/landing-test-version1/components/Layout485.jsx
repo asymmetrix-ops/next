@@ -1,11 +1,11 @@
 "use client";
 
 import { Button } from "@relume_io/relume-ui";
+import { motion } from "framer-motion";
 import React, { useState } from "react";
 import { DashboardMockup } from "./DashboardMockup";
 
-const buttonClassName =
-  "border-2 border-background-alternative bg-white/5 text-text-alternative hover:bg-white/15";
+const buttonClassName = "landing-btn-secondary";
 
 const FEATURES = [
   {
@@ -57,25 +57,34 @@ export function Layout485() {
         aria-hidden="true"
       />
       <div className="container relative z-10">
-        <div className="mx-auto mb-12 max-w-[42rem] text-center text-text-alternative md:mb-16">
-          <p className="mb-3 font-semibold md:mb-4">Platform Feature</p>
+        <div className="mx-auto mb-12 flex max-w-[42rem] flex-col items-center text-center text-text-alternative md:mb-16">
+          <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold md:mb-4">
+            Platform Feature
+          </p>
           <h2 className="text-4xl font-bold md:text-5xl">
             Everything you need in one platform
           </h2>
         </div>
 
         <div className="mb-10 flex justify-center md:mb-14">
-          <div className="landing-tab-pill-track inline-flex flex-wrap justify-center gap-1 rounded-full p-1">
+          <div className="landing-tab-pill-track inline-flex flex-wrap justify-center">
             {FEATURES.map((f) => (
               <button
                 key={f.id}
                 type="button"
                 onClick={() => setActiveId(f.id)}
                 className={
-                  "landing-tab-pill whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-medium transition-all sm:px-7" +
+                  "landing-tab-pill whitespace-nowrap px-5 py-2.5 text-sm font-medium transition-all sm:px-7" +
                   (activeId === f.id ? " is-active" : "")
                 }
               >
+                {activeId === f.id && (
+                  <motion.span
+                    layoutId="feature-tab-highlight"
+                    className="landing-tab-pill-highlight"
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                  />
+                )}
                 {f.label}
               </button>
             ))}
@@ -84,7 +93,7 @@ export function Layout485() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="landing-panel flex flex-col justify-center rounded-[28px] p-8 text-text-alternative sm:p-10">
-            <p className="mb-3 font-semibold text-background-alternative">
+            <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold">
               Platform Feature
             </p>
             <h3 className="mb-5 text-3xl font-bold md:text-4xl">
