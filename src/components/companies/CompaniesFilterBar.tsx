@@ -43,6 +43,8 @@ export interface FilterDef {
   type: FilterTypeIcon;
   editor: FilterEditorType;
   options?: string[];
+  /** Optional display labels keyed by option value (e.g. API enum keys). */
+  optionLabels?: Record<string, string>;
   unit?: string;
   min?: number;
   max?: number;
@@ -291,6 +293,10 @@ function formatRangeValue(
   return "";
 }
 
+function getFilterOptionLabel(def: FilterDef, value: string): string {
+  return def.optionLabels?.[value] ?? value;
+}
+
 function summarize(
   def: FilterDef,
   value: unknown,
@@ -299,8 +305,11 @@ function summarize(
   if (value == null) return "";
   if (def.editor === "enum") {
     if (!Array.isArray(value) || value.length === 0) return "";
-    if (value.length === 1) return String(value[0]);
-    return `${String(value[0])} +${value.length - 1}`;
+    const labels = value.map((entry) =>
+      getFilterOptionLabel(def, String(entry))
+    );
+    if (labels.length === 1) return labels[0];
+    return `${labels[0]} +${labels.length - 1}`;
   }
   if (def.editor === "range")
     return formatRangeValue(
@@ -1227,11 +1236,17 @@ function EnumEditor({
   const [q, setQ] = useState("");
 
   const opts = useMemo(() => {
-    if (!q) return def.options ?? [];
-    return (def.options ?? []).filter((o) =>
-      o.toLowerCase().includes(q.toLowerCase())
-    );
-  }, [q, def.options]);
+    const all = def.options ?? [];
+    if (!q) return all;
+    const query = q.toLowerCase();
+    return all.filter((option) => {
+      const label = getFilterOptionLabel(def, option);
+      return (
+        option.toLowerCase().includes(query) ||
+        label.toLowerCase().includes(query)
+      );
+    });
+  }, [q, def]);
 
   const toggle = (o: string) => {
     const reserved = reservedValues?.has(o) && !picked.includes(o);
@@ -1387,7 +1402,7 @@ function EnumEditor({
                   </svg>
                 )}
               </span>
-              <span style={{ flex: 1 }}>{o}</span>
+              <span style={{ flex: 1 }}>{getFilterOptionLabel(def, o)}</span>
             </button>
           );
         })}

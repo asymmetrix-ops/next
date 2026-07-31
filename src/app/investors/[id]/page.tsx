@@ -29,15 +29,6 @@ import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/invest
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
-const INVESTOR_PROFILE_TABS = [
-  "Summary",
-  "Strategy",
-  "Portfolio",
-  "People",
-  "Deals",
-  "Market",
-] as const;
-
 // Types for API integration
 interface InvestorLocation {
   City: string;
@@ -398,8 +389,6 @@ const InvestorDetailPage = () => {
   const focusMixGridRef = useRef<HTMLDivElement | null>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [rowOneCardHeight, setRowOneCardHeight] = useState(0);
-  const [activeProfileTab, setActiveProfileTab] = useState<string>("Summary");
-
   const [investorData, setInvestorData] = useState<InvestorData | null>(null);
   const [portfolioCompanies, setPortfolioCompanies] = useState<
     PortfolioCompany[]
@@ -1520,52 +1509,10 @@ const InvestorDetailPage = () => {
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: "2px",
-            overflowX: "auto" as const,
-            scrollbarWidth: "none" as const,
-          }}
-        >
-          {INVESTOR_PROFILE_TABS.map((tab) => {
-            const active = tab === activeProfileTab;
-            const disabled = tab !== "Summary";
-            return (
-              <button
-                key={tab}
-                type="button"
-                disabled={disabled}
-                onClick={() => {
-                  if (!disabled) setActiveProfileTab(tab);
-                }}
-                style={{
-                  padding: "10px 14px",
-                  fontFamily: T.sans,
-                  fontSize: "13px",
-                  fontWeight: active ? 600 : 500,
-                  color: disabled ? T.faint : active ? T.ink : T.muted,
-                  borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
-                  marginBottom: "-1px",
-                  cursor: disabled ? "not-allowed" : "pointer",
-                  whiteSpace: "nowrap" as const,
-                  transition: "color 120ms",
-                  background: "transparent",
-                  borderTop: "none",
-                  borderLeft: "none",
-                  borderRight: "none",
-                }}
-              >
-                {tab}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="investor-detail-content" style={styles.maxWidth}>
-          {activeProfileTab === "Summary" ? (
           <div style={styles.responsiveGrid} className="responsiveGrid">
             <div
               ref={overviewGridRef}
@@ -1740,19 +1687,6 @@ const InvestorDetailPage = () => {
               />
             </div>
           </div>
-          ) : (
-            <div
-              style={{
-                padding: "48px 24px",
-                textAlign: "center",
-                color: T.muted,
-                fontFamily: T.sans,
-                fontSize: 14,
-              }}
-            >
-              {activeProfileTab} view coming soon.
-            </div>
-          )}
         </div>
         <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
       </main>

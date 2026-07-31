@@ -172,7 +172,12 @@ export const BUYER_INVESTOR_TYPE_OPTIONS = [
   { value: "venture_capital", label: "Venture Capital" },
   { value: "da_strategic", label: "Data & Analytics Strategic" },
   { value: "other_strategic", label: "Other Strategic" },
-];
+] as const;
+
+export const BUYER_INVESTOR_TYPE_LABELS: Record<string, string> =
+  Object.fromEntries(
+    BUYER_INVESTOR_TYPE_OPTIONS.map((option) => [option.value, option.label])
+  );
 
 export const DEFAULT_PRODUCT_TYPE_OPTIONS = [
   "Data",
@@ -222,6 +227,7 @@ export function buildCorporateEventsFilterDefs({
     deal_status: { options: DEAL_STATUS_OPTIONS },
     buyer_investor_type: {
       options: BUYER_INVESTOR_TYPE_OPTIONS.map((option) => option.value),
+      optionLabels: BUYER_INVESTOR_TYPE_LABELS,
     },
     funding_stage: { options: fundingStages },
     region: { options: continentalRegions },
