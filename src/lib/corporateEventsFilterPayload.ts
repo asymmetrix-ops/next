@@ -271,11 +271,8 @@ export function buildCorporateEventsCountsSearchPayload(args: {
   page?: number;
   perPage?: number;
 }): CorporateEventsSearchFilters {
-  const filters = buildFiltersFromFilterBar(args);
-  return {
-    ...filters,
-    deal_types: [],
-  };
+  // Keep filter-bar deal types so tab totals match the active list filters.
+  return buildFiltersFromFilterBar(args);
 }
 
 function appendSharedCorporateEventFilterParams(
@@ -377,15 +374,30 @@ function appendSharedCorporateEventFilterParams(
   params.append("EV_max", filters.EV_max ?? "0");
 }
 
+function appendCorporateEventDealTypeParams(
+  params: URLSearchParams,
+  filters: CorporateEventsSearchFilters
+): void {
+  if (filters.deal_types.length > 0) {
+    filters.deal_types.forEach((dealType) =>
+      params.append("deal_types[]", dealType)
+    );
+  }
+}
+
 export function corporateEventsCountsFiltersToSearchParams(
   filters: CorporateEventsSearchFilters
 ): URLSearchParams {
   const params = new URLSearchParams();
-  appendSharedCorporateEventFilterParams(params, {
-    ...filters,
-    deal_types: [],
-  });
+  appendSharedCorporateEventFilterParams(params, filters);
+  appendCorporateEventDealTypeParams(params, filters);
   return params;
+}
+
+export function corporateEventsExportFiltersToSearchParams(
+  filters: CorporateEventsSearchFilters
+): URLSearchParams {
+  return corporateEventsCountsFiltersToSearchParams(filters);
 }
 
 export function corporateEventsFiltersToSearchParams(
@@ -399,12 +411,7 @@ export function corporateEventsFiltersToSearchParams(
   params.append("Per_page", String(perPage));
 
   appendSharedCorporateEventFilterParams(params, filters);
-
-  if (filters.deal_types.length > 0) {
-    filters.deal_types.forEach((dealType) =>
-      params.append("deal_types[]", dealType)
-    );
-  }
+  appendCorporateEventDealTypeParams(params, filters);
 
   return params;
 }

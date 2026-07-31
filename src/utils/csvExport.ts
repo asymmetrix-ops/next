@@ -1,4 +1,16 @@
 import { CorporateEvent } from "@/types/corporateEvents";
+import {
+  derivePrimaryFromCompany,
+  deriveSecondaryFromCompany,
+  getTargetCompany,
+  getTargetCountry,
+} from "@/components/corporate-events/corporateEventsTableUtils";
+import {
+  extractBuyerLinks,
+  extractInvestorLinks,
+  extractSellerLinks,
+  extractTargetLinks,
+} from "@/components/corporate-events/corporateEventsPartyLinks";
 
 export interface CorporateEventCSVRow {
   Description: string;
@@ -46,19 +58,9 @@ export class CSVExporter {
 
   static convertToCSVData(events: CorporateEvent[]): CorporateEventCSVRow[] {
     return events.map((event) => {
-      const target = event.target_counterparty?.new_company as
-        | {
-            name?: string;
-            country?: string;
-            _location?: { Country?: string };
-            // Legacy sector arrays
-            _sectors_primary?: { sector_name: string }[];
-            _sectors_secondary?: { sector_name: string }[];
-            // New API variant: arrays of strings or objects
-            primary_sectors?: Array<string | { sector_name: string }>;
-            secondary_sectors?: Array<string | { sector_name: string }>;
-          }
-        | undefined;
+      const looseEvent = event as CorporateEvent & Record<string, unknown>;
+      const target = getTargetCompany(event);
+      const targetLinks = extractTargetLinks(event);
 
       const formatSectorList = (
         list:
@@ -73,24 +75,75 @@ export class CSVExporter {
         return names.length > 0 ? names.join(", ") : "Not available";
       };
 
-      // Split counterparties into buyers/investors and sellers (match dashboard filters)
-      const buyersInvestors = (event.other_counterparties || [])
-        .filter((cp) => {
-          const status = cp._counterparty_type?.counterparty_status || "";
-          return /investor|acquirer/i.test(status);
-        })
-        .map((cp) => cp._new_company?.name)
-        .filter(Boolean)
-        .join(", ");
+      const targetName =
+        (typeof looseEvent.target_name === "string" &&
+          looseEvent.target_name.trim()) ||
+        targetLinks.map((link) => link.name).join(", ") ||
+        (typeof target?.name === "string" && target.name.trim()) ||
+        "Not Available";
 
-      const sellers = (event.other_counterparties || [])
-        .filter((cp) => {
-          const status = cp._counterparty_type?.counterparty_status || "";
-          return /divestor|seller|vendor/i.test(status);
-        })
-        .map((cp) => cp._new_company?.name)
-        .filter(Boolean)
-        .join(", ");
+      const targetHq =
+        (typeof looseEvent.target_hq === "string" && looseEvent.target_hq.trim()) ||
+        (typeof looseEvent.target_hq_country === "string" &&
+          looseEvent.target_hq_country.trim()) ||
+        (typeof looseEvent.target_country === "string" &&
+          looseEvent.target_country.trim()) ||
+        getTargetCountry(event);
+
+      const primarySector =
+        (typeof looseEvent.primary_sectors === "string" &&
+          looseEvent.primary_sectors.trim()) ||
+        (typeof looseEvent.primary_sector === "string" &&
+          looseEvent.primary_sector.trim()) ||
+        derivePrimaryFromCompany(target, {}) ||
+        formatSectorList(
+          target?.primary_sectors as
+            | Array<string | { sector_name: string }>
+            | undefined
+        ) ||
+        this.formatSectors(
+          target?._sectors_primary as { sector_name: string }[] | undefined
+        );
+
+      const secondarySectors =
+        (typeof looseEvent.secondary_sectors === "string" &&
+          looseEvent.secondary_sectors.trim()) ||
+        deriveSecondaryFromCompany(target) ||
+        formatSectorList(
+          target?.secondary_sectors as
+            | Array<string | { sector_name: string }>
+            | undefined
+        ) ||
+        this.formatSectors(
+          target?._sectors_secondary as { sector_name: string }[] | undefined
+        );
+
+      const buyerInvestorLinks = [
+        ...extractBuyerLinks(event),
+        ...extractInvestorLinks(event),
+      ];
+      const buyersInvestors =
+        buyerInvestorLinks.map((link) => link.name).join(", ") ||
+        (event.other_counterparties || [])
+          .filter((cp) => {
+            const status = cp._counterparty_type?.counterparty_status || "";
+            return /investor|acquirer/i.test(status);
+          })
+          .map((cp) => cp._new_company?.name)
+          .filter(Boolean)
+          .join(", ");
+
+      const sellerLinks = extractSellerLinks(event);
+      const sellers =
+        sellerLinks.map((link) => link.name).join(", ") ||
+        (event.other_counterparties || [])
+          .filter((cp) => {
+            const status = cp._counterparty_type?.counterparty_status || "";
+            return /divestor|seller|vendor/i.test(status);
+          })
+          .map((cp) => cp._new_company?.name)
+          .filter(Boolean)
+          .join(", ");
 
       // Format advisors
       const advisors =
@@ -119,16 +172,17 @@ export class CSVExporter {
       return {
         Description: event.description || "Not Available",
         Date: this.formatDate(event.announcement_date),
-        "Target Name": target?.name || "Not Available",
+        "Target Name": targetName === "-" ? "Not Available" : targetName,
         "Target HQ":
-          target?.country || target?._location?.Country || "Not Available",
-        // Prefer new API fields; fallback to legacy
+          !targetHq || targetHq === "-" ? "Not Available" : targetHq,
         "Primary Sector":
-          formatSectorList(target?.primary_sectors) ||
-          this.formatSectors(target?._sectors_primary),
+          !primarySector || primarySector === "-"
+            ? "Not available"
+            : primarySector,
         "Secondary Sectors":
-          formatSectorList(target?.secondary_sectors) ||
-          this.formatSectors(target?._sectors_secondary),
+          !secondarySectors || secondarySectors === "-"
+            ? "Not available"
+            : secondarySectors,
         "Deal Type": event.deal_type || "Not Available",
         "Funding Stage": fundingStage,
         "Amount (m)": this.formatCurrency(

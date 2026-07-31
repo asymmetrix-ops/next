@@ -97,7 +97,6 @@ const useCorporateEventsAPI = (userId: number | null) => {
         mergeUrlFilters({
           ...countsFilters,
           user_id: userId,
-          deal_types: [],
         })
       )
         .then((countsData) => {
@@ -155,7 +154,6 @@ const useCorporateEventsAPI = (userId: number | null) => {
             mergeUrlFilters({
               ...countsFiltersToUse,
               user_id: userId,
-              deal_types: [],
             })
           );
         }

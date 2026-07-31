@@ -18,7 +18,7 @@ import type {
 } from "@/app/corporate-events/actions";
 import {
   createDefaultCorporateEventFilters,
-  corporateEventsFiltersToSearchParams,
+  corporateEventsExportFiltersToSearchParams,
 } from "@/lib/corporateEventsFilterPayload";
 import {
   CORPORATE_EVENTS_COLUMN_CATEGORIES,
@@ -70,7 +70,6 @@ import CompactPagination from "@/components/ui/CompactPagination";
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
-import type { CorporateEvent } from "@/types/corporateEvents";
 
 export type CorporateEventItem = CorporateEventListItem;
 export type Filters = CorporateEventsSearchFilters;
@@ -387,26 +386,44 @@ export const CorporateEventsSearchSection = ({
     try {
       const filters = currentFilters ?? createDefaultCorporateEventFilters();
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = corporateEventsFiltersToSearchParams({
-        ...filters,
-        Page: 1,
-        Per_page: pagination.itemTotal || events.length,
-      });
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
+      if (!token) throw new Error("Authentication required");
+
+      const params = corporateEventsExportFiltersToSearchParams(filters);
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/export_corporate_events_csv?${params.toString()}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
+          Authorization: `Bearer ${token}`,
         },
       });
-      if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
-      const data = (await response.json()) as { items?: CorporateEvent[] };
-      CSVExporter.exportCorporateEvents(data.items ?? events, "corporate_events_filtered");
+
+      if (!response.ok) {
+        if (response.status === 403 || response.status === 429) {
+          const retryLimit = await checkExportLimit();
+          setExportsLeft(retryLimit.exportsLeft);
+          setShowExportLimitModal(true);
+          return;
+        }
+        throw new Error(`Export API request failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const rows = Array.isArray(data)
+        ? data
+        : (data as { items?: unknown[] }).items;
+      if (!Array.isArray(rows) || rows.length === 0) {
+        throw new Error("No export data returned");
+      }
+
+      CSVExporter.exportCorporateEventsFromApiResponse(
+        rows as Parameters<typeof CSVExporter.exportCorporateEventsFromApiResponse>[0],
+        "corporate_events_filtered"
+      );
     } catch (exportError) {
       console.error("Export CSV failed:", exportError);
     }
-  }, [currentFilters, events, pagination.itemTotal]);
+  }, [currentFilters, events.length]);
 
   useEffect(() => {
     onRegisterExportCSV?.(exportToCsv);
