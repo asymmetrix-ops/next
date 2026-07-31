@@ -188,6 +188,8 @@ export interface CompaniesFilterBarProps {
   portfolioBooleanDescription?: string;
   /** Filter type ids that cannot be removed or edited (e.g. scoped sector on sector pages). */
   nonRemovableFilterIds?: string[];
+  /** Non-filter locked scope chips shown before active filter chips (e.g. investor portfolio scope). */
+  lockedScopeChips?: Array<{ label: string; value: string }>;
 }
 
 // ── CSS variables scoped to the component ─────────────────────────────────
@@ -2373,6 +2375,7 @@ export function CompaniesFilterBar({
   portfolioOnlyChipLabel = "My Portfolio only",
   portfolioBooleanDescription,
   nonRemovableFilterIds = [],
+  lockedScopeChips = [],
 }: CompaniesFilterBarProps) {
   const { filters, searchText, filterLogic } = state;
   const nonRemovableFilterIdSet = useMemo(
@@ -2613,6 +2616,50 @@ export function CompaniesFilterBar({
             )}
           </label>
 
+          {/* Locked scope chips (non-filter, e.g. investor portfolio scope) */}
+          {lockedScopeChips.map((chip) => (
+            <span
+              key={`${chip.label}:${chip.value}`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                background: "var(--ax-cyan-50)",
+                border: "1px solid var(--ax-cyan-100)",
+                borderRadius: "var(--r-md)",
+                fontSize: "var(--fs-13)",
+                fontFamily: "var(--font-sans)",
+                cursor: "default",
+                userSelect: "none",
+                height: 30,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "0 8px 0 10px",
+                  color: "var(--ax-cyan-700)",
+                  fontWeight: 500,
+                }}
+              >
+                <span>{chip.label}:</span>
+              </span>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "0 10px 0 8px",
+                  color: "var(--ax-cyan-700)",
+                  fontWeight: 600,
+                  borderLeft: "1px dashed var(--ax-cyan-200)",
+                }}
+              >
+                {chip.value}
+              </span>
+            </span>
+          ))}
+
           {/* Active filter chips */}
           {filters.map((f, index) => {
             const def = filterDefs.find((d) => d.id === f.id);
@@ -2620,9 +2667,10 @@ export function CompaniesFilterBar({
             const locked = nonRemovableFilterIdSet.has(f.id);
             if (!chipRefs.current[f.key])
               chipRefs.current[f.key] = { current: null } as React.RefObject<HTMLSpanElement>;
+            const showSeparator = index > 0 || lockedScopeChips.length > 0;
             return (
               <React.Fragment key={f.key}>
-                {index > 0 && (
+                {showSeparator && (
                   <FilterLogicSeparator
                     logic={f.combineLogic ?? filterLogic}
                     onToggle={

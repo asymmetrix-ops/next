@@ -66,6 +66,11 @@ import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioAct
 import { useSectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import type { SectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import CompactPagination from "@/components/ui/CompactPagination";
+import type { CompanyColumnCategory } from "@/components/companies/companiesColumnCategories";
+import {
+  INVESTMENT_STATUS_COLUMN_KEY,
+  portfolioVisibilityToColumnKeys,
+} from "@/components/investors/investorPortfolioColumns";
 
 export type SectorRef =
   | string
@@ -676,26 +681,76 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
 ];
 
 const ALL_COMPANY_COLUMNS = COMPANY_COLUMN_GROUPS.flatMap((group) => group.cols);
+
+function buildAllTableColumns(portfolioMode: boolean) {
+  if (!portfolioMode) return ALL_COMPANY_COLUMNS;
+  const cols = [...ALL_COMPANY_COLUMNS];
+  const nameIdx = cols.findIndex((column) => column.key === "name");
+  const insertAt = nameIdx >= 0 ? nameIdx + 1 : 0;
+  cols.splice(insertAt, 0, {
+    key: INVESTMENT_STATUS_COLUMN_KEY,
+    label: "Investment status",
+    group: "Portfolio",
+    minWidth: 140,
+    render: (company) => {
+      const raw = company.investment_status;
+      if (raw === "Current" || raw === "Past") return raw;
+      if (typeof raw === "string" && raw.trim()) return raw.trim();
+      return "—";
+    },
+  });
+  return cols;
+}
+
+function buildAllowedColumnKeys(portfolioMode: boolean): string[] {
+  if (!portfolioMode) return [...CANONICAL_COMPANY_COLUMN_KEYS];
+  return [...CANONICAL_COMPANY_COLUMN_KEYS, INVESTMENT_STATUS_COLUMN_KEY];
+}
+
 const ALL_COMPANY_COLUMN_KEYS = CANONICAL_COMPANY_COLUMN_KEYS;
 const DEFAULT_COMPANY_COLUMN_KEYS = DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS;
 
 const getValidColumnKeys = (
   keys: string[],
-  filterPinnedKeys: string[] = []
+  filterPinnedKeys: string[] = [],
+  allowedColumnKeys: string[] = ALL_COMPANY_COLUMN_KEYS
 ): string[] => {
   const seen = new Set<string>();
   const valid: string[] = [];
   keys.forEach((key) => {
     const normalizedKey = key === "country" ? "hq" : key;
-    if (ALL_COMPANY_COLUMN_KEYS.includes(normalizedKey) && !seen.has(normalizedKey)) {
+    if (allowedColumnKeys.includes(normalizedKey) && !seen.has(normalizedKey)) {
       seen.add(normalizedKey);
       valid.push(normalizedKey);
     }
   });
-  return enforceColumnKeyOrder(
-    valid.length > 0 ? valid : [...PROD_DEFAULT_COMPANY_COLUMN_KEYS],
+
+  const canonicalValid = valid.filter((key) =>
+    CANONICAL_COMPANY_COLUMN_KEYS.includes(key)
+  );
+  const extraValid = valid.filter(
+    (key) => !CANONICAL_COMPANY_COLUMN_KEYS.includes(key)
+  );
+  const ordered = enforceColumnKeyOrder(
+    canonicalValid.length > 0 ? canonicalValid : [...PROD_DEFAULT_COMPANY_COLUMN_KEYS],
     filterPinnedKeys
   );
+
+  if (extraValid.includes(INVESTMENT_STATUS_COLUMN_KEY)) {
+    const nameIdx = ordered.indexOf("name");
+    const insertAt = nameIdx >= 0 ? nameIdx + 1 : 0;
+    if (!ordered.includes(INVESTMENT_STATUS_COLUMN_KEY)) {
+      ordered.splice(insertAt, 0, INVESTMENT_STATUS_COLUMN_KEY);
+    }
+  }
+
+  for (const extraKey of extraValid) {
+    if (extraKey !== INVESTMENT_STATUS_COLUMN_KEY && !ordered.includes(extraKey)) {
+      ordered.push(extraKey);
+    }
+  }
+
+  return ordered;
 };
 
 // Company Card Component for Mobile - Optimized with React state
@@ -919,6 +974,10 @@ export const CompanySection = ({
   defaultColumnKeys,
   uncappedExport = false,
   enableColumnControl = true,
+  portfolioMode = false,
+  columnCategories,
+  prodDefaultColumnKeys,
+  resetSortOnMount = false,
 }: {
   companies: Company[];
   loading: boolean;
@@ -956,7 +1015,36 @@ export const CompanySection = ({
   defaultColumnKeys?: readonly string[];
   uncappedExport?: boolean;
   enableColumnControl?: boolean;
+  portfolioMode?: boolean;
+  columnCategories?: CompanyColumnCategory[];
+  prodDefaultColumnKeys?: readonly string[];
+  resetSortOnMount?: boolean;
 }) => {
+  const allTableColumns = useMemo(
+    () => buildAllTableColumns(portfolioMode),
+    [portfolioMode]
+  );
+  const allowedColumnKeys = useMemo(
+    () => buildAllowedColumnKeys(portfolioMode),
+    [portfolioMode]
+  );
+  const validateColumnKeys = useCallback(
+    (keys: string[], filterPinnedKeys: string[] = []) =>
+      getValidColumnKeys(keys, filterPinnedKeys, allowedColumnKeys),
+    [allowedColumnKeys]
+  );
+  const applyPortfolioDefaultColumnKeys = useCallback(
+    (keys: string[]) => {
+      if (!portfolioMode) return validateColumnKeys(keys);
+      const withInvestmentStatus = Array.from(
+        new Set([...keys, INVESTMENT_STATUS_COLUMN_KEY])
+      );
+      return validateColumnKeys(withInvestmentStatus);
+    },
+    [portfolioMode, validateColumnKeys]
+  );
+  const resolvedColumnCategories = columnCategories;
+  const resolvedProdDefaultColumnKeys = prodDefaultColumnKeys;
   const router = useRouter();
   const [showSalesConversion, setShowSalesConversion] = useState(false);
   const openSalesConversion = useCallback(() => {
@@ -990,6 +1078,12 @@ export const CompanySection = ({
   );
   const resolvedColumnsStorageKey =
     columnsStorageKey ?? COMPANIES_COLUMNS_STORAGE_KEY;
+
+  useEffect(() => {
+    if (resetSortOnMount) {
+      setSortState(null);
+    }
+  }, [resetSortOnMount, resolvedColumnsStorageKey]);
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
     resolvedDefaultColumnKeys
   );
@@ -1074,12 +1168,12 @@ export const CompanySection = ({
 
   useEffect(() => {
     if (readOnlyGuestMode) {
-      setSelectedColumnKeys([...resolvedDefaultColumnKeys]);
+      setSelectedColumnKeys(applyPortfolioDefaultColumnKeys(resolvedDefaultColumnKeys));
       setColumnPrefsLoaded(true);
       return;
     }
     if (!enableColumnControl) {
-      setSelectedColumnKeys(getValidColumnKeys([...resolvedDefaultColumnKeys]));
+      setSelectedColumnKeys(applyPortfolioDefaultColumnKeys(resolvedDefaultColumnKeys));
       setColumnPrefsLoaded(true);
       return;
     }
@@ -1089,10 +1183,13 @@ export const CompanySection = ({
         columnsStorageScope
       );
       if (saved) {
-        setSelectedColumnKeys(getValidColumnKeys(saved));
+        setSelectedColumnKeys(applyPortfolioDefaultColumnKeys(saved));
+      } else {
+        setSelectedColumnKeys(applyPortfolioDefaultColumnKeys(resolvedDefaultColumnKeys));
       }
     } catch (error) {
       console.warn("Unable to load company column preferences:", error);
+      setSelectedColumnKeys(applyPortfolioDefaultColumnKeys(resolvedDefaultColumnKeys));
     } finally {
       setColumnPrefsLoaded(true);
     }
@@ -1102,6 +1199,7 @@ export const CompanySection = ({
     resolvedDefaultColumnKeys,
     resolvedColumnsStorageKey,
     columnsStorageScope,
+    applyPortfolioDefaultColumnKeys,
   ]);
 
   useEffect(() => {
@@ -1172,42 +1270,59 @@ export const CompanySection = ({
   }, [loading]);
 
   const selectedColumns = useMemo(() => {
-    const columnsByKey = new Map(ALL_COMPANY_COLUMNS.map((column) => [column.key, column]));
-    return getValidColumnKeys(selectedColumnKeys, filterPinnedColumnKeys)
+    const columnsByKey = new Map(allTableColumns.map((column) => [column.key, column]));
+    return validateColumnKeys(selectedColumnKeys, filterPinnedColumnKeys)
       .map((key) => columnsByKey.get(key))
       .filter((column): column is CompanyColumnDefinition => Boolean(column));
-  }, [selectedColumnKeys, filterPinnedColumnKeys]);
+  }, [allTableColumns, selectedColumnKeys, filterPinnedColumnKeys, validateColumnKeys]);
 
-  const columnVisibilityInitial = useMemo(
-    () => columnKeysToVisibility(selectedColumnKeys),
-    [selectedColumnKeys]
-  );
+  const columnVisibilityInitial = useMemo(() => {
+    if (resolvedColumnCategories) {
+      const visibleKeys = new Set(selectedColumnKeys);
+      const out: Record<string, boolean> = {};
+      for (const category of resolvedColumnCategories) {
+        for (const column of category.columns) {
+          out[column.id] = column.locked
+            ? true
+            : visibleKeys.has(column.columnKey);
+        }
+      }
+      return out;
+    }
+    return columnKeysToVisibility(selectedColumnKeys);
+  }, [selectedColumnKeys, resolvedColumnCategories]);
 
   const handleApplyColumnVisibility = useCallback(
     (visible: Record<string, boolean>, order?: string[]) => {
       if (order && order.length > 0) {
-        setSelectedColumnKeys(getValidColumnKeys(order, filterPinnedColumnKeys));
+        setSelectedColumnKeys(validateColumnKeys(order, filterPinnedColumnKeys));
       } else {
         setSelectedColumnKeys((current) =>
-          getValidColumnKeys(
-            visibilityToColumnKeys(visible, current),
+          validateColumnKeys(
+            resolvedColumnCategories
+              ? portfolioVisibilityToColumnKeys(
+                  visible,
+                  resolvedColumnCategories,
+                  current
+                )
+              : visibilityToColumnKeys(visible, current),
             filterPinnedColumnKeys
           )
         );
       }
       setShowColumnsModal(false);
     },
-    [filterPinnedColumnKeys, setShowColumnsModal]
+    [filterPinnedColumnKeys, setShowColumnsModal, validateColumnKeys, resolvedColumnCategories]
   );
 
   const handleReorderTableColumns = useCallback((dragKey: string, dropKey: string) => {
     setSelectedColumnKeys((current) =>
-      getValidColumnKeys(
+      validateColumnKeys(
         reorderColumnKeys(current, dragKey, dropKey, filterPinnedColumnKeys),
         filterPinnedColumnKeys
       )
     );
-  }, [filterPinnedColumnKeys]);
+  }, [filterPinnedColumnKeys, validateColumnKeys]);
 
   useEffect(() => {
     if (sortState && !selectedColumnKeys.includes(sortState.key)) {
@@ -1562,6 +1677,8 @@ export const CompanySection = ({
         filterPinnedColumnKeys,
         onCancel: () => setShowColumnsModal(false),
         onApply: handleApplyColumnVisibility,
+        categories: resolvedColumnCategories,
+        defaultVisibleColumnKeys: resolvedProdDefaultColumnKeys,
       }),
   ];
 

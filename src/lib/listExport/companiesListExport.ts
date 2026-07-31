@@ -2,6 +2,7 @@ import {
   COMPANIES_COLUMN_CATEGORIES,
   type CompanyColumnType,
 } from "@/components/companies/companiesColumnCategories";
+import { PORTFOLIO_COLUMN_CATEGORIES } from "@/components/investors/investorPortfolioColumns";
 import {
   getFieldAliasesForColumn,
   LIST_JSON_COLUMN_KEYS,
@@ -49,12 +50,15 @@ function getAuthToken(): string | null {
   return localStorage.getItem("asymmetrix_auth_token");
 }
 
-function getAllExportApiColumns(): string[] {
-  return getApiColumnsForSelectedKeys(
-    COMPANIES_COLUMN_CATEGORIES.flatMap((category) =>
-      category.columns.map((column) => column.columnKey)
-    )
+function getAllExportApiColumns(filters?: CompanySearchPayload): string[] {
+  const baseKeys = COMPANIES_COLUMN_CATEGORIES.flatMap((category) =>
+    category.columns.map((column) => column.columnKey)
   );
+  const keys =
+    filters?.portfolio_mode && !baseKeys.includes("investment_status")
+      ? [...baseKeys, "investment_status"]
+      : baseKeys;
+  return getApiColumnsForSelectedKeys(keys);
 }
 
 function normalizeSelectedCompanyIds(selectedIds: number[]): number[] {
@@ -188,6 +192,10 @@ export function getCompanyCellValue(
     return toPlainText(row.years_since_last_investment);
   }
 
+  if (column.key === "investment_status") {
+    return toPlainText(row.investment_status);
+  }
+
   const raw = readFieldValue(row, [...getFieldAliasesForColumn(column.key)]);
 
   if (LIST_JSON_COLUMN_KEYS.has(column.key)) {
@@ -309,8 +317,8 @@ async function fetchSelectedCompaniesForExport(
   const safeIds = normalizeSelectedCompanyIds(selectedIds);
   if (safeIds.length === 0) return [];
 
-  const apiColumns = getAllExportApiColumns();
   const exportFilters = buildSelectedCompaniesFilters(filters, safeIds);
+  const apiColumns = getAllExportApiColumns(exportFilters);
   const perPage = Math.min(Math.max(safeIds.length, 1), EXPORT_PER_PAGE);
   const result = await fetchCompaniesPage(
     exportFilters,
@@ -331,7 +339,7 @@ export async function fetchAllCompaniesForExport(
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
 
-  const apiColumns = getAllExportApiColumns();
+  const apiColumns = getAllExportApiColumns(filters);
   let page = 1;
   const allItems: Record<string, unknown>[] = [];
   const seenIds = new Set<number>();
@@ -393,7 +401,9 @@ export async function exportCompaniesList(
     config: {
       entitySheetName: "Companies",
       filePrefix: "Companies",
-      categories: COMPANIES_COLUMN_CATEGORIES,
+      categories: filters.portfolio_mode
+        ? PORTFOLIO_COLUMN_CATEGORIES
+        : COMPANIES_COLUMN_CATEGORIES,
       visibleColumnKeys,
       extraLeadingColumns: EXTRA_COMPANY_COLUMNS,
     },

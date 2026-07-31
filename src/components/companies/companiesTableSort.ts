@@ -58,6 +58,7 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   rev_per_employee: "number",
   financial_year: "number",
   has_mcp: "number",
+  investment_status: NOT_SORTABLE,
 };
 
 export function getColumnSortKind(columnKey: string): ColumnSortKind | null {

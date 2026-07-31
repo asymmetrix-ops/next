@@ -25,6 +25,7 @@ import {
   type InvestorMixRow,
 } from "@/components/investors/InvestorFocusMixCard";
 import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
+import { InvestorPortfolioTab } from "@/components/investors/InvestorPortfolioTab";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import { readEntityLogo } from "@/lib/companyLogo";
@@ -1427,7 +1428,7 @@ const InvestorDetailPage = () => {
         >
           {INVESTOR_PROFILE_TABS.map((tab) => {
             const active = tab === activeProfileTab;
-            const disabled = tab !== "Summary";
+            const disabled = tab !== "Summary" && tab !== "Portfolio";
             return (
               <button
                 key={tab}
@@ -1612,6 +1613,11 @@ const InvestorDetailPage = () => {
               />
             </div>
           </div>
+          ) : activeProfileTab === "Portfolio" ? (
+            <InvestorPortfolioTab
+              investorId={investorId}
+              investorName={Investor.name}
+            />
           ) : (
             <div
               style={{

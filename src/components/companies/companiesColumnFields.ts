@@ -72,6 +72,7 @@ export const COMPANY_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
   rev_per_employee: ["rev_per_employee", "Revenue_per_employee"],
   financial_year: ["financial_year", "Financial_Year"],
   has_mcp: ["has_mcp"],
+  investment_status: ["investment_status"],
 };
 
 /** Columns whose API values may arrive as JSON strings or arrays. */
