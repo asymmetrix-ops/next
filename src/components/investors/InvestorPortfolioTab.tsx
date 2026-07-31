@@ -27,12 +27,20 @@ import {
   EMPTY_OWNERSHIP_COUNTS,
   type CompaniesOwnershipCounts,
 } from "@/components/companies/companiesFilterConfig";
-import { enrichPortfolioListFilters } from "@/lib/investorPortfolioFilters";
+import {
+  enrichPortfolioListFilters,
+  getScopedPortfolioIds,
+  type InvestmentStatusFilter,
+} from "@/lib/investorPortfolioFilters";
 import { PortfolioHeadstatsRow } from "@/components/investors/PortfolioHeadstatsRow";
+import type { FilterBarState } from "@/components/companies/CompaniesFilterBar";
 import {
   PORTFOLIO_COLUMN_CATEGORIES,
   PORTFOLIO_DEFAULT_VISIBLE_COLUMN_KEYS,
+  PORTFOLIO_FILTER_CATEGORY,
+  PORTFOLIO_INVESTMENT_STATUS_FILTER_DEF,
   getPortfolioProdDefaultColumnKeys,
+  parseInvestmentStatusFromFilterBar,
 } from "@/components/investors/investorPortfolioColumns";
 
 export type InvestorPortfolioTabProps = {
@@ -40,7 +48,10 @@ export type InvestorPortfolioTabProps = {
   investorName: string;
 };
 
-function useInvestorPortfolioSearch(portfolioIds: InvestorPortfolioIdsResponse | null) {
+function useInvestorPortfolioSearch(
+  portfolioIds: InvestorPortfolioIdsResponse | null,
+  investmentStatusFilter: InvestmentStatusFilter
+) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,16 +86,17 @@ function useInvestorPortfolioSearch(portfolioIds: InvestorPortfolioIdsResponse |
   const enrichFilters = useCallback(
     (userFilters: Filters): Filters => {
       if (!portfolioIds) return userFilters;
+      const scopedIds = getScopedPortfolioIds(investmentStatusFilter, portfolioIds);
       return enrichPortfolioListFilters(
         {
           ...userFilters,
           columns: requestColumnsRef.current,
         },
-        portfolioIds.all_ids,
+        scopedIds,
         portfolioIds.current_ids
       );
     },
-    [portfolioIds]
+    [portfolioIds, investmentStatusFilter]
   );
 
   const scheduleCountsFetch = useCallback(
@@ -229,6 +241,8 @@ export function InvestorPortfolioTab({
     useState<InvestorPortfolioIdsResponse | null>(null);
   const [idsLoading, setIdsLoading] = useState(true);
   const [idsError, setIdsError] = useState<string | null>(null);
+  const [investmentStatusFilter, setInvestmentStatusFilter] =
+    useState<InvestmentStatusFilter>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -268,9 +282,23 @@ export function InvestorPortfolioTab({
     fetchCompanies,
     setRequestColumns,
     currentFilters,
-  } = useInvestorPortfolioSearch(portfolioIds);
+  } = useInvestorPortfolioSearch(portfolioIds, investmentStatusFilter);
 
   const initialFetchDoneRef = useRef(false);
+
+  const portfolioExtraFilterDefs = useMemo(
+    () => [PORTFOLIO_INVESTMENT_STATUS_FILTER_DEF],
+    []
+  );
+
+  const portfolioExtraFilterCategories = useMemo(
+    () => [PORTFOLIO_FILTER_CATEGORY],
+    []
+  );
+
+  const handleFilterBarStateChange = useCallback((state: FilterBarState) => {
+    setInvestmentStatusFilter(parseInvestmentStatusFromFilterBar(state.filters));
+  }, []);
 
   useEffect(() => {
     if (!portfolioIds || initialFetchDoneRef.current) return;
@@ -312,8 +340,12 @@ export function InvestorPortfolioTab({
   >(null);
   const [exporting, setExporting] = useState(false);
   const filtersKey = useMemo(
-    () => JSON.stringify(currentFilters ?? {}),
-    [currentFilters]
+    () =>
+      JSON.stringify({
+        filters: currentFilters ?? {},
+        investmentStatusFilter,
+      }),
+    [currentFilters, investmentStatusFilter]
   );
   const {
     selectedIds: selectedCompanyIds,
@@ -372,6 +404,9 @@ export function InvestorPortfolioTab({
           hidePageHeader
           embedded
           lockedScopeChips={lockedScopeChips}
+          extraFilterDefs={portfolioExtraFilterDefs}
+          extraFilterCategories={portfolioExtraFilterCategories}
+          onFilterBarStateChange={handleFilterBarStateChange}
         />
 
         <CompanySection

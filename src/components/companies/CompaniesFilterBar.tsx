@@ -736,7 +736,8 @@ function AddFilterPicker({
       (d) =>
         d.label.toLowerCase().includes(ql) ||
         d.fullLabel.toLowerCase().includes(ql) ||
-        d.category.toLowerCase().includes(ql)
+        d.category.toLowerCase().includes(ql) ||
+        (d.options ?? []).some((o) => String(o).toLowerCase().includes(ql))
     );
   }, [q, availableDefs]);
 

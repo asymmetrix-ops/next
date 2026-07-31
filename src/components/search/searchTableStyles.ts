@@ -419,7 +419,8 @@ export const SEARCH_TABLE_STYLES = `
       color: #0f172a;
       line-height: 1.4;
     }
-    .company-logo {
+    .company-section .company-logo,
+    .company-logo-cell .company-logo {
       width: 60px;
       height: 40px;
       max-width: 100%;
