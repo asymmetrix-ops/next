@@ -31,7 +31,7 @@ export default function EmailPreviewPage() {
       <div className="min-h-screen bg-[#0f0f0f] p-8 font-mono text-[#e8e8e8]">
         <p className="text-[#666]">No preview data. Create an email in the CRM and use Preview.</p>
         <Link
-          href="/contributor-crm/internal-crm"
+          href="/admin/internal-crm"
           className="mt-4 inline-block text-sm text-[#60a5fa] hover:underline"
         >
           Back to Internal CRM
@@ -78,7 +78,7 @@ export default function EmailPreviewPage() {
               Copy HTML
             </button>
             <Link
-              href="/contributor-crm/internal-crm"
+              href="/admin/internal-crm"
               className="rounded-md border border-[#333] px-3 py-1.5 text-xs text-[#e8e8e8] hover:bg-[#222]"
             >
               Back to Admin

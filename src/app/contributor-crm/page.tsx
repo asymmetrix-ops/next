@@ -71,7 +71,7 @@ function ContributorCrmPageInner() {
       return;
     }
     if (user && isAdminUser(user)) {
-      router.replace("/contributor-crm/internal-crm");
+      router.replace("/admin/internal-crm");
       return;
     }
     router.replace("/contributor-crm/home-user");

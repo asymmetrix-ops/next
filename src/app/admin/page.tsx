@@ -29,7 +29,7 @@ import {
 } from "@/lib/contributorCrm/api";
 import { locationsService } from "@/lib/locationsService";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { fetchCompaniesServer } from "@/app/companies/actions";
 
 type SourceIdList = number[];
@@ -96,6 +96,7 @@ interface ValuationReport {
 
 export default function AdminPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isAuthenticated, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<
     | "valuation"
@@ -204,16 +205,10 @@ Target company: {query} ({domain})`;
         <h1 className="text-2xl font-semibold">Admin</h1>
         <div className="flex gap-2">
           <Link
-            href="/admin/data-entry"
+            href="/admin/internal-crm"
             className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md"
           >
-            Companies Data Entry
-          </Link>
-          <Link
-            href="/admin/data-entry/ce"
-            className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md"
-          >
-            CE Data Entry
+            Internal CRM
           </Link>
         </div>
       </div>
@@ -289,6 +284,16 @@ Target company: {query} ({domain})`;
         >
           Company Analysis
         </button>
+        <Link
+          href="/admin/internal-crm"
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            pathname.startsWith("/admin/internal-crm")
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Internal CRM
+        </Link>
       </div>
 
       {activeTab === "valuation" && (

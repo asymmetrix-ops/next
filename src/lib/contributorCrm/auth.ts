@@ -121,7 +121,7 @@ export function buildCompanyAccessErrorPath(companyId?: number | null): string {
 }
 
 export function buildInternalCrmPath(): string {
-  return withBasePath("/internal-crm");
+  return "/admin/internal-crm";
 }
 
 export function buildTeamLoginPath(): string {
@@ -140,7 +140,7 @@ export function buildInternalReviewPath(
   if (options?.review) params.set("review", "1");
   if (options?.reviewType) params.set("reviewType", options.reviewType);
   if (options?.companyName?.trim()) params.set("companyName", options.companyName.trim());
-  return `${withBasePath("/internal-crm")}?${params.toString()}`;
+  return `${buildInternalCrmPath()}?${params.toString()}`;
 }
 
 /** Absolute URL to open internal CRM review for a submitted change request. */
@@ -169,18 +169,27 @@ export function isAdminUser(user: User | null | undefined): boolean {
 export async function syncAdminSessionFromMainApp(): Promise<boolean> {
   if (typeof window === "undefined") return false;
 
-  const existingToken = getStoredToken();
-  const existingUser = getStoredUser();
-  if (existingToken && existingUser && isAdminUser(existingUser)) {
-    return true;
-  }
-
   const { authService: mainAuthService } = await import("@/lib/auth");
   const { isAdminUser: isMainAdminUser } = await import("@/lib/userStatus");
   const mainToken = mainAuthService.getToken();
   const mainUser = mainAuthService.getUser();
   if (!mainToken || !mainUser || !isMainAdminUser(mainUser)) {
     return false;
+  }
+
+  const existingToken = getStoredToken();
+  const existingUser = getStoredUser();
+  if (
+    existingToken === mainToken &&
+    existingUser &&
+    isAdminUser(existingUser) &&
+    !isTokenExpired(existingToken)
+  ) {
+    return true;
+  }
+
+  if (existingToken && (existingToken !== mainToken || isTokenExpired(existingToken))) {
+    authService.clearUser();
   }
 
   try {

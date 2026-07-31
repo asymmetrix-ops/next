@@ -33,7 +33,7 @@ export default function HomeUserPage() {
     }
 
     if (isAdminUser(user)) {
-      router.replace("/contributor-crm/internal-crm");
+      router.replace("/admin/internal-crm");
     }
   }, [hasLoadedUser, router, user]);
 

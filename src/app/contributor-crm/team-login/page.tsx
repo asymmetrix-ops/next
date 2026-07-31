@@ -31,9 +31,15 @@ function TeamLoginPageInner() {
       const requestedRedirect = searchParams.get("redirect");
       const safeRedirect =
         requestedRedirect &&
-        requestedRedirect.startsWith("/contributor-crm/internal-crm")
-          ? requestedRedirect
-          : "/contributor-crm/internal-crm";
+        (requestedRedirect.startsWith("/admin/internal-crm") ||
+          requestedRedirect.startsWith("/contributor-crm/internal-crm"))
+          ? requestedRedirect.startsWith("/contributor-crm/internal-crm")
+            ? requestedRedirect.replace(
+                "/contributor-crm/internal-crm",
+                "/admin/internal-crm"
+              )
+            : requestedRedirect
+          : "/admin/internal-crm";
 
       const synced = await syncAdminSessionFromMainApp();
       if (cancelled) return;
@@ -65,13 +71,19 @@ function TeamLoginPageInner() {
       const requestedRedirect = searchParams.get("redirect");
       const safeRedirect =
         requestedRedirect &&
-        requestedRedirect.startsWith("/contributor-crm/internal-crm")
-          ? requestedRedirect
+        (requestedRedirect.startsWith("/admin/internal-crm") ||
+          requestedRedirect.startsWith("/contributor-crm/internal-crm"))
+          ? requestedRedirect.startsWith("/contributor-crm/internal-crm")
+            ? requestedRedirect.replace(
+                "/contributor-crm/internal-crm",
+                "/admin/internal-crm"
+              )
+            : requestedRedirect
           : null;
       trackLogin(userId);
       toast.success("Login successful!");
       router.replace(
-        isAdminUser(user) ? safeRedirect ?? "/contributor-crm/internal-crm" : "/contributor-crm/home-user"
+        isAdminUser(user) ? safeRedirect ?? "/admin/internal-crm" : "/contributor-crm/home-user"
       );
     } catch (err) {
       trackError(`Login failed: ${(err as Error)?.message || "unknown"}`);

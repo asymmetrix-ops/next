@@ -16,7 +16,7 @@ import {
   dispatchUnauthorized,
 } from "@/lib/authEvents";
 import { isMcpGuestSession } from "@/lib/mcpGuest";
-import { isContributorCrmPath } from "@/lib/userStatus";
+import { usesContributorCrmAuthContext } from "@/lib/userStatus";
 
 interface AuthUser {
   id: string;
@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useLayoutEffect(() => {
     const handleUnauthorized = () => {
-      if (isContributorCrmPath(window.location.pathname)) {
+      if (usesContributorCrmAuthContext(window.location.pathname)) {
         return;
       }
       authService.logout();
@@ -180,7 +180,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const isXano = url.includes(XANO_DOMAIN);
       const isAuthEndpoint = AUTH_PATH_EXCLUSIONS.some((p) => url.includes(p));
-      const onContributorCrm = isContributorCrmPath(window.location.pathname);
+      const onContributorCrm = usesContributorCrmAuthContext(
+        window.location.pathname
+      );
 
       if (
         isXano &&
@@ -222,7 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setShowLoginModal(false);
       setLoginVersion((v) => v + 1);
 
-      if (isContributorCrmPath(window.location.pathname)) {
+      if (usesContributorCrmAuthContext(window.location.pathname)) {
         const { syncAdminSessionFromMainApp } = await import(
           "@/lib/contributorCrm/auth"
         );

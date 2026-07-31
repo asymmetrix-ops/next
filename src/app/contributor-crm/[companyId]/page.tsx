@@ -13103,7 +13103,7 @@ const CompanyDetail = () => {
               {isAdminSession && (
                 <button
                   type="button"
-                  onClick={() => router.push("/contributor-crm/internal-crm")}
+                  onClick={() => router.push("/admin/internal-crm")}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",

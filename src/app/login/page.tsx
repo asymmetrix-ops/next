@@ -2,16 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
+import { Suspense } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
 import { CONTRIBUTOR_ACCESS_MESSAGE } from "@/lib/userStatus";
 import { trackError, trackLogin } from "@/lib/tracking";
 import Image from "next/image";
 
-export default function LoginPage() {
+function LoginPageInner() {
   const { login } = useAuth();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -29,7 +32,11 @@ export default function LoginPage() {
       const userId = Number(authService.getUser()?.id) || 0;
       trackLogin(userId);
       toast.success("Login successful!");
-      router.push("/home-user");
+      const safeRedirect =
+        redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")
+          ? redirectTo
+          : "/home-user";
+      router.push(safeRedirect);
     } catch (err) {
       trackError(`Login failed: ${(err as Error)?.message || "unknown"}`);
       const message = (err as Error)?.message;
@@ -213,5 +220,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F9FAFC]" />}>
+      <LoginPageInner />
+    </Suspense>
   );
 }
