@@ -15,6 +15,7 @@ import { dashboardApiService } from "@/lib/dashboardApi";
 import { trackEvent } from "@/lib/tracking";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import AsymIQButton from "@/components/AsymIQButton";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
@@ -1799,7 +1800,11 @@ export default function HomeUserPage() {
               </div>
             )}
           </div>
-          <div className="shrink-0 ml-auto">
+          <div className="flex shrink-0 items-center gap-2 ml-auto sm:gap-3">
+            <AsymIQButton
+              disabled={isTrialActive}
+              initialQuery={searchQuery}
+            />
             <NewFeatureCallout
               featureKey="dashboard-request-data-research"
               launchedAt="2026-05-26T00:00:00.000Z"
