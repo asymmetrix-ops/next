@@ -36,7 +36,7 @@ import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
-import { OverviewCard } from "@/components/redesign/OverviewCard";
+import { OverviewCard, type OverviewInvestor } from "@/components/redesign/OverviewCard";
 import { ProductAttributesCard } from "@/components/redesign/ProductAttributesCard";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
@@ -575,6 +575,7 @@ interface CompanyResponse {
   /** Headcount history at API root (get_company_profile) */
   employees_deduped?: EmployeeCount[];
   product_and_users?: ProductAndUsersEntry[];
+  Investors?: Array<{ items?: unknown }> | string;
   Managmant_Roles_current?: ManagementRoleRecord[];
   Managmant_Roles_past?: ManagementRoleRecord[];
   have_subsidiaries_companies?: {
@@ -987,6 +988,60 @@ function firstNonEmptyStructuredField(
     if (c != null) return c;
   }
   return undefined;
+}
+
+type ProfileInvestorsPayload = {
+  current?: Array<{ id?: number; name?: string }>;
+  past?: Array<{ id?: number; name?: string }>;
+};
+
+function parseInvestorsItemsPayload(items: unknown): CompanyInvestor[] {
+  let parsedItems = items;
+  if (typeof parsedItems === "string") {
+    try {
+      parsedItems = JSON.parse(parsedItems.replace(/\\u0022/g, '"'));
+    } catch {
+      return [];
+    }
+  }
+  if (!parsedItems || typeof parsedItems !== "object") return [];
+
+  const current = (parsedItems as ProfileInvestorsPayload).current;
+  if (!Array.isArray(current)) return [];
+
+  const seen = new Set<number>();
+  const investors: CompanyInvestor[] = [];
+  for (const inv of current) {
+    if (
+      inv &&
+      typeof inv.id === "number" &&
+      typeof inv.name === "string" &&
+      inv.name.trim() &&
+      !seen.has(inv.id)
+    ) {
+      seen.add(inv.id);
+      investors.push({ id: inv.id, name: inv.name.trim() });
+    }
+  }
+  return investors;
+}
+
+/** Parse root/Company `Investors` field: [{ items: { current: [...], past: [...] } }] */
+function parseProfileInvestorsFromInvestorsField(value: unknown): CompanyInvestor[] {
+  const rows = parseStructuredArray<{ items?: unknown }>(value);
+  const seen = new Set<number>();
+  const investors: CompanyInvestor[] = [];
+
+  for (const row of rows) {
+    for (const inv of parseInvestorsItemsPayload(row?.items)) {
+      if (!seen.has(inv.id)) {
+        seen.add(inv.id);
+        investors.push(inv);
+      }
+    }
+  }
+
+  return investors;
 }
 
 /** Parse "12%" / "12" / numeric cell into 0–100 for mix progress bars */
@@ -1853,19 +1908,29 @@ const CompanyDetail = () => {
 
         const mcpStatus = readCompanyMcpStatus(data.Company, data);
 
-        // Use actual investor data from API
+        const profileInvestorsFromField = parseProfileInvestorsFromInvestorsField(
+          firstNonEmptyStructuredField(
+            data.Investors,
+            (data.Company as unknown as { Investors?: unknown }).Investors
+          )
+        );
+        const profileInvestorsFromNewCompany = Array.isArray(
+          (data.Company as unknown as { investors_new_company?: unknown })
+            .investors_new_company
+        )
+          ? ((
+              data.Company as unknown as {
+                investors_new_company: CompanyInvestor[];
+              }
+            ).investors_new_company as CompanyInvestor[])
+          : [];
+
         const enrichedCompany = {
           ...data.Company,
-          investors: Array.isArray(
-            (data.Company as unknown as { investors_new_company?: unknown })
-              .investors_new_company
-          )
-            ? ((
-                data.Company as unknown as {
-                  investors_new_company: CompanyInvestor[];
-                }
-              ).investors_new_company as CompanyInvestor[])
-            : [],
+          investors:
+            profileInvestorsFromField.length > 0
+              ? profileInvestorsFromField
+              : profileInvestorsFromNewCompany,
           // Add the actual API fields - THESE ARE AT ROOT LEVEL, NOT IN data.Company!
           Managmant_Roles_current: data.Managmant_Roles_current || [],
           Managmant_Roles_past: data.Managmant_Roles_past || [],
@@ -2760,6 +2825,39 @@ const CompanyDetail = () => {
         company.have_parent_company.Parant_companies[0]?.primary_business_focus_id
       ).includes(FINANCIAL_SERVICES_FOCUS_ID)
   );
+
+  const displayInvestors: OverviewInvestor[] = (() => {
+    const fromProfile = (company.investors ?? []).filter(
+      (inv): inv is CompanyInvestor =>
+        Boolean(
+          inv &&
+            typeof inv.id === "number" &&
+            typeof inv.name === "string" &&
+            inv.name.trim()
+        )
+    );
+    if (fromProfile.length > 0) {
+      return fromProfile.map((inv) => ({ id: inv.id, name: inv.name.trim() }));
+    }
+
+    return apiInvestors
+      .filter(
+        (inv) =>
+          inv &&
+          typeof inv.investor_id === "number" &&
+          typeof inv.investor_name === "string" &&
+          inv.investor_name.trim()
+      )
+      .map((inv) => ({
+        id: inv.investor_id,
+        name: inv.investor_name.trim(),
+      }));
+  })();
+
+  const investorsLoading =
+    !haveParentCompany &&
+    displayInvestors.length === 0 &&
+    apiInvestorsLoading;
 
   // Determine if there is management data to display
   const hasCurrentManagement = Boolean(
@@ -3981,19 +4079,8 @@ const CompanyDetail = () => {
                       }
                     : null
                 }
-                investors={
-                  !haveParentCompany && apiInvestors.length > 0
-                    ? apiInvestors
-                        .filter(
-                          (inv) =>
-                            inv &&
-                            typeof inv.investor_id === "number" &&
-                            inv.investor_name
-                        )
-                        .map((inv) => ({ id: inv.investor_id!, name: inv.investor_name! }))
-                    : []
-                }
-                investorsLoading={!haveParentCompany && apiInvestorsLoading}
+                investors={!haveParentCompany ? displayInvestors : []}
+                investorsLoading={investorsLoading}
                 lastInvestment={
                   !haveParentCompany
                     ? timeSinceLastInvestmentLoading
@@ -4318,32 +4405,24 @@ const CompanyDetail = () => {
                     </span>
                     <div style={styles.value} className="info-value">
                       {(() => {
-                        if (apiInvestorsLoading) {
+                        if (investorsLoading) {
                           return "Loading...";
                         }
-                        if (apiInvestors.length > 0) {
-                          const validApiInvestors = apiInvestors.filter(
-                            (investor) =>
-                              investor &&
-                              typeof investor.investor_id === "number" &&
-                              investor.investor_name
+                        if (displayInvestors.length > 0) {
+                          return (
+                            <div style={styles.tagContainer}>
+                              {displayInvestors.map((investor) => (
+                                <Link
+                                  key={`profile-investor-${investor.id}`}
+                                  href={`/investors/${investor.id}`}
+                                  style={styles.companyTag}
+                                  prefetch={false}
+                                >
+                                  {investor.name}
+                                </Link>
+                              ))}
+                            </div>
                           );
-                          if (validApiInvestors.length > 0) {
-                            return (
-                              <div style={styles.tagContainer}>
-                                {validApiInvestors.map((investor) => (
-                                  <Link
-                                    key={`api-investor-${investor.investor_id}`}
-                                    href={`/investors/${investor.investor_id}`}
-                                    style={styles.companyTag}
-                                    prefetch={false}
-                                  >
-                                    {investor.investor_name}
-                                  </Link>
-                                ))}
-                              </div>
-                            );
-                          }
                         }
                         return EMPTY_DISPLAY;
                       })()}
