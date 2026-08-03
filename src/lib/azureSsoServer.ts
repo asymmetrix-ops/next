@@ -34,7 +34,9 @@ export function getAzureSsoConfigStatus(): {
   ] as const;
 
   const missing = required.filter((key) => !process.env[key]?.trim());
-  const present = required.filter((key) => Boolean(process.env[key]?.trim()));
+  const present: string[] = required.filter((key) =>
+    Boolean(process.env[key]?.trim())
+  );
 
   if (process.env.AZURE_AD_REDIRECT_URI?.trim()) {
     present.push("AZURE_AD_REDIRECT_URI");
