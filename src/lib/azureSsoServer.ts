@@ -31,11 +31,14 @@ export function getAzureSsoConfigStatus(): {
     "AZURE_AD_CLIENT_ID",
     "AZURE_AD_CLIENT_SECRET",
     "AZURE_AD_TENANT_ID",
-    "AZURE_AD_REDIRECT_URI",
   ] as const;
 
   const missing = required.filter((key) => !process.env[key]?.trim());
   const present = required.filter((key) => Boolean(process.env[key]?.trim()));
+
+  if (process.env.AZURE_AD_REDIRECT_URI?.trim()) {
+    present.push("AZURE_AD_REDIRECT_URI");
+  }
 
   return {
     configured: missing.length === 0,
@@ -44,12 +47,17 @@ export function getAzureSsoConfigStatus(): {
   };
 }
 
-export function getAzureRedirectUri(): string {
-  const configured = process.env.AZURE_AD_REDIRECT_URI?.trim();
-  if (!configured) {
-    throw new Error("AZURE_AD_REDIRECT_URI is not configured");
+export function getAzureRedirectUri(requestUrl?: string): string {
+  if (requestUrl) {
+    return `${new URL(requestUrl).origin}/api/auth/callback/azure-ad`;
   }
-  return configured;
+
+  const configured = process.env.AZURE_AD_REDIRECT_URI?.trim();
+  if (configured) {
+    return configured;
+  }
+
+  throw new Error("AZURE_AD_REDIRECT_URI is not configured");
 }
 
 export function getAzureSsoCallbackUrl(): string {
@@ -68,7 +76,7 @@ export function isProduction(): boolean {
   return process.env.NODE_ENV === "production";
 }
 
-export function buildAzureAuthorizeUrl(state: string): string {
+export function buildAzureAuthorizeUrl(state: string, requestUrl?: string): string {
   const status = getAzureSsoConfigStatus();
   if (!status.configured) {
     throw new Error(
@@ -78,6 +86,7 @@ export function buildAzureAuthorizeUrl(state: string): string {
 
   const tenantId = process.env.AZURE_AD_TENANT_ID!.trim();
   const clientId = process.env.AZURE_AD_CLIENT_ID!.trim();
+  const redirectUri = getAzureRedirectUri(requestUrl);
 
   const authorizeUrl = new URL(
     `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`
@@ -85,7 +94,7 @@ export function buildAzureAuthorizeUrl(state: string): string {
 
   authorizeUrl.searchParams.set("client_id", clientId);
   authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("redirect_uri", getAzureRedirectUri());
+  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("response_mode", "query");
   authorizeUrl.searchParams.set("scope", AZURE_SCOPES);
   authorizeUrl.searchParams.set("state", state);
@@ -94,11 +103,13 @@ export function buildAzureAuthorizeUrl(state: string): string {
 }
 
 export async function exchangeAzureAuthorizationCode(
-  code: string
+  code: string,
+  requestUrl?: string
 ): Promise<AzureTokenResponse> {
   const tenantId = process.env.AZURE_AD_TENANT_ID?.trim();
   const clientId = process.env.AZURE_AD_CLIENT_ID?.trim();
   const clientSecret = process.env.AZURE_AD_CLIENT_SECRET?.trim();
+  const redirectUri = getAzureRedirectUri(requestUrl);
 
   if (!tenantId || !clientId || !clientSecret) {
     throw new Error("Azure SSO is not configured");
@@ -113,7 +124,7 @@ export async function exchangeAzureAuthorizationCode(
         client_id: clientId,
         client_secret: clientSecret,
         code,
-        redirect_uri: getAzureRedirectUri(),
+        redirect_uri: redirectUri,
         grant_type: "authorization_code",
       }),
       cache: "no-store",

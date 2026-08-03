@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const tokens = await exchangeAzureAuthorizationCode(code);
+    const tokens = await exchangeAzureAuthorizationCode(code, req.url);
     const accessToken = tokens.access_token?.trim();
 
     if (!accessToken) {
