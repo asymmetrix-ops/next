@@ -10,7 +10,7 @@ import {
 export async function GET(req: NextRequest) {
   try {
     const state = crypto.randomBytes(16).toString("hex");
-    const authorizeUrl = buildAzureAuthorizeUrl(state);
+    const authorizeUrl = buildAzureAuthorizeUrl(state, req.url);
 
     const response = NextResponse.redirect(authorizeUrl);
     response.cookies.set(AZURE_OAUTH_STATE_COOKIE, state, {
