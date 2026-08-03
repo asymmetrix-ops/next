@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   AZURE_OAUTH_STATE_COOKIE,
   buildAzureAuthorizeUrl,
+  getAzureSsoConfigStatus,
   isProduction,
 } from "@/lib/azureSsoServer";
 
@@ -24,7 +25,11 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error("Azure SSO start failed:", error);
     const url = new URL("/login", req.url);
-    url.searchParams.set("error", "azure_config");
+    const status = getAzureSsoConfigStatus();
+    url.searchParams.set(
+      "error",
+      status.missing.length > 0 ? `azure_config:${status.missing.join(",")}` : "azure_config"
+    );
     return NextResponse.redirect(url);
   }
 }
