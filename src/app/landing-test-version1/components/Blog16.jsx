@@ -9,12 +9,13 @@ import {
 } from "@relume_io/relume-ui";
 import React from "react";
 import { RxChevronRight } from "react-icons/rx";
+import { Reveal } from "./Reveal";
 
 export function Blog16() {
   return (
     <section id="relume" className="landing-navy-bg px-[5%] py-16 md:py-24 lg:py-28">
       <div className="container">
-        <div className="mb-12 md:mb-18 lg:mb-20">
+        <Reveal className="mb-12 md:mb-18 lg:mb-20">
           <div className="mx-auto flex w-full max-w-lg flex-col items-center text-center text-text-alternative">
             <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold md:mb-4">
               Substack
@@ -24,7 +25,7 @@ export function Blog16() {
             </h1>
             <p className="landing-text-secondary md:text-md">Our substack is updated weekly</p>
           </div>
-        </div>
+        </Reveal>
         <Tabs defaultValue="view-all" className="flex flex-col justify-center">
           <TabsList className="no-scrollbar mb-12 ml-[-5vw] flex w-screen items-center justify-start overflow-scroll pl-[5vw] md:mb-16 md:ml-0 md:w-full md:justify-center md:overflow-hidden md:pl-0">
             <TabsTrigger
@@ -94,10 +95,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -131,10 +132,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -170,10 +171,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -207,10 +208,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -254,10 +255,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -291,10 +292,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -330,10 +331,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -367,10 +368,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -414,10 +415,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -451,10 +452,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -490,10 +491,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -527,10 +528,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -574,10 +575,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -611,10 +612,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -650,10 +651,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -687,10 +688,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -734,10 +735,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -771,10 +772,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -810,10 +811,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>
@@ -847,10 +848,10 @@ export function Blog16() {
                   </p>
                   <Button
                     title="Read"
-                    variant="link"
-                    size="link"
+                    variant="secondary"
+                    size="sm"
                     iconRight={<RxChevronRight />}
-                    className="mt-6 flex items-center justify-center gap-x-2 text-text-alternative hover:text-background-alternative"
+                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
                   >
                     Read
                   </Button>

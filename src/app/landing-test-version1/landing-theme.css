@@ -1,3 +1,19 @@
+/* Only scoped to this route via the layout's import, so a plain html
+   selector here is safe - it won't leak into the rest of the app. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing-rebrand) {
+    scroll-behavior: smooth;
+  }
+}
+
+/* The browser's default text-selection highlight is a pale blue/gray box
+   that reads as a "white background" glitch against this dark theme.
+   Give it an on-brand tint instead so selecting text never looks broken. */
+.landing-rebrand ::selection {
+  background-color: rgba(124, 140, 248, 0.4);
+  color: #ffffff;
+}
+
 .landing-rebrand {
   --asymmetrix-blue: hsl(228, 85%, 63%);
   --asymmetrix-blue-dark: hsl(228, 85%, 55%);
