@@ -1,40 +1,30 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
+  AZURE_OAUTH_STATE_COOKIE,
   buildAzureAuthorizeUrl,
-  createSsoState,
-  getAzureSsoConfig,
-  setAzureSsoCookies,
+  isProduction,
 } from "@/lib/azureSsoServer";
 
-function redirectToLogin(message: string): NextResponse {
-  const url = new URL("/login", requestOrigin());
-  url.searchParams.set("sso_error", message);
-  return NextResponse.redirect(url);
-}
+export async function GET(req: NextRequest) {
+  try {
+    const state = crypto.randomBytes(16).toString("hex");
+    const authorizeUrl = buildAzureAuthorizeUrl(state);
 
-function requestOrigin(): string {
-  const configured =
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    process.env.APP_URL?.trim() ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+    const response = NextResponse.redirect(authorizeUrl);
+    response.cookies.set(AZURE_OAUTH_STATE_COOKIE, state, {
+      httpOnly: true,
+      secure: isProduction(),
+      sameSite: "lax",
+      maxAge: 300,
+      path: "/",
+    });
 
-  return configured.replace(/\/$/, "") || "http://localhost:3001";
-}
-
-export async function GET(request: NextRequest) {
-  if (!getAzureSsoConfig()) {
-    return redirectToLogin("Azure SSO is not configured");
+    return response;
+  } catch (error) {
+    console.error("Azure SSO start failed:", error);
+    const url = new URL("/login", req.url);
+    url.searchParams.set("error", "azure_config");
+    return NextResponse.redirect(url);
   }
-
-  const nextParam = request.nextUrl.searchParams.get("next")?.trim();
-  const nextPath =
-    nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
-      ? nextParam
-      : "/home-user";
-
-  const state = createSsoState();
-  setAzureSsoCookies(state, nextPath);
-
-  const authorizeUrl = buildAzureAuthorizeUrl(state);
-  return NextResponse.redirect(authorizeUrl);
 }
