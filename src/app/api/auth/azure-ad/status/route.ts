@@ -1,21 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import {
   DEFAULT_XANO_AZURE_SSO_CALLBACK_URL,
-  getAzureRedirectUri,
   getAzureSsoCallbackUrl,
   getAzureSsoConfigStatus,
 } from "@/lib/azureSsoServer";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const status = getAzureSsoConfigStatus();
-  const effectiveRedirectUri = getAzureRedirectUri(req.url);
 
   return NextResponse.json({
     configured: status.configured,
     missing: status.missing,
     present: status.present,
-    redirectUriFromEnv: process.env.AZURE_AD_REDIRECT_URI?.trim() || null,
-    effectiveRedirectUri,
+    redirectUri: process.env.AZURE_AD_REDIRECT_URI?.trim() || null,
     xanoCallbackUrl: getAzureSsoCallbackUrl(),
     defaultXanoCallbackUrl: DEFAULT_XANO_AZURE_SSO_CALLBACK_URL,
     nodeEnv: process.env.NODE_ENV,

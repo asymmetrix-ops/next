@@ -25,7 +25,13 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     const error = params.get("error") || params.get("sso_error");
     if (error) {
-      setSsoError(AZURE_SSO_ERROR_MESSAGES[error] || error);
+      const [code, missingVars] = error.split(":");
+      const baseMessage = AZURE_SSO_ERROR_MESSAGES[code] || error;
+      setSsoError(
+        missingVars
+          ? `${baseMessage} Missing env vars: ${missingVars.replace(/,/g, ", ")}.`
+          : baseMessage
+      );
       params.delete("error");
       params.delete("sso_error");
       const nextQuery = params.toString();

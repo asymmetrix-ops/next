@@ -22,6 +22,28 @@ type AzureProfile = {
   userPrincipalName?: string;
 };
 
+export function getAzureSsoConfigStatus(): {
+  configured: boolean;
+  missing: string[];
+  present: string[];
+} {
+  const required = [
+    "AZURE_AD_CLIENT_ID",
+    "AZURE_AD_CLIENT_SECRET",
+    "AZURE_AD_TENANT_ID",
+    "AZURE_AD_REDIRECT_URI",
+  ] as const;
+
+  const missing = required.filter((key) => !process.env[key]?.trim());
+  const present = required.filter((key) => Boolean(process.env[key]?.trim()));
+
+  return {
+    configured: missing.length === 0,
+    missing: [...missing],
+    present: [...present],
+  };
+}
+
 export function getAzureRedirectUri(): string {
   const configured = process.env.AZURE_AD_REDIRECT_URI?.trim();
   if (!configured) {
@@ -47,12 +69,15 @@ export function isProduction(): boolean {
 }
 
 export function buildAzureAuthorizeUrl(state: string): string {
-  const tenantId = process.env.AZURE_AD_TENANT_ID?.trim();
-  const clientId = process.env.AZURE_AD_CLIENT_ID?.trim();
-
-  if (!tenantId || !clientId) {
-    throw new Error("Azure SSO is not configured");
+  const status = getAzureSsoConfigStatus();
+  if (!status.configured) {
+    throw new Error(
+      `Azure SSO is not configured. Missing: ${status.missing.join(", ")}`
+    );
   }
+
+  const tenantId = process.env.AZURE_AD_TENANT_ID!.trim();
+  const clientId = process.env.AZURE_AD_CLIENT_ID!.trim();
 
   const authorizeUrl = new URL(
     `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`
