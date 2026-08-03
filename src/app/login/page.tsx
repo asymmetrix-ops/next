@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
+import { AZURE_SSO_ERROR_MESSAGES } from "@/lib/azureSsoServer";
 import { trackError, trackLogin } from "@/lib/tracking";
 import Image from "next/image";
 
@@ -22,9 +23,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const error = params.get("sso_error");
+    const error = params.get("error") || params.get("sso_error");
     if (error) {
-      setSsoError(error);
+      setSsoError(AZURE_SSO_ERROR_MESSAGES[error] || error);
+      params.delete("error");
       params.delete("sso_error");
       const nextQuery = params.toString();
       const nextUrl = nextQuery

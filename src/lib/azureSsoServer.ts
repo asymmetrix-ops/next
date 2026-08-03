@@ -1,27 +1,16 @@
-import { cookies } from "next/headers";
 import { extractAuthToken } from "@/lib/mcpGuestAuthServer";
 
 export const AUTH_TOKEN_COOKIE = "asymmetrix_auth_token";
-export const AZURE_SSO_STATE_COOKIE = "azure_sso_state";
-export const AZURE_SSO_NEXT_COOKIE = "azure_sso_next";
+export const AZURE_OAUTH_STATE_COOKIE = "azure_oauth_state";
 
-const AZURE_SCOPES = ["openid", "profile", "email", "User.Read", "offline_access"];
+export const AZURE_SCOPES = "openid profile email User.Read";
 
-type AzureSsoConfig = {
-  clientId: string;
-  clientSecret: string;
-  tenantId: string;
-  redirectUri: string;
-  xanoCallbackUrl: string;
-};
+export const DEFAULT_XANO_AZURE_SSO_CALLBACK_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/azure/callback";
 
 type AzureTokenResponse = {
   access_token?: string;
   id_token?: string;
-  token_type?: string;
-  expires_in?: number;
-  scope?: string;
-  refresh_token?: string;
   error?: string;
   error_description?: string;
 };
@@ -29,110 +18,87 @@ type AzureTokenResponse = {
 type AzureProfile = {
   id?: string;
   displayName?: string;
-  givenName?: string;
-  surname?: string;
   mail?: string;
   userPrincipalName?: string;
 };
 
-export function getAppBaseUrl(): string {
-  const configured =
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    process.env.APP_URL?.trim() ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-
-  if (configured) return configured.replace(/\/$/, "");
-  return "http://localhost:3001";
-}
-
 export function getAzureRedirectUri(): string {
   const configured = process.env.AZURE_AD_REDIRECT_URI?.trim();
-  if (configured) return configured;
-  return `${getAppBaseUrl()}/api/auth/callback/azure-ad`;
+  if (!configured) {
+    throw new Error("AZURE_AD_REDIRECT_URI is not configured");
+  }
+  return configured;
 }
 
-export function getAzureSsoConfig(): AzureSsoConfig | null {
-  const clientId = process.env.AZURE_AD_CLIENT_ID?.trim();
-  const clientSecret = process.env.AZURE_AD_CLIENT_SECRET?.trim();
-  const tenantId = process.env.AZURE_AD_TENANT_ID?.trim() || "common";
+export function getAzureSsoCallbackUrl(): string {
+  const configured = process.env.XANO_AZURE_SSO_CALLBACK_URL?.trim();
+  if (configured) return configured;
 
-  if (!clientId || !clientSecret) return null;
+  const xanoBaseUrl = process.env.XANO_BASE_URL?.trim();
+  if (xanoBaseUrl) {
+    return `${xanoBaseUrl.replace(/\/$/, "")}/auth/azure/callback`;
+  }
 
-  const apiUrl =
-    process.env.NEXT_PUBLIC_XANO_API_URL ||
-    "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+  return DEFAULT_XANO_AZURE_SSO_CALLBACK_URL;
+}
 
-  const xanoCallbackUrl =
-    process.env.XANO_AZURE_SSO_CALLBACK_URL?.trim() ||
-    `${apiUrl.replace(/\/$/, "")}/auth/azure/callback`;
-
-  return {
-    clientId,
-    clientSecret,
-    tenantId,
-    redirectUri: getAzureRedirectUri(),
-    xanoCallbackUrl,
-  };
+export function isProduction(): boolean {
+  return process.env.NODE_ENV === "production";
 }
 
 export function buildAzureAuthorizeUrl(state: string): string {
-  const config = getAzureSsoConfig();
-  if (!config) {
+  const tenantId = process.env.AZURE_AD_TENANT_ID?.trim();
+  const clientId = process.env.AZURE_AD_CLIENT_ID?.trim();
+
+  if (!tenantId || !clientId) {
     throw new Error("Azure SSO is not configured");
   }
 
-  const params = new URLSearchParams({
-    client_id: config.clientId,
-    response_type: "code",
-    redirect_uri: config.redirectUri,
-    response_mode: "query",
-    scope: AZURE_SCOPES.join(" "),
-    state,
-  });
+  const authorizeUrl = new URL(
+    `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`
+  );
 
-  return `https://login.microsoftonline.com/${encodeURIComponent(
-    config.tenantId
-  )}/oauth2/v2.0/authorize?${params.toString()}`;
+  authorizeUrl.searchParams.set("client_id", clientId);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("redirect_uri", getAzureRedirectUri());
+  authorizeUrl.searchParams.set("response_mode", "query");
+  authorizeUrl.searchParams.set("scope", AZURE_SCOPES);
+  authorizeUrl.searchParams.set("state", state);
+
+  return authorizeUrl.toString();
 }
 
 export async function exchangeAzureAuthorizationCode(
   code: string
 ): Promise<AzureTokenResponse> {
-  const config = getAzureSsoConfig();
-  if (!config) {
+  const tenantId = process.env.AZURE_AD_TENANT_ID?.trim();
+  const clientId = process.env.AZURE_AD_CLIENT_ID?.trim();
+  const clientSecret = process.env.AZURE_AD_CLIENT_SECRET?.trim();
+
+  if (!tenantId || !clientId || !clientSecret) {
     throw new Error("Azure SSO is not configured");
   }
 
-  const body = new URLSearchParams({
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
-    grant_type: "authorization_code",
-    code,
-    redirect_uri: config.redirectUri,
-    scope: AZURE_SCOPES.join(" "),
-  });
-
   const response = await fetch(
-    `https://login.microsoftonline.com/${encodeURIComponent(
-      config.tenantId
-    )}/oauth2/v2.0/token`,
+    `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: getAzureRedirectUri(),
+        grant_type: "authorization_code",
+      }),
       cache: "no-store",
     }
   );
 
   const data = (await response.json().catch(() => null)) as AzureTokenResponse | null;
   if (!response.ok || !data) {
-    const message =
-      data?.error_description ||
-      data?.error ||
-      `Azure token exchange failed (${response.status})`;
-    throw new Error(message);
+    console.error("Azure token exchange failed:", data);
+    throw new Error("token_exchange");
   }
 
   return data;
@@ -142,131 +108,75 @@ export async function fetchAzureProfile(
   accessToken: string
 ): Promise<AzureProfile> {
   const response = await fetch("https://graph.microsoft.com/v1.0/me", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-    },
+    headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
 
-  const data = (await response.json().catch(() => null)) as AzureProfile | null;
-  if (!response.ok || !data) {
-    throw new Error("Unable to load Microsoft profile");
+  if (!response.ok) {
+    throw new Error("graph_profile");
   }
 
-  return data;
+  return response.json();
 }
 
-export async function exchangeAzureSsoWithXano(input: {
-  code: string;
-  accessToken?: string;
-  idToken?: string;
-  profile?: AzureProfile;
-}): Promise<{ token: string; user: Record<string, unknown> | null }> {
-  const config = getAzureSsoConfig();
-  if (!config) {
-    throw new Error("Azure SSO is not configured");
+export function decodeAzureTenantIdFromIdToken(
+  idToken?: string
+): string | null {
+  if (!idToken) return null;
+
+  try {
+    const payload = idToken.split(".")[1];
+    if (!payload) return null;
+
+    const decoded = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8")
+    ) as { tid?: string };
+
+    return decoded.tid ?? null;
+  } catch {
+    return null;
   }
+}
 
-  const profile = input.profile;
-  const email =
-    profile?.mail?.trim().toLowerCase() ||
-    profile?.userPrincipalName?.trim().toLowerCase() ||
-    "";
-
-  const response = await fetch(config.xanoCallbackUrl, {
+export async function syncAzureSsoWithXano(input: {
+  email: string;
+  name?: string;
+  azureOid?: string;
+  azureTenantId?: string | null;
+}): Promise<string> {
+  const response = await fetch(getAzureSsoCallbackUrl(), {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      code: input.code,
-      redirect_uri: config.redirectUri,
-      access_token: input.accessToken,
-      id_token: input.idToken,
-      email,
-      name:
-        profile?.displayName?.trim() ||
-        [profile?.givenName, profile?.surname].filter(Boolean).join(" ").trim(),
-      microsoft_id: profile?.id,
+      email: input.email || "",
+      name: input.name || "",
+      azure_oid: input.azureOid || "",
+      azure_tenant_id: input.azureTenantId || "",
     }),
     cache: "no-store",
   });
 
-  const data = await response.json().catch(() => null);
   if (!response.ok) {
-    const message =
-      data &&
-      typeof data === "object" &&
-      "message" in data &&
-      typeof (data as { message?: unknown }).message === "string"
-        ? (data as { message: string }).message
-        : "Azure SSO login failed";
-    throw new Error(message);
+    const errText = await response.text().catch(() => "");
+    console.error("Xano SSO sync failed:", errText);
+    throw new Error("sso_sync");
   }
 
-  const token = extractAuthToken(data);
-  if (!token) {
-    throw new Error("Azure SSO login did not return an auth token");
+  const data = await response.json().catch(() => null);
+  const authToken = extractAuthToken(data);
+
+  if (!authToken) {
+    throw new Error("sso_sync");
   }
 
-  const user =
-    data && typeof data === "object" && "user" in data
-      ? ((data as { user?: unknown }).user as Record<string, unknown> | null)
-      : null;
-
-  return { token, user };
+  return authToken;
 }
 
-export function createSsoState(): string {
-  return crypto.randomUUID();
-}
-
-export function setAzureSsoCookies(state: string, nextPath?: string): void {
-  const cookieStore = cookies();
-  const secure = process.env.NODE_ENV === "production";
-
-  cookieStore.set(AZURE_SSO_STATE_COOKIE, state, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure,
-    path: "/",
-    maxAge: 10 * 60,
-  });
-
-  if (nextPath) {
-    cookieStore.set(AZURE_SSO_NEXT_COOKIE, nextPath, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure,
-      path: "/",
-      maxAge: 10 * 60,
-    });
-  }
-}
-
-export function readAzureSsoState(): string | null {
-  return cookies().get(AZURE_SSO_STATE_COOKIE)?.value ?? null;
-}
-
-export function readAzureSsoNextPath(): string {
-  const nextPath = cookies().get(AZURE_SSO_NEXT_COOKIE)?.value;
-  if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) {
-    return "/home-user";
-  }
-  return nextPath;
-}
-
-export function clearAzureSsoCookies(): void {
-  const cookieStore = cookies();
-  cookieStore.delete(AZURE_SSO_STATE_COOKIE);
-  cookieStore.delete(AZURE_SSO_NEXT_COOKIE);
-}
-
-export function buildAuthCookieHeader(token: string): string {
-  const maxAge = 7 * 24 * 60 * 60;
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `${AUTH_TOKEN_COOKIE}=${token}; Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
-}
+export const AZURE_SSO_ERROR_MESSAGES: Record<string, string> = {
+  azure_config: "Microsoft sign-in is not configured.",
+  azure_denied: "Microsoft sign-in was cancelled or denied.",
+  state_mismatch: "Sign-in session expired. Please try again.",
+  token_exchange: "Microsoft sign-in failed during token exchange.",
+  graph_profile: "Unable to load your Microsoft profile.",
+  sso_sync: "Unable to complete sign-in with Asymmetrix.",
+};

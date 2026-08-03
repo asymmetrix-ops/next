@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+  import { useSearchParams } from "next/navigation";
 import { authService } from "@/lib/auth";
 import { trackError, trackLogin } from "@/lib/tracking";
 
@@ -29,7 +29,7 @@ function SsoCompleteContent() {
       } catch (err) {
         trackError(`Azure SSO completion failed: ${(err as Error)?.message || "unknown"}`);
         if (!cancelled) {
-          window.location.replace("/login?sso_error=Azure%20SSO%20sign-in%20failed");
+          window.location.replace("/login?error=sso_sync");
         }
       }
     };
