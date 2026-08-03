@@ -2,6 +2,7 @@
 
 import React from "react";
 import { LinkPanel, LinkedH, KV, T } from "@/components/redesign/primitives";
+import { LinkedInProfileButton } from "@/components/redesign/LinkedInProfileButton";
 import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 
 export type IndividualOverviewCardProps = {
@@ -32,14 +33,7 @@ export function IndividualOverviewCard({
     {
       k: "LinkedIn",
       v: linkedinUrl?.trim() ? (
-        <a
-          href={linkedinUrl.trim()}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: T.azure, textDecoration: "none" }}
-        >
-          LinkedIn
-        </a>
+        <LinkedInProfileButton href={linkedinUrl.trim()} />
       ) : (
         faintDash()
       ),

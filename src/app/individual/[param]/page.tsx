@@ -7,12 +7,14 @@ import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
 import { PlusIcon, BellIcon } from "@heroicons/react/24/outline";
 import { useIndividualProfile } from "../../../hooks/useIndividualProfile";
-import { formatIndividualLocation } from "../../../utils/individualHelpers";
+import {
+  formatIndividualLocation,
+  getIndividualLinkedInUrl,
+} from "../../../utils/individualHelpers";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
-import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import { IndividualOverviewCard } from "@/components/individuals/IndividualOverviewCard";
 import { IndividualRolesProfilePanel } from "@/components/individuals/IndividualRolesProfilePanel";
 import { IndividualRelatedProfilePanel } from "@/components/individuals/IndividualRelatedProfilePanel";
@@ -210,7 +212,7 @@ export default function IndividualProfilePage() {
   const { Individual, Roles } = profileData;
   const location = formatIndividualLocation(Individual._locations);
   const relatedIndividuals = eventsData?.all_related_individuals || [];
-  const linkedinUrl = normalizeLinkedInProfileUrl(Individual.linkedin_URL);
+  const linkedinUrl = getIndividualLinkedInUrl(Individual);
 
   const rolesGridRow = 2;
   const eventsGridRow = 2;
