@@ -1,9 +1,10 @@
 "use client";
 
 import { Button } from "@relume_io/relume-ui";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import React, { useState } from "react";
 import { DashboardMockup } from "./DashboardMockup";
+import { Reveal } from "./Reveal";
 
 const buttonClassName = "landing-btn-secondary h-12 rounded-full px-8";
 
@@ -57,16 +58,16 @@ export function Layout485() {
         aria-hidden="true"
       />
       <div className="container relative z-10">
-        <div className="mx-auto mb-12 flex max-w-[42rem] flex-col items-center text-center text-text-alternative md:mb-16">
+        <Reveal className="mx-auto mb-12 flex max-w-[42rem] flex-col items-center text-center text-text-alternative md:mb-16">
           <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold md:mb-4">
             Platform Feature
           </p>
           <h2 className="text-4xl font-bold md:text-5xl">
             Everything you need in one platform
           </h2>
-        </div>
+        </Reveal>
 
-        <div className="mb-10 flex justify-center md:mb-14">
+        <Reveal delay={0.1} className="mb-10 flex justify-center md:mb-14">
           <div className="landing-tab-pill-track inline-flex flex-wrap justify-center">
             {FEATURES.map((f) => (
               <button
@@ -89,38 +90,47 @@ export function Layout485() {
               </button>
             ))}
           </div>
-        </div>
+        </Reveal>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="landing-panel flex flex-col justify-center rounded-[28px] p-8 text-text-alternative sm:p-10">
-            <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold">
-              Platform Feature
-            </p>
-            <h3 className="mb-5 text-3xl font-bold md:text-4xl">
-              {feature.label}
-            </h3>
-            <p className="landing-text-secondary md:text-md">
-              {feature.description}
-            </p>
-            <div className="mt-8">
-              <Button
-                title={feature.cta}
-                variant="secondary"
-                className={buttonClassName}
-              >
-                {feature.cta}
-              </Button>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={feature.id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="grid grid-cols-1 gap-6 lg:grid-cols-2"
+          >
+            <div className="landing-panel flex flex-col justify-center rounded-[28px] p-8 text-text-alternative sm:p-10">
+              <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold">
+                Platform Feature
+              </p>
+              <h3 className="mb-5 text-3xl font-bold md:text-4xl">
+                {feature.label}
+              </h3>
+              <p className="landing-text-secondary md:text-md">
+                {feature.description}
+              </p>
+              <div className="mt-8">
+                <Button
+                  title={feature.cta}
+                  variant="secondary"
+                  className={buttonClassName}
+                >
+                  {feature.cta}
+                </Button>
+              </div>
             </div>
-          </div>
 
-          <div className="landing-panel flex items-center rounded-[28px] p-8 sm:p-10">
-            <DashboardMockup
-              label={feature.label}
-              stat={feature.stat}
-              bars={feature.bars}
-            />
-          </div>
-        </div>
+            <div className="landing-panel flex items-center rounded-[28px] p-8 sm:p-10">
+              <DashboardMockup
+                label={feature.label}
+                stat={feature.stat}
+                bars={feature.bars}
+              />
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
     </section>
   );

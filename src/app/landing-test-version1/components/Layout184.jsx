@@ -3,12 +3,13 @@
 import { Button } from "@relume_io/relume-ui";
 import React from "react";
 import { RxChevronRight } from "react-icons/rx";
+import { Reveal } from "./Reveal";
 
 export function Layout184() {
   return (
     <section id="relume" className="relative px-[5%] py-16 md:py-24 lg:py-28">
       <div className="container relative z-10 max-w-lg">
-        <div className="flex flex-col items-center justify-center text-center">
+        <Reveal className="flex flex-col items-center justify-center text-center">
           <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold md:mb-4">
             About
           </p>
@@ -40,7 +41,7 @@ export function Layout184() {
               Platform Features
             </Button>
           </div>
-        </div>
+        </Reveal>
       </div>
       <div className="absolute inset-0 z-0 landing-hero-bg" aria-hidden="true" />
     </section>

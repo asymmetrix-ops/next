@@ -8,6 +8,7 @@ import {
 } from "@relume_io/relume-ui";
 import React from "react";
 import { DashboardMockup } from "./DashboardMockup";
+import { Reveal } from "./Reveal";
 
 const TABS = [
   {
@@ -69,7 +70,7 @@ export function Coverage() {
       className="landing-navy-bg px-[5%] py-16 md:py-24 lg:py-28"
     >
       <div className="container">
-        <div className="mx-auto mb-12 flex w-full max-w-lg flex-col items-center text-center text-text-alternative md:mb-18 lg:mb-20">
+        <Reveal className="mx-auto mb-12 flex w-full max-w-lg flex-col items-center text-center text-text-alternative md:mb-18 lg:mb-20">
           <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold md:mb-4">
             Coverage
           </p>
@@ -81,7 +82,7 @@ export function Coverage() {
             market, from early-stage startups to public companies. These are
             features in our platform exclusive to our clients.
           </p>
-        </div>
+        </Reveal>
         <Tabs
           defaultValue="company-profiles"
           className="flex flex-col justify-center"

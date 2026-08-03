@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import React, { useState } from "react";
 import { DashboardMockup } from "./DashboardMockup";
 
@@ -52,7 +52,12 @@ export function PlatformHero() {
     <section className="landing-hero-bg relative overflow-hidden px-[5%] pb-16 pt-16 md:pb-20 md:pt-20">
       <div className="container relative z-10 mx-auto">
         <div className="mx-auto max-w-[56rem] text-center">
-          <div className="relative">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="relative"
+          >
             <h1 className="text-balance text-5xl font-bold leading-[1.05] text-text-alternative md:text-7xl lg:text-8xl">
               Intelligence on the{" "}
               <span className="landing-gradient-text">
@@ -65,9 +70,14 @@ export function PlatformHero() {
             >
               Intelligence on the Data & Analytics Market
             </h1>
-          </div>
+          </motion.div>
 
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4"
+          >
             <a
               href="#"
               className="landing-btn-primary inline-flex h-12 min-w-[180px] items-center justify-center rounded-full px-8 text-sm font-semibold text-text-alternative"
@@ -80,10 +90,15 @@ export function PlatformHero() {
             >
               Explore the data
             </a>
-          </div>
+          </motion.div>
         </div>
 
-        <div className="mx-auto mt-16 max-w-[80rem]">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          className="mx-auto mt-16 max-w-[80rem]"
+        >
           <div className="flex justify-center">
             <div className="landing-tab-pill-track inline-flex">
               {TABS.map((tab) => (
@@ -110,43 +125,52 @@ export function PlatformHero() {
           </div>
 
           <div className="landing-panel mt-8 rounded-[28px] p-6 sm:p-8">
-            <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-10">
-              <div className="text-left text-text-alternative">
-                <p className="landing-eyebrow-chip rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]">
-                  {content.eyebrow}
-                </p>
-                <h2 className="mt-3 text-2xl font-bold leading-tight sm:text-3xl">
-                  {content.title}
-                </h2>
-                <p className="landing-text-secondary mt-4 text-base leading-relaxed sm:text-lg">
-                  {content.description}
-                </p>
-              </div>
-
-              {content.video ? (
-                <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-                  <video
-                    key={content.video}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    poster={content.poster}
-                    className="h-auto w-full"
-                  >
-                    <source src={content.video} type="video/mp4" />
-                  </video>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={content.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="grid items-center gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-10"
+              >
+                <div className="text-left text-text-alternative">
+                  <p className="landing-eyebrow-chip rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]">
+                    {content.eyebrow}
+                  </p>
+                  <h2 className="mt-3 text-2xl font-bold leading-tight sm:text-3xl">
+                    {content.title}
+                  </h2>
+                  <p className="landing-text-secondary mt-4 text-base leading-relaxed sm:text-lg">
+                    {content.description}
+                  </p>
                 </div>
-              ) : (
-                <DashboardMockup
-                  label={content.eyebrow}
-                  stat={content.stat}
-                  bars={content.bars}
-                />
-              )}
-            </div>
+
+                {content.video ? (
+                  <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                    <video
+                      key={content.video}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      poster={content.poster}
+                      className="h-auto w-full"
+                    >
+                      <source src={content.video} type="video/mp4" />
+                    </video>
+                  </div>
+                ) : (
+                  <DashboardMockup
+                    label={content.eyebrow}
+                    stat={content.stat}
+                    bars={content.bars}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
