@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
@@ -17,7 +17,22 @@ export default function LoginPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [ssoError, setSsoError] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("sso_error");
+    if (error) {
+      setSsoError(error);
+      params.delete("sso_error");
+      const nextQuery = params.toString();
+      const nextUrl = nextQuery
+        ? `${window.location.pathname}?${nextQuery}`
+        : window.location.pathname;
+      window.history.replaceState({}, "", nextUrl);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,6 +167,12 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {ssoError ? (
+              <div className="px-4 py-3 text-sm text-red-700 bg-red-50 rounded-lg border border-red-200">
+                {ssoError}
+              </div>
+            ) : null}
+
             <div>
               <label
                 htmlFor="email"
@@ -203,6 +224,13 @@ export default function LoginPage() {
             >
               {isLoading ? "Signing in..." : "Login"}
             </button>
+
+            <a
+              href="/api/auth/azure-ad"
+              className="block px-4 py-3 w-full font-medium text-center text-gray-800 bg-white rounded-lg border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Sign in with Microsoft
+            </a>
           </form>
         </div>
       </div>

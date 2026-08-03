@@ -58,6 +58,52 @@ class AuthService {
     this.writeAuthCookie(token);
   }
 
+  /** Read auth token set by the Azure SSO callback cookie. */
+  getTokenFromCookie(): string | null {
+    if (typeof window === "undefined") return null;
+    const match = document.cookie.match(
+      new RegExp(`(?:^|;\\s*)${this.tokenKey}=([^;]+)`)
+    );
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
+  }
+
+  /** Finalize SSO by copying the callback cookie into localStorage. */
+  async completeSsoFromCookie(): Promise<LoginResponse> {
+    const token = this.getTokenFromCookie();
+    if (!token) {
+      throw new Error("Missing auth token after SSO callback");
+    }
+
+    const apiUrl =
+      process.env.NEXT_PUBLIC_XANO_API_URL ||
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+
+    let user: AuthUser;
+    try {
+      const userResponse = await fetch(`${apiUrl}/auth/me`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (userResponse.ok) {
+        user = await userResponse.json();
+      } else {
+        throw new Error("Unable to load user profile after SSO sign-in");
+      }
+    } catch (error) {
+      console.error("AuthService - completeSsoFromCookie failed:", error);
+      throw error instanceof Error
+        ? error
+        : new Error("Unable to load user profile after SSO sign-in");
+    }
+
+    this.setAuth(token, user);
+    return { token, user };
+  }
+
   private writeAuthCookie(token: string): void {
     document.cookie = `${this.tokenKey}=${token}; path=/; max-age=${
       7 * 24 * 60 * 60
