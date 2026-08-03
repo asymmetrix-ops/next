@@ -41,7 +41,7 @@ export function Navbar1() {
   return (
     <section
       id="relume"
-      className="landing-near-black-bg flex w-full items-center border-b border-white/10 lg:min-h-18 lg:px-[5%]"
+      className="landing-navbar landing-near-black-bg flex w-full items-center overflow-visible border-b border-white/10 lg:min-h-18 lg:px-[5%]"
     >
       <div className="size-full lg:flex lg:items-center lg:justify-between">
         <div className="flex min-h-16 items-center justify-between px-[5%] md:min-h-18 lg:min-h-full lg:px-0">
@@ -100,7 +100,7 @@ export function Navbar1() {
           exit="close"
           animate={useActive.animateMobileMenu}
           transition={{ duration: 0.4 }}
-          className="overflow-hidden px-[5%] lg:flex lg:items-center lg:px-0 lg:[--height-closed:auto] lg:[--height-open:auto]"
+          className="overflow-hidden px-[5%] lg:flex lg:items-center lg:overflow-visible lg:px-0 lg:[--height-closed:auto] lg:[--height-open:auto]"
         >
           <a
             href="#"
@@ -120,12 +120,18 @@ export function Navbar1() {
           >
             Contact Us
           </a>
-          <div className="mt-6 flex flex-col items-center gap-4 lg:ml-4 lg:mt-0 lg:flex-row">
+          <div className="landing-navbar-actions mt-6 flex flex-col items-center gap-3 py-2 lg:ml-4 lg:mt-0 lg:flex-row lg:gap-4 lg:py-3">
+            <a
+              href="/login"
+              className="landing-btn-secondary inline-flex h-11 w-full items-center justify-center rounded-full px-6 text-sm font-semibold lg:w-auto"
+            >
+              Log in
+            </a>
             <Button
               title="Talk to Sales"
               variant="secondary"
               size="sm"
-              className="landing-btn-primary h-11 w-full rounded-full text-text-alternative"
+              className="landing-btn-primary landing-btn-primary-nav h-11 w-full rounded-full text-text-alternative lg:w-auto"
             >
               Talk to Sales
             </Button>
