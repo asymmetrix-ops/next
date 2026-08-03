@@ -147,7 +147,7 @@ export function PlatformHero() {
                 </div>
 
                 {content.video ? (
-                  <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                  <div className="landing-video-frame relative overflow-hidden rounded-2xl">
                     <video
                       key={content.video}
                       autoPlay

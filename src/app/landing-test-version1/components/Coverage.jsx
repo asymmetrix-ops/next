@@ -87,12 +87,12 @@ export function Coverage() {
           defaultValue="company-profiles"
           className="flex flex-col justify-center"
         >
-          <TabsList className="no-scrollbar mb-12 ml-[-5vw] flex w-screen items-center justify-start overflow-scroll pl-[5vw] md:mb-16 md:ml-0 md:w-full md:justify-center md:overflow-hidden md:pl-0">
+          <TabsList className="landing-tab-track-list no-scrollbar mb-12 ml-[-5vw] flex w-screen items-center justify-start overflow-scroll pl-[5vw] md:mb-16 md:ml-auto md:mr-auto md:w-fit md:justify-center md:overflow-hidden md:pl-0">
             {TABS.map((tab) => (
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="landing-tab-trigger whitespace-nowrap border px-4"
+                className="landing-tab-trigger whitespace-nowrap px-4"
               >
                 {tab.trigger}
               </TabsTrigger>

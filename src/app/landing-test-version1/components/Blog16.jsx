@@ -27,34 +27,34 @@ export function Blog16() {
           </div>
         </Reveal>
         <Tabs defaultValue="view-all" className="flex flex-col justify-center">
-          <TabsList className="no-scrollbar mb-12 ml-[-5vw] flex w-screen items-center justify-start overflow-scroll pl-[5vw] md:mb-16 md:ml-0 md:w-full md:justify-center md:overflow-hidden md:pl-0">
+          <TabsList className="landing-tab-track-list no-scrollbar mb-12 ml-[-5vw] flex w-screen items-center justify-start overflow-scroll pl-[5vw] md:mb-16 md:ml-auto md:mr-auto md:w-fit md:justify-center md:overflow-hidden md:pl-0">
             <TabsTrigger
               value="view-all"
-              className="landing-tab-trigger border px-4"
+              className="landing-tab-trigger whitespace-nowrap px-4"
             >
               View all
             </TabsTrigger>
             <TabsTrigger
               value="category-one"
-              className="landing-tab-trigger border px-4"
+              className="landing-tab-trigger whitespace-nowrap px-4"
             >
               Latest
             </TabsTrigger>
             <TabsTrigger
               value="category-two"
-              className="landing-tab-trigger border px-4"
+              className="landing-tab-trigger whitespace-nowrap px-4"
             >
               Top
             </TabsTrigger>
             <TabsTrigger
               value="category-three"
-              className="landing-tab-trigger border px-4"
+              className="landing-tab-trigger whitespace-nowrap px-4"
             >
               Discussion
             </TabsTrigger>
             <TabsTrigger
               value="category-four"
-              className="landing-tab-trigger border px-4"
+              className="landing-tab-trigger whitespace-nowrap px-4"
             >
               Category four
             </TabsTrigger>
@@ -66,13 +66,7 @@ export function Blog16() {
             <div className="grid grid-cols-1 gap-x-12 gap-y-12 md:grid-cols-1 md:gap-y-16 lg:grid-cols-2">
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -106,13 +100,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -143,13 +131,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -182,13 +164,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -226,13 +202,7 @@ export function Blog16() {
             <div className="grid grid-cols-1 gap-x-12 gap-y-12 md:grid-cols-1 md:gap-y-16 lg:grid-cols-2">
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -266,13 +236,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -303,13 +267,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -342,13 +300,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -386,13 +338,7 @@ export function Blog16() {
             <div className="grid grid-cols-1 gap-x-12 gap-y-12 md:grid-cols-1 md:gap-y-16 lg:grid-cols-2">
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -426,13 +372,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -463,13 +403,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -502,13 +436,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -546,13 +474,7 @@ export function Blog16() {
             <div className="grid grid-cols-1 gap-x-12 gap-y-12 md:grid-cols-1 md:gap-y-16 lg:grid-cols-2">
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -586,13 +508,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -623,13 +539,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -662,13 +572,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -706,13 +610,7 @@ export function Blog16() {
             <div className="grid grid-cols-1 gap-x-12 gap-y-12 md:grid-cols-1 md:gap-y-16 lg:grid-cols-2">
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -746,13 +644,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -783,13 +675,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
@@ -822,13 +708,7 @@ export function Blog16() {
               </div>
               <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
                 <a href="#" className="w-full">
-                  <div
-                    className="aspect-square w-full rounded-xl border border-white/10"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(99,127,252,0.25), rgba(95,208,255,0.15))",
-                    }}
-                  />
+                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
                 </a>
                 <div className="flex h-full flex-col items-start justify-center">
                   <div className="rb-4 mb-4 flex w-full items-center justify-start">
