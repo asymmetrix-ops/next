@@ -1,73 +1,95 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   AUTH_TOKEN_COOKIE,
-  AZURE_OAUTH_STATE_COOKIE,
+  buildAuthCookieHeader,
+  clearAzureSsoCookies,
   exchangeAzureAuthorizationCode,
+  exchangeAzureSsoWithXano,
   fetchAzureProfile,
-  isProduction,
-  syncAzureSsoWithXano,
+  getAzureSsoConfig,
+  readAzureSsoNextPath,
+  readAzureSsoState,
 } from "@/lib/azureSsoServer";
 
-function redirectToLogin(req: NextRequest, error: string): NextResponse {
-  const url = new URL("/login", req.url);
-  url.searchParams.set("error", error);
+function redirectWithError(message: string): NextResponse {
+  clearAzureSsoCookies();
+  const url = new URL("/login", getPublicOrigin());
+  url.searchParams.set("sso_error", message);
   return NextResponse.redirect(url);
 }
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const code = searchParams.get("code");
-  const state = searchParams.get("state");
-  const errorParam = searchParams.get("error");
+function getPublicOrigin(): string {
+  const configured =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.APP_URL?.trim() ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 
-  if (errorParam) {
-    return redirectToLogin(req, "azure_denied");
+  return configured.replace(/\/$/, "") || "http://localhost:3001";
+}
+
+export async function GET(request: NextRequest) {
+  const config = getAzureSsoConfig();
+  if (!config) {
+    return redirectWithError("Azure SSO is not configured");
   }
 
-  const cookieState = req.cookies.get(AZURE_OAUTH_STATE_COOKIE)?.value;
-  if (!code || !state || state !== cookieState) {
-    return redirectToLogin(req, "state_mismatch");
+  const { searchParams } = request.nextUrl;
+  const error = searchParams.get("error");
+  const errorDescription = searchParams.get("error_description");
+
+  if (error) {
+    return redirectWithError(errorDescription || error);
+  }
+
+  const code = searchParams.get("code")?.trim();
+  const state = searchParams.get("state")?.trim();
+  const expectedState = readAzureSsoState();
+
+  if (!code) {
+    return redirectWithError("Missing authorization code");
+  }
+
+  if (!state || !expectedState || state !== expectedState) {
+    return redirectWithError("Invalid SSO state");
   }
 
   try {
-    const tokens = await exchangeAzureAuthorizationCode(code, req.url);
-    const accessToken = tokens.access_token?.trim();
+    const tokenResponse = await exchangeAzureAuthorizationCode(code);
+    const accessToken = tokenResponse.access_token?.trim();
 
     if (!accessToken) {
-      return redirectToLogin(req, "token_exchange");
+      throw new Error("Azure did not return an access token");
     }
 
     const profile = await fetchAzureProfile(accessToken);
-    const email = (profile.mail || profile.userPrincipalName || "").trim();
-
-    if (!email) {
-      return redirectToLogin(req, "graph_profile");
-    }
-
-    const authToken = await syncAzureSsoWithXano({
-      email,
-      name: profile.displayName,
-      providerUid: profile.id,
+    const { token } = await exchangeAzureSsoWithXano({
+      code,
+      accessToken,
+      idToken: tokenResponse.id_token,
+      profile,
     });
 
-    const response = NextResponse.redirect(new URL("/auth/sso-complete", req.url));
-    response.cookies.set(AUTH_TOKEN_COOKIE, authToken, {
-      httpOnly: false,
-      secure: isProduction(),
-      sameSite: "lax",
-      maxAge: 60,
+    const nextPath = readAzureSsoNextPath();
+    clearAzureSsoCookies();
+
+    const completeUrl = new URL("/auth/sso-complete", getPublicOrigin());
+    completeUrl.searchParams.set("next", nextPath);
+
+    const response = NextResponse.redirect(completeUrl);
+    response.cookies.set(AUTH_TOKEN_COOKIE, token, {
       path: "/",
+      maxAge: 7 * 24 * 60 * 60,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
     });
-    response.cookies.delete(AZURE_OAUTH_STATE_COOKIE);
+
+    // Keep a duplicate Set-Cookie for environments that prefer raw headers.
+    response.headers.append("Set-Cookie", buildAuthCookieHeader(token));
 
     return response;
-  } catch (error) {
-    const knownErrors = new Set(["token_exchange", "graph_profile", "sso_sync"]);
-    const code =
-      error instanceof Error && knownErrors.has(error.message)
-        ? error.message
-        : "sso_sync";
-
-    return redirectToLogin(req, code);
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Azure SSO sign-in failed";
+    return redirectWithError(message);
   }
 }

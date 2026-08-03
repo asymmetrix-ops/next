@@ -1,35 +1,40 @@
-import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
-  AZURE_OAUTH_STATE_COOKIE,
   buildAzureAuthorizeUrl,
-  getAzureSsoConfigStatus,
-  isProduction,
+  createSsoState,
+  getAzureSsoConfig,
+  setAzureSsoCookies,
 } from "@/lib/azureSsoServer";
 
-export async function GET(req: NextRequest) {
-  try {
-    const state = crypto.randomBytes(16).toString("hex");
-    const authorizeUrl = buildAzureAuthorizeUrl(state, req.url);
+function redirectToLogin(message: string): NextResponse {
+  const url = new URL("/login", requestOrigin());
+  url.searchParams.set("sso_error", message);
+  return NextResponse.redirect(url);
+}
 
-    const response = NextResponse.redirect(authorizeUrl);
-    response.cookies.set(AZURE_OAUTH_STATE_COOKIE, state, {
-      httpOnly: true,
-      secure: isProduction(),
-      sameSite: "lax",
-      maxAge: 300,
-      path: "/",
-    });
+function requestOrigin(): string {
+  const configured =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.APP_URL?.trim() ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 
-    return response;
-  } catch (error) {
-    console.error("Azure SSO start failed:", error);
-    const url = new URL("/login", req.url);
-    const status = getAzureSsoConfigStatus();
-    url.searchParams.set(
-      "error",
-      status.missing.length > 0 ? `azure_config:${status.missing.join(",")}` : "azure_config"
-    );
-    return NextResponse.redirect(url);
+  return configured.replace(/\/$/, "") || "http://localhost:3001";
+}
+
+export async function GET(request: NextRequest) {
+  if (!getAzureSsoConfig()) {
+    return redirectToLogin("Azure SSO is not configured");
   }
+
+  const nextParam = request.nextUrl.searchParams.get("next")?.trim();
+  const nextPath =
+    nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
+      ? nextParam
+      : "/home-user";
+
+  const state = createSsoState();
+  setAzureSsoCookies(state, nextPath);
+
+  const authorizeUrl = buildAzureAuthorizeUrl(state);
+  return NextResponse.redirect(authorizeUrl);
 }

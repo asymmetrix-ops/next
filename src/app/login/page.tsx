@@ -2,27 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
-import { Suspense } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
-import { AZURE_SSO_ERROR_MESSAGES } from "@/lib/azureSsoServer";
-import { GOOGLE_SSO_ERROR_MESSAGES } from "@/lib/googleSsoServer";
-import { CONTRIBUTOR_ACCESS_MESSAGE } from "@/lib/userStatus";
 import { trackError, trackLogin } from "@/lib/tracking";
-import SsoSignInOptions from "@/components/SsoSignInOptions";
 import Image from "next/image";
 
-const SSO_ERROR_MESSAGES = {
-  ...AZURE_SSO_ERROR_MESSAGES,
-  ...GOOGLE_SSO_ERROR_MESSAGES,
-};
-
-function LoginPageInner() {
+export default function LoginPage() {
   const { login } = useAuth();
-  const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -33,17 +21,18 @@ function LoginPageInner() {
   const router = useRouter();
 
   useEffect(() => {
-    const error = searchParams.get("error") || searchParams.get("sso_error");
-    if (!error) return;
-
-    const [code, missingVars] = error.split(":");
-    const baseMessage = SSO_ERROR_MESSAGES[code] || error;
-    setSsoError(
-      missingVars
-        ? `${baseMessage} Missing env vars: ${missingVars.replace(/,/g, ", ")}.`
-        : baseMessage
-    );
-  }, [searchParams]);
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("sso_error");
+    if (error) {
+      setSsoError(error);
+      params.delete("sso_error");
+      const nextQuery = params.toString();
+      const nextUrl = nextQuery
+        ? `${window.location.pathname}?${nextQuery}`
+        : window.location.pathname;
+      window.history.replaceState({}, "", nextUrl);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,19 +43,10 @@ function LoginPageInner() {
       const userId = Number(authService.getUser()?.id) || 0;
       trackLogin(userId);
       toast.success("Login successful!");
-      const safeRedirect =
-        redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")
-          ? redirectTo
-          : "/home-user";
-      router.push(safeRedirect);
+      router.push("/home-user");
     } catch (err) {
       trackError(`Login failed: ${(err as Error)?.message || "unknown"}`);
-      const message = (err as Error)?.message;
-      toast.error(
-        message === CONTRIBUTOR_ACCESS_MESSAGE
-          ? message
-          : "Login failed. Please check your credentials."
-      );
+      toast.error("Login failed. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }
@@ -180,7 +160,7 @@ function LoginPageInner() {
 
       {/* Main Content */}
       <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
-        <div className="px-6 w-full max-w-xl">
+        <div className="px-6 w-full max-w-md">
           <div className="mb-8 text-center">
             <h1 className="mb-2 text-3xl font-bold text-gray-900">Login</h1>
             <p className="text-gray-600">Access your Asymmetrix dashboard.</p>
@@ -245,18 +225,15 @@ function LoginPageInner() {
               {isLoading ? "Signing in..." : "Login"}
             </button>
 
-            <SsoSignInOptions dividerBackgroundClassName="bg-[#F9FAFC]" />
+            <a
+              href="/api/auth/azure-ad"
+              className="block px-4 py-3 w-full font-medium text-center text-gray-800 bg-white rounded-lg border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Sign in with Microsoft
+            </a>
           </form>
         </div>
       </div>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F9FAFC]" />}>
-      <LoginPageInner />
-    </Suspense>
   );
 }
