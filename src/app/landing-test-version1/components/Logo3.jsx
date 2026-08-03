@@ -10,7 +10,7 @@ const LogoRow = () => (
     {CLIENT_LOGOS.map((name, index) => (
       <span
         key={index}
-        className="mx-7 shrink-0 text-xl font-semibold tracking-tight text-white/50 md:mx-10 md:text-2xl"
+        className="landing-text-muted mx-7 shrink-0 text-xl font-semibold tracking-tight md:mx-10 md:text-2xl"
       >
         {name}
       </span>

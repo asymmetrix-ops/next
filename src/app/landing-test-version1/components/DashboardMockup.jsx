@@ -7,7 +7,7 @@ export function DashboardMockup({ label, stat, bars }) {
     (Number.parseInt(stat.value, 10) % 100 || 68) * 3.6,
   );
   return (
-    <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
+    <div className="landing-mockup relative w-full overflow-hidden rounded-xl p-6 md:p-8">
       <div className="mb-6 flex items-center gap-2">
         <span className="size-2.5 rounded-full bg-[#ff5f57]" />
         <span className="size-2.5 rounded-full bg-[#febc2e]" />
@@ -20,10 +20,10 @@ export function DashboardMockup({ label, stat, bars }) {
         <div
           className="relative flex size-24 shrink-0 items-center justify-center rounded-full"
           style={{
-            background: `conic-gradient(hsl(228, 85%, 63%) ${donutDeg}deg, rgba(255,255,255,0.08) 0)`,
+            background: `conic-gradient(hsl(228, 85%, 63%) ${donutDeg}deg, hsla(228, 85%, 63%, 0.12) 0)`,
           }}
         >
-          <div className="landing-near-black-bg flex size-[4.25rem] items-center justify-center rounded-full">
+          <div className="landing-mockup-donut-inner flex size-[4.25rem] items-center justify-center rounded-full">
             <span className="text-lg font-bold text-text-alternative">
               {stat.value}
             </span>
@@ -41,7 +41,7 @@ export function DashboardMockup({ label, stat, bars }) {
                 style={{
                   height: `${height}%`,
                   background:
-                    "linear-gradient(to top, rgba(99,127,252,0.4), #5fd0ff)",
+                    "linear-gradient(to top, hsla(228, 85%, 63%, 0.35), hsl(228, 85%, 63%))",
                 }}
               />
             ))}

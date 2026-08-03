@@ -45,7 +45,7 @@ export function Layout485() {
   return (
     <section
       id="relume"
-      className="landing-navy-bg relative overflow-hidden px-[5%] py-16 md:py-24 lg:py-28"
+      className="landing-near-black-bg relative overflow-hidden px-[5%] py-16 md:py-24 lg:py-28"
     >
       {/* Glow blobs sit low and to the sides, clear of the headline/tab
           text at the top, so they add depth without hurting contrast. */}
@@ -54,7 +54,7 @@ export function Layout485() {
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute -right-40 bottom-0 h-[34rem] w-[34rem] rounded-full bg-[hsl(268,85%,60%)]/25 blur-[110px]"
+        className="pointer-events-none absolute -right-40 bottom-0 h-[34rem] w-[34rem] rounded-full bg-[hsl(228,85%,63%)]/15 blur-[110px]"
         aria-hidden="true"
       />
       <div className="container relative z-10">
