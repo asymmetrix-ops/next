@@ -99,3 +99,4 @@ jspm_packages/
 
 # Exclude embedded git repositories
 asymmetrix-vue-backup/ 
+.env*
