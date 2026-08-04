@@ -30,8 +30,19 @@ export function getGoogleSsoConfigStatus(): {
   configured: boolean;
   missing: string[];
   present: string[];
+  debug: Record<string, { defined: boolean; length: number }>;
 } {
   const required = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] as const;
+
+  const debug = Object.fromEntries(
+    [...required, "GOOGLE_REDIRECT_URI" as const].map((key) => [
+      key,
+      {
+        defined: process.env[key] !== undefined,
+        length: process.env[key]?.length ?? 0,
+      },
+    ])
+  );
 
   const missing = required.filter((key) => !process.env[key]?.trim());
   const present: string[] = required.filter((key) =>
@@ -46,6 +57,7 @@ export function getGoogleSsoConfigStatus(): {
     configured: missing.length === 0,
     missing: [...missing],
     present: [...present],
+    debug,
   };
 }
 
