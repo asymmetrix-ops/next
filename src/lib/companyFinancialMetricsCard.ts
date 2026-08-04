@@ -872,12 +872,18 @@ export function resolveUnifiedFinancialYears(
 /** Shared grid template so all financial tables align column-for-column. */
 export function buildFinancialsTableGridTemplate(
   yearCount: number,
-  includeYoyColumn: boolean
+  includeYoyColumn: boolean,
+  options?: { fixedWidth?: boolean }
 ): string {
-  const yearColumns = `repeat(${yearCount}, minmax(88px, 1fr))`;
+  const fixedWidth = options?.fixedWidth ?? false;
+  const labelCol = fixedWidth ? "180px" : "minmax(180px, 1.4fr)";
+  const yearColumns = fixedWidth
+    ? `repeat(${yearCount}, 88px)`
+    : `repeat(${yearCount}, minmax(88px, 1fr))`;
+  const yoyCol = fixedWidth ? "72px" : "minmax(72px, 0.7fr)";
   return includeYoyColumn
-    ? `minmax(180px, 1.4fr) ${yearColumns} minmax(72px, 0.7fr)`
-    : `minmax(180px, 1.4fr) ${yearColumns}`;
+    ? `${labelCol} ${yearColumns} ${yoyCol}`
+    : `${labelCol} ${yearColumns}`;
 }
 
 export function isFinancialsCellVisible(
