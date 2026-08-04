@@ -49,8 +49,7 @@ export async function GET(req: NextRequest) {
       name:
         profile.name?.trim() ||
         [profile.given_name, profile.family_name].filter(Boolean).join(" ").trim(),
-      providerUid: profile.sub,
-      hostedDomain: profile.hd || "",
+      googleId: profile.sub,
     });
 
     const response = NextResponse.redirect(new URL("/auth/sso-complete", req.url));

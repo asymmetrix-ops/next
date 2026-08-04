@@ -8,7 +8,7 @@ export const GOOGLE_OAUTH_STATE_COOKIE = "google_oauth_state";
 export const GOOGLE_SCOPES = "openid email profile";
 
 export const DEFAULT_XANO_GOOGLE_SSO_CALLBACK_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/sso/callback";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/google/callback";
 
 type GoogleTokenResponse = {
   access_token?: string;
@@ -24,26 +24,14 @@ type GoogleProfile = {
   given_name?: string;
   family_name?: string;
   picture?: string;
-  hd?: string;
 };
 
 export function getGoogleSsoConfigStatus(): {
   configured: boolean;
   missing: string[];
   present: string[];
-  debug: Record<string, { defined: boolean; length: number }>;
 } {
   const required = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] as const;
-
-  const debug = Object.fromEntries(
-    [...required, "GOOGLE_REDIRECT_URI" as const].map((key) => [
-      key,
-      {
-        defined: process.env[key] !== undefined,
-        length: process.env[key]?.length ?? 0,
-      },
-    ])
-  );
 
   const missing = required.filter((key) => !process.env[key]?.trim());
   const present: string[] = required.filter((key) =>
@@ -58,7 +46,6 @@ export function getGoogleSsoConfigStatus(): {
     configured: missing.length === 0,
     missing: [...missing],
     present: [...present],
-    debug,
   };
 }
 
@@ -81,7 +68,7 @@ export function getGoogleSsoCallbackUrl(): string {
 
   const xanoBaseUrl = process.env.XANO_BASE_URL?.trim();
   if (xanoBaseUrl) {
-    return `${xanoBaseUrl.replace(/\/$/, "")}/auth/sso/callback`;
+    return `${xanoBaseUrl.replace(/\/$/, "")}/auth/google/callback`;
   }
 
   return DEFAULT_XANO_GOOGLE_SSO_CALLBACK_URL;
@@ -163,18 +150,15 @@ export async function fetchGoogleProfile(
 export async function syncGoogleSsoWithXano(input: {
   email: string;
   name?: string;
-  providerUid?: string;
-  hostedDomain?: string | null;
+  googleId?: string;
 }): Promise<string> {
   const response = await fetch(getGoogleSsoCallbackUrl(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      provider: "google",
       email: input.email || "",
       name: input.name || "",
-      provider_uid: input.providerUid || "",
-      hosted_domain: input.hostedDomain || "",
+      google_id: input.googleId || "",
     }),
     cache: "no-store",
   });

@@ -7,8 +7,6 @@ import {
   isProduction,
 } from "@/lib/googleSsoServer";
 
-export const dynamic = "force-dynamic";
-
 export async function GET(req: NextRequest) {
   try {
     const state = crypto.randomBytes(16).toString("hex");
