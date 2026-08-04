@@ -16,6 +16,7 @@ export function IncomeStatementFinancialsCard({
   gridTemplate,
   showYoyColumn = false,
   reserveYoyColumn = false,
+  scrollable = false,
   allowedSources,
 }: {
   model: IncomeStatementFinancialsViewModel;
@@ -23,6 +24,7 @@ export function IncomeStatementFinancialsCard({
   showYoyColumn?: boolean;
   /** Empty YoY column so year columns line up with metrics cards below. */
   reserveYoyColumn?: boolean;
+  scrollable?: boolean;
   allowedSources: FiMetricSourceType[];
 }) {
   return (
@@ -51,7 +53,7 @@ export function IncomeStatementFinancialsCard({
       </div>
       <div
         style={{
-          overflowX: model.years.length > 3 ? "auto" : undefined,
+          overflowX: scrollable ? "auto" : undefined,
           width: "100%",
           minWidth: 0,
         }}
@@ -61,6 +63,7 @@ export function IncomeStatementFinancialsCard({
           gridTemplate={gridTemplate}
           showYoyColumn={showYoyColumn}
           reserveYoyColumn={reserveYoyColumn}
+          scrollable={scrollable}
           allowedSources={allowedSources}
         />
       </div>

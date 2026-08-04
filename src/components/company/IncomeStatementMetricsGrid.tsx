@@ -64,32 +64,42 @@ export function IncomeStatementMetricsGrid({
   gridTemplate,
   showYoyColumn = false,
   reserveYoyColumn = false,
+  scrollable = false,
   allowedSources,
 }: {
   model: IncomeStatementFinancialsViewModel;
   gridTemplate: string;
   showYoyColumn?: boolean;
   reserveYoyColumn?: boolean;
+  scrollable?: boolean;
   allowedSources: FiMetricSourceType[];
 }) {
   const sourceVisible = allowedSources.includes(model.sourceType);
   const includeYoySpacer = reserveYoyColumn && !showYoyColumn;
+  const cellAlign = { textAlign: "center" as const, whiteSpace: "nowrap" as const };
+
   return (
-    <div className="income-statement-table" style={{ width: "100%", minWidth: 0 }}>
+    <div
+      className="income-statement-table"
+      style={{
+        width: scrollable ? "max-content" : "100%",
+        minWidth: scrollable ? "100%" : 0,
+      }}
+    >
       <div
         style={{
           ...tableColHeaderBarStyle,
           gridTemplateColumns: gridTemplate,
         }}
       >
-        <span>Metric</span>
+        <span style={{ whiteSpace: "nowrap" }}>Metric</span>
         {model.years.map((year, index) => (
-          <span key={`${year}-${index}`} style={{ textAlign: "center" }}>
+          <span key={`${year}-${index}`} style={cellAlign}>
             {year != null ? formatFiscalYearHeader(year) : model.columnLabels[index]}
           </span>
         ))}
         {showYoyColumn ? (
-          <span style={{ textAlign: "center" }}>YoY</span>
+          <span style={cellAlign}>YoY</span>
         ) : includeYoySpacer ? (
           <span aria-hidden="true" />
         ) : null}
@@ -108,7 +118,6 @@ export function IncomeStatementMetricsGrid({
               index === model.metrics.length - 1
                 ? "none"
                 : `1px solid ${T.hair}`,
-            minWidth: 0,
           }}
         >
           <span
@@ -117,6 +126,7 @@ export function IncomeStatementMetricsGrid({
               fontSize: 13,
               color: T.body,
               minWidth: 0,
+              whiteSpace: "nowrap",
             }}
           >
             {metric.label}

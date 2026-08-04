@@ -382,9 +382,16 @@ export function CompanyFinancialsSection({
     showTableYoyColumn
   );
 
+  const incomeStatementYearCount =
+    incomeStatementModel?.years.filter((year) => year != null).length ?? 0;
+  const incomeStatementUsesHistory =
+    incomeStatementHistoryRows.length > 0;
+  const incomeStatementShowYoy =
+    incomeStatementUsesHistory && incomeStatementYearCount >= 2;
   const incomeStatementGridTemplate = buildFinancialsTableGridTemplate(
-    incomeStatementModel?.years.filter((year) => year != null).length ?? 0,
-    false
+    incomeStatementYearCount,
+    incomeStatementShowYoy,
+    { fixedWidth: incomeStatementUsesHistory }
   );
 
   const alignedIncomeStatementModel = useMemo(() => {
@@ -488,19 +495,15 @@ export function CompanyFinancialsSection({
         <IncomeStatementFinancialsCard
           model={alignedIncomeStatementModel}
           gridTemplate={
-            incomeStatementHistoryRows.length > 0
+            incomeStatementUsesHistory
               ? incomeStatementGridTemplate
               : gridTemplate
           }
-          showYoyColumn={
-            incomeStatementHistoryRows.length > 0
-              ? (alignedIncomeStatementModel.years.filter((year) => year != null)
-                  .length ?? 0) >= 2
-              : false
-          }
+          showYoyColumn={incomeStatementShowYoy}
           reserveYoyColumn={
-            incomeStatementHistoryRows.length === 0 && showTableYoyColumn
+            !incomeStatementUsesHistory && showTableYoyColumn
           }
+          scrollable={incomeStatementUsesHistory}
           allowedSources={allowedSources}
         />
       ) : null}
