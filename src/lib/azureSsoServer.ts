@@ -6,7 +6,7 @@ export const AZURE_OAUTH_STATE_COOKIE = "azure_oauth_state";
 export const AZURE_SCOPES = "openid profile email User.Read";
 
 export const DEFAULT_XANO_AZURE_SSO_CALLBACK_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/azure/callback";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/sso/callback";
 
 type AzureTokenResponse = {
   access_token?: string;
@@ -68,7 +68,7 @@ export function getAzureSsoCallbackUrl(): string {
 
   const xanoBaseUrl = process.env.XANO_BASE_URL?.trim();
   if (xanoBaseUrl) {
-    return `${xanoBaseUrl.replace(/\/$/, "")}/auth/azure/callback`;
+    return `${xanoBaseUrl.replace(/\/$/, "")}/auth/sso/callback`;
   }
 
   return DEFAULT_XANO_AZURE_SSO_CALLBACK_URL;
@@ -157,39 +157,20 @@ export async function fetchAzureProfile(
   return response.json();
 }
 
-export function decodeAzureTenantIdFromIdToken(
-  idToken?: string
-): string | null {
-  if (!idToken) return null;
-
-  try {
-    const payload = idToken.split(".")[1];
-    if (!payload) return null;
-
-    const decoded = JSON.parse(
-      Buffer.from(payload, "base64url").toString("utf8")
-    ) as { tid?: string };
-
-    return decoded.tid ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export async function syncAzureSsoWithXano(input: {
   email: string;
   name?: string;
-  azureOid?: string;
-  azureTenantId?: string | null;
+  providerUid?: string;
 }): Promise<string> {
   const response = await fetch(getAzureSsoCallbackUrl(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      provider: "azure_ad",
       email: input.email || "",
       name: input.name || "",
-      azure_oid: input.azureOid || "",
-      azure_tenant_id: input.azureTenantId || "",
+      provider_uid: input.providerUid || "",
+      hosted_domain: "",
     }),
     cache: "no-store",
   });
