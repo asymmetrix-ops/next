@@ -179,6 +179,10 @@ interface CompanyFinancialMetrics {
   Revenue_per_employee_source_label?: string | null;
   Rev_per_employee_source?: number | string | null;
   Data_entry_notes?: string | null;
+  Income_statement_currency?: string | null;
+  Revenue_currency_display?: string | null;
+  EBITDA_currency_display?: string | null;
+  EBIT_currency_display?: string | null;
 }
 
 // Income statement types (subset for rendering)
@@ -1985,6 +1989,7 @@ const CompanyDetail = () => {
 
   // Currency suffix to show once in heading (from company_financial_metrics only)
   const metricsCurrencyCode =
+    normalizeCurrency(financialMetrics?.Income_statement_currency) ||
     normalizeCurrency(
       (financialMetrics as unknown as { Revenue_currency_display?: string | null })
         ?.Revenue_currency_display
@@ -2079,6 +2084,28 @@ const CompanyDetail = () => {
         typeof row.ebit === "number" ||
         typeof row.ebitda === "number"
     );
+
+  const incomeStatementCurrency =
+    metricsCurrencyCode ||
+    normalizeCurrency(
+      normalizedIncomeStatements
+        .map((row) => row.cost_of_goods_sold_currency)
+        .find((value) => normalizeCurrency(value))
+    ) ||
+    evCurrency ||
+    revenueCurrency ||
+    "";
+
+  const formatIncomeStatementValue = (
+    value?: number | null,
+    rowCurrency?: string
+  ) => {
+    if (typeof value !== "number") return "—";
+    return appendMetricCurrency(
+      Math.round(value / 1_000_000).toLocaleString(),
+      normalizeCurrency(rowCurrency) || incomeStatementCurrency || undefined
+    );
+  };
 
   // Process employee data (LinkedIn history preferred; profile count for headline)
   const employeeData =
@@ -4082,18 +4109,6 @@ const CompanyDetail = () => {
                           const period = (
                             row.period_display_end_date || ""
                           ).replace(/[,\s]/g, "");
-                          const currency =
-                            row.cost_of_goods_sold_currency ||
-                            evCurrency ||
-                            revenueCurrency ||
-                            "";
-                          const fmt = (v?: number | null) =>
-                            typeof v === "number"
-                              ? (() => {
-                                  const millions = Math.round(v / 1_000_000);
-                                  return `${currency}${millions.toLocaleString()}`;
-                                })()
-                              : "—";
                           return (
                             <tr key={row.id}>
                               <td
@@ -4111,7 +4126,10 @@ const CompanyDetail = () => {
                                   textAlign: "right",
                                 }}
                               >
-                                {fmt(row.revenue)}
+                                {formatIncomeStatementValue(
+                                  row.revenue,
+                                  row.cost_of_goods_sold_currency
+                                )}
                               </td>
                               <td
                                 style={{
@@ -4120,7 +4138,10 @@ const CompanyDetail = () => {
                                   textAlign: "right",
                                 }}
                               >
-                                {fmt(row.ebit)}
+                                {formatIncomeStatementValue(
+                                  row.ebit,
+                                  row.cost_of_goods_sold_currency
+                                )}
                               </td>
                               <td
                                 style={{
@@ -4129,7 +4150,10 @@ const CompanyDetail = () => {
                                   textAlign: "right",
                                 }}
                               >
-                                {fmt(row.ebitda)}
+                                {formatIncomeStatementValue(
+                                  row.ebitda,
+                                  row.cost_of_goods_sold_currency
+                                )}
                               </td>
                             </tr>
                           );
@@ -4607,18 +4631,6 @@ const CompanyDetail = () => {
                           const period = (
                             row.period_display_end_date || ""
                           ).replace(/[,\s]/g, "");
-                          const currency =
-                            row.cost_of_goods_sold_currency ||
-                            evCurrency ||
-                            revenueCurrency ||
-                            "";
-                          const fmt = (v?: number | null) =>
-                            typeof v === "number"
-                              ? (() => {
-                                  const millions = Math.round(v / 1_000_000);
-                                  return `${currency}${millions.toLocaleString()}`;
-                                })()
-                              : "—";
                           return (
                             <tr key={row.id}>
                               <td
@@ -4638,7 +4650,10 @@ const CompanyDetail = () => {
                                   fontSize: 12,
                                 }}
                               >
-                                {fmt(row.revenue)}
+                                {formatIncomeStatementValue(
+                                  row.revenue,
+                                  row.cost_of_goods_sold_currency
+                                )}
                               </td>
                               <td
                                 style={{
@@ -4648,7 +4663,10 @@ const CompanyDetail = () => {
                                   fontSize: 12,
                                 }}
                               >
-                                {fmt(row.ebit)}
+                                {formatIncomeStatementValue(
+                                  row.ebit,
+                                  row.cost_of_goods_sold_currency
+                                )}
                               </td>
                               <td
                                 style={{
@@ -4658,7 +4676,10 @@ const CompanyDetail = () => {
                                   fontSize: 12,
                                 }}
                               >
-                                {fmt(row.ebitda)}
+                                {formatIncomeStatementValue(
+                                  row.ebitda,
+                                  row.cost_of_goods_sold_currency
+                                )}
                               </td>
                             </tr>
                           );

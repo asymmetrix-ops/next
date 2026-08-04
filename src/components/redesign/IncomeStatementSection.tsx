@@ -9,6 +9,7 @@ import {
   finMetricValueStyle,
   finMetricsPeriodHeaderStyle,
 } from "./primitives";
+import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 
 export type IncomeStatementRow = {
   id: number;
@@ -22,13 +23,39 @@ export type IncomeStatementRow = {
 
 type Props = {
   rows: IncomeStatementRow[];
-  /** ISO currency code shown in the section title, e.g. "USD". Stripped from values. */
+  /** ISO currency code, e.g. "USD". Applied to value cells. */
   currency?: string;
 };
 
-function formatIncomeValue(value: number | null | undefined): string {
+function sanitizeCurrencyCode(value?: string | null): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "0" || /^\d+$/.test(trimmed)) return "";
+  const compact = trimmed.replace(/\s/g, "").toUpperCase();
+  if (compact === "US$" || compact === "US") return "USD";
+  return compact;
+}
+
+function resolveIncomeStatementCurrency(
+  rows: IncomeStatementRow[],
+  fallback = ""
+): string {
+  for (const row of rows) {
+    const code = sanitizeCurrencyCode(row.cost_of_goods_sold_currency);
+    if (code) return code;
+  }
+  return sanitizeCurrencyCode(fallback);
+}
+
+function formatIncomeValue(
+  value: number | null | undefined,
+  currency?: string
+): string {
   if (typeof value !== "number") return "-";
-  return Math.round(value / 1_000_000).toLocaleString();
+  return appendMetricCurrency(
+    Math.round(value / 1_000_000).toLocaleString(),
+    currency || undefined
+  );
 }
 
 function formatPeriod(period?: string): string {
@@ -55,13 +82,13 @@ export function sortIncomeStatementRowsAsc(
   );
 }
 
-const INCOME_METRICS: {
+const INCOME_METRIC_DEFS: {
   label: string;
-  getValue: (row: IncomeStatementRow) => string;
+  getRaw: (row: IncomeStatementRow) => number | null | undefined;
 }[] = [
-  { label: "Revenue (m)", getValue: (row) => formatIncomeValue(row.revenue) },
-  { label: "EBIT (m)", getValue: (row) => formatIncomeValue(row.ebit) },
-  { label: "EBITDA (m)", getValue: (row) => formatIncomeValue(row.ebitda) },
+  { label: "Revenue (m)", getRaw: (row) => row.revenue },
+  { label: "EBIT (m)", getRaw: (row) => row.ebit },
+  { label: "EBITDA (m)", getRaw: (row) => row.ebitda },
 ];
 
 const thStyle: React.CSSProperties = {
@@ -90,6 +117,7 @@ const tdValueStyle: React.CSSProperties = {
 
 export function IncomeStatementTable({
   rows,
+  currency = "",
 }: {
   rows: IncomeStatementRow[];
   currency?: string;
@@ -97,6 +125,10 @@ export function IncomeStatementTable({
   if (rows.length === 0) return null;
 
   const orderedRows = sortIncomeStatementRowsAsc(rows);
+  const resolvedCurrency = resolveIncomeStatementCurrency(
+    orderedRows,
+    currency.trim()
+  );
 
   return (
     <div
@@ -134,13 +166,13 @@ export function IncomeStatementTable({
           </tr>
         </thead>
         <tbody>
-          {INCOME_METRICS.map((metric, metricIndex) => (
+          {INCOME_METRIC_DEFS.map((metric, metricIndex) => (
             <tr
               key={metric.label}
               className="income-statement-row"
               style={{
                 borderBottom:
-                  metricIndex === INCOME_METRICS.length - 1
+                  metricIndex === INCOME_METRIC_DEFS.length - 1
                     ? "none"
                     : `1px solid ${T.hair}`,
               }}
@@ -152,7 +184,11 @@ export function IncomeStatementTable({
                   className={FIN_METRIC_VALUE_CLASS}
                   style={tdValueStyle}
                 >
-                  {metric.getValue(row)}
+                  {formatIncomeValue(
+                    metric.getRaw(row),
+                    sanitizeCurrencyCode(row.cost_of_goods_sold_currency) ||
+                      resolvedCurrency
+                  )}
                 </td>
               ))}
             </tr>

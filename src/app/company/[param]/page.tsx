@@ -216,6 +216,10 @@ interface CompanyFinancialMetrics {
   Revenue_per_employee_source_label?: string | null;
   Rev_per_employee_source?: number | string | null;
   Data_entry_notes?: string | null;
+  Income_statement_currency?: string | null;
+  Revenue_currency_display?: string | null;
+  EBITDA_currency_display?: string | null;
+  EBIT_currency_display?: string | null;
 }
 
 // Income statement types (subset for rendering)
@@ -2688,6 +2692,7 @@ const CompanyDetail = () => {
 
   // Currency suffix to show once in heading (from company_financial_metrics only)
   const metricsCurrencyCode =
+    normalizeCurrency(financialMetrics?.Income_statement_currency) ||
     normalizeCurrency(
       (financialMetrics as unknown as { Revenue_currency_display?: string | null })
         ?.Revenue_currency_display
@@ -2773,6 +2778,17 @@ const CompanyDetail = () => {
         typeof row.ebit === "number" ||
         typeof row.ebitda === "number"
     );
+
+  const incomeStatementCurrency =
+    metricsCurrencyCode ||
+    normalizeCurrency(
+      normalizedIncomeStatements
+        .map((row) => row.cost_of_goods_sold_currency)
+        .find((value) => normalizeCurrency(value))
+    ) ||
+    evCurrency ||
+    revenueCurrency ||
+    "";
 
   const employeeData =
     companyLinkedIn?.employee_history && companyLinkedIn.employee_history.length > 0
@@ -4673,7 +4689,7 @@ const CompanyDetail = () => {
                 primary={finMetricsData.primary}
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
-                incomeStatementCurrency={evCurrency || revenueCurrency || ""}
+                incomeStatementCurrency={incomeStatementCurrency}
               />
             </div>
 
@@ -4714,7 +4730,7 @@ const CompanyDetail = () => {
               data={finMetricsData}
               hasIncomeStatement={hasIncomeStatementData}
               incomeStatementRows={normalizedIncomeStatements}
-              incomeStatementCurrency={evCurrency || revenueCurrency || ""}
+              incomeStatementCurrency={incomeStatementCurrency}
             />
 
             <div style={{ marginTop: 20 }}>
