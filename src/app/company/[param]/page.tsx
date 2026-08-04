@@ -65,6 +65,7 @@ import {
   normalizeIncomeStatementApiRows,
   normalizeIncomeStatementRows,
   resolveDisplayIncomeStatementRows,
+  resolveFinancialMetricsCardCurrency,
   resolveIncomeStatementCurrency,
   type IncomeStatementApiEntry,
   type NormalizedIncomeStatementRow,
@@ -2656,6 +2657,10 @@ const CompanyDetail = () => {
   // Currency suffix to show once in heading (from company_financial_metrics only)
   const metricsCurrencyCode =
     normalizeCurrency(
+      (financialMetrics as unknown as { Income_statement_currency?: string | null })
+        ?.Income_statement_currency
+    ) ||
+    normalizeCurrency(
       (financialMetrics as unknown as { Revenue_currency_display?: string | null })
         ?.Revenue_currency_display
     ) ||
@@ -2696,7 +2701,9 @@ const CompanyDetail = () => {
   );
   const incomeStatementCurrency = resolveIncomeStatementCurrency(
     normalizedIncomeStatements,
-    metricsCurrencyCode
+    metricsCurrencyCode ||
+      resolveFinancialMetricsCardCurrency(financialMetricsCardRows) ||
+      undefined
   );
 
   const employeeData =

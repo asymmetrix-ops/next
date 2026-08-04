@@ -12,6 +12,7 @@ export type IncomeStatementApiEntry = {
   FTE_count?: number | string | null;
   Revenue_per_FTE?: number | string | null;
   statement_currency?: string | null;
+  Income_statement_currency?: string | null;
   currency?: string | null;
   cost_of_goods_sold_currency?: string | null;
 };
@@ -98,6 +99,7 @@ function normalizeRow(row: IncomeStatementApiEntry): NormalizedIncomeStatementRo
         : null),
     statement_currency:
       sanitizeCurrencyCode(row.statement_currency) ||
+      sanitizeCurrencyCode(row.Income_statement_currency) ||
       sanitizeCurrencyCode(row.currency) ||
       undefined,
   };
@@ -274,7 +276,32 @@ type FinancialMetricsIncomeRow = {
   EBITDA_currency_display?: string | null;
   EBIT_m?: number | string | null;
   EBIT_currency_display?: string | null;
+  Income_statement_currency?: string | null;
 };
+
+/** Resolves income-statement currency from a financial-metrics card row. */
+export function resolveFinancialMetricsIncomeCurrency(
+  row: FinancialMetricsIncomeRow
+): string | undefined {
+  return (
+    sanitizeCurrencyCode(row.Income_statement_currency) ||
+    sanitizeCurrencyCode(row.Revenue_currency_display) ||
+    sanitizeCurrencyCode(row.EBIT_currency_display) ||
+    sanitizeCurrencyCode(row.EBITDA_currency_display) ||
+    undefined
+  );
+}
+
+/** First valid income-statement currency across financial-metrics card rows. */
+export function resolveFinancialMetricsCardCurrency(
+  rows: FinancialMetricsIncomeRow[]
+): string {
+  for (const row of rows) {
+    const code = resolveFinancialMetricsIncomeCurrency(row);
+    if (code) return code;
+  }
+  return "";
+}
 
 function millionsToRaw(value: number | string | null | undefined): number | null {
   const millions = parseNumeric(value);
@@ -306,11 +333,7 @@ export function buildIncomeStatementFromFinancialMetrics(
         revenue,
         ebit,
         ebitda,
-        statement_currency:
-          sanitizeCurrencyCode(row.Revenue_currency_display) ||
-          sanitizeCurrencyCode(row.EBIT_currency_display) ||
-          sanitizeCurrencyCode(row.EBITDA_currency_display) ||
-          undefined,
+        statement_currency: resolveFinancialMetricsIncomeCurrency(row),
       },
     ];
   });
@@ -337,11 +360,7 @@ export function resolveDisplayIncomeStatementRows({
   );
   const fallbackCurrency = resolveIncomeStatementCurrency(
     merged,
-    sanitizeCurrencyCode(
-      financialMetricsRows
-        .map((row) => row.Revenue_currency_display)
-        .find(Boolean)
-    )
+    resolveFinancialMetricsCardCurrency(financialMetricsRows) || undefined
   );
   if (!fallbackCurrency) return merged;
 

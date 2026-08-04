@@ -46,6 +46,7 @@ import {
   normalizeIncomeStatementApiRows,
   normalizeIncomeStatementRows,
   resolveDisplayIncomeStatementRows,
+  resolveFinancialMetricsCardCurrency,
   resolveIncomeStatementCurrency,
   type IncomeStatementApiEntry,
   type NormalizedIncomeStatementRow,
@@ -2479,6 +2480,10 @@ const CompanyDetail = () => {
   const metricsCurrencyCode =
     // 1) Prefer explicit display strings from Xano metrics payload when present
     normalizeCurrency(
+      (financialMetrics as unknown as { Income_statement_currency?: string | null })
+        ?.Income_statement_currency
+    ) ||
+    normalizeCurrency(
       (financialMetrics as unknown as { Revenue_currency_display?: string | null })
         ?.Revenue_currency_display
     ) ||
@@ -2526,7 +2531,9 @@ const CompanyDetail = () => {
   );
   const incomeStatementCurrency = resolveIncomeStatementCurrency(
     normalizedIncomeStatements,
-    metricsCurrencyCode || displayCurrency
+    metricsCurrencyCode ||
+      resolveFinancialMetricsCardCurrency(financialMetricsCardRows) ||
+      displayCurrency
   );
 
   // Process employee data (monthly in Company, or root-level employees_deduped)

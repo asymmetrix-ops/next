@@ -92,6 +92,7 @@ export type CompanyFinancialMetricsCardRow = {
   Revenue_per_employee_formatted?: string | null;
   Revenue_per_employee_source_label?: string | null;
   Rev_per_employee_source?: number | string | null;
+  Income_statement_currency?: string | null;
 };
 
 export type FinancialsMetricFormat =
