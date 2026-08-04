@@ -49,13 +49,21 @@ export function IncomeStatementFinancialsCard({
           </span>
         </div>
       </div>
-      <IncomeStatementMetricsGrid
-        model={model}
-        gridTemplate={gridTemplate}
-        showYoyColumn={showYoyColumn}
-        reserveYoyColumn={reserveYoyColumn}
-        allowedSources={allowedSources}
-      />
+      <div
+        style={{
+          overflowX: model.years.length > 3 ? "auto" : undefined,
+          width: "100%",
+          minWidth: 0,
+        }}
+      >
+        <IncomeStatementMetricsGrid
+          model={model}
+          gridTemplate={gridTemplate}
+          showYoyColumn={showYoyColumn}
+          reserveYoyColumn={reserveYoyColumn}
+          allowedSources={allowedSources}
+        />
+      </div>
     </LinkPanel>
   );
 }

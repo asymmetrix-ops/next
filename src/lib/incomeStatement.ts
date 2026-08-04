@@ -185,11 +185,21 @@ export function normalizeIncomeStatementRows(
 /** Normalizes rows from `company_income_statement_card` (flat array). */
 export function normalizeIncomeStatementApiRows(
   rows: IncomeStatementApiEntry[] | undefined,
-  limit = 3
+  limit = INCOME_STATEMENT_DISPLAY_YEAR_COUNT
 ): NormalizedIncomeStatementRow[] {
   return selectIncomeStatementYearColumns(
     (rows || []).map(normalizeRow),
     limit
+  );
+}
+
+/** Normalizes full income-statement history (all fiscal years). */
+export function normalizeIncomeStatementHistoryRows(
+  rows: IncomeStatementApiEntry[] | undefined
+): NormalizedIncomeStatementRow[] {
+  return selectIncomeStatementYearColumns(
+    (rows || []).map(normalizeRow),
+    null
   );
 }
 
@@ -224,7 +234,7 @@ export const INCOME_STATEMENT_DISPLAY_YEAR_COUNT = 3;
 /** Picks up to N fiscal-year columns, preferring fiscal_year over quarterly for the same year. */
 export function selectIncomeStatementYearColumns(
   rows: NormalizedIncomeStatementRow[],
-  limit = INCOME_STATEMENT_DISPLAY_YEAR_COUNT
+  limit: number | null = INCOME_STATEMENT_DISPLAY_YEAR_COUNT
 ): NormalizedIncomeStatementRow[] {
   const byYear = new Map<number, NormalizedIncomeStatementRow>();
 
@@ -247,12 +257,13 @@ export function selectIncomeStatementYearColumns(
     }
   }
 
-  return sortIncomeStatementRowsAsc(
-    Array.from(byYear.entries())
-      .sort((a, b) => a[0] - b[0])
-      .slice(-limit)
-      .map(([, row]) => row)
-  );
+  const sortedEntries = Array.from(byYear.entries()).sort((a, b) => a[0] - b[0]);
+  const selected =
+    limit == null
+      ? sortedEntries
+      : sortedEntries.slice(-Math.max(0, limit));
+
+  return sortIncomeStatementRowsAsc(selected.map(([, row]) => row));
 }
 
 export function resolveIncomeStatementCurrency(
@@ -339,17 +350,17 @@ export function buildIncomeStatementFromFinancialMetrics(
   });
 }
 
-/** Merges profile/API/card sources and returns up to 3 fiscal-year columns. */
+/** Merges profile/API/card sources and returns up to N fiscal-year columns. */
 export function resolveDisplayIncomeStatementRows({
   apiRows = [],
   profileRows = [],
   financialMetricsRows = [],
-  limit = 3,
+  limit = INCOME_STATEMENT_DISPLAY_YEAR_COUNT,
 }: {
   apiRows?: NormalizedIncomeStatementRow[];
   profileRows?: NormalizedIncomeStatementRow[];
   financialMetricsRows?: FinancialMetricsIncomeRow[];
-  limit?: number;
+  limit?: number | null;
 }): NormalizedIncomeStatementRow[] {
   const fromMetrics = buildIncomeStatementFromFinancialMetrics(
     financialMetricsRows

@@ -28,10 +28,14 @@ export type CompanyIncomeStatementCardResponse = {
   subscription_metrics?: CardMetric[];
   other_metrics?: CardMetric[];
   income_statement?: IncomeStatementApiEntry[];
+  income_statement_history?: IncomeStatementApiEntry[];
 };
 
 export type CompanyIncomeStatementCardResult = {
+  /** Recent periods from `income_statement` (profile card, last 3 fiscal years). */
   incomeStatementRows: IncomeStatementApiEntry[];
+  /** Full history from `income_statement_history`, merged with recent rows. */
+  incomeStatementHistoryRows: IncomeStatementApiEntry[];
   financialMetricsRows: CompanyFinancialMetricsCardRow[];
 };
 
@@ -145,6 +149,12 @@ function isCardResponse(data: unknown): data is CompanyIncomeStatementCardRespon
   if (Array.isArray(candidate.income_statement) && candidate.income_statement.length > 0) {
     return true;
   }
+  if (
+    Array.isArray(candidate.income_statement_history) &&
+    candidate.income_statement_history.length > 0
+  ) {
+    return true;
+  }
   return (
     Array.isArray(candidate.years) &&
     (Array.isArray(candidate.financial_metrics) ||
@@ -167,6 +177,32 @@ function mapCardIncomeStatementEntry(
       entry.currency ??
       null,
   };
+}
+
+function mapCardIncomeStatementEntries(
+  entries: IncomeStatementApiEntry[] | undefined
+): IncomeStatementApiEntry[] {
+  if (!Array.isArray(entries)) return [];
+  return entries.map((entry) =>
+    mapCardIncomeStatementEntry(
+      entry as IncomeStatementApiEntry & { currency?: string | null }
+    )
+  );
+}
+
+/** Merges history with recent rows; recent entries win on duplicate ids. */
+export function mergeIncomeStatementCardEntries(
+  recent: IncomeStatementApiEntry[],
+  history: IncomeStatementApiEntry[]
+): IncomeStatementApiEntry[] {
+  const byId = new Map<number, IncomeStatementApiEntry>();
+  for (const entry of history) {
+    byId.set(entry.id, entry);
+  }
+  for (const entry of recent) {
+    byId.set(entry.id, entry);
+  }
+  return Array.from(byId.values());
 }
 
 function resolveCellCurrency(cell: CardMetricValue): string | null {
@@ -272,6 +308,7 @@ export async function fetchCompanyIncomeStatementCard(
 ): Promise<CompanyIncomeStatementCardResult> {
   const empty: CompanyIncomeStatementCardResult = {
     incomeStatementRows: [],
+    incomeStatementHistoryRows: [],
     financialMetricsRows: [],
   };
 
@@ -304,24 +341,27 @@ export async function fetchCompanyIncomeStatementCard(
   const data: unknown = await res.json();
 
   if (Array.isArray(data)) {
+    const rows = data as IncomeStatementApiEntry[];
     return {
-      incomeStatementRows: data as IncomeStatementApiEntry[],
+      incomeStatementRows: rows,
+      incomeStatementHistoryRows: rows,
       financialMetricsRows: [],
     };
   }
 
   if (isCardResponse(data)) {
     const card = data as CompanyIncomeStatementCardResponse;
-    const incomeStatementRows = Array.isArray(card.income_statement)
-      ? card.income_statement.map((entry) =>
-          mapCardIncomeStatementEntry(
-            entry as IncomeStatementApiEntry & { currency?: string | null }
-          )
-        )
-      : [];
+    const incomeStatementRows = mapCardIncomeStatementEntries(
+      card.income_statement
+    );
+    const incomeStatementHistoryRows = mergeIncomeStatementCardEntries(
+      incomeStatementRows,
+      mapCardIncomeStatementEntries(card.income_statement_history)
+    );
 
     return {
       incomeStatementRows,
+      incomeStatementHistoryRows,
       financialMetricsRows: parseCompanyIncomeStatementCardResponse(card, numericId),
     };
   }

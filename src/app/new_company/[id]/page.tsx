@@ -44,6 +44,7 @@ import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSectio
 import {
   hasIncomeStatementValues,
   normalizeIncomeStatementApiRows,
+  normalizeIncomeStatementHistoryRows,
   normalizeIncomeStatementRows,
   resolveDisplayIncomeStatementRows,
   resolveFinancialMetricsCardCurrency,
@@ -1202,6 +1203,9 @@ const CompanyDetail = () => {
   const [incomeStatementApiRows, setIncomeStatementApiRows] = useState<
     NormalizedIncomeStatementRow[]
   >([]);
+  const [incomeStatementHistoryRows, setIncomeStatementHistoryRows] = useState<
+    NormalizedIncomeStatementRow[]
+  >([]);
   const [financialMetricsCardRows, setFinancialMetricsCardRows] = useState<
     CompanyFinancialMetricsCardRow[]
   >([]);
@@ -1559,6 +1563,9 @@ const CompanyDetail = () => {
       setIncomeStatementApiRows(
         normalizeIncomeStatementApiRows(data.incomeStatementRows)
       );
+      setIncomeStatementHistoryRows(
+        normalizeIncomeStatementHistoryRows(data.incomeStatementHistoryRows)
+      );
       if (data.financialMetricsRows.length > 0) {
         setFinancialMetricsCardRows((prev) => {
           const merged = mergeFinancialMetricsCardRows(
@@ -1575,6 +1582,7 @@ const CompanyDetail = () => {
       }
     } catch {
       setIncomeStatementApiRows([]);
+      setIncomeStatementHistoryRows([]);
     } finally {
       setIncomeStatementCardLoading(false);
     }
@@ -1936,6 +1944,7 @@ const CompanyDetail = () => {
 
     if (companyId) {
       setIncomeStatementApiRows([]);
+      setIncomeStatementHistoryRows([]);
       fetchCompanyData();
       fetchCompanyInvestors(companyId);
       fetchCompanyTransactionStatus(companyId);
@@ -1957,6 +1966,7 @@ const CompanyDetail = () => {
   useEffect(() => {
     if (!company?.id || company.id <= 0) return;
     setIncomeStatementApiRows([]);
+    setIncomeStatementHistoryRows([]);
     setFinancialMetricsCardRows([]);
     fetchIncomeStatementCard(company.id);
     fetchFinancialMetricsCard(company.id);
@@ -1965,13 +1975,21 @@ const CompanyDetail = () => {
   const showFinancialsTab = useMemo(() => {
     if (!company) return false;
 
+    const profileRows = normalizeIncomeStatementRows(company.income_statement);
     const displayRows = resolveDisplayIncomeStatementRows({
       apiRows: incomeStatementApiRows,
-      profileRows: normalizeIncomeStatementRows(company.income_statement),
+      profileRows,
       financialMetricsRows: financialMetricsCardRows,
+    });
+    const historyRows = resolveDisplayIncomeStatementRows({
+      apiRows: incomeStatementHistoryRows,
+      profileRows,
+      financialMetricsRows: financialMetricsCardRows,
+      limit: null,
     });
     const hasData =
       hasIncomeStatementValues(displayRows) ||
+      hasIncomeStatementValues(historyRows) ||
       hasFinancialMetricsCardData(financialMetricsCardRows);
 
     if (hasData) return true;
@@ -1982,6 +2000,7 @@ const CompanyDetail = () => {
     incomeStatementCardLoading,
     financialMetricsCardLoading,
     incomeStatementApiRows,
+    incomeStatementHistoryRows,
     financialMetricsCardRows,
   ]);
 
@@ -2526,11 +2545,19 @@ const CompanyDetail = () => {
     profileRows: profileIncomeStatements,
     financialMetricsRows: financialMetricsCardRows,
   });
+  const normalizedIncomeStatementHistory = resolveDisplayIncomeStatementRows({
+    apiRows: incomeStatementHistoryRows,
+    profileRows: profileIncomeStatements,
+    financialMetricsRows: financialMetricsCardRows,
+    limit: null,
+  });
   const hasIncomeStatementData = hasIncomeStatementValues(
     normalizedIncomeStatements
   );
   const incomeStatementCurrency = resolveIncomeStatementCurrency(
-    normalizedIncomeStatements,
+    normalizedIncomeStatementHistory.length > 0
+      ? normalizedIncomeStatementHistory
+      : normalizedIncomeStatements,
     metricsCurrencyCode ||
       resolveFinancialMetricsCardCurrency(financialMetricsCardRows) ||
       displayCurrency
@@ -3724,6 +3751,7 @@ const CompanyDetail = () => {
               loading={financialMetricsCardLoading}
               companyName={company?.name?.trim() || "Company"}
               incomeStatementRows={normalizedIncomeStatements}
+              incomeStatementHistoryRows={normalizedIncomeStatementHistory}
               incomeStatementCurrency={incomeStatementCurrency}
               employeeHistory={employeeData}
             />
