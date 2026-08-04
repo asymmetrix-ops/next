@@ -8,7 +8,7 @@ export const GOOGLE_OAUTH_STATE_COOKIE = "google_oauth_state";
 export const GOOGLE_SCOPES = "openid email profile";
 
 export const DEFAULT_XANO_GOOGLE_SSO_CALLBACK_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/google/callback";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/sso/callback";
 
 type GoogleTokenResponse = {
   access_token?: string;
@@ -24,6 +24,7 @@ type GoogleProfile = {
   given_name?: string;
   family_name?: string;
   picture?: string;
+  hd?: string;
 };
 
 export function getGoogleSsoConfigStatus(): {
@@ -80,7 +81,7 @@ export function getGoogleSsoCallbackUrl(): string {
 
   const xanoBaseUrl = process.env.XANO_BASE_URL?.trim();
   if (xanoBaseUrl) {
-    return `${xanoBaseUrl.replace(/\/$/, "")}/auth/google/callback`;
+    return `${xanoBaseUrl.replace(/\/$/, "")}/auth/sso/callback`;
   }
 
   return DEFAULT_XANO_GOOGLE_SSO_CALLBACK_URL;
@@ -162,15 +163,18 @@ export async function fetchGoogleProfile(
 export async function syncGoogleSsoWithXano(input: {
   email: string;
   name?: string;
-  googleId?: string;
+  providerUid?: string;
+  hostedDomain?: string | null;
 }): Promise<string> {
   const response = await fetch(getGoogleSsoCallbackUrl(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      provider: "google",
       email: input.email || "",
       name: input.name || "",
-      google_id: input.googleId || "",
+      provider_uid: input.providerUid || "",
+      hosted_domain: input.hostedDomain || "",
     }),
     cache: "no-store",
   });

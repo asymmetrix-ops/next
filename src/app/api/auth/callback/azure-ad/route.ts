@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   AUTH_TOKEN_COOKIE,
   AZURE_OAUTH_STATE_COOKIE,
-  decodeAzureTenantIdFromIdToken,
   exchangeAzureAuthorizationCode,
   fetchAzureProfile,
   isProduction,
@@ -48,8 +47,7 @@ export async function GET(req: NextRequest) {
     const authToken = await syncAzureSsoWithXano({
       email,
       name: profile.displayName,
-      azureOid: profile.id,
-      azureTenantId: decodeAzureTenantIdFromIdToken(tokens.id_token),
+      providerUid: profile.id,
     });
 
     const response = NextResponse.redirect(new URL("/auth/sso-complete", req.url));
