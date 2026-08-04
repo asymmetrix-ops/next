@@ -143,7 +143,6 @@ export function appendMetricCurrency(
 
 type BuildSectionsInput = {
   financialMetrics: FinancialMetricsPayload | null;
-  hasIncomeStatementData: boolean;
   revenuePlain: string;
   ebitdaPlain: string;
   evPlain: string;
@@ -168,7 +167,6 @@ function row(
 /** Assembles PROD-style financial metric sections for the two tabbed cards. */
 export function buildFinancialMetricsSections({
   financialMetrics,
-  hasIncomeStatementData,
   revenuePlain,
   ebitdaPlain,
   evPlain,
@@ -193,22 +191,18 @@ export function buildFinancialMetricsSections({
       )
     );
 
-  const mainRows: FinancialMetricRow[] = [];
-
-  if (!hasIncomeStatementData) {
-    mainRows.push(
-      row(
-        "Revenue (m):",
-        money(revenuePlain),
-        src(fm?.Revenue_source_label, fm?.Rev_source)
-      ),
-      row(
-        "EBITDA (m):",
-        money(ebitdaPlain),
-        src(fm?.EBITDA_source_label, fm?.EBITDA_source)
-      )
-    );
-  }
+  const mainRows: FinancialMetricRow[] = [
+    row(
+      "Revenue (m):",
+      money(revenuePlain),
+      src(fm?.Revenue_source_label, fm?.Rev_source)
+    ),
+    row(
+      "EBITDA (m):",
+      money(ebitdaPlain),
+      src(fm?.EBITDA_source_label, fm?.EBITDA_source)
+    ),
+  ];
 
   mainRows.push(
     row(

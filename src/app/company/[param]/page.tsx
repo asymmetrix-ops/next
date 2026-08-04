@@ -1787,10 +1787,25 @@ const CompanyDetail = () => {
         return;
       }
       const data = await res.json();
-      // API may return a single object or an array
-      const payload: CompanyFinancialMetrics | null = Array.isArray(data)
-        ? (data[0] as CompanyFinancialMetrics | undefined) || null
-        : (data as CompanyFinancialMetrics);
+      const rows: CompanyFinancialMetrics[] = Array.isArray(data)
+        ? (data as CompanyFinancialMetrics[])
+        : data && typeof data === "object"
+          ? [data as CompanyFinancialMetrics]
+          : [];
+      const payload =
+        rows.length === 0
+          ? null
+          : [...rows].sort((a, b) => {
+              const yearA =
+                extractValidYear(
+                  a.financial_year_text ?? a.Financial_Year
+                ) ?? 0;
+              const yearB =
+                extractValidYear(
+                  b.financial_year_text ?? b.Financial_Year
+                ) ?? 0;
+              return yearA - yearB;
+            })[rows.length - 1] ?? null;
       if (payload && typeof payload === "object") {
         setFinancialMetrics(payload);
       } else {
@@ -2769,10 +2784,50 @@ const CompanyDetail = () => {
     })
     .slice(-3);
 
+  const incomeStatementFromMetrics = (() => {
+    if (!financialMetrics) return [] as IncomeStatementEntry[];
+    const year = extractValidYear(
+      financialMetrics.financial_year_text ?? financialMetrics.Financial_Year
+    );
+    if (year == null) return [] as IncomeStatementEntry[];
+
+    const toRawMillions = (value?: number | null) =>
+      value != null && Number.isFinite(Number(value))
+        ? Number(value) * 1_000_000
+        : null;
+
+    const revenue = toRawMillions(financialMetrics.Revenue_m);
+    const ebit = toRawMillions(financialMetrics.EBIT_m);
+    const ebitda = toRawMillions(financialMetrics.EBITDA_m);
+    if (revenue == null && ebit == null && ebitda == null) {
+      return [] as IncomeStatementEntry[];
+    }
+
+    return [
+      {
+        id: financialMetrics.id,
+        period_display_end_date:
+          financialMetrics.period_display || `FY${year}`,
+        revenue,
+        ebit,
+        ebitda,
+        cost_of_goods_sold_currency:
+          financialMetrics.Income_statement_currency ||
+          financialMetrics.Revenue_currency_display ||
+          undefined,
+      },
+    ];
+  })();
+
+  const displayIncomeStatementRows =
+    normalizedIncomeStatements.length > 0
+      ? normalizedIncomeStatements
+      : incomeStatementFromMetrics;
+
   // Show Income Statement only if there is at least one numeric value
   const hasIncomeStatementData =
     isPublicOwnership &&
-    normalizedIncomeStatements.some(
+    displayIncomeStatementRows.some(
       (row) =>
         typeof row.revenue === "number" ||
         typeof row.ebit === "number" ||
@@ -2782,7 +2837,7 @@ const CompanyDetail = () => {
   const incomeStatementCurrency =
     metricsCurrencyCode ||
     normalizeCurrency(
-      normalizedIncomeStatements
+      displayIncomeStatementRows
         .map((row) => row.cost_of_goods_sold_currency)
         .find((value) => normalizeCurrency(value))
     ) ||
@@ -2811,7 +2866,6 @@ const CompanyDetail = () => {
 
   const finMetricsData = buildFinancialMetricsSections({
     financialMetrics,
-    hasIncomeStatementData,
     revenuePlain,
     ebitdaPlain,
     evPlain,
@@ -4688,7 +4742,7 @@ const CompanyDetail = () => {
                 fillGridCell
                 primary={finMetricsData.primary}
                 hasIncomeStatement={hasIncomeStatementData}
-                incomeStatementRows={normalizedIncomeStatements}
+                incomeStatementRows={displayIncomeStatementRows}
                 incomeStatementCurrency={incomeStatementCurrency}
               />
             </div>
@@ -4729,7 +4783,7 @@ const CompanyDetail = () => {
               fillGridCell={false}
               data={finMetricsData}
               hasIncomeStatement={hasIncomeStatementData}
-              incomeStatementRows={normalizedIncomeStatements}
+              incomeStatementRows={displayIncomeStatementRows}
               incomeStatementCurrency={incomeStatementCurrency}
             />
 
