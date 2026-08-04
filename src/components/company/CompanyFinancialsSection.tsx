@@ -44,6 +44,8 @@ type Props = {
   loading: boolean;
   companyName: string;
   incomeStatementRows?: IncomeStatementRow[];
+  /** Full fiscal-year history for the Financials tab income statement table. */
+  incomeStatementHistoryRows?: IncomeStatementRow[];
   incomeStatementCurrency?: string;
   employeeHistory?: EmployeeTimeSeriesPoint[];
 };
@@ -327,6 +329,7 @@ export function CompanyFinancialsSection({
   loading,
   companyName,
   incomeStatementRows = [],
+  incomeStatementHistoryRows = [],
   incomeStatementCurrency = "",
   employeeHistory = [],
 }: Props) {
@@ -339,14 +342,23 @@ export function CompanyFinancialsSection({
     [rows, employeeHistory]
   );
 
+  const incomeStatementSourceRows =
+    incomeStatementHistoryRows.length > 0
+      ? incomeStatementHistoryRows
+      : incomeStatementRows;
+
   const incomeStatementModel = useMemo(
     () =>
       buildIncomeStatementFinancialsViewModel(
-        incomeStatementRows,
+        incomeStatementSourceRows,
         employeeHistory,
         incomeStatementCurrency
       ),
-    [incomeStatementRows, employeeHistory, incomeStatementCurrency]
+    [
+      incomeStatementSourceRows,
+      employeeHistory,
+      incomeStatementCurrency,
+    ]
   );
 
   const metricsYears = model.years;
@@ -370,10 +382,19 @@ export function CompanyFinancialsSection({
     showTableYoyColumn
   );
 
+  const incomeStatementGridTemplate = buildFinancialsTableGridTemplate(
+    incomeStatementModel?.years.filter((year) => year != null).length ?? 0,
+    false
+  );
+
   const alignedIncomeStatementModel = useMemo(() => {
-    if (!incomeStatementModel || tableYears.length === 0) return null;
+    if (!incomeStatementModel) return null;
+    if (incomeStatementHistoryRows.length > 0) {
+      return incomeStatementModel;
+    }
+    if (tableYears.length === 0) return null;
     return remapIncomeStatementToTableYears(incomeStatementModel, tableYears);
-  }, [incomeStatementModel, tableYears]);
+  }, [incomeStatementModel, incomeStatementHistoryRows.length, tableYears]);
 
   const toggleSourceType = useCallback((type: FiMetricSourceType) => {
     setAllowedSources((prev) => {
@@ -466,9 +487,20 @@ export function CompanyFinancialsSection({
       {hasIncomeStatement && alignedIncomeStatementModel ? (
         <IncomeStatementFinancialsCard
           model={alignedIncomeStatementModel}
-          gridTemplate={gridTemplate}
-          showYoyColumn={false}
-          reserveYoyColumn={showTableYoyColumn}
+          gridTemplate={
+            incomeStatementHistoryRows.length > 0
+              ? incomeStatementGridTemplate
+              : gridTemplate
+          }
+          showYoyColumn={
+            incomeStatementHistoryRows.length > 0
+              ? (alignedIncomeStatementModel.years.filter((year) => year != null)
+                  .length ?? 0) >= 2
+              : false
+          }
+          reserveYoyColumn={
+            incomeStatementHistoryRows.length === 0 && showTableYoyColumn
+          }
           allowedSources={allowedSources}
         />
       ) : null}
