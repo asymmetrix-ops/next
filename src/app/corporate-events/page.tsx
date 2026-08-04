@@ -56,9 +56,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
   const urlFiltersRef = useRef<Partial<CorporateEventsSearchFilters>>(
     parseCorporateEventsUrlFilters()
   );
-  const [urlFiltersReady, setUrlFiltersReady] = useState(
-    typeof window !== "undefined"
-  );
+  const [urlFiltersReady, setUrlFiltersReady] = useState(false);
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
     undefined
   );
@@ -127,11 +125,12 @@ const useCorporateEventsAPI = (userId: number | null) => {
       setError(null);
 
       if (filters !== undefined) {
-        currentFiltersRef.current = filters;
-        setCurrentFilters(filters);
+        const mergedListFilters = mergeUrlFilters(filters);
+        currentFiltersRef.current = mergedListFilters;
+        setCurrentFilters(mergedListFilters);
       }
       if (countsFilters !== undefined) {
-        currentCountsFiltersRef.current = countsFilters;
+        currentCountsFiltersRef.current = mergeUrlFilters(countsFilters);
       }
 
       const filtersToUse =
@@ -150,12 +149,10 @@ const useCorporateEventsAPI = (userId: number | null) => {
 
       try {
         if (page === 1 && refreshCounts) {
-          scheduleCountsFetch(
-            mergeUrlFilters({
-              ...countsFiltersToUse,
-              user_id: userId,
-            })
-          );
+          scheduleCountsFetch({
+            ...mergeUrlFilters(countsFiltersToUse),
+            user_id: userId,
+          });
         }
 
         const data = await fetchCorporateEventsServer(page, resolvedFilters);
