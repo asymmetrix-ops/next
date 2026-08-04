@@ -154,11 +154,18 @@ function isCardResponse(data: unknown): data is CompanyIncomeStatementCardRespon
 }
 
 function mapCardIncomeStatementEntry(
-  entry: IncomeStatementApiEntry & { currency?: string | null }
+  entry: IncomeStatementApiEntry & {
+    currency?: string | null;
+    Income_statement_currency?: string | null;
+  }
 ): IncomeStatementApiEntry {
   return {
     ...entry,
-    statement_currency: entry.statement_currency ?? entry.currency ?? null,
+    statement_currency:
+      entry.statement_currency ??
+      entry.Income_statement_currency ??
+      entry.currency ??
+      null,
   };
 }
 

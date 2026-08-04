@@ -10,7 +10,10 @@ import {
   finMetricsPeriodHeaderStyle,
 } from "./primitives";
 import type { NormalizedIncomeStatementRow } from "@/lib/incomeStatement";
-import { sortIncomeStatementRowsAsc } from "@/lib/incomeStatement";
+import {
+  resolveIncomeStatementCurrency,
+  sortIncomeStatementRowsAsc,
+} from "@/lib/incomeStatement";
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 
 export type IncomeStatementRow = NormalizedIncomeStatementRow;
@@ -32,22 +35,28 @@ function formatIncomeValue(
   );
 }
 
-function incomeMetrics(currency: string) {
+function incomeMetrics(resolvedCurrency: string) {
   return [
     {
       label: "Revenue (m)",
       getValue: (row: IncomeStatementRow) =>
-        formatIncomeValue(row.revenue, row.statement_currency || currency),
+        formatIncomeValue(
+          row.revenue,
+          row.statement_currency || resolvedCurrency
+        ),
     },
     {
       label: "EBIT (m)",
       getValue: (row: IncomeStatementRow) =>
-        formatIncomeValue(row.ebit, row.statement_currency || currency),
+        formatIncomeValue(row.ebit, row.statement_currency || resolvedCurrency),
     },
     {
       label: "EBITDA (m)",
       getValue: (row: IncomeStatementRow) =>
-        formatIncomeValue(row.ebitda, row.statement_currency || currency),
+        formatIncomeValue(
+          row.ebitda,
+          row.statement_currency || resolvedCurrency
+        ),
     },
   ];
 }
@@ -84,7 +93,11 @@ const tdValueStyle: React.CSSProperties = {
 /** Compact master-style income statement for the profile financial card. */
 export function IncomeStatementTable({ rows, currency = "" }: Props) {
   const orderedRows = sortIncomeStatementRowsAsc(rows);
-  const metrics = incomeMetrics(currency.trim());
+  const resolvedCurrency = resolveIncomeStatementCurrency(
+    orderedRows,
+    currency.trim()
+  );
+  const metrics = incomeMetrics(resolvedCurrency);
   if (orderedRows.length === 0) return null;
 
   return (
