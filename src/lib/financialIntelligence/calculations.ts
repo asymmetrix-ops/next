@@ -231,7 +231,7 @@ export function computeCompositePercentile(
   const scores: number[] = [];
 
   for (const metric of FI_BENCHMARK_METRICS) {
-    const targetValue = getMetricValue(target, metric.key);
+    const targetValue = getPeerMetricValueForCalc(target, metric.key, allowedSources);
     if (targetValue == null) continue;
 
     const peerValues = peers

@@ -9,7 +9,7 @@
     FiMetricFormat,
     FiMetricKey,
   } from "@/lib/financialIntelligence/types";
-  import { FI_BENCHMARK_SECTIONS, getMetricValue } from "@/lib/financialIntelligence/calculations";
+  import { FI_BENCHMARK_SECTIONS, getPeerMetricValueForCalc } from "@/lib/financialIntelligence/calculations";
   import {
     FI_SOURCE_TYPES_UI_ORDER,
     getMetricSourceType,
@@ -83,11 +83,13 @@
     row,
     target,
     peers,
+    allowedSources,
     isLast,
   }: {
     row: FiBenchmarkMetricRow;
     target: FiCompanyRow;
     peers: FiCompanyRow[];
+    allowedSources: FiMetricSourceType[];
     isLast: boolean;
   }) {
     const metricKey = row.key as FiMetricKey;
@@ -102,7 +104,7 @@
       ...peers.map((peer) => ({
         id: peer.company_id,
         name: peer.company_name,
-        value: getMetricValue(peer, metricKey),
+        value: getPeerMetricValueForCalc(peer, metricKey, allowedSources),
         sourceType: getMetricSourceType(peer, metricKey),
         isTarget: false,
       })),
@@ -484,11 +486,18 @@
     targetName: string;
     target: FiCompanyRow;
     peers: FiCompanyRow[];
+    allowedSources: FiMetricSourceType[];
   }
 
   const SCORECARD_COLS = "180px 92px 92px 1fr 96px 92px";
 
-  export function BenchmarkTable({ rows, targetName, target, peers }: BenchmarkTableProps) {
+  export function BenchmarkTable({
+    rows,
+    targetName,
+    target,
+    peers,
+    allowedSources,
+  }: BenchmarkTableProps) {
     const [openMetricKey, setOpenMetricKey] = useState<string | null>(null);
     const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
@@ -648,7 +657,13 @@
             </div>
           </div>
           {isOpen && (
-            <MetricBreakdown row={row} target={target} peers={peers} isLast={isLastOverall} />
+            <MetricBreakdown
+              row={row}
+              target={target}
+              peers={peers}
+              allowedSources={allowedSources}
+              isLast={isLastOverall}
+            />
           )}
         </React.Fragment>
       );
