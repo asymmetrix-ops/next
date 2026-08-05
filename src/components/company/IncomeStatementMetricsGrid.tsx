@@ -5,10 +5,23 @@ import {
   T,
   tableColHeaderBarStyle,
 } from "@/components/redesign/primitives";
-import { buildFinancialsTableGridTemplate } from "@/lib/companyFinancialMetricsCard";
 import type { IncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 
+function buildIncomeStatementGridTemplate(
+  periodCount: number,
+  includeTrailingColumn: boolean
+): string {
+  const labelCol = "minmax(140px, 1.5fr)";
+  const periodColumns = `repeat(${periodCount}, minmax(0, 1fr))`;
+  const yoyCol = "minmax(56px, 0.8fr)";
+  return includeTrailingColumn
+    ? `${labelCol} ${periodColumns} ${yoyCol}`
+    : `${labelCol} ${periodColumns}`;
+}
+
+const GRID_COLUMN_GAP = 16;
+const GRID_ROW_PADDING = "12px 20px";
 
 function columnKey(
   model: IncomeStatementFinancialsViewModel,
@@ -82,30 +95,32 @@ export function IncomeStatementMetricsGrid({
   const includeYoySpacer = reserveYoyColumn && !showYoyColumn;
   const periodCount = model.columnLabels.length;
   const includeTrailingColumn = showYoyColumn || includeYoySpacer;
-  const useFixedWidth = periodCount > 3;
 
   const gridTemplate = useMemo(
-    () =>
-      buildFinancialsTableGridTemplate(periodCount, includeTrailingColumn, {
-        fixedWidth: useFixedWidth,
-      }),
-    [periodCount, includeTrailingColumn, useFixedWidth]
+    () => buildIncomeStatementGridTemplate(periodCount, includeTrailingColumn),
+    [periodCount, includeTrailingColumn]
+  );
+
+  const gridStyle = useMemo(
+    () => ({
+      display: "grid" as const,
+      gridTemplateColumns: gridTemplate,
+      columnGap: GRID_COLUMN_GAP,
+      alignItems: "center" as const,
+      width: "100%",
+    }),
+    [gridTemplate]
   );
 
   const cellAlign = { textAlign: "center" as const, whiteSpace: "nowrap" as const };
 
   return (
-    <div
-      className="income-statement-table"
-      style={{
-        width: useFixedWidth ? "max-content" : "100%",
-        minWidth: useFixedWidth ? "100%" : 0,
-      }}
-    >
+    <div className="income-statement-table" style={{ width: "100%", minWidth: 0 }}>
       <div
         style={{
           ...tableColHeaderBarStyle,
-          gridTemplateColumns: gridTemplate,
+          ...gridStyle,
+          padding: GRID_ROW_PADDING,
         }}
       >
         <span style={{ whiteSpace: "nowrap" }}>Metric</span>
@@ -126,10 +141,8 @@ export function IncomeStatementMetricsGrid({
           key={metric.key}
           className="income-statement-row"
           style={{
-            display: "grid",
-            gridTemplateColumns: gridTemplate,
-            alignItems: "center",
-            padding: "12px 16px",
+            ...gridStyle,
+            padding: GRID_ROW_PADDING,
             borderBottom:
               index === model.metrics.length - 1
                 ? "none"

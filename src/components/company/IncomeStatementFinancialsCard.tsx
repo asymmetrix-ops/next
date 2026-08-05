@@ -23,8 +23,6 @@ export function IncomeStatementFinancialsCard({
   reserveYoyColumn?: boolean;
   allowedSources: FiMetricSourceType[];
 }) {
-  const scrollable = model.columnLabels.length > 3;
-
   return (
     <LinkPanel style={{ marginBottom: 16 }}>
       <div style={CARD_HEADER_BAR_STYLE}>
@@ -49,20 +47,12 @@ export function IncomeStatementFinancialsCard({
           </span>
         </div>
       </div>
-      <div
-        style={{
-          overflowX: scrollable ? "auto" : undefined,
-          width: "100%",
-          minWidth: 0,
-        }}
-      >
-        <IncomeStatementMetricsGrid
-          model={model}
-          showYoyColumn={showYoyColumn}
-          reserveYoyColumn={reserveYoyColumn}
-          allowedSources={allowedSources}
-        />
-      </div>
+      <IncomeStatementMetricsGrid
+        model={model}
+        showYoyColumn={showYoyColumn}
+        reserveYoyColumn={reserveYoyColumn}
+        allowedSources={allowedSources}
+      />
     </LinkPanel>
   );
 }
