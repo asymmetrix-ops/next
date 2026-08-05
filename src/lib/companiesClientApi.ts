@@ -4,6 +4,7 @@ import {
   COMPANIES_API_BASE,
   companyCountsPayloadToSearchParams,
   companySearchPayloadToSearchParams,
+  withCompanyPayloadColumns,
 } from "@/lib/companiesFilterPayload";
 
 function getAuthToken(explicitToken?: string | null): string | null {
@@ -22,16 +23,18 @@ export async function fetchCompaniesClient(
 
   const perPageRaw = filters.Per_page ?? 20;
   const perPage = perPageRaw > 0 ? perPageRaw : 20;
-  const payload: CompaniesFilters = {
-    ...filters,
-    Offset: page,
-    Per_page: perPage,
-    filters_sql: filters.filters_sql || null,
-    query: filters.query?.trim() || null,
-    columns: filters.columns ?? [],
-    has_financial_filters: Boolean(filters.has_financial_filters),
-    has_year_filter: Boolean(filters.has_year_filter),
-  };
+  const payload: CompaniesFilters = withCompanyPayloadColumns(
+    {
+      ...filters,
+      Offset: page,
+      Per_page: perPage,
+      filters_sql: filters.filters_sql || null,
+      query: filters.query?.trim() || null,
+      has_financial_filters: Boolean(filters.has_financial_filters),
+      has_year_filter: Boolean(filters.has_year_filter),
+    },
+    filters.columns ?? []
+  );
 
   const params = companySearchPayloadToSearchParams(payload, { page, perPage });
   const url = `${COMPANIES_API_BASE}/Get_new_companies?${params.toString()}`;
@@ -62,14 +65,16 @@ export async function fetchCompaniesCountsClient(
   const authToken = getAuthToken(token);
   if (!authToken) return null;
 
-  const payload: CompaniesFilters = {
-    ...filters,
-    query: filters.query?.trim() || null,
-    filters_sql: filters.filters_sql || null,
-    columns: filters.columns ?? [],
-    has_financial_filters: Boolean(filters.has_financial_filters),
-    has_year_filter: Boolean(filters.has_year_filter),
-  };
+  const payload: CompaniesFilters = withCompanyPayloadColumns(
+    {
+      ...filters,
+      query: filters.query?.trim() || null,
+      filters_sql: filters.filters_sql || null,
+      has_financial_filters: Boolean(filters.has_financial_filters),
+      has_year_filter: Boolean(filters.has_year_filter),
+    },
+    filters.columns ?? []
+  );
 
   const params = companyCountsPayloadToSearchParams(payload);
   const url = `${COMPANIES_API_BASE}/companies_counts?${params.toString()}`;

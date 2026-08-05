@@ -22,7 +22,7 @@ import {
   OWNERSHIP_TAB_CONFIG,
   type CompaniesOwnershipCounts,
 } from "@/components/companies/companiesFilterConfig";
-import { buildCompaniesSearchPayload } from "@/lib/companiesFilterPayload";
+import { buildCompaniesSearchPayload, withCompanyPayloadColumns } from "@/lib/companiesFilterPayload";
 import type { FilterBarState } from "@/components/companies/CompaniesFilterBar";
 
 export type ScopedCompaniesPanelProps = {
@@ -92,7 +92,12 @@ function useScopedCompaniesSearch() {
   const currentCountsFiltersRef = useRef<Filters | undefined>(undefined);
 
   const fetchCompanies = useCallback(
-    async (page: number = 1, filters?: Filters, countsFilters?: Filters) => {
+    async (
+      page: number = 1,
+      filters?: Filters,
+      countsFilters?: Filters,
+      refreshCounts: boolean = true
+    ) => {
       const requestId = ++lastRequestIdRef.current;
       setLoading(true);
       setError(null);
@@ -100,9 +105,6 @@ function useScopedCompaniesSearch() {
       if (filters !== undefined) {
         currentFiltersRef.current = filters;
         setCurrentFilters(filters);
-      }
-      if (countsFilters !== undefined) {
-        currentCountsFiltersRef.current = countsFilters;
       }
 
       const filtersToUse =
@@ -112,17 +114,23 @@ function useScopedCompaniesSearch() {
         currentCountsFiltersRef.current ??
         filtersToUse;
 
-      try {
-        const serverFilters: CompaniesFilters = {
-          ...filtersToUse,
-          columns: requestColumnsRef.current,
-        };
-        const countsServerFilters: CompaniesFilters = {
-          ...countsFiltersToUse,
-          columns: requestColumnsRef.current,
-        };
+      if (countsFilters !== undefined) {
+        currentCountsFiltersRef.current = countsFilters;
+      } else if (currentCountsFiltersRef.current === undefined) {
+        currentCountsFiltersRef.current = countsFiltersToUse;
+      }
 
-        if (page === 1) {
+      try {
+        const serverFilters: CompaniesFilters = withCompanyPayloadColumns(
+          filtersToUse,
+          requestColumnsRef.current
+        );
+        const countsServerFilters: CompaniesFilters = withCompanyPayloadColumns(
+          countsFiltersToUse,
+          requestColumnsRef.current
+        );
+
+        if (page === 1 && refreshCounts) {
           scheduleCountsFetch(countsServerFilters);
         }
 

@@ -7,6 +7,7 @@ import {
   companyCountsPayloadToSearchParams,
   companySearchPayloadToSearchParams,
   normalizeCompanySearchPayload,
+  withCompanyPayloadColumns,
 } from "@/lib/companiesFilterPayload";
 import { normalizeCompaniesResponse } from "./normalizeCompaniesResponse";
 
@@ -114,7 +115,10 @@ export async function fetchCompaniesCountsServer(
       return null;
     }
 
-    const payload = normalizeCompanySearchPayload(filters);
+    const payload = withCompanyPayloadColumns(
+      normalizeCompanySearchPayload(filters),
+      filters.columns ?? []
+    );
     const params = companyCountsPayloadToSearchParams(payload);
     const url = `${COMPANIES_API_BASE}/companies_counts?${params.toString()}`;
 
@@ -155,11 +159,14 @@ export async function fetchCompaniesServer(
 
     const perPageRaw = filters.Per_page ?? 20;
     const perPage = perPageRaw > 0 ? perPageRaw : 20;
-    const payload: CompanySearchPayload = {
-      ...normalizeCompanySearchPayload(filters),
-      Offset: page,
-      Per_page: perPage,
-    };
+    const payload: CompanySearchPayload = withCompanyPayloadColumns(
+      {
+        ...normalizeCompanySearchPayload(filters),
+        Offset: page,
+        Per_page: perPage,
+      },
+      filters.columns ?? []
+    );
 
     const params = companySearchPayloadToSearchParams(payload, { page, perPage });
     const url = `${COMPANIES_API_BASE}/Get_new_companies?${params.toString()}`;

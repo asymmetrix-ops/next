@@ -15,7 +15,11 @@ import {
   ACCESS_DENIED_PATH,
   MCP_GUEST_ALLOWED_PATH,
 } from "@/lib/mcpGuest";
-import { buildMcpGuestCompaniesFilters, buildMcpGuestCompaniesCountsFilters } from "@/lib/companiesFilterPayload";
+import {
+  buildMcpGuestCompaniesFilters,
+  buildMcpGuestCompaniesCountsFilters,
+  withCompanyPayloadColumns,
+} from "@/lib/companiesFilterPayload";
 import { CompanyDashboard } from "@/components/companies/CompanyDashboard";
 import {
   CompanySection,
@@ -96,7 +100,12 @@ const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
   const currentCountsFiltersRef = useRef<Filters | undefined>(undefined);
 
   const fetchCompanies = useCallback(
-    async (page: number = 1, filters?: Filters, countsFilters?: Filters) => {
+    async (
+      page: number = 1,
+      filters?: Filters,
+      countsFilters?: Filters,
+      refreshCounts: boolean = true
+    ) => {
       const requestId = ++lastRequestIdRef.current;
       setLoading(true);
       setError(null);
@@ -104,9 +113,6 @@ const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
       if (filters !== undefined) {
         currentFiltersRef.current = filters;
         setCurrentFilters(filters);
-      }
-      if (countsFilters !== undefined) {
-        currentCountsFiltersRef.current = countsFilters;
       }
 
       const filtersToUse = isMcpGuest
@@ -120,17 +126,25 @@ const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
           currentCountsFiltersRef.current ??
           filtersToUse;
 
-      try {
-        const serverFilters: ServerFilters = {
-          ...filtersToUse,
-          columns: requestColumnsRef.current,
-        };
-        const countsServerFilters: ServerFilters = {
-          ...countsFiltersToUse,
-          columns: requestColumnsRef.current,
-        };
+      if (!isMcpGuest) {
+        if (countsFilters !== undefined) {
+          currentCountsFiltersRef.current = countsFilters;
+        } else if (currentCountsFiltersRef.current === undefined) {
+          currentCountsFiltersRef.current = countsFiltersToUse;
+        }
+      }
 
-        if (page === 1) {
+      try {
+        const serverFilters: ServerFilters = withCompanyPayloadColumns(
+          filtersToUse,
+          requestColumnsRef.current
+        );
+        const countsServerFilters: ServerFilters = withCompanyPayloadColumns(
+          countsFiltersToUse,
+          requestColumnsRef.current
+        );
+
+        if (page === 1 && refreshCounts) {
           scheduleCountsFetch(countsServerFilters);
         }
 
@@ -181,7 +195,10 @@ const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
     const initialFilters = isMcpGuest
       ? buildMcpGuestCompaniesFilters()
       : createDefaultFilters();
-    fetchCompanies(1, initialFilters);
+    const initialCountsFilters = isMcpGuest
+      ? buildMcpGuestCompaniesCountsFilters()
+      : initialFilters;
+    fetchCompanies(1, initialFilters, initialCountsFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMcpGuest, authLoading]);
 

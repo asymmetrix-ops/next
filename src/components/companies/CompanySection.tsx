@@ -906,7 +906,12 @@ export const CompanySection = ({
     totalCount?: number;
   };
   ownershipCounts: CompaniesOwnershipCounts;
-  fetchCompanies: (page?: number, filters?: Filters, countsFilters?: Filters) => Promise<void>;
+  fetchCompanies: (
+    page?: number,
+    filters?: Filters,
+    countsFilters?: Filters,
+    refreshCounts?: boolean
+  ) => Promise<void>;
   setRequestColumns: (columns: string[]) => void;
   currentFilters: Filters | undefined;
   filterPinnedColumnKeys?: string[];
@@ -1105,7 +1110,7 @@ export const CompanySection = ({
       pendingScrollLeftRef.current = table.scrollLeft;
     }
 
-    void fetchCompanies(1, currentFilters);
+    void fetchCompanies(1, currentFilters, undefined, false);
     // Re-fetch only when the set of requested API columns changes (add/remove), not reorder.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedColumnKeys, columnPrefsLoaded]);

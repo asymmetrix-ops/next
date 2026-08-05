@@ -594,6 +594,35 @@ export function buildCompaniesSearchPayload(args: {
   };
 }
 
+/** JOIN aliases in filters_sql that require matching `columns[]` on companies_counts. */
+const FILTERS_SQL_API_COLUMN_HINTS: Array<{ pattern: RegExp; column: string }> =
+  [
+    { pattern: /\bts\./i, column: "transaction_status" },
+  ];
+
+/** Ensure filters_sql JOINs have the API columns both list and counts endpoints expect. */
+export function mergeApiColumnsForFiltersSql(
+  columns: string[] | undefined,
+  filtersSql: string | null | undefined
+): string[] {
+  const merged = new Set(columns ?? []);
+  const sql = filtersSql ?? "";
+  for (const { pattern, column } of FILTERS_SQL_API_COLUMN_HINTS) {
+    if (pattern.test(sql)) merged.add(column);
+  }
+  return Array.from(merged);
+}
+
+export function withCompanyPayloadColumns(
+  payload: CompanySearchPayload,
+  columns: string[] = []
+): CompanySearchPayload {
+  return {
+    ...payload,
+    columns: mergeApiColumnsForFiltersSql(columns, payload.filters_sql),
+  };
+}
+
 function appendSharedCompanyFilterParams(
   params: URLSearchParams,
   payload: CompanySearchPayload
