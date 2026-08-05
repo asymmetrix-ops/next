@@ -38,6 +38,7 @@ export interface CorporateEventsFilters {
   target_company_id?: number;
   new_company_id?: number;
   individual_id?: number;
+  investor_id?: number;
 }
 
 export interface CorporateEventsStats {

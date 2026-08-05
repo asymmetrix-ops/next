@@ -29,6 +29,8 @@ import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/invest
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
+const CE_PREVIEW_COUNT = 2;
+
 // Types for API integration
 interface InvestorLocation {
   City: string;
@@ -416,6 +418,7 @@ const InvestorDetailPage = () => {
   });
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
+  const [cePage, setCePage] = useState(1);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
   const [linkedinUrl, setLinkedinUrl] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -429,6 +432,10 @@ const InvestorDetailPage = () => {
   >(new Map());
 
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCePage(1);
+  }, [investorId]);
 
   // Fetch investor data
   const fetchInvestorData = useCallback(async () => {
@@ -1235,6 +1242,24 @@ const InvestorDetailPage = () => {
     portfolioMix,
   ]);
 
+  const ceTotal = corporateEvents.length;
+  const ceTotalPages =
+    ceTotal > 0 ? Math.ceil(ceTotal / CE_PREVIEW_COUNT) : 0;
+  const ceShowingFrom =
+    ceTotal > 0 ? (cePage - 1) * CE_PREVIEW_COUNT + 1 : 0;
+  const ceShowingTo =
+    ceTotal > 0 ? Math.min(cePage * CE_PREVIEW_COUNT, ceTotal) : 0;
+  const corporateEventsForProfile = useMemo(
+    () =>
+      corporateEvents.slice(
+        (cePage - 1) * CE_PREVIEW_COUNT,
+        cePage * CE_PREVIEW_COUNT
+      ) as unknown as CorporateEventsTableEvent[],
+    [corporateEvents, cePage]
+  );
+  const canCePrev = ceTotal > 0 && cePage > 1;
+  const canCeNext = ceTotal > 0 && cePage < ceTotalPages;
+
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
@@ -1663,10 +1688,22 @@ const InvestorDetailPage = () => {
                     sans: T.sans,
                     mono: T.mono,
                   }}
-                  events={corporateEvents as unknown as CorporateEventsTableEvent[]}
+                  events={corporateEventsForProfile}
                   loading={corporateEventsLoading}
                   primarySectors={corporateEventPrimarySectors}
-                  maxInitialEvents={3}
+                  totalCount={ceTotal}
+                  rangeStart={ceShowingFrom}
+                  rangeEnd={ceShowingTo}
+                  canPrev={canCePrev}
+                  canNext={canCeNext}
+                  onPrev={() => {
+                    if (cePage > 1) setCePage(cePage - 1);
+                  }}
+                  onNext={() => {
+                    if (cePage < ceTotalPages) setCePage(cePage + 1);
+                  }}
+                  browseAllHref={`/corporate-events?investor_id=${investorId}`}
+                  fillGridCell
                 />
               </LinkPanel>
             </div>

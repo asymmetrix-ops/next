@@ -126,6 +126,7 @@ function buildFiltersFromFilterBar(args: {
     target_company_id: 0,
     new_company_id: 0,
     individual_id: 0,
+    investor_id: 0,
   };
 
   let hasPriorClause = false;
@@ -244,6 +245,7 @@ export const createDefaultCorporateEventFilters =
     target_company_id: 0,
     new_company_id: 0,
     individual_id: 0,
+    investor_id: 0,
   });
 
 export function buildCorporateEventsSearchPayload(args: {
@@ -316,6 +318,7 @@ function appendSharedCorporateEventFilterParams(
   params.append("new_company_id", String(filters.new_company_id ?? 0));
   params.append("target_company_id", String(filters.target_company_id ?? 0));
   params.append("individual_id", String(filters.individual_id ?? 0));
+  params.append("investor_id", String(filters.investor_id ?? 0));
 
   if (filters.search_query) {
     params.append("search_query", filters.search_query);

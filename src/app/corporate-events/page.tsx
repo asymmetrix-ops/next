@@ -34,6 +34,7 @@ function parseCorporateEventsUrlFilters(): Partial<CorporateEventsSearchFilters>
   );
   const newCompanyId = Number.parseInt(params.get("new_company_id") ?? "", 10);
   const individualId = Number.parseInt(params.get("individual_id") ?? "", 10);
+  const investorId = Number.parseInt(params.get("investor_id") ?? "", 10);
   return {
     search_query: params.get("search")?.trim() || "",
     target_company_id:
@@ -44,6 +45,8 @@ function parseCorporateEventsUrlFilters(): Partial<CorporateEventsSearchFilters>
       Number.isFinite(newCompanyId) && newCompanyId > 0 ? newCompanyId : 0,
     individual_id:
       Number.isFinite(individualId) && individualId > 0 ? individualId : 0,
+    investor_id:
+      Number.isFinite(investorId) && investorId > 0 ? investorId : 0,
   };
 }
 
@@ -83,6 +86,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
       target_company_id: urlFilters.target_company_id ?? 0,
       new_company_id: urlFilters.new_company_id ?? 0,
       individual_id: urlFilters.individual_id ?? 0,
+      investor_id: urlFilters.investor_id ?? 0,
     };
   }, []);
 
