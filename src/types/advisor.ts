@@ -90,8 +90,12 @@ export interface AdvisorIndividual {
   id: number;
   individuals_id: number;
   advisor_individuals: string;
-  // Optional job titles array if provided by backend
-  job_titles_id?: Array<{ id?: number; job_title: string }>;
+  Status?: string;
+  job_titles_id?: Array<{ id?: number; job_title: string } | number>;
+  job_titles?: unknown;
+  linkedin_URL?: string;
+  linkedin_url?: string;
+  LinkedIn_URL?: string;
 }
 
 type AdvisorCorporateEventBase =

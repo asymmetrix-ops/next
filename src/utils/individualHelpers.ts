@@ -201,6 +201,53 @@ export const getIndividualLinkedInUrl = (individual: {
   normalizeLinkedInProfileUrl(individual.linkedin_URL) ||
   normalizeLinkedInProfileUrl(individual.LinkedIn_URL);
 
+function lookupJobTitleById(
+  id: number,
+  jobTitleById?: ReadonlyMap<number, string>
+): string {
+  if (!jobTitleById) return "";
+  const title = jobTitleById.get(id);
+  return typeof title === "string" ? title.trim() : "";
+}
+
+/** Resolve job titles from expanded objects, plain strings, or numeric IDs. */
+export function resolveJobTitleStrings(
+  jobTitlesId: unknown,
+  jobTitleById?: ReadonlyMap<number, string>,
+  fallbackJobTitles?: unknown
+): string[] {
+  const direct = extractJobTitleStrings(jobTitlesId, fallbackJobTitles);
+  if (direct.length > 0) return direct;
+  if (!Array.isArray(jobTitlesId) || jobTitlesId.length === 0) return [];
+
+  return jobTitlesId
+    .map((item) => {
+      if (typeof item === "number" && Number.isFinite(item)) {
+        return lookupJobTitleById(item, jobTitleById);
+      }
+      if (item && typeof item === "object") {
+        const obj = item as { id?: number; job_title?: string | null };
+        const fromObject = String(obj.job_title ?? "").trim();
+        if (fromObject) return fromObject;
+        if (typeof obj.id === "number") {
+          return lookupJobTitleById(obj.id, jobTitleById);
+        }
+      }
+      return "";
+    })
+    .filter(Boolean);
+}
+
+export function formatJobTitlesWithLookup(
+  jobTitlesId: unknown,
+  jobTitleById?: ReadonlyMap<number, string>,
+  fallbackJobTitles?: unknown
+): string {
+  return resolveJobTitleStrings(jobTitlesId, jobTitleById, fallbackJobTitles).join(
+    ", "
+  );
+}
+
 export const extractJobTitleStrings = (
   jobTitlesId: unknown,
   fallbackJobTitles?: unknown

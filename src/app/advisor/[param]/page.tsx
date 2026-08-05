@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -30,15 +30,26 @@ import {
   type CompanyLinkedInResponse,
   type EmployeeTimeSeriesPoint,
 } from "@/lib/companyLinkedIn";
-import { getCompanyProfileUpstreamUrl } from "@/lib/companyProfileApi";
 import { parseLinkedInGrowthPctValue } from "@/components/subsidiaries/SubsidiariesProfilePanel";
 import { AdvisorOverviewCard } from "@/components/advisors/AdvisorOverviewCard";
-import { AdvisorPeopleCard } from "@/components/advisors/AdvisorPeopleCard";
+import {
+  AdvisorPeopleCard,
+  type AdvisorPerson,
+} from "@/components/advisors/AdvisorPeopleCard";
+import {
+  formatJobTitlesWithLookup,
+  getIndividualLinkedInUrl,
+} from "@/utils/individualHelpers";
 import {
   AdvisorDealsProfilePanel,
   type AdvisorDealEvent,
 } from "@/components/advisors/AdvisorDealsProfilePanel";
-import type { Advisor, AdvisorRoleRef } from "../../../types/advisor";
+import type {
+  Advisor,
+  AdvisorIndividual,
+  AdvisorRoleRef,
+  AdvisorResponse,
+} from "../../../types/advisor";
 
 function formatWebsiteDisplayLabel(raw: string): string {
   const trimmed = raw.trim();
@@ -138,6 +149,129 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   );
 };
 
+function coercePositiveInt(value: unknown): number | undefined {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function buildJobTitleLookup(data: unknown): Map<number, string> {
+  const map = new Map<number, string>();
+  if (!Array.isArray(data)) return map;
+
+  for (const item of data) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const id = coercePositiveInt(record.id);
+    const title =
+      typeof record.job_title === "string"
+        ? record.job_title.trim()
+        : typeof record.Job_Title === "string"
+        ? record.Job_Title.trim()
+        : "";
+    if (id != null && title) map.set(id, title);
+  }
+
+  return map;
+}
+
+async function fetchAdvisorJobTitleLookup(): Promise<Map<number, string>> {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("asymmetrix_auth_token")
+      : null;
+  if (!token) return new Map();
+
+  const endpoints = [
+    "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_all_job_titles",
+    "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I/job_titles_list",
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) continue;
+      const data = await response.json();
+      const lookup = buildJobTitleLookup(data);
+      if (lookup.size > 0) return lookup;
+    } catch {
+      // try next endpoint
+    }
+  }
+
+  return new Map();
+}
+
+function isPastAdvisorIndividual(status: unknown): boolean {
+  return String(status ?? "").trim().toLowerCase() === "past";
+}
+
+function mapAdvisorIndividualToPerson(
+  individual: AdvisorIndividual,
+  jobTitleById: Map<number, string>
+): AdvisorPerson {
+  return {
+    id: individual.id,
+    name: individual.advisor_individuals,
+    role: formatJobTitlesWithLookup(
+      individual.job_titles_id,
+      jobTitleById,
+      individual.job_titles
+    ),
+    individualId: individual.individuals_id,
+    linkedinUrl: getIndividualLinkedInUrl(individual),
+  };
+}
+
+function resolveAdvisorIndividualsLists(advisorData: AdvisorResponse): {
+  current: AdvisorIndividual[];
+  past: AdvisorIndividual[];
+} {
+  if (
+    advisorData.Advisors_individuals_current?.length ||
+    advisorData.Advisors_individuals_past?.length
+  ) {
+    return {
+      current: advisorData.Advisors_individuals_current ?? [],
+      past: advisorData.Advisors_individuals_past ?? [],
+    };
+  }
+
+  const current: AdvisorIndividual[] = [];
+  const past: AdvisorIndividual[] = [];
+
+  for (const individual of advisorData.Advisors_individuals ?? []) {
+    if (isPastAdvisorIndividual(individual.Status)) {
+      past.push(individual);
+    } else {
+      current.push(individual);
+    }
+  }
+
+  return { current, past };
+}
+
+function buildAdvisorPeopleLists(
+  advisorData: AdvisorResponse,
+  jobTitleById: Map<number, string>
+): { current: AdvisorPerson[]; past: AdvisorPerson[] } {
+  const { current, past } = resolveAdvisorIndividualsLists(advisorData);
+
+  return {
+    current: current.map((individual) =>
+      mapAdvisorIndividualToPerson(individual, jobTitleById)
+    ),
+    past: past.map((individual) =>
+      mapAdvisorIndividualToPerson(individual, jobTitleById)
+    ),
+  };
+}
+
 export default function AdvisorProfilePage() {
   const params = useParams();
   const advisorId = parseInt(params.param as string);
@@ -146,39 +280,9 @@ export default function AdvisorProfilePage() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [companyLinkedIn, setCompanyLinkedIn] =
     useState<CompanyLinkedInResponse | null>(null);
-  // Roles fetched from the LinkedIn/company endpoint (includes job titles)
-  interface RoleItem {
-    id: number;
-    individuals_id: number;
-    Individual_text?: string;
-    advisor_individuals?: string;
-    job_titles_id?: Array<{ id?: number; job_title: string } | number>;
-    linkedin_URL?: string;
-    linkedin_url?: string;
-    LinkedIn_URL?: string;
-  }
-  const [rolesCurrent, setRolesCurrent] = useState<RoleItem[]>([]);
-  const [rolesPast, setRolesPast] = useState<RoleItem[]>([]);
-
-  const resolvePersonLinkedIn = (role: RoleItem): string | undefined => {
-    for (const raw of [role.linkedin_URL, role.linkedin_url, role.LinkedIn_URL]) {
-      const url = typeof raw === "string" ? raw.trim() : "";
-      if (url) return url;
-    }
-    return undefined;
-  };
-
-  const formatRoleTitles = (role: RoleItem): string => {
-    const titles = role.job_titles_id;
-    if (!Array.isArray(titles) || titles.length === 0) return "";
-    return titles
-      .map((jt) => {
-        if (typeof jt === "number") return "";
-        return jt.job_title?.trim() || "";
-      })
-      .filter(Boolean)
-      .join(", ");
-  };
+  const [jobTitleById, setJobTitleById] = useState<Map<number, string>>(
+    () => new Map()
+  );
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
     advisorId,
@@ -333,76 +437,42 @@ export default function AdvisorProfilePage() {
     });
 
     const buildPeopleLists = () => {
-      const fallbacksUsed: string[] = [];
-
-      const fromRoles = (roles: RoleItem[]) =>
-        roles.map((role) => {
-          const titles = formatRoleTitles(role);
-          return {
-            id: role.id,
-            individual_id: role.individuals_id,
-            name:
-              (role.advisor_individuals || role.Individual_text || "").trim() || "Unknown",
-            job_titles: titles ? titles.split(", ") : [],
-            linkedin_url: resolvePersonLinkedIn(role) ?? null,
-          };
-        });
-
-      const fromProfileIndividuals = (
-        arr: Array<{
-          id: number;
-          individuals_id: number;
-          advisor_individuals: string;
-          job_titles_id?: Array<{ id?: number; job_title: string }>;
-        }>
-      ) =>
-        arr.map((individual) => ({
-          id: individual.id,
-          individual_id: individual.individuals_id,
-          name: (individual.advisor_individuals || "").trim() || "Unknown",
-          job_titles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
-        }));
-
-      let current: Array<{
-        id: number;
-        individual_id: number;
-        name: string;
-        job_titles: string[];
-      }> = [];
-      let past: Array<{
-        id: number;
-        individual_id: number;
-        name: string;
-        job_titles: string[];
-      }> = [];
-
-      if (rolesCurrent.length > 0) {
-        current = fromRoles(rolesCurrent);
-      } else if (
-        advisorData?.Advisors_individuals_current &&
-        advisorData.Advisors_individuals_current.length > 0
-      ) {
-        current = fromProfileIndividuals(advisorData.Advisors_individuals_current);
-        fallbacksUsed.push("advisor_profile_current");
-      } else if (advisorData?.Advisors_individuals && advisorData.Advisors_individuals.length > 0) {
-        current = fromProfileIndividuals(advisorData.Advisors_individuals);
-        fallbacksUsed.push("advisor_profile_all");
+      if (!advisorData) {
+        return {
+          current: [] as Array<{
+            id: number;
+            individual_id: number;
+            name: string;
+            job_titles: string[];
+            linkedin_url: string | null;
+          }>,
+          past: [] as Array<{
+            id: number;
+            individual_id: number;
+            name: string;
+            job_titles: string[];
+            linkedin_url: string | null;
+          }>,
+        };
       }
 
-      if (rolesPast.length > 0) {
-        past = fromRoles(rolesPast);
-      } else if (
-        advisorData?.Advisors_individuals_past &&
-        advisorData.Advisors_individuals_past.length > 0
-      ) {
-        past = fromProfileIndividuals(advisorData.Advisors_individuals_past);
-        fallbacksUsed.push("advisor_profile_past");
-      }
+      const { current, past } = buildAdvisorPeopleLists(advisorData, jobTitleById);
 
-      return { current, past, fallbacksUsed };
+      const toSnapshotPerson = (person: AdvisorPerson) => ({
+        id: person.id ?? 0,
+        individual_id: person.individualId ?? 0,
+        name: person.name,
+        job_titles: person.role ? person.role.split(", ") : [],
+        linkedin_url: person.linkedinUrl ?? null,
+      });
+
+      return {
+        current: current.map(toSnapshotPerson),
+        past: past.map(toSnapshotPerson),
+      };
     };
 
-    const { current, past, fallbacksUsed } = buildPeopleLists();
+    const { current, past } = buildPeopleLists();
 
     return {
       schema_version: "1.0.0",
@@ -476,8 +546,7 @@ export default function AdvisorProfilePage() {
         current,
         past,
         sources: {
-          preferred: "linkedin_company_endpoint_roles",
-          fallbacks_used: fallbacksUsed,
+          preferred: "advisor_profile_individuals",
         },
       },
       deal_filter_option_lists: {
@@ -530,43 +599,16 @@ export default function AdvisorProfilePage() {
     }
   };
 
-  const fetchManagementRoles = useCallback(async () => {
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const response = await fetch(
-        getCompanyProfileUpstreamUrl(String(advisorId)),
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          credentials: "include",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Management roles API request failed: ${response.statusText}`
-        );
+  useEffect(() => {
+    void (async () => {
+      try {
+        const lookup = await fetchAdvisorJobTitleLookup();
+        if (lookup.size > 0) setJobTitleById(lookup);
+      } catch (err) {
+        console.warn("Failed to fetch job titles for advisor people:", err);
       }
-
-      const data = await response.json();
-
-      const currentRoles: RoleItem[] = Array.isArray(
-        data.Managmant_Roles_current
-      )
-        ? data.Managmant_Roles_current
-        : [];
-      const pastRoles: RoleItem[] = Array.isArray(data.Managmant_Roles_past)
-        ? data.Managmant_Roles_past
-        : [];
-      setRolesCurrent(currentRoles);
-      setRolesPast(pastRoles);
-    } catch (err) {
-      console.error("Error fetching advisor management roles:", err);
-    }
-  }, [advisorId]);
+    })();
+  }, []);
 
   useEffect(() => {
     if (!advisorId) return;
@@ -581,9 +623,7 @@ export default function AdvisorProfilePage() {
         console.warn("Failed to fetch advisor LinkedIn data:", err);
       }
     })();
-
-    fetchManagementRoles();
-  }, [advisorId, fetchManagementRoles]);
+  }, [advisorId]);
 
   // Update page title when advisor data is loaded
   useEffect(() => {
@@ -639,7 +679,11 @@ export default function AdvisorProfilePage() {
     );
   }
 
-  const { Advisor, Portfolio_companies_count, Advisors_individuals } = advisorData;
+  const { Advisor, Portfolio_companies_count } = advisorData;
+  const { current: peopleCurrent, past: peoplePast } = buildAdvisorPeopleLists(
+    advisorData,
+    jobTitleById
+  );
 
   const extractAdvisorFocus = (advisor: Advisor): string[] => {
     const raw = advisor.primary_business_focus_id;
@@ -695,55 +739,6 @@ export default function AdvisorProfilePage() {
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
 
-  const peopleCurrent = (() => {
-    if (rolesCurrent.length > 0) {
-      return rolesCurrent.map((role) => ({
-        id: role.id,
-        name: role.advisor_individuals || role.Individual_text || "Unknown",
-        role: formatRoleTitles(role),
-        individualId: role.individuals_id,
-        linkedinUrl: resolvePersonLinkedIn(role),
-      }));
-    }
-    if (advisorData.Advisors_individuals_current?.length) {
-      return advisorData.Advisors_individuals_current.map((individual) => ({
-        id: individual.id,
-        name: individual.advisor_individuals,
-        role: individual.job_titles_id?.map((jt) => jt.job_title).join(", ") || "",
-        individualId: individual.individuals_id,
-      }));
-    }
-    if (Advisors_individuals?.length) {
-      return Advisors_individuals.map((individual) => ({
-        id: individual.id,
-        name: individual.advisor_individuals,
-        role: individual.job_titles_id?.map((jt) => jt.job_title).join(", ") || "",
-        individualId: individual.individuals_id,
-      }));
-    }
-    return [];
-  })();
-
-  const peoplePast = (() => {
-    if (rolesPast.length > 0) {
-      return rolesPast.map((role) => ({
-        id: role.id,
-        name: role.advisor_individuals || role.Individual_text || "Unknown",
-        role: formatRoleTitles(role),
-        individualId: role.individuals_id,
-        linkedinUrl: resolvePersonLinkedIn(role),
-      }));
-    }
-    if (advisorData.Advisors_individuals_past?.length) {
-      return advisorData.Advisors_individuals_past.map((individual) => ({
-        id: individual.id,
-        name: individual.advisor_individuals,
-        role: individual.job_titles_id?.map((jt) => jt.job_title).join(", ") || "",
-        individualId: individual.individuals_id,
-      }));
-    }
-    return [];
-  })();
   const employeeData =
     companyLinkedIn?.employee_history && companyLinkedIn.employee_history.length > 0
       ? mapLinkedInHistoryToTimeSeries(companyLinkedIn.employee_history)
