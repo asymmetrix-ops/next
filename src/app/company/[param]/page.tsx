@@ -65,8 +65,8 @@ import {
   normalizeIncomeStatementApiRows,
   normalizeIncomeStatementHistoryRows,
   normalizeIncomeStatementRows,
+  resolveDisplayIncomeStatementHistoryRows,
   resolveDisplayIncomeStatementRows,
-  resolveFinancialMetricsCardCurrency,
   resolveIncomeStatementCurrency,
   type IncomeStatementApiEntry,
   type NormalizedIncomeStatementRow,
@@ -1765,13 +1765,10 @@ const CompanyDetail = () => {
     const displayRows = resolveDisplayIncomeStatementRows({
       apiRows: incomeStatementApiRows,
       profileRows,
-      financialMetricsRows: financialMetricsCardRows,
     });
-    const historyRows = resolveDisplayIncomeStatementRows({
+    const historyRows = resolveDisplayIncomeStatementHistoryRows({
       apiRows: incomeStatementHistoryRows,
       profileRows,
-      financialMetricsRows: financialMetricsCardRows,
-      limit: null,
     });
     const hasData =
       hasIncomeStatementValues(displayRows) ||
@@ -2706,20 +2703,17 @@ const CompanyDetail = () => {
     undefined;
   const financialMetricsPeriodDisplay = formatFinancialMetricsPeriod(financialMetrics);
 
-  // Extract last 3 income statement rows (profile, card API, and financial metrics)
+  // Extract last 3 income statement rows (profile + card API income_statement only)
   const profileIncomeStatements = normalizeIncomeStatementRows(
     company.income_statement
   );
   const normalizedIncomeStatements = resolveDisplayIncomeStatementRows({
     apiRows: incomeStatementApiRows,
     profileRows: profileIncomeStatements,
-    financialMetricsRows: financialMetricsCardRows,
   });
-  const normalizedIncomeStatementHistory = resolveDisplayIncomeStatementRows({
+  const normalizedIncomeStatementHistory = resolveDisplayIncomeStatementHistoryRows({
     apiRows: incomeStatementHistoryRows,
     profileRows: profileIncomeStatements,
-    financialMetricsRows: financialMetricsCardRows,
-    limit: null,
   });
   const hasIncomeStatementData = hasIncomeStatementValues(
     normalizedIncomeStatements
@@ -2727,10 +2721,7 @@ const CompanyDetail = () => {
   const incomeStatementCurrency = resolveIncomeStatementCurrency(
     normalizedIncomeStatementHistory.length > 0
       ? normalizedIncomeStatementHistory
-      : normalizedIncomeStatements,
-    metricsCurrencyCode ||
-      resolveFinancialMetricsCardCurrency(financialMetricsCardRows) ||
-      undefined
+      : normalizedIncomeStatements
   );
 
   const employeeData =
