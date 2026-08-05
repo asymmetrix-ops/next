@@ -5,7 +5,6 @@ import {
   computeDistributionStats,
   computePercentile,
   computeRank,
-  getMetricValue,
   getPeerMetricValueForCalc,
   peerMedian,
   toMillions,
@@ -160,7 +159,7 @@ export function buildBenchmarkMetricRows(
   allowedSources: FiMetricSourceType[] = DEFAULT_FI_SOURCE_TYPES
 ): FiBenchmarkMetricRow[] {
   return FI_BENCHMARK_METRICS.map((metric) => {
-    const targetValue = getMetricValue(target, metric.key);
+    const targetValue = getPeerMetricValueForCalc(target, metric.key, allowedSources);
     const peerValues = peers
       .map((peer) => getPeerMetricValueForCalc(peer, metric.key, allowedSources))
       .filter((v): v is number => v != null && Number.isFinite(v));
@@ -235,7 +234,9 @@ export function buildHeadlineMetrics(
   ];
 
   return defs.map((def) => {
-    const targetValue = def.getValue(target);
+    const targetValue = isHeadlineSourceAllowed(target, def.key, allowedSources)
+      ? def.getValue(target)
+      : null;
     const peerValues = peers
       .map((peer) =>
         isHeadlineSourceAllowed(peer, def.key, allowedSources) ? def.getValue(peer) : null

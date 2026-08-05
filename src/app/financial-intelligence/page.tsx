@@ -666,6 +666,7 @@ export default function FinancialIntelligencePage() {
                 targetName={target.company_name}
                 target={target}
                 peers={peers}
+                allowedSources={allowedSources}
               />
               <PeerCompaniesCard
                 peers={peers}
