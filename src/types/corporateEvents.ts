@@ -37,6 +37,7 @@ export interface CorporateEventsFilters {
   Product_Types?: string[];
   target_company_id?: number;
   new_company_id?: number;
+  individual_id?: number;
 }
 
 export interface CorporateEventsStats {

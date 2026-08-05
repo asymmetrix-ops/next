@@ -20,6 +20,8 @@ import { IndividualRolesProfilePanel } from "@/components/individuals/Individual
 import { IndividualRelatedProfilePanel } from "@/components/individuals/IndividualRelatedProfilePanel";
 import type { CorporateEvent as IndividualCorporateEvent } from "@/types/individual";
 
+const CE_PREVIEW_COUNT = 2;
+
 function mapIndividualEventsForProfile(
   events: IndividualCorporateEvent[]
 ): CorporateEventsTableEvent[] {
@@ -64,10 +66,12 @@ function mapIndividualEventsForProfile(
         })
       ),
       advisors: advisors.map((advisor) => ({
+        id: (advisor as { id?: number }).id,
         advisor_company: {
           id: advisor._new_company?.id,
           name: advisor._new_company?.name,
         },
+        _new_company: advisor._new_company,
         new_company_advised: advisor.new_company_advised,
       })),
     } as CorporateEventsTableEvent;
@@ -102,6 +106,7 @@ export default function IndividualProfilePage() {
   const individualId = parseInt(params.param as string);
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [cePage, setCePage] = useState(1);
 
   const { profileData, eventsData, individualName, loading, error } =
     useIndividualProfile({
@@ -118,10 +123,28 @@ export default function IndividualProfilePage() {
   }, [displayName]);
 
   const events = eventsData?.events || [];
-  const corporateEventsForProfile = useMemo(
+  const allCorporateEventsForProfile = useMemo(
     () => mapIndividualEventsForProfile(events),
     [events]
   );
+
+  const ceTotal = allCorporateEventsForProfile.length;
+  const ceTotalPages =
+    ceTotal > 0 ? Math.ceil(ceTotal / CE_PREVIEW_COUNT) : 0;
+  const ceShowingFrom =
+    ceTotal > 0 ? (cePage - 1) * CE_PREVIEW_COUNT + 1 : 0;
+  const ceShowingTo =
+    ceTotal > 0 ? Math.min(cePage * CE_PREVIEW_COUNT, ceTotal) : 0;
+  const corporateEventsForProfile = useMemo(() => {
+    const start = (cePage - 1) * CE_PREVIEW_COUNT;
+    return allCorporateEventsForProfile.slice(start, start + CE_PREVIEW_COUNT);
+  }, [allCorporateEventsForProfile, cePage]);
+  const canCePrev = ceTotal > 0 && cePage > 1;
+  const canCeNext = ceTotal > 0 && cePage < ceTotalPages;
+
+  useEffect(() => {
+    setCePage(1);
+  }, [individualId]);
 
   if (loading) {
     return (
@@ -429,7 +452,19 @@ export default function IndividualProfilePage() {
                     mono: T.mono,
                   }}
                   events={corporateEventsForProfile}
-                  maxInitialEvents={3}
+                  totalCount={ceTotal}
+                  rangeStart={ceShowingFrom}
+                  rangeEnd={ceShowingTo}
+                  canPrev={canCePrev}
+                  canNext={canCeNext}
+                  onPrev={() => {
+                    if (cePage > 1) setCePage(cePage - 1);
+                  }}
+                  onNext={() => {
+                    if (cePage < ceTotalPages) setCePage(cePage + 1);
+                  }}
+                  browseAllHref={`/corporate-events?individual_id=${individualId}`}
+                  fillGridCell
                 />
               </LinkPanel>
             </div>
