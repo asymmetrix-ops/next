@@ -21,15 +21,17 @@ export type IncomeStatementFinancialsViewModel = {
   currency: string;
   years: (number | null)[];
   columnLabels: string[];
+  /** Unique key per period column (quarter, fiscal year, etc.). */
+  columnKeys: string[];
   metrics: IncomeStatementMetricRow[];
   /** Income statement rows are sourced from public filings. */
   sourceType: FiMetricSourceType;
 };
 
 function formatPeriodHeader(row: NormalizedIncomeStatementRow): string {
-  const display = (row.period_display_end_date || "").replace(/[,\s]/g, "");
-  if (display) return display;
-  if (row.period_year != null) return `FY${row.period_year}`;
+  const raw = (row.period_display_end_date || "").trim();
+  if (raw) return raw.replace(/,/g, "").replace(/\s+/g, " ").trim();
+  if (row.period_year != null) return `FY ${row.period_year}`;
   return "-";
 }
 
@@ -229,6 +231,10 @@ export function buildIncomeStatementFinancialsViewModel(
     currency,
     years: columns.map((row) => row.period_year ?? null),
     columnLabels: columns.map(formatPeriodHeader),
+    columnKeys: columns.map(
+      (row) =>
+        `${row.period_type ?? "period"}:${row.period_end_date ?? row.id}`
+    ),
     metrics,
     sourceType: "Public",
   };
@@ -247,7 +253,8 @@ export function remapIncomeStatementToTableYears(
   return {
     ...model,
     years: tableYears,
-    columnLabels: tableYears.map((year) => `FY${year}`),
+    columnLabels: tableYears.map((year) => `FY ${year}`),
+    columnKeys: tableYears.map((year) => `fiscal_year:${year}`),
     metrics: model.metrics.map((metric) => ({
       ...metric,
       values: tableYears.map((year) => {

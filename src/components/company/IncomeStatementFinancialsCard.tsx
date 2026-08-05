@@ -13,20 +13,18 @@ import { IncomeStatementMetricsGrid } from "./IncomeStatementMetricsGrid";
 
 export function IncomeStatementFinancialsCard({
   model,
-  gridTemplate,
   showYoyColumn = false,
   reserveYoyColumn = false,
-  scrollable = false,
   allowedSources,
 }: {
   model: IncomeStatementFinancialsViewModel;
-  gridTemplate: string;
   showYoyColumn?: boolean;
   /** Empty YoY column so year columns line up with metrics cards below. */
   reserveYoyColumn?: boolean;
-  scrollable?: boolean;
   allowedSources: FiMetricSourceType[];
 }) {
+  const scrollable = model.columnLabels.length > 3;
+
   return (
     <LinkPanel style={{ marginBottom: 16 }}>
       <div style={CARD_HEADER_BAR_STYLE}>
@@ -60,10 +58,8 @@ export function IncomeStatementFinancialsCard({
       >
         <IncomeStatementMetricsGrid
           model={model}
-          gridTemplate={gridTemplate}
           showYoyColumn={showYoyColumn}
           reserveYoyColumn={reserveYoyColumn}
-          scrollable={scrollable}
           allowedSources={allowedSources}
         />
       </div>

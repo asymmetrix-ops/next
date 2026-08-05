@@ -193,14 +193,40 @@ export function normalizeIncomeStatementApiRows(
   );
 }
 
-/** Normalizes full income-statement history (all fiscal years). */
+/** Normalizes full income-statement history (all periods, deduped). */
+export function dedupeIncomeStatementPeriods(
+  rows: NormalizedIncomeStatementRow[]
+): NormalizedIncomeStatementRow[] {
+  const byPeriod = new Map<string, NormalizedIncomeStatementRow>();
+
+  for (const row of rows) {
+    const key = incomeStatementPeriodKey(row);
+    const existing = byPeriod.get(key);
+    if (!existing || row.id >= existing.id) {
+      byPeriod.set(key, row);
+    }
+  }
+
+  return sortIncomeStatementRowsAsc(Array.from(byPeriod.values()));
+}
+
+function incomeStatementPeriodKey(row: NormalizedIncomeStatementRow): string {
+  const endDate = row.period_end_date?.trim();
+  const periodType = (row.period_type || "").trim().toLowerCase();
+  if (endDate && periodType) return `${periodType}:${endDate}`;
+  if (endDate) return endDate;
+  const display = (row.period_display_end_date || "")
+    .replace(/[\s,]/g, "")
+    .toLowerCase();
+  if (display) return display;
+  return `id:${row.id}`;
+}
+
+/** Normalizes full income-statement history (all periods from API). */
 export function normalizeIncomeStatementHistoryRows(
   rows: IncomeStatementApiEntry[] | undefined
 ): NormalizedIncomeStatementRow[] {
-  return selectIncomeStatementYearColumns(
-    (rows || []).map(normalizeRow),
-    null
-  );
+  return dedupeIncomeStatementPeriods((rows || []).map(normalizeRow));
 }
 
 export function hasIncomeStatementValues(
@@ -350,36 +376,53 @@ export function buildIncomeStatementFromFinancialMetrics(
   });
 }
 
-/** Merges profile/API/card sources and returns up to N fiscal-year columns. */
+/** Merges profile and card income-statement API rows (excludes financial metrics estimates). */
 export function resolveDisplayIncomeStatementRows({
   apiRows = [],
   profileRows = [],
-  financialMetricsRows = [],
   limit = INCOME_STATEMENT_DISPLAY_YEAR_COUNT,
+  fallbackCurrency,
 }: {
   apiRows?: NormalizedIncomeStatementRow[];
   profileRows?: NormalizedIncomeStatementRow[];
-  financialMetricsRows?: FinancialMetricsIncomeRow[];
   limit?: number | null;
+  fallbackCurrency?: string;
 }): NormalizedIncomeStatementRow[] {
-  const fromMetrics = buildIncomeStatementFromFinancialMetrics(
-    financialMetricsRows
-  );
   const merged = selectIncomeStatementYearColumns(
-    [...apiRows, ...profileRows, ...fromMetrics],
+    [...apiRows, ...profileRows],
     limit
   );
-  const fallbackCurrency = resolveIncomeStatementCurrency(
-    merged,
-    resolveFinancialMetricsCardCurrency(financialMetricsRows) || undefined
-  );
-  if (!fallbackCurrency) return merged;
+  const resolvedFallback = sanitizeCurrencyCode(fallbackCurrency);
+  if (!resolvedFallback) return merged;
 
   return sortIncomeStatementRowsAsc(
     merged.map((row) => ({
       ...row,
       statement_currency:
-        sanitizeCurrencyCode(row.statement_currency) || fallbackCurrency,
+        sanitizeCurrencyCode(row.statement_currency) || resolvedFallback,
+    }))
+  );
+}
+
+/** Full period history for the Financials tab (quarters + fiscal years, deduped). */
+export function resolveDisplayIncomeStatementHistoryRows({
+  apiRows = [],
+  profileRows = [],
+  fallbackCurrency,
+}: {
+  apiRows?: NormalizedIncomeStatementRow[];
+  profileRows?: NormalizedIncomeStatementRow[];
+  fallbackCurrency?: string;
+}): NormalizedIncomeStatementRow[] {
+  const merged = dedupeIncomeStatementPeriods([...apiRows, ...profileRows]);
+  const resolvedFallback = sanitizeCurrencyCode(fallbackCurrency);
+  if (!resolvedFallback) return merged;
+
+  return sortIncomeStatementRowsAsc(
+    merged.map((row) => ({
+      ...row,
+      statement_currency:
+        sanitizeCurrencyCode(row.statement_currency) || resolvedFallback,
     }))
   );
 }
