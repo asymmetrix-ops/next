@@ -284,7 +284,7 @@ export function formatMetricPercent(value: number): string {
   return `${rounded.toFixed(METRIC_PERCENT_DECIMALS)}%`;
 }
 
-/** Delta for percent metrics in pts, e.g. "-2.3pts" or "(-2.3pts)". */
+/** Delta for percent metrics, e.g. "-2.3%" or "(-2.3%)". */
 export function formatMetricPercentDelta(
   delta: number,
   options?: { paren?: boolean }
@@ -293,10 +293,10 @@ export function formatMetricPercentDelta(
   const abs = Math.abs(rounded).toFixed(METRIC_PERCENT_DECIMALS);
   if (options?.paren) {
     const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
-    return `(${sign}${abs}pts)`;
+    return `(${sign}${abs}%)`;
   }
   const sign = rounded > 0 ? "+" : "";
-  return `${sign}${rounded.toFixed(METRIC_PERCENT_DECIMALS)}pts`;
+  return `${sign}${rounded.toFixed(METRIC_PERCENT_DECIMALS)}%`;
 }
 
 /** Numeric value as shown in the UI (before suffix like %, m, k, x). Mirrors fmtFiMetric rounding. */
