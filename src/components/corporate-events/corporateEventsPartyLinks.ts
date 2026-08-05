@@ -441,40 +441,45 @@ export function extractSellerLinks(event: CorporateEvent): EntityLink[] {
   return sellers;
 }
 
+type AdvisorLinkSource = {
+  id?: number;
+  advisor_company?: { id?: number; name?: string };
+  advisor_company_id?: number;
+  _new_company?: { id?: number; name?: string };
+};
+
+/** Route id for /advisor/[id] — prefer advisor record id from corporate-event payload. */
+export function resolveAdvisorRouteId(advisor: AdvisorLinkSource): number | undefined {
+  const id =
+    advisor.id ??
+    advisor.advisor_company?.id ??
+    advisor.advisor_company_id ??
+    advisor._new_company?.id;
+  return typeof id === "number" && Number.isFinite(id) ? id : undefined;
+}
+
+export function resolveAdvisorDisplayName(advisor: AdvisorLinkSource): string {
+  return (
+    advisor.advisor_company?.name ||
+    advisor._new_company?.name ||
+    ""
+  ).trim();
+}
+
 export function extractAdvisorLinks(event: CorporateEvent): EntityLink[] {
   const e = event as LooseEvent;
   const advisors: EntityLink[] = [];
   const seen = new Set<string>();
 
   if (Array.isArray(event.advisors)) {
-    for (const advisor of event.advisors) {
-      const id = advisor._new_company?.id;
-      const name = (advisor._new_company?.name || "").trim();
+    for (const advisor of event.advisors as AdvisorLinkSource[]) {
+      const id = resolveAdvisorRouteId(advisor);
+      const name = resolveAdvisorDisplayName(advisor);
       if (!name) continue;
       pushUniqueParty(advisors, seen, {
         id,
         name,
-        href: typeof id === "number" ? `/advisor/${id}` : null,
-      });
-    }
-  }
-
-  if (Array.isArray(e.advisors)) {
-    for (const advisor of e.advisors as Array<{
-      advisor_company?: { id?: number; name?: string };
-      _new_company?: { id?: number; name?: string };
-    }>) {
-      const id = advisor.advisor_company?.id ?? advisor._new_company?.id;
-      const name = (
-        advisor.advisor_company?.name ||
-        advisor._new_company?.name ||
-        ""
-      ).trim();
-      if (!name) continue;
-      pushUniqueParty(advisors, seen, {
-        id,
-        name,
-        href: typeof id === "number" ? `/advisor/${id}` : null,
+        href: id != null ? `/advisor/${id}` : null,
       });
     }
   }

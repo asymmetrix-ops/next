@@ -11,8 +11,12 @@ import {
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
 import { CorporateEventTargetLink } from "@/components/corporate-events/CorporateEventPartyLink";
-import { isNonEmptyDisplayString as isNonEmptyString } from "@/lib/emptyDisplay";
 import type { CorporateEvent } from "@/components/corporate-events/CorporateEventsTable";
+import { isNonEmptyDisplayString as isNonEmptyString } from "@/lib/emptyDisplay";
+import {
+  resolveAdvisorDisplayName,
+  resolveAdvisorRouteId,
+} from "@/components/corporate-events/corporateEventsPartyLinks";
 import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
 
 type Props = {
@@ -177,6 +181,7 @@ type AdvisorEntry = { id?: number; name: string };
 function collectAdvisors(event: CorporateEvent): AdvisorEntry[] {
   const ne = event as {
     advisors?: Array<{
+      id?: number;
       advisor_company?: { id?: number; name?: string };
       advisor_company_id?: number;
       advisor_company_name?: string;
@@ -198,12 +203,8 @@ function collectAdvisors(event: CorporateEvent): AdvisorEntry[] {
 
   return [
     ...newAdvisors.map((a) => ({
-      id: a.advisor_company?.id || a.advisor_company_id || a._new_company?.id,
-      name:
-        a.advisor_company?.name ||
-        a.advisor_company_name ||
-        a._new_company?.name ||
-        "",
+      id: resolveAdvisorRouteId(a),
+      name: resolveAdvisorDisplayName(a) || a.advisor_company_name || "",
     })),
     ...legacyAdvisors.map((a) => ({
       id: a._new_company?.id,

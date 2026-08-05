@@ -26,6 +26,10 @@ import {
   type SectorNameLookup,
 } from "@/lib/sectorLinks";
 import { getTargetCompany } from "./corporateEventsTableUtils";
+import {
+  resolveAdvisorDisplayName,
+  resolveAdvisorRouteId,
+} from "./corporateEventsPartyLinks";
 
 export type CorporateEventsProfileTokens = {
   paper: string;
@@ -264,7 +268,9 @@ type AdvisorEntry = { id?: number; name: string };
 function collectAdvisors(event: CorporateEvent): AdvisorEntry[] {
   const ne = event as {
     advisors?: Array<{
+      id?: number;
       advisor_company?: { id?: number; name?: string };
+      advisor_company_id?: number;
       _new_company?: { id?: number; name?: string };
     }>;
     advisors_names?: string[] | string;
@@ -281,8 +287,8 @@ function collectAdvisors(event: CorporateEvent): AdvisorEntry[] {
       : [];
   return [
     ...newAdvisors.map((a) => ({
-      id: a.advisor_company?.id || a._new_company?.id,
-      name: a.advisor_company?.name || a._new_company?.name || "",
+      id: resolveAdvisorRouteId(a),
+      name: resolveAdvisorDisplayName(a),
     })),
     ...legacyAdvisors.map((a) => ({
       id: a._new_company?.id,

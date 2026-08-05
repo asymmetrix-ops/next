@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { CorporateEventDealMetrics } from "./CorporateEventDealMetrics";
 import { normalizeEntityHref } from "@/lib/corporateEventEntityHref";
 import { CorporateEventTargetLink } from "./CorporateEventPartyLink";
+import {
+  resolveAdvisorDisplayName,
+  resolveAdvisorRouteId,
+} from "./corporateEventsPartyLinks";
 
 interface LegacyCorporateEvent {
   id?: number;
@@ -415,8 +419,8 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   : [];
                 const advisorList = [
                   ...newAdvisors.map((a) => ({
-                    id: a.advisor_company?.id || a._new_company?.id,
-                    name: a.advisor_company?.name || a._new_company?.name || "",
+                    id: resolveAdvisorRouteId(a),
+                    name: resolveAdvisorDisplayName(a),
                   })),
                   ...legacyAdvisors.map((a) => ({
                     id: a._new_company?.id,
