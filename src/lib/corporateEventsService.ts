@@ -77,6 +77,8 @@ class CorporateEventsService {
     }
     queryParams.append("EV_min", filters.EV_min ?? "0");
     queryParams.append("EV_max", filters.EV_max ?? "0");
+    queryParams.append("Amount_min", filters.Amount_min ?? "0");
+    queryParams.append("Amount_max", filters.Amount_max ?? "0");
 
     const url = `${BASE_URL}/get_all_corporate_events?${queryParams.toString()}`;
 

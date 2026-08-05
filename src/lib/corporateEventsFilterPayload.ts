@@ -122,6 +122,8 @@ function buildFiltersFromFilterBar(args: {
     filter_individual_ids: [],
     EV_min: "0",
     EV_max: "0",
+    Amount_min: "0",
+    Amount_max: "0",
     Product_Types: [],
     target_company_id: 0,
     new_company_id: 0,
@@ -189,10 +191,12 @@ function buildFiltersFromFilterBar(args: {
       filters.Date_end = v.to || null;
       continue;
     }
-    if (
-      (item.id === "investment_amount" || item.id === "enterprise_value") &&
-      hasRangeValue(v)
-    ) {
+    if (item.id === "investment_amount" && hasRangeValue(v)) {
+      filters.Amount_min = toSentinel(v.min);
+      filters.Amount_max = toSentinel(v.max);
+      continue;
+    }
+    if (item.id === "enterprise_value" && hasRangeValue(v)) {
       filters.EV_min = toSentinel(v.min);
       filters.EV_max = toSentinel(v.max);
       continue;
@@ -241,6 +245,8 @@ export const createDefaultCorporateEventFilters =
     filter_individual_ids: [],
     EV_min: "0",
     EV_max: "0",
+    Amount_min: "0",
+    Amount_max: "0",
     Product_Types: [],
     target_company_id: 0,
     new_company_id: 0,
@@ -378,6 +384,8 @@ function appendSharedCorporateEventFilterParams(
 
   params.append("EV_min", filters.EV_min ?? "0");
   params.append("EV_max", filters.EV_max ?? "0");
+  params.append("Amount_min", filters.Amount_min ?? "0");
+  params.append("Amount_max", filters.Amount_max ?? "0");
 }
 
 function appendCorporateEventDealTypeParams(

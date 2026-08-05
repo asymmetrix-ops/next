@@ -1,4 +1,11 @@
-import type { FiCompanyRow, FiMetricDef, FiMetricKey, FiMetricSourceType, FiPeerAggregateMode } from "./types";
+import type {
+  FiCompanyRow,
+  FiMetricDef,
+  FiMetricFormat,
+  FiMetricKey,
+  FiMetricSourceType,
+  FiPeerAggregateMode,
+} from "./types";
 import { isMetricSourceAllowed } from "./sourceTypes";
 
 export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
@@ -261,6 +268,86 @@ export function peerAggregateLabels(mode: FiPeerAggregateMode) {
     sectorRow: `Sector ${noun}`,
     vsPeer: `vs ${noun}`,
   };
+}
+
+export const METRIC_PERCENT_DECIMALS = 1;
+
+export function roundMetricPercent(value: number): number {
+  const factor = 10 ** METRIC_PERCENT_DECIMALS;
+  return Math.round(value * factor) / factor;
+}
+
+/** Percent metric as shown in the UI, e.g. "+19.4%". */
+export function formatMetricPercent(value: number): string {
+  const rounded = roundMetricPercent(value);
+  if (rounded > 0) return `+${rounded.toFixed(METRIC_PERCENT_DECIMALS)}%`;
+  return `${rounded.toFixed(METRIC_PERCENT_DECIMALS)}%`;
+}
+
+/** Delta for percent metrics in pts, e.g. "-2.3pts" or "(-2.3pts)". */
+export function formatMetricPercentDelta(
+  delta: number,
+  options?: { paren?: boolean }
+): string {
+  const rounded = roundMetricPercent(delta);
+  const abs = Math.abs(rounded).toFixed(METRIC_PERCENT_DECIMALS);
+  if (options?.paren) {
+    const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
+    return `(${sign}${abs}pts)`;
+  }
+  const sign = rounded > 0 ? "+" : "";
+  return `${sign}${rounded.toFixed(METRIC_PERCENT_DECIMALS)}pts`;
+}
+
+/** Numeric value as shown in the UI (before suffix like %, m, k, x). Mirrors fmtFiMetric rounding. */
+export function metricDisplayNumber(value: number, format: FiMetricFormat): number {
+  if (format === "percent") return roundMetricPercent(value);
+  if (format === "currency") {
+    if (Math.abs(value) >= 1000) return Math.round(value / 1000);
+    return Math.round(value);
+  }
+  if (format === "currency_k") {
+    if (Math.abs(value) >= 1_000_000) return Math.round(value / 1_000_000);
+    if (Math.abs(value) >= 1000) return Math.round(value / 1000);
+    return Math.round(value);
+  }
+  return Math.round(value);
+}
+
+function metricDisplayScale(value: number, format: FiMetricFormat): number {
+  if (format === "currency") return Math.abs(value) >= 1000 ? 1000 : 1;
+  if (format === "currency_k") {
+    if (Math.abs(value) >= 1_000_000) return 1_000_000;
+    if (Math.abs(value) >= 1000) return 1000;
+    return 1;
+  }
+  return 1;
+}
+
+/** Delta between target and peer aggregate using the same rounding as displayed values. */
+export function computeDeltaVsAggregate(
+  targetValue: number,
+  aggregateValue: number,
+  format: FiMetricFormat
+): number {
+  if (format === "percent") {
+    return (
+      metricDisplayNumber(targetValue, format) - metricDisplayNumber(aggregateValue, format)
+    );
+  }
+  if (format === "count" || format === "multiple") {
+    return Math.round(targetValue) - Math.round(aggregateValue);
+  }
+
+  const targetScale = metricDisplayScale(targetValue, format);
+  const aggregateScale = metricDisplayScale(aggregateValue, format);
+  if (targetScale !== aggregateScale) {
+    return targetValue - aggregateValue;
+  }
+
+  const targetDisplay = metricDisplayNumber(targetValue, format);
+  const aggregateDisplay = metricDisplayNumber(aggregateValue, format);
+  return (targetDisplay - aggregateDisplay) * targetScale;
 }
 
 export function computePercentile(

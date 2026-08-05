@@ -8,7 +8,13 @@
     FiMetricFormat,
     FiMetricKey,
   } from "@/lib/financialIntelligence/types";
-  import { FI_BENCHMARK_SECTIONS, getMetricValue, peerAggregateLabels } from "@/lib/financialIntelligence/calculations";
+  import {
+    FI_BENCHMARK_SECTIONS,
+    formatMetricPercent,
+    formatMetricPercentDelta,
+    getMetricValue,
+    peerAggregateLabels,
+  } from "@/lib/financialIntelligence/calculations";
   import type { FiPeerAggregateMode } from "@/lib/financialIntelligence/types";
   import {
     FI_SOURCE_TYPES_UI_ORDER,
@@ -53,7 +59,9 @@
     if (delta == null || !Number.isFinite(delta)) return { text: "—", positive: null };
     const sign = delta > 0 ? "+" : "";
     let text: string;
-    if (format === "percent") text = `${sign}${Math.round(delta)}pts vs ${aggregateNoun}`;
+    if (format === "percent") {
+      text = `${formatMetricPercentDelta(delta)} vs ${aggregateNoun}`;
+    }
     else if (format === "currency") text = `${sign}$${Math.abs(Math.round(delta))}m vs ${aggregateNoun}`;
     else if (format === "currency_k") text = `${sign}$${Math.abs(Math.round(delta / 1000))}k vs ${aggregateNoun}`;
     else if (format === "count") text = `${sign}${Math.round(delta).toLocaleString()} vs ${aggregateNoun}`;
@@ -71,7 +79,7 @@
     const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
     let text: string;
     if (format === "percent") {
-      text = `(${sign}${Math.abs(Math.round(delta))}pts)`;
+      text = formatMetricPercentDelta(delta, { paren: true });
     } else if (format === "currency") {
       text = `(${sign}$${Math.abs(Math.round(delta))}m)`;
     } else if (format === "currency_k") {
@@ -90,7 +98,7 @@
     if (format === "currency") return `${sign}$${Math.abs(Math.round(delta))}m`;
     if (format === "currency_k") return `${sign}$${Math.abs(Math.round(delta / 1000))}k`;
     if (format === "count") return `${sign}${Math.round(delta).toLocaleString()}`;
-    if (format === "percent") return `${sign}${Math.round(delta)}%`;
+    if (format === "percent") return formatMetricPercent(delta);
     return `${sign}${Math.round(delta)}x`;
   }
 
@@ -305,7 +313,9 @@
             <span>
               ,{" "}
               <strong style={{ color: "var(--fg-1)" }}>
-                {fmtSigned(row.deltaVsMedian, row.format)}
+                {row.format === "percent"
+                  ? formatMetricPercentDelta(row.deltaVsMedian)
+                  : fmtSigned(row.deltaVsMedian, row.format)}
               </strong>{" "}
               vs the peer median
             </span>

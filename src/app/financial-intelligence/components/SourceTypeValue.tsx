@@ -5,6 +5,7 @@ import {
   sourceTypeColor,
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
+import { formatMetricPercent } from "@/lib/financialIntelligence/calculations";
 import type { FiMetricFormat } from "@/lib/financialIntelligence/types";
 
 export function SourceTypeDot({
@@ -52,9 +53,7 @@ export function fmtFiMetric(value: number | null, format: FiMetricFormat): strin
     return Math.round(value).toLocaleString("en-US");
   }
   if (format === "percent") {
-    const rounded = Math.round(value);
-    const sign = rounded > 0 ? "+" : "";
-    return `${sign}${rounded}%`;
+    return formatMetricPercent(value);
   }
   return `${Math.round(value)}x`;
 }

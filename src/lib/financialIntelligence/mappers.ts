@@ -3,6 +3,7 @@ import type { SectorMedian } from "@/app/financials-tsx/types";
 import {
   FI_BENCHMARK_METRICS,
   FI_BENCHMARK_SCORECARD_KEYS,
+  computeDeltaVsAggregate,
   computeDistributionStats,
   computePercentile,
   computeRank,
@@ -182,7 +183,9 @@ export function buildBenchmarkMetricRows(
         ? computePercentile(targetValue, peerValues, metric.higherIsBetter)
         : null;
     const deltaVsMedian =
-      targetValue != null && median != null ? targetValue - median : null;
+      targetValue != null && median != null
+        ? computeDeltaVsAggregate(targetValue, median, metric.format)
+        : null;
     const rankResult =
       targetValue != null
         ? computeRank(targetValue, peerValues, metric.higherIsBetter)
@@ -260,7 +263,9 @@ export function buildHeadlineMetrics(
         ? computePercentile(targetValue, peerValues, def.higherIsBetter)
         : null;
     const deltaVsMedian =
-      targetValue != null && median != null ? targetValue - median : null;
+      targetValue != null && median != null
+        ? computeDeltaVsAggregate(targetValue, median, def.format)
+        : null;
 
     return {
       key: def.key,

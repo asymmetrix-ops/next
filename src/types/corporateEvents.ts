@@ -34,6 +34,8 @@ export interface CorporateEventsFilters {
   filter_individual_ids?: number[];
   EV_min?: string;
   EV_max?: string;
+  Amount_min?: string;
+  Amount_max?: string;
   Product_Types?: string[];
   target_company_id?: number;
   new_company_id?: number;
