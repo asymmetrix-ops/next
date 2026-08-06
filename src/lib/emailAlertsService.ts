@@ -1,10 +1,12 @@
-import { authService } from "./auth";
-import { isMcpGuestSession, MCP_GUEST_OTP_LOGIN_PATH } from "./mcpGuest";
-import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters } from "@/types/emailAlerts";
-import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
+import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters, EntityFilterKey } from "@/types/emailAlerts";
+
+function normalizeStringArray(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+}
 
 function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlertFilters {
-  const keys: (keyof EmailAlertFilters)[] = [
+  const numberKeys: EntityFilterKey[] = [
     "companies",
     "sectors",
     "individuals",
@@ -12,12 +14,14 @@ function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlert
     "advisors",
   ];
   const out: EmailAlertFilters = {};
-  for (const key of keys) {
+  for (const key of numberKeys) {
     const val = raw?.[key];
     out[key] = Array.isArray(val)
       ? val.filter((n): n is number => typeof n === "number" && Number.isFinite(n))
       : [];
   }
+  out.deal_types = normalizeStringArray(raw?.deal_types);
+  out.funding_stages = normalizeStringArray(raw?.funding_stages);
   return out;
 }
 
@@ -26,132 +30,111 @@ interface EmailAlertsResponse {
   meta: EmailAlertsMeta;
 }
 
+const EMAIL_ALERTS_META: EmailAlertsMeta = {
+  enums: {
+    item_type: [
+      { value: "corporate_events", label: "Corporate Events" },
+      { value: "insights_analysis", label: "Insights & Analysis" },
+      { value: "deal_radar", label: "Deal Radar" },
+      { value: "digest", label: "Corporate Events, Insights & Analysis, and Deal Radar" },
+    ],
+    email_frequency: [
+      { value: "as_added", label: "As they are added to platform" },
+      { value: "daily", label: "Daily" },
+      { value: "weekly", label: "Weekly" },
+    ],
+    day_of_week: [
+      { value: "monday", label: "Monday" },
+      { value: "tuesday", label: "Tuesday" },
+      { value: "wednesday", label: "Wednesday" },
+      { value: "thursday", label: "Thursday" },
+      { value: "friday", label: "Friday" },
+      { value: "saturday", label: "Saturday" },
+      { value: "sunday", label: "Sunday" },
+    ],
+    content_type: [
+      { value: "preview", label: "Preview" },
+      { value: "full_body", label: "Text of Report in Body of Email" },
+    ],
+  },
+  defaults: {
+    timezone: "Europe/London",
+    daily_send_time_local: "09:00",
+  },
+};
+
+function buildFiltersPayload(filters: EmailAlertFilters | null | undefined) {
+  const f = filters ?? {};
+  return {
+    companies: f.companies ?? [],
+    sectors: f.sectors ?? [],
+    individuals: f.individuals ?? [],
+    investors: f.investors ?? [],
+    advisors: f.advisors ?? [],
+    deal_types: f.deal_types ?? [],
+    funding_stages: f.funding_stages ?? [],
+  };
+}
+
 class EmailAlertsService {
-  private baseUrl: string;
-
-  constructor() {
-    this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:1-YVocmu";
-  }
-
-  // Make authenticated API request
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const headers = {
-      "Content-Type": "application/json",
-      ...authService.getAuthHeaders(),
-      ...options.headers,
-    };
-
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const response = await fetch(endpoint, {
       ...options,
-      headers,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      cache: "no-store",
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        const token = authService.getToken();
-        const user = authService.getUser();
-        const redirectTo = isMcpGuestSession(token, user)
-          ? MCP_GUEST_OTP_LOGIN_PATH
-          : "/login";
-        authService.logout();
-        window.location.href = redirectTo;
-        throw new Error("Authentication required");
-      }
-      const errorText = await response.text().catch(() => "");
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; message?: string; data?: unknown }
+        | null;
+      const detail =
+        typeof body?.data === "string"
+          ? body.data
+          : body?.data != null
+            ? JSON.stringify(body.data)
+            : "";
       throw new Error(
-        `API request failed: ${response.statusText}${errorText ? ` - ${errorText}` : ""}`
+        body?.error ||
+          body?.message ||
+          `API request failed: ${response.statusText}${detail ? ` - ${detail}` : ""}`
       );
     }
 
-    return response.json();
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    return response.json() as Promise<T>;
   }
 
-  // Get user's email alerts
-  async getEmailAlerts(userId: number): Promise<EmailAlertsResponse> {
-    // GET request with user_id as query parameter
-    const response = await this.request<EmailAlert[]>(
-      `/email-alerts?user_id=${userId}`,
-      {
-        method: "GET",
-      }
-    );
+  async getEmailAlerts(): Promise<EmailAlertsResponse> {
+    const response = await this.request<EmailAlert[]>("/api/email-alerts", {
+      method: "GET",
+    });
 
-    // If the response is just an array, we need to construct the full response
-    // Based on the user's description, the endpoint returns an array directly
-    // We'll need to get the meta/enums from somewhere else or hardcode them for now
     const rawAlerts = Array.isArray(response) ? response : [];
     const alerts: EmailAlert[] = rawAlerts.map((a) => ({
       ...a,
       filters: normalizeFilters(a.filters),
     }));
 
-    // For now, we'll use the hardcoded enums from the user's description
-    // In the future, this might come from a separate endpoint
-    const meta: EmailAlertsMeta = {
-      enums: {
-        item_type: [
-          { value: "corporate_events", label: "Corporate Events" },
-          { value: "insights_analysis", label: "Insights & Analysis" },
-          { value: "deal_radar", label: "Deal Radar" },
-          { value: "digest", label: "Corporate Events, Insights & Analysis, and Deal Radar" },
-        ],
-        email_frequency: [
-          { value: "as_added", label: "As they are added to platform" },
-          { value: "daily", label: "Daily" },
-          { value: "weekly", label: "Weekly" },
-        ],
-        day_of_week: [
-          { value: "monday", label: "Monday" },
-          { value: "tuesday", label: "Tuesday" },
-          { value: "wednesday", label: "Wednesday" },
-          { value: "thursday", label: "Thursday" },
-          { value: "friday", label: "Friday" },
-          { value: "saturday", label: "Saturday" },
-          { value: "sunday", label: "Sunday" },
-        ],
-        content_type: [
-          { value: "preview", label: "Preview" },
-          { value: "full_body", label: "Text of Report in Body of Email" },
-        ],
-      },
-      defaults: {
-        timezone: "Europe/London",
-        daily_send_time_local: "1970-01-01T09:00:00Z",
-      },
-    };
-
-    return { alerts, meta };
+    return { alerts, meta: EMAIL_ALERTS_META };
   }
 
-  // Create a new email alert
-  async createEmailAlert(alert: EmailAlert): Promise<EmailAlert> {
+  async createEmailAlert(alert: EmailAlert, email?: string): Promise<EmailAlert> {
     const timezone = alert.timezone || "Europe/London";
-    const nextRunAtUtcIso = computeNextRunAtUtcIso({
-      email_frequency: alert.email_frequency,
-      day_of_week: alert.day_of_week,
-      timezone,
-      send_time_local: alert.send_time_local,
-    });
-    // Xano timestamp fields expect milliseconds
-    const nextRunAtUtcMs =
-      nextRunAtUtcIso == null ? null : new Date(nextRunAtUtcIso).getTime();
+    const filtersPayload = buildFiltersPayload(alert.filters);
 
-
-    const filters = alert.filters ?? {};
-    const filtersPayload = {
-      companies: filters.companies ?? [],
-      sectors: filters.sectors ?? [],
-      individuals: filters.individuals ?? [],
-      investors: filters.investors ?? [],
-      advisors: filters.advisors ?? [],
-    };
-
-    // Build base request body
     const body: Record<string, unknown> = {
       user_id: alert.user_id,
+      email: email?.trim() || undefined,
       item_type: alert.item_type,
       email_frequency: alert.email_frequency,
       day_of_week: alert.day_of_week || "",
@@ -159,61 +142,37 @@ class EmailAlertsService {
       content_type: alert.content_type || "",
       is_active: alert.is_active,
       send_time_local: alert.send_time_local ?? null,
-      next_run_at_utc: nextRunAtUtcMs,
-      last_sent_at_utc: null,
-      status: "scheduled",
       filters: filtersPayload,
-      sectors_id: [],
     };
 
-    // Keep "as_added" clean: it doesn't use time/day scheduling.
     if (alert.email_frequency === "as_added") {
       body.day_of_week = "";
       body.send_time_local = null;
-      body.next_run_at_utc = null;
-      // content_type is only meaningful for insights_analysis
       if (alert.item_type !== "insights_analysis") {
         body.content_type = "";
       }
     }
-    
-    // Digest never uses content_type
+
     if (alert.item_type === "digest") {
       body.content_type = "";
     }
 
-    const response = await this.request<EmailAlert>("/user_email_alerts", {
+    const response = await this.request<EmailAlert>("/api/email-alerts", {
       method: "POST",
       body: JSON.stringify(body),
     });
 
-    return response;
+    return {
+      ...response,
+      filters: normalizeFilters(response.filters),
+    };
   }
 
-  // Update an email alert
   async updateEmailAlert(alert: EmailAlert): Promise<EmailAlert> {
     const timezone = alert.timezone || "Europe/London";
-    const nextRunAtUtcIso = computeNextRunAtUtcIso({
-      email_frequency: alert.email_frequency,
-      day_of_week: alert.day_of_week,
-      timezone,
-      send_time_local: alert.send_time_local,
-    });
-    const nextRunAtUtcMs =
-      nextRunAtUtcIso == null ? null : new Date(nextRunAtUtcIso).getTime();
-
-    const filters = alert.filters ?? {};
-    const filtersPayload = {
-      companies: filters.companies ?? [],
-      sectors: filters.sectors ?? [],
-      individuals: filters.individuals ?? [],
-      investors: filters.investors ?? [],
-      advisors: filters.advisors ?? [],
-    };
+    const filtersPayload = buildFiltersPayload(alert.filters);
 
     const body: Record<string, unknown> = {
-      user_email_alerts_id: alert.id,
-      user_id: alert.user_id,
       item_type: alert.item_type,
       email_frequency: alert.email_frequency,
       day_of_week: alert.day_of_week || "",
@@ -221,32 +180,55 @@ class EmailAlertsService {
       content_type: alert.content_type || "",
       is_active: alert.is_active,
       send_time_local: alert.send_time_local || null,
-      next_run_at_utc:
-        alert.email_frequency === "as_added" ? null : nextRunAtUtcMs,
-      status: "scheduled",
       filters: filtersPayload,
-      sectors_id: [],
     };
 
+    if (alert.email_frequency === "as_added") {
+      body.day_of_week = "";
+      body.send_time_local = null;
+    }
+
+    if (alert.item_type === "digest") {
+      body.content_type = "";
+    }
+
     const response = await this.request<EmailAlert>(
-      `/user_email_alerts/${alert.id}`,
+      `/api/email-alerts/${alert.id}`,
       {
         method: "PATCH",
         body: JSON.stringify(body),
       }
     );
 
-    return response;
+    return {
+      ...response,
+      filters: normalizeFilters(response.filters),
+    };
   }
 
-  // Delete an email alert
+  async patchEmailAlert(
+    alertId: number,
+    patch: Record<string, unknown>
+  ): Promise<EmailAlert> {
+    const response = await this.request<EmailAlert>(
+      `/api/email-alerts/${alertId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }
+    );
+
+    return {
+      ...response,
+      filters: normalizeFilters(response.filters),
+    };
+  }
+
   async deleteEmailAlert(alertId: number): Promise<void> {
-    await this.request<void>(`/user_email_alerts/${alertId}`, {
+    await this.request<void>(`/api/email-alerts/${alertId}`, {
       method: "DELETE",
-      body: JSON.stringify({ user_email_alerts_id: alertId }),
     });
   }
 }
 
 export const emailAlertsService = new EmailAlertsService();
-

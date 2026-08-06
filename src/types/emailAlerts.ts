@@ -1,3 +1,11 @@
+/** Entity ID filter keys (portfolio / list entities). */
+export type EntityFilterKey =
+  | "companies"
+  | "sectors"
+  | "individuals"
+  | "investors"
+  | "advisors";
+
 /** Entity filter arrays by type; each key is an array of entity IDs. */
 export interface EmailAlertFilters {
   companies?: number[];
@@ -5,6 +13,8 @@ export interface EmailAlertFilters {
   individuals?: number[];
   investors?: number[];
   advisors?: number[];
+  deal_types?: string[];
+  funding_stages?: string[];
 }
 
 export interface EmailAlert {

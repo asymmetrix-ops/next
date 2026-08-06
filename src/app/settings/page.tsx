@@ -93,12 +93,8 @@ export default function SettingsPage() {
         setIsLoading(true);
       }
       setError(null);
-      const userId = Number.parseInt(user.id, 10);
-      if (!Number.isFinite(userId)) {
-        throw new Error("Invalid user ID");
-      }
 
-      const response = await emailAlertsService.getEmailAlerts(userId);
+      const response = await emailAlertsService.getEmailAlerts();
       setAlerts(response.alerts);
       setMeta(response.meta);
     } catch (err) {
@@ -163,8 +159,18 @@ export default function SettingsPage() {
   };
 
   const handleToggleActive = async (alert: EmailAlert) => {
-    // TODO: Implement toggle when PATCH endpoint is ready
-    console.log("Toggle active:", alert);
+    try {
+      setError(null);
+      await emailAlertsService.patchEmailAlert(alert.id, {
+        is_active: !alert.is_active,
+      });
+      await loadAlerts(false);
+    } catch (err) {
+      console.error("Error toggling alert:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to update email alert"
+      );
+    }
   };
 
   const handleModalClose = () => {
@@ -177,7 +183,10 @@ export default function SettingsPage() {
       try {
         setError(null);
         // Wait for POST request to complete
-        await emailAlertsService.createEmailAlert(updatedAlert);
+        await emailAlertsService.createEmailAlert(
+          updatedAlert,
+          (me?.email || user?.email || "").trim() || undefined
+        );
         // Only after POST responds, refresh alerts list from server (without showing loading spinner)
         await loadAlerts(false);
         // Close modal only after both POST and GET complete

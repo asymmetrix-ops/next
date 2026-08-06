@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
-import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters } from "@/types/emailAlerts";
+import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters, EntityFilterKey } from "@/types/emailAlerts";
 import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
 import { fetchUserPortfolioData, fetchPortfolioDataFromXano } from "@/lib/portfolioData";
 import { fetchUserListsFromXano } from "@/lib/userLists";
@@ -9,7 +9,7 @@ import { fetchUserListsFromXano } from "@/lib/userLists";
 type PortfolioEntityType = "company" | "advisor" | "investor" | "individual" | "sector" | string;
 type PortfolioRow = { entity: PortfolioEntityType; id: number; name: string };
 
-const ENTITY_TO_FILTER_KEY: Record<string, keyof EmailAlertFilters> = {
+const ENTITY_TO_FILTER_KEY: Record<string, EntityFilterKey> = {
   company: "companies",
   advisor: "advisors",
   investor: "investors",
@@ -17,7 +17,7 @@ const ENTITY_TO_FILTER_KEY: Record<string, keyof EmailAlertFilters> = {
   sector: "sectors",
 };
 
-const FILTER_KEY_LABEL: Record<keyof EmailAlertFilters, string> = {
+const FILTER_KEY_LABEL: Record<EntityFilterKey, string> = {
   companies: "Companies",
   sectors: "Sectors",
   individuals: "Individuals",
@@ -29,7 +29,13 @@ const FILTER_KEY_LABEL: Record<keyof EmailAlertFilters, string> = {
 // EntityCheckboxPanel — reusable grouped checkbox list for portfolio/list rows
 // ---------------------------------------------------------------------------
 
-const FILTER_KEYS = ["companies", "sectors", "individuals", "investors", "advisors"] as const;
+const FILTER_KEYS: EntityFilterKey[] = [
+  "companies",
+  "sectors",
+  "individuals",
+  "investors",
+  "advisors",
+];
 
 function EntityCheckboxPanel({
   loading,
@@ -41,12 +47,12 @@ function EntityCheckboxPanel({
   toggleAllInGroup,
 }: {
   loading: boolean;
-  byKey: Partial<Record<keyof EmailAlertFilters, PortfolioRow[]>>;
+  byKey: Partial<Record<EntityFilterKey, PortfolioRow[]>>;
   emptyMessage: string;
   isEntitySelected: (entityType: string, id: number) => boolean;
   toggleEntity: (entityType: string, id: number) => void;
-  areAllInGroupSelected: (key: keyof EmailAlertFilters, rows: PortfolioRow[]) => boolean;
-  toggleAllInGroup: (key: keyof EmailAlertFilters, rows: PortfolioRow[]) => void;
+  areAllInGroupSelected: (key: EntityFilterKey, rows: PortfolioRow[]) => boolean;
+  toggleAllInGroup: (key: EntityFilterKey, rows: PortfolioRow[]) => void;
 }) {
   const hasAny = FILTER_KEYS.some((k) => (byKey[k]?.length ?? 0) > 0);
 
@@ -108,7 +114,7 @@ function EntityCheckboxPanel({
 
 /** Normalize filters from API (ensure each key is number[]) and return a clean copy. */
 function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlertFilters {
-  const keys: (keyof EmailAlertFilters)[] = [
+  const keys: EntityFilterKey[] = [
     "companies",
     "sectors",
     "individuals",
@@ -122,6 +128,12 @@ function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlert
       ? val.filter((n): n is number => typeof n === "number" && Number.isFinite(n))
       : [];
   }
+  out.deal_types = Array.isArray(raw?.deal_types)
+    ? raw.deal_types.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+    : [];
+  out.funding_stages = Array.isArray(raw?.funding_stages)
+    ? raw.funding_stages.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+    : [];
   return out;
 }
 
@@ -354,7 +366,7 @@ export function EditAlertModal({
   ]);
 
   const portfolioByKey = useMemo(() => {
-    const map: Partial<Record<keyof EmailAlertFilters, PortfolioRow[]>> = {};
+    const map: Partial<Record<EntityFilterKey, PortfolioRow[]>> = {};
     for (const row of portfolioRows) {
       const key = ENTITY_TO_FILTER_KEY[String(row.entity).toLowerCase()];
       if (key) {
@@ -366,7 +378,7 @@ export function EditAlertModal({
   }, [portfolioRows]);
 
   const listRowsByKey = useMemo(() => {
-    const map: Partial<Record<keyof EmailAlertFilters, PortfolioRow[]>> = {};
+    const map: Partial<Record<EntityFilterKey, PortfolioRow[]>> = {};
     for (const row of listRows) {
       const key = ENTITY_TO_FILTER_KEY[String(row.entity).toLowerCase()];
       if (key) {
@@ -449,13 +461,13 @@ export function EditAlertModal({
     return arr.includes(id);
   };
 
-  const areAllInGroupSelected = (key: keyof EmailAlertFilters, rows: PortfolioRow[]): boolean => {
+  const areAllInGroupSelected = (key: EntityFilterKey, rows: PortfolioRow[]): boolean => {
     if (rows.length === 0) return false;
     const selected = (formData.filters?.[key] ?? []) as number[];
     return rows.every((r) => selected.includes(r.id));
   };
 
-  const toggleAllInGroup = (key: keyof EmailAlertFilters, rows: PortfolioRow[]) => {
+  const toggleAllInGroup = (key: EntityFilterKey, rows: PortfolioRow[]) => {
     setFormData((prev) => {
       const allIds = rows.map((r) => r.id);
       const current = (prev.filters?.[key] ?? []) as number[];
