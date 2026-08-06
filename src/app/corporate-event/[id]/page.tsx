@@ -23,6 +23,7 @@ import {
 } from "@/components/corporate-events/CorporateEventTransactionsPanel";
 import { CorporateEventInsightsPanel } from "@/components/corporate-events/CorporateEventInsightsPanel";
 import { CorporateEventPartyLink } from "@/components/corporate-events/CorporateEventPartyLink";
+import { resolveAdvisorRouteId } from "@/components/corporate-events/corporateEventsPartyLinks";
 import { COUNTRY_FLAG_INLINE_SIZE_PX, readHqCountryIso2 } from "@/lib/dealRadar";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
 import {
@@ -543,6 +544,12 @@ const CorporateEventDetail = ({
             }))
         : [];
 
+    const advisorRouteId = resolveAdvisorRouteId({
+      id: a.id,
+      new_company_advised: a.new_company_advised,
+      _new_company: a._new_company,
+    });
+
     return {
       id: a.id,
       name: a._new_company.name,
@@ -554,7 +561,7 @@ const CorporateEventDetail = ({
         ? readHqCountryIso2(nc as unknown as Record<string, unknown>)
         : null,
       individuals,
-      href: `/advisor/${a._new_company.id}`,
+      href: advisorRouteId != null ? `/advisor/${advisorRouteId}` : undefined,
       hqIso2: readHqCountryIso2(
         a._new_company as unknown as Record<string, unknown>
       ),

@@ -443,19 +443,36 @@ export function extractSellerLinks(event: CorporateEvent): EntityLink[] {
 
 type AdvisorLinkSource = {
   id?: number;
+  new_company_advised?: number;
   advisor_company?: { id?: number; name?: string };
   advisor_company_id?: number;
   _new_company?: { id?: number; name?: string };
 };
 
-/** Route id for /advisor/[id] — prefer advisor record id from corporate-event payload. */
+/** Route id for /advisor/[id] — `new_comp_id` (new_company_advised), not advisor role record id. */
 export function resolveAdvisorRouteId(advisor: AdvisorLinkSource): number | undefined {
-  const id =
-    advisor.id ??
-    advisor.advisor_company?.id ??
-    advisor.advisor_company_id ??
-    advisor._new_company?.id;
-  return typeof id === "number" && Number.isFinite(id) ? id : undefined;
+  const roleRecordId =
+    typeof advisor.id === "number" && Number.isFinite(advisor.id) && advisor.id > 0
+      ? advisor.id
+      : undefined;
+
+  const candidates = [
+    advisor.new_company_advised,
+    advisor._new_company?.id,
+    advisor.advisor_company?.id,
+    advisor.advisor_company_id,
+  ];
+
+  for (const value of candidates) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+      continue;
+    }
+    // API often duplicates the role-record id on advisor_company — skip that id.
+    if (roleRecordId != null && value === roleRecordId) continue;
+    return value;
+  }
+
+  return undefined;
 }
 
 export function resolveAdvisorDisplayName(advisor: AdvisorLinkSource): string {

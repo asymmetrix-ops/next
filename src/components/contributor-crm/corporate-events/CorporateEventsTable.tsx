@@ -3,6 +3,10 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CorporateEventDealMetrics } from "./CorporateEventDealMetrics";
+import {
+  resolveAdvisorDisplayName,
+  resolveAdvisorRouteId,
+} from "@/components/corporate-events/corporateEventsPartyLinks";
 
 export interface Sector {
   sector_id?: number;
@@ -499,16 +503,15 @@ export function CorporateEventsTable({
                   ? [newEvent.advisors_names]
                   : [];
               const advisorList = [
-                ...newAdvisors.map((advisor) => ({
-                  id: advisor.advisor_company?.id || advisor._new_company?.id,
-                  name:
-                    advisor.advisor_company?.name ||
-                    advisor._new_company?.name ||
-                    "",
+                ...newAdvisors.map((a) => ({
+                  id: resolveAdvisorRouteId(a),
+                  name: resolveAdvisorDisplayName(a),
                 })),
-                ...legacyAdvisors.map((advisor) => ({
-                  id: advisor._new_company?.id,
-                  name: advisor._new_company?.name || "",
+                ...legacyAdvisors.map((a) => ({
+                  id: resolveAdvisorRouteId({
+                    _new_company: a._new_company,
+                  }),
+                  name: a._new_company?.name || "",
                 })),
                 ...advisorsNames.map((name) => ({
                   id: undefined,
