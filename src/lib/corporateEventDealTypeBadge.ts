@@ -39,3 +39,18 @@ export function dealTypeBadgeStyle(): CSSProperties {
 export function fundingStageBadgeStyle(): CSSProperties {
   return badgeStyleFromColors(FUNDING_STAGE_BADGE_COLORS);
 }
+
+const DEAL_STATUS_BADGE_COLORS: Record<string, DealTypeBadgeColors> = {
+  Completed: { bg: "#d1fae5", fg: "#065f46", bd: "#6ee7b7" },
+  "In Market": { bg: "#dbeafe", fg: "#1e40af", bd: "#93c5fd" },
+  "In Exclusivity": { bg: "#dbeafe", fg: "#1e40af", bd: "#93c5fd" },
+  "Strategic Review": { bg: "#fef3c7", fg: "#92400e", bd: "#fcd34d" },
+  "Deal Prep": { bg: "#fef3c7", fg: "#92400e", bd: "#fcd34d" },
+  "Not yet launched": { bg: "#f1f5f9", fg: "#475569", bd: "#cbd5e1" },
+};
+
+export function dealStatusBadgeStyle(status: string): CSSProperties {
+  return badgeStyleFromColors(
+    DEAL_STATUS_BADGE_COLORS[status] ?? DEAL_TYPE_BADGE_COLORS
+  );
+}

@@ -138,6 +138,7 @@ export interface CorporateEvent {
   description: string;
   announcement_date: string;
   deal_type: string;
+  deal_status?: string;
   target_counterparty: TargetCounterparty;
   targets?: Target[];
   investment_data: InvestmentData;

@@ -18,6 +18,7 @@ export const CORPORATE_EVENT_COLUMN_SORT_KIND: Record<
   announcement_date: "date",
   target: "text",
   parties: NOT_SORTABLE,
+  deal_status: "text",
   details: NOT_SORTABLE,
   advisors: NOT_SORTABLE,
   primary_sectors: "text",

@@ -7,6 +7,7 @@ export const CORPORATE_EVENT_COLUMN_FIELD_ALIASES: Record<
   target: ["target_name"],
   target_hq: ["target_hq", "target_country"],
   parties: ["parties"],
+  deal_status: ["deal_status"],
   deal_type: ["deal_type"],
   funding_stage: ["funding_stage"],
   investment_amount: ["investment_amount_m", "investment_amount"],

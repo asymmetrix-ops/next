@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
-import { fundingStageBadgeStyle } from "@/lib/corporateEventDealTypeBadge";
+import { fundingStageBadgeStyle, dealStatusBadgeStyle } from "@/lib/corporateEventDealTypeBadge";
 import type {
   CorporateEventListItem,
   CorporateEventsSearchFilters,
@@ -89,6 +89,7 @@ const ALL_CORPORATE_EVENT_COLUMNS: CorporateEventColumnDefinition[] = [
   { key: "announcement_date", label: "Date", minWidth: 100 },
   { key: "target", label: "Target", wrap: true, minWidth: 120 },
   { key: "parties", label: "Parties", wrap: true, minWidth: 150 },
+  { key: "deal_status", label: "Deal Status", minWidth: 110 },
   { key: "details", label: "Details", wrap: true, minWidth: 140 },
   { key: "advisors", label: "Advisors", wrap: true, minWidth: 120 },
   { key: "primary_sectors", label: "Primary Sectors", wrap: true, minWidth: 130 },
@@ -609,6 +610,11 @@ export const CorporateEventsSearchSection = ({
       }
       case "parties":
         return renderPartiesCell(event);
+      case "deal_status": {
+        const status = (event as { deal_status?: string }).deal_status?.trim();
+        if (!status) return "-";
+        return <span style={dealStatusBadgeStyle(status)}>{status}</span>;
+      }
       case "details":
         return renderDetailsCell(event);
       case "advisors":

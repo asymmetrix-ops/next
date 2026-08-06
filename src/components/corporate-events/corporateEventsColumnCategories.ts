@@ -61,6 +61,13 @@ export const CORPORATE_EVENTS_COLUMN_CATEGORIES: CorporateEventColumnCategory[] 
           defaultVisible: true,
         },
         {
+          id: "deal_status",
+          columnKey: "deal_status",
+          label: "Deal Status",
+          type: "text",
+          defaultVisible: true,
+        },
+        {
           id: "details",
           columnKey: "details",
           label: "Details",
@@ -106,6 +113,7 @@ export const PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS = [
   "announcement_date",
   "target",
   "parties",
+  "deal_status",
   "details",
   "advisors",
   "primary_sectors",
@@ -134,9 +142,18 @@ export function migrateCorporateEventColumnKeys(keys: string[]): string[] {
     }
   }
 
-  return enforceCorporateEventColumnKeyOrder(
+  const migrated = enforceCorporateEventColumnKeyOrder(
     ordered.length > 0 ? ordered : [...PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS]
   );
+
+  if (!migrated.includes("deal_status") && migrated.includes("details")) {
+    const detailsIndex = migrated.indexOf("details");
+    const withDealStatus = [...migrated];
+    withDealStatus.splice(detailsIndex, 0, "deal_status");
+    return withDealStatus;
+  }
+
+  return migrated;
 }
 
 export function getEffectiveFrozenCorporateEventColumnKeys(
