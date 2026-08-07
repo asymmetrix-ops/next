@@ -25,10 +25,7 @@ import type {
   FiPeersResponse,
 } from "./types";
 
-const FI_TARGET_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:26OHS3YC:develop";
-
-const FI_PEERS_API_BASE =
+const FI_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:UMz0Ao3v:develop";
 
 const COMPANIES_API_BASE =
@@ -148,7 +145,7 @@ export async function fetchFiTarget(
     appendPreferredCurrencyIdToSearchParams(params, currencyId);
 
     const response = await fetch(
-      `${FI_TARGET_API_BASE}/financial-intelligence/target/${companyId}?${params.toString()}`,
+      `${FI_API_BASE}/financial-intelligence/target/${companyId}?${params.toString()}`,
       { method: "GET", headers, cache: "no-store" }
     );
 
@@ -189,7 +186,7 @@ export async function fetchFiPeers(
 
     const params = peersRequestToSearchParams(request);
     const response = await fetch(
-      `${FI_PEERS_API_BASE}/financial-intelligence/peers?${params.toString()}`,
+      `${FI_API_BASE}/financial-intelligence/peers?${params.toString()}`,
       { method: "GET", headers, cache: "no-store" }
     );
 
