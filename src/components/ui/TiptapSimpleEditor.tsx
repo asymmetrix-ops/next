@@ -41,6 +41,10 @@ type Props = {
   onUploadImage?: (file: File) => Promise<string>;
   placeholder?: string;
   minHeightPx?: number;
+  /** Enable browser spell check on the editor surface. */
+  spellCheck?: boolean;
+  /** Show a toolbar control to toggle spell check on/off. */
+  showSpellCheckToggle?: boolean;
   /** When set, typing `@` opens a company picker; chosen companies become links to `/company/:id`. */
   companyMentionSearch?: (query: string) => Promise<Array<{ id: number; name: string }>>;
 };
@@ -370,12 +374,19 @@ export default function TiptapSimpleEditor({
   onUploadImage,
   placeholder = "Write…",
   minHeightPx = 420,
+  spellCheck = false,
+  showSpellCheckToggle = false,
   companyMentionSearch,
 }: Props) {
   const lastEmittedHtmlRef = useRef<string | null>(null);
   const applyingExternalRef = useRef(false);
   const companyMentionSearchRef = useRef(companyMentionSearch);
   companyMentionSearchRef.current = companyMentionSearch;
+  const [spellCheckEnabled, setSpellCheckEnabled] = useState(spellCheck);
+
+  useEffect(() => {
+    setSpellCheckEnabled(spellCheck);
+  }, [spellCheck]);
 
   const extensions = useMemo(() => {
     const companyMention = Mention.configure({
@@ -469,6 +480,8 @@ export default function TiptapSimpleEditor({
     },
     editorProps: {
       attributes: {
+        spellcheck: spellCheck ? "true" : "false",
+        lang: "en",
         class: [
           "prose max-w-none",
           "focus:outline-none",
@@ -523,6 +536,13 @@ export default function TiptapSimpleEditor({
       },
     },
   }, [extensions]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom as HTMLElement;
+    dom.setAttribute("spellcheck", spellCheckEnabled ? "true" : "false");
+    dom.setAttribute("lang", "en");
+  }, [editor, spellCheckEnabled]);
 
   // Sync editor content when parent changes (e.g. selecting "Edit Content")
   useEffect(() => {
@@ -752,6 +772,19 @@ export default function TiptapSimpleEditor({
             </div>
           )}
         </div>
+        {showSpellCheckToggle && (
+          <ToolbarButton
+            label="Spell check"
+            active={spellCheckEnabled}
+            disabled={!canUse}
+            title={
+              spellCheckEnabled
+                ? "Turn spell check off"
+                : "Turn spell check on"
+            }
+            onClick={() => setSpellCheckEnabled((enabled) => !enabled)}
+          />
+        )}
       </div>
       <EditorContent editor={editor} />
     </div>

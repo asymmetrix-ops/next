@@ -3582,6 +3582,8 @@ function ContentTab() {
             placeholder="Enter summary item. Select text and click Bold to highlight it."
             value={summaryInput}
             onChange={(e) => setSummaryInput(e.target.value)}
+            spellCheck
+            lang="en"
             onKeyDown={(e) => {
               if (e.key === "Enter" && summaryInput.trim()) {
                 e.preventDefault();
@@ -3640,6 +3642,8 @@ function ContentTab() {
             placeholder="Enter headline"
             value={headline}
             onChange={(e) => setHeadline(e.target.value)}
+            spellCheck
+            lang="en"
           />
         </div>
         <div>
@@ -3650,6 +3654,8 @@ function ContentTab() {
             placeholder="Enter strapline"
             value={strapline}
             onChange={(e) => setStrapline(e.target.value)}
+            spellCheck
+            lang="en"
           />
         </div>
       </div>
@@ -3663,6 +3669,8 @@ function ContentTab() {
           companyMentionSearch={searchCompaniesForMention}
           placeholder="Write the article body..."
           minHeightPx={500}
+          spellCheck
+          showSpellCheckToggle
         />
         <p className="mt-1 text-xs text-gray-500">
           Type <span className="font-medium text-gray-700">@</span> plus a company name to
@@ -3672,7 +3680,9 @@ function ContentTab() {
           <span className="font-medium text-gray-700">Highlight</span> to mark selected
           text in yellow.{" "}
           <span className="font-medium text-gray-700">Key Point</span> also highlights
-          selected text and shows a tooltip on the published article.
+          selected text and shows a tooltip on the published article. Use{" "}
+          <span className="font-medium text-gray-700">Spell check</span> in the toolbar
+          (or your browser&apos;s built-in checker) to catch typos in the body.
         </p>
       </div>
 
