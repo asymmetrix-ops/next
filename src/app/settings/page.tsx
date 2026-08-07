@@ -7,6 +7,7 @@ import type { EmailAlert, EmailAlertsMeta } from "@/types/emailAlerts";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { AlertCard } from "@/components/settings/AlertCard";
 import { EditAlertModal } from "@/components/settings/EditAlertModal";
+import { PlatformCurrencySettings } from "@/components/settings/PlatformCurrencySettings";
 import Header from "@/components/Header";
 import { toast } from "react-hot-toast";
 import {
@@ -325,6 +326,8 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+
+        <PlatformCurrencySettings />
 
         {isLoading && <LoadingSpinner />}
 

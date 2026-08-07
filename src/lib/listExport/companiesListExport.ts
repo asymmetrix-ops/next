@@ -10,6 +10,11 @@ import {
 import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
 import { companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
 import type { CompanySearchPayload } from "@/lib/filterBuilder";
+import {
+  DEFAULT_PLATFORM_CURRENCY,
+  platformCurrencyIdToCode,
+  readPlatformCurrencyIdClient,
+} from "@/lib/platformCurrency";
 import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
 import { mapCompanyTableApiRow } from "@/lib/companyTableData";
 import { normalizeCompaniesResponse } from "@/app/companies/normalizeCompaniesResponse";
@@ -176,7 +181,8 @@ function toPlainText(value: unknown): string {
 
 export function getCompanyCellValue(
   row: Record<string, unknown>,
-  column: ExportColumnDef
+  column: ExportColumnDef,
+  currencyCode?: string
 ): string {
   if (column.key === "id") {
     const id = Number(row.id);
@@ -210,7 +216,14 @@ export function getCompanyCellValue(
     return toPlainText(raw);
   }
 
-  return formatCompanyColumnDisplay(column.key, columnType, raw);
+  return formatCompanyColumnDisplay(
+    column.key,
+    columnType,
+    raw,
+    currencyCode ??
+      platformCurrencyIdToCode(readPlatformCurrencyIdClient()) ??
+      DEFAULT_PLATFORM_CURRENCY
+  );
 }
 
 function appendUniqueItems(
@@ -269,7 +282,12 @@ async function fetchCompaniesPage(
 }> {
   const token = getAuthToken();
   const params = companySearchPayloadToSearchParams(
-    { ...filters, columns: apiColumns },
+    {
+      ...filters,
+      columns: apiColumns,
+      preferred_currency_id:
+        filters.preferred_currency_id ?? readPlatformCurrencyIdClient(),
+    },
     { page, perPage }
   );
   const url = `${COMPANIES_API_BASE}/Get_new_companies?${params.toString()}`;
