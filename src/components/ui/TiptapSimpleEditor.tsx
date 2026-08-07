@@ -17,6 +17,13 @@ import {
   type CommandProps,
 } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import type { Editor } from "@tiptap/react";
+import {
+  extractPlainText,
+  plainTextOffsetToDocPosition,
+  runSpellCheck,
+  type SpellCheckIssue,
+} from "@/lib/spellCheck";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -43,7 +50,7 @@ type Props = {
   minHeightPx?: number;
   /** Enable browser spell check on the editor surface. */
   spellCheck?: boolean;
-  /** Show a toolbar control to toggle spell check on/off. */
+  /** Show a toolbar control to run spell check and review suggestions. */
   showSpellCheckToggle?: boolean;
   /** When set, typing `@` opens a company picker; chosen companies become links to `/company/:id`. */
   companyMentionSearch?: (query: string) => Promise<Array<{ id: number; name: string }>>;
@@ -383,10 +390,59 @@ export default function TiptapSimpleEditor({
   const companyMentionSearchRef = useRef(companyMentionSearch);
   companyMentionSearchRef.current = companyMentionSearch;
   const [spellCheckEnabled, setSpellCheckEnabled] = useState(spellCheck);
+  const [spellCheckOpen, setSpellCheckOpen] = useState(false);
+  const [spellCheckLoading, setSpellCheckLoading] = useState(false);
+  const [spellCheckError, setSpellCheckError] = useState<string | null>(null);
+  const [spellCheckIssues, setSpellCheckIssues] = useState<SpellCheckIssue[]>(
+    []
+  );
 
   useEffect(() => {
     setSpellCheckEnabled(spellCheck);
   }, [spellCheck]);
+
+  const applySpellCheckSuggestion = (
+    ed: Editor,
+    issue: SpellCheckIssue,
+    replacement: string
+  ) => {
+    const doc = ed.state.doc;
+    const from = plainTextOffsetToDocPosition(doc, issue.offset);
+    const to = plainTextOffsetToDocPosition(doc, issue.offset + issue.length);
+    ed.chain()
+      .focus()
+      .setTextSelection({ from, to })
+      .insertContent(replacement)
+      .run();
+  };
+
+  const runEditorSpellCheck = async () => {
+    if (!editor) return;
+
+    const text = extractPlainText(editor.state.doc);
+    if (!text.trim()) {
+      setSpellCheckOpen(true);
+      setSpellCheckError(null);
+      setSpellCheckIssues([]);
+      return;
+    }
+
+    setSpellCheckOpen(true);
+    setSpellCheckLoading(true);
+    setSpellCheckError(null);
+
+    try {
+      const issues = await runSpellCheck(text);
+      setSpellCheckIssues(issues);
+    } catch (error) {
+      setSpellCheckIssues([]);
+      setSpellCheckError(
+        error instanceof Error ? error.message : "Spell check failed"
+      );
+    } finally {
+      setSpellCheckLoading(false);
+    }
+  };
 
   const extensions = useMemo(() => {
     const companyMention = Mention.configure({
@@ -540,6 +596,7 @@ export default function TiptapSimpleEditor({
   useEffect(() => {
     if (!editor) return;
     const dom = editor.view.dom as HTMLElement;
+    dom.spellcheck = spellCheckEnabled;
     dom.setAttribute("spellcheck", spellCheckEnabled ? "true" : "false");
     dom.setAttribute("lang", "en");
   }, [editor, spellCheckEnabled]);
@@ -774,18 +831,95 @@ export default function TiptapSimpleEditor({
         </div>
         {showSpellCheckToggle && (
           <ToolbarButton
-            label="Spell check"
-            active={spellCheckEnabled}
-            disabled={!canUse}
-            title={
-              spellCheckEnabled
-                ? "Turn spell check off"
-                : "Turn spell check on"
-            }
-            onClick={() => setSpellCheckEnabled((enabled) => !enabled)}
+            label={spellCheckLoading ? "Checking…" : "Check spelling"}
+            active={spellCheckOpen}
+            disabled={!canUse || spellCheckLoading}
+            title="Scan the article body for spelling mistakes"
+            onClick={() => void runEditorSpellCheck()}
           />
         )}
       </div>
+      {showSpellCheckToggle && spellCheckOpen && (
+        <div className="border-b bg-amber-50 px-3 py-3 text-sm text-amber-950">
+          <div className="flex items-start justify-between gap-3">
+            <div className="font-medium">Spell check</div>
+            <button
+              type="button"
+              className="text-xs text-amber-800 underline hover:text-amber-950"
+              onClick={() => {
+                setSpellCheckOpen(false);
+                setSpellCheckError(null);
+              }}
+            >
+              Close
+            </button>
+          </div>
+          {spellCheckLoading ? (
+            <p className="mt-2 text-amber-900">Checking spelling…</p>
+          ) : spellCheckError ? (
+            <p className="mt-2 text-red-700">{spellCheckError}</p>
+          ) : spellCheckIssues.length === 0 ? (
+            <p className="mt-2 text-amber-900">No spelling issues found.</p>
+          ) : (
+            <ul className="mt-2 space-y-3">
+              {spellCheckIssues.map((issue, index) => (
+                <li
+                  key={`${issue.offset}-${issue.length}-${index}`}
+                  className="rounded border border-amber-200 bg-white px-3 py-2"
+                >
+                  <div className="font-medium text-red-700">{issue.word}</div>
+                  {issue.context ? (
+                    <div className="mt-1 text-xs text-gray-600">{issue.context}</div>
+                  ) : null}
+                  {issue.suggestions.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {issue.suggestions.map((suggestion) => (
+                        <button
+                          key={`${issue.offset}-${suggestion}`}
+                          type="button"
+                          className="rounded border border-amber-300 bg-amber-100 px-2 py-1 text-xs hover:bg-amber-200"
+                          onClick={() => {
+                            if (!editor) return;
+                            applySpellCheckSuggestion(editor, issue, suggestion);
+                            setSpellCheckIssues((current) =>
+                              current.filter((item, itemIndex) => itemIndex !== index)
+                            );
+                          }}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-xs text-gray-500">
+                      No suggestions available.
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="rounded border border-amber-300 bg-white px-2 py-1 text-xs hover:bg-amber-100 disabled:opacity-50"
+              disabled={spellCheckLoading || !editor}
+              onClick={() => void runEditorSpellCheck()}
+            >
+              Recheck
+            </button>
+            <button
+              type="button"
+              className="rounded border border-amber-300 bg-white px-2 py-1 text-xs hover:bg-amber-100"
+              onClick={() =>
+                setSpellCheckEnabled((enabled) => !enabled)
+              }
+            >
+              Browser checker: {spellCheckEnabled ? "On" : "Off"}
+            </button>
+          </div>
+        </div>
+      )}
       <EditorContent editor={editor} />
     </div>
   );

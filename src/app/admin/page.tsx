@@ -3680,9 +3680,9 @@ function ContentTab() {
           <span className="font-medium text-gray-700">Highlight</span> to mark selected
           text in yellow.{" "}
           <span className="font-medium text-gray-700">Key Point</span> also highlights
-          selected text and shows a tooltip on the published article. Use{" "}
-          <span className="font-medium text-gray-700">Spell check</span> in the toolbar
-          (or your browser&apos;s built-in checker) to catch typos in the body.
+          selected text and shows a tooltip on the published article. Click{" "}
+          <span className="font-medium text-gray-700">Check spelling</span> to
+          scan the body and review suggested fixes.
         </p>
       </div>
 
