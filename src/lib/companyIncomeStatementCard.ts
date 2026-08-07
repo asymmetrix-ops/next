@@ -1,6 +1,10 @@
 import type { IncomeStatementApiEntry } from "@/lib/incomeStatement";
 import type { CompanyFinancialMetricsCardRow } from "@/lib/companyFinancialMetricsCard";
 import { resolveFinancialMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
+import {
+  appendPreferredCurrencyIdToSearchParams,
+  readPlatformCurrencyIdClient,
+} from "@/lib/platformCurrency";
 
 const API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_financials_card";
@@ -304,7 +308,8 @@ export function parseCompanyIncomeStatementCardResponse(
 
 /** GET-only — endpoint does not support POST. Requires `new_company_id` query param. */
 export async function fetchCompanyIncomeStatementCard(
-  companyId: string | number
+  companyId: string | number,
+  preferredCurrencyId?: number
 ): Promise<CompanyIncomeStatementCardResult> {
   const empty: CompanyIncomeStatementCardResult = {
     incomeStatementRows: [],
@@ -329,6 +334,10 @@ export async function fetchCompanyIncomeStatementCard(
 
   const params = new URLSearchParams();
   params.set("new_company_id", String(numericId));
+  appendPreferredCurrencyIdToSearchParams(
+    params,
+    preferredCurrencyId ?? readPlatformCurrencyIdClient()
+  );
 
   const res = await fetch(`${API_BASE}?${params.toString()}`, {
     method: "GET",

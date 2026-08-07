@@ -9,17 +9,12 @@ function parseMetricNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Parses API *_m monetary fields (already in millions) without rescaling. */
-export function normalizeMillionsFieldValue(value: unknown): number | null {
-  return parseMetricNumber(value);
-}
-
-/** Rounds millions-style metrics for display (e.g. 22.47 → "22.5", 16600 → "16,600"). */
+/** Rounds millions-style metrics for display (e.g. 16600.42 → "16,600"). */
 export function formatMetricMillionsPlain(value: unknown): string {
   if (value == null || value === "") return EMPTY_DISPLAY;
   if (typeof value === "string" && isEmptyDisplayValue(value)) return EMPTY_DISPLAY;
 
-  const num = normalizeMillionsFieldValue(value);
+  const num = parseMetricNumber(value);
   if (num == null) return EMPTY_DISPLAY;
 
   return num.toLocaleString("en-US", {

@@ -9,6 +9,7 @@ import {
   normalizeEntityHref,
 } from "@/lib/corporateEventEntityHref";
 import { CorporateEventTargetLink } from "./CorporateEventPartyLink";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 type PartyLink = { id?: number; name: string; href: string | null };
 
@@ -683,6 +684,7 @@ export function CorporateEventDealDetailsColumn({
   event: CorporateEvent;
   align?: "left" | "center";
 }) {
+  const { currency: platformCurrency } = usePlatformCurrency();
   const newEvent = event as {
     deal_type?: string;
     investment_display?: string | null;
@@ -720,24 +722,12 @@ export function CorporateEventDealDetailsColumn({
     legacyEvent.investment_data?.investment_amount ??
     null;
   const amountMillions = sanitizeAmountValue(amountRaw);
-  const amountCurrency: string | undefined =
-    typeof newEvent.investment_data?.currency === "string"
-      ? newEvent.investment_data.currency
-      : newEvent.investment_data?.currency?.Currency ||
-        newEvent.investment_data?._currency?.Currency ||
-        (typeof legacyEvent.investment_data?.currency === "string"
-          ? legacyEvent.investment_data.currency
-          : legacyEvent.investment_data?.currency?.Currency ||
-            legacyEvent.investment_data?._currency?.Currency);
+  const amountCurrency = platformCurrency;
 
   const evDataRaw = legacyEvent.ev_data || newEvent.ev_data;
   const evMillions = sanitizeAmountValue(evDataRaw?.enterprise_value_m ?? null);
-  const evCurrency: string | undefined =
-    evDataRaw?._currency?.Currency || evDataRaw?.currency?.Currency;
-  const hasEvNumeric =
-    evMillions !== null &&
-    typeof evCurrency === "string" &&
-    evCurrency.trim().length > 0;
+  const evCurrency = platformCurrency;
+  const hasEvNumeric = evMillions !== null;
   const evDisplay = hasEvNumeric ? null : newEvent.ev_display ?? legacyEvent.ev_display ?? null;
   const evBandFallback = hasEvNumeric ? null : evDataRaw?.ev_band || null;
   const fundingStage = (

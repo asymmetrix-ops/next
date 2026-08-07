@@ -38,6 +38,7 @@ import {
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { IncomeStatementRow } from "@/components/redesign/IncomeStatementSection";
 import { IncomeStatementFinancialsCard } from "@/components/company/IncomeStatementFinancialsCard";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 type Props = {
   rows: CompanyFinancialMetricsCardRow[];
@@ -46,7 +47,6 @@ type Props = {
   incomeStatementRows?: IncomeStatementRow[];
   /** Full fiscal-year history for the Financials tab income statement table. */
   incomeStatementHistoryRows?: IncomeStatementRow[];
-  incomeStatementCurrency?: string;
   employeeHistory?: EmployeeTimeSeriesPoint[];
 };
 
@@ -330,16 +330,16 @@ export function CompanyFinancialsSection({
   companyName,
   incomeStatementRows = [],
   incomeStatementHistoryRows = [],
-  incomeStatementCurrency = "",
   employeeHistory = [],
 }: Props) {
+  const { currency: platformCurrency } = usePlatformCurrency();
   const [allowedSources, setAllowedSources] = useState<FiMetricSourceType[]>([
     ...DEFAULT_FI_SOURCE_TYPES,
   ]);
 
   const model = useMemo(
-    () => buildCompanyFinancialsViewModel(rows, employeeHistory),
-    [rows, employeeHistory]
+    () => buildCompanyFinancialsViewModel(rows, employeeHistory, platformCurrency),
+    [rows, employeeHistory, platformCurrency]
   );
 
   const incomeStatementSourceRows =
@@ -352,13 +352,9 @@ export function CompanyFinancialsSection({
       buildIncomeStatementFinancialsViewModel(
         incomeStatementSourceRows,
         employeeHistory,
-        incomeStatementCurrency
+        platformCurrency
       ),
-    [
-      incomeStatementSourceRows,
-      employeeHistory,
-      incomeStatementCurrency,
-    ]
+    [incomeStatementSourceRows, employeeHistory, platformCurrency]
   );
 
   const metricsYears = model.years;

@@ -7,6 +7,7 @@ import type {
   BuyerInvestorType,
   CorporateEventsFilters,
 } from "@/types/corporateEvents";
+import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
 
 export type CorporateEventsSearchFilters = CorporateEventsFilters;
 
@@ -342,6 +343,11 @@ function appendSharedCorporateEventFilterParams(
   if (filters.Date_end) {
     params.append("Date_end", filters.Date_end);
   }
+
+  appendPreferredCurrencyIdToSearchParams(
+    params,
+    filters.preferred_currency_id
+  );
 }
 
 export function corporateEventsCountsFiltersToSearchParams(

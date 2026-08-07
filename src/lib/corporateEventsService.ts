@@ -4,6 +4,10 @@ import {
   CorporateEventsFilters,
   CorporateEventDetailResponse,
 } from "../types/corporateEvents";
+import {
+  appendPreferredCurrencyIdToSearchParams,
+  readPlatformCurrencyIdClient,
+} from "@/lib/platformCurrency";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
 
@@ -74,6 +78,11 @@ class CorporateEventsService {
       queryParams.append("Date_end", filters.Date_end);
     }
 
+    appendPreferredCurrencyIdToSearchParams(
+      queryParams,
+      filters.preferred_currency_id ?? readPlatformCurrencyIdClient()
+    );
+
     const url = `${BASE_URL}/get_all_corporate_events?${queryParams.toString()}`;
 
     const response = await fetch(url, {
@@ -122,9 +131,17 @@ class CorporateEventsService {
   }
 
   async getCorporateEvent(
-    corporateEventId: string
+    corporateEventId: string,
+    preferredCurrencyId?: number
   ): Promise<CorporateEventDetailResponse> {
-    const url = `${BASE_URL}/corporate_event_v2?corporate_event_id=${corporateEventId}`;
+    const params = new URLSearchParams({
+      corporate_event_id: corporateEventId,
+    });
+    appendPreferredCurrencyIdToSearchParams(
+      params,
+      preferredCurrencyId ?? readPlatformCurrencyIdClient()
+    );
+    const url = `${BASE_URL}/corporate_event_v2?${params.toString()}`;
 
     const response = await fetch(url, {
       method: "GET",

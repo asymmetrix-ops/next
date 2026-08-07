@@ -32,6 +32,8 @@ export interface CorporateEventsFilters {
   filter_investor_ids?: number[];
   filter_sector_ids?: number[];
   filter_individual_ids?: number[];
+  /** Platform currency for converted deal amounts (USD=15, EUR=6, GBP=7). */
+  preferred_currency_id?: number;
 }
 
 export interface CorporateEventsStats {
@@ -47,6 +49,7 @@ export interface Currency {
 export interface InvestmentData {
   investment_amount_m: string;
   currency: Currency;
+  investment_amount_m_native_currency_id?: number;
   // Optional funding stage for investment-type events. API currently uses
   // `Funding_stage` (capital F) but we also accept a lowercase variant.
   Funding_stage?: string;
@@ -56,6 +59,7 @@ export interface InvestmentData {
 export interface EnterpriseValueData {
   enterprise_value_m: string;
   currency: Currency;
+  enterprise_value_m_native_currency_id?: number;
 }
 
 export interface Sector {

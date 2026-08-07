@@ -1,3 +1,5 @@
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
+
 type FinancialMetricsPayload = {
   Revenue_m?: number | null;
   Revenue_source_label?: string | null;
@@ -150,7 +152,6 @@ type BuildSectionsInput = {
   currencyCode?: string;
   getSourceText: SourceResolver;
   formatPercent: (value?: number | string | null) => string;
-  formatPlainNumber: (value?: number | string | null) => string;
   formatWholeNumber: (value?: number | string | null) => string;
   formatMultiple: (value?: number | string | null) => string;
   getNumeric: (value?: number | string | null) => number | undefined;
@@ -172,7 +173,6 @@ export function buildFinancialMetricsSections({
   ebitdaPlain,
   getSourceText,
   formatPercent,
-  formatPlainNumber,
   formatWholeNumber,
   formatMultiple,
   getNumeric,
@@ -181,38 +181,23 @@ export function buildFinancialMetricsSections({
 }: BuildSectionsInput): FinancialMetricsCardData {
   const fm = financialMetrics;
   const src = getSourceText;
-  const money = (formatted: string) => appendMetricCurrency(formatted, currencyCode);
-  const metricMoney = (
-    formatted: string,
-    currencyDisplay?: string | null
-  ) =>
-    appendMetricCurrency(
-      formatted,
-      resolveMetricCurrencyDisplay(currencyDisplay, currencyCode)
-    );
-  const subscriptionMoney = (formatted: string) =>
-    appendMetricCurrency(
-      formatted,
-      resolveMetricCurrencyDisplay(
-        fm?.Subscription_revenue_currency_display,
-        currencyCode
-      )
-    );
+  const money = (value?: number | string | null) =>
+    appendMetricCurrency(formatMetricMillionsPlain(value), currencyCode);
 
   const mainRows: FinancialMetricRow[] = [
     row(
       "Revenue (m):",
-      money(revenuePlain),
+      money(fm?.Revenue_m ?? revenuePlain),
       src(fm?.Revenue_source_label, fm?.Rev_source)
     ),
     row(
       "EBITDA (m):",
-      money(ebitdaPlain),
+      money(fm?.EBITDA_m ?? ebitdaPlain),
       src(fm?.EBITDA_source_label, fm?.EBITDA_source)
     ),
     row(
       "Enterprise Value (m):",
-      metricMoney(formatPlainNumber(fm?.EV), fm?.EV_currency_display),
+      money(fm?.EV),
       src(fm?.EV_source_label, fm?.EV_source)
     ),
     row(
@@ -262,7 +247,7 @@ export function buildFinancialMetricsSections({
     ),
     row(
       "Subscription revenue (m):",
-      subscriptionMoney(formatPlainNumber(fm?.Subscription_revenue_m)),
+      money(fm?.Subscription_revenue_m),
       src(
         fm?.Subscription_revenue_source_label,
         fm?.Subscription_revenue_source
@@ -313,7 +298,7 @@ export function buildFinancialMetricsSections({
   const otherRows: FinancialMetricRow[] = [
     row(
       "EBIT (m):",
-      money(formatPlainNumber(fm?.EBIT_m)),
+      money(fm?.EBIT_m),
       src(fm?.EBIT_source_label, fm?.EBIT_source)
     ),
     row(
@@ -325,7 +310,7 @@ export function buildFinancialMetricsSections({
     ),
     row(
       "Revenue per client:",
-      money(formatWholeNumber(fm?.Rev_per_client)),
+      money(fm?.Rev_per_client),
       src(fm?.Rev_per_client_source_label, fm?.Rev_per_client_source)
     ),
     row(
@@ -335,7 +320,7 @@ export function buildFinancialMetricsSections({
     ),
     row(
       "Revenue per employee:",
-      money(formatWholeNumber(fm?.Revenue_per_employee)),
+      money(fm?.Revenue_per_employee),
       src(fm?.Revenue_per_employee_source_label, fm?.Rev_per_employee_source)
     ),
   ];

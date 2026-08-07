@@ -296,11 +296,13 @@ export function resolveIncomeStatementCurrency(
   rows: NormalizedIncomeStatementRow[],
   fallback?: string
 ): string {
+  const explicit = sanitizeCurrencyCode(fallback);
+  if (explicit) return explicit;
   for (const row of rows) {
     const code = sanitizeCurrencyCode(row.statement_currency);
     if (code) return code;
   }
-  return sanitizeCurrencyCode(fallback) || "";
+  return "";
 }
 
 type FinancialMetricsIncomeRow = {
@@ -376,53 +378,92 @@ export function buildIncomeStatementFromFinancialMetrics(
   });
 }
 
+function applyIncomeStatementCurrency(
+  rows: NormalizedIncomeStatementRow[],
+  fallbackCurrency?: string
+): NormalizedIncomeStatementRow[] {
+  const resolvedFallback = sanitizeCurrencyCode(fallbackCurrency);
+  if (!resolvedFallback) return rows;
+
+  return sortIncomeStatementRowsAsc(
+    rows.map((row) => ({
+      ...row,
+      statement_currency: resolvedFallback,
+    }))
+  );
+}
+
+function buildConvertedIncomeStatementBaseRows({
+  apiRows = [],
+  profileRows = [],
+  financialMetricsRows = [],
+}: {
+  apiRows?: NormalizedIncomeStatementRow[];
+  profileRows?: NormalizedIncomeStatementRow[];
+  financialMetricsRows?: FinancialMetricsIncomeRow[];
+}): NormalizedIncomeStatementRow[] {
+  const fromMetrics = buildIncomeStatementFromFinancialMetrics(financialMetricsRows);
+  const metricFiscalYears = new Set(
+    fromMetrics
+      .map((row) => row.period_year)
+      .filter((year): year is number => year != null)
+  );
+
+  const supplementalApi = apiRows.filter((row) => {
+    if (row.period_type !== "fiscal_year") return true;
+    const year = resolvePeriodYear(row);
+    return year == null || !metricFiscalYears.has(year);
+  });
+
+  const hasApiData = fromMetrics.length > 0 || apiRows.length > 0;
+  if (!hasApiData) return profileRows;
+
+  return dedupeIncomeStatementPeriods([...fromMetrics, ...supplementalApi]);
+}
+
 /** Merges profile and card income-statement API rows (excludes financial metrics estimates). */
 export function resolveDisplayIncomeStatementRows({
   apiRows = [],
   profileRows = [],
+  financialMetricsRows = [],
   limit = INCOME_STATEMENT_DISPLAY_YEAR_COUNT,
   fallbackCurrency,
 }: {
   apiRows?: NormalizedIncomeStatementRow[];
   profileRows?: NormalizedIncomeStatementRow[];
+  financialMetricsRows?: FinancialMetricsIncomeRow[];
   limit?: number | null;
   fallbackCurrency?: string;
 }): NormalizedIncomeStatementRow[] {
   const merged = selectIncomeStatementYearColumns(
-    [...apiRows, ...profileRows],
+    buildConvertedIncomeStatementBaseRows({
+      apiRows,
+      profileRows,
+      financialMetricsRows,
+    }),
     limit
   );
-  const resolvedFallback = sanitizeCurrencyCode(fallbackCurrency);
-  if (!resolvedFallback) return merged;
 
-  return sortIncomeStatementRowsAsc(
-    merged.map((row) => ({
-      ...row,
-      statement_currency:
-        sanitizeCurrencyCode(row.statement_currency) || resolvedFallback,
-    }))
-  );
+  return applyIncomeStatementCurrency(merged, fallbackCurrency);
 }
 
 /** Full period history for the Financials tab (quarters + fiscal years, deduped). */
 export function resolveDisplayIncomeStatementHistoryRows({
   apiRows = [],
   profileRows = [],
+  financialMetricsRows = [],
   fallbackCurrency,
 }: {
   apiRows?: NormalizedIncomeStatementRow[];
   profileRows?: NormalizedIncomeStatementRow[];
+  financialMetricsRows?: FinancialMetricsIncomeRow[];
   fallbackCurrency?: string;
 }): NormalizedIncomeStatementRow[] {
-  const merged = dedupeIncomeStatementPeriods([...apiRows, ...profileRows]);
-  const resolvedFallback = sanitizeCurrencyCode(fallbackCurrency);
-  if (!resolvedFallback) return merged;
+  const merged = buildConvertedIncomeStatementBaseRows({
+    apiRows,
+    profileRows,
+    financialMetricsRows,
+  });
 
-  return sortIncomeStatementRowsAsc(
-    merged.map((row) => ({
-      ...row,
-      statement_currency:
-        sanitizeCurrencyCode(row.statement_currency) || resolvedFallback,
-    }))
-  );
+  return applyIncomeStatementCurrency(merged, fallbackCurrency);
 }

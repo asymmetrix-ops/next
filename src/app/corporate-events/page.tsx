@@ -9,6 +9,7 @@ import React, {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { CorporateEventsDashboard } from "@/components/corporate-events/CorporateEventsDashboard";
 import {
   CorporateEventsSearchSection,
@@ -186,6 +187,8 @@ const useCorporateEventsAPI = (userId: number | null) => {
 
 function CorporateEventsPageInner() {
   const { user } = useAuth();
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
+  const preferredCurrencyReadyRef = useRef(false);
   const userId =
     user?.id != null && Number.isFinite(Number.parseInt(String(user.id), 10))
       ? Number.parseInt(String(user.id), 10)
@@ -235,6 +238,15 @@ function CorporateEventsPageInner() {
     },
     [fetchCorporateEvents]
   );
+
+  useEffect(() => {
+    if (!preferredCurrencyReadyRef.current) {
+      preferredCurrencyReadyRef.current = true;
+      return;
+    }
+    if (!currentFilters) return;
+    void fetchCorporateEvents(1, currentFilters, currentFilters);
+  }, [preferredCurrencyId, currentFilters, fetchCorporateEvents]);
 
   const handleFilterColumnsChange = useCallback(
     ({ filterIds }: { filterIds: string[] }) => {
