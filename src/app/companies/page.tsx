@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   ACCESS_DENIED_PATH,
   MCP_GUEST_ALLOWED_PATH,
@@ -38,7 +39,11 @@ import { CompaniesEditContext } from "./CompaniesEditContext";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
 import type { ListExportRequest } from "@/lib/listExport/types";
 
-const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
+const useCompaniesAPI = (
+  isMcpGuest: boolean,
+  authLoading: boolean,
+  preferredCurrencyId: number
+) => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +99,7 @@ const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
   }, []);
 
   const currentCountsFiltersRef = useRef<Filters | undefined>(undefined);
+  const skipCurrencyRefetchRef = useRef(true);
 
   const fetchCompanies = useCallback(
     async (page: number = 1, filters?: Filters, countsFilters?: Filters) => {
@@ -177,6 +183,19 @@ const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
   );
 
   useEffect(() => {
+    if (skipCurrencyRefetchRef.current) {
+      skipCurrencyRefetchRef.current = false;
+      return;
+    }
+    if (authLoading) return;
+    const filters = isMcpGuest
+      ? buildMcpGuestCompaniesFilters()
+      : currentFiltersRef.current ?? createDefaultFilters();
+    fetchCompanies(pagination.curPage || 1, filters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferredCurrencyId]);
+
+  useEffect(() => {
     if (authLoading) return;
     const initialFilters = isMcpGuest
       ? buildMcpGuestCompaniesFilters()
@@ -200,6 +219,7 @@ const useCompaniesAPI = (isMcpGuest: boolean, authLoading: boolean) => {
 function CompaniesPageInner() {
   const router = useRouter();
   const { isMcpGuest, isContributor, loading: authLoading } = useAuth();
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const {
     companies,
     loading,
@@ -209,7 +229,7 @@ function CompaniesPageInner() {
     fetchCompanies,
     setRequestColumns,
     currentFilters,
-  } = useCompaniesAPI(isMcpGuest, authLoading);
+  } = useCompaniesAPI(isMcpGuest, authLoading, preferredCurrencyId);
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
 

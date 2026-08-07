@@ -292,6 +292,8 @@ export interface CompanySearchPayload {
   current_portfolio_ids?: number[];
   sort_column?: string | null;
   sort_direction?: "asc" | "desc" | null;
+  /** Platform display currency — Xano converts financial columns server-side. */
+  preferred_currency_id?: number;
 }
 
 export function buildApiPayload(

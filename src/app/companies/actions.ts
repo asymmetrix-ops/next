@@ -8,6 +8,7 @@ import {
   normalizeCompanySearchPayload,
   buildMcpGuestCompaniesFilters,
 } from "@/lib/companiesFilterPayload";
+import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 import { isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
 import { normalizeCompaniesResponse } from "./normalizeCompaniesResponse";
 
@@ -145,7 +146,11 @@ export async function fetchCompaniesCountsServer(
       return null;
     }
 
-    const payload = normalizeCompanySearchPayload(resolvedFilters);
+    const preferredCurrencyId = await readPlatformCurrencyIdServer();
+    const payload = normalizeCompanySearchPayload({
+      ...resolvedFilters,
+      preferred_currency_id: preferredCurrencyId,
+    });
     const params = companyCountsPayloadToSearchParams(payload);
     const url = `${COMPANIES_API_BASE}/companies_counts?${params.toString()}`;
 
@@ -188,10 +193,14 @@ export async function fetchCompaniesServer(
       return null;
     }
 
+    const preferredCurrencyId = await readPlatformCurrencyIdServer();
     const perPageRaw = resolvedFilters.Per_page ?? 20;
     const perPage = perPageRaw > 0 ? perPageRaw : 20;
     const payload: CompanySearchPayload = {
-      ...normalizeCompanySearchPayload(resolvedFilters),
+      ...normalizeCompanySearchPayload({
+        ...resolvedFilters,
+        preferred_currency_id: preferredCurrencyId,
+      }),
       Offset: page,
       Per_page: perPage,
     };

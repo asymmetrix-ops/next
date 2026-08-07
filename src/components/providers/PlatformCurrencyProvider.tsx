@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
 } from "react";
 import type { Currency } from "@/lib/fxRates";
@@ -31,16 +32,18 @@ export function PlatformCurrencyProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [currency, setCurrencyState] = useState<Currency>(() =>
-    typeof window === "undefined"
-      ? DEFAULT_PLATFORM_CURRENCY
-      : readPlatformCurrencyClient()
+  const [currency, setCurrencyState] = useState<Currency>(
+    DEFAULT_PLATFORM_CURRENCY
   );
-  const [currencyId, setCurrencyIdState] = useState<number>(() =>
-    typeof window === "undefined"
-      ? DEFAULT_PLATFORM_CURRENCY_ID
-      : readPlatformCurrencyIdClient()
+  const [currencyId, setCurrencyIdState] = useState<number>(
+    DEFAULT_PLATFORM_CURRENCY_ID
   );
+
+  useEffect(() => {
+    const nextCurrencyId = readPlatformCurrencyIdClient();
+    setCurrencyIdState(nextCurrencyId);
+    setCurrencyState(readPlatformCurrencyClient());
+  }, []);
 
   const setCurrency = useCallback((next: Currency) => {
     const nextCurrencyId = platformCurrencyCodeToId(next);
