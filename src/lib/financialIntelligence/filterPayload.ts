@@ -1,4 +1,5 @@
 import type { FilterState } from "@/app/financials-tsx/types";
+import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
 import type { FiPeersRequest, FiSecondarySectorLookup, FiSectorLookup, SavedBenchmark } from "./types";
 
 export interface FiFilterLookups {
@@ -110,6 +111,7 @@ export function buildPeersRequest(args: {
   primarySectors: FiSectorLookup[];
   secondarySectors: FiSecondarySectorLookup[];
   regionOptions?: Array<{ id: number; name: string }>;
+  preferredCurrencyId?: number;
 }): FiPeersRequest {
   const revenue = rangeValue(args.filters.find((f) => f.id === "revenue"));
   const ev = rangeValue(args.filters.find((f) => f.id === "ev"));
@@ -128,6 +130,8 @@ export function buildPeersRequest(args: {
     ev_max_usd_m: toSentinel(ev.max),
     company_ids_include: [...args.companyIdsInclude],
     company_ids_exclude: [...args.companyIdsExclude],
+    preferred_currency_id:
+      args.preferredCurrencyId ?? DEFAULT_PLATFORM_CURRENCY_ID,
   };
 }
 
@@ -256,6 +260,7 @@ export function createDefaultPeersRequest(targetCompanyId: number): FiPeersReque
     ev_max_usd_m: "0",
     company_ids_include: [],
     company_ids_exclude: [],
+    preferred_currency_id: DEFAULT_PLATFORM_CURRENCY_ID,
   };
 }
 
@@ -284,6 +289,11 @@ export function peersRequestToSearchParams(request: FiPeersRequest): URLSearchPa
   for (const id of request.company_ids_exclude) {
     params.append("company_ids_exclude[]", String(id));
   }
+
+  params.set(
+    "preferred_currency_id",
+    String(request.preferred_currency_id ?? DEFAULT_PLATFORM_CURRENCY_ID)
+  );
 
   return params;
 }

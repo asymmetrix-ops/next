@@ -88,6 +88,7 @@ export interface FiPeersRequest {
   ev_max_usd_m: string;
   company_ids_include: number[];
   company_ids_exclude: number[];
+  preferred_currency_id?: number;
 }
 
 export interface FiBenchmarkState {

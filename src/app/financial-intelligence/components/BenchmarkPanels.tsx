@@ -24,6 +24,8 @@
   } from "@/lib/financialIntelligence/sourceTypes";
   import { PercentileBar, PctPill } from "./benchmark-viz";
   import { fmtFiMetric, SourceColoredValue } from "./SourceTypeValue";
+  import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+  import type { Currency } from "@/lib/fxRates";
 
   const FONT = "var(--font-sans)";
 
@@ -54,7 +56,8 @@
     delta: number | null,
     format: FiMetricFormat,
     higherIsBetter: boolean,
-    aggregateNoun: string
+    aggregateNoun: string,
+    currencyCode: Currency = "USD"
   ): { text: string; positive: boolean | null } {
     if (delta == null || !Number.isFinite(delta)) return { text: "—", positive: null };
     const sign = delta > 0 ? "+" : "";
@@ -62,8 +65,12 @@
     if (format === "percent") {
       text = `${formatMetricPercentDelta(delta)} vs ${aggregateNoun}`;
     }
-    else if (format === "currency") text = `${sign}$${Math.abs(Math.round(delta))}m vs ${aggregateNoun}`;
-    else if (format === "currency_k") text = `${sign}$${Math.abs(Math.round(delta / 1000))}k vs ${aggregateNoun}`;
+    else if (format === "currency") {
+      text = `${sign}${fmtFiMetric(Math.abs(delta), "currency", currencyCode).replace(/^—$/, "0")} vs ${aggregateNoun}`;
+    }
+    else if (format === "currency_k") {
+      text = `${sign}${fmtFiMetric(Math.abs(delta), "currency_k", currencyCode).replace(/^—$/, "0")} vs ${aggregateNoun}`;
+    }
     else if (format === "count") text = `${sign}${Math.round(delta).toLocaleString()} vs ${aggregateNoun}`;
     else text = `${sign}${Math.round(delta)}x vs ${aggregateNoun}`;
     const positive = higherIsBetter ? delta >= 0 : delta <= 0;
@@ -73,7 +80,8 @@
   function fmtHeadlineDeltaParen(
     delta: number | null,
     format: FiMetricFormat,
-    higherIsBetter: boolean
+    higherIsBetter: boolean,
+    currencyCode: Currency = "USD"
   ): { text: string; positive: boolean | null } {
     if (delta == null || !Number.isFinite(delta)) return { text: "", positive: null };
     const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
@@ -81,9 +89,9 @@
     if (format === "percent") {
       text = formatMetricPercentDelta(delta, { paren: true });
     } else if (format === "currency") {
-      text = `(${sign}$${Math.abs(Math.round(delta))}m)`;
+      text = `(${sign}${fmtFiMetric(Math.abs(delta), "currency", currencyCode).replace(/^—$/, "0")})`;
     } else if (format === "currency_k") {
-      text = `(${sign}$${Math.abs(Math.round(delta / 1000))}k)`;
+      text = `(${sign}${fmtFiMetric(Math.abs(delta), "currency_k", currencyCode).replace(/^—$/, "0")})`;
     } else if (format === "count") {
       text = `(${sign}${Math.abs(Math.round(delta)).toLocaleString()})`;
     } else {
@@ -93,10 +101,18 @@
     return { text, positive };
   }
 
-  function fmtSigned(delta: number, format: FiMetricFormat): string {
+  function fmtSigned(
+    delta: number,
+    format: FiMetricFormat,
+    currencyCode: Currency = "USD"
+  ): string {
     const sign = delta > 0 ? "+" : "";
-    if (format === "currency") return `${sign}$${Math.abs(Math.round(delta))}m`;
-    if (format === "currency_k") return `${sign}$${Math.abs(Math.round(delta / 1000))}k`;
+    if (format === "currency") {
+      return `${sign}${fmtFiMetric(Math.abs(delta), "currency", currencyCode).replace(/^—$/, "0")}`;
+    }
+    if (format === "currency_k") {
+      return `${sign}${fmtFiMetric(Math.abs(delta), "currency_k", currencyCode).replace(/^—$/, "0")}`;
+    }
     if (format === "count") return `${sign}${Math.round(delta).toLocaleString()}`;
     if (format === "percent") return formatMetricPercent(delta);
     return `${sign}${Math.round(delta)}x`;
@@ -115,6 +131,7 @@
     isLast: boolean;
     peerAggregateMode: FiPeerAggregateMode;
   }) {
+    const { currency } = usePlatformCurrency();
     const aggregateLabels = peerAggregateLabels(peerAggregateMode);
     const metricKey = row.key as FiMetricKey;
     const list = [
@@ -315,7 +332,7 @@
               <strong style={{ color: "var(--fg-1)" }}>
                 {row.format === "percent"
                   ? formatMetricPercentDelta(row.deltaVsMedian)
-                  : fmtSigned(row.deltaVsMedian, row.format)}
+                  : fmtSigned(row.deltaVsMedian, row.format, currency)}
               </strong>{" "}
               vs the peer median
             </span>
@@ -450,6 +467,7 @@
     metrics: FiHeadlineMetric[];
     peerAggregateMode?: FiPeerAggregateMode;
   }) {
+    const { currency } = usePlatformCurrency();
     const aggregateLabels = peerAggregateLabels(peerAggregateMode);
     return (
       <>
@@ -457,11 +475,12 @@
           const deltaParen = fmtHeadlineDeltaParen(
             metric.deltaVsMedian,
             metric.format,
-            metric.higherIsBetter
+            metric.higherIsBetter,
+            currency
           );
           const medianText =
             metric.peerMedian != null && Number.isFinite(metric.peerMedian)
-              ? fmtFiMetric(metric.peerMedian, metric.format)
+              ? fmtFiMetric(metric.peerMedian, metric.format, currency)
               : null;
 
           return (
@@ -559,6 +578,7 @@
     peers,
     peerAggregateMode = "median",
   }: BenchmarkTableProps) {
+    const { currency } = usePlatformCurrency();
     const aggregateLabels = peerAggregateLabels(peerAggregateMode);
     const [openMetricKey, setOpenMetricKey] = useState<string | null>(null);
     const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -594,7 +614,8 @@
         row.deltaVsMedian,
         row.format,
         row.higherIsBetter,
-        aggregateLabels.noun
+        aggregateLabels.noun,
+        currency
       );
       const isLastInSection = index === sectionLength - 1;
       const isLastOverall = isLastSection && isLastInSection;

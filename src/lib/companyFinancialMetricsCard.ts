@@ -799,9 +799,12 @@ function unwrapFinancialMetricsApiRows(data: unknown): FinancialMetricsApiRow[] 
     return data as FinancialMetricsApiRow[];
   }
   if (typeof data === "object" && data != null) {
-    const wrapped = (data as { financial_metrics?: unknown }).financial_metrics;
-    if (Array.isArray(wrapped)) {
-      return wrapped as FinancialMetricsApiRow[];
+    const obj = data as { items?: unknown; financial_metrics?: unknown };
+    if (Array.isArray(obj.items)) {
+      return obj.items as FinancialMetricsApiRow[];
+    }
+    if (Array.isArray(obj.financial_metrics)) {
+      return obj.financial_metrics as FinancialMetricsApiRow[];
     }
   }
   return [];

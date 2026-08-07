@@ -424,20 +424,27 @@ function buildConvertedIncomeStatementBaseRows({
 /** Merges profile and card income-statement API rows (excludes financial metrics estimates). */
 export function resolveDisplayIncomeStatementRows({
   apiRows = [],
+  historyRows = [],
   profileRows = [],
   financialMetricsRows = [],
   limit = INCOME_STATEMENT_DISPLAY_YEAR_COUNT,
   fallbackCurrency,
 }: {
   apiRows?: NormalizedIncomeStatementRow[];
+  /** Full `income_statement_history` from the card API — fills fiscal years beyond metrics. */
+  historyRows?: NormalizedIncomeStatementRow[];
   profileRows?: NormalizedIncomeStatementRow[];
   financialMetricsRows?: FinancialMetricsIncomeRow[];
   limit?: number | null;
   fallbackCurrency?: string;
 }): NormalizedIncomeStatementRow[] {
+  const combinedApiRows = dedupeIncomeStatementPeriods([
+    ...apiRows,
+    ...historyRows,
+  ]);
   const merged = selectIncomeStatementYearColumns(
     buildConvertedIncomeStatementBaseRows({
-      apiRows,
+      apiRows: combinedApiRows,
       profileRows,
       financialMetricsRows,
     }),
@@ -450,17 +457,23 @@ export function resolveDisplayIncomeStatementRows({
 /** Full period history for the Financials tab (quarters + fiscal years, deduped). */
 export function resolveDisplayIncomeStatementHistoryRows({
   apiRows = [],
+  historyRows = [],
   profileRows = [],
   financialMetricsRows = [],
   fallbackCurrency,
 }: {
   apiRows?: NormalizedIncomeStatementRow[];
+  historyRows?: NormalizedIncomeStatementRow[];
   profileRows?: NormalizedIncomeStatementRow[];
   financialMetricsRows?: FinancialMetricsIncomeRow[];
   fallbackCurrency?: string;
 }): NormalizedIncomeStatementRow[] {
+  const combinedApiRows = dedupeIncomeStatementPeriods([
+    ...apiRows,
+    ...historyRows,
+  ]);
   const merged = buildConvertedIncomeStatementBaseRows({
-    apiRows,
+    apiRows: combinedApiRows,
     profileRows,
     financialMetricsRows,
   });
