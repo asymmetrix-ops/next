@@ -1,14 +1,18 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
-  import { useSearchParams } from "next/navigation";
+import { Suspense, useLayoutEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
 import { trackError, trackLogin } from "@/lib/tracking";
 
 function SsoCompleteContent() {
   const searchParams = useSearchParams();
+  const { setShowLoginModal } = useAuth();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    setShowLoginModal(false);
+
     let cancelled = false;
 
     const complete = async () => {
@@ -27,7 +31,7 @@ function SsoCompleteContent() {
           window.location.replace(destination);
         }
       } catch (err) {
-        trackError(`Azure SSO completion failed: ${(err as Error)?.message || "unknown"}`);
+        trackError(`SSO completion failed: ${(err as Error)?.message || "unknown"}`);
         if (!cancelled) {
           window.location.replace("/login?error=sso_sync");
         }
@@ -39,7 +43,7 @@ function SsoCompleteContent() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams]);
+  }, [searchParams, setShowLoginModal]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#F9FAFC]">

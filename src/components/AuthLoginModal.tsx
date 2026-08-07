@@ -9,6 +9,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
 import { CONTRIBUTOR_ACCESS_MESSAGE, isContributorCrmPath } from "@/lib/userStatus";
 import { trackError, trackLogin } from "@/lib/tracking";
+import SsoSignInOptions from "@/components/SsoSignInOptions";
 
 export default function AuthLoginModal() {
   const { showLoginModal, login } = useAuth();
@@ -155,6 +156,7 @@ export default function AuthLoginModal() {
               </button>
             </form>
 
+            <SsoSignInOptions />
           </div>
         </div>
       </div>

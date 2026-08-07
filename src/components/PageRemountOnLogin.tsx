@@ -15,6 +15,7 @@ const PUBLIC_PATHS = [
   "/trial-expired",
   "/forgot-password",
   "/reset-password",
+  "/auth/sso-complete",
   GET_ACCESS_PATH,
   "/access-denied",
   "/contributor-crm",
