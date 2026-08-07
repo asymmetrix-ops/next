@@ -25,8 +25,11 @@ import type {
   FiPeersResponse,
 } from "./types";
 
-const FI_API_BASE =
+const FI_TARGET_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:26OHS3YC:develop";
+
+const FI_PEERS_API_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:UMz0Ao3v:develop";
 
 const COMPANIES_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
@@ -145,7 +148,7 @@ export async function fetchFiTarget(
     appendPreferredCurrencyIdToSearchParams(params, currencyId);
 
     const response = await fetch(
-      `${FI_API_BASE}/financial-intelligence/target/${companyId}?${params.toString()}`,
+      `${FI_TARGET_API_BASE}/financial-intelligence/target/${companyId}?${params.toString()}`,
       { method: "GET", headers, cache: "no-store" }
     );
 
@@ -186,7 +189,7 @@ export async function fetchFiPeers(
 
     const params = peersRequestToSearchParams(request);
     const response = await fetch(
-      `${FI_API_BASE}/financial-intelligence/peers?${params.toString()}`,
+      `${FI_PEERS_API_BASE}/financial-intelligence/peers?${params.toString()}`,
       { method: "GET", headers, cache: "no-store" }
     );
 
@@ -300,8 +303,11 @@ export async function searchFiCompanies(
 function unwrapPayloadKeys(payload: unknown): Record<string, unknown> {
   if (!payload || typeof payload !== "object") return {};
   const obj = payload as Record<string, unknown>;
-  if (obj.data && typeof obj.data === "object" && !Array.isArray(obj.data)) {
-    return obj.data as Record<string, unknown>;
+  for (const key of ["data", "payload"] as const) {
+    const nested = obj[key];
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      return nested as Record<string, unknown>;
+    }
   }
   return obj;
 }
