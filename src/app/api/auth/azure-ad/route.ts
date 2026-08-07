@@ -1,0 +1,35 @@
+import crypto from "crypto";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  AZURE_OAUTH_STATE_COOKIE,
+  buildAzureAuthorizeUrl,
+  getAzureSsoConfigStatus,
+  isProduction,
+} from "@/lib/azureSsoServer";
+
+export async function GET(req: NextRequest) {
+  try {
+    const state = crypto.randomBytes(16).toString("hex");
+    const authorizeUrl = buildAzureAuthorizeUrl(state, req.url);
+
+    const response = NextResponse.redirect(authorizeUrl);
+    response.cookies.set(AZURE_OAUTH_STATE_COOKIE, state, {
+      httpOnly: true,
+      secure: isProduction(),
+      sameSite: "lax",
+      maxAge: 300,
+      path: "/",
+    });
+
+    return response;
+  } catch (error) {
+    console.error("Azure SSO start failed:", error);
+    const url = new URL("/login", req.url);
+    const status = getAzureSsoConfigStatus();
+    url.searchParams.set(
+      "error",
+      status.missing.length > 0 ? `azure_config:${status.missing.join(",")}` : "azure_config"
+    );
+    return NextResponse.redirect(url);
+  }
+}

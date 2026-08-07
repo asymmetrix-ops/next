@@ -62,6 +62,37 @@ class AuthService {
     this.writeAuthCookie(token);
   }
 
+  /** Read auth token set by the SSO callback cookie. */
+  getTokenFromCookie(): string | null {
+    if (typeof window === "undefined") return null;
+    const match = document.cookie.match(
+      new RegExp(`(?:^|;\\s*)${this.tokenKey}=([^;]+)`)
+    );
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
+  }
+
+  /** Finalize SSO by copying the callback cookie into localStorage. */
+  async completeSsoFromCookie(): Promise<LoginResponse> {
+    const token = this.getTokenFromCookie();
+    if (!token) {
+      throw new Error("Missing auth token after SSO callback");
+    }
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem(this.tokenKey, token);
+      this.writeAuthCookie(token);
+    }
+
+    const user = await this.fetchMe();
+    if (!user) {
+      this.logout();
+      throw new Error("Unable to load user profile after SSO sign-in");
+    }
+
+    this.setAuth(token, user);
+    return { token, user };
+  }
+
   private writeAuthCookie(token: string): void {
     document.cookie = `${this.tokenKey}=${token}; path=/; max-age=${
       7 * 24 * 60 * 60
