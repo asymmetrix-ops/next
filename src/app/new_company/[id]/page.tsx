@@ -1960,12 +1960,14 @@ const CompanyDetail = () => {
     const profileRows = normalizeIncomeStatementRows(company.income_statement);
     const displayRows = resolveDisplayIncomeStatementRows({
       apiRows: incomeStatementApiRows,
+      historyRows: incomeStatementHistoryRows,
       profileRows,
       financialMetricsRows: financialMetricsCardRows,
       fallbackCurrency: platformCurrency,
     });
     const historyRows = resolveDisplayIncomeStatementHistoryRows({
-      apiRows: incomeStatementHistoryRows,
+      apiRows: incomeStatementApiRows,
+      historyRows: incomeStatementHistoryRows,
       profileRows,
       financialMetricsRows: financialMetricsCardRows,
       fallbackCurrency: platformCurrency,
@@ -2470,12 +2472,14 @@ const CompanyDetail = () => {
   );
   const normalizedIncomeStatements = resolveDisplayIncomeStatementRows({
     apiRows: incomeStatementApiRows,
+    historyRows: incomeStatementHistoryRows,
     profileRows: profileIncomeStatements,
     financialMetricsRows: financialMetricsCardRows,
     fallbackCurrency: platformCurrency,
   });
   const normalizedIncomeStatementHistory = resolveDisplayIncomeStatementHistoryRows({
-    apiRows: incomeStatementHistoryRows,
+    apiRows: incomeStatementApiRows,
+    historyRows: incomeStatementHistoryRows,
     profileRows: profileIncomeStatements,
     financialMetricsRows: financialMetricsCardRows,
     fallbackCurrency: platformCurrency,

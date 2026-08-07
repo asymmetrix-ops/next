@@ -7,6 +7,10 @@ import {
 } from "@/lib/financialIntelligence/sourceTypes";
 import { formatMetricPercent } from "@/lib/financialIntelligence/calculations";
 import type { FiMetricFormat } from "@/lib/financialIntelligence/types";
+import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import type { Currency } from "@/lib/fxRates";
 
 export function SourceTypeDot({
   type,
@@ -33,21 +37,33 @@ export function SourceTypeDot({
   );
 }
 
-export function fmtFiMetric(value: number | null, format: FiMetricFormat): string {
+export function fmtFiMetric(
+  value: number | null,
+  format: FiMetricFormat,
+  currencyCode: Currency = "USD"
+): string {
   if (value == null || !Number.isFinite(value)) return "—";
   if (format === "currency") {
     const n = Math.abs(value);
-    if (n >= 1000) return `$${Math.round(value / 1000)}b`;
-    return `$${Math.round(value)}m`;
+    if (n >= 1000) {
+      return appendMetricCurrency(`${Math.round(value / 1000)}b`, currencyCode);
+    }
+    return appendMetricCurrency(formatMetricMillionsPlain(value), currencyCode);
   }
   if (format === "currency_k") {
     if (Math.abs(value) >= 1_000_000) {
-      return `$${Math.round(value / 1_000_000)}m`;
+      return appendMetricCurrency(
+        formatMetricMillionsPlain(value / 1_000_000),
+        currencyCode
+      );
     }
     if (Math.abs(value) >= 1000) {
-      return `$${Math.round(value / 1000)}k`;
+      return appendMetricCurrency(
+        `${Math.round(value / 1000)}k`,
+        currencyCode
+      );
     }
-    return `$${Math.round(value)}`;
+    return appendMetricCurrency(formatMetricMillionsPlain(value), currencyCode);
   }
   if (format === "count") {
     return Math.round(value).toLocaleString("en-US");
@@ -73,6 +89,7 @@ export function SourceColoredValue({
   fontSize?: number | string;
   justify?: "flex-start" | "flex-end" | "center";
 }) {
+  const { currency } = usePlatformCurrency();
   const color = sourceType ? sourceTypeColor(sourceType) : "var(--fg-2)";
 
   return (
@@ -88,7 +105,7 @@ export function SourceColoredValue({
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      {fmtFiMetric(value, format)}
+      {fmtFiMetric(value, format, currency)}
     </span>
   );
 }
