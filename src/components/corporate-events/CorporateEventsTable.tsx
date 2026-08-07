@@ -7,6 +7,7 @@ import {
   CorporateEventPartyLink,
   CorporateEventTargetLink,
 } from "./CorporateEventPartyLink";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 // Types compatible with both company and investor pages
 interface LegacyCorporateEvent {
@@ -317,6 +318,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
   variant = "legacy",
 }) => {
   const router = useRouter();
+  const { currency: platformCurrency } = usePlatformCurrency();
   const [showAllEvents, setShowAllEvents] = useState(false);
   const pal = CE_PALETTE[variant === "v3" ? "v3" : "legacy"];
 
@@ -497,25 +499,14 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   anyEvent.investment_data?.investment_amount ??
                   null;
                 const amountMillions = sanitizeAmountValue(amountRaw);
-                // Handle both string format (new API) and object format (legacy)
-                const amountCurrency: string | undefined =
-                  typeof anyEvent.investment_data?.currency === "string"
-                    ? anyEvent.investment_data.currency
-                    : anyEvent.investment_data?.currency?.Currency ||
-                      anyEvent.investment_data?._currency?.Currency;
-                      
+                const amountCurrency = platformCurrency;
 
                 const evDataRaw = legacyEvent.ev_data || newEvent.ev_data;
                 const evMillions = sanitizeAmountValue(
                   evDataRaw?.enterprise_value_m ?? null
                 );
-                const evCurrency: string | undefined =
-                  evDataRaw?._currency?.Currency ||
-                  evDataRaw?.currency?.Currency;
-                const hasEvNumeric =
-                  evMillions !== null &&
-                  typeof evCurrency === "string" &&
-                  evCurrency.trim().length > 0;
+                const evCurrency = platformCurrency;
+                const hasEvNumeric = evMillions !== null;
                 const evDisplay = hasEvNumeric
                   ? null
                   : (newEvent.ev_display || null);

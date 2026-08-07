@@ -12,6 +12,7 @@ import {
   mapResponseToCorporateEventsSummaryStats,
 } from "@/components/corporate-events/corporateEventsFilterConfig";
 import type { CorporateEvent, CorporateEventsResponse } from "@/types/corporateEvents";
+import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 
 export type { CorporateEventsSearchFilters };
 
@@ -68,10 +69,12 @@ export async function fetchCorporateEventsServer(
     if (!token) return null;
 
     const perPage = filters.Per_page > 0 ? filters.Per_page : 50;
+    const preferredCurrencyId = await readPlatformCurrencyIdServer();
     const payload: CorporateEventsSearchFilters = {
       ...filters,
       Page: Math.max(1, page),
       Per_page: perPage,
+      preferred_currency_id: preferredCurrencyId,
     };
 
     const params = corporateEventsFiltersToSearchParams(payload);
@@ -116,6 +119,7 @@ export async function fetchCorporateEventsCountsServer(
     const params = corporateEventsCountsFiltersToSearchParams({
       ...filters,
       deal_types: [],
+      preferred_currency_id: await readPlatformCurrencyIdServer(),
     });
     const url = `${CORPORATE_EVENTS_API_BASE}/get_corporate_events_counts?${params.toString()}`;
 

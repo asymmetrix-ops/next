@@ -15,6 +15,7 @@ import {
   sortIncomeStatementRowsAsc,
 } from "@/lib/incomeStatement";
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
 
 export type IncomeStatementRow = NormalizedIncomeStatementRow;
 
@@ -30,7 +31,7 @@ function formatIncomeValue(
 ): string {
   if (typeof value !== "number") return "-";
   return appendMetricCurrency(
-    Math.round(value / 1_000_000).toLocaleString(),
+    formatMetricMillionsPlain(value / 1_000_000),
     currency
   );
 }
@@ -40,23 +41,17 @@ function incomeMetrics(resolvedCurrency: string) {
     {
       label: "Revenue (m)",
       getValue: (row: IncomeStatementRow) =>
-        formatIncomeValue(
-          row.revenue,
-          row.statement_currency || resolvedCurrency
-        ),
+        formatIncomeValue(row.revenue, resolvedCurrency),
     },
     {
       label: "EBIT (m)",
       getValue: (row: IncomeStatementRow) =>
-        formatIncomeValue(row.ebit, row.statement_currency || resolvedCurrency),
+        formatIncomeValue(row.ebit, resolvedCurrency),
     },
     {
       label: "EBITDA (m)",
       getValue: (row: IncomeStatementRow) =>
-        formatIncomeValue(
-          row.ebitda,
-          row.statement_currency || resolvedCurrency
-        ),
+        formatIncomeValue(row.ebitda, resolvedCurrency),
     },
   ];
 }

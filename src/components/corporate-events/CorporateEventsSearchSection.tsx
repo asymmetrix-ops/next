@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
+import { formatPlatformDealMillions } from "@/lib/formatPlatformCurrency";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import type {
   CorporateEventListItem,
   CorporateEventsSearchFilters,
@@ -156,6 +158,7 @@ export const CorporateEventsSearchSection = ({
   embedded?: boolean;
 }) => {
   const router = useRouter();
+  const { currency: platformCurrency } = usePlatformCurrency();
   const sectionClassName = embedded
     ? "company-section company-section-embedded"
     : "company-section";
@@ -564,9 +567,9 @@ export const CorporateEventsSearchSection = ({
             fundingStage={fundingStage || undefined}
             isPartnership={isPartnership}
             amountMillions={event.investment_data?.investment_amount_m}
-            amountCurrency={event.investment_data?.currency?.Currency}
+            amountCurrency={platformCurrency}
             evMillions={event.ev_data?.enterprise_value_m}
-            evCurrency={event.ev_data?.currency?.Currency}
+            evCurrency={platformCurrency}
           />
         );
       case "deal_type":
@@ -574,13 +577,18 @@ export const CorporateEventsSearchSection = ({
       case "funding_stage":
         return fundingStage || "-";
       case "investment_amount":
-        return event.investment_data?.investment_amount_m &&
-          event.investment_data?.currency?.Currency
-          ? `${event.investment_data.currency.Currency}${Number(event.investment_data.investment_amount_m).toLocaleString(undefined, { maximumFractionDigits: 3 })}`
+        return event.investment_data?.investment_amount_m
+          ? formatPlatformDealMillions(
+              event.investment_data.investment_amount_m,
+              platformCurrency
+            )
           : "-";
       case "enterprise_value":
-        return event.ev_data?.enterprise_value_m && event.ev_data?.currency?.Currency
-          ? `${event.ev_data.currency.Currency}${Number(event.ev_data.enterprise_value_m).toLocaleString(undefined, { maximumFractionDigits: 3 })}`
+        return event.ev_data?.enterprise_value_m
+          ? formatPlatformDealMillions(
+              event.ev_data.enterprise_value_m,
+              platformCurrency
+            )
           : "-";
       case "advisors":
         return (

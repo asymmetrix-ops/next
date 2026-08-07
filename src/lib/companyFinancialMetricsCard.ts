@@ -5,9 +5,13 @@ import {
   resolveFinancialMetricSourceType,
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
+import {
+  appendPreferredCurrencyIdToSearchParams,
+  readPlatformCurrencyIdClient,
+} from "@/lib/platformCurrency";
 
 const API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_financial_metrics";
 
 /** Financials tab and export show the two most recent fiscal years plus YoY. */
 export const FINANCIALS_DISPLAY_YEAR_COUNT = 2;
@@ -574,7 +578,8 @@ function resolveRowCurrency(
 
 function formatMetricValue(
   row: CompanyFinancialMetricsCardRow,
-  metric: FinancialsMetricDef
+  metric: FinancialsMetricDef,
+  platformCurrencyCode?: string | null
 ): FinancialsCellValue {
   const raw =
     metric.key === "rev_per_client"
@@ -584,9 +589,9 @@ function formatMetricValue(
     row[metric.sourceField],
     metric.sourceCodeField ? row[metric.sourceCodeField] : undefined
   );
-  const currency = metric.currencyField
-    ? resolveRowCurrency(row, metric.currencyField)
-    : null;
+  const currency =
+    platformCurrencyCode?.trim() ||
+    (metric.currencyField ? resolveRowCurrency(row, metric.currencyField) : null);
 
   if (raw == null) {
     return { display: "-", raw: null, sourceType };
@@ -735,7 +740,8 @@ export function resolveFinancialsYears(
 
 export function buildCompanyFinancialsViewModel(
   rows: CompanyFinancialMetricsCardRow[],
-  employeeHistory: EmployeeTimeSeriesPoint[] = []
+  employeeHistory: EmployeeTimeSeriesPoint[] = [],
+  platformCurrencyCode?: string | null
 ): CompanyFinancialsViewModel {
   const years = resolveFinancialsYears(rows);
   const rowsByYear = new Map<number, CompanyFinancialMetricsCardRow>();
@@ -762,7 +768,7 @@ export function buildCompanyFinancialsViewModel(
               )
             : rawRow;
         cellsByYear[year] = yearRow
-          ? formatMetricValue(yearRow, metric)
+          ? formatMetricValue(yearRow, metric, platformCurrencyCode)
           : { display: "-", raw: null, sourceType: null };
       }
 
@@ -802,7 +808,8 @@ function unwrapFinancialMetricsApiRows(data: unknown): FinancialMetricsApiRow[] 
 }
 
 export async function fetchCompanyFinancialMetricsCard(
-  companyId: string | number
+  companyId: string | number,
+  preferredCurrencyId?: number
 ): Promise<CompanyFinancialMetricsCardRow[]> {
   const numericId = Number(companyId);
   if (!Number.isFinite(numericId) || numericId <= 0) {
@@ -821,6 +828,10 @@ export async function fetchCompanyFinancialMetricsCard(
 
   const params = new URLSearchParams();
   params.set("new_company_id", String(numericId));
+  appendPreferredCurrencyIdToSearchParams(
+    params,
+    preferredCurrencyId ?? readPlatformCurrencyIdClient()
+  );
 
   const res = await fetch(`${API_BASE}?${params.toString()}`, {
     method: "GET",

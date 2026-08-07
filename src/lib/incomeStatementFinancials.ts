@@ -162,7 +162,7 @@ function enrichRowWithFte(
 export function buildIncomeStatementFinancialsViewModel(
   rows: NormalizedIncomeStatementRow[],
   employeeHistory: EmployeeTimeSeriesPoint[] = [],
-  fallbackCurrency = ""
+  platformCurrency = ""
 ): IncomeStatementFinancialsViewModel | null {
   // Rows are already merged/year-deduped via resolveDisplayIncomeStatementRows
   // on the company page — use them directly so profile-only years (e.g. FY2024) are kept.
@@ -171,7 +171,9 @@ export function buildIncomeStatementFinancialsViewModel(
   );
   if (columns.length === 0) return null;
 
-  const currency = resolveIncomeStatementCurrency(columns, fallbackCurrency);
+  const currency =
+    platformCurrency.trim() ||
+    resolveIncomeStatementCurrency(columns, platformCurrency);
 
   const metrics: IncomeStatementMetricRow[] = [
     buildMetricRow(

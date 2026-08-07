@@ -86,3 +86,22 @@ export function writePlatformCurrencyIdClient(currencyId: number): void {
 export function writePlatformCurrencyClient(currency: Currency): void {
   writePlatformCurrencyIdClient(platformCurrencyCodeToId(currency));
 }
+
+export function resolvePreferredCurrencyId(
+  currencyId?: number | null
+): number {
+  if (currencyId != null && isPlatformCurrencyId(currencyId)) {
+    return currencyId;
+  }
+  return DEFAULT_PLATFORM_CURRENCY_ID;
+}
+
+export function appendPreferredCurrencyIdToSearchParams(
+  params: URLSearchParams,
+  currencyId?: number | null
+): void {
+  params.append(
+    "preferred_currency_id",
+    String(resolvePreferredCurrencyId(currencyId))
+  );
+}

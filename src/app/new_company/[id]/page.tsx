@@ -43,12 +43,10 @@ import {
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
 import {
   hasIncomeStatementValues,
-  normalizeIncomeStatementApiRows,
   normalizeIncomeStatementHistoryRows,
   normalizeIncomeStatementRows,
   resolveDisplayIncomeStatementHistoryRows,
   resolveDisplayIncomeStatementRows,
-  resolveIncomeStatementCurrency,
   type IncomeStatementApiEntry,
   type NormalizedIncomeStatementRow,
 } from "@/lib/incomeStatement";
@@ -71,6 +69,7 @@ import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPart
 import { readEntityLogo } from "@/lib/companyLogo";
 import { readHqCountryIso2, COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   buildSubsidiaryAcquisitionYearMap,
   type SubsidiaryAcquisitionEvent,
@@ -1049,25 +1048,6 @@ const getSourceText = (
 
 // Removed short currency helper; we now display plain numbers
 
-// Normalize various currency representations to a displayable 3-letter code
-const normalizeCurrency = (candidate: unknown): string | undefined => {
-  if (!candidate) return undefined;
-  if (typeof candidate === "string") {
-    const trimmed = candidate.trim();
-    // If backend sent an id like "7", ignore it
-    if (/^\d+$/.test(trimmed)) return undefined;
-    const compact = trimmed.replace(/\s/g, "").toUpperCase();
-    if (compact === "US$" || compact === "US") return "USD";
-    return trimmed;
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const obj = candidate as any;
-  if (obj && typeof obj === "object" && typeof obj.Currency === "string") {
-    return obj.Currency;
-  }
-  return undefined;
-};
-
 // Extracts a 4-digit year from a candidate value if valid
 const extractValidYear = (candidate: unknown): number | null => {
   const currentYear = new Date().getFullYear();
@@ -1170,6 +1150,8 @@ const CompanyDetail = () => {
     display: timeSinceLastInvestment,
     loading: timeSinceLastInvestmentLoading,
   } = useTimeSinceLastInvestment(companyId);
+  const { currency: platformCurrency, currencyId: preferredCurrencyId } =
+    usePlatformCurrency();
 
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1537,7 +1519,7 @@ const CompanyDetail = () => {
   const fetchFinancialMetricsCard = useCallback(async (id: string | number) => {
     setFinancialMetricsCardLoading(true);
     try {
-      const data = await fetchCompanyFinancialMetricsCard(id);
+      const data = await fetchCompanyFinancialMetricsCard(id, preferredCurrencyId);
       if (data.length > 0) {
         setFinancialMetricsCardRows((prev) => {
           const merged = mergeFinancialMetricsCardRows(prev, data);
@@ -1554,14 +1536,14 @@ const CompanyDetail = () => {
     } finally {
       setFinancialMetricsCardLoading(false);
     }
-  }, []);
+  }, [preferredCurrencyId]);
 
   const fetchIncomeStatementCard = useCallback(async (id: string | number) => {
     setIncomeStatementCardLoading(true);
     try {
-      const data = await fetchCompanyIncomeStatementCard(id);
+      const data = await fetchCompanyIncomeStatementCard(id, preferredCurrencyId);
       setIncomeStatementApiRows(
-        normalizeIncomeStatementApiRows(data.incomeStatementRows)
+        normalizeIncomeStatementHistoryRows(data.incomeStatementRows)
       );
       setIncomeStatementHistoryRows(
         normalizeIncomeStatementHistoryRows(data.incomeStatementHistoryRows)
@@ -1586,7 +1568,7 @@ const CompanyDetail = () => {
     } finally {
       setIncomeStatementCardLoading(false);
     }
-  }, []);
+  }, [preferredCurrencyId]);
 
   const fetchCompanyAiRisksData = useCallback(async (id: string | number) => {
     setAiRiskData(null);
@@ -1979,10 +1961,14 @@ const CompanyDetail = () => {
     const displayRows = resolveDisplayIncomeStatementRows({
       apiRows: incomeStatementApiRows,
       profileRows,
+      financialMetricsRows: financialMetricsCardRows,
+      fallbackCurrency: platformCurrency,
     });
     const historyRows = resolveDisplayIncomeStatementHistoryRows({
       apiRows: incomeStatementHistoryRows,
       profileRows,
+      financialMetricsRows: financialMetricsCardRows,
+      fallbackCurrency: platformCurrency,
     });
     const hasData =
       hasIncomeStatementValues(displayRows) ||
@@ -1999,6 +1985,7 @@ const CompanyDetail = () => {
     incomeStatementApiRows,
     incomeStatementHistoryRows,
     financialMetricsCardRows,
+    platformCurrency,
   ]);
 
   useEffect(() => {
@@ -2459,23 +2446,6 @@ const CompanyDetail = () => {
     .join(", ");
 
   // Process financial data
-  const revenueCurrency =
-    normalizeCurrency(
-      company.revenues?.revenues_currency ||
-        company.revenues?._currency?.Currency ||
-        company.revenues?.currency?.Currency
-    ) || undefined;
-  const evCurrency =
-    normalizeCurrency(
-      company.ev_data?._currency?.Currency ||
-        company.ev_data?.currency?.Currency
-    ) || undefined;
-
-  // Use revenue currency if valid; otherwise fall back to EV currency
-  const displayCurrency = revenueCurrency || evCurrency;
-
-  // Keep preformatted displays for legacy widgets only (not used in Financial Metrics rendering)
-
   // Prefer values from `company_financial_metrics` when available for base figures (plain numbers, no currency)
   const revenueFromMetrics =
     getNumeric(financialMetrics?.Revenue_m) !== undefined
@@ -2492,45 +2462,6 @@ const CompanyDetail = () => {
   const ebitdaPlain =
     ebitdaFromMetrics ?? formatPlainNumber(company.EBITDA?.EBITDA_m);
 
-  // Currency suffix to show once in heading
-  const metricsCurrencyCode =
-    // 1) Prefer explicit display strings from Xano metrics payload when present
-    normalizeCurrency(
-      (financialMetrics as unknown as { Income_statement_currency?: string | null })
-        ?.Income_statement_currency
-    ) ||
-    normalizeCurrency(
-      (financialMetrics as unknown as { Revenue_currency_display?: string | null })
-        ?.Revenue_currency_display
-    ) ||
-    normalizeCurrency(
-      (financialMetrics as unknown as { EBITDA_currency_display?: string | null })
-        ?.EBITDA_currency_display
-    ) ||
-    normalizeCurrency(
-      (financialMetrics as unknown as { EV_currency_display?: string | null })
-        ?.EV_currency_display
-    ) ||
-    normalizeCurrency(
-      (financialMetrics as unknown as { EBIT_currency_display?: string | null })
-        ?.EBIT_currency_display
-    ) ||
-    normalizeCurrency(
-      (financialMetrics as unknown as { ARR_currency_display?: string | null })
-        ?.ARR_currency_display
-    ) ||
-    // 2) Then fall back to structured currency objects
-    normalizeCurrency(
-      (financialMetrics as unknown as { _currency?: { Currency?: string } })
-        ?._currency
-    ) ||
-    // 3) Finally, consider legacy numeric/string codes and page-level fallbacks
-    normalizeCurrency(financialMetrics?.Rev_Currency) ||
-    normalizeCurrency(financialMetrics?.EBITDA_currency) ||
-    normalizeCurrency(financialMetrics?.EV_currency) ||
-    normalizeCurrency(financialMetrics?.ARR_currency) ||
-    normalizeCurrency(financialMetrics?.EBIT_currency) ||
-    displayCurrency;
   const financialMetricsPeriodDisplay = formatFinancialMetricsPeriod(financialMetrics);
 
   // Extract last 3 income statement rows (profile + card API income_statement only)
@@ -2540,18 +2471,17 @@ const CompanyDetail = () => {
   const normalizedIncomeStatements = resolveDisplayIncomeStatementRows({
     apiRows: incomeStatementApiRows,
     profileRows: profileIncomeStatements,
+    financialMetricsRows: financialMetricsCardRows,
+    fallbackCurrency: platformCurrency,
   });
   const normalizedIncomeStatementHistory = resolveDisplayIncomeStatementHistoryRows({
     apiRows: incomeStatementHistoryRows,
     profileRows: profileIncomeStatements,
+    financialMetricsRows: financialMetricsCardRows,
+    fallbackCurrency: platformCurrency,
   });
   const hasIncomeStatementData = hasIncomeStatementValues(
     normalizedIncomeStatements
-  );
-  const incomeStatementCurrency = resolveIncomeStatementCurrency(
-    normalizedIncomeStatementHistory.length > 0
-      ? normalizedIncomeStatementHistory
-      : normalizedIncomeStatements
   );
 
   // Process employee data (monthly in Company, or root-level employees_deduped)
@@ -2565,10 +2495,9 @@ const CompanyDetail = () => {
     financialMetrics,
     revenuePlain,
     ebitdaPlain,
-    currencyCode: metricsCurrencyCode || displayCurrency,
+    currencyCode: platformCurrency,
     getSourceText,
     formatPercent,
-    formatPlainNumber,
     formatWholeNumber,
     formatMultiple,
     getNumeric,
@@ -3743,7 +3672,6 @@ const CompanyDetail = () => {
               companyName={company?.name?.trim() || "Company"}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementHistoryRows={normalizedIncomeStatementHistory}
-              incomeStatementCurrency={incomeStatementCurrency}
               employeeHistory={employeeData}
             />
           ) : (
@@ -4399,7 +4327,7 @@ const CompanyDetail = () => {
                 primary={finMetricsData.primary}
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
-                incomeStatementCurrency={incomeStatementCurrency}
+                incomeStatementCurrency={platformCurrency}
               />
             </div>
 
@@ -4438,7 +4366,7 @@ const CompanyDetail = () => {
               data={finMetricsData}
               hasIncomeStatement={hasIncomeStatementData}
               incomeStatementRows={normalizedIncomeStatements}
-              incomeStatementCurrency={incomeStatementCurrency}
+              incomeStatementCurrency={platformCurrency}
             />
 
               <div style={{ marginTop: 20 }}>

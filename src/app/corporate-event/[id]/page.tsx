@@ -25,6 +25,8 @@ import { CorporateEventInsightsPanel } from "@/components/corporate-events/Corpo
 import { CorporateEventPartyLink } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX, readHqCountryIso2 } from "@/lib/dealRadar";
 import { resolveCompanyLogoSrcBlockingLinkedIn } from "@/lib/companyLogo";
+import { formatPlatformDealMillions } from "@/lib/formatPlatformCurrency";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -51,6 +53,7 @@ const CorporateEventDetail = ({
 }: {
   data: CorporateEventDetailResponse;
 }) => {
+  const { currency: platformCurrency } = usePlatformCurrency();
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   type FlatEventFields = {
@@ -168,30 +171,6 @@ const CorporateEventDetail = ({
       month: "long",
       day: "numeric",
     });
-  };
-
-  // Formats a "millions" number (already in millions) WITHOUT currency and WITHOUT the "m" suffix.
-  const formatMillionsValue = (amount: string | number): string | undefined => {
-    const raw = typeof amount === "number" ? String(amount) : amount;
-    const n = Number(String(raw).replace(/,/g, "").trim());
-    if (!Number.isFinite(n) || n === 0) return undefined;
-    return n.toLocaleString(undefined, { maximumFractionDigits: 3 });
-  };
-
-  const getInvestmentCurrency = (): string | undefined => {
-    const inv = event?.investment_data as
-      | { _currency?: { Currency?: string }; currency?: { Currency?: string } }
-      | undefined;
-    const fromInvestment = inv?.currency?.Currency || inv?._currency?.Currency;
-    const flatEvent = (event ?? {}) as FlatEventFields;
-    const topLevelCurrency =
-      flatEvent.investment_currency || flatEvent.enterprise_value_currency;
-    return (
-      fromInvestment ||
-      topLevelCurrency ||
-      event?.ev_data?._currency?.Currency ||
-      undefined
-    );
   };
 
   const getInvestmentAmount = (): string | undefined => {
@@ -347,9 +326,10 @@ const CorporateEventDetail = ({
     investmentAmount: (() => {
       const amount = getInvestmentAmount();
       if (!amount) return undefined;
-      return formatMillionsValue(amount);
+      const formatted = formatPlatformDealMillions(amount, platformCurrency);
+      return formatted === "Not available" ? undefined : formatted;
     })(),
-    currency: getInvestmentCurrency(),
+    currency: undefined,
     enterpriseValue: (() => {
       const flatEvent = (event ?? {}) as FlatEventFields;
       const amountRaw =
@@ -364,17 +344,10 @@ const CorporateEventDetail = ({
         typeof amountRaw === "number"
           ? String(amountRaw)
           : amountRaw;
-      const formatted = formatMillionsValue(amount);
-      return formatted || undefined;
+      const formatted = formatPlatformDealMillions(amount, platformCurrency);
+      return formatted === "Not available" ? undefined : formatted;
     })(),
-    enterpriseValueCurrency: (() => {
-      const flatEvent = (event ?? {}) as FlatEventFields;
-                        return (
-        event?.ev_data?._currency?.Currency ||
-        flatEvent.enterprise_value_currency ||
-        undefined
-      );
-    })(),
+    enterpriseValueCurrency: undefined,
     enterpriseValueSourceLabel: getEnterpriseValueSourceLabel(),
   };
 
@@ -1199,6 +1172,7 @@ const CorporateEventDetail = ({
 const CorporateEventDetailPage = () => {
   const params = useParams();
   const router = useRouter();
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const [data, setData] = useState<CorporateEventDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1215,7 +1189,8 @@ const CorporateEventDetailPage = () => {
       }
 
       const response = await corporateEventsService.getCorporateEvent(
-        corporateEventId
+        corporateEventId,
+        preferredCurrencyId
       );
       setData(response);
     } catch (err) {
@@ -1234,7 +1209,7 @@ const CorporateEventDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [params.id, router]);
+  }, [params.id, router, preferredCurrencyId]);
 
   useEffect(() => {
     if (params.id) {
