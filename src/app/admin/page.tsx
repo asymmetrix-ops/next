@@ -1951,6 +1951,32 @@ function ContentTab() {
   const [allUsers, setAllUsers] = useState<SimpleUser[]>([]);
   const [createdByUserId, setCreatedByUserId] = useState<number | "">("");
   const [usersLoading, setUsersLoading] = useState(false);
+  const [existingPublicationDateUnix, setExistingPublicationDateUnix] =
+    useState<number | null>(null);
+
+  function toPublicationDateUnixSeconds(value: unknown): number | null {
+    if (value == null || value === "") return null;
+    if (typeof value === "number" && Number.isFinite(value)) {
+      const n = Math.trunc(value);
+      if (n <= 0) return null;
+      return n > 1_000_000_000_000 ? Math.floor(n / 1000) : n;
+    }
+    const parsed = Date.parse(String(value));
+    if (Number.isNaN(parsed)) return null;
+    return Math.floor(parsed / 1000);
+  }
+
+  function resolvePublicationDateUnixSeconds(options: {
+    visibility: Visibility;
+    existingUnix: number | null;
+    scheduledDate?: Date | null;
+  }): number | null {
+    if (options.scheduledDate) {
+      return Math.floor(options.scheduledDate.getTime() / 1000);
+    }
+    if (options.visibility !== "Public") return null;
+    return options.existingUnix ?? Math.floor(Date.now() / 1000);
+  }
 
   function parsePositiveCreatorId(v: number | ""): number | null {
     if (v === "") return null;
@@ -2346,6 +2372,10 @@ function ContentTab() {
       setCreatedByUserId("");
     }
 
+    setExistingPublicationDateUnix(
+      toPublicationDateUnixSeconds(article.Publication_Date)
+    );
+
     // Pre-load summary array
     if (Array.isArray(article.summary)) {
       setSummaryItems(article.summary);
@@ -2641,7 +2671,14 @@ function ContentTab() {
       }
 
       // Scalars
-      payload.Publication_Date = "";
+      const publicationDateUnix = resolvePublicationDateUnixSeconds({
+        visibility,
+        existingUnix:
+          editingContentId !== null ? existingPublicationDateUnix : null,
+      });
+      if (publicationDateUnix != null) {
+        payload.Publication_Date = publicationDateUnix;
+      }
       payload.Headline = Headline;
       payload.Strapline = Strapline;
       payload.Content_Type = Content_Type;
@@ -2755,6 +2792,7 @@ function ContentTab() {
 
     // Build ISO timestamp from date + time in the selected timezone
     let publishAt: string;
+    let scheduledDate: Date;
     try {
       // Create a date string that includes timezone offset by using Intl
       const localDateTimeStr = `${scheduleDate}T${scheduleTime}:00`;
@@ -2766,8 +2804,8 @@ function ContentTab() {
       );
       const utcDate = new Date(localDateTimeStr);
       const offsetMs = utcDate.getTime() - tzDate.getTime();
-      const finalDate = new Date(utcDate.getTime() + offsetMs);
-      publishAt = finalDate.toISOString();
+      scheduledDate = new Date(utcDate.getTime() + offsetMs);
+      publishAt = scheduledDate.toISOString();
     } catch {
       alert("Invalid date/time. Please check your selection.");
       return;
@@ -2785,7 +2823,11 @@ function ContentTab() {
     const relatedDocs = [...uploadedRelatedFiles, ...uploadedMp3Files];
 
     const payload: Record<string, unknown> = {
-      Publication_Date: "",
+      Publication_Date: resolvePublicationDateUnixSeconds({
+        visibility,
+        existingUnix: existingPublicationDateUnix,
+        scheduledDate,
+      }),
       Headline,
       Strapline,
       Content_Type,
@@ -2887,6 +2929,7 @@ function ContentTab() {
               setContentType("");
               setVisibility("Admin");
               setCreatedByUserId("");
+              setExistingPublicationDateUnix(null);
               setSummaryItems([]);
               setCompanyOfFocus([]);
               setCompaniesMentioned([]);
@@ -3686,6 +3729,7 @@ function ContentTab() {
               setContentType("");
               setVisibility("Admin");
               setCreatedByUserId("");
+              setExistingPublicationDateUnix(null);
               setSummaryItems([]);
               setCompanyOfFocus([]);
               setCompaniesMentioned([]);
