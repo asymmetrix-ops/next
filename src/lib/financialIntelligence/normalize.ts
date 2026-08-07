@@ -349,8 +349,11 @@ export function annotateManuallyAddedPeers(
 export function unwrapApiPayload(payload: unknown): Record<string, unknown> {
   if (!payload || typeof payload !== "object") return {};
   const obj = payload as Record<string, unknown>;
-  if (obj.data && typeof obj.data === "object" && !Array.isArray(obj.data)) {
-    return obj.data as Record<string, unknown>;
+  for (const key of ["data", "payload"] as const) {
+    const nested = obj[key];
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      return nested as Record<string, unknown>;
+    }
   }
   return obj;
 }
