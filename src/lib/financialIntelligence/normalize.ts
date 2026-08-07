@@ -1,6 +1,6 @@
 import type { FiCompanyRow, FiPeersResponse } from "./types";
 import { parseSourceType } from "./sourceTypes";
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
+import { readEntityLogo, resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
 export function safeFiniteNumber(value: unknown): number | null {
   if (value == null || value === "" || value === "$NaN" || value === "NaN") return null;
@@ -15,6 +15,16 @@ export function safeInt(value: unknown, fallback = 0): number {
 
 function normalizeFinancialYear(value: unknown): number {
   return safeInt(value, 0);
+}
+
+function normalizeFinancialYearValue(raw: Record<string, unknown>): number {
+  const explicit = safeInt(raw.financial_year_value, 0);
+  if (explicit >= 1900 && explicit <= 2100) return explicit;
+
+  const legacy = safeInt(raw.financial_year, 0);
+  if (legacy >= 1900 && legacy <= 2100) return legacy;
+
+  return 0;
 }
 
 const FY_YE_MONTH_NAMES: Record<string, number> = {
@@ -44,6 +54,129 @@ function normalizeLogo(value: unknown): string | null {
   return resolveCompanyLogoSrc(typeof value === "string" ? value : null);
 }
 
+function firstDefined<T>(...values: T[]): T | undefined {
+  for (const value of values) {
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return undefined;
+}
+
+/** Map `company_financial_metrics` (PascalCase) into FI snake_case before normalize. */
+export function companyFinancialMetricsToRawFi(
+  raw: Record<string, unknown>
+): Record<string, unknown> {
+  return {
+    company_id: firstDefined(raw.new_company_id, raw.company_id, raw.id),
+    financial_year: firstDefined(raw.Financial_Year, raw.financial_year),
+    financial_year_value: firstDefined(raw.financial_year_text, raw.financial_year_value),
+    fy_ye_month: firstDefined(raw.FY_YE_Month_Dec_default, raw.fy_ye_month),
+    revenue_m_usd: firstDefined(raw.Revenue_m, raw.revenue_m_usd),
+    revenue_source_type: firstDefined(raw.Revenue_source_label, raw.revenue_source_type),
+    rev_growth_pc: firstDefined(raw.Rev_Growth_PC, raw.rev_growth_pc),
+    rev_growth_source_type: firstDefined(raw.Rev_growth_source_label, raw.rev_growth_source_type),
+    ebitda_margin: firstDefined(raw.EBITDA_margin, raw.ebitda_margin),
+    ebitda_m_usd: firstDefined(raw.EBITDA_m, raw.ebitda_m_usd),
+    ebitda_source_type: firstDefined(raw.EBITDA_source_label, raw.ebitda_source_type),
+    ebit_m_usd: firstDefined(raw.EBIT_m, raw.ebit_m_usd),
+    ebit_source_type: firstDefined(raw.EBIT_source_label, raw.ebit_source_type),
+    ev_usd: firstDefined(raw.EV, raw.ev_usd),
+    ev_source_type: firstDefined(raw.EV_source_label, raw.ev_source_type),
+    rule_of_40: firstDefined(raw.Rule_of_40, raw.rule_of_40),
+    rule_of_40_source_type: firstDefined(raw.Rule_of_40_source_label, raw.rule_of_40_source_type),
+    subscription_revenue_pc: firstDefined(
+      raw.Subscription_revenue_pc,
+      raw.subscription_revenue_pc,
+      raw.arr_pc
+    ),
+    subscription_revenue_m: firstDefined(
+      raw.Subscription_revenue_m,
+      raw.subscription_revenue_m,
+      raw.arr_m,
+      raw.arr_m_usd
+    ),
+    subscription_revenue_pc_source_type: firstDefined(
+      raw.Subscription_revenue_source_label,
+      raw.subscription_revenue_pc_source_type
+    ),
+    subscription_revenue_m_source_type: firstDefined(
+      raw.Subscription_revenue_source_label,
+      raw.subscription_revenue_m_source_type,
+      raw.arr_source_type
+    ),
+    churn_pc: firstDefined(raw.Churn_pc, raw.churn_pc, raw.churn),
+    churn_source_type: firstDefined(raw.Churn_source_label, raw.churn_source_type),
+    grr_pc: firstDefined(raw.GRR_pc, raw.grr_pc, raw.grr, raw.GRR_pc),
+    grr_source_type: firstDefined(raw.GRR_source_label, raw.grr_source_type),
+    nrr: firstDefined(raw.NRR, raw.nrr),
+    nrr_source_type: firstDefined(raw.NRR_source_label, raw.nrr_source_type),
+    new_client_growth_pc: firstDefined(raw.New_client_growth_pc, raw.new_client_growth_pc),
+    new_client_growth_source_type: firstDefined(
+      raw.New_client_growth_source_label,
+      raw.new_client_growth_source_type
+    ),
+    upsell_pc: firstDefined(raw.Upsell_pc, raw.upsell_pc),
+    upsell_source_type: firstDefined(raw.Upsell_source_label, raw.upsell_source_type),
+    cross_sell_pc: firstDefined(raw.Cross_sell_pc, raw.cross_sell_pc),
+    cross_sell_source_type: firstDefined(raw.Cross_sell_source_label, raw.cross_sell_source_type),
+    price_increase_pc: firstDefined(raw.Price_increase_pc, raw.price_increase_pc),
+    price_increase_source_type: firstDefined(
+      raw.Price_increase_source_label,
+      raw.price_increase_source_type
+    ),
+    rev_expansion_pc: firstDefined(raw.Rev_expansion_pc, raw.rev_expansion_pc),
+    rev_expansion_source_type: firstDefined(
+      raw.Rev_expansion_source_label,
+      raw.rev_expansion_source_type
+    ),
+    no_of_clients: firstDefined(raw.No_of_Clients, raw.no_of_clients, raw.no_clients),
+    no_of_clients_source_type: firstDefined(
+      raw.No_of_Clients_source_label,
+      raw.no_of_clients_source_type
+    ),
+    revenue_per_client: firstDefined(raw.Rev_per_client, raw.revenue_per_client, raw.rev_per_client),
+    revenue_per_client_source_type: firstDefined(
+      raw.Rev_per_client_source_label,
+      raw.revenue_per_client_source_type
+    ),
+    no_employees: firstDefined(raw.No_Employees, raw.no_employees),
+    no_employees_source_type: firstDefined(
+      raw.No_Employees_source_label,
+      raw.no_employees_source_type
+    ),
+    revenue_per_employee: firstDefined(raw.Revenue_per_employee, raw.revenue_per_employee),
+    revenue_per_employee_source_type: firstDefined(
+      raw.Revenue_per_employee_source_label,
+      raw.revenue_per_employee_source_type
+    ),
+    revenue_multiple: firstDefined(raw.Revenue_multiple, raw.revenue_multiple),
+    revenue_multiple_source_type: firstDefined(
+      raw.Revenue_multiple_source_label,
+      raw.revenue_multiple_source_type
+    ),
+  };
+}
+
+/** Fill null/empty target fields from a secondary row (e.g. company profile metrics). */
+export function mergeFiCompanyRows(primary: FiCompanyRow, overlay: FiCompanyRow): FiCompanyRow {
+  const merged: FiCompanyRow = { ...primary };
+  const skipKeys = new Set<keyof FiCompanyRow>([
+    "company_id",
+    "company_name",
+    "company_logo",
+  ]);
+
+  (Object.keys(overlay) as Array<keyof FiCompanyRow>).forEach((key) => {
+    if (skipKeys.has(key)) return;
+    const current = merged[key];
+    const next = overlay[key];
+    if (current != null && current !== "") return;
+    if (next == null || next === "") return;
+    merged[key] = next as never;
+  });
+
+  return merged;
+}
+
 export function normalizeCompanyRow(
   raw: Record<string, unknown>,
   fallbackCompanyId?: number
@@ -53,53 +186,144 @@ export function normalizeCompanyRow(
     fallbackCompanyId ?? 0
   );
 
+  const revenue_m_usd = safeFiniteNumber(raw.revenue_m_usd ?? raw.Revenue_m);
+  const no_of_clients = safeFiniteNumber(
+    raw.no_of_clients ?? raw.no_clients ?? raw.No_of_Clients
+  );
+  const revenue_per_employee = safeFiniteNumber(
+    raw.revenue_per_employee ?? raw.Revenue_per_employee
+  );
+
+  let revenue_per_client = safeFiniteNumber(
+    raw.revenue_per_client ?? raw.rev_per_client ?? raw.Rev_per_client
+  );
+  if (
+    revenue_per_client == null &&
+    revenue_m_usd != null &&
+    no_of_clients != null &&
+    no_of_clients > 0
+  ) {
+    revenue_per_client = (revenue_m_usd * 1_000_000) / no_of_clients;
+  }
+
+  let no_employees = safeFiniteNumber(raw.no_employees ?? raw.No_Employees);
+  if (
+    no_employees == null &&
+    revenue_m_usd != null &&
+    revenue_per_employee != null &&
+    revenue_per_employee > 0
+  ) {
+    no_employees = Math.round((revenue_m_usd * 1_000_000) / revenue_per_employee);
+  }
+
   return {
     company_id,
     company_name: String(raw.company_name ?? raw.name ?? ""),
-    company_logo: normalizeLogo(raw.company_logo ?? raw.linkedin_logo),
+    company_logo:
+      readEntityLogo(raw) ??
+      normalizeLogo(raw.company_logo ?? raw.linkedin_logo),
     sectors_id: String(raw.sectors_id ?? ""),
     location_country: String(raw.location_country ?? ""),
     location_region: String(raw.location_region ?? ""),
-    financial_year: normalizeFinancialYear(raw.financial_year),
-    fy_ye_month: normalizeFyYeMonth(raw.fy_ye_month),
-    revenue_m_usd: safeFiniteNumber(raw.revenue_m_usd),
-    arr_m_usd: safeFiniteNumber(raw.arr_m_usd),
-    rev_growth_pc: safeFiniteNumber(raw.rev_growth_pc),
-    new_client_growth_pc: safeFiniteNumber(raw.new_client_growth_pc),
-    ebitda_margin: safeFiniteNumber(raw.ebitda_margin),
-    ebitda_m_usd: safeFiniteNumber(raw.ebitda_m_usd),
-    ebit_m_usd: safeFiniteNumber(raw.ebit_m_usd),
-    rule_of_40: safeFiniteNumber(raw.rule_of_40),
-    nrr: safeFiniteNumber(raw.nrr),
-    churn_pc: safeFiniteNumber(raw.churn_pc),
-    upsell_pc: safeFiniteNumber(raw.upsell_pc),
-    cross_sell_pc: safeFiniteNumber(raw.cross_sell_pc),
-    price_increase_pc: safeFiniteNumber(raw.price_increase_pc),
-    rev_expansion_pc: safeFiniteNumber(raw.rev_expansion_pc),
-    ev_usd: safeFiniteNumber(raw.ev_usd),
-    no_of_clients: safeFiniteNumber(raw.no_of_clients),
-    revenue_per_employee: safeFiniteNumber(raw.revenue_per_employee),
-    revenue_multiple: safeFiniteNumber(raw.revenue_multiple),
+    financial_year: normalizeFinancialYear(raw.financial_year ?? raw.Financial_Year),
+    financial_year_value: normalizeFinancialYearValue({
+      ...raw,
+      financial_year_value: firstDefined(raw.financial_year_value, raw.financial_year_text),
+    }),
+    fy_ye_month: normalizeFyYeMonth(raw.fy_ye_month ?? raw.FY_YE_Month_Dec_default),
+    revenue_m_usd,
+    rev_growth_pc: safeFiniteNumber(raw.rev_growth_pc ?? raw.Rev_Growth_PC),
+    new_client_growth_pc: safeFiniteNumber(
+      raw.new_client_growth_pc ?? raw.New_client_growth_pc
+    ),
+    ebitda_margin: safeFiniteNumber(raw.ebitda_margin ?? raw.EBITDA_margin),
+    ebitda_m_usd: safeFiniteNumber(raw.ebitda_m_usd ?? raw.EBITDA_m),
+    ebit_m_usd: safeFiniteNumber(raw.ebit_m_usd ?? raw.EBIT_m),
+    rule_of_40: safeFiniteNumber(raw.rule_of_40 ?? raw.Rule_of_40),
+    subscription_revenue_pc: safeFiniteNumber(
+      raw.subscription_revenue_pc ?? raw.Subscription_revenue_pc ?? raw.arr_pc
+    ),
+    subscription_revenue_m: safeFiniteNumber(
+      raw.subscription_revenue_m ??
+        raw.Subscription_revenue_m ??
+        raw.arr_m ??
+        raw.arr_m_usd
+    ),
+    nrr: safeFiniteNumber(raw.nrr ?? raw.NRR),
+    churn_pc: safeFiniteNumber(raw.churn_pc ?? raw.churn ?? raw.Churn_pc),
+    grr_pc: safeFiniteNumber(raw.grr_pc ?? raw.grr ?? raw.GRR_pc),
+    upsell_pc: safeFiniteNumber(raw.upsell_pc ?? raw.Upsell_pc),
+    cross_sell_pc: safeFiniteNumber(raw.cross_sell_pc ?? raw.Cross_sell_pc),
+    price_increase_pc: safeFiniteNumber(raw.price_increase_pc ?? raw.Price_increase_pc),
+    rev_expansion_pc: safeFiniteNumber(raw.rev_expansion_pc ?? raw.Rev_expansion_pc),
+    ev_usd: safeFiniteNumber(raw.ev_usd ?? raw.EV),
+    no_of_clients,
+    revenue_per_client,
+    no_employees,
+    revenue_per_employee,
+    revenue_multiple: safeFiniteNumber(raw.revenue_multiple ?? raw.Revenue_multiple),
     ev_revenue_x: safeFiniteNumber(raw.ev_revenue_x),
     ev_ebitda_x: safeFiniteNumber(raw.ev_ebitda_x),
-    revenue_source_type: parseSourceType(raw.revenue_source_type),
-    arr_source_type: parseSourceType(raw.arr_source_type),
-    rev_growth_source_type: parseSourceType(raw.rev_growth_source_type),
-    new_client_growth_source_type: parseSourceType(raw.new_client_growth_source_type),
-    ebitda_source_type: parseSourceType(raw.ebitda_source_type),
-    ebit_source_type: parseSourceType(raw.ebit_source_type),
-    ev_source_type: parseSourceType(raw.ev_source_type),
-    no_of_clients_source_type: parseSourceType(raw.no_of_clients_source_type),
-    revenue_per_employee_source_type: parseSourceType(raw.revenue_per_employee_source_type),
-    rule_of_40_source_type: parseSourceType(raw.rule_of_40_source_type),
-    nrr_source_type: parseSourceType(raw.nrr_source_type),
-    churn_source_type: parseSourceType(raw.churn_source_type),
-    upsell_source_type: parseSourceType(raw.upsell_source_type),
-    cross_sell_source_type: parseSourceType(raw.cross_sell_source_type),
-    price_increase_source_type: parseSourceType(raw.price_increase_source_type),
-    rev_expansion_source_type: parseSourceType(raw.rev_expansion_source_type),
-    revenue_multiple_source_type: parseSourceType(raw.revenue_multiple_source_type),
-    url: normalizeLogo(raw.url),
+    revenue_source_type: parseSourceType(
+      raw.revenue_source_type ?? raw.Revenue_source_label
+    ),
+    rev_growth_source_type: parseSourceType(
+      raw.rev_growth_source_type ?? raw.Rev_growth_source_label
+    ),
+    new_client_growth_source_type: parseSourceType(
+      raw.new_client_growth_source_type ?? raw.New_client_growth_source_label
+    ),
+    ebitda_source_type: parseSourceType(raw.ebitda_source_type ?? raw.EBITDA_source_label),
+    ebit_source_type: parseSourceType(raw.ebit_source_type ?? raw.EBIT_source_label),
+    ev_source_type: parseSourceType(raw.ev_source_type ?? raw.EV_source_label),
+    no_of_clients_source_type: parseSourceType(
+      raw.no_of_clients_source_type ?? raw.No_of_Clients_source_label
+    ),
+    revenue_per_client_source_type: parseSourceType(
+      raw.revenue_per_client_source_type ?? raw.Rev_per_client_source_type
+    ),
+    no_employees_source_type: parseSourceType(
+      raw.no_employees_source_type ?? raw.No_Employees_source_type
+    ),
+    revenue_per_employee_source_type: parseSourceType(
+      raw.revenue_per_employee_source_type ?? raw.Revenue_per_employee_source_label
+    ),
+    rule_of_40_source_type: parseSourceType(
+      raw.rule_of_40_source_type ?? raw.Rule_of_40_source_label
+    ),
+    subscription_revenue_pc_source_type: parseSourceType(
+      raw.subscription_revenue_pc_source_type ??
+        raw.Subscription_revenue_source_label ??
+        raw.Subscription_revenue_source_type
+    ),
+    subscription_revenue_m_source_type: parseSourceType(
+      raw.subscription_revenue_m_source_type ??
+        raw.Subscription_revenue_source_label ??
+        raw.Subscription_revenue_source_type ??
+        raw.arr_source_type
+    ),
+    nrr_source_type: parseSourceType(raw.nrr_source_type ?? raw.NRR_source_label),
+    churn_source_type: parseSourceType(raw.churn_source_type ?? raw.Churn_source_label),
+    grr_source_type: parseSourceType(raw.grr_source_type ?? raw.GRR_source_label),
+    upsell_source_type: parseSourceType(raw.upsell_source_type ?? raw.Upsell_source_label),
+    cross_sell_source_type: parseSourceType(
+      raw.cross_sell_source_type ?? raw.Cross_sell_source_label
+    ),
+    price_increase_source_type: parseSourceType(
+      raw.price_increase_source_type ?? raw.Price_increase_source_label
+    ),
+    rev_expansion_source_type: parseSourceType(
+      raw.rev_expansion_source_type ?? raw.Rev_expansion_source_label
+    ),
+    revenue_multiple_source_type: parseSourceType(
+      raw.revenue_multiple_source_type ?? raw.Revenue_multiple_source_label
+    ),
+    url:
+      typeof raw.url === "string" && raw.url.trim()
+        ? raw.url.trim()
+        : typeof raw.website === "string" && raw.website.trim()
+          ? raw.website.trim()
+          : null,
     is_manually_added: Boolean(
       raw.is_manually_added ?? raw.manually_added ?? raw.is_added
     ),

@@ -1,8 +1,10 @@
 import { authService } from "./auth";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/";
+const REFERENCE_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I";
+const NEW_COMPANY_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:Zy_LlXuz";
 
-export interface Country {
+interface Country {
   id: number;
   locations_Country: string;
 }
@@ -19,6 +21,28 @@ interface Province {
 interface City {
   City: string;
 }
+
+export const CITY_FILTER_PAGE_SIZE = 100;
+
+export type CitySearchResult = {
+  cities: City[];
+  page: number;
+  hasMore: boolean;
+  total: number;
+  pageTotal: number;
+};
+
+type CitySearchResponse = {
+  items?: City[];
+  itemsReceived?: number;
+  itemsTotal?: number;
+  curPage?: number;
+  nextPage?: number | null;
+  prevPage?: number | null;
+  offset?: number;
+  pageTotal?: number;
+  perPage?: number;
+};
 
 interface PrimarySector {
   id: number;
@@ -38,6 +62,33 @@ interface HybridBusinessFocus {
 interface OwnershipType {
   id: number;
   ownership: string;
+}
+
+interface TransactionStatusOption {
+  id: number;
+  label: string;
+}
+
+interface CurrencyOption {
+  id: number;
+  Currency: string;
+}
+
+interface YearOption {
+  id: number;
+  Year: string | number;
+}
+
+interface JobTitle {
+  id: number;
+  job_title: string;
+}
+
+interface InvestorType {
+  id: number;
+  sector_name?: string;
+  name?: string;
+  investor_type?: string;
 }
 
 class LocationsService {
@@ -62,10 +113,9 @@ class LocationsService {
             authService.logout();
             throw new Error("Authentication required");
           }
+          // Allow trying alternate endpoints if this one doesn't exist.
           if (response.status === 404) {
-            lastError = new Error(
-              `${errorPrefix}: ${response.status} ${response.statusText}`
-            );
+            lastError = new Error(`${errorPrefix}: ${response.status} ${response.statusText}`);
             continue;
           }
           const text = await response.text().catch(() => "");
@@ -115,20 +165,7 @@ class LocationsService {
       );
     }
 
-    const data = (await response.json()) as unknown;
-    const rows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
-
-    const mapped: Country[] = [];
-    for (const row of rows) {
-      const id = Number(row.id ?? row.locations_id ?? 0);
-      const name = String(
-        row.locations_Country ?? row.locations_country ?? row.Country ?? ""
-      ).trim();
-      if (!Number.isFinite(id) || id <= 0 || !name) continue;
-      mapped.push({ id, locations_Country: name });
-    }
-
-    return mapped;
+    return await response.json();
   }
 
   async getProvinces(countries: string[]): Promise<Province[]> {
@@ -159,17 +196,29 @@ class LocationsService {
     return await response.json();
   }
 
-  async getCities(countries: string[], provinces: string[]): Promise<City[]> {
+  async searchCities(args: {
+    countries?: string[];
+    provinces?: string[];
+    query?: string;
+    page?: number;
+    perPage?: number;
+  }): Promise<CitySearchResult> {
+    const page = Math.max(1, args.page ?? 1);
+    const perPage = Math.max(1, args.perPage ?? CITY_FILTER_PAGE_SIZE);
     const queryParams = new URLSearchParams();
-    countries.forEach((country) => {
-      queryParams.append("countries[]", country);
+
+    (args.countries ?? []).forEach((country) => {
+      queryParams.append("countries", country);
     });
-    provinces.forEach((province) => {
-      queryParams.append("provinces[]", province);
+    (args.provinces ?? []).forEach((province) => {
+      queryParams.append("Provinces", province);
     });
+
+    queryParams.append("query", (args.query ?? "").trim());
+    queryParams.append("page", String(page));
+    queryParams.append("per_page", String(perPage));
 
     const url = `${BASE_URL}/locations_get_city?${queryParams.toString()}`;
-
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -187,12 +236,71 @@ class LocationsService {
       );
     }
 
-    return await response.json();
+    const data = (await response.json()) as CitySearchResponse;
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const responsePage =
+      typeof data?.curPage === "number" ? data.curPage : page;
+    const total =
+      typeof data?.itemsTotal === "number"
+        ? data.itemsTotal
+        : typeof data?.itemsReceived === "number"
+          ? data.itemsReceived
+          : items.length;
+    const pageTotal =
+      typeof data?.pageTotal === "number" && data.pageTotal > 0
+        ? data.pageTotal
+        : total > 0
+          ? Math.ceil(total / perPage)
+          : 0;
+    const hasMore =
+      typeof data?.nextPage === "number"
+        ? true
+        : pageTotal > 0
+          ? responsePage < pageTotal
+          : false;
+
+    return {
+      cities: items,
+      page: responsePage,
+      hasMore,
+      total,
+      pageTotal,
+    };
   }
 
-  async getPrimarySectors(): Promise<PrimarySector[]> {
-    const url = `${BASE_URL}/Get_Primary_Sectors`;
+  async getCities(countries: string[], provinces: string[]): Promise<City[]> {
+    const result = await this.searchCities({
+      countries,
+      provinces,
+      page: 1,
+      perPage: CITY_FILTER_PAGE_SIZE,
+    });
+    return result.cities;
+  }
 
+  /**
+   * Fetch primary sectors, also trying new_company API base for matching IDs.
+   */
+  async getPrimarySectors(): Promise<PrimarySector[]> {
+    const urls = [
+      `${BASE_URL}/Get_Primary_Sectors`,
+      `${NEW_COMPANY_BASE}/Get_Primary_Sectors`,
+    ];
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: { ...this.getAuthHeaders() },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) return data;
+        }
+      } catch {
+        continue;
+      }
+    }
+    const url = `${BASE_URL}/Get_Primary_Sectors`;
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -271,6 +379,125 @@ class LocationsService {
     return await response.json();
   }
 
+  // Get all secondary sectors (no primary filtering)
+  async getAllSecondarySectors(): Promise<SecondarySector[]> {
+    const url = `${BASE_URL}/Get_Secondary_Sectors`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch secondary sectors: ${response.status} ${response.statusText}`
+      );
+    }
+
+    return await response.json();
+  }
+
+  // Back-compat alias used by corporate-events page
+  async getPrimarySectorsForSecondarySectorId(
+    secondarySectorId: number
+  ): Promise<PrimarySector[]> {
+    return this.getPrimarySectorsBySecondarySector(secondarySectorId);
+  }
+
+  // Funding stage labels (e.g. "Seed", "Series A") used by Corporate Events filters.
+  async getFundingStages(): Promise<string[]> {
+    const data = await this.fetchFirstOk<unknown>(
+      [
+        "funding_stage_options",
+        "Funding_stage_options",
+        "get_funding_stage_options",
+        "Get_Funding_Stages",
+      ],
+      "Failed to fetch funding stages"
+    );
+
+    const items = Array.isArray(data) ? data : [];
+    const values = items
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (item && typeof item === "object") {
+          const obj = item as Record<string, unknown>;
+          const v =
+            obj.funding_stage ??
+            obj.Funding_stage ??
+            obj.Funding_Stage ??
+            obj.stage ??
+            obj.label ??
+            null;
+          return String(v ?? "").trim();
+        }
+        return "";
+      })
+      .filter((v) => v.length > 0);
+
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+  }
+
+  // Product type labels used by Corporate Events filters.
+  async getProductTypes(): Promise<string[]> {
+    const url = `${BASE_URL}get_product_types`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch product types: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = (await response.json()) as {
+      product_types?: unknown;
+    };
+    const raw = Array.isArray(data?.product_types) ? data.product_types : [];
+    const values = raw
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((value): value is string => value.length > 0);
+
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+  }
+
+  // Investor type options used by Investors page filters.
+  async getInvestorTypes(): Promise<InvestorType[]> {
+    return this.fetchFirstOk<InvestorType[]>(
+      ["Get_investor_types_for_filter", "Get_Investor_Types", "get_investor_types", "investor_type_options"],
+      "Failed to fetch investor types"
+    );
+  }
+
+  // Job title options used by Individuals page filters.
+  async getJobTitles(): Promise<JobTitle[]> {
+    return this.fetchFirstOk<JobTitle[]>(
+      [
+        "get_all_job_titles?query=",
+        "get_all_job_titles",
+        "Get_Job_Titles",
+        "get_job_titles",
+        "job_titles_options",
+        "job_titles_filter",
+      ],
+      "Failed to fetch job titles"
+    );
+  }
+
   // Get all secondary sectors with their related primary sector information
   async getAllSecondarySectorsWithPrimary(): Promise<
     Array<SecondarySector & { related_primary_sector?: PrimarySector }>
@@ -297,7 +524,28 @@ class LocationsService {
     return await response.json();
   }
 
+  /**
+   * Fetch business focus, also trying new_company API base for matching IDs.
+   */
   async getHybridBusinessFocuses(): Promise<HybridBusinessFocus[]> {
+    const urls = [
+      `${BASE_URL}/get_hybrid_data_and_analytics_bussines_focuses`,
+      `${NEW_COMPANY_BASE}/get_hybrid_data_and_analytics_bussines_focuses`,
+    ];
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: { ...this.getAuthHeaders() },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) return data;
+        }
+      } catch {
+        continue;
+      }
+    }
     const url = `${BASE_URL}/get_hybrid_data_and_analytics_bussines_focuses`;
 
     const response = await fetch(url, {
@@ -343,7 +591,31 @@ class LocationsService {
     return await response.json();
   }
 
-  // Fetch continental regions with x2_42 location IDs (FI peers filter).
+  async getTransactionStatuses(): Promise<TransactionStatusOption[]> {
+    const url = `${BASE_URL}transaction_statuses`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch transaction statuses: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  }
+
+  // Fetch continental regions with location IDs (Financial Intelligence peers filter).
   async getContinentalRegionsWithIds(): Promise<ContinentalRegion[]> {
     const url = `${BASE_URL}/continental_region_filter`;
 
@@ -365,25 +637,37 @@ class LocationsService {
     }
 
     const data = (await response.json()) as unknown;
-    const rows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
+    const rows = Array.isArray(data) ? data : [];
 
     const mapped: ContinentalRegion[] = [];
     for (const row of rows) {
-      const id = Number(row.id ?? row.locations_id ?? 0);
+      if (typeof row === "string") {
+        const name = row.trim();
+        if (name) mapped.push({ id: mapped.length + 1, name });
+        continue;
+      }
+      if (!row || typeof row !== "object") continue;
+
+      const record = row as Record<string, unknown>;
       const name = String(
-        row.Locations_Continental_Region1 ??
-          row.locations_continental_region1 ??
-          row.locations_Continental_Region1 ??
+        record.Locations_Continental_Region1 ??
+          record.locations_continental_region1 ??
+          record.locations_Continental_Region1 ??
+          record.name ??
           ""
       ).trim();
-      if (!Number.isFinite(id) || id <= 0 || !name) continue;
+      if (!name) continue;
+
+      const parsedId = Number(record.id ?? record.locations_id ?? 0);
+      const id =
+        Number.isFinite(parsedId) && parsedId > 0 ? parsedId : mapped.length + 1;
       mapped.push({ id, name });
     }
 
     return mapped;
   }
 
-  // Continental region names for filter dropdowns (companies, events, etc.)
+  // New: Fetch continental regions list (strings)
   async getContinentalRegions(): Promise<string[]> {
     const rows = await this.getContinentalRegionsWithIds();
     return Array.from(new Set(rows.map((row) => row.name)));
@@ -424,48 +708,121 @@ class LocationsService {
     return Array.from(new Set(list));
   }
 
-  /** Funding stage labels (e.g. "Seed", "Series A") used by sector / corporate events filters. */
-  async getFundingStages(): Promise<string[]> {
-    const data = await this.fetchFirstOk<unknown>(
-      [
-        "funding_stage_options",
-        "Funding_stage_options",
-        "get_funding_stage_options",
-        "Get_Funding_Stages",
-      ],
-      "Failed to fetch funding stages"
-    );
+  async getCurrencies(): Promise<CurrencyOption[]> {
+    const url = `${REFERENCE_BASE_URL}/get_currency`;
 
-    const items = Array.isArray(data) ? data : [];
-    const values = items
-      .map((item) => {
-        if (typeof item === "string") return item.trim();
-        if (item && typeof item === "object") {
-          const obj = item as Record<string, unknown>;
-          const v =
-            obj.funding_stage ??
-            obj.Funding_stage ??
-            obj.Funding_Stage ??
-            obj.stage ??
-            obj.label ??
-            null;
-          return String(v ?? "").trim();
-        }
-        return "";
-      })
-      .filter((v) => v.length > 0);
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
 
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch currencies: ${response.status} ${response.statusText}`
+      );
+    }
+
+    return await response.json();
+  }
+
+  async getYears(): Promise<YearOption[]> {
+    const url = `${REFERENCE_BASE_URL}/get_years`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch years: ${response.status} ${response.statusText}`
+      );
+    }
+
+    return await response.json();
   }
 
   /**
-   * Distinct content type strings for Insights / analytics filters.
+   * Fetch locations for dropdown (id + label).
+   * Tries get_locations from reference API; falls back to building from countries.
+   */
+  async getLocations(): Promise<{ id: number; label: string }[]> {
+    const paths = [
+      `${REFERENCE_BASE_URL}/get_locations`,
+      `${REFERENCE_BASE_URL}/locations`,
+      `${BASE_URL}/get_locations`,
+    ];
+    for (const path of paths) {
+      try {
+        const url = path.startsWith("http") ? path : `${REFERENCE_BASE_URL}/${path}`;
+        const res = await fetch(url, {
+          method: "GET",
+          headers: { ...this.getAuthHeaders() },
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          return data.map((item: Record<string, unknown>) => ({
+            id: Number(item.id ?? item.locations_id ?? 0),
+            label:
+              String(
+                item.label ??
+                  item.locations_label ??
+                  item.location_label ??
+                  [item.locations_Country, item.State__Province__County, item.City]
+                    .filter(Boolean)
+                    .join(", ") ??
+                  ""
+              ).trim() || `Location ${item.id ?? item.locations_id}`,
+          })).filter((x: { id: number }) => x.id > 0);
+        }
+        if (data && typeof data === "object" && Array.isArray(data.data)) {
+          return (data.data as Record<string, unknown>[]).map((item) => ({
+            id: Number(item.id ?? item.locations_id ?? 0),
+            label:
+              String(
+                item.label ??
+                  item.locations_label ??
+                  [item.locations_Country, item.State__Province__County, item.City]
+                    .filter(Boolean)
+                    .join(", ") ??
+                  ""
+              ).trim() || `Location ${item.id ?? item.locations_id}`,
+          })).filter((x: { id: number }) => x.id > 0);
+        }
+      } catch {
+        continue;
+      }
+    }
+    const countries = await this.getCountries();
+    return countries.map((c, i) => ({
+      id: i + 1,
+      label: c.locations_Country || String(i + 1),
+    }));
+  }
+
+  /**
+   * Returns distinct content type strings used by Insights & Analysis / analytics views.
+   * This endpoint isn't part of the main locations API group, so we fetch it separately.
    */
   async getContentTypesForArticles(): Promise<string[]> {
     if (this.contentTypesForArticlesCache) return this.contentTypesForArticlesCache;
     if (this.contentTypesForArticlesInFlight) return this.contentTypesForArticlesInFlight;
 
     const run = async () => {
+      // We derive the list from the analytics "content_insights" view that aggregates by content type.
       const url = new URL(
         "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/content_insights"
       );
@@ -512,17 +869,6 @@ class LocationsService {
       this.contentTypesForArticlesInFlight = null;
     });
     return this.contentTypesForArticlesInFlight;
-  }
-  /** Country rows with x2_42 IDs — used for region name fallback in FI peers filter. */
-  async getAllLocationsWithIds(): Promise<
-    { id: number; Country: string; Continental_Region: string }[]
-  > {
-    const countries = await this.getCountries();
-    return countries.map((row) => ({
-      id: row.id,
-      Country: row.locations_Country,
-      Continental_Region: "",
-    }));
   }
 }
 

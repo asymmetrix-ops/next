@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { FilterDef, FilterState } from "@/app/financials-tsx/types";
 import { FIN_FILTER_DEFS } from "@/app/financials-tsx/financials-data";
 import {
@@ -18,11 +18,12 @@ import {
   ListViewIdEnumEditor,
   ListViewRangeEditor,
 } from "@/components/filters/ListViewFilterEditors";
+import { AnchoredPopover } from "@/components/filters/AnchoredPopover";
 import { SourceTypeDot } from "./SourceTypeValue";
 import { FiFilterPicker } from "./FiFilterPicker";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 import { resolveSectorFilterChipLabel } from "@/lib/financialIntelligence/sectorFilters";
-import type { FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
+import type { FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
 
 export interface FiIdOption {
   id: number;
@@ -105,80 +106,6 @@ function summarize(
     return formatRangeValue(value as { min?: number; max?: number }, def.unit);
   }
   return String(value);
-}
-
-function Pop({
-  anchorRef,
-  onDismiss,
-  children,
-  width = 260,
-  bare = false,
-}: {
-  anchorRef: React.RefObject<HTMLElement | null>;
-  onDismiss: () => void;
-  children: React.ReactNode;
-  width?: number;
-  bare?: boolean;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  useLayoutEffect(() => {
-    function place() {
-      if (!anchorRef.current || !ref.current) return;
-      const a = anchorRef.current.getBoundingClientRect();
-      let left = a.left;
-      const vw = window.innerWidth;
-      if (left + width > vw - 10) left = vw - width - 10;
-      setPos({ top: a.bottom + 6, left });
-    }
-    place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [anchorRef, width]);
-
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (ref.current?.contains(e.target as Node)) return;
-      if (anchorRef.current?.contains(e.target as Node)) return;
-      onDismiss();
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onDismiss();
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [onDismiss, anchorRef]);
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        position: "fixed",
-        top: pos?.top ?? 0,
-        left: pos?.left ?? 0,
-        width: bare ? undefined : width,
-        visibility: pos ? "visible" : "hidden",
-        zIndex: 9999,
-        background: bare ? "transparent" : "white",
-        border: bare ? "none" : "1px solid var(--border-1)",
-        borderRadius: bare ? 0 : "var(--r-lg)",
-        boxShadow: bare ? "none" : "var(--shadow-popover)",
-        padding: bare ? 0 : 10,
-        fontFamily: "var(--font-sans)",
-      }}
-    >
-      {children}
-    </div>
-  );
 }
 
 function FilterChip({
@@ -436,7 +363,6 @@ export interface FiControlBarProps {
   targetId: number | null;
   targetName: string | null;
   targetLogo: string | null;
-  targetUrl: string | null;
   loading: boolean;
   onSelectTarget: (companyId: number, meta?: FiCompanySearchHit) => void;
   onClearTarget: () => void;
@@ -460,13 +386,14 @@ export interface FiControlBarProps {
   onAddQueryChange: (query: string) => void;
   addResults: FiCompanySearchHit[];
   onAddCompany: (companyId: number) => void;
+  peerAggregateMode: FiPeerAggregateMode;
+  onPeerAggregateModeChange: (mode: FiPeerAggregateMode) => void;
 }
 
 export function FiControlBar({
   targetId,
   targetName,
   targetLogo,
-  targetUrl,
   loading,
   onSelectTarget,
   onClearTarget,
@@ -490,6 +417,8 @@ export function FiControlBar({
   onAddQueryChange,
   addResults,
   onAddCompany,
+  peerAggregateMode,
+  onPeerAggregateModeChange,
 }: FiControlBarProps) {
   const [targetPickerOpen, setTargetPickerOpen] = useState(false);
   const [targetSearchQuery, setTargetSearchQuery] = useState("");
@@ -681,26 +610,15 @@ export function FiControlBar({
             {targetId && targetName ? (
               <>
                 <CompanyAvatar name={targetName} logo={targetLogo} />
-                {targetUrl ? (
-                  <a
-                    href={targetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      fontWeight: 700,
-                      fontSize: "var(--fs-14)",
-                      color: "var(--fg-1)",
-                      textDecoration: "none",
-                    }}
-                  >
-                    {targetName}
-                  </a>
-                ) : (
-                  <span style={{ fontWeight: 700, fontSize: "var(--fs-14)", color: "var(--fg-1)" }}>
-                    {targetName}
-                  </span>
-                )}
+                <span
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "var(--fs-14)",
+                    color: "var(--fg-1)",
+                  }}
+                >
+                  {targetName}
+                </span>
               </>
             ) : (
               <span style={{ fontSize: "var(--fs-13)", color: "var(--fg-3)", fontWeight: 500 }}>
@@ -720,10 +638,18 @@ export function FiControlBar({
           </button>
 
           {targetPickerOpen && (
-            <Pop
+            <AnchoredPopover
               anchorRef={targetPickerRef}
               onDismiss={() => setTargetPickerOpen(false)}
               width={300}
+              offset={6}
+              style={{
+                background: "white",
+                border: "1px solid var(--border-1)",
+                borderRadius: "var(--r-lg)",
+                boxShadow: "var(--shadow-popover)",
+                padding: 10,
+              }}
             >
               <CompanySearchPanel
                 inputRef={targetSearchInputRef}
@@ -741,7 +667,7 @@ export function FiControlBar({
                   setTargetPickerOpen(false);
                 }}
               />
-            </Pop>
+            </AnchoredPopover>
           )}
 
           {targetId && (
@@ -785,10 +711,11 @@ export function FiControlBar({
               })}
 
               {editingFilterId && editingFilter && editingDef && (
-                <Pop
+                <AnchoredPopover
                   anchorRef={editingAnchorRef}
                   onDismiss={() => setEditingFilterId(null)}
                   bare
+                  offset={6}
                 >
                   {renderFilterEditor(
                     editingDef,
@@ -805,7 +732,7 @@ export function FiControlBar({
                       onDismiss: () => setEditingFilterId(null),
                     }
                   )}
-                </Pop>
+                </AnchoredPopover>
               )}
 
               <button
@@ -908,7 +835,19 @@ export function FiControlBar({
               </button>
 
               {addCompanyOpen && (
-                <Pop anchorRef={addCompanyRef} onDismiss={() => setAddCompanyOpen(false)} width={300}>
+                <AnchoredPopover
+                  anchorRef={addCompanyRef}
+                  onDismiss={() => setAddCompanyOpen(false)}
+                  width={300}
+                  offset={6}
+                  style={{
+                    background: "white",
+                    border: "1px solid var(--border-1)",
+                    borderRadius: "var(--r-lg)",
+                    boxShadow: "var(--shadow-popover)",
+                    padding: 10,
+                  }}
+                >
                   <CompanySearchPanel
                     inputRef={addCompanyInputRef}
                     query={addQuery}
@@ -920,8 +859,49 @@ export function FiControlBar({
                       onAddQueryChange("");
                     }}
                   />
-                </Pop>
+                </AnchoredPopover>
               )}
+
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: 2,
+                  background: "var(--ax-gray-50)",
+                  border: "1px solid var(--border-1)",
+                  borderRadius: "var(--r-md)",
+                  height: 30,
+                  flexShrink: 0,
+                }}
+                title="Compare target against peer median or peer mean"
+              >
+                {(["median", "mean"] as const).map((mode) => {
+                  const active = peerAggregateMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      disabled={loading || !targetId}
+                      onClick={() => onPeerAggregateModeChange(mode)}
+                      style={{
+                        border: "none",
+                        background: active ? "white" : "transparent",
+                        color: active ? "var(--fg-1)" : "var(--fg-3)",
+                        fontSize: "var(--fs-12)",
+                        fontWeight: active ? 700 : 600,
+                        padding: "3px 10px",
+                        borderRadius: 5,
+                        cursor: loading || !targetId ? "default" : "pointer",
+                        fontFamily: "var(--font-sans)",
+                        boxShadow: active ? "var(--shadow-xs)" : "none",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {mode}
+                    </button>
+                  );
+                })}
+              </div>
 
               <div
                 style={{

@@ -24,7 +24,7 @@ export const FI_SOURCE_TYPES_UI_ORDER: FiMetricSourceType[] = [
 ];
 
 export const SOURCE_TYPE_DESCRIPTIONS: Record<FiMetricSourceType, string> = {
-  Proprietary: "Exclusive financial data sourced by Asymmetrix",
+  Proprietary: "Asymmetrix research & primary data",
   Public: "Public filings & disclosures",
   Estimate: "Modelled / estimated figures",
 };
@@ -33,17 +33,21 @@ const METRIC_SOURCE_FIELD: Partial<
   Record<FiMetricKey, keyof FiCompanyRow>
 > = {
   revenue_m_usd: "revenue_source_type",
-  arr_m_usd: "arr_source_type",
   ebitda_m_usd: "ebitda_source_type",
   ebit_m_usd: "ebit_source_type",
   ev_usd: "ev_source_type",
   no_of_clients: "no_of_clients_source_type",
+  revenue_per_client: "revenue_per_client_source_type",
+  no_employees: "no_employees_source_type",
   revenue_per_employee: "revenue_per_employee_source_type",
   rev_growth_pc: "rev_growth_source_type",
   new_client_growth_pc: "new_client_growth_source_type",
   rule_of_40: "rule_of_40_source_type",
+  subscription_revenue_pc: "subscription_revenue_pc_source_type",
+  subscription_revenue_m: "subscription_revenue_m_source_type",
   nrr: "nrr_source_type",
   churn_pc: "churn_source_type",
+  grr_pc: "grr_source_type",
   upsell_pc: "upsell_source_type",
   cross_sell_pc: "cross_sell_source_type",
   price_increase_pc: "price_increase_source_type",
@@ -54,116 +58,12 @@ const METRIC_SOURCE_FIELD: Partial<
   ev_ebitda_x: "ev_source_type",
 };
 
-const SOURCE_TYPE_BY_COLOR: Record<string, FiMetricSourceType> = {
-  "#2db7ff": "Proprietary",
-  "#0f172a": "Public",
-  "#9ca3af": "Estimate",
-};
-
-/** Resolve a card/API source label, numeric code, or legend color to a filter type. */
-export function resolveFinancialMetricSourceType(
-  label?: unknown,
-  code?: unknown,
-  color?: unknown
-): FiMetricSourceType | null {
-  const fromLabel = parseSourceType(label);
-  if (fromLabel) return fromLabel;
-
-  const fromCode = parseSourceType(code);
-  if (fromCode) return fromCode;
-
-  if (typeof color === "string") {
-    const byColor = SOURCE_TYPE_BY_COLOR[color.trim().toLowerCase()];
-    if (byColor) return byColor;
-  }
-
-  if (typeof label === "string") {
-    const normalized = label.trim().toLowerCase();
-    if (!normalized) return null;
-    if (normalized === "linkedin") return "Public";
-    if (normalized.includes("public") || normalized.includes("filing")) {
-      return "Public";
-    }
-    if (
-      normalized.includes("proprietary") ||
-      normalized.includes("asymmetrix") ||
-      normalized.includes("company provided") ||
-      normalized.includes("third party")
-    ) {
-      return "Proprietary";
-    }
-    if (
-      normalized.includes("estimate") ||
-      normalized.includes("model") ||
-      normalized.includes("analyst")
-    ) {
-      return "Estimate";
-    }
-  }
-
-  return null;
-}
-
 export function parseSourceType(value: unknown): FiMetricSourceType | null {
-  if (value == null) return null;
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-
-    const normalized = trimmed.toLowerCase();
-    if (normalized === "public") return "Public";
-    if (normalized === "estimate") return "Estimate";
-    if (normalized === "proprietary") return "Proprietary";
-    if (
-      normalized === "model" ||
-      normalized === "modelled" ||
-      normalized === "modeled" ||
-      normalized === "human/model" ||
-      normalized === "human model" ||
-      normalized === "human" ||
-      normalized === "analyst" ||
-      normalized === "analyst-adjusted" ||
-      normalized === "analyst adjusted"
-    ) {
-      return "Estimate";
-    }
-    if (
-      normalized === "company provided" ||
-      normalized === "company_provided" ||
-      normalized === "company-provided" ||
-      normalized === "trusted third party" ||
-      normalized === "trusted_third_party" ||
-      normalized === "trusted-third-party" ||
-      normalized === "third party" ||
-      normalized === "third_party"
-    ) {
-      return "Proprietary";
-    }
-
-    if (/^\d+$/.test(trimmed)) {
-      return parseSourceType(Number.parseInt(trimmed, 10));
-    }
-
-    return null;
-  }
-
-  if (typeof value === "number" && Number.isFinite(value)) {
-    switch (value) {
-      case 1:
-        return "Public";
-      case 2:
-      case 3:
-      case 5:
-        return "Proprietary";
-      case 4:
-      case 6:
-        return "Estimate";
-      default:
-        return null;
-    }
-  }
-
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "public") return "Public";
+  if (normalized === "estimate") return "Estimate";
+  if (normalized === "proprietary") return "Proprietary";
   return null;
 }
 
