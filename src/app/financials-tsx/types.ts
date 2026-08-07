@@ -32,8 +32,8 @@ export interface FinRow {
   rev_multiple: number;
   trend: number[];
   // optional extended columns
-  recurring_revenue?: number;
-  arr?: number;
+  subscription_revenue_pc?: number;
+  subscription_revenue_m?: number;
   churn?: number;
   grr?: number;
   nrr?: number;
@@ -124,6 +124,8 @@ export interface Tweaks {
   hideCompanyAvatars?: boolean;
   /** Show remove control per peer row (Financial Intelligence). */
   showPeerActions?: boolean;
+  /** Peer-set aggregate row uses median or mean (Financial Intelligence). */
+  peerAggregateMode?: "median" | "mean";
 }
 
 export interface SectorMedian {

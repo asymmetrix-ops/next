@@ -3,14 +3,13 @@
 import React from "react";
 import { DroppedPeersBar } from "./DroppedPeersBar";
 import type { FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
-import { vintageTooltip, companyColor } from "@/lib/financialIntelligence/mappers";
+import { yearMismatchTooltip, hasFinancialPeriodMismatch, companyColor } from "@/lib/financialIntelligence/mappers";
 import type { FiCompanyRow } from "@/lib/financialIntelligence/types";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 
 interface PeerCompaniesCardProps {
   peers: FiCompanyRow[];
-  targetFinancialYear: number | null;
-  targetFyYeMonth?: number | null;
+  target: FiCompanyRow | null;
   excludedPeers: FiCompanyRow[];
   excludedIds: number[];
   manuallyAddedIds?: number[];
@@ -26,8 +25,7 @@ interface PeerCompaniesCardProps {
 
 export function PeerCompaniesCard({
   peers,
-  targetFinancialYear,
-  targetFyYeMonth,
+  target,
   excludedPeers,
   excludedIds,
   manuallyAddedIds = [],
@@ -134,13 +132,11 @@ export function PeerCompaniesCard({
           </div>
         ) : (
           peers.map((peer) => {
-            const vintageMismatch =
-              targetFinancialYear != null &&
-              peer.financial_year > 0 &&
-              (peer.financial_year !== targetFinancialYear ||
-                (targetFyYeMonth != null &&
-                  peer.fy_ye_month > 0 &&
-                  peer.fy_ye_month !== targetFyYeMonth));
+            const vintageMismatch = target
+              ? hasFinancialPeriodMismatch(target, peer)
+              : false;
+            const vintageTooltipText =
+              target && vintageMismatch ? yearMismatchTooltip(target, peer) : null;
             const isManuallyAdded =
               Boolean(peer.is_manually_added) || manuallyAddedSet.has(peer.company_id);
 
@@ -189,14 +185,10 @@ export function PeerCompaniesCard({
                     ADDED
                   </span>
                 )}
-                {vintageMismatch && targetFinancialYear != null && (
+                {vintageMismatch && vintageTooltipText && (
                   <span
-                    title={vintageTooltip(
-                      peer.financial_year,
-                      targetFinancialYear,
-                      peer.fy_ye_month,
-                      targetFyYeMonth
-                    )}
+                    title={vintageTooltipText}
+                    aria-label={vintageTooltipText}
                     style={{ cursor: "help", color: "var(--ax-warning)", flexShrink: 0, fontSize: 11 }}
                   >
                     ⚑

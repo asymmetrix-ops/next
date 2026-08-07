@@ -2,11 +2,14 @@ import type { FinRow } from "@/app/financials-tsx/types";
 import type { SectorMedian } from "@/app/financials-tsx/types";
 import {
   FI_BENCHMARK_METRICS,
+  FI_BENCHMARK_SCORECARD_KEYS,
+  computeDeltaVsAggregate,
   computeDistributionStats,
   computePercentile,
   computeRank,
+  getMetricValue,
   getPeerMetricValueForCalc,
-  peerMedian,
+  peerAggregate,
   toMillions,
 } from "./calculations";
 import {
@@ -20,6 +23,7 @@ import type {
   FiBenchmarkMetricRow,
   FiCompanyRow,
   FiHeadlineMetric,
+  FiPeerAggregateMode,
   FiSectorLookup,
 } from "./types";
 
@@ -115,9 +119,11 @@ export function mapCompanyToFinRow(
     rev_multiple: row.revenue_multiple ?? row.ev_revenue_x ?? 0,
     trend: [],
     rule_of_40: ruleOf40 ?? undefined,
-    financial_year: row.financial_year ? String(row.financial_year) : undefined,
-    arr: toMillions(row.arr_m_usd) ?? undefined,
+    financial_year: formatCompanyReportingPeriod(row) ?? undefined,
+    subscription_revenue_pc: row.subscription_revenue_pc ?? undefined,
+    subscription_revenue_m: toMillions(row.subscription_revenue_m) ?? undefined,
     churn: row.churn_pc ?? undefined,
+    grr: row.grr_pc ?? undefined,
     nrr: row.nrr ?? undefined,
     new_clients_rev: row.new_client_growth_pc ?? undefined,
     upsell: row.upsell_pc ?? undefined,
@@ -125,17 +131,22 @@ export function mapCompanyToFinRow(
     price_increase: row.price_increase_pc ?? undefined,
     revenue_expansion: row.rev_expansion_pc ?? undefined,
     num_clients: row.no_of_clients ?? undefined,
+    rev_per_client: row.revenue_per_client ?? undefined,
+    num_employees: row.no_employees ?? undefined,
     rev_per_employee: row.revenue_per_employee ?? undefined,
   };
 }
 
-export function buildPeerSectorMedian(peers: FiCompanyRow[]): SectorMedian {
+export function buildPeerSectorMedian(
+  peers: FiCompanyRow[],
+  aggregateMode: FiPeerAggregateMode = "median"
+): SectorMedian {
   const finRows = peers.map((peer) => mapCompanyToFinRow(peer, [], []));
   const pick = (key: keyof SectorMedian) => {
     const values = finRows
       .map((row) => row[key])
       .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-    return peerMedian(values) ?? 0;
+    return peerAggregate(values, aggregateMode) ?? 0;
   };
 
   return {
@@ -156,20 +167,25 @@ export function buildPeerSectorMedian(peers: FiCompanyRow[]): SectorMedian {
 export function buildBenchmarkMetricRows(
   target: FiCompanyRow,
   peers: FiCompanyRow[],
-  allowedSources: FiMetricSourceType[] = DEFAULT_FI_SOURCE_TYPES
+  allowedSources: FiMetricSourceType[] = DEFAULT_FI_SOURCE_TYPES,
+  aggregateMode: FiPeerAggregateMode = "median"
 ): FiBenchmarkMetricRow[] {
-  return FI_BENCHMARK_METRICS.map((metric) => {
-    const targetValue = getPeerMetricValueForCalc(target, metric.key, allowedSources);
+  return FI_BENCHMARK_METRICS.filter((metric) =>
+    FI_BENCHMARK_SCORECARD_KEYS.includes(metric.key)
+  ).map((metric) => {
+    const targetValue = getMetricValue(target, metric.key);
     const peerValues = peers
       .map((peer) => getPeerMetricValueForCalc(peer, metric.key, allowedSources))
       .filter((v): v is number => v != null && Number.isFinite(v));
-    const median = peerMedian(peerValues);
+    const median = peerAggregate(peerValues, aggregateMode);
     const percentile =
       targetValue != null
         ? computePercentile(targetValue, peerValues, metric.higherIsBetter)
         : null;
     const deltaVsMedian =
-      targetValue != null && median != null ? targetValue - median : null;
+      targetValue != null && median != null
+        ? computeDeltaVsAggregate(targetValue, median, metric.format)
+        : null;
     const rankResult =
       targetValue != null
         ? computeRank(targetValue, peerValues, metric.higherIsBetter)
@@ -201,7 +217,8 @@ export function buildBenchmarkMetricRows(
 export function buildHeadlineMetrics(
   target: FiCompanyRow,
   peers: FiCompanyRow[],
-  allowedSources: FiMetricSourceType[] = DEFAULT_FI_SOURCE_TYPES
+  allowedSources: FiMetricSourceType[] = DEFAULT_FI_SOURCE_TYPES,
+  aggregateMode: FiPeerAggregateMode = "median"
 ): FiHeadlineMetric[] {
   const defs: Array<{
     key: "revenue" | "ebitda" | "rev_growth";
@@ -234,21 +251,21 @@ export function buildHeadlineMetrics(
   ];
 
   return defs.map((def) => {
-    const targetValue = isHeadlineSourceAllowed(target, def.key, allowedSources)
-      ? def.getValue(target)
-      : null;
+    const targetValue = def.getValue(target);
     const peerValues = peers
       .map((peer) =>
         isHeadlineSourceAllowed(peer, def.key, allowedSources) ? def.getValue(peer) : null
       )
       .filter((v): v is number => v != null && Number.isFinite(v));
-    const median = peerMedian(peerValues);
+    const median = peerAggregate(peerValues, aggregateMode);
     const percentile =
       targetValue != null
         ? computePercentile(targetValue, peerValues, def.higherIsBetter)
         : null;
     const deltaVsMedian =
-      targetValue != null && median != null ? targetValue - median : null;
+      targetValue != null && median != null
+        ? computeDeltaVsAggregate(targetValue, median, def.format)
+        : null;
 
     return {
       key: def.key,
@@ -265,22 +282,97 @@ export function buildHeadlineMetrics(
   });
 }
 
+export function resolveFinancialYearValue(
+  row: Pick<FiCompanyRow, "financial_year_value" | "financial_year">
+): number {
+  if (row.financial_year_value > 0) return row.financial_year_value;
+  if (row.financial_year >= 1900 && row.financial_year <= 2100) return row.financial_year;
+  return 0;
+}
+
+const FY_MONTH_ABBREV = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+type FiReportingPeriodRow = Pick<
+  FiCompanyRow,
+  "financial_year_value" | "financial_year" | "fy_ye_month"
+>;
+
+export function formatReportingPeriod(
+  yearValue: number,
+  month?: number | null
+): string | null {
+  if (yearValue <= 0) return null;
+  if (month != null && month >= 1 && month <= 12) {
+    return `FY${yearValue} (${FY_MONTH_ABBREV[month - 1]})`;
+  }
+  return `FY${yearValue}`;
+}
+
+/** Canonical FY label for FI tables, tooltips, and mismatch flags. */
+export function formatCompanyReportingPeriod(
+  row: FiReportingPeriodRow,
+  options?: { includeMonth?: boolean }
+): string | null {
+  const year = resolveFinancialYearValue(row);
+  if (year <= 0) return null;
+  const includeMonth =
+    options?.includeMonth ??
+    (row.fy_ye_month >= 1 && row.fy_ye_month <= 12);
+  return formatReportingPeriod(year, includeMonth ? row.fy_ye_month : null);
+}
+
+export function hasFinancialPeriodMismatch(
+  target: Pick<FiCompanyRow, "financial_year_value" | "financial_year" | "fy_ye_month">,
+  peer: Pick<FiCompanyRow, "financial_year_value" | "financial_year" | "fy_ye_month">
+): boolean {
+  const targetYear = resolveFinancialYearValue(target);
+  const peerYear = resolveFinancialYearValue(peer);
+  if (targetYear <= 0 || peerYear <= 0) return false;
+  if (targetYear !== peerYear) return true;
+
+  const targetMonth = target.fy_ye_month;
+  const peerMonth = peer.fy_ye_month;
+  return targetMonth > 0 && peerMonth > 0 && targetMonth !== peerMonth;
+}
+
+/** Tooltip for peer vintage flag in the benchmark sidebar. */
+export function yearMismatchTooltip(target: FiCompanyRow, peer: FiCompanyRow): string | null {
+  if (!hasFinancialPeriodMismatch(target, peer)) return null;
+
+  const peerYear = resolveFinancialYearValue(peer);
+  const targetYear = resolveFinancialYearValue(target);
+  const sameYear = peerYear > 0 && peerYear === targetYear;
+  const peerLabel = formatCompanyReportingPeriod(peer, { includeMonth: sameYear });
+  const targetLabel = formatCompanyReportingPeriod(target, { includeMonth: sameYear });
+  if (!peerLabel || !targetLabel) return null;
+
+  return `This company's latest financials are from ${peerLabel}; target uses ${targetLabel}.`;
+}
+
 export function vintageTooltip(
   peerYear: number,
   targetYear: number,
   peerMonth?: number | null,
   targetMonth?: number | null
 ): string {
-  const fmtPeriod = (year: number, month?: number | null) => {
-    if (year <= 0) return "unknown period";
-    if (month != null && month >= 1 && month <= 12) {
-      return `FY${year} (YE month ${month})`;
-    }
-    return `FY${year}`;
-  };
-
-  const peerLabel = fmtPeriod(peerYear, peerMonth);
-  const targetLabel = fmtPeriod(targetYear, targetMonth);
+  const sameYear = peerYear > 0 && peerYear === targetYear;
+  const peerLabel =
+    formatReportingPeriod(peerYear, sameYear ? peerMonth : null) ?? "unknown period";
+  const targetLabel =
+    formatReportingPeriod(targetYear, sameYear ? targetMonth : null) ?? "unknown period";
 
   if (peerYear < targetYear) {
     return `This company's latest financials are from ${peerLabel}; target uses ${targetLabel}.`;

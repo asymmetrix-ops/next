@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { FilterDef } from "@/app/financials-tsx/types";
 import { FIN_FILTER_CATEGORIES } from "@/app/financials-tsx/financials-data";
+import {
+  AnchoredPopover,
+  FILTER_POPOVER_SCROLL_STYLE,
+} from "@/components/filters/AnchoredPopover";
 
 const FI_PICKER_CATEGORY_LABELS: Record<string, string> = {
   company: "Location",
@@ -210,7 +214,15 @@ export function FiFilterEditorShell({
         </div>
         <FilterPanelCloseButton onClick={onClose} />
       </div>
-      <div style={{ padding: "10px 14px 12px", overflowY: "auto" }}>{children}</div>
+      <div
+        style={{
+          padding: "10px 14px 12px",
+          overflowY: "auto",
+          ...FILTER_POPOVER_SCROLL_STYLE,
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -232,51 +244,17 @@ export function FiFilterPicker({
   editorContent?: React.ReactNode;
   optionCounts?: Partial<Record<string, number>>;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [q, setQ] = useState("");
+  const [focusToken, setFocusToken] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const width = 380;
+  const layoutKey = activeDef?.id ?? "list";
 
   useLayoutEffect(() => {
-    function place() {
-      if (!anchorRef.current || !ref.current) return;
-      const a = anchorRef.current.getBoundingClientRect();
-      let left = a.left;
-      const vw = window.innerWidth;
-      if (left + width > vw - 10) left = vw - width - 10;
-      setPos({ top: a.bottom + 6, left });
-    }
-    place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [anchorRef, width]);
-
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (ref.current?.contains(e.target as Node)) return;
-      if (anchorRef.current?.contains(e.target as Node)) return;
-      onDismiss();
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onDismiss();
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [onDismiss, anchorRef]);
-
-  useEffect(() => {
-    if (!activeDef) inputRef.current?.focus();
-  }, [activeDef]);
+    if (activeDef || focusToken === 0) return;
+    requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true });
+    });
+  }, [activeDef, focusToken]);
 
   const filtered = useMemo(() => {
     const ql = q.toLowerCase().trim();
@@ -318,166 +296,175 @@ export function FiFilterPicker({
 
   if (activeDef && editorContent) {
     return (
-      <div
-        ref={ref}
-        style={{
-          position: "fixed",
-          top: pos?.top ?? 0,
-          left: pos?.left ?? 0,
-          zIndex: 9999,
-          visibility: pos ? "visible" : "hidden",
-        }}
+      <AnchoredPopover
+        anchorRef={anchorRef}
+        onDismiss={onDismiss}
+        layoutKey={layoutKey}
+        width={380}
+        offset={6}
+        bare
       >
         {editorContent}
-      </div>
+      </AnchoredPopover>
     );
   }
 
   return (
-    <div
-      ref={ref}
-      style={{
-        position: "fixed",
-        top: pos?.top ?? 0,
-        left: pos?.left ?? 0,
-        width,
-        maxHeight: 460,
-        display: "flex",
-        flexDirection: "column",
-        background: "white",
-        border: "1px solid var(--border-1)",
-        borderRadius: "var(--r-lg)",
-        boxShadow:
-          "0 16px 40px rgba(17,22,29,0.16), 0 2px 6px rgba(17,22,29,0.06)",
-        overflow: "hidden",
-        zIndex: 9999,
-        visibility: pos ? "visible" : "hidden",
-        fontFamily: "var(--font-sans)",
-      }}
+    <AnchoredPopover
+      anchorRef={anchorRef}
+      onDismiss={onDismiss}
+      layoutKey={layoutKey}
+      width={380}
+      offset={6}
+      bare
+      onPositioned={() => setFocusToken((t) => t + 1)}
     >
-      <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid var(--ax-gray-100)" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 8,
-            gap: 8,
-          }}
-        >
-          <div style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--fg-1)" }}>
-            Add filter
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <div style={{ fontSize: 11, color: "var(--fg-4)" }} className="ax-numeric">
-              {availableDefs.length} available
-            </div>
-            <FilterPanelCloseButton onClick={onDismiss} />
-          </div>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "6px 10px",
-            background: "var(--ax-gray-25)",
-            border: "1px solid var(--border-1)",
-            borderRadius: "var(--r-md)",
-          }}
-        >
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 16 16"
-            fill="none"
-            style={{ color: "var(--fg-4)", flexShrink: 0 }}
-          >
-            <circle cx="7" cy="7" r="4.75" stroke="currentColor" strokeWidth="1.4" />
-            <path
-              d="M10.5 10.5L13.5 13.5"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-            />
-          </svg>
-          <input
-            ref={inputRef}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search filters…"
-            style={{
-              flex: 1,
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              fontFamily: "inherit",
-              fontSize: "var(--fs-13)",
-              color: "var(--fg-1)",
-            }}
-          />
-        </div>
-      </div>
-
-      <div style={{ flex: 1, overflowY: "auto", padding: "6px 6px 8px" }}>
-        {categories.map((cat) => {
-          const defs = byCat[cat.id];
-          if (!defs || defs.length === 0) return null;
-          return (
-            <section key={cat.id} style={{ padding: "6px 8px 4px" }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  justifyContent: "space-between",
-                  padding: "4px 4px 6px",
-                }}
-              >
-                <span className="ax-eyebrow" style={{ fontSize: 10.5 }}>
-                  {FI_PICKER_CATEGORY_LABELS[cat.id] ?? cat.name}
-                </span>
-                <span className="ax-numeric" style={{ fontSize: 10.5, color: "var(--fg-4)" }}>
-                  {defs.length}
-                </span>
-              </div>
-              <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                {defs.map((def) => (
-                  <PickerRow
-                    key={def.id}
-                    def={def}
-                    hint={hintForDef(def, optionCounts?.[def.id])}
-                    onPick={() => onPickDef(def)}
-                  />
-                ))}
-              </ul>
-            </section>
-          );
-        })}
-        {filtered.length === 0 && (
-          <div
-            style={{
-              padding: 36,
-              textAlign: "center",
-              color: "var(--fg-4)",
-              fontSize: "var(--fs-13)",
-            }}
-          >
-            No filters match
-          </div>
-        )}
-      </div>
-
       <div
         style={{
-          padding: "8px 14px",
-          borderTop: "1px solid var(--ax-gray-100)",
-          background: "var(--ax-gray-25)",
-          fontSize: 11,
-          color: "var(--fg-3)",
+          width: 380,
+          maxHeight: 460,
+          display: "flex",
+          flexDirection: "column",
+          background: "white",
+          border: "1px solid var(--border-1)",
+          borderRadius: "var(--r-lg)",
+          boxShadow:
+            "0 16px 40px rgba(17,22,29,0.16), 0 2px 6px rgba(17,22,29,0.06)",
+          overflow: "hidden",
+          fontFamily: "var(--font-sans)",
         }}
       >
-        <kbd style={kbdStyle}>↑↓</kbd> navigate · <kbd style={kbdStyle}>↵</kbd> select
+        <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid var(--ax-gray-100)" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
+              gap: 8,
+            }}
+          >
+            <div style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--fg-1)" }}>
+              Add filter
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <div style={{ fontSize: 11, color: "var(--fg-4)" }} className="ax-numeric">
+                {availableDefs.length} available
+              </div>
+              <FilterPanelCloseButton onClick={onDismiss} />
+            </div>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 10px",
+              background: "var(--ax-gray-25)",
+              border: "1px solid var(--border-1)",
+              borderRadius: "var(--r-md)",
+            }}
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 16 16"
+              fill="none"
+              style={{ color: "var(--fg-4)", flexShrink: 0 }}
+            >
+              <circle cx="7" cy="7" r="4.75" stroke="currentColor" strokeWidth="1.4" />
+              <path
+                d="M10.5 10.5L13.5 13.5"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+            </svg>
+            <input
+              ref={inputRef}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search filters…"
+              style={{
+                flex: 1,
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                fontFamily: "inherit",
+                fontSize: "var(--fs-13)",
+                color: "var(--fg-1)",
+              }}
+            />
+          </div>
+        </div>
+
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "6px 6px 8px",
+            ...FILTER_POPOVER_SCROLL_STYLE,
+          }}
+        >
+          {categories.map((cat) => {
+            const defs = byCat[cat.id];
+            if (!defs || defs.length === 0) return null;
+            return (
+              <section key={cat.id} style={{ padding: "6px 8px 4px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    justifyContent: "space-between",
+                    padding: "4px 4px 6px",
+                  }}
+                >
+                  <span className="ax-eyebrow" style={{ fontSize: 10.5 }}>
+                    {FI_PICKER_CATEGORY_LABELS[cat.id] ?? cat.name}
+                  </span>
+                  <span className="ax-numeric" style={{ fontSize: 10.5, color: "var(--fg-4)" }}>
+                    {defs.length}
+                  </span>
+                </div>
+                <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                  {defs.map((def) => (
+                    <PickerRow
+                      key={def.id}
+                      def={def}
+                      hint={hintForDef(def, optionCounts?.[def.id])}
+                      onPick={() => onPickDef(def)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+          {filtered.length === 0 && (
+            <div
+              style={{
+                padding: 36,
+                textAlign: "center",
+                color: "var(--fg-4)",
+                fontSize: "var(--fs-13)",
+              }}
+            >
+              No filters match
+            </div>
+          )}
+        </div>
+
+        <div
+          style={{
+            padding: "8px 14px",
+            borderTop: "1px solid var(--ax-gray-100)",
+            background: "var(--ax-gray-25)",
+            fontSize: 11,
+            color: "var(--fg-3)",
+          }}
+        >
+          <kbd style={kbdStyle}>↑↓</kbd> navigate · <kbd style={kbdStyle}>↵</kbd> select
+        </div>
       </div>
-    </div>
+    </AnchoredPopover>
   );
 }

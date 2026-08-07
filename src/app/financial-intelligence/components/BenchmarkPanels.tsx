@@ -5,11 +5,17 @@
     FiBenchmarkMetricRow,
     FiCompanyRow,
     FiHeadlineMetric,
-    FiMetricDirectionHint,
     FiMetricFormat,
     FiMetricKey,
   } from "@/lib/financialIntelligence/types";
-  import { FI_BENCHMARK_SECTIONS, getPeerMetricValueForCalc } from "@/lib/financialIntelligence/calculations";
+  import {
+    FI_BENCHMARK_SECTIONS,
+    formatMetricPercent,
+    formatMetricPercentDelta,
+    getMetricValue,
+    peerAggregateLabels,
+  } from "@/lib/financialIntelligence/calculations";
+  import type { FiPeerAggregateMode } from "@/lib/financialIntelligence/types";
   import {
     FI_SOURCE_TYPES_UI_ORDER,
     getMetricSourceType,
@@ -44,54 +50,72 @@
     );
   }
 
-  function metricDirectionLabel(
-    higherIsBetter: boolean,
-    directionHint?: FiMetricDirectionHint
-  ): string {
-    if (higherIsBetter) return "↑ better";
-    if (directionHint === "lower_better") return "↓ lower better";
-    return "↓ cheaper";
-  }
-
   function fmtDelta(
     delta: number | null,
     format: FiMetricFormat,
-    higherIsBetter: boolean
+    higherIsBetter: boolean,
+    aggregateNoun: string
   ): { text: string; positive: boolean | null } {
     if (delta == null || !Number.isFinite(delta)) return { text: "—", positive: null };
     const sign = delta > 0 ? "+" : "";
     let text: string;
-    if (format === "percent") text = `${sign}${delta.toFixed(1)}pts vs median`;
-    else if (format === "currency") text = `${sign}$${Math.abs(delta).toFixed(0)}m vs median`;
-    else if (format === "currency_k") text = `${sign}$${Math.abs(Math.round(delta / 1000))}k vs median`;
-    else if (format === "count") text = `${sign}${Math.round(delta).toLocaleString()} vs median`;
-    else text = `${sign}${delta.toFixed(1)}x vs median`;
+    if (format === "percent") {
+      text = `${formatMetricPercentDelta(delta)} vs ${aggregateNoun}`;
+    }
+    else if (format === "currency") text = `${sign}$${Math.abs(Math.round(delta))}m vs ${aggregateNoun}`;
+    else if (format === "currency_k") text = `${sign}$${Math.abs(Math.round(delta / 1000))}k vs ${aggregateNoun}`;
+    else if (format === "count") text = `${sign}${Math.round(delta).toLocaleString()} vs ${aggregateNoun}`;
+    else text = `${sign}${Math.round(delta)}x vs ${aggregateNoun}`;
+    const positive = higherIsBetter ? delta >= 0 : delta <= 0;
+    return { text, positive };
+  }
+
+  function fmtHeadlineDeltaParen(
+    delta: number | null,
+    format: FiMetricFormat,
+    higherIsBetter: boolean
+  ): { text: string; positive: boolean | null } {
+    if (delta == null || !Number.isFinite(delta)) return { text: "", positive: null };
+    const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
+    let text: string;
+    if (format === "percent") {
+      text = formatMetricPercentDelta(delta, { paren: true });
+    } else if (format === "currency") {
+      text = `(${sign}$${Math.abs(Math.round(delta))}m)`;
+    } else if (format === "currency_k") {
+      text = `(${sign}$${Math.abs(Math.round(delta / 1000))}k)`;
+    } else if (format === "count") {
+      text = `(${sign}${Math.abs(Math.round(delta)).toLocaleString()})`;
+    } else {
+      text = `(${sign}${Math.abs(Math.round(delta))}x)`;
+    }
     const positive = higherIsBetter ? delta >= 0 : delta <= 0;
     return { text, positive };
   }
 
   function fmtSigned(delta: number, format: FiMetricFormat): string {
     const sign = delta > 0 ? "+" : "";
-    if (format === "currency") return `${sign}$${Math.abs(delta).toFixed(0)}m`;
+    if (format === "currency") return `${sign}$${Math.abs(Math.round(delta))}m`;
     if (format === "currency_k") return `${sign}$${Math.abs(Math.round(delta / 1000))}k`;
     if (format === "count") return `${sign}${Math.round(delta).toLocaleString()}`;
-    if (format === "percent") return `${sign}${delta.toFixed(1)}%`;
-    return `${sign}${delta.toFixed(1)}x`;
+    if (format === "percent") return formatMetricPercent(delta);
+    return `${sign}${Math.round(delta)}x`;
   }
 
   function MetricBreakdown({
     row,
     target,
     peers,
-    allowedSources,
     isLast,
+    peerAggregateMode,
   }: {
     row: FiBenchmarkMetricRow;
     target: FiCompanyRow;
     peers: FiCompanyRow[];
-    allowedSources: FiMetricSourceType[];
     isLast: boolean;
+    peerAggregateMode: FiPeerAggregateMode;
   }) {
+    const aggregateLabels = peerAggregateLabels(peerAggregateMode);
     const metricKey = row.key as FiMetricKey;
     const list = [
       {
@@ -104,7 +128,7 @@
       ...peers.map((peer) => ({
         id: peer.company_id,
         name: peer.company_name,
-        value: getPeerMetricValueForCalc(peer, metricKey, allowedSources),
+        value: getMetricValue(peer, metricKey),
         sourceType: getMetricSourceType(peer, metricKey),
         isTarget: false,
       })),
@@ -176,7 +200,7 @@
                 whiteSpace: "nowrap",
               }}
             >
-              Peer median · {fmtMetric(median, row.format)}
+              {aggregateLabels.peerColumn} · {fmtMetric(median, row.format)}
             </span>
             <span style={{ flex: 1, height: 0, borderTop: "1px dashed var(--ax-gray-400)" }} />
           </div>
@@ -289,7 +313,9 @@
             <span>
               ,{" "}
               <strong style={{ color: "var(--fg-1)" }}>
-                {fmtSigned(row.deltaVsMedian, row.format)}
+                {row.format === "percent"
+                  ? formatMetricPercentDelta(row.deltaVsMedian)
+                  : fmtSigned(row.deltaVsMedian, row.format)}
               </strong>{" "}
               vs the peer median
             </span>
@@ -417,11 +443,27 @@
     );
   }
 
-  export function HeadlineMetricCards({ metrics }: { metrics: FiHeadlineMetric[] }) {
+  export function HeadlineMetricCards({
+    metrics,
+    peerAggregateMode = "median",
+  }: {
+    metrics: FiHeadlineMetric[];
+    peerAggregateMode?: FiPeerAggregateMode;
+  }) {
+    const aggregateLabels = peerAggregateLabels(peerAggregateMode);
     return (
       <>
         {metrics.map((metric) => {
-          const delta = fmtDelta(metric.deltaVsMedian, metric.format, metric.higherIsBetter);
+          const deltaParen = fmtHeadlineDeltaParen(
+            metric.deltaVsMedian,
+            metric.format,
+            metric.higherIsBetter
+          );
+          const medianText =
+            metric.peerMedian != null && Number.isFinite(metric.peerMedian)
+              ? fmtFiMetric(metric.peerMedian, metric.format)
+              : null;
+
           return (
             <div
               key={metric.key}
@@ -448,26 +490,45 @@
                 </div>
                 <PctPill pct={metric.percentile} small />
               </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 8 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  flexWrap: "wrap",
+                  gap: "4px 8px",
+                  marginTop: 8,
+                }}
+              >
                 <SourceColoredValue
                   value={metric.targetValue}
                   format={metric.format}
                   sourceType={metric.targetSourceType}
-                  dotAfter={false}
                   fontWeight={700}
                   fontSize="var(--fs-28)"
                   justify="flex-start"
                 />
-                {delta.positive != null && (
+                {medianText != null && (
                   <span
                     style={{
                       fontSize: "var(--fs-13)",
-                      fontWeight: 600,
-                      color: delta.positive ? "var(--ax-positive)" : "var(--ax-negative)",
+                      fontWeight: 500,
+                      color: "var(--fg-3)",
                     }}
                   >
-                    {delta.text.split(" vs")[0]}{" "}
-                    <span style={{ color: "var(--fg-4)", fontWeight: 500 }}>vs median</span>
+                    {aggregateLabels.vsPeer} {medianText}
+                  </span>
+                )}
+                {deltaParen.positive != null && (
+                  <span
+                    style={{
+                      fontSize: "var(--fs-13)",
+                      fontWeight: 700,
+                      color: deltaParen.positive
+                        ? "var(--ax-positive)"
+                        : "var(--ax-negative)",
+                    }}
+                  >
+                    {deltaParen.text}
                   </span>
                 )}
               </div>
@@ -486,7 +547,7 @@
     targetName: string;
     target: FiCompanyRow;
     peers: FiCompanyRow[];
-    allowedSources: FiMetricSourceType[];
+    peerAggregateMode?: FiPeerAggregateMode;
   }
 
   const SCORECARD_COLS = "180px 92px 92px 1fr 96px 92px";
@@ -496,8 +557,9 @@
     targetName,
     target,
     peers,
-    allowedSources,
+    peerAggregateMode = "median",
   }: BenchmarkTableProps) {
+    const aggregateLabels = peerAggregateLabels(peerAggregateMode);
     const [openMetricKey, setOpenMetricKey] = useState<string | null>(null);
     const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
@@ -528,7 +590,12 @@
       sectionLength: number,
       isLastSection: boolean
     ) => {
-      const delta = fmtDelta(row.deltaVsMedian, row.format, row.higherIsBetter);
+      const delta = fmtDelta(
+        row.deltaVsMedian,
+        row.format,
+        row.higherIsBetter,
+        aggregateLabels.noun
+      );
       const isLastInSection = index === sectionLength - 1;
       const isLastOverall = isLastSection && isLastInSection;
       const isOpen = openMetricKey === String(row.key);
@@ -586,9 +653,6 @@
                 </span>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {row.label}
-                </span>
-                <span style={{ fontSize: 10, color: "var(--fg-4)", fontWeight: 500, flexShrink: 0 }}>
-                  {metricDirectionLabel(row.higherIsBetter, row.directionHint)}
                 </span>
               </div>
             </div>
@@ -661,8 +725,8 @@
               row={row}
               target={target}
               peers={peers}
-              allowedSources={allowedSources}
               isLast={isLastOverall}
+              peerAggregateMode={peerAggregateMode}
             />
           )}
         </React.Fragment>
@@ -698,7 +762,7 @@
             >
               {targetName}
             </div>
-            <div style={{ ...th, textAlign: "right" }}>Peer median</div>
+            <div style={{ ...th, textAlign: "right" }}>{aggregateLabels.peerColumn}</div>
             <div style={{ ...th, paddingLeft: 16 }}>Ranking</div>
             <div style={{ ...th, textAlign: "center" }}>Percentile</div>
             <div style={{ ...th, textAlign: "center" }}>Rank</div>
@@ -811,8 +875,7 @@
             0th → 100th percentile
           </span>
           <span style={{ flexBasis: "100%", fontSize: 11, color: "var(--fg-4)" }}>
-            Pure ranking read — higher is always better (multiples and churn inverted — lower =
-            better).
+            Pure ranking read — higher values rank higher (rank #1 = best in peer set).
           </span>
           <span
             style={{
