@@ -5,6 +5,8 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
+  useLayoutEffect,
 } from "react";
 import { useRouter } from "next/navigation";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
@@ -34,13 +36,13 @@ import {
 } from "./financialScreenerFormatters";
 import type { FinancialScreenerItem } from "@/app/financials/actions";
 import type { FinancialScreenerFilters } from "./financialScreenerFilterPayload";
-import { CompaniesCSVExporter } from "@/utils/companiesCSVExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
-import { fetchFinancialScreenerServer } from "@/app/financials/actions";
-import { applyClientFilters } from "./financialScreenerFilterPayload";
+import { exportFinancialScreenerList } from "@/lib/listExport/financialScreenerListExport";
+import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
 import { SEARCH_BULK_TOOLBAR_STYLES } from "@/components/search/searchTableStyles";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 const COLUMN_STORAGE_KEY = "financial-screener-column-keys-v2";
 const SELECT_COLUMN_WIDTH = 44;
@@ -96,15 +98,6 @@ const COLUMN_BY_KEY = new Map(
   COLUMN_DEFINITIONS.map((column) => [column.key, column])
 );
 
-function buildSimpleCSV(headers: string[], rows: string[][]): string {
-  const escape = (value: string) => `"${String(value).replace(/"/g, '""')}"`;
-  const lines = [
-    headers.map(escape).join(","),
-    ...rows.map((row) => row.map(escape).join(",")),
-  ];
-  return `\uFEFF${lines.join("\r\n")}`;
-}
-
 export interface FinancialScreenerSectionProps {
   items: FinancialScreenerItem[];
   loading: boolean;
@@ -123,7 +116,8 @@ export interface FinancialScreenerSectionProps {
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (open: boolean) => void;
   onColumnsCountChange?: (count: number) => void;
-  onRegisterExportCSV?: (fn: () => void) => void;
+  onRegisterExportCSV?: (fn: ((request: ListExportRequest) => Promise<void>) | null) => void;
+  onExportingChange?: (exporting: boolean) => void;
   selectedCompanyIds?: Set<number>;
   onToggleCompanySelection?: (id: number) => void;
   onTogglePageSelection?: (ids: number[]) => void;
@@ -142,12 +136,14 @@ export const FinancialScreenerSection = ({
   externalSetShowColumnsModal,
   onColumnsCountChange,
   onRegisterExportCSV,
+  onExportingChange,
   selectedCompanyIds = new Set(),
   onToggleCompanySelection,
   onTogglePageSelection,
   onClearSelection,
 }: FinancialScreenerSectionProps) => {
   const router = useRouter();
+  const { currency: platformCurrency } = usePlatformCurrency();
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal = externalShowColumnsModal ?? internalShowColumnsModal;
   const setShowColumnsModal =
@@ -163,6 +159,8 @@ export const FinancialScreenerSection = ({
 
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const exportInFlightRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -244,48 +242,84 @@ export const FinancialScreenerSection = ({
     setShowColumnsModal(false);
   };
 
-  const handleExportCSV = useCallback(async () => {
-    try {
-      const limitCheck = await checkExportLimit();
-      if (!limitCheck.canExport) {
-        setExportsLeft(limitCheck.exportsLeft);
-        setShowExportLimitModal(true);
-        return;
+  const handleListExport = useCallback(
+    async (request: ListExportRequest) => {
+      if (exportInFlightRef.current) return;
+      exportInFlightRef.current = true;
+      setExporting(true);
+
+      try {
+        const limitCheck = await checkExportLimit();
+        if (!limitCheck.canExport) {
+          setExportsLeft(limitCheck.exportsLeft);
+          setShowExportLimitModal(true);
+          return;
+        }
+
+        const filters = currentFilters ?? { page: 1, per_page: 25 };
+        const exportTotalCount = pagination.total ?? 0;
+        if (request.scope === "full_list" && exportTotalCount <= 0) {
+          throw new Error("Financial screener match count is not available yet.");
+        }
+
+        const selectedIdsForExport =
+          request.scope === "selected"
+            ? request.selectedIds?.length
+              ? request.selectedIds
+              : Array.from(selectedCompanyIds)
+            : undefined;
+
+        await exportFinancialScreenerList(
+          {
+            ...request,
+            selectedIds: selectedIdsForExport,
+          },
+          filters,
+          effectiveVisibleKeys,
+          request.scope === "full_list" ? exportTotalCount : undefined
+        );
+      } catch (exportError) {
+        console.error("Financial screener export failed:", exportError);
+        window.alert(
+          exportError instanceof Error
+            ? exportError.message
+            : "Export failed. Please try again."
+        );
+      } finally {
+        exportInFlightRef.current = false;
+        setExporting(false);
       }
+    },
+    [
+      currentFilters,
+      effectiveVisibleKeys,
+      pagination.total,
+      selectedCompanyIds,
+    ]
+  );
 
-      const filters = currentFilters ?? { page: 1, per_page: 25 };
-      let allItems: FinancialScreenerItem[] = [];
-      let page = 1;
-      let totalPages = 1;
+  const handleSelectedListExport = useCallback(
+    (mode: ListExportMode) => handleListExport({ mode, scope: "selected" }),
+    [handleListExport]
+  );
 
-      do {
-        const response = await fetchFinancialScreenerServer({
-          ...filters,
-          page,
-          per_page: 100,
-        });
-        if (!response) break;
-        allItems = allItems.concat(response.items);
-        totalPages = response.pagination.total_pages;
-        page += 1;
-      } while (page <= totalPages);
-
-      const filtered = applyClientFilters(allItems, filters);
-      const headers = activeColumns.map((col) => col.label);
-      const rows = filtered.map((item) =>
-        activeColumns.map((col) => getScreenerCellValue(item, col.key))
-      );
-
-      const csv = buildSimpleCSV(headers, rows);
-      CompaniesCSVExporter.downloadCSV(csv, "financial_screener");
-    } catch (exportError) {
-      console.error("Financial screener export failed:", exportError);
-    }
-  }, [activeColumns, currentFilters]);
+  const handleExportRequest = useCallback(
+    async (request: ListExportRequest) => {
+      await handleListExport(request);
+    },
+    [handleListExport]
+  );
 
   useEffect(() => {
-    onRegisterExportCSV?.(handleExportCSV);
-  }, [handleExportCSV, onRegisterExportCSV]);
+    onExportingChange?.(exporting);
+  }, [exporting, onExportingChange]);
+
+  useLayoutEffect(() => {
+    onRegisterExportCSV?.(handleExportRequest);
+    return () => {
+      onRegisterExportCSV?.(null);
+    };
+  }, [handleExportRequest, onRegisterExportCSV]);
 
   const renderCell = (item: FinancialScreenerItem, columnKey: string) => {
     if (columnKey === "company") {
@@ -372,12 +406,14 @@ export const FinancialScreenerSection = ({
       const isPositive = num != null && num > 0;
       return (
         <span style={{ color: isPositive ? "#15803d" : "#0f172a", fontWeight: 500 }}>
-          {num != null && num > 0 ? `+${num}%` : getScreenerCellValue(item, columnKey)}
+          {num != null && num > 0
+            ? `+${num}%`
+            : getScreenerCellValue(item, columnKey, platformCurrency)}
         </span>
       );
     }
 
-    const text = getScreenerCellValue(item, columnKey);
+    const text = getScreenerCellValue(item, columnKey, platformCurrency);
     return <span>{text}</span>;
   };
 
@@ -483,6 +519,8 @@ export const FinancialScreenerSection = ({
             entityType="company"
             entityIds={Array.from(selectedCompanyIds)}
             onClearSelection={onClearSelection}
+            exporting={exporting}
+            onExport={handleSelectedListExport}
           />
         )}
 

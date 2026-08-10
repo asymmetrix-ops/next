@@ -30,10 +30,12 @@ import {
   type FinancialScreenerItem,
 } from "./actions";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import type { ListExportRequest } from "@/lib/listExport/types";
 
 const PER_PAGE = 25;
 
-function useFinancialScreenerAPI() {
+function useFinancialScreenerAPI(preferredCurrencyId: number) {
   const [items, setItems] = useState<FinancialScreenerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +61,7 @@ function useFinancialScreenerAPI() {
     currentFiltersRef.current
   );
   const lastRequestIdRef = useRef(0);
+  const skipCurrencyRefetchRef = useRef(true);
 
   const fetchScreener = useCallback(
     async (page: number = 1, filters?: FinancialScreenerFilters) => {
@@ -164,6 +167,15 @@ function useFinancialScreenerAPI() {
     void fetchScreener(1);
   }, [fetchScreener]);
 
+  useEffect(() => {
+    if (skipCurrencyRefetchRef.current) {
+      skipCurrencyRefetchRef.current = false;
+      return;
+    }
+    void fetchScreener(pagination.page || 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferredCurrencyId]);
+
   return {
     items,
     loading,
@@ -178,6 +190,7 @@ function useFinancialScreenerAPI() {
 }
 
 export default function FinancialsPage() {
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const {
     items,
     loading,
@@ -188,7 +201,7 @@ export default function FinancialsPage() {
     totalUniverseCount,
     fetchScreener,
     currentFilters,
-  } = useFinancialScreenerAPI();
+  } = useFinancialScreenerAPI(preferredCurrencyId);
 
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
     []
@@ -197,7 +210,10 @@ export default function FinancialsPage() {
   const [columnsCount, setColumnsCount] = useState(
     getDefaultFinancialScreenerColumnCount()
   );
-  const exportCSVRef = useRef<(() => void) | null>(null);
+  const exportCSVRef = useRef<((request: ListExportRequest) => Promise<void>) | null>(
+    null
+  );
+  const [exporting, setExporting] = useState(false);
   const filtersKey = useMemo(
     () => JSON.stringify(currentFilters ?? {}),
     [currentFilters]
@@ -215,6 +231,22 @@ export default function FinancialsPage() {
     },
     [fetchScreener]
   );
+
+  const registerExportCsv = useCallback(
+    (fn: ((request: ListExportRequest) => Promise<void>) | null) => {
+      exportCSVRef.current = fn;
+    },
+    []
+  );
+
+  const handleExport = useCallback((mode: ListExportRequest["mode"]) => {
+    const exportFn = exportCSVRef.current;
+    if (!exportFn) {
+      window.alert("Export is still loading. Please try again in a moment.");
+      return;
+    }
+    void exportFn({ mode, scope: "full_list" });
+  }, []);
 
   const handleFilterColumnsChange = useCallback(
     ({
@@ -241,7 +273,9 @@ export default function FinancialsPage() {
         matchCount={matchCount}
         totalUniverseCount={totalUniverseCount}
         onColumnsClick={() => setShowColumnsModal((v) => !v)}
-        onExportCSVClick={() => exportCSVRef.current?.()}
+        onExport={handleExport}
+        exporting={exporting}
+        selectedCount={selectedCompanyIds.size}
         columnsCount={columnsCount}
         columnsActive={showColumnsModal}
       />
@@ -256,9 +290,8 @@ export default function FinancialsPage() {
         externalShowColumnsModal={showColumnsModal}
         externalSetShowColumnsModal={setShowColumnsModal}
         onColumnsCountChange={setColumnsCount}
-        onRegisterExportCSV={(fn) => {
-          exportCSVRef.current = fn;
-        }}
+        onRegisterExportCSV={registerExportCsv}
+        onExportingChange={setExporting}
         selectedCompanyIds={selectedCompanyIds}
         onToggleCompanySelection={toggleCompanySelection}
         onTogglePageSelection={togglePageSelection}

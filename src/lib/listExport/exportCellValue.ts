@@ -26,7 +26,15 @@ const MONEY_MILLIONS_COLUMN_KEYS = new Set([
   "subscription_revenue_m",
   "investment_amount",
 ]);
-const MULTIPLE_COLUMN_KEYS = new Set(["revenue_multiple", "ev_revenue_x", "ev_ebitda_x"]);
+const MULTIPLE_COLUMN_KEYS = new Set([
+  "revenue_multiple",
+  "ev_revenue_x",
+  "ev_ebitda_x",
+  "ev_revenue",
+  "ev_ebit",
+  "ev_ebitda",
+  "rev_multiple",
+]);
 const COUNT_COLUMN_KEYS = new Set([
   "id",
   "linkedin_members",
@@ -68,6 +76,7 @@ function isMoneyMillionsColumn(column: ExportColumnDef): boolean {
 }
 
 function isMultipleColumn(column: ExportColumnDef): boolean {
+  if (column.type === "multiple") return true;
   return MULTIPLE_COLUMN_KEYS.has(column.key);
 }
 
@@ -77,7 +86,12 @@ function isCountColumn(column: ExportColumnDef): boolean {
 }
 
 export function isNumericExportColumn(column: ExportColumnDef): boolean {
-  if (column.type === "number" || column.type === "percent" || column.type === "currency") {
+  if (
+    column.type === "number" ||
+    column.type === "percent" ||
+    column.type === "currency" ||
+    column.type === "multiple"
+  ) {
     return true;
   }
   return (
