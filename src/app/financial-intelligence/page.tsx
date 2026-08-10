@@ -57,7 +57,7 @@ import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSect
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
 import { FiFxProvider, useFiFxRates } from "./components/FiFxContext";
-import { CURRENCY_OPTIONS } from "@/lib/fxRates";
+import { CURRENCY_OPTIONS, getFXRates } from "@/lib/fxRates";
 import type { FinRow } from "@/app/financials-tsx/types";
 
 function finRowValueForSort(row: FinRow, key: string): string | number | null {
@@ -146,7 +146,7 @@ function FiPeerFinancialsTable({
 }
 
 export default function FinancialIntelligencePage() {
-  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
+  const { currencyId: preferredCurrencyId, currency } = usePlatformCurrency();
   const [target, setTarget] = useState<FiCompanyRow | null>(null);
   const [peers, setPeers] = useState<FiCompanyRow[]>([]);
   const [totalPeers, setTotalPeers] = useState(0);
@@ -551,6 +551,7 @@ export default function FinancialIntelligencePage() {
 
     setExporting(true);
     try {
+      const fxRates = await getFXRates();
       const targetRow = mapCompanyToFinRow(target, primarySectors, secondarySectors);
       const aggregateRow = buildPeerAggregateFinRow(
         peers,
@@ -583,6 +584,8 @@ export default function FinancialIntelligencePage() {
           peerRows: sortedPeerRows,
           visibleColumnKeys: peerColumnIds,
           peerAggregateMode,
+          displayCurrency: currency,
+          fxRates,
         }
       );
     } finally {
@@ -598,6 +601,7 @@ export default function FinancialIntelligencePage() {
     sortId,
     sortDir,
     peerColumnIds,
+    currency,
   ]);
 
   const sectorMedian = useMemo(
