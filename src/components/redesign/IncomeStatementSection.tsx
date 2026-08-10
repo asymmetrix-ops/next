@@ -11,6 +11,7 @@ import {
 } from "./primitives";
 import type { NormalizedIncomeStatementRow } from "@/lib/incomeStatement";
 import {
+  formatIncomeStatementPeriodLabel,
   resolveIncomeStatementCurrency,
   sortIncomeStatementRowsAsc,
 } from "@/lib/incomeStatement";
@@ -57,10 +58,7 @@ function incomeMetrics(resolvedCurrency: string) {
 }
 
 function formatPeriod(row: IncomeStatementRow): string {
-  const display = (row.period_display_end_date || "").replace(/[,\s]/g, "");
-  if (display) return display;
-  if (row.period_year != null) return `FY${row.period_year}`;
-  return "-";
+  return formatIncomeStatementPeriodLabel(row);
 }
 
 const thStyle: React.CSSProperties = {

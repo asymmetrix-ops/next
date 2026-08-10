@@ -292,6 +292,35 @@ export function selectIncomeStatementYearColumns(
   return sortIncomeStatementRowsAsc(selected.map(([, row]) => row));
 }
 
+const PERIOD_TYPE_LABELS: Record<string, string> = {
+  fiscal_year: "FY",
+  fy: "FY",
+  full_year: "FY",
+  h1: "H1",
+  h2: "H2",
+  q1: "Q1",
+  q2: "Q2",
+  q3: "Q3",
+  q4: "Q4",
+};
+
+/** Human-readable period label that reflects period_type (FY/H1/H2/Q1-4), not just the year. */
+export function formatIncomeStatementPeriodLabel(
+  row: NormalizedIncomeStatementRow
+): string {
+  const rawDisplay = (row.period_display_end_date || "")
+    .replace(/,/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (rawDisplay) return rawDisplay;
+
+  const periodType = (row.period_type || "").trim().toLowerCase();
+  const label = PERIOD_TYPE_LABELS[periodType];
+  if (label && row.period_year != null) return `${label} ${row.period_year}`;
+  if (row.period_year != null) return `FY ${row.period_year}`;
+  return "-";
+}
+
 export function resolveIncomeStatementCurrency(
   rows: NormalizedIncomeStatementRow[],
   fallback?: string

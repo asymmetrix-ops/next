@@ -3,6 +3,7 @@ import { formatPercentValue } from "@/lib/companyTableData";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import {
+  formatIncomeStatementPeriodLabel,
   resolveIncomeStatementCurrency,
   sortIncomeStatementRowsAsc,
   type NormalizedIncomeStatementRow,
@@ -27,13 +28,6 @@ export type IncomeStatementFinancialsViewModel = {
   /** Income statement rows are sourced from public filings. */
   sourceType: FiMetricSourceType;
 };
-
-function formatPeriodHeader(row: NormalizedIncomeStatementRow): string {
-  const raw = (row.period_display_end_date || "").trim();
-  if (raw) return raw.replace(/,/g, "").replace(/\s+/g, " ").trim();
-  if (row.period_year != null) return `FY ${row.period_year}`;
-  return "-";
-}
 
 function computeMarginPct(
   numerator: number | null | undefined,
@@ -232,7 +226,7 @@ export function buildIncomeStatementFinancialsViewModel(
     title: "Income Statement",
     currency,
     years: columns.map((row) => row.period_year ?? null),
-    columnLabels: columns.map(formatPeriodHeader),
+    columnLabels: columns.map(formatIncomeStatementPeriodLabel),
     columnKeys: columns.map(
       (row) =>
         `${row.period_type ?? "period"}:${row.period_end_date ?? row.id}`
