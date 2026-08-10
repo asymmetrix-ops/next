@@ -6,9 +6,9 @@ const FI_PEER_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
     name: "Financial Metrics",
     description: "Core financial and valuation metrics for peer comparison.",
     columns: [
-      { id: "revenue", columnKey: "revenue", label: "Revenue", type: "currency", defaultVisible: true },
-      { id: "ebitda", columnKey: "ebitda", label: "EBITDA", type: "currency", defaultVisible: true },
-      { id: "ev", columnKey: "ev", label: "EV", type: "currency", defaultVisible: true },
+      { id: "revenue", columnKey: "revenue", label: "Revenue (m)", type: "currency", defaultVisible: true },
+      { id: "ebitda", columnKey: "ebitda", label: "EBITDA (m)", type: "currency", defaultVisible: true },
+      { id: "ev", columnKey: "ev", label: "EV (m)", type: "currency", defaultVisible: true },
       { id: "rev_multiple", columnKey: "rev_multiple", label: "Revenue multiple", type: "number", defaultVisible: true },
       { id: "rev_growth", columnKey: "rev_growth", label: "Revenue growth", type: "percent", defaultVisible: true },
       { id: "ebitda_margin", columnKey: "ebitda_margin", label: "EBITDA margin", type: "percent", defaultVisible: false },

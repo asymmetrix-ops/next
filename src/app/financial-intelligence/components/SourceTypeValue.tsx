@@ -9,8 +9,10 @@ import { formatMetricPercent } from "@/lib/financialIntelligence/calculations";
 import type { FiMetricFormat } from "@/lib/financialIntelligence/types";
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
+import { convertFiMetricForDisplay } from "@/lib/financialIntelligence/fxDisplay";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
-import type { Currency } from "@/lib/fxRates";
+import type { Currency, FXRates } from "@/lib/fxRates";
+import { useFiFxRates } from "./FiFxContext";
 
 export function SourceTypeDot({
   type,
@@ -40,38 +42,42 @@ export function SourceTypeDot({
 export function fmtFiMetric(
   value: number | null,
   format: FiMetricFormat,
-  currencyCode: Currency = "USD"
+  currencyCode: Currency = "USD",
+  fxRates: FXRates | null = null
 ): string {
-  if (value == null || !Number.isFinite(value)) return "—";
+  const displayValue = convertFiMetricForDisplay(value, format, currencyCode, fxRates);
+  if (displayValue == null || !Number.isFinite(displayValue)) return "—";
   if (format === "currency") {
-    const n = Math.abs(value);
+    const n = Math.abs(displayValue);
     if (n >= 1000) {
-      return appendMetricCurrency(`${Math.round(value / 1000)}b`, currencyCode);
+      return appendMetricCurrency(`${Math.round(displayValue / 1000)}b`, currencyCode);
     }
-    return appendMetricCurrency(formatMetricMillionsPlain(value), currencyCode);
+    const plain = formatMetricMillionsPlain(displayValue);
+    if (plain === "—") return plain;
+    return appendMetricCurrency(`${plain}m`, currencyCode);
   }
   if (format === "currency_k") {
-    if (Math.abs(value) >= 1_000_000) {
+    if (Math.abs(displayValue) >= 1_000_000) {
       return appendMetricCurrency(
-        formatMetricMillionsPlain(value / 1_000_000),
+        formatMetricMillionsPlain(displayValue / 1_000_000),
         currencyCode
       );
     }
-    if (Math.abs(value) >= 1000) {
+    if (Math.abs(displayValue) >= 1000) {
       return appendMetricCurrency(
-        `${Math.round(value / 1000)}k`,
+        `${Math.round(displayValue / 1000)}k`,
         currencyCode
       );
     }
-    return appendMetricCurrency(formatMetricMillionsPlain(value), currencyCode);
+    return appendMetricCurrency(formatMetricMillionsPlain(displayValue), currencyCode);
   }
   if (format === "count") {
-    return Math.round(value).toLocaleString("en-US");
+    return Math.round(displayValue).toLocaleString("en-US");
   }
   if (format === "percent") {
-    return formatMetricPercent(value);
+    return formatMetricPercent(displayValue);
   }
-  return `${Math.round(value)}x`;
+  return `${Math.round(displayValue)}x`;
 }
 
 export function SourceColoredValue({
@@ -90,6 +96,7 @@ export function SourceColoredValue({
   justify?: "flex-start" | "flex-end" | "center";
 }) {
   const { currency } = usePlatformCurrency();
+  const fxRates = useFiFxRates();
   const color = sourceType ? sourceTypeColor(sourceType) : "var(--fg-2)";
 
   return (
@@ -105,7 +112,7 @@ export function SourceColoredValue({
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      {fmtFiMetric(value, format, currency)}
+      {fmtFiMetric(value, format, currency, fxRates)}
     </span>
   );
 }

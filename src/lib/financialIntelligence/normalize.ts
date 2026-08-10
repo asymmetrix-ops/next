@@ -1,5 +1,5 @@
-import type { FiCompanyRow, FiPeersResponse } from "./types";
-import { parseSourceType } from "./sourceTypes";
+import type { FiCompanyRow, FiMetricSourceType, FiPeersResponse } from "./types";
+import { resolveFinancialMetricSourceType } from "./sourceTypes";
 import { readEntityLogo, resolveCompanyLogoSrc } from "@/lib/companyLogo";
 
 export function safeFiniteNumber(value: unknown): number | null {
@@ -59,6 +59,18 @@ function firstDefined<T>(...values: T[]): T | undefined {
     if (value !== undefined && value !== null && value !== "") return value;
   }
   return undefined;
+}
+
+function resolveRowSourceType(
+  raw: Record<string, unknown>,
+  ...keys: string[]
+): FiMetricSourceType | null {
+  if (keys.length === 0) return null;
+  const labelKeys = keys.slice(0, -1);
+  const codeKey = keys[keys.length - 1];
+  const label = firstDefined(...labelKeys.map((key) => raw[key]));
+  const code = raw[codeKey];
+  return resolveFinancialMetricSourceType(label, code);
 }
 
 /** Map `company_financial_metrics` (PascalCase) into FI snake_case before normalize. */
@@ -264,59 +276,117 @@ export function normalizeCompanyRow(
     revenue_multiple: safeFiniteNumber(raw.revenue_multiple ?? raw.Revenue_multiple),
     ev_revenue_x: safeFiniteNumber(raw.ev_revenue_x),
     ev_ebitda_x: safeFiniteNumber(raw.ev_ebitda_x),
-    revenue_source_type: parseSourceType(
-      raw.revenue_source_type ?? raw.Revenue_source_label
+    revenue_source_type: resolveRowSourceType(
+      raw,
+      "revenue_source_type",
+      "Revenue_source_label",
+      "Rev_source"
     ),
-    rev_growth_source_type: parseSourceType(
-      raw.rev_growth_source_type ?? raw.Rev_growth_source_label
+    rev_growth_source_type: resolveRowSourceType(
+      raw,
+      "rev_growth_source_type",
+      "Rev_growth_source_label",
+      "Rev_Growth_source"
     ),
-    new_client_growth_source_type: parseSourceType(
-      raw.new_client_growth_source_type ?? raw.New_client_growth_source_label
+    new_client_growth_source_type: resolveRowSourceType(
+      raw,
+      "new_client_growth_source_type",
+      "New_client_growth_source_label",
+      "New_Client_Growth_Source"
     ),
-    ebitda_source_type: parseSourceType(raw.ebitda_source_type ?? raw.EBITDA_source_label),
-    ebit_source_type: parseSourceType(raw.ebit_source_type ?? raw.EBIT_source_label),
-    ev_source_type: parseSourceType(raw.ev_source_type ?? raw.EV_source_label),
-    no_of_clients_source_type: parseSourceType(
-      raw.no_of_clients_source_type ?? raw.No_of_Clients_source_label
+    ebitda_source_type: resolveRowSourceType(
+      raw,
+      "ebitda_source_type",
+      "EBITDA_source_label",
+      "EBITDA_source"
     ),
-    revenue_per_client_source_type: parseSourceType(
-      raw.revenue_per_client_source_type ?? raw.Rev_per_client_source_type
+    ebit_source_type: resolveRowSourceType(
+      raw,
+      "ebit_source_type",
+      "EBIT_source_label",
+      "EBIT_source"
     ),
-    no_employees_source_type: parseSourceType(
-      raw.no_employees_source_type ?? raw.No_Employees_source_type
+    ev_source_type: resolveRowSourceType(raw, "ev_source_type", "EV_source_label", "EV_source"),
+    no_of_clients_source_type: resolveRowSourceType(
+      raw,
+      "no_of_clients_source_type",
+      "No_of_Clients_source_label",
+      "No_Clients_source"
     ),
-    revenue_per_employee_source_type: parseSourceType(
-      raw.revenue_per_employee_source_type ?? raw.Revenue_per_employee_source_label
+    revenue_per_client_source_type: resolveRowSourceType(
+      raw,
+      "revenue_per_client_source_type",
+      "Rev_per_client_source_label",
+      "Rev_per_client_source"
     ),
-    rule_of_40_source_type: parseSourceType(
-      raw.rule_of_40_source_type ?? raw.Rule_of_40_source_label
+    no_employees_source_type: resolveRowSourceType(
+      raw,
+      "no_employees_source_type",
+      "No_Employees_source_label",
+      "No_Employees_source"
     ),
-    subscription_revenue_pc_source_type: parseSourceType(
-      raw.subscription_revenue_pc_source_type ??
-        raw.Subscription_revenue_source_label ??
-        raw.Subscription_revenue_source_type
+    revenue_per_employee_source_type: resolveRowSourceType(
+      raw,
+      "revenue_per_employee_source_type",
+      "Revenue_per_employee_source_label",
+      "Rev_per_employee_source"
     ),
-    subscription_revenue_m_source_type: parseSourceType(
-      raw.subscription_revenue_m_source_type ??
-        raw.Subscription_revenue_source_label ??
-        raw.Subscription_revenue_source_type ??
-        raw.arr_source_type
+    rule_of_40_source_type: resolveRowSourceType(
+      raw,
+      "rule_of_40_source_type",
+      "Rule_of_40_source_label",
+      "Rule_of_40_source"
     ),
-    nrr_source_type: parseSourceType(raw.nrr_source_type ?? raw.NRR_source_label),
-    churn_source_type: parseSourceType(raw.churn_source_type ?? raw.Churn_source_label),
-    grr_source_type: parseSourceType(raw.grr_source_type ?? raw.GRR_source_label),
-    upsell_source_type: parseSourceType(raw.upsell_source_type ?? raw.Upsell_source_label),
-    cross_sell_source_type: parseSourceType(
-      raw.cross_sell_source_type ?? raw.Cross_sell_source_label
+    subscription_revenue_pc_source_type: resolveRowSourceType(
+      raw,
+      "subscription_revenue_pc_source_type",
+      "Subscription_revenue_source_label",
+      "Subscription_revenue_source"
     ),
-    price_increase_source_type: parseSourceType(
-      raw.price_increase_source_type ?? raw.Price_increase_source_label
+    subscription_revenue_m_source_type:
+      resolveRowSourceType(
+        raw,
+        "subscription_revenue_m_source_type",
+        "Subscription_revenue_source_label",
+        "Subscription_revenue_source"
+      ) ?? resolveFinancialMetricSourceType(raw.arr_source_type),
+    nrr_source_type: resolveRowSourceType(raw, "nrr_source_type", "NRR_source_label", "NRR_source"),
+    churn_source_type: resolveRowSourceType(
+      raw,
+      "churn_source_type",
+      "Churn_source_label",
+      "Churn_Source"
     ),
-    rev_expansion_source_type: parseSourceType(
-      raw.rev_expansion_source_type ?? raw.Rev_expansion_source_label
+    grr_source_type: resolveRowSourceType(raw, "grr_source_type", "GRR_source_label", "GRR_source"),
+    upsell_source_type: resolveRowSourceType(
+      raw,
+      "upsell_source_type",
+      "Upsell_source_label",
+      "Upsell_source"
     ),
-    revenue_multiple_source_type: parseSourceType(
-      raw.revenue_multiple_source_type ?? raw.Revenue_multiple_source_label
+    cross_sell_source_type: resolveRowSourceType(
+      raw,
+      "cross_sell_source_type",
+      "Cross_sell_source_label",
+      "Cross_sell_source"
+    ),
+    price_increase_source_type: resolveRowSourceType(
+      raw,
+      "price_increase_source_type",
+      "Price_increase_source_label",
+      "Price_increase_source"
+    ),
+    rev_expansion_source_type: resolveRowSourceType(
+      raw,
+      "rev_expansion_source_type",
+      "Rev_expansion_source_label",
+      "Rev_expansion_source"
+    ),
+    revenue_multiple_source_type: resolveRowSourceType(
+      raw,
+      "revenue_multiple_source_type",
+      "Revenue_multiple_source_label",
+      "Rev_x_source"
     ),
     url:
       typeof raw.url === "string" && raw.url.trim()

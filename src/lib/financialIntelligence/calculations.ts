@@ -9,9 +9,9 @@ import type {
 import { isMetricSourceAllowed } from "./sourceTypes";
 
 export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
-  { key: "revenue_m_usd", label: "Revenue", higherIsBetter: true, format: "currency" },
-  { key: "ev_usd", label: "EV", higherIsBetter: true, format: "currency" },
-  { key: "ebitda_m_usd", label: "EBITDA", higherIsBetter: true, format: "currency" },
+  { key: "revenue_m_usd", label: "Revenue (m)", higherIsBetter: true, format: "currency" },
+  { key: "ev_usd", label: "EV (m)", higherIsBetter: true, format: "currency" },
+  { key: "ebitda_m_usd", label: "EBITDA (m)", higherIsBetter: true, format: "currency" },
   { key: "ebit_m_usd", label: "EBIT (m)", higherIsBetter: true, format: "currency" },
   { key: "ebitda_margin", label: "EBITDA margin", higherIsBetter: true, format: "percent" },
   { key: "rev_growth_pc", label: "Revenue growth", higherIsBetter: true, format: "percent" },
