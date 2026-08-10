@@ -42,6 +42,7 @@ import {
 } from "@/components/redesign/FinMetricsIncomeCard";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
 import {
+  dedupeIncomeStatementPeriods,
   hasIncomeStatementValues,
   normalizeIncomeStatementHistoryRows,
   normalizeIncomeStatementRows,
@@ -1519,10 +1520,11 @@ const CompanyDetail = () => {
   const fetchFinancialMetricsCard = useCallback(async (id: string | number) => {
     setFinancialMetricsCardLoading(true);
     try {
-      const data = await fetchCompanyFinancialMetricsCard(id, preferredCurrencyId);
-      if (data.length > 0) {
+      const { metricsRows, incomeStatementRows } =
+        await fetchCompanyFinancialMetricsCard(id, preferredCurrencyId);
+      if (metricsRows.length > 0) {
         setFinancialMetricsCardRows((prev) => {
-          const merged = mergeFinancialMetricsCardRows(prev, data);
+          const merged = mergeFinancialMetricsCardRows(prev, metricsRows);
           setFinancialMetrics(
             (resolveLatestFinancialMetricsRow(merged) as
               | CompanyFinancialMetrics
@@ -1530,6 +1532,15 @@ const CompanyDetail = () => {
           );
           return merged;
         });
+      }
+      if (incomeStatementRows.length > 0) {
+        const normalized = normalizeIncomeStatementHistoryRows(incomeStatementRows);
+        setIncomeStatementApiRows((prev) =>
+          dedupeIncomeStatementPeriods([...prev, ...normalized])
+        );
+        setIncomeStatementHistoryRows((prev) =>
+          dedupeIncomeStatementPeriods([...prev, ...normalized])
+        );
       }
     } catch {
       // Non-fatal; keep defaults

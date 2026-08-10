@@ -311,12 +311,20 @@ type FinancialMetricsIncomeRow = {
   financial_year_text?: string | null;
   Revenue_m?: number | string | null;
   Revenue_currency_display?: string | null;
+  Revenue_source_label?: string | null;
   EBITDA_m?: number | string | null;
   EBITDA_currency_display?: string | null;
+  EBITDA_source_label?: string | null;
   EBIT_m?: number | string | null;
   EBIT_currency_display?: string | null;
+  EBIT_source_label?: string | null;
   Income_statement_currency?: string | null;
 };
+
+function isEstimateSourceLabel(label: unknown): boolean {
+  if (typeof label !== "string") return false;
+  return label.trim().toLowerCase() === "estimate";
+}
 
 /** Resolves income-statement currency from a financial-metrics card row. */
 export function resolveFinancialMetricsIncomeCurrency(
@@ -348,7 +356,11 @@ function millionsToRaw(value: number | string | null | undefined): number | null
   return millions * 1_000_000;
 }
 
-/** Builds income-statement-shaped rows from multi-year financial metrics card data. */
+/**
+ * Builds income-statement-shaped rows from multi-year financial metrics card data.
+ * Excludes rows whose values are all forward-looking "Estimate" figures — the income
+ * statement should only reflect actual/reported periods, not projections.
+ */
 export function buildIncomeStatementFromFinancialMetrics(
   rows: FinancialMetricsIncomeRow[]
 ): NormalizedIncomeStatementRow[] {
@@ -362,6 +374,12 @@ export function buildIncomeStatementFromFinancialMetrics(
     const ebit = millionsToRaw(row.EBIT_m);
     const ebitda = millionsToRaw(row.EBITDA_m);
     if (revenue == null && ebit == null && ebitda == null) return [];
+
+    const allEstimate =
+      (revenue == null || isEstimateSourceLabel(row.Revenue_source_label)) &&
+      (ebit == null || isEstimateSourceLabel(row.EBIT_source_label)) &&
+      (ebitda == null || isEstimateSourceLabel(row.EBITDA_source_label));
+    if (allEstimate) return [];
 
     return [
       {
