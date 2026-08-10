@@ -3,23 +3,37 @@
 import React from "react";
 import type { PortfolioHeadstatTile } from "@/app/investors/[id]/portfolioActions";
 import { T } from "@/components/redesign/primitives";
+import { formatPlatformMetricMillions } from "@/lib/formatPlatformCurrency";
+import type { Currency } from "@/lib/fxRates";
+import { DEFAULT_PLATFORM_CURRENCY } from "@/lib/platformCurrency";
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  GBP: "£",
+  EUR: "€",
+};
 
 interface PortfolioHeadstatsRowProps {
   medianRevenue?: PortfolioHeadstatTile | null;
   medianEbitda?: PortfolioHeadstatTile | null;
   medianFte?: PortfolioHeadstatTile | null;
   loading?: boolean;
+  currencyCode?: Currency;
 }
 
-function formatTileValue(tile: PortfolioHeadstatTile | null | undefined): string {
+function millionsMetricLabel(base: string, currencyCode: Currency): string {
+  const sym = CURRENCY_SYMBOLS[currencyCode] ?? currencyCode;
+  return `${base} (${sym}m)`;
+}
+
+function formatTileValue(
+  tile: PortfolioHeadstatTile | null | undefined,
+  currencyCode: Currency
+): string {
   if (!tile || tile.n_companies === 0) return "—";
   const display = tile.display;
   if (display === "—" || display == null) return "—";
-  if (typeof display === "number") {
-    if (Number.isInteger(display)) return display.toLocaleString();
-    return display.toLocaleString(undefined, { maximumFractionDigits: 1 });
-  }
-  return String(display);
+  return formatPlatformMetricMillions(display, currencyCode);
 }
 
 function tileFootnote(tile: PortfolioHeadstatTile | null | undefined): string | null {
@@ -30,16 +44,34 @@ function tileFootnote(tile: PortfolioHeadstatTile | null | undefined): string | 
   return null;
 }
 
+function formatCountTileValue(
+  tile: PortfolioHeadstatTile | null | undefined
+): string {
+  if (!tile || tile.n_companies === 0) return "—";
+  const display = tile.display;
+  if (display === "—" || display == null) return "—";
+  if (typeof display === "number") {
+    if (Number.isInteger(display)) return display.toLocaleString();
+    return display.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  }
+  return String(display);
+}
+
 function StatTile({
   label,
   tile,
   loading,
+  currencyCode,
 }: {
   label: string;
   tile: PortfolioHeadstatTile | null | undefined;
   loading?: boolean;
+  currencyCode?: Currency;
 }) {
   const footnote = tileFootnote(tile);
+  const value = currencyCode
+    ? formatTileValue(tile, currencyCode)
+    : formatCountTileValue(tile);
 
   return (
     <div
@@ -77,7 +109,7 @@ function StatTile({
           lineHeight: 1.2,
         }}
       >
-        {loading ? "…" : formatTileValue(tile)}
+        {loading ? "…" : value}
       </span>
       {footnote && !loading && (
         <span
@@ -99,6 +131,7 @@ export function PortfolioHeadstatsRow({
   medianEbitda,
   medianFte,
   loading = false,
+  currencyCode = DEFAULT_PLATFORM_CURRENCY,
 }: PortfolioHeadstatsRowProps) {
   return (
     <div
@@ -109,8 +142,18 @@ export function PortfolioHeadstatsRow({
         marginBottom: 16,
       }}
     >
-      <StatTile label="Median Revenue (m)" tile={medianRevenue} loading={loading} />
-      <StatTile label="Median EBITDA (m)" tile={medianEbitda} loading={loading} />
+      <StatTile
+        label={millionsMetricLabel("Median Revenue", currencyCode)}
+        tile={medianRevenue}
+        loading={loading}
+        currencyCode={currencyCode}
+      />
+      <StatTile
+        label={millionsMetricLabel("Median EBITDA", currencyCode)}
+        tile={medianEbitda}
+        loading={loading}
+        currencyCode={currencyCode}
+      />
       <StatTile label="Median FTE" tile={medianFte} loading={loading} />
     </div>
   );
