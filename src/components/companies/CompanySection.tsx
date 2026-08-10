@@ -41,6 +41,9 @@ import { FILTER_PINNED_TOOLTIP } from "@/components/companies/companiesColumnFil
 import {
   compareSortValues,
   getColumnSortKind,
+  getCompanyServerSortColumn,
+  getCompanyServerSortDefaultDirection,
+  getCompanyUiColumnForServerSortColumn,
   getSortValueForColumn,
 } from "@/components/companies/companiesTableSort";
 import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
@@ -962,6 +965,7 @@ export const CompanySection = ({
   fetchCompanies,
   setRequestColumns,
   currentFilters,
+  exportFilters,
   filterPinnedColumnKeys = [],
   onEditCompany,
   externalShowColumnsModal,
@@ -1003,6 +1007,8 @@ export const CompanySection = ({
   fetchCompanies: (page?: number, filters?: Filters, countsFilters?: Filters) => Promise<void>;
   setRequestColumns: (columns: string[]) => void;
   currentFilters: Filters | undefined;
+  /** Portfolio export needs enriched filters (portfolio_mode, scoped filters_sql). */
+  exportFilters?: Filters | undefined;
   filterPinnedColumnKeys?: string[];
   onEditCompany?: (id: number) => void;
   externalShowColumnsModal?: boolean;
@@ -1345,14 +1351,35 @@ export const CompanySection = ({
 
 
   const handleSortColumn = useCallback((columnKey: string) => {
+    if (portfolioMode) {
+      const apiColumn = getCompanyServerSortColumn(columnKey);
+      if (!apiColumn) return;
+
+      const nextDirection: "asc" | "desc" =
+        sortState?.key === columnKey
+          ? sortState.dir === "asc"
+            ? "desc"
+            : "asc"
+          : getCompanyServerSortDefaultDirection(columnKey);
+
+      setSortState({ key: columnKey, dir: nextDirection });
+      void fetchCompanies(1, {
+        ...(currentFilters ?? createDefaultFilters()),
+        sort_column: apiColumn,
+        sort_direction: nextDirection,
+      });
+      return;
+    }
+
     if (!getColumnSortKind(columnKey)) return;
     setSortState((current) => {
       if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
       return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
     });
-  }, []);
+  }, [portfolioMode, sortState, currentFilters, fetchCompanies]);
 
   const sortedCompanies = useMemo(() => {
+    if (portfolioMode) return companies;
     if (!sortState || !getColumnSortKind(sortState.key)) {
       return companies;
     }
@@ -1366,7 +1393,26 @@ export const CompanySection = ({
         dir
       );
     });
-  }, [companies, sortState]);
+  }, [companies, portfolioMode, sortState]);
+
+  useEffect(() => {
+    if (!portfolioMode) return;
+    const apiColumn = currentFilters?.sort_column;
+    if (!apiColumn) {
+      setSortState(null);
+      return;
+    }
+    const uiKey = getCompanyUiColumnForServerSortColumn(apiColumn) ?? apiColumn;
+    const dir = currentFilters?.sort_direction ?? "desc";
+    setSortState((current) => {
+      if (current?.key === uiKey && current.dir === dir) return current;
+      return { key: uiKey, dir };
+    });
+  }, [
+    portfolioMode,
+    currentFilters?.sort_column,
+    currentFilters?.sort_direction,
+  ]);
 
   const SELECT_COLUMN_WIDTH = 44;
 
@@ -1465,7 +1511,7 @@ export const CompanySection = ({
             scope,
             selectedIds: selectedIdsForExport,
           },
-          currentFilters ?? createDefaultFilters(),
+          exportFilters ?? currentFilters ?? createDefaultFilters(),
           selectedColumnKeys,
           scope === "full_list" ? exportTotalCount : undefined,
           uncappedExport
@@ -1479,6 +1525,7 @@ export const CompanySection = ({
     },
     [
       currentFilters,
+      exportFilters,
       readOnlyGuestMode,
       selectedColumnKeys,
       selectedCompanyIds,
@@ -2103,7 +2150,11 @@ export const CompanySection = ({
                 : null
             ),
             ...selectedColumns.map((column) => {
-              const sortKind = getColumnSortKind(column.key);
+              const sortKind = portfolioMode
+                ? getCompanyServerSortColumn(column.key)
+                  ? getColumnSortKind(column.key)
+                  : null
+                : getColumnSortKind(column.key);
               const isActive = sortState?.key === column.key;
               const isDraggable =
                 !readOnlyGuestMode && !isFrozenColumnKey(column.key);

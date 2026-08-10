@@ -65,6 +65,9 @@ function useInvestorPortfolioSearch(
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
     undefined
   );
+  const [enrichedFilters, setEnrichedFilters] = useState<Filters | undefined>(
+    undefined
+  );
   const [pagination, setPagination] = useState({
     itemsReceived: 0,
     curPage: 1,
@@ -174,12 +177,13 @@ function useInvestorPortfolioSearch(
 
       currentUserFiltersRef.current = rawUserFilters;
       currentCountsFiltersRef.current = rawCountsUserFilters;
+      setCurrentFilters(rawUserFilters);
 
       const listFilters = enrichFilters(rawUserFilters);
       const countsListFilters = enrichFilters(rawCountsUserFilters);
 
       currentFiltersRef.current = listFilters;
-      setCurrentFilters(listFilters);
+      setEnrichedFilters(listFilters);
 
       try {
         if (page === 1) {
@@ -248,6 +252,7 @@ function useInvestorPortfolioSearch(
     fetchCompanies,
     setRequestColumns,
     currentFilters,
+    enrichedFilters,
   };
 }
 
@@ -302,6 +307,7 @@ export function InvestorPortfolioTab({
     fetchCompanies,
     setRequestColumns,
     currentFilters,
+    enrichedFilters,
   } = useInvestorPortfolioSearch(
     portfolioIds,
     investmentStatusFilter,
@@ -443,6 +449,7 @@ export function InvestorPortfolioTab({
           fetchCompanies={fetchCompanies}
           setRequestColumns={setRequestColumns}
           currentFilters={currentFilters}
+          exportFilters={enrichedFilters}
           filterPinnedColumnKeys={filterPinnedColumnKeys}
           externalShowColumnsModal={showColumnsModal}
           externalSetShowColumnsModal={setShowColumnsModal}

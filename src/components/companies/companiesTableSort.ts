@@ -65,6 +65,30 @@ export function getColumnSortKind(columnKey: string): ColumnSortKind | null {
   return COLUMN_SORT_KIND[columnKey] ?? null;
 }
 
+/** UI column keys that support server-side sorting via Get_new_companies. */
+export const COMPANY_SERVER_SORT_COLUMNS = new Set<string>(
+  Object.entries(COLUMN_SORT_KIND)
+    .filter(([key, kind]) => kind !== null && key !== "investment_status")
+    .map(([key]) => key)
+);
+
+export function getCompanyServerSortColumn(columnKey: string): string | null {
+  return COMPANY_SERVER_SORT_COLUMNS.has(columnKey) ? columnKey : null;
+}
+
+export function getCompanyUiColumnForServerSortColumn(
+  apiColumn: string
+): string | null {
+  return COMPANY_SERVER_SORT_COLUMNS.has(apiColumn) ? apiColumn : null;
+}
+
+export function getCompanyServerSortDefaultDirection(
+  columnKey: string
+): "asc" | "desc" {
+  const kind = getColumnSortKind(columnKey);
+  return kind === "text" ? "asc" : "desc";
+}
+
 const isEmptySortValue = (value: unknown): boolean => {
   if (value == null) return true;
   if (typeof value === "string") return isEmptyDisplayValue(value);
