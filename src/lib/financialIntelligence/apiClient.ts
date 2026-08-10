@@ -9,7 +9,7 @@ import {
   readPlatformCurrencyIdClient,
   resolvePreferredCurrencyId,
 } from "@/lib/platformCurrency";
-import { peersRequestToSearchParams } from "./filterPayload";
+import { peersRequestToSearchParams, appendExcludedSourceLabels } from "./filterPayload";
 import {
   companyFinancialMetricsToRawFi,
   extractTargetRow,
@@ -130,7 +130,8 @@ async function enrichTargetFromCompanyProfile(
 
 export async function fetchFiTarget(
   companyId: number,
-  preferredCurrencyId?: number
+  preferredCurrencyId?: number,
+  excludedSourceLabels: string[] = []
 ): Promise<FiFetchResult<FiCompanyRow>> {
   try {
     const headers = getAuthHeaders();
@@ -143,6 +144,7 @@ export async function fetchFiTarget(
     );
     const params = new URLSearchParams();
     appendPreferredCurrencyIdToSearchParams(params, currencyId);
+    appendExcludedSourceLabels(params, excludedSourceLabels);
 
     const response = await fetch(
       `${FI_API_BASE}/financial-intelligence/target/${companyId}?${params.toString()}`,

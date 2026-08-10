@@ -8,10 +8,8 @@ import {
   type FiCompanySearchHit,
 } from "@/lib/financialIntelligence/apiClient";
 import {
-  FI_SOURCE_TYPES_UI_ORDER,
-  SOURCE_TYPE_DESCRIPTIONS,
+  sourceLabelDescription,
   sourceTypeColor,
-  type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
 import {
   ListViewEnumEditor,
@@ -380,8 +378,9 @@ export interface FiControlBarProps {
   isDefaultMode: boolean;
   onResetToDefault: () => void;
   onApplySuggestedFilters?: () => void;
-  allowedSources: FiMetricSourceType[];
-  onToggleSourceType: (type: FiMetricSourceType) => void;
+  sourceLabels: string[];
+  checkedSourceLabels: Set<string>;
+  onToggleSourceLabel: (label: string) => void;
   addQuery: string;
   onAddQueryChange: (query: string) => void;
   addResults: FiCompanySearchHit[];
@@ -411,8 +410,9 @@ export function FiControlBar({
   isDefaultMode,
   onResetToDefault,
   onApplySuggestedFilters,
-  allowedSources,
-  onToggleSourceType,
+  sourceLabels,
+  checkedSourceLabels,
+  onToggleSourceLabel,
   addQuery,
   onAddQueryChange,
   addResults,
@@ -974,69 +974,76 @@ export function FiControlBar({
                 gap: 10,
               }}
             >
-              {FI_SOURCE_TYPES_UI_ORDER.map((type) => {
-                const checked = allowedSources.includes(type);
-                const disabled = loading || (checked && allowedSources.length <= 1);
-                return (
-                  <label
-                    key={type}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 10,
-                      padding: "10px 14px",
-                      borderRadius: "var(--r-md)",
-                      border: checked
-                        ? `1px solid ${sourceTypeColor(type)}33`
-                        : "1px solid var(--border-1)",
-                      background: checked ? "white" : "var(--ax-gray-25)",
-                      cursor: disabled ? "default" : "pointer",
-                      opacity: disabled && !checked ? 0.55 : 1,
-                      minWidth: 200,
-                      flex: "1 1 200px",
-                      maxWidth: 280,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={disabled}
-                      onChange={() => onToggleSourceType(type)}
+              {sourceLabels.length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--fg-4)" }}>
+                  Source options load after the benchmark data arrives.
+                </div>
+              ) : (
+                sourceLabels.map((label) => {
+                  const checked = checkedSourceLabels.has(label);
+                  const disabled = loading || (checked && checkedSourceLabels.size <= 1);
+                  const color = sourceTypeColor(label);
+                  return (
+                    <label
+                      key={label}
                       style={{
-                        marginTop: 3,
-                        accentColor: sourceTypeColor(type),
-                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 10,
+                        padding: "10px 14px",
+                        borderRadius: "var(--r-md)",
+                        border: checked
+                          ? `1px solid ${color}33`
+                          : "1px solid var(--border-1)",
+                        background: checked ? "white" : "var(--ax-gray-25)",
+                        cursor: disabled ? "default" : "pointer",
+                        opacity: disabled && !checked ? 0.55 : 1,
+                        minWidth: 200,
+                        flex: "1 1 200px",
+                        maxWidth: 320,
                       }}
-                    />
-                    <span style={{ minWidth: 0 }}>
-                      <span
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={disabled}
+                        onChange={() => onToggleSourceLabel(label)}
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 7,
-                          fontSize: "var(--fs-13)",
-                          fontWeight: 600,
-                          color: "var(--fg-1)",
-                        }}
-                      >
-                        <SourceTypeDot type={type} size={8} />
-                        {type}
-                      </span>
-                      <span
-                        style={{
-                          display: "block",
                           marginTop: 3,
-                          fontSize: 11,
-                          lineHeight: 1.35,
-                          color: "var(--fg-3)",
+                          accentColor: color,
+                          flexShrink: 0,
                         }}
-                      >
-                        {SOURCE_TYPE_DESCRIPTIONS[type]}
+                      />
+                      <span style={{ minWidth: 0 }}>
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 7,
+                            fontSize: "var(--fs-13)",
+                            fontWeight: 600,
+                            color: "var(--fg-1)",
+                          }}
+                        >
+                          <SourceTypeDot type={label} size={8} />
+                          {label}
+                        </span>
+                        <span
+                          style={{
+                            display: "block",
+                            marginTop: 3,
+                            fontSize: 11,
+                            lineHeight: 1.35,
+                            color: "var(--fg-3)",
+                          }}
+                        >
+                          {sourceLabelDescription(label)}
+                        </span>
                       </span>
-                    </span>
-                  </label>
-                );
-              })}
+                    </label>
+                  );
+                })
+              )}
             </div>
           </div>
         )}

@@ -35,11 +35,13 @@
     format,
     sourceType,
     fontWeight,
+    hasActiveSourceFilter = false,
   }: {
     value: number | null;
     format: FiMetricFormat;
-    sourceType?: FiMetricSourceType | null;
+    sourceType?: FiMetricSourceType | string | null;
     fontWeight?: number;
+    hasActiveSourceFilter?: boolean;
   }) {
     return (
       <SourceColoredValue
@@ -47,6 +49,7 @@
         format={format}
         sourceType={sourceType}
         fontWeight={fontWeight ?? 600}
+        hiddenBySourceFilter={hasActiveSourceFilter && value == null}
       />
     );
   }
@@ -126,12 +129,14 @@
     peers,
     isLast,
     peerAggregateMode,
+    hasActiveSourceFilter = false,
   }: {
     row: FiBenchmarkMetricRow;
     target: FiCompanyRow;
     peers: FiCompanyRow[];
     isLast: boolean;
     peerAggregateMode: FiPeerAggregateMode;
+    hasActiveSourceFilter?: boolean;
   }) {
     const { currency } = usePlatformCurrency();
     const fxRates = useFiFxRates();
@@ -306,6 +311,7 @@
               sourceType={entry.sourceType}
               fontWeight={entry.isTarget ? 700 : 600}
               fontSize={12.5}
+              hiddenBySourceFilter={hasActiveSourceFilter && entry.value == null}
             />
           </span>
         </div>
@@ -466,9 +472,11 @@
   export function HeadlineMetricCards({
     metrics,
     peerAggregateMode = "median",
+    hasActiveSourceFilter = false,
   }: {
     metrics: FiHeadlineMetric[];
     peerAggregateMode?: FiPeerAggregateMode;
+    hasActiveSourceFilter?: boolean;
   }) {
     const { currency } = usePlatformCurrency();
     const fxRates = useFiFxRates();
@@ -530,6 +538,9 @@
                   fontWeight={700}
                   fontSize="var(--fs-28)"
                   justify="flex-start"
+                  hiddenBySourceFilter={
+                    hasActiveSourceFilter && metric.targetValue == null
+                  }
                 />
                 {medianText != null && (
                   <span
@@ -572,6 +583,7 @@
     target: FiCompanyRow;
     peers: FiCompanyRow[];
     peerAggregateMode?: FiPeerAggregateMode;
+    hasActiveSourceFilter?: boolean;
   }
 
   const SCORECARD_COLS = "180px 92px 92px 1fr 96px 92px";
@@ -582,6 +594,7 @@
     target,
     peers,
     peerAggregateMode = "median",
+    hasActiveSourceFilter = false,
   }: BenchmarkTableProps) {
     const { currency } = usePlatformCurrency();
     const fxRates = useFiFxRates();
@@ -696,6 +709,7 @@
                 value={row.targetValue}
                 format={row.format}
                 sourceType={row.targetSourceType}
+                hasActiveSourceFilter={hasActiveSourceFilter}
               />
             </div>
             <div
@@ -755,6 +769,7 @@
               peers={peers}
               isLast={isLastOverall}
               peerAggregateMode={peerAggregateMode}
+              hasActiveSourceFilter={hasActiveSourceFilter}
             />
           )}
         </React.Fragment>
