@@ -67,6 +67,67 @@ export function parseSourceType(value: unknown): FiMetricSourceType | null {
   return null;
 }
 
+/** Fuzzy match on API display labels (e.g. "Company Provided", "Trusted Third Party"). */
+function parseSourceLabelFuzzy(value: unknown): FiMetricSourceType | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "linkedin") return "Public";
+  if (normalized.includes("public") || normalized.includes("filing")) {
+    return "Public";
+  }
+  if (
+    normalized.includes("proprietary") ||
+    normalized.includes("asymmetrix") ||
+    normalized.includes("company provided") ||
+    normalized.includes("company_provided") ||
+    normalized.includes("company-provided") ||
+    normalized.includes("third party") ||
+    normalized.includes("third_party") ||
+    normalized.includes("trusted third")
+  ) {
+    return "Proprietary";
+  }
+  if (
+    normalized.includes("estimate") ||
+    normalized.includes("model") ||
+    normalized.includes("analyst") ||
+    normalized.includes("human")
+  ) {
+    return "Estimate";
+  }
+  return null;
+}
+
+/** Map Xano numeric source ids (and descriptive strings) to FI filter buckets. */
+function parseSourceCode(code: unknown): FiMetricSourceType | null {
+  if (code == null || code === "") return null;
+
+  const asString = typeof code === "string" ? code.trim() : String(code);
+  const exact = parseSourceType(asString);
+  if (exact) return exact;
+
+  if (typeof code === "string" && Number.isNaN(Number(code))) {
+    return parseSourceLabelFuzzy(code);
+  }
+
+  const n = typeof code === "number" ? code : parseInt(asString, 10);
+  if (!Number.isFinite(n)) return null;
+  switch (n) {
+    case 1:
+      return "Public";
+    case 2:
+    case 3:
+    case 5:
+      return "Proprietary";
+    case 4:
+    case 6:
+      return "Estimate";
+    default:
+      return null;
+  }
+}
+
 const SOURCE_TYPE_BY_COLOR: Record<string, FiMetricSourceType> = {
   "#2db7ff": "Proprietary",
   "#0f172a": "Public",
@@ -79,39 +140,15 @@ export function resolveFinancialMetricSourceType(
   code?: unknown,
   color?: unknown
 ): FiMetricSourceType | null {
-  const fromLabel = parseSourceType(label);
+  const fromLabel = parseSourceType(label) ?? parseSourceLabelFuzzy(label);
   if (fromLabel) return fromLabel;
 
-  const fromCode = parseSourceType(code);
+  const fromCode = parseSourceCode(code);
   if (fromCode) return fromCode;
 
   if (typeof color === "string") {
     const byColor = SOURCE_TYPE_BY_COLOR[color.trim().toLowerCase()];
     if (byColor) return byColor;
-  }
-
-  if (typeof label === "string") {
-    const normalized = label.trim().toLowerCase();
-    if (!normalized) return null;
-    if (normalized === "linkedin") return "Public";
-    if (normalized.includes("public") || normalized.includes("filing")) {
-      return "Public";
-    }
-    if (
-      normalized.includes("proprietary") ||
-      normalized.includes("asymmetrix") ||
-      normalized.includes("company provided") ||
-      normalized.includes("third party")
-    ) {
-      return "Proprietary";
-    }
-    if (
-      normalized.includes("estimate") ||
-      normalized.includes("model") ||
-      normalized.includes("analyst")
-    ) {
-      return "Estimate";
-    }
   }
 
   return null;

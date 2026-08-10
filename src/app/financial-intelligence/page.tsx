@@ -54,6 +54,9 @@ import {
 } from "@/lib/financialIntelligence/sourceTypes";
 import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
+import { FiFxProvider, useFiFxRates } from "./components/FiFxContext";
+import { CURRENCY_OPTIONS } from "@/lib/fxRates";
 
 function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow {
   return {
@@ -92,6 +95,44 @@ function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow 
     ev_ebitda_x: null,
     url: null,
   };
+}
+
+function FiPeerFinancialsTable({
+  rows,
+  tweaks,
+  sortId,
+  sortDir,
+  onSort,
+  visibleColumnIds,
+  sectorMedian,
+}: {
+  rows: ReturnType<typeof mapCompanyToFinRow>[];
+  tweaks: React.ComponentProps<typeof FinancialsTable>["tweaks"];
+  sortId: string;
+  sortDir: "asc" | "desc";
+  onSort: (id: string) => void;
+  visibleColumnIds: string[];
+  sectorMedian: ReturnType<typeof buildPeerSectorMedian>;
+}) {
+  const { currency } = usePlatformCurrency();
+  const fxRates = useFiFxRates();
+  const currencySymbol =
+    CURRENCY_OPTIONS.find((option) => option.value === currency)?.symbol ?? "$";
+
+  return (
+    <FinancialsTable
+      rows={rows}
+      tweaks={tweaks}
+      currencySymbol={currencySymbol}
+      displayCurrency={currency}
+      fxRates={fxRates}
+      sortId={sortId}
+      sortDir={sortDir}
+      onSort={onSort}
+      visibleColumnIds={visibleColumnIds}
+      sectorMedian={sectorMedian}
+    />
+  );
 }
 
 export default function FinancialIntelligencePage() {
@@ -196,7 +237,7 @@ export default function FinancialIntelligencePage() {
       setError(null);
 
       try {
-        const targetResult = await fetchFiTarget(companyId, preferredCurrencyId);
+        const targetResult = await fetchFiTarget(companyId, DEFAULT_PLATFORM_CURRENCY_ID);
         if (!targetResult.ok) {
           throw new Error(targetResult.error);
         }
@@ -214,7 +255,7 @@ export default function FinancialIntelligencePage() {
           primarySectors,
           secondarySectors,
           regionOptions,
-          preferredCurrencyId,
+          preferredCurrencyId: DEFAULT_PLATFORM_CURRENCY_ID,
         });
 
         const peersResult = await fetchFiPeers(request);
@@ -250,18 +291,10 @@ export default function FinancialIntelligencePage() {
         setLoading(false);
       }
     },
-    [filters, companyIdsInclude, companyIdsExclude, filterLookups, primarySectors, secondarySectors, regionOptions, preferredCurrencyId]
+    [filters, companyIdsInclude, companyIdsExclude, filterLookups, primarySectors, secondarySectors, regionOptions]
   );
 
-  useEffect(() => {
-    if (!target?.company_id) return;
-    void loadBenchmark(
-      target.company_id,
-      filters,
-      companyIdsInclude,
-      companyIdsExclude
-    );
-  }, [preferredCurrencyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Benchmark monetary fields are stored in USD and converted client-side when platform currency changes.
 
   const selectTarget = useCallback(
     (companyId: number, meta?: FiCompanySearchHit) => {
@@ -489,6 +522,7 @@ export default function FinancialIntelligencePage() {
   const isRefreshingBenchmark = loading && peers.length > 0;
 
   return (
+    <FiFxProvider>
     <div className="min-h-screen" style={{ background: "var(--ax-gray-25)", fontFamily: "var(--font-sans)" }}>
       <Header />
       <main style={{ width: "100%", padding: "20px 28px 48px", boxSizing: "border-box" }}>
@@ -744,7 +778,7 @@ export default function FinancialIntelligencePage() {
                 </div>
               </div>
 
-              <FinancialsTable
+              <FiPeerFinancialsTable
                 rows={peerFinRows}
                 tweaks={{
                   sectionName: "Financial Intelligence",
@@ -804,5 +838,6 @@ export default function FinancialIntelligencePage() {
         </>
       )}
     </div>
+    </FiFxProvider>
   );
 }

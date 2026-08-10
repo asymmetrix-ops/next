@@ -2,14 +2,25 @@ import React, { useMemo } from 'react';
 import type { FinRow, ColumnDef, Tweaks, SectorMedian } from './types';
 import { FIN_SECTOR_MEDIAN } from './financials-data';
 import { CompanyAvatar } from '@/components/CompanyAvatar';
+import type { Currency, FXRates } from '@/lib/fxRates';
+import { convertCurrency } from '@/lib/fxRates';
 
 // ── Number formatting ────────────────────────────────────────────────────────
 
-function fmtCurrency(v: number | undefined | null, symbol = '$'): string {
+function fmtCurrency(
+  v: number | undefined | null,
+  symbol = '$',
+  displayCurrency: Currency = 'USD',
+  fxRates: FXRates | null = null
+): string {
   if (v === null || v === undefined) return '—';
   const n = Number(v);
-  if (Math.abs(n) >= 1000) return symbol + Math.round(n / 1000) + 'b';
-  return symbol + Math.round(n) + 'm';
+  const converted =
+    displayCurrency !== 'USD' && fxRates
+      ? (convertCurrency(n, displayCurrency, fxRates) ?? n)
+      : n;
+  if (Math.abs(converted) >= 1000) return symbol + Math.round(converted / 1000) + 'b';
+  return symbol + Math.round(converted) + 'm';
 }
 
 function fmtX(v: number | undefined | null): string {
@@ -99,9 +110,9 @@ export function buildColumns(currencySymbol: string): ColumnDef[] {
     { id: 'hq',            label: 'HQ',                kind: 'text',     align: 'left',  minWidth: 70 },
     { id: 'ownership',     label: 'Ownership',         kind: 'ownership',align: 'left',  minWidth: 110 },
     { id: 'fte',           label: 'FTE',               kind: 'count',    align: 'right' },
-    { id: 'revenue',       label: 'Revenue',           kind: 'currency', align: 'right', symbol: currencySymbol },
-    { id: 'ebitda',        label: 'EBITDA',            kind: 'currency', align: 'right', symbol: currencySymbol },
-    { id: 'ev',            label: 'EV',                kind: 'currency', align: 'right', symbol: currencySymbol },
+    { id: 'revenue',       label: 'Revenue (m)',       kind: 'currency', align: 'right', symbol: currencySymbol },
+    { id: 'ebitda',        label: 'EBITDA (m)',        kind: 'currency', align: 'right', symbol: currencySymbol },
+    { id: 'ev',            label: 'EV (m)',            kind: 'currency', align: 'right', symbol: currencySymbol },
     { id: 'rev_multiple',  label: 'Rev multiple',      kind: 'multiple', align: 'right', median: 'rev_multiple' },
     { id: 'rev_growth',    label: 'Rev growth',        kind: 'percent',  align: 'right', delta: true },
     { id: 'ebitda_margin', label: 'EBITDA margin',     kind: 'percent',  align: 'right' },
@@ -118,7 +129,7 @@ export function buildColumns(currencySymbol: string): ColumnDef[] {
     { id: 'cross_sell',        label: 'Cross-sell',    kind: 'percent',  align: 'right' },
     { id: 'price_increase',    label: 'Price increase',kind: 'percent',  align: 'right' },
     { id: 'revenue_expansion', label: 'Revenue expansion', kind: 'percent', align: 'right' },
-    { id: 'ebit',             label: 'EBIT',                 kind: 'currency', align: 'right', symbol: currencySymbol },
+    { id: 'ebit',             label: 'EBIT (m)',             kind: 'currency', align: 'right', symbol: currencySymbol },
     { id: 'ev_ebit',          label: 'EV / EBIT',            kind: 'multiple', align: 'right', median: 'ev_ebit' },
     { id: 'num_clients',      label: 'Number of Clients',    kind: 'count',    align: 'right' },
     { id: 'rev_per_client',   label: 'Revenue per Client',   kind: 'currency', align: 'right', symbol: currencySymbol },
@@ -136,6 +147,8 @@ interface CellProps {
   row: FinRow;
   tweaks: Tweaks;
   currencySymbol: string;
+  displayCurrency?: Currency;
+  fxRates?: FXRates | null;
   isMedian?: boolean;
   sectorMedian?: SectorMedian;
 }
@@ -149,7 +162,16 @@ function Triangle({ dir, color }: { dir: 'up' | 'down'; color: string }) {
   );
 }
 
-export function Cell({ col, row, tweaks, currencySymbol, isMedian, sectorMedian = FIN_SECTOR_MEDIAN }: CellProps) {
+export function Cell({
+  col,
+  row,
+  tweaks,
+  currencySymbol,
+  displayCurrency = 'USD',
+  fxRates = null,
+  isMedian,
+  sectorMedian = FIN_SECTOR_MEDIAN,
+}: CellProps) {
   const v = finRowValue(row, col.id) as number | string | number[] | undefined;
 
   switch (col.kind) {
@@ -201,15 +223,24 @@ export function Cell({ col, row, tweaks, currencySymbol, isMedian, sectorMedian 
       if (col.id === 'rev_per_employee' || col.id === 'rev_per_client') {
         const n = v as number;
         if (n == null || !Number.isFinite(n)) return <span style={{ color: 'var(--fg-4)' }}>—</span>;
-        if (Math.abs(n) >= 1_000_000) {
-          return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${Math.round(n / 1_000_000)}m</span>;
+        const converted =
+          displayCurrency !== 'USD' && fxRates
+            ? (convertCurrency(n, displayCurrency, fxRates) ?? n)
+            : n;
+        const sym = col.symbol ?? currencySymbol;
+        if (Math.abs(converted) >= 1_000_000) {
+          return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{sym}{Math.round(converted / 1_000_000)}m</span>;
         }
-        if (Math.abs(n) >= 1000) {
-          return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${Math.round(n / 1000)}k</span>;
+        if (Math.abs(converted) >= 1000) {
+          return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{sym}{Math.round(converted / 1000)}k</span>;
         }
-        return <span style={{ fontVariantNumeric: 'tabular-nums' }}>${Math.round(n).toLocaleString()}</span>;
+        return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{sym}{Math.round(converted).toLocaleString()}</span>;
       }
-      return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtCurrency(v as number, col.symbol ?? currencySymbol)}</span>;
+      return (
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {fmtCurrency(v as number, col.symbol ?? currencySymbol, displayCurrency, fxRates)}
+        </span>
+      );
 
     case 'percent': {
       if (v == null) return <span style={{ color: 'var(--fg-4)' }}>—</span>;
@@ -256,6 +287,8 @@ export interface FinancialsTableProps {
   rows: FinRow[];
   tweaks: Tweaks;
   currencySymbol?: string;
+  displayCurrency?: Currency;
+  fxRates?: FXRates | null;
   sortId: string;
   sortDir: 'asc' | 'desc';
   onSort: (id: string) => void;
@@ -269,6 +302,8 @@ export function FinancialsTable({
   rows,
   tweaks,
   currencySymbol = '$',
+  displayCurrency = 'USD',
+  fxRates = null,
   sortId,
   sortDir,
   onSort,
@@ -397,7 +432,7 @@ export function FinancialsTable({
                   ) : c.id === 'sector' ? (
                     <span style={{ fontStyle: 'italic', fontWeight: 500, color: 'var(--ax-cyan-700)' }}>Benchmark</span>
                   ) : (
-                    <Cell col={c} row={medianRow} tweaks={tweaks} currencySymbol={currencySymbol} isMedian sectorMedian={sectorMedian} />
+                    <Cell col={c} row={medianRow} tweaks={tweaks} currencySymbol={currencySymbol} displayCurrency={displayCurrency} fxRates={fxRates} isMedian sectorMedian={sectorMedian} />
                   )}
                 </td>
               ))}
@@ -430,7 +465,7 @@ export function FinancialsTable({
                   background: c.sticky ? 'inherit' : undefined,
                   zIndex: c.sticky ? 1 : 0, whiteSpace: 'nowrap',
                 }}>
-                  <Cell col={c} row={row} tweaks={tweaks} currencySymbol={currencySymbol} sectorMedian={sectorMedian} />
+                  <Cell col={c} row={row} tweaks={tweaks} currencySymbol={currencySymbol} displayCurrency={displayCurrency} fxRates={fxRates} sectorMedian={sectorMedian} />
                 </td>
               ))}
               {showActions && (

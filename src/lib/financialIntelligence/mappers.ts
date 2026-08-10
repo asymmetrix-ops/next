@@ -229,14 +229,14 @@ export function buildHeadlineMetrics(
   }> = [
     {
       key: "revenue",
-      label: "Revenue",
+      label: "Revenue (m)",
       getValue: (row) => toMillions(row.revenue_m_usd),
       format: "currency",
       higherIsBetter: true,
     },
     {
       key: "ebitda",
-      label: "EBITDA",
+      label: "EBITDA (m)",
       getValue: (row) => toMillions(row.ebitda_m_usd),
       format: "currency",
       higherIsBetter: true,
