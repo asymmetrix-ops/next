@@ -13,8 +13,6 @@ const FI_PEER_COLUMN_CATEGORIES_RAW: CompanyColumnCategory[] = [
       { id: "rev_growth", columnKey: "rev_growth", label: "Revenue growth", type: "percent", defaultVisible: true },
       { id: "ebitda_margin", columnKey: "ebitda_margin", label: "EBITDA margin", type: "percent", defaultVisible: false },
       { id: "rule_of_40", columnKey: "rule_of_40", label: "Rule of 40", type: "number", defaultVisible: false },
-      { id: "ev_revenue", columnKey: "ev_revenue", label: "EV / Revenue", type: "number", defaultVisible: true },
-      { id: "ev_ebitda", columnKey: "ev_ebitda", label: "EV / EBITDA", type: "number", defaultVisible: true },
     ],
   },
   {

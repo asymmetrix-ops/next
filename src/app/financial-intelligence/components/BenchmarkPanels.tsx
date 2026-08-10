@@ -24,6 +24,7 @@
   } from "@/lib/financialIntelligence/sourceTypes";
   import { PercentileBar, PctPill } from "./benchmark-viz";
   import { fmtFiMetric, SourceColoredValue } from "./SourceTypeValue";
+  import { formatFiMetricsPeriodDisplay } from "@/lib/financialIntelligence/mappers";
   import { useFiFxRates } from "./FiFxContext";
   import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
   import type { Currency } from "@/lib/fxRates";
@@ -599,6 +600,7 @@
     const { currency } = usePlatformCurrency();
     const fxRates = useFiFxRates();
     const aggregateLabels = peerAggregateLabels(peerAggregateMode);
+    const targetPeriod = formatFiMetricsPeriodDisplay(target);
     const [openMetricKey, setOpenMetricKey] = useState<string | null>(null);
     const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
@@ -801,9 +803,22 @@
             <div style={th}>Metric</div>
             <div
               style={{ ...th, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-              title={targetName}
+              title={targetPeriod ? `${targetName} · ${targetPeriod}` : targetName}
             >
-              {targetName}
+              <div style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{targetName}</div>
+              {targetPeriod ? (
+                <div
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 600,
+                    letterSpacing: "0.04em",
+                    color: "var(--fg-4)",
+                    marginTop: 2,
+                  }}
+                >
+                  {targetPeriod}
+                </div>
+              ) : null}
             </div>
             <div style={{ ...th, textAlign: "right" }}>{aggregateLabels.peerColumn}</div>
             <div style={{ ...th, paddingLeft: 16 }}>Ranking</div>

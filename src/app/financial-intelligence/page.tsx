@@ -60,6 +60,8 @@ import { FiFxProvider, useFiFxRates } from "./components/FiFxContext";
 import { CURRENCY_OPTIONS, getFXRates } from "@/lib/fxRates";
 import type { FinRow } from "@/app/financials-tsx/types";
 
+const REMOVED_FI_PEER_COLUMN_IDS = new Set(["ev_revenue", "ev_ebitda"]);
+
 function finRowValueForSort(row: FinRow, key: string): string | number | null {
   if (!(key in row)) return null;
   const value = row[key as keyof FinRow];
@@ -616,7 +618,9 @@ export default function FinancialIntelligencePage() {
     [peers, peerAggregateMode]
   );
 
-  const visibleColumnIds = peerColumnIds;
+  const visibleColumnIds = peerColumnIds.filter(
+    (id) => !REMOVED_FI_PEER_COLUMN_IDS.has(id)
+  );
 
   const peerColumnVisibilityInitial = useMemo(
     () => columnIdsToVisibility(peerColumnIds),
