@@ -173,17 +173,9 @@ export function getMetricValue(row: FiCompanyRow, key: FiMetricKey): number | nu
     case "rev_expansion_pc":
       return row.rev_expansion_pc;
     case "ebitda_margin":
-      if (row.ebitda_margin != null && Number.isFinite(row.ebitda_margin)) {
-        return row.ebitda_margin;
-      }
-      {
-        const revenue = toMillions(row.revenue_m_usd);
-        const ebitda = toMillions(row.ebitda_m_usd);
-        if (revenue != null && ebitda != null && revenue !== 0) {
-          return (ebitda / revenue) * 100;
-        }
-      }
-      return null;
+      return row.ebitda_margin != null && Number.isFinite(row.ebitda_margin)
+        ? row.ebitda_margin
+        : null;
     case "revenue_multiple":
       return row.revenue_multiple;
     case "ev_revenue_x":
@@ -260,6 +252,24 @@ export function peerAggregate(
   mode: FiPeerAggregateMode = "median"
 ): number | null {
   return mode === "mean" ? peerMean(values) : peerMedian(values);
+}
+
+/** Collect finite peer values for a metric (respects API nulls from source filtering). */
+export function collectPeerMetricValues(
+  peers: FiCompanyRow[],
+  key: FiMetricKey
+): number[] {
+  return peers
+    .map((peer) => getMetricValue(peer, key))
+    .filter((v): v is number => v != null && Number.isFinite(v));
+}
+
+export function aggregatePeerMetric(
+  peers: FiCompanyRow[],
+  key: FiMetricKey,
+  mode: FiPeerAggregateMode = "median"
+): number | null {
+  return peerAggregate(collectPeerMetricValues(peers, key), mode);
 }
 
 export function peerAggregateLabels(mode: FiPeerAggregateMode) {

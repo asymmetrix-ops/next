@@ -7,6 +7,8 @@ import {
   computeDistributionStats,
   computePercentile,
   computeRank,
+  aggregatePeerMetric,
+  collectPeerMetricValues,
   getMetricValue,
   peerAggregate,
   toMillions,
@@ -19,6 +21,7 @@ import type {
   FiBenchmarkMetricRow,
   FiCompanyRow,
   FiHeadlineMetric,
+  FiMetricKey,
   FiPeerAggregateMode,
   FiSectorLookup,
 } from "./types";
@@ -106,7 +109,10 @@ export function mapCompanyToFinRow(
     revenue: revenue ?? 0,
     rev_growth: row.rev_growth_pc ?? 0,
     ebitda: ebitda ?? 0,
-    ebitda_margin: row.ebitda_margin ?? 0,
+    ebitda_margin:
+      row.ebitda_margin != null && Number.isFinite(row.ebitda_margin)
+        ? row.ebitda_margin
+        : (undefined as unknown as number),
     ebit: ebit ?? 0,
     ev: ev ?? 0,
     ev_revenue: row.ev_revenue_x ?? (revenue && ev ? ev / revenue : 0),
@@ -133,16 +139,43 @@ export function mapCompanyToFinRow(
   };
 }
 
+const SECTOR_AGGREGATE_METRIC: Partial<Record<keyof SectorMedian, FiMetricKey>> = {
+  revenue: "revenue_m_usd",
+  rev_growth: "rev_growth_pc",
+  ebitda: "ebitda_m_usd",
+  ebitda_margin: "ebitda_margin",
+  ebit: "ebit_m_usd",
+  ev: "ev_usd",
+  ev_revenue: "ev_revenue_x",
+  ev_ebitda: "ev_ebitda_x",
+  rev_multiple: "revenue_multiple",
+};
+
+function aggregateEvEbit(
+  peers: FiCompanyRow[],
+  mode: FiPeerAggregateMode
+): number | null {
+  const values = peers
+    .map((peer) => {
+      const ev = getMetricValue(peer, "ev_usd");
+      const ebit = getMetricValue(peer, "ebit_m_usd");
+      if (ev != null && ebit != null && ebit !== 0) return ev / ebit;
+      return null;
+    })
+    .filter((v): v is number => v != null && Number.isFinite(v));
+  return peerAggregate(values, mode);
+}
+
 export function buildPeerSectorMedian(
   peers: FiCompanyRow[],
   aggregateMode: FiPeerAggregateMode = "median"
 ): SectorMedian {
-  const finRows = peers.map((peer) => mapCompanyToFinRow(peer, [], []));
   const pick = (key: keyof SectorMedian) => {
-    const values = finRows
-      .map((row) => row[key])
-      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-    return peerAggregate(values, aggregateMode) ?? 0;
+    if (key === "fte") return 0;
+    if (key === "ev_ebit") return aggregateEvEbit(peers, aggregateMode) ?? 0;
+    const metricKey = SECTOR_AGGREGATE_METRIC[key];
+    if (!metricKey) return 0;
+    return aggregatePeerMetric(peers, metricKey, aggregateMode) ?? 0;
   };
 
   return {
@@ -189,23 +222,50 @@ const AGGREGATE_FIN_ROW_NUMERIC_KEYS = [
   "rev_per_employee",
 ] as const;
 
+const FIN_ROW_AGGREGATE_METRIC: Partial<
+  Record<(typeof AGGREGATE_FIN_ROW_NUMERIC_KEYS)[number], FiMetricKey>
+> = {
+  revenue: "revenue_m_usd",
+  rev_growth: "rev_growth_pc",
+  ebitda: "ebitda_m_usd",
+  ebitda_margin: "ebitda_margin",
+  ebit: "ebit_m_usd",
+  ev: "ev_usd",
+  ev_revenue: "ev_revenue_x",
+  ev_ebitda: "ev_ebitda_x",
+  rev_multiple: "revenue_multiple",
+  rule_of_40: "rule_of_40",
+  subscription_revenue_pc: "subscription_revenue_pc",
+  subscription_revenue_m: "subscription_revenue_m",
+  churn: "churn_pc",
+  grr: "grr_pc",
+  nrr: "nrr",
+  new_clients_rev: "new_client_growth_pc",
+  upsell: "upsell_pc",
+  cross_sell: "cross_sell_pc",
+  price_increase: "price_increase_pc",
+  revenue_expansion: "rev_expansion_pc",
+  num_clients: "no_of_clients",
+  rev_per_client: "revenue_per_client",
+  num_employees: "no_employees",
+  rev_per_employee: "revenue_per_employee",
+};
+
 export function buildPeerAggregateFinRow(
   peers: FiCompanyRow[],
-  primarySectors: FiSectorLookup[],
-  secondarySectors: FiSectorLookup[],
+  _primarySectors: FiSectorLookup[],
+  _secondarySectors: FiSectorLookup[],
   aggregateMode: FiPeerAggregateMode = "median"
 ): FinRow {
-  const finRows = peers.map((peer) =>
-    mapCompanyToFinRow(peer, primarySectors, secondarySectors)
-  );
   const aggregateLabel =
     aggregateMode === "mean" ? "Sector mean" : "Sector median";
 
   const pick = (key: (typeof AGGREGATE_FIN_ROW_NUMERIC_KEYS)[number]) => {
-    const values = finRows
-      .map((row) => row[key])
-      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-    return peerAggregate(values, aggregateMode) ?? 0;
+    if (key === "fte") return 0;
+    if (key === "ev_ebit") return aggregateEvEbit(peers, aggregateMode) ?? 0;
+    const metricKey = FIN_ROW_AGGREGATE_METRIC[key];
+    if (!metricKey) return 0;
+    return aggregatePeerMetric(peers, metricKey, aggregateMode) ?? 0;
   };
 
   const aggregated = Object.fromEntries(
@@ -234,9 +294,7 @@ export function buildBenchmarkMetricRows(
     FI_BENCHMARK_SCORECARD_KEYS.includes(metric.key)
   ).map((metric) => {
     const targetValue = getMetricValue(target, metric.key);
-    const peerValues = peers
-      .map((peer) => getMetricValue(peer, metric.key))
-      .filter((v): v is number => v != null && Number.isFinite(v));
+    const peerValues = collectPeerMetricValues(peers, metric.key);
     const median = peerAggregate(peerValues, aggregateMode);
     const percentile =
       targetValue != null

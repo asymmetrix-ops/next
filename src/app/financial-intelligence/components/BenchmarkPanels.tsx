@@ -344,7 +344,7 @@
                   ? formatMetricPercentDelta(row.deltaVsMedian)
                   : fmtSigned(row.deltaVsMedian, row.format, currency, fxRates)}
               </strong>{" "}
-              vs the peer median
+              vs the peer {aggregateLabels.noun}
             </span>
           )}
           .
@@ -367,9 +367,9 @@
   }: CompositeHeroProps) {
     const score = compositePercentile ?? 0;
     const tooltip =
-      "Equal-weight average of all metric percentiles where the target has a value. " +
-      "Example: if Revenue growth is at the 70th percentile and EBITDA margin at the 50th, " +
-      "those scores are averaged with every other ranked metric.";
+      "Rank-based score: equal-weight average of metric percentiles (where the target has a value). " +
+      "This does not change when you switch Mean/Median — only the peer aggregate column and deltas do. " +
+      "Example: Revenue Growth at the 70th percentile and EBITDA margin at the 50th are averaged with every other ranked metric.";
 
     return (
       <div
