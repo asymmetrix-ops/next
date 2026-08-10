@@ -45,7 +45,11 @@ import { buildDefaultFilters } from "@/lib/financialIntelligence/defaultFilters"
 import {
   computeCompositePercentile,
 } from "@/lib/financialIntelligence/calculations";
-import { exportBenchmarkToCsv } from "@/lib/financialIntelligence/exportCsv";
+import { exportFinancialBenchmarkList } from "@/lib/listExport/financialBenchmarkListExport";
+import {
+  SEARCH_HEADER_ACTION_BUTTON_STYLE,
+  SearchExportCsvIcon,
+} from "@/components/search/searchHeaderActions";
 import { annotateManuallyAddedPeers } from "@/lib/financialIntelligence/normalize";
 import { deriveSourceOptions } from "@/lib/financialIntelligence/deriveSourceOptions";
 import { useDataSourceFilter } from "@/lib/financialIntelligence/useDataSourceFilter";
@@ -53,7 +57,7 @@ import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSect
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
 import { FiFxProvider, useFiFxRates } from "./components/FiFxContext";
-import { CURRENCY_OPTIONS, getFXRates } from "@/lib/fxRates";
+import { CURRENCY_OPTIONS } from "@/lib/fxRates";
 import type { FinRow } from "@/app/financials-tsx/types";
 
 function finRowValueForSort(row: FinRow, key: string): string | number | null {
@@ -142,7 +146,7 @@ function FiPeerFinancialsTable({
 }
 
 export default function FinancialIntelligencePage() {
-  const { currencyId: preferredCurrencyId, currency } = usePlatformCurrency();
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const [target, setTarget] = useState<FiCompanyRow | null>(null);
   const [peers, setPeers] = useState<FiCompanyRow[]>([]);
   const [totalPeers, setTotalPeers] = useState(0);
@@ -172,6 +176,7 @@ export default function FinancialIntelligencePage() {
     ...DEFAULT_FI_PEER_COLUMN_IDS,
   ]);
   const [showPeerColumnsModal, setShowPeerColumnsModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const filterLookups: FiFilterLookups = useMemo(
     () => ({
@@ -541,46 +546,48 @@ export default function FinancialIntelligencePage() {
     [peers, primarySectors, secondarySectors]
   );
 
-  const handleExportCsv = useCallback(async () => {
+  const handleExport = useCallback(async () => {
     if (!target) return;
 
-    const fxRates = await getFXRates();
-    const currencySymbol =
-      CURRENCY_OPTIONS.find((option) => option.value === currency)?.symbol ?? "$";
+    setExporting(true);
+    try {
+      const targetRow = mapCompanyToFinRow(target, primarySectors, secondarySectors);
+      const aggregateRow = buildPeerAggregateFinRow(
+        peers,
+        primarySectors,
+        secondarySectors,
+        peerAggregateMode
+      );
 
-    const targetRow = mapCompanyToFinRow(target, primarySectors, secondarySectors);
-    const aggregateRow = buildPeerAggregateFinRow(
-      peers,
-      primarySectors,
-      secondarySectors,
-      peerAggregateMode
-    );
-
-    const sortedPeerRows = [...peerFinRows].sort((a, b) => {
-      if (!sortId) return 0;
-      const av = finRowValueForSort(a, sortId);
-      const bv = finRowValueForSort(b, sortId);
-      if (av == null) return 1;
-      if (bv == null) return -1;
-      if (typeof av === "string") {
+      const sortedPeerRows = [...peerFinRows].sort((a, b) => {
+        if (!sortId) return 0;
+        const av = finRowValueForSort(a, sortId);
+        const bv = finRowValueForSort(b, sortId);
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        if (typeof av === "string") {
+          return sortDir === "asc"
+            ? av.localeCompare(bv as string)
+            : (bv as string).localeCompare(av);
+        }
         return sortDir === "asc"
-          ? av.localeCompare(bv as string)
-          : (bv as string).localeCompare(av);
-      }
-      return sortDir === "asc"
-        ? (av as number) - (bv as number)
-        : (bv as number) - (av as number);
-    });
+          ? (av as number) - (bv as number)
+          : (bv as number) - (av as number);
+      });
 
-    exportBenchmarkToCsv({
-      targetRow,
-      aggregateRow,
-      peerRows: sortedPeerRows,
-      displayCurrency: currency,
-      currencySymbol,
-      fxRates,
-      peerAggregateMode,
-    });
+      await exportFinancialBenchmarkList(
+        { mode: "all_columns", scope: "full_list" },
+        {
+          targetRow,
+          aggregateRow,
+          peerRows: sortedPeerRows,
+          visibleColumnKeys: peerColumnIds,
+          peerAggregateMode,
+        }
+      );
+    } finally {
+      setExporting(false);
+    }
   }, [
     target,
     peers,
@@ -588,9 +595,9 @@ export default function FinancialIntelligencePage() {
     primarySectors,
     secondarySectors,
     peerAggregateMode,
-    currency,
     sortId,
     sortDir,
+    peerColumnIds,
   ]);
 
   const sectorMedian = useMemo(
@@ -659,40 +666,20 @@ export default function FinancialIntelligencePage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               <button
                 type="button"
-                onClick={handleExportCsv}
-                disabled={loading || peers.length === 0}
+                onClick={() => void handleExport()}
+                disabled={loading || peers.length === 0 || exporting}
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "8px 14px",
-                  borderRadius: "var(--r-md)",
-                  border: "1px solid var(--border-1)",
-                  background: "white",
-                  color: "var(--fg-1)",
-                  fontWeight: 600,
+                  ...SEARCH_HEADER_ACTION_BUTTON_STYLE,
+                  height: 32,
+                  padding: "0 12px",
                   fontSize: 12,
-                  cursor: loading || peers.length === 0 ? "default" : "pointer",
                   opacity: loading || peers.length === 0 ? 0.5 : 1,
+                  cursor: loading || peers.length === 0 || exporting ? "default" : "pointer",
                   fontFamily: "var(--font-sans)",
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M8 2v8M5 9l3 3 3-3"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M3 13h10"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                Export
+                <SearchExportCsvIcon />
+                {exporting ? "Exporting..." : "Export"}
               </button>
               <button
                 type="button"
