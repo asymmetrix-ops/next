@@ -48,13 +48,16 @@ function formatCountTileValue(
   tile: PortfolioHeadstatTile | null | undefined
 ): string {
   if (!tile || tile.n_companies === 0) return "—";
-  const display = tile.display;
-  if (display === "—" || display == null) return "—";
-  if (typeof display === "number") {
-    if (Number.isInteger(display)) return display.toLocaleString();
-    return display.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  const raw = tile.value ?? tile.display;
+  if (raw === "—" || raw == null) return "—";
+  const num =
+    typeof raw === "number"
+      ? raw
+      : Number(String(raw).replace(/[^0-9.-]/g, ""));
+  if (Number.isFinite(num)) {
+    return Math.round(num).toLocaleString();
   }
-  return String(display);
+  return String(tile.display ?? raw);
 }
 
 function StatTile({
