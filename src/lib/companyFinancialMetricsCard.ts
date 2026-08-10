@@ -1,6 +1,7 @@
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import { resolveLinkedInEmployeeCountForYear } from "@/lib/companyLinkedIn";
+import type { IncomeStatementApiEntry } from "@/lib/incomeStatement";
 import {
   resolveFinancialMetricSourceType,
   type FiMetricSourceType,
@@ -810,13 +811,93 @@ function unwrapFinancialMetricsApiRows(data: unknown): FinancialMetricsApiRow[] 
   return [];
 }
 
+/** Raw entry shape from the `income_statements` sub-block of `company_financial_metrics`. */
+type FinancialMetricsIncomeStatementApiEntry = {
+  id: number;
+  period_type?: string | null;
+  period_display_end_date?: string | null;
+  period_end_date?: string | null;
+  year_int?: number | string | null;
+  period_month_name?: string | null;
+  revenue?: number | string | null;
+  cost_of_goods_sold?: number | string | null;
+  gross_profit?: number | string | null;
+  gross_profit_margin?: number | string | null;
+  ebit?: number | string | null;
+  ebit_margin?: number | string | null;
+  ebitda?: number | string | null;
+  ebitda_margin?: number | string | null;
+  total_operating_expense?: number | string | null;
+  interest_expense?: number | string | null;
+  interest_income?: number | string | null;
+  pre_tax_profit?: number | string | null;
+  income_tax_expense?: number | string | null;
+  net_income?: number | string | null;
+  earnings_per_share?: number | string | null;
+  cost_of_goods_sold_currency?: string | null;
+};
+
+function unwrapFinancialMetricsIncomeStatements(
+  data: unknown
+): FinancialMetricsIncomeStatementApiEntry[] {
+  if (typeof data === "object" && data != null) {
+    const obj = data as { income_statements?: unknown };
+    if (Array.isArray(obj.income_statements)) {
+      return obj.income_statements as FinancialMetricsIncomeStatementApiEntry[];
+    }
+  }
+  return [];
+}
+
+/** Margins here are decimals (e.g. 0.18) rather than the `_pc` whole-percent convention. */
+function marginFractionToPercent(value: unknown): number | null {
+  const n = toNumber(value);
+  return n == null ? null : n * 100;
+}
+
+/** Maps `company_financial_metrics.income_statements[]` into the shared income-statement shape. */
+export function mapFinancialMetricsIncomeStatementEntry(
+  entry: FinancialMetricsIncomeStatementApiEntry
+): IncomeStatementApiEntry {
+  return {
+    id: entry.id,
+    period_type: entry.period_type ?? undefined,
+    period_display_end_date: entry.period_display_end_date ?? undefined,
+    period_end_date: entry.period_end_date ?? undefined,
+    period_year: toNumber(entry.year_int),
+    revenue: toNumber(entry.revenue),
+    ebit: toNumber(entry.ebit),
+    ebitda: toNumber(entry.ebitda),
+    EBIT_margin_pc: marginFractionToPercent(entry.ebit_margin),
+    EBITDA_margin_pc: marginFractionToPercent(entry.ebitda_margin),
+    statement_currency: entry.cost_of_goods_sold_currency ?? undefined,
+    cost_of_goods_sold_currency: entry.cost_of_goods_sold_currency ?? undefined,
+  };
+}
+
+export function mapFinancialMetricsIncomeStatementEntries(
+  entries: FinancialMetricsIncomeStatementApiEntry[]
+): IncomeStatementApiEntry[] {
+  return entries.map(mapFinancialMetricsIncomeStatementEntry);
+}
+
+export type CompanyFinancialMetricsCardResult = {
+  metricsRows: CompanyFinancialMetricsCardRow[];
+  incomeStatementRows: IncomeStatementApiEntry[];
+};
+
 export async function fetchCompanyFinancialMetricsCard(
   companyId: string | number,
   preferredCurrencyId?: number
-): Promise<CompanyFinancialMetricsCardRow[]> {
+): Promise<CompanyFinancialMetricsCardResult> {
+  const empty: CompanyFinancialMetricsCardResult = {
+    metricsRows: [],
+    incomeStatementRows: [],
+  };
+
   const numericId = Number(companyId);
   if (!Number.isFinite(numericId) || numericId <= 0) {
-    return [];
+    return empty;
   }
 
   const token =
@@ -842,10 +923,17 @@ export async function fetchCompanyFinancialMetricsCard(
     credentials: "include",
   });
 
-  if (!res.ok) return [];
+  if (!res.ok) return empty;
 
   const data = await res.json();
-  return unwrapFinancialMetricsApiRows(data).map(normalizeFinancialMetricsApiRow);
+  return {
+    metricsRows: unwrapFinancialMetricsApiRows(data).map(
+      normalizeFinancialMetricsApiRow
+    ),
+    incomeStatementRows: mapFinancialMetricsIncomeStatementEntries(
+      unwrapFinancialMetricsIncomeStatements(data)
+    ),
+  };
 }
 
 export function formatFiscalYearHeader(year: number): string {
