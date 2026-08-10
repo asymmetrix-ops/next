@@ -1,6 +1,8 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
+import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 
 const INVESTOR_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop";
@@ -23,6 +25,7 @@ export interface PortfolioHeadstatTile {
 
 export interface InvestorPortfolioHeadstatsResponse {
   n_companies_in_scope: number;
+  preferred_currency_id?: number;
   median_revenue_m: PortfolioHeadstatTile;
   median_ebitda_m: PortfolioHeadstatTile;
   median_fte: PortfolioHeadstatTile;
@@ -71,16 +74,21 @@ export async function fetchInvestorPortfolioIdsServer(
 export async function fetchInvestorPortfolioHeadstatsServer(args: {
   currentIds: number[];
   filtersSql?: string | null;
+  preferredCurrencyId?: number | null;
 }): Promise<InvestorPortfolioHeadstatsResponse | null> {
   try {
     const token = await getServerToken();
     if (!token) return null;
+
+    const preferredCurrencyId =
+      args.preferredCurrencyId ?? (await readPlatformCurrencyIdServer());
 
     const params = new URLSearchParams();
     params.append("current_ids", JSON.stringify(args.currentIds));
     if (args.filtersSql?.trim()) {
       params.append("filters_sql", args.filtersSql.trim());
     }
+    appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
 
     const response = await fetch(
       `${INVESTOR_API_BASE}/get_investor_portfolio_headstats?${params.toString()}`,

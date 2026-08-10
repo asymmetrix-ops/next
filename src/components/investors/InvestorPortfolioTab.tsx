@@ -33,6 +33,7 @@ import {
   type InvestmentStatusFilter,
 } from "@/lib/investorPortfolioFilters";
 import { PortfolioHeadstatsRow } from "@/components/investors/PortfolioHeadstatsRow";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import type { FilterBarState } from "@/components/companies/CompaniesFilterBar";
 import {
   PORTFOLIO_COLUMN_CATEGORIES,
@@ -50,7 +51,8 @@ export type InvestorPortfolioTabProps = {
 
 function useInvestorPortfolioSearch(
   portfolioIds: InvestorPortfolioIdsResponse | null,
-  investmentStatusFilter: InvestmentStatusFilter
+  investmentStatusFilter: InvestmentStatusFilter,
+  preferredCurrencyId: number
 ) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,6 +137,7 @@ function useInvestorPortfolioSearch(
       void fetchInvestorPortfolioHeadstatsServer({
         currentIds: portfolioIds.current_ids,
         filtersSql: userFilters.filters_sql ?? null,
+        preferredCurrencyId,
       })
         .then((data) => {
           if (data) setHeadstats(data);
@@ -146,7 +149,7 @@ function useInvestorPortfolioSearch(
           setHeadstatsLoading(false);
         });
     },
-    [portfolioIds]
+    [portfolioIds, preferredCurrencyId]
   );
 
   const currentCountsFiltersRef = useRef<Filters | undefined>(undefined);
@@ -219,6 +222,21 @@ function useInvestorPortfolioSearch(
     [portfolioIds, enrichFilters, scheduleCountsFetch, scheduleHeadstatsFetch]
   );
 
+  const skipCurrencyRefetchRef = useRef(true);
+
+  useEffect(() => {
+    if (skipCurrencyRefetchRef.current) {
+      skipCurrencyRefetchRef.current = false;
+      return;
+    }
+    if (!portfolioIds) return;
+    const filters =
+      currentUserFiltersRef.current ?? createDefaultFilters();
+    scheduleHeadstatsFetch(filters);
+    fetchCompanies(pagination.curPage || 1, filters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferredCurrencyId]);
+
   return {
     companies,
     loading,
@@ -237,6 +255,8 @@ export function InvestorPortfolioTab({
   investorId,
   investorName,
 }: InvestorPortfolioTabProps) {
+  const { currencyId: preferredCurrencyId, currency: platformCurrency } =
+    usePlatformCurrency();
   const [portfolioIds, setPortfolioIds] =
     useState<InvestorPortfolioIdsResponse | null>(null);
   const [idsLoading, setIdsLoading] = useState(true);
@@ -282,7 +302,11 @@ export function InvestorPortfolioTab({
     fetchCompanies,
     setRequestColumns,
     currentFilters,
-  } = useInvestorPortfolioSearch(portfolioIds, investmentStatusFilter);
+  } = useInvestorPortfolioSearch(
+    portfolioIds,
+    investmentStatusFilter,
+    preferredCurrencyId
+  );
 
   const initialFetchDoneRef = useRef(false);
 
@@ -389,6 +413,7 @@ export function InvestorPortfolioTab({
         medianEbitda={headstats?.median_ebitda_m}
         medianFte={headstats?.median_fte}
         loading={headstatsLoading && !headstats}
+        currencyCode={platformCurrency}
       />
 
       <div className="overflow-hidden bg-white rounded-xl border shadow-lg border-slate-200/60 px-5">
