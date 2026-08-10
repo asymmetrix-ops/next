@@ -112,8 +112,12 @@ async function fetchCompanyFinancialMetricsRow(
 async function enrichTargetFromCompanyProfile(
   row: FiCompanyRow,
   headers: Record<string, string>,
-  preferredCurrencyId: number
+  preferredCurrencyId: number,
+  excludedSourceLabels: string[] = []
 ): Promise<FiCompanyRow> {
+  // Profile metrics ignore source filters — merging would undo backend nulling.
+  if (excludedSourceLabels.length > 0) return row;
+
   const profileRaw = await fetchCompanyFinancialMetricsRow(
     row.company_id,
     headers,
@@ -166,7 +170,12 @@ export async function fetchFiTarget(
       };
     }
 
-    row = await enrichTargetFromCompanyProfile(row, headers, currencyId);
+    row = await enrichTargetFromCompanyProfile(
+      row,
+      headers,
+      currencyId,
+      excludedSourceLabels
+    );
 
     return { ok: true, data: row };
   } catch (err) {

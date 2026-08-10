@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -165,6 +165,7 @@ export default function FinancialIntelligencePage() {
   const [allSources, setAllSources] = useState<string[]>([]);
   const { checked, toggle, excludedSourceLabels, isDefaultSourceFilter } =
     useDataSourceFilter(allSources);
+  const sourceFilterFetchReadyRef = useRef(false);
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [peerAggregateMode, setPeerAggregateMode] = useState<FiPeerAggregateMode>("median");
 
@@ -235,6 +236,10 @@ export default function FinancialIntelligencePage() {
     }, 250);
     return () => window.clearTimeout(timer);
   }, [addQuery, target?.company_id, preferredCurrencyId]);
+
+  const resetSourceFilterFetchGate = useCallback(() => {
+    sourceFilterFetchReadyRef.current = false;
+  }, []);
 
   const loadBenchmark = useCallback(
     async (
@@ -341,10 +346,11 @@ export default function FinancialIntelligencePage() {
       setPeers([]);
       setTotalPeers(0);
       setAllSources([]);
+      resetSourceFilterFetchGate();
       setTarget(placeholderTarget(companyId, meta));
       void loadBenchmark(companyId, [], [], [], true);
     },
-    [loadBenchmark]
+    [loadBenchmark, resetSourceFilterFetchGate]
   );
 
   const clearTarget = useCallback(() => {
@@ -356,8 +362,9 @@ export default function FinancialIntelligencePage() {
     setCompanyIdsExclude([]);
     setExcludedPeers([]);
     setAllSources([]);
+    resetSourceFilterFetchGate();
     setError(null);
-  }, []);
+  }, [resetSourceFilterFetchGate]);
 
   const refreshPeers = useCallback(
     (
@@ -382,30 +389,29 @@ export default function FinancialIntelligencePage() {
 
   const handleToggleSourceLabel = useCallback(
     (label: string) => {
-      const nextChecked = new Set(checked);
-      if (nextChecked.has(label)) {
-        if (nextChecked.size <= 1) return;
-        nextChecked.delete(label);
-      } else {
-        nextChecked.add(label);
-      }
-      const nextExcluded = allSources.filter((source) => !nextChecked.has(source));
       toggle(label);
-      if (target) {
-        refreshPeers(filters, companyIdsInclude, companyIdsExclude, nextExcluded);
-      }
     },
-    [
-      allSources,
-      checked,
-      toggle,
-      target,
-      refreshPeers,
+    [toggle]
+  );
+
+  useEffect(() => {
+    if (!target || allSources.length === 0) return;
+
+    if (!sourceFilterFetchReadyRef.current) {
+      sourceFilterFetchReadyRef.current = true;
+      return;
+    }
+
+    void loadBenchmark(
+      target.company_id,
       filters,
       companyIdsInclude,
       companyIdsExclude,
-    ]
-  );
+      false,
+      excludedSourceLabels,
+      false
+    );
+  }, [excludedSourceLabels]); // eslint-disable-line react-hooks/exhaustive-deps -- refetch peers/target when source flags change only
 
   const addFilter = useCallback(
     (filter: FilterState) => {
@@ -441,8 +447,9 @@ export default function FinancialIntelligencePage() {
     setCompanyIdsExclude([]);
     setExcludedPeers([]);
     setAllSources([]);
+    resetSourceFilterFetchGate();
     void loadBenchmark(target.company_id, [], [], [], false, [], true);
-  }, [loadBenchmark, target]);
+  }, [loadBenchmark, resetSourceFilterFetchGate, target]);
 
   const applySuggestedFilters = useCallback(() => {
     if (!target) return;
