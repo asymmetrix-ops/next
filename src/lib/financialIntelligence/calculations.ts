@@ -384,8 +384,7 @@ export function computeRank(
 
 export function computeCompositePercentile(
   target: FiCompanyRow,
-  peers: FiCompanyRow[],
-  allowedSources: FiMetricSourceType[] = ["Public", "Estimate", "Proprietary"]
+  peers: FiCompanyRow[]
 ): number | null {
   const scores: number[] = [];
 
@@ -395,7 +394,7 @@ export function computeCompositePercentile(
     if (targetValue == null) continue;
 
     const peerValues = peers
-      .map((peer) => getPeerMetricValueForCalc(peer, metric.key, allowedSources))
+      .map((peer) => getMetricValue(peer, metric.key))
       .filter((v): v is number => v != null && Number.isFinite(v));
 
     const percentile = computePercentile(targetValue, peerValues, metric.higherIsBetter);

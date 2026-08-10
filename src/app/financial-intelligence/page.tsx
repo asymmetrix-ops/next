@@ -47,12 +47,8 @@ import {
 } from "@/lib/financialIntelligence/calculations";
 import { exportBenchmarkToCsv } from "@/lib/financialIntelligence/exportCsv";
 import { annotateManuallyAddedPeers } from "@/lib/financialIntelligence/normalize";
-import {
-  DEFAULT_FI_SOURCE_TYPES,
-  FI_SOURCE_TYPES,
-  isDefaultSourceTypes,
-  type FiMetricSourceType,
-} from "@/lib/financialIntelligence/sourceTypes";
+import { deriveSourceOptions } from "@/lib/financialIntelligence/deriveSourceOptions";
+import { useDataSourceFilter } from "@/lib/financialIntelligence/useDataSourceFilter";
 import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
@@ -162,9 +158,9 @@ export default function FinancialIntelligencePage() {
   const [regionOptions, setRegionOptions] = useState<FiIdOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<FiIdOption[]>([]);
   const [excludedPeers, setExcludedPeers] = useState<FiCompanyRow[]>([]);
-  const [allowedSources, setAllowedSources] = useState<FiMetricSourceType[]>([
-    ...DEFAULT_FI_SOURCE_TYPES,
-  ]);
+  const [allSources, setAllSources] = useState<string[]>([]);
+  const { checked, toggle, excludedSourceLabels, isDefaultSourceFilter } =
+    useDataSourceFilter(allSources);
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [peerAggregateMode, setPeerAggregateMode] = useState<FiPeerAggregateMode>("median");
 
@@ -241,13 +237,21 @@ export default function FinancialIntelligencePage() {
       nextFilters = filters,
       include = companyIdsInclude,
       exclude = companyIdsExclude,
-      applyDefaultsIfEmpty = false
+      applyDefaultsIfEmpty = false,
+      nextExcludedSourceLabels = excludedSourceLabels,
+      discoverSourceOptions = allSources.length === 0
     ) => {
       setLoading(true);
       setError(null);
 
       try {
-        const targetResult = await fetchFiTarget(companyId, DEFAULT_PLATFORM_CURRENCY_ID);
+        const labelsForRequest = discoverSourceOptions ? [] : nextExcludedSourceLabels;
+
+        const targetResult = await fetchFiTarget(
+          companyId,
+          DEFAULT_PLATFORM_CURRENCY_ID,
+          labelsForRequest
+        );
         if (!targetResult.ok) {
           throw new Error(targetResult.error);
         }
@@ -266,6 +270,7 @@ export default function FinancialIntelligencePage() {
           secondarySectors,
           regionOptions,
           preferredCurrencyId: DEFAULT_PLATFORM_CURRENCY_ID,
+          excludedSourceLabels: labelsForRequest,
         });
 
         const peersResult = await fetchFiPeers(request);
@@ -282,6 +287,12 @@ export default function FinancialIntelligencePage() {
         const logoMap = await fetchFiCompanyLogosByIds(missingLogoIds);
         const enrichedTarget = applyFiCompanyLogos([targetResult.data], logoMap)[0];
         const enrichedPeers = applyFiCompanyLogos(peersResult.data.peers, logoMap);
+
+        if (discoverSourceOptions) {
+          setAllSources(
+            deriveSourceOptions([enrichedTarget, ...enrichedPeers])
+          );
+        }
 
         setTarget((prev) => ({
           ...enrichedTarget,
@@ -301,7 +312,17 @@ export default function FinancialIntelligencePage() {
         setLoading(false);
       }
     },
-    [filters, companyIdsInclude, companyIdsExclude, filterLookups, primarySectors, secondarySectors, regionOptions]
+    [
+      filters,
+      companyIdsInclude,
+      companyIdsExclude,
+      filterLookups,
+      primarySectors,
+      secondarySectors,
+      regionOptions,
+      excludedSourceLabels,
+      allSources.length,
+    ]
   );
 
   // Benchmark monetary fields are stored in USD and converted client-side when platform currency changes.
@@ -314,7 +335,7 @@ export default function FinancialIntelligencePage() {
       setExcludedPeers([]);
       setPeers([]);
       setTotalPeers(0);
-      setAllowedSources([...DEFAULT_FI_SOURCE_TYPES]);
+      setAllSources([]);
       setTarget(placeholderTarget(companyId, meta));
       void loadBenchmark(companyId, [], [], [], true);
     },
@@ -329,30 +350,57 @@ export default function FinancialIntelligencePage() {
     setCompanyIdsInclude([]);
     setCompanyIdsExclude([]);
     setExcludedPeers([]);
-    setAllowedSources([...DEFAULT_FI_SOURCE_TYPES]);
+    setAllSources([]);
     setError(null);
   }, []);
 
   const refreshPeers = useCallback(
-    (nextFilters: FilterState[], include: number[], exclude: number[]) => {
+    (
+      nextFilters: FilterState[],
+      include: number[],
+      exclude: number[],
+      nextExcludedSourceLabels = excludedSourceLabels
+    ) => {
       if (!target) return;
-      void loadBenchmark(target.company_id, nextFilters, include, exclude);
+      void loadBenchmark(
+        target.company_id,
+        nextFilters,
+        include,
+        exclude,
+        false,
+        nextExcludedSourceLabels,
+        false
+      );
     },
-    [loadBenchmark, target]
+    [loadBenchmark, target, excludedSourceLabels]
   );
 
-  const toggleSourceType = useCallback((type: FiMetricSourceType) => {
-    setAllowedSources((prev) => {
-      const nextSet = new Set(prev);
-      if (nextSet.has(type)) {
-        if (nextSet.size <= 1) return prev;
-        nextSet.delete(type);
+  const handleToggleSourceLabel = useCallback(
+    (label: string) => {
+      const nextChecked = new Set(checked);
+      if (nextChecked.has(label)) {
+        if (nextChecked.size <= 1) return;
+        nextChecked.delete(label);
       } else {
-        nextSet.add(type);
+        nextChecked.add(label);
       }
-      return FI_SOURCE_TYPES.filter((item) => nextSet.has(item));
-    });
-  }, []);
+      const nextExcluded = allSources.filter((source) => !nextChecked.has(source));
+      toggle(label);
+      if (target) {
+        refreshPeers(filters, companyIdsInclude, companyIdsExclude, nextExcluded);
+      }
+    },
+    [
+      allSources,
+      checked,
+      toggle,
+      target,
+      refreshPeers,
+      filters,
+      companyIdsInclude,
+      companyIdsExclude,
+    ]
+  );
 
   const addFilter = useCallback(
     (filter: FilterState) => {
@@ -387,8 +435,8 @@ export default function FinancialIntelligencePage() {
     setCompanyIdsInclude([]);
     setCompanyIdsExclude([]);
     setExcludedPeers([]);
-    setAllowedSources([...DEFAULT_FI_SOURCE_TYPES]);
-    void loadBenchmark(target.company_id, [], [], []);
+    setAllSources([]);
+    void loadBenchmark(target.company_id, [], [], [], false, [], true);
   }, [loadBenchmark, target]);
 
   const applySuggestedFilters = useCallback(() => {
@@ -475,18 +523,18 @@ export default function FinancialIntelligencePage() {
 
   const headlineMetrics = useMemo(() => {
     if (!target) return [];
-    return buildHeadlineMetrics(target, peers, allowedSources, peerAggregateMode);
-  }, [target, peers, allowedSources, peerAggregateMode]);
+    return buildHeadlineMetrics(target, peers, peerAggregateMode);
+  }, [target, peers, peerAggregateMode]);
 
   const benchmarkRows = useMemo(() => {
     if (!target) return [];
-    return buildBenchmarkMetricRows(target, peers, allowedSources, peerAggregateMode);
-  }, [target, peers, allowedSources, peerAggregateMode]);
+    return buildBenchmarkMetricRows(target, peers, peerAggregateMode);
+  }, [target, peers, peerAggregateMode]);
 
   const compositePercentile = useMemo(() => {
     if (!target) return null;
-    return computeCompositePercentile(target, peers, allowedSources);
-  }, [target, peers, allowedSources]);
+    return computeCompositePercentile(target, peers);
+  }, [target, peers]);
 
   const peerFinRows = useMemo(
     () => peers.map((peer) => mapCompanyToFinRow(peer, primarySectors, secondarySectors)),
@@ -565,7 +613,8 @@ export default function FinancialIntelligencePage() {
     []
   );
 
-  const effectiveDefaultMode = isDefaultMode && isDefaultSourceTypes(allowedSources);
+  const effectiveDefaultMode = isDefaultMode && isDefaultSourceFilter;
+  const hasActiveSourceFilter = !isDefaultSourceFilter;
 
   const showBenchmarkSkeleton = loading && peers.length === 0;
   const showBenchmarkContent = target && !showBenchmarkSkeleton;
@@ -700,8 +749,9 @@ export default function FinancialIntelligencePage() {
           isDefaultMode={effectiveDefaultMode}
           onResetToDefault={resetToDefault}
           onApplySuggestedFilters={applySuggestedFilters}
-          allowedSources={allowedSources}
-          onToggleSourceType={toggleSourceType}
+          sourceLabels={allSources}
+          checkedSourceLabels={checked}
+          onToggleSourceLabel={handleToggleSourceLabel}
           addQuery={addQuery}
           onAddQueryChange={setAddQuery}
           addResults={addResults}
@@ -758,7 +808,11 @@ export default function FinancialIntelligencePage() {
                 targetName={target.company_name}
                 peerCount={peers.length}
               />
-              <HeadlineMetricCards metrics={headlineMetrics} peerAggregateMode={peerAggregateMode} />
+              <HeadlineMetricCards
+                metrics={headlineMetrics}
+                peerAggregateMode={peerAggregateMode}
+                hasActiveSourceFilter={hasActiveSourceFilter}
+              />
             </div>
 
             <div
@@ -777,6 +831,7 @@ export default function FinancialIntelligencePage() {
                 target={target}
                 peers={peers}
                 peerAggregateMode={peerAggregateMode}
+                hasActiveSourceFilter={hasActiveSourceFilter}
               />
               <PeerCompaniesCard
                 peers={peers}

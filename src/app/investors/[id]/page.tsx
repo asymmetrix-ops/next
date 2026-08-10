@@ -12,7 +12,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
-iqmport { LinkPanel, T } from "@/components/redesign/primitives";
+import { LinkPanel, T } from "@/components/redesign/primitives";
 import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
 import { InvestorOverviewCard } from "@/components/investors/InvestorOverviewCard";

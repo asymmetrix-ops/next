@@ -43,27 +43,27 @@ export interface FiCompanyRow {
   revenue_multiple: number | null;
   ev_revenue_x: number | null;
   ev_ebitda_x: number | null;
-  revenue_source_type?: FiMetricSourceType | null;
-  rev_growth_source_type?: FiMetricSourceType | null;
-  new_client_growth_source_type?: FiMetricSourceType | null;
-  ebitda_source_type?: FiMetricSourceType | null;
-  ebit_source_type?: FiMetricSourceType | null;
-  ev_source_type?: FiMetricSourceType | null;
-  no_of_clients_source_type?: FiMetricSourceType | null;
-  revenue_per_client_source_type?: FiMetricSourceType | null;
-  no_employees_source_type?: FiMetricSourceType | null;
-  revenue_per_employee_source_type?: FiMetricSourceType | null;
-  rule_of_40_source_type?: FiMetricSourceType | null;
-  subscription_revenue_pc_source_type?: FiMetricSourceType | null;
-  subscription_revenue_m_source_type?: FiMetricSourceType | null;
-  nrr_source_type?: FiMetricSourceType | null;
-  churn_source_type?: FiMetricSourceType | null;
-  grr_source_type?: FiMetricSourceType | null;
-  upsell_source_type?: FiMetricSourceType | null;
-  cross_sell_source_type?: FiMetricSourceType | null;
-  price_increase_source_type?: FiMetricSourceType | null;
-  rev_expansion_source_type?: FiMetricSourceType | null;
-  revenue_multiple_source_type?: FiMetricSourceType | null;
+  revenue_source_type?: string | null;
+  rev_growth_source_type?: string | null;
+  new_client_growth_source_type?: string | null;
+  ebitda_source_type?: string | null;
+  ebit_source_type?: string | null;
+  ev_source_type?: string | null;
+  no_of_clients_source_type?: string | null;
+  revenue_per_client_source_type?: string | null;
+  no_employees_source_type?: string | null;
+  revenue_per_employee_source_type?: string | null;
+  rule_of_40_source_type?: string | null;
+  subscription_revenue_pc_source_type?: string | null;
+  subscription_revenue_m_source_type?: string | null;
+  nrr_source_type?: string | null;
+  churn_source_type?: string | null;
+  grr_source_type?: string | null;
+  upsell_source_type?: string | null;
+  cross_sell_source_type?: string | null;
+  price_increase_source_type?: string | null;
+  rev_expansion_source_type?: string | null;
+  revenue_multiple_source_type?: string | null;
   url?: string | null;
   is_manually_added?: boolean;
 }
@@ -89,6 +89,7 @@ export interface FiPeersRequest {
   company_ids_include: number[];
   company_ids_exclude: number[];
   preferred_currency_id?: number;
+  excluded_source_labels?: string[];
 }
 
 export interface FiBenchmarkState {
@@ -166,14 +167,14 @@ export interface FiBenchmarkMetricRow {
   higherIsBetter: boolean;
   directionHint?: FiMetricDirectionHint;
   format: FiMetricFormat;
-  targetSourceType?: FiMetricSourceType | null;
+  targetSourceType?: string | null;
 }
 
 export interface FiHeadlineMetric {
   key: string;
   label: string;
   targetValue: number | null;
-  targetSourceType?: FiMetricSourceType | null;
+  targetSourceType?: string | null;
   peerMedian: number | null;
   peerValues: number[];
   percentile: number | null;

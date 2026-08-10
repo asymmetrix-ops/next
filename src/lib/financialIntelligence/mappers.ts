@@ -8,16 +8,12 @@ import {
   computePercentile,
   computeRank,
   getMetricValue,
-  getPeerMetricValueForCalc,
   peerAggregate,
   toMillions,
 } from "./calculations";
 import {
-  DEFAULT_FI_SOURCE_TYPES,
   getMetricSourceType,
   getHeadlineMetricSourceType,
-  isHeadlineSourceAllowed,
-  type FiMetricSourceType,
 } from "./sourceTypes";
 import type {
   FiBenchmarkMetricRow,
@@ -232,7 +228,6 @@ export function buildPeerAggregateFinRow(
 export function buildBenchmarkMetricRows(
   target: FiCompanyRow,
   peers: FiCompanyRow[],
-  allowedSources: FiMetricSourceType[] = DEFAULT_FI_SOURCE_TYPES,
   aggregateMode: FiPeerAggregateMode = "median"
 ): FiBenchmarkMetricRow[] {
   return FI_BENCHMARK_METRICS.filter((metric) =>
@@ -240,7 +235,7 @@ export function buildBenchmarkMetricRows(
   ).map((metric) => {
     const targetValue = getMetricValue(target, metric.key);
     const peerValues = peers
-      .map((peer) => getPeerMetricValueForCalc(peer, metric.key, allowedSources))
+      .map((peer) => getMetricValue(peer, metric.key))
       .filter((v): v is number => v != null && Number.isFinite(v));
     const median = peerAggregate(peerValues, aggregateMode);
     const percentile =
@@ -282,7 +277,6 @@ export function buildBenchmarkMetricRows(
 export function buildHeadlineMetrics(
   target: FiCompanyRow,
   peers: FiCompanyRow[],
-  allowedSources: FiMetricSourceType[] = DEFAULT_FI_SOURCE_TYPES,
   aggregateMode: FiPeerAggregateMode = "median"
 ): FiHeadlineMetric[] {
   const defs: Array<{
@@ -318,9 +312,7 @@ export function buildHeadlineMetrics(
   return defs.map((def) => {
     const targetValue = def.getValue(target);
     const peerValues = peers
-      .map((peer) =>
-        isHeadlineSourceAllowed(peer, def.key, allowedSources) ? def.getValue(peer) : null
-      )
+      .map((peer) => def.getValue(peer))
       .filter((v): v is number => v != null && Number.isFinite(v));
     const median = peerAggregate(peerValues, aggregateMode);
     const percentile =

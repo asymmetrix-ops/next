@@ -103,6 +103,17 @@ export function hasActiveApiFilters(request: FiPeersRequest): boolean {
   return false;
 }
 
+export function appendExcludedSourceLabels(
+  params: URLSearchParams,
+  labels: string[] | undefined
+): void {
+  for (const label of labels ?? []) {
+    if (label.trim()) {
+      params.append("excluded_source_labels[]", label.trim());
+    }
+  }
+}
+
 export function buildPeersRequest(args: {
   targetCompanyId: number;
   filters: FilterState[];
@@ -112,6 +123,7 @@ export function buildPeersRequest(args: {
   secondarySectors: FiSecondarySectorLookup[];
   regionOptions?: Array<{ id: number; name: string }>;
   preferredCurrencyId?: number;
+  excludedSourceLabels?: string[];
 }): FiPeersRequest {
   const revenue = rangeValue(args.filters.find((f) => f.id === "revenue"));
   const ev = rangeValue(args.filters.find((f) => f.id === "ev"));
@@ -132,6 +144,7 @@ export function buildPeersRequest(args: {
     company_ids_exclude: [...args.companyIdsExclude],
     preferred_currency_id:
       args.preferredCurrencyId ?? DEFAULT_PLATFORM_CURRENCY_ID,
+    excluded_source_labels: [...(args.excludedSourceLabels ?? [])],
   };
 }
 
@@ -289,6 +302,8 @@ export function peersRequestToSearchParams(request: FiPeersRequest): URLSearchPa
   for (const id of request.company_ids_exclude) {
     params.append("company_ids_exclude[]", String(id));
   }
+
+  appendExcludedSourceLabels(params, request.excluded_source_labels);
 
   params.set(
     "preferred_currency_id",

@@ -159,16 +159,33 @@ export function isDefaultSourceTypes(types: FiMetricSourceType[]): boolean {
   return FI_SOURCE_TYPES.every((type) => types.includes(type));
 }
 
-export function sourceTypeColor(type: FiMetricSourceType | null | undefined): string {
+export function sourceTypeColor(type: FiMetricSourceType | string | null | undefined): string {
   if (!type) return "var(--fg-4)";
-  return SOURCE_TYPE_COLORS[type];
+  const bucket =
+    (typeof type === "string" ? resolveFinancialMetricSourceType(type) : type) ??
+    parseSourceType(type);
+  if (bucket) return SOURCE_TYPE_COLORS[bucket];
+  return "var(--fg-4)";
+}
+
+export function sourceLabelDescription(label: string): string {
+  const bucket = resolveFinancialMetricSourceType(label);
+  if (bucket) return SOURCE_TYPE_DESCRIPTIONS[bucket];
+  return label;
+}
+
+export function resolveSourceLabelBucket(
+  label: string | null | undefined
+): FiMetricSourceType | null {
+  if (!label) return null;
+  return resolveFinancialMetricSourceType(label);
 }
 
 /** Map benchmark metric keys to company row source-type fields from the API. */
 export function getMetricSourceType(
   row: FiCompanyRow,
   metricKey: FiMetricKey
-): FiMetricSourceType | null {
+): string | null {
   if (metricKey === "rule_of_40") {
     return (
       row.rule_of_40_source_type ??
@@ -181,7 +198,17 @@ export function getMetricSourceType(
   const field = METRIC_SOURCE_FIELD[metricKey];
   if (!field) return null;
   const value = row[field];
-  return typeof value === "string" ? (value as FiMetricSourceType) : null;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function isSourceLabelAllowed(
+  label: string | null,
+  allowedSources: FiMetricSourceType[]
+): boolean {
+  if (label == null) return true;
+  if (allowedSources.includes(label as FiMetricSourceType)) return true;
+  const bucket = resolveFinancialMetricSourceType(label);
+  return bucket != null && allowedSources.includes(bucket);
 }
 
 function isSingleMetricSourceAllowed(
@@ -189,9 +216,7 @@ function isSingleMetricSourceAllowed(
   metricKey: FiMetricKey,
   allowedSources: FiMetricSourceType[]
 ): boolean {
-  const sourceType = getMetricSourceType(row, metricKey);
-  if (sourceType == null) return true;
-  return allowedSources.includes(sourceType);
+  return isSourceLabelAllowed(getMetricSourceType(row, metricKey), allowedSources);
 }
 
 /** Whether a row's metric value may enter peer median / percentile / rank math. */
@@ -212,7 +237,7 @@ export function isMetricSourceAllowed(
 export function getHeadlineMetricSourceType(
   row: FiCompanyRow,
   headlineKey: "revenue" | "ebitda" | "rev_growth"
-): FiMetricSourceType | null {
+): string | null {
   switch (headlineKey) {
     case "revenue":
       return row.revenue_source_type ?? null;
@@ -228,7 +253,8 @@ export function isHeadlineSourceAllowed(
   headlineKey: "revenue" | "ebitda" | "rev_growth",
   allowedSources: FiMetricSourceType[]
 ): boolean {
-  const sourceType = getHeadlineMetricSourceType(row, headlineKey);
-  if (sourceType == null) return true;
-  return allowedSources.includes(sourceType);
+  return isSourceLabelAllowed(
+    getHeadlineMetricSourceType(row, headlineKey),
+    allowedSources
+  );
 }

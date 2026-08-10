@@ -2,6 +2,7 @@
 
 import React from "react";
 import {
+  resolveSourceLabelBucket,
   sourceTypeColor,
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
@@ -19,23 +20,42 @@ export function SourceTypeDot({
   title,
   size = 7,
 }: {
-  type: FiMetricSourceType | null | undefined;
+  type: FiMetricSourceType | string | null | undefined;
   title?: string;
   size?: number;
 }) {
-  if (!type) return null;
+  const bucket = typeof type === "string" ? resolveSourceLabelBucket(type) : type;
+  if (!bucket && !type) return null;
+  const color = sourceTypeColor(type);
+  const label = typeof type === "string" && type.trim() ? type : bucket;
+  if (!label) return null;
   return (
     <span
-      title={title ?? `${type} data`}
+      title={title ?? `${label} data`}
       style={{
         width: size,
         height: size,
         borderRadius: "50%",
-        background: sourceTypeColor(type),
+        background: color,
         flexShrink: 0,
         display: "inline-block",
       }}
     />
+  );
+}
+
+export function FilteredMetricPlaceholder({ title }: { title?: string }) {
+  return (
+    <span
+      style={{
+        color: "var(--fg-4)",
+        fontWeight: 600,
+        fontVariantNumeric: "tabular-nums",
+      }}
+      title={title ?? "Hidden by data source filter"}
+    >
+      —
+    </span>
   );
 }
 
@@ -87,16 +107,35 @@ export function SourceColoredValue({
   fontWeight = 600,
   fontSize,
   justify = "flex-end",
+  hiddenBySourceFilter = false,
 }: {
   value: number | null;
   format: FiMetricFormat;
-  sourceType?: FiMetricSourceType | null;
+  sourceType?: FiMetricSourceType | string | null;
   fontWeight?: number;
   fontSize?: number | string;
   justify?: "flex-start" | "flex-end" | "center";
+  hiddenBySourceFilter?: boolean;
 }) {
   const { currency } = usePlatformCurrency();
   const fxRates = useFiFxRates();
+
+  if (value == null && hiddenBySourceFilter) {
+    return (
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: justify,
+          width: justify === "flex-end" ? "100%" : undefined,
+          fontSize,
+        }}
+      >
+        <FilteredMetricPlaceholder />
+      </span>
+    );
+  }
+
   const color = sourceType ? sourceTypeColor(sourceType) : "var(--fg-2)";
 
   return (
