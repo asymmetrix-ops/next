@@ -10,10 +10,19 @@ import {
 } from "@/lib/incomeStatement";
 import { resolveLinkedInEmployeeCountForYear } from "@/lib/companyLinkedIn";
 
+export type IncomeStatementExportFormat =
+  | "millions_from_units"
+  | "percent"
+  | "count"
+  | "whole";
+
 export type IncomeStatementMetricRow = {
   key: string;
   label: string;
   values: string[];
+  /** Unformatted numeric values aligned with `values` for spreadsheet export. */
+  rawValues: (number | null)[];
+  exportFormat: IncomeStatementExportFormat;
   yoy: string;
 };
 
@@ -118,12 +127,20 @@ function buildMetricRow(
   label: string,
   columns: NormalizedIncomeStatementRow[],
   formatValue: (row: NormalizedIncomeStatementRow) => string,
-  rawValue: (row: NormalizedIncomeStatementRow) => number | null | undefined
+  rawValue: (row: NormalizedIncomeStatementRow) => number | null | undefined,
+  exportFormat: IncomeStatementExportFormat
 ): IncomeStatementMetricRow {
+  const rawValues = columns.map((row) => {
+    const value = rawValue(row);
+    return value != null && Number.isFinite(value) ? value : null;
+  });
+
   return {
     key,
     label,
     values: columns.map(formatValue),
+    rawValues,
+    exportFormat,
     yoy: computeLatestYoY(columns, rawValue),
   };
 }
@@ -175,35 +192,40 @@ export function buildIncomeStatementFinancialsViewModel(
       "Revenue (m)",
       columns,
       (row) => formatMoneyMillions(row.revenue, currency),
-      (row) => row.revenue ?? null
+      (row) => row.revenue ?? null,
+      "millions_from_units"
     ),
     buildMetricRow(
       "ebitda",
       "EBITDA (m)",
       columns,
       (row) => formatMoneyMillions(row.ebitda, currency),
-      (row) => row.ebitda ?? null
+      (row) => row.ebitda ?? null,
+      "millions_from_units"
     ),
     buildMetricRow(
       "ebitda_margin",
       "EBITDA %",
       columns,
       (row) => formatMarginValue(row, "ebitda"),
-      (row) => resolveMarginPct(row, "ebitda")
+      (row) => resolveMarginPct(row, "ebitda"),
+      "percent"
     ),
     buildMetricRow(
       "ebit",
       "EBIT (m)",
       columns,
       (row) => formatMoneyMillions(row.ebit, currency),
-      (row) => row.ebit ?? null
+      (row) => row.ebit ?? null,
+      "millions_from_units"
     ),
     buildMetricRow(
       "ebit_margin",
       "EBIT %",
       columns,
       (row) => formatMarginValue(row, "ebit"),
-      (row) => resolveMarginPct(row, "ebit")
+      (row) => resolveMarginPct(row, "ebit"),
+      "percent"
     ),
     buildMetricRow(
       "fte",
@@ -211,14 +233,16 @@ export function buildIncomeStatementFinancialsViewModel(
       columns,
       (row) =>
         row.fte_count != null ? row.fte_count.toLocaleString() : "-",
-      (row) => row.fte_count ?? null
+      (row) => row.fte_count ?? null,
+      "count"
     ),
     buildMetricRow(
       "revenue_per_fte",
       "Revenue / FTE",
       columns,
       (row) => formatRevenuePerFte(row.revenue_per_fte, currency),
-      (row) => row.revenue_per_fte ?? null
+      (row) => row.revenue_per_fte ?? null,
+      "whole"
     ),
   ];
 
@@ -256,6 +280,10 @@ export function remapIncomeStatementToTableYears(
       values: tableYears.map((year) => {
         const index = indexByYear.get(year);
         return index != null ? (metric.values[index] ?? "-") : "-";
+      }),
+      rawValues: tableYears.map((year) => {
+        const index = indexByYear.get(year);
+        return index != null ? (metric.rawValues[index] ?? null) : null;
       }),
     })),
   };

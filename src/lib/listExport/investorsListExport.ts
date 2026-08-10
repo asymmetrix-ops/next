@@ -13,6 +13,11 @@ import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import { normalizeWebsiteUrl } from "@/lib/websiteUrl";
 import { readFieldValue } from "./readFieldValue";
+import {
+  coerceExportCellValue,
+  parseExportNumber,
+  type ExportCellValue,
+} from "./exportCellValue";
 import { runGenericListExport } from "./runListExport";
 import {
   EXPORT_ALL_ENTITIES_CAP,
@@ -181,6 +186,29 @@ function getInvestorCellValue(
 
   const raw = readFieldValue(row, getInvestorFieldAliasesForColumn(column.key));
   return toPlainText(raw);
+}
+
+function getInvestorCellExportValue(
+  row: Record<string, unknown>,
+  column: ExportColumnDef
+): ExportCellValue {
+  if (column.key === "id") {
+    const id = getInvestorId(row);
+    return id > 0 ? id : null;
+  }
+
+  const investor = row as unknown as InvestorListItem;
+
+  if (column.key === "portfolio_companies") {
+    return parseExportNumber(investor.number_of_active_investments);
+  }
+
+  if (column.key === "linkedin_members") {
+    return parseExportNumber(investor.linkedin_members);
+  }
+
+  const display = getInvestorCellValue(row, column);
+  return coerceExportCellValue(column, display);
 }
 
 function orderRowsBySelectedIds(
@@ -368,5 +396,6 @@ export async function exportInvestorsList(
     rows,
     getEntityName: (row) => String(row.company_name ?? row.name ?? "—"),
     getCellValue: getInvestorCellValue,
+    getCellExportValue: getInvestorCellExportValue,
   });
 }

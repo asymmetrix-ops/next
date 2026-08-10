@@ -1,4 +1,9 @@
 import type { ExportColumnDef } from "./types";
+import {
+  excelNumFmtForExportColumn,
+  type ExportCellValue,
+  writeExportCell,
+} from "./exportCellValue";
 
 /** Reference brand palette (extracted from Asymmetrix export template). */
 const BANNER_NAVY = "FF011844";
@@ -307,7 +312,7 @@ function buildDirectorySheet(
 function buildEntitySheet(
   worksheet: import("exceljs").Worksheet,
   columns: ExportColumnDef[],
-  rows: string[][],
+  rows: ExportCellValue[][],
   options: { includeCategoryRow?: boolean } = {}
 ): void {
   // Match the reference template's default row height (14.4pt).
@@ -328,7 +333,13 @@ function buildEntitySheet(
     const rowNum = dataStartRow + r;
     const rowValues = rows[r];
     for (let c = 0; c < rowValues.length; c += 1) {
-      worksheet.getCell(rowNum, DATA_COL_OFFSET + c + 1).value = rowValues[c];
+      const column = columns[c];
+      const cell = worksheet.getCell(rowNum, DATA_COL_OFFSET + c + 1);
+      writeExportCell(
+        cell,
+        rowValues[c],
+        column ? excelNumFmtForExportColumn(column) : undefined
+      );
     }
   }
 
@@ -412,13 +423,13 @@ async function patchGeneratedWorkbookXml(
 export interface AllColumnsWorkbookInput {
   entitySheetName: string;
   columns: ExportColumnDef[];
-  rows: string[][];
+  rows: ExportCellValue[][];
 }
 
 export interface VisibleColumnsWorkbookInput {
   entitySheetName: string;
   columns: ExportColumnDef[];
-  rows: string[][];
+  rows: ExportCellValue[][];
 }
 
 export async function buildAllColumnsWorkbook(

@@ -1,13 +1,19 @@
 import { downloadXlsxBuffer } from "@/lib/listExport/xlsx";
+import { EXCEL_NUM_FMT, writeExportCell } from "@/lib/listExport/exportCellValue";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
-import type { IncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
+import type {
+  IncomeStatementExportFormat,
+  IncomeStatementFinancialsViewModel,
+} from "@/lib/incomeStatementFinancials";
 import {
+  FINANCIALS_CARD_DEFS,
   FINANCIALS_DISPLAY_YEAR_COUNT,
   FINANCIALS_TABLE_MAX_YEAR_COLUMNS,
   formatFiscalYearHeader,
   getVisibleFinancialsCellDisplay,
   getVisibleYoyValue,
   type CompanyFinancialsViewModel,
+  type FinancialsMetricFormat,
   type FinancialsMetricRow,
 } from "@/lib/companyFinancialMetricsCard";
 
@@ -22,6 +28,62 @@ const CENTER_ALIGN: Partial<import("exceljs").Alignment> = {
   horizontal: "center",
   vertical: "middle",
 };
+
+const METRIC_FORMAT_BY_KEY = FINANCIALS_CARD_DEFS.reduce<
+  Record<string, FinancialsMetricFormat>
+>((map, card) => {
+  for (const metric of card.metrics) {
+    map[metric.key] = metric.format;
+  }
+  return map;
+}, {});
+
+function excelNumFmtForMetricFormat(
+  format: FinancialsMetricFormat | undefined
+): string | undefined {
+  switch (format) {
+    case "money_millions":
+      return EXCEL_NUM_FMT.millionsDecimal;
+    case "percent":
+      return EXCEL_NUM_FMT.percent;
+    case "count":
+      return EXCEL_NUM_FMT.count;
+    case "money_whole":
+      return EXCEL_NUM_FMT.whole;
+    case "plain_number":
+      return EXCEL_NUM_FMT.decimal;
+    case "multiple":
+      return EXCEL_NUM_FMT.multiple;
+    default:
+      return undefined;
+  }
+}
+
+function excelNumFmtForIncomeStatementFormat(
+  format: IncomeStatementExportFormat
+): string {
+  switch (format) {
+    case "millions_from_units":
+      return EXCEL_NUM_FMT.millions;
+    case "percent":
+      return EXCEL_NUM_FMT.percent;
+    case "count":
+      return EXCEL_NUM_FMT.count;
+    case "whole":
+      return EXCEL_NUM_FMT.whole;
+    default:
+      return EXCEL_NUM_FMT.decimal;
+  }
+}
+
+function exportValueForIncomeStatement(
+  raw: number | null,
+  format: IncomeStatementExportFormat
+): number | null {
+  if (raw == null || !Number.isFinite(raw)) return null;
+  if (format === "millions_from_units") return raw / 1_000_000;
+  return raw;
+}
 
 const SECTION_HEADER_ROWS = {
   incomeStatement: 7,
@@ -95,6 +157,18 @@ function setCenteredCell(
   cell.alignment = CENTER_ALIGN;
 }
 
+function writeNumericCell(
+  worksheet: import("exceljs").Worksheet,
+  row: number,
+  col: number,
+  value: number | null | undefined,
+  numFmt?: string
+): void {
+  const cell = worksheet.getCell(row, col);
+  cell.alignment = CENTER_ALIGN;
+  writeExportCell(cell, value ?? null, numFmt);
+}
+
 function setYearHeaders(
   worksheet: import("exceljs").Worksheet,
   headerRow: number,
@@ -122,21 +196,23 @@ function setYearHeaders(
   setCenteredCell(worksheet, headerRow, COL_SOURCE, "Source");
 }
 
-function writeYearValues(
+function writeYearNumericValues(
   worksheet: import("exceljs").Worksheet,
   row: number,
-  values: string[],
-  yearCount: number
+  values: Array<number | null>,
+  yearCount: number,
+  numFmt?: string
 ): void {
   const padded = values.slice(-yearCount);
-  while (padded.length < yearCount) padded.unshift("-");
+  while (padded.length < yearCount) padded.unshift(null);
 
   for (let index = 0; index < yearCount; index += 1) {
-    setCenteredCell(
+    writeNumericCell(
       worksheet,
       row,
       COL_YEAR_START + index,
-      padded[index] ?? "-"
+      padded[index] ?? null,
+      numFmt
     );
   }
 }
@@ -165,21 +241,33 @@ function fillCardMetricRow(
 ): void {
   if (!metric) return;
 
+  const metricFormat = METRIC_FORMAT_BY_KEY[metric.key];
+  const numFmt = excelNumFmtForMetricFormat(metricFormat);
+
   const yearValues = years.map((year) => {
     const cell = metric.cellsByYear[year];
-    if (!cell) return "-";
-    return getVisibleFinancialsCellDisplay(cell, allowedSources);
+    if (!cell) return null;
+    const display = getVisibleFinancialsCellDisplay(cell, allowedSources);
+    if (display === "-") return null;
+    return cell.raw;
   });
 
-  writeYearValues(
+  writeYearNumericValues(
     worksheet,
     row,
     yearValues,
-    FINANCIALS_DISPLAY_YEAR_COUNT
+    FINANCIALS_DISPLAY_YEAR_COUNT,
+    numFmt
   );
 
   const yoy = getVisibleYoyValue(metric, years, allowedSources);
-  setCenteredCell(worksheet, row, COL_METRICS_YOY, yoy?.display ?? "-");
+  writeNumericCell(
+    worksheet,
+    row,
+    COL_METRICS_YOY,
+    yoy?.percentChange ?? null,
+    EXCEL_NUM_FMT.percent
+  );
 
   setCenteredCell(
     worksheet,
@@ -239,14 +327,20 @@ function fillIncomeStatementSection(
     const metric = metricsByKey.get(key);
     if (!metric) continue;
 
-    const values = metric.values.slice(-FINANCIALS_TABLE_MAX_YEAR_COLUMNS);
-    const displayValues = sourceVisible ? values : values.map(() => "-");
+    const values = metric.rawValues.slice(-FINANCIALS_TABLE_MAX_YEAR_COLUMNS);
+    const exportValues = sourceVisible
+      ? values.map((raw) =>
+          exportValueForIncomeStatement(raw, metric.exportFormat)
+        )
+      : values.map(() => null);
+    const numFmt = excelNumFmtForIncomeStatementFormat(metric.exportFormat);
 
-    writeYearValues(
+    writeYearNumericValues(
       worksheet,
       row,
-      displayValues,
-      FINANCIALS_TABLE_MAX_YEAR_COLUMNS
+      exportValues,
+      FINANCIALS_TABLE_MAX_YEAR_COLUMNS,
+      numFmt
     );
   }
 

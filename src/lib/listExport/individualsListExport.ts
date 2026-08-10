@@ -13,6 +13,10 @@ import {
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import { normalizeIndividualExportRow } from "@/lib/normalizeIndividual";
 import { readFieldValue } from "./readFieldValue";
+import {
+  coerceExportCellValue,
+  type ExportCellValue,
+} from "./exportCellValue";
 import { runGenericListExport } from "./runListExport";
 import {
   EXPORT_ALL_ENTITIES_CAP,
@@ -117,6 +121,19 @@ function getIndividualCellValue(
 
   const raw = readFieldValue(row, getIndividualFieldAliasesForColumn(column.key));
   return toPlainText(raw);
+}
+
+function getIndividualCellExportValue(
+  row: Record<string, unknown>,
+  column: ExportColumnDef
+): ExportCellValue {
+  if (column.key === "id") {
+    const id = getIndividualId(row);
+    return id > 0 ? id : null;
+  }
+
+  const display = getIndividualCellValue(row, column);
+  return coerceExportCellValue(column, display);
 }
 
 function orderRowsBySelectedIds(
@@ -311,5 +328,6 @@ export async function exportIndividualsList(
         (row as unknown as Individual).advisor_individuals ?? row.name ?? "—"
       ),
     getCellValue: getIndividualCellValue,
+    getCellExportValue: getIndividualCellExportValue,
   });
 }

@@ -24,6 +24,11 @@ import {
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import type { CorporateEvent } from "@/types/corporateEvents";
 import { readFieldValue } from "./readFieldValue";
+import {
+  coerceExportCellValue,
+  parseExportNumber,
+  type ExportCellValue,
+} from "./exportCellValue";
 import { runGenericListExport } from "./runListExport";
 import {
   EXPORT_ALL_ENTITIES_CAP,
@@ -265,6 +270,24 @@ function getCorporateEventCellValue(
   return toPlainText(readFieldValue(row, [column.key]));
 }
 
+function getCorporateEventCellExportValue(
+  row: Record<string, unknown>,
+  column: ExportColumnDef
+): ExportCellValue {
+  const event = row as unknown as CorporateEvent;
+
+  if (column.key === "investment_amount") {
+    return parseExportNumber(event.investment_data?.investment_amount_m);
+  }
+
+  if (column.key === "enterprise_value") {
+    return parseExportNumber(event.ev_data?.enterprise_value_m);
+  }
+
+  const display = getCorporateEventCellValue(row, column);
+  return coerceExportCellValue(column, display);
+}
+
 function appendUniqueItems(
   allItems: Record<string, unknown>[],
   seenIds: Set<number>,
@@ -406,5 +429,6 @@ export async function exportCorporateEventsList(
     getEntityName: (row) =>
       String((row as unknown as CorporateEvent).description ?? "—"),
     getCellValue: getCorporateEventCellValue,
+    getCellExportValue: getCorporateEventCellExportValue,
   });
 }

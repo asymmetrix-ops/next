@@ -4,6 +4,11 @@ import {
   buildVisibleColumnsWorkbook,
   downloadXlsxBuffer,
 } from "./xlsx";
+import {
+  coerceExportCellValue,
+  type ExportCellValue,
+} from "./exportCellValue";
+import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import type { ExportColumnDef, ListExportMode, ListExportRequest } from "./types";
 
 export interface GenericListExportInput {
@@ -37,12 +42,17 @@ export interface GenericListExportInput {
     row: Record<string, unknown>,
     column: ExportColumnDef
   ) => string;
+  /** When set, writes numeric cells as Excel numbers instead of display text. */
+  getCellExportValue?: (
+    row: Record<string, unknown>,
+    column: ExportColumnDef
+  ) => ExportCellValue;
 }
 
 export async function runGenericListExport(
   input: GenericListExportInput
 ): Promise<void> {
-  const { request, config, rows, getCellValue } = input;
+  const { request, config, rows, getCellValue, getCellExportValue } = input;
   const columnCategories =
     request.mode === "all_columns" && config.allColumnsCategories
       ? config.allColumnsCategories
@@ -55,10 +65,18 @@ export async function runGenericListExport(
 
   if (columns.length === 0) return;
 
-  const dataRows = rows.map((row) =>
+  const dataRows: ExportCellValue[][] = rows.map((row) =>
     columns.map((column) => {
-      const value = getCellValue(row, column);
-      return value == null || value.trim() === "" ? "-" : value;
+      if (getCellExportValue) {
+        return getCellExportValue(row, column);
+      }
+
+      const display = getCellValue(row, column);
+      if (display == null || display.trim() === "" || display === EMPTY_DISPLAY) {
+        return null;
+      }
+
+      return coerceExportCellValue(column, display);
     })
   );
 
