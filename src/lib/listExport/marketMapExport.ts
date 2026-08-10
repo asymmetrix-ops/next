@@ -3,11 +3,13 @@ import { mapCompanyTableApiRow } from "@/lib/companyTableData";
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import {
   fetchAllCompaniesForExport,
+  getCompanyCellExportValue,
   getCompanyCellValue,
 } from "./companiesListExport";
 import { readFieldValue } from "./readFieldValue";
 import type { ExportColumnDef } from "./types";
 import { buildVisibleColumnsWorkbook, downloadXlsxBuffer } from "./xlsx";
+import type { ExportCellValue } from "./exportCellValue";
 
 export const MARKET_MAP_BUCKET_TYPE_IDS: Record<string, number> = {
   public: 7,
@@ -79,6 +81,18 @@ function getMarketMapCellValue(
   return getCompanyCellValue(row, column);
 }
 
+function getMarketMapCellExportValue(
+  row: Record<string, unknown>,
+  column: ExportColumnDef
+): ExportCellValue {
+  if (column.key === "country") {
+    const display = getMarketMapCellValue(row, column);
+    return display === EMPTY_DISPLAY ? null : display;
+  }
+
+  return getCompanyCellExportValue(row, column);
+}
+
 export async function exportMarketMapBucket(options: {
   sectorId: number;
   sectorName: string;
@@ -112,10 +126,9 @@ export async function exportMarketMapBucket(options: {
   const rows = rawRows.map((row) => mapCompanyTableApiRow(row));
 
   const dataRows = rows.map((row) =>
-    MARKET_MAP_EXPORT_COLUMNS.map((column) => {
-      const value = getMarketMapCellValue(row, column);
-      return value == null || value.trim() === "" ? "-" : value;
-    })
+    MARKET_MAP_EXPORT_COLUMNS.map((column) =>
+      getMarketMapCellExportValue(row, column)
+    )
   );
 
   const buffer = await buildVisibleColumnsWorkbook({

@@ -20,6 +20,12 @@ import { mapCompanyTableApiRow } from "@/lib/companyTableData";
 import { normalizeCompaniesResponse } from "@/app/companies/normalizeCompaniesResponse";
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import { readFieldValue } from "./readFieldValue";
+import {
+  coerceExportCellValue,
+  isNumericExportColumn,
+  parseExportNumber,
+  type ExportCellValue,
+} from "./exportCellValue";
 import { runGenericListExport } from "./runListExport";
 import { EXPORT_ALL_ENTITIES_CAP, type ExportColumnDef, type ListExportRequest } from "./types";
 
@@ -226,6 +232,46 @@ export function getCompanyCellValue(
   );
 }
 
+export function getCompanyCellExportValue(
+  row: Record<string, unknown>,
+  column: ExportColumnDef,
+  currencyCode?: string
+): ExportCellValue {
+  const columnType = (COLUMN_TYPE_BY_KEY.get(column.key) ??
+    column.type) as CompanyColumnType;
+
+  if (
+    columnType === "paragraph" ||
+    columnType === "text" ||
+    columnType === "url" ||
+    columnType === "follow" ||
+    columnType === "boolean" ||
+    LIST_JSON_COLUMN_KEYS.has(column.key)
+  ) {
+    const display = getCompanyCellValue(row, column, currencyCode);
+    return coerceExportCellValue(column, display);
+  }
+
+  if (column.key === "id") {
+    const id = Number(row.id);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }
+
+  if (column.key === "asymmetrix_url") {
+    const display = getCompanyCellValue(row, column, currencyCode);
+    return display === EMPTY_DISPLAY ? null : display;
+  }
+
+  const raw = readFieldValue(row, [...getFieldAliasesForColumn(column.key)]);
+  if (isNumericExportColumn(column)) {
+    const numeric = parseExportNumber(raw);
+    if (numeric != null) return numeric;
+  }
+
+  const display = getCompanyCellValue(row, column, currencyCode);
+  return coerceExportCellValue(column, display, raw);
+}
+
 function appendUniqueItems(
   allItems: Record<string, unknown>[],
   seenIds: Set<number>,
@@ -428,6 +474,7 @@ export async function exportCompaniesList(
     rows,
     getEntityName: (row) => String(row.name ?? "—"),
     getCellValue: getCompanyCellValue,
+    getCellExportValue: getCompanyCellExportValue,
   });
 }
 

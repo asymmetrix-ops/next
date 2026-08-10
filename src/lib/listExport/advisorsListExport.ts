@@ -9,6 +9,11 @@ import {
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import { normalizeWebsiteUrl } from "@/lib/websiteUrl";
 import { readFieldValue } from "./readFieldValue";
+import {
+  coerceExportCellValue,
+  parseExportNumber,
+  type ExportCellValue,
+} from "./exportCellValue";
 import { runGenericListExport } from "./runListExport";
 import {
   EXPORT_ALL_ENTITIES_CAP,
@@ -144,6 +149,29 @@ function getAdvisorCellValue(
 
   const raw = readFieldValue(row, getAdvisorFieldAliasesForColumn(column.key));
   return toPlainText(raw);
+}
+
+function getAdvisorCellExportValue(
+  row: Record<string, unknown>,
+  column: ExportColumnDef
+): ExportCellValue {
+  if (column.key === "id") {
+    const id = getAdvisorId(row);
+    return id > 0 ? id : null;
+  }
+
+  const advisor = row as unknown as AdvisorListItem;
+
+  if (column.key === "events_advised") {
+    return parseExportNumber(advisor.events_advised);
+  }
+
+  if (column.key === "linkedin_members") {
+    return parseExportNumber(advisor.linkedin_members);
+  }
+
+  const display = getAdvisorCellValue(row, column);
+  return coerceExportCellValue(column, display);
 }
 
 function orderRowsBySelectedIds(
@@ -342,5 +370,6 @@ export async function exportAdvisorsList(
     rows,
     getEntityName: (row) => String(row.name ?? "—"),
     getCellValue: getAdvisorCellValue,
+    getCellExportValue: getAdvisorCellExportValue,
   });
 }
