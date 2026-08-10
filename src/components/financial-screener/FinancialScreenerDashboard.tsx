@@ -31,6 +31,8 @@ import {
   type SecondarySector,
   type OwnershipType,
 } from "./financialScreenerFilterConfig";
+import { SearchExportMenu } from "@/components/search/SearchExportMenu";
+import type { ListExportMode } from "@/lib/listExport/types";
 
 export type FinancialScreenerDashboardProps = {
   onSearch?: (filters: FinancialScreenerFilters) => void;
@@ -42,7 +44,8 @@ export type FinancialScreenerDashboardProps = {
   ownershipCounts?: FinancialScreenerOwnershipCounts;
   onColumnsClick?: () => void;
   columnsActive?: boolean;
-  onExportCSVClick?: () => void;
+  onExport?: (mode: ListExportMode) => void | Promise<void>;
+  exporting?: boolean;
   onAddToPortfolioClick?: () => void;
   selectedCount?: number;
   columnsCount?: number;
@@ -56,7 +59,8 @@ export const FinancialScreenerDashboard = ({
   initialSearch,
   ownershipCounts = EMPTY_FINANCIAL_SCREENER_OWNERSHIP_COUNTS,
   onColumnsClick,
-  onExportCSVClick,
+  onExport,
+  exporting = false,
   onAddToPortfolioClick,
   selectedCount = 0,
   columnsCount = 0,
@@ -311,29 +315,12 @@ export const FinancialScreenerDashboard = ({
               </svg>
               Columns {columnsCount}/{CANONICAL_FINANCIAL_SCREENER_COLUMN_KEYS.length}
             </button>
-            <button
-              onClick={onExportCSVClick}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                height: 36,
-                padding: "0 14px",
-                background: "#fff",
-                border: "1px solid #e2e8f0",
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 500,
-                color: "#374151",
-                cursor: "pointer",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-              }}
-            >
-              <svg width="12" height="14" viewBox="0 0 12 14" fill="none" aria-hidden="true">
-                <path d="M6 1v8M3 6l3 3 3-3M1 13h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Export CSV
-            </button>
+            {onExport && (
+              <SearchExportMenu
+                onExport={(mode) => onExport?.(mode)}
+                exporting={exporting}
+              />
+            )}
             <button
               onClick={onAddToPortfolioClick}
               disabled={selectedCount === 0}

@@ -33,6 +33,7 @@ import { locationsService } from "@/lib/locationsService";
 import {
   buildBenchmarkMetricRows,
   buildHeadlineMetrics,
+  buildPeerAggregateFinRow,
   buildPeerSectorMedian,
   mapCompanyToFinRow,
 } from "@/lib/financialIntelligence/mappers";
@@ -56,7 +57,16 @@ import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSect
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
 import { FiFxProvider, useFiFxRates } from "./components/FiFxContext";
-import { CURRENCY_OPTIONS } from "@/lib/fxRates";
+import { CURRENCY_OPTIONS, getFXRates } from "@/lib/fxRates";
+import type { FinRow } from "@/app/financials-tsx/types";
+
+function finRowValueForSort(row: FinRow, key: string): string | number | null {
+  if (!(key in row)) return null;
+  const value = row[key as keyof FinRow];
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) return value;
+  return null;
+}
 
 function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow {
   return {
@@ -136,7 +146,7 @@ function FiPeerFinancialsTable({
 }
 
 export default function FinancialIntelligencePage() {
-  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
+  const { currencyId: preferredCurrencyId, currency } = usePlatformCurrency();
   const [target, setTarget] = useState<FiCompanyRow | null>(null);
   const [peers, setPeers] = useState<FiCompanyRow[]>([]);
   const [totalPeers, setTotalPeers] = useState(0);
@@ -478,22 +488,62 @@ export default function FinancialIntelligencePage() {
     return computeCompositePercentile(target, peers, allowedSources);
   }, [target, peers, allowedSources]);
 
-  const handleExportCsv = useCallback(() => {
-    if (!target) return;
-    exportBenchmarkToCsv({
-      target,
-      peers,
-      benchmarkRows,
-      headlineMetrics,
-      compositePercentile,
-      peerAggregateMode,
-    });
-  }, [target, peers, benchmarkRows, headlineMetrics, compositePercentile, peerAggregateMode]);
-
   const peerFinRows = useMemo(
     () => peers.map((peer) => mapCompanyToFinRow(peer, primarySectors, secondarySectors)),
     [peers, primarySectors, secondarySectors]
   );
+
+  const handleExportCsv = useCallback(async () => {
+    if (!target) return;
+
+    const fxRates = await getFXRates();
+    const currencySymbol =
+      CURRENCY_OPTIONS.find((option) => option.value === currency)?.symbol ?? "$";
+
+    const targetRow = mapCompanyToFinRow(target, primarySectors, secondarySectors);
+    const aggregateRow = buildPeerAggregateFinRow(
+      peers,
+      primarySectors,
+      secondarySectors,
+      peerAggregateMode
+    );
+
+    const sortedPeerRows = [...peerFinRows].sort((a, b) => {
+      if (!sortId) return 0;
+      const av = finRowValueForSort(a, sortId);
+      const bv = finRowValueForSort(b, sortId);
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === "string") {
+        return sortDir === "asc"
+          ? av.localeCompare(bv as string)
+          : (bv as string).localeCompare(av);
+      }
+      return sortDir === "asc"
+        ? (av as number) - (bv as number)
+        : (bv as number) - (av as number);
+    });
+
+    exportBenchmarkToCsv({
+      targetRow,
+      aggregateRow,
+      peerRows: sortedPeerRows,
+      displayCurrency: currency,
+      currencySymbol,
+      fxRates,
+      peerAggregateMode,
+    });
+  }, [
+    target,
+    peers,
+    peerFinRows,
+    primarySectors,
+    secondarySectors,
+    peerAggregateMode,
+    currency,
+    sortId,
+    sortDir,
+  ]);
 
   const sectorMedian = useMemo(
     () => buildPeerSectorMedian(peers, peerAggregateMode),

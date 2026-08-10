@@ -164,6 +164,71 @@ export function buildPeerSectorMedian(
   };
 }
 
+const AGGREGATE_FIN_ROW_NUMERIC_KEYS = [
+  "fte",
+  "revenue",
+  "rev_growth",
+  "ebitda",
+  "ebitda_margin",
+  "ebit",
+  "ev",
+  "ev_revenue",
+  "ev_ebitda",
+  "ev_ebit",
+  "rev_multiple",
+  "rule_of_40",
+  "subscription_revenue_pc",
+  "subscription_revenue_m",
+  "churn",
+  "grr",
+  "nrr",
+  "new_clients_rev",
+  "upsell",
+  "cross_sell",
+  "price_increase",
+  "revenue_expansion",
+  "num_clients",
+  "rev_per_client",
+  "num_employees",
+  "rev_per_employee",
+] as const;
+
+export function buildPeerAggregateFinRow(
+  peers: FiCompanyRow[],
+  primarySectors: FiSectorLookup[],
+  secondarySectors: FiSectorLookup[],
+  aggregateMode: FiPeerAggregateMode = "median"
+): FinRow {
+  const finRows = peers.map((peer) =>
+    mapCompanyToFinRow(peer, primarySectors, secondarySectors)
+  );
+  const aggregateLabel =
+    aggregateMode === "mean" ? "Sector mean" : "Sector median";
+
+  const pick = (key: (typeof AGGREGATE_FIN_ROW_NUMERIC_KEYS)[number]) => {
+    const values = finRows
+      .map((row) => row[key])
+      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+    return peerAggregate(values, aggregateMode) ?? 0;
+  };
+
+  const aggregated = Object.fromEntries(
+    AGGREGATE_FIN_ROW_NUMERIC_KEYS.map((key) => [key, pick(key)])
+  ) as Pick<FinRow, (typeof AGGREGATE_FIN_ROW_NUMERIC_KEYS)[number]>;
+
+  return {
+    name: aggregateLabel,
+    primary: "Benchmark",
+    secondary: `${peers.length} companies`,
+    country: "",
+    hq: "",
+    ownership: "Private",
+    color: "var(--ax-cyan-700)",
+    trend: [],
+    ...aggregated,
+  };
+}
+
 export function buildBenchmarkMetricRows(
   target: FiCompanyRow,
   peers: FiCompanyRow[],

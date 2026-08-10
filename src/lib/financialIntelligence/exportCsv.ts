@@ -1,193 +1,224 @@
-import { FI_BENCHMARK_METRICS, getMetricValue } from "./calculations";
-import type {
-  FiBenchmarkMetricRow,
-  FiCompanyRow,
-  FiHeadlineMetric,
-  FiPeerAggregateMode,
-} from "./types";
+import type { FinRow } from "@/app/financials-tsx/types";
+import {
+  FI_PEER_COLUMN_CATEGORIES,
+  FI_PEER_COLUMN_ORDER,
+} from "@/lib/financialIntelligence/fiPeerColumnCategories";
+import { buildCsvContent, downloadCsvContent } from "@/lib/listExport/csv";
+import type { Currency, FXRates } from "@/lib/fxRates";
+import { convertCurrency } from "@/lib/fxRates";
+import type { FiPeerAggregateMode } from "./types";
 
-function escapeCsvField(value: string): string {
-  const s = String(value ?? "").trim();
-  if (s.includes('"') || s.includes("\n") || s.includes(",")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
+interface FiPeerExportColumn {
+  id: string;
+  label: string;
+  type: string;
 }
 
-function csvCell(value: string | number | null | undefined): string {
-  if (value == null || (typeof value === "number" && !Number.isFinite(value))) {
-    return "";
+function getFiPeerExportColumns(): FiPeerExportColumn[] {
+  const metaById = new Map<string, { label: string; type: string }>();
+  for (const category of FI_PEER_COLUMN_CATEGORIES) {
+    for (const column of category.columns) {
+      metaById.set(column.id, { label: column.label, type: column.type });
+    }
   }
-  return escapeCsvField(String(value));
+
+  return FI_PEER_COLUMN_ORDER.map((id) => ({
+    id,
+    label: metaById.get(id)?.label ?? id,
+    type: metaById.get(id)?.type ?? "text",
+  }));
 }
 
-function csvRow(cells: Array<string | number | null | undefined>): string {
-  return cells.map(csvCell).join(",");
+function finRowValue(row: FinRow, key: string): unknown {
+  if (key in row) return row[key as keyof FinRow];
+  return undefined;
+}
+
+function convertMillionsValue(
+  value: number,
+  displayCurrency: Currency,
+  fxRates: FXRates | null
+): number {
+  if (displayCurrency === "USD" || !fxRates) return value;
+  return convertCurrency(value, displayCurrency, fxRates) ?? value;
+}
+
+function formatExportCurrencyMillions(
+  value: unknown,
+  symbol: string,
+  displayCurrency: Currency,
+  fxRates: FXRates | null
+): string {
+  if (value == null || value === "") return "";
+  const num = typeof value === "number" ? value : Number(String(value).replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(num)) return "";
+
+  const converted = convertMillionsValue(num, displayCurrency, fxRates);
+  const abs = Math.abs(converted);
+
+  if (abs >= 1000) {
+    const billions = converted / 1000;
+    const decimals = billions % 1 === 0 ? 0 : 1;
+    return `${symbol}${billions.toFixed(decimals)}b`;
+  }
+
+  if (abs % 1 === 0) {
+    return `${symbol}${Math.round(converted).toLocaleString("en-US")}m`;
+  }
+
+  return `${symbol}${converted.toLocaleString("en-US", { maximumFractionDigits: 1 })}m`;
+}
+
+function formatExportPerUnitCurrency(
+  value: unknown,
+  symbol: string,
+  displayCurrency: Currency,
+  fxRates: FXRates | null
+): string {
+  if (value == null || value === "") return "";
+  const num = typeof value === "number" ? value : Number(String(value).replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(num)) return "";
+
+  const converted = convertMillionsValue(num, displayCurrency, fxRates);
+  if (Math.abs(converted) >= 1_000_000) {
+    return `${symbol}${Math.round(converted / 1_000_000)}m`;
+  }
+  if (Math.abs(converted) >= 1000) {
+    return `${symbol}${Math.round(converted / 1000)}k`;
+  }
+  return `${symbol}${Math.round(converted).toLocaleString("en-US")}`;
+}
+
+function formatExportPercent(value: unknown, withSign = false): string {
+  if (value == null || value === "") return "";
+  const num = typeof value === "number" ? value : Number(String(value).replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(num)) return "";
+  const sign = withSign && num > 0 ? "+" : "";
+  return `${sign}${Math.round(num)}%`;
+}
+
+function formatExportNumber(value: unknown): string {
+  if (value == null || value === "") return "";
+  const num = typeof value === "number" ? value : Number(String(value).replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(num)) return "";
+  return String(num);
+}
+
+function formatExportCount(value: unknown): string {
+  if (value == null || value === "") return "";
+  const num = typeof value === "number" ? value : Number(String(value).replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(num)) return "";
+  return Math.round(num).toLocaleString("en-US");
+}
+
+function formatFinRowExportCell(
+  column: FiPeerExportColumn,
+  row: FinRow,
+  displayCurrency: Currency,
+  currencySymbol: string,
+  fxRates: FXRates | null
+): string {
+  const value = finRowValue(row, column.id);
+
+  switch (column.id) {
+    case "company":
+      return row.name?.trim() || "";
+    case "sector":
+      return [row.primary, row.secondary].filter(Boolean).join(" / ");
+    case "hq":
+      return row.hq?.trim() || row.country?.trim() || "";
+    case "ownership":
+      return row.ownership || "";
+    case "financial_year":
+      return row.financial_year?.trim() || "";
+    case "rev_growth":
+      return formatExportPercent(value, true);
+    case "rev_per_client":
+    case "rev_per_employee":
+      return formatExportPerUnitCurrency(value, currencySymbol, displayCurrency, fxRates);
+    default:
+      break;
+  }
+
+  if (column.type === "currency") {
+    return formatExportCurrencyMillions(value, currencySymbol, displayCurrency, fxRates);
+  }
+  if (column.type === "percent") {
+    return formatExportPercent(value);
+  }
+  if (column.type === "number") {
+    const num = typeof value === "number" ? value : Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
+    if (!Number.isFinite(num)) return "";
+    if (
+      column.id === "rev_multiple" ||
+      column.id === "ev_revenue" ||
+      column.id === "ev_ebitda" ||
+      column.id === "ev_ebit"
+    ) {
+      return `${Math.round(num)}x`;
+    }
+    return formatExportNumber(value);
+  }
+
+  if (column.id === "fte" || column.id === "num_clients" || column.id === "num_employees") {
+    return formatExportCount(value);
+  }
+
+  return value == null ? "" : String(value);
 }
 
 export interface BenchmarkCsvInput {
-  target: FiCompanyRow;
-  peers: FiCompanyRow[];
-  benchmarkRows: FiBenchmarkMetricRow[];
-  headlineMetrics: FiHeadlineMetric[];
-  compositePercentile: number | null;
+  targetRow: FinRow;
+  aggregateRow: FinRow;
+  peerRows: FinRow[];
+  displayCurrency: Currency;
+  currencySymbol: string;
+  fxRates: FXRates | null;
   peerAggregateMode?: FiPeerAggregateMode;
   exportedAt?: Date;
 }
 
 export function buildBenchmarkCsv(input: BenchmarkCsvInput): string {
   const {
-    target,
-    peers,
-    benchmarkRows,
-    headlineMetrics,
-    compositePercentile,
-    peerAggregateMode = "median",
+    targetRow,
+    aggregateRow,
+    peerRows,
+    displayCurrency,
+    currencySymbol,
+    fxRates,
     exportedAt = new Date(),
   } = input;
 
-  const peerAggregateNoun = peerAggregateMode === "mean" ? "Mean" : "Median";
+  const columns = getFiPeerExportColumns();
+  const headers = columns.map((column) => column.label);
+  const orderedRows = [targetRow, aggregateRow, ...peerRows];
 
-  const lines: string[] = [];
-
-  lines.push("Financial Benchmark Export");
-  lines.push(csvRow(["Target Company", target.company_name]));
-  lines.push(csvRow(["Target Company ID", target.company_id]));
-  lines.push(csvRow(["Target Country", target.location_country]));
-  lines.push(csvRow(["Target Region", target.location_region]));
-  lines.push(csvRow(["Target Financial Year", target.financial_year || ""]));
-  lines.push(csvRow(["Peer Count", peers.length]));
-  lines.push(csvRow(["Composite Percentile", compositePercentile ?? ""]));
-  lines.push(csvRow(["Exported At", exportedAt.toISOString()]));
-  lines.push("");
-
-  lines.push("Headline Metrics");
-  lines.push(
-    csvRow([
-      "Metric",
-      "Target Value",
-      `Peer ${peerAggregateNoun}`,
-      "Percentile",
-      `Delta vs ${peerAggregateNoun}`,
-    ])
-  );
-  for (const row of headlineMetrics) {
-    lines.push(
-      csvRow([
-        row.label,
-        row.targetValue,
-        row.peerMedian,
-        row.percentile,
-        row.deltaVsMedian,
-      ])
-    );
-  }
-  lines.push("");
-
-  lines.push("Benchmark Metrics");
-  lines.push(
-    csvRow([
-      "Metric",
-      "Target Value",
-      `Peer ${peerAggregateNoun}`,
-      "Percentile",
-      "Rank",
-      "Rank Total",
-      `Delta vs ${peerAggregateNoun}`,
-    ])
-  );
-  for (const row of benchmarkRows) {
-    lines.push(
-      csvRow([
-        row.label,
-        row.targetValue,
-        row.peerMedian,
-        row.percentile,
-        row.rank,
-        row.rankTotal,
-        row.deltaVsMedian,
-      ])
-    );
-  }
-  lines.push("");
-
-  const peerMetricHeaders = FI_BENCHMARK_METRICS.map((m) => m.label);
-  lines.push("Peer Companies");
-  lines.push(
-    csvRow([
-      "Company",
-      "Company ID",
-      "Country",
-      "Region",
-      "Financial Year",
-      "Revenue ($m)",
-      "EBITDA ($m)",
-      "EV ($m)",
-      ...peerMetricHeaders,
-      "Manually Added",
-    ])
+  const dataRows = orderedRows.map((row) =>
+    columns.map((column) =>
+      formatFinRowExportCell(column, row, displayCurrency, currencySymbol, fxRates)
+    )
   );
 
-  for (const peer of peers) {
-    const metricValues = FI_BENCHMARK_METRICS.map((m) =>
-      getMetricValue(peer, m.key)
-    );
-    lines.push(
-      csvRow([
-        peer.company_name,
-        peer.company_id,
-        peer.location_country,
-        peer.location_region,
-        peer.financial_year || "",
-        peer.revenue_m_usd,
-        peer.ebitda_m_usd,
-        peer.ev_usd,
-        ...metricValues,
-        peer.is_manually_added ? "Yes" : "No",
-      ])
-    );
-  }
+  const metadata = [
+    ["Financial Benchmark Export"],
+    ["Exported At", exportedAt.toISOString()],
+    ["Display Currency", displayCurrency],
+    ["Peer Aggregate", input.peerAggregateMode === "mean" ? "Mean" : "Median"],
+    ["Row Order", "Target company, sector aggregate, peers"],
+    [],
+  ].map((cells) => cells.join(","));
 
-  lines.push("");
-  lines.push("Target Company (reference row)");
-  lines.push(
-    csvRow([
-      target.company_name,
-      target.company_id,
-      target.location_country,
-      target.location_region,
-      target.financial_year || "",
-      target.revenue_m_usd,
-      target.ebitda_m_usd,
-      target.ev_usd,
-      ...FI_BENCHMARK_METRICS.map((m) => getMetricValue(target, m.key)),
-      "No",
-    ])
-  );
-
-  return lines.join("\n");
-}
-
-export function downloadBenchmarkCsv(
-  filename: string,
-  content: string
-): void {
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  const tableCsv = buildCsvContent(headers, dataRows);
+  const metaBlock = metadata.join("\r\n");
+  return tableCsv.replace(/^\uFEFF/, `\uFEFF${metaBlock}\r\n`);
 }
 
 export function exportBenchmarkToCsv(input: BenchmarkCsvInput): void {
-  const slug = input.target.company_name
+  const slug = input.targetRow.name
     .replace(/[^\w\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-")
     .slice(0, 60);
-  const date = (input.exportedAt ?? new Date()).toISOString().slice(0, 10);
-  const filename = `financial-benchmark-${slug || input.target.company_id}-${date}.csv`;
-  downloadBenchmarkCsv(filename, buildBenchmarkCsv(input));
+  const filename = `financial-benchmark-${slug || "export"}`;
+  downloadCsvContent(buildBenchmarkCsv(input), filename);
 }
