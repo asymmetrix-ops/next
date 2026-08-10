@@ -51,6 +51,14 @@ export function enrichPortfolioListFilters<T extends { filters_sql?: string | nu
   portfolio_mode: true;
   current_portfolio_ids: number[];
 } {
+  if ((userFilters as { portfolio_mode?: boolean }).portfolio_mode) {
+    return userFilters as T & {
+      filters_sql: string | null;
+      portfolio_mode: true;
+      current_portfolio_ids: number[];
+    };
+  }
+
   return {
     ...userFilters,
     filters_sql: andFiltersSql(
