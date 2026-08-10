@@ -243,7 +243,7 @@ export function Cell({
       );
 
     case 'percent': {
-      if (v == null) return <span style={{ color: 'var(--fg-4)' }}>—</span>;
+      if (v == null || !Number.isFinite(v as number)) return <span style={{ color: 'var(--fg-4)' }}>—</span>;
       const n = v as number;
       const sign = n > 0 ? '+' : '';
       const fg = col.delta
