@@ -302,7 +302,7 @@ export function buildHeadlineMetrics(
     },
     {
       key: "rev_growth",
-      label: "Revenue growth",
+      label: "Revenue Growth",
       getValue: (row) => row.rev_growth_pc,
       format: "percent",
       higherIsBetter: true,
@@ -361,6 +361,19 @@ const FY_MONTH_ABBREV = [
   "Nov",
   "Dec",
 ] as const;
+
+/** Company-profile style period label for latest estimate vintage (e.g. "DEC-2026"). */
+export function formatFiMetricsPeriodDisplay(
+  row: Pick<FiCompanyRow, "financial_year_value" | "financial_year" | "fy_ye_month">
+): string | null {
+  const year = resolveFinancialYearValue(row);
+  if (year <= 0) return null;
+  const month = row.fy_ye_month;
+  if (month >= 1 && month <= 12) {
+    return `${FY_MONTH_ABBREV[month - 1].toUpperCase()}-${year}`;
+  }
+  return `FY${year}`;
+}
 
 type FiReportingPeriodRow = Pick<
   FiCompanyRow,
