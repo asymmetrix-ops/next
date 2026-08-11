@@ -892,3 +892,6 @@ export const IndividualSection = ({
     </div>
   );
 };
+
+
+//
