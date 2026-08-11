@@ -31,9 +31,10 @@ import {
   resolveIndividualCompanyHref,
 } from "@/components/individuals/individualsColumnFields";
 import {
-  compareIndividualSortValues,
   getIndividualColumnSortKind,
-  getIndividualSortValueForColumn,
+  getIndividualServerSortColumn,
+  getIndividualUiColumnForServerSort,
+  type IndividualSortOrder,
 } from "@/components/individuals/individualsTableSort";
 import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
 import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
@@ -70,11 +71,18 @@ interface IndividualColumnDefinition {
   minWidth?: number;
 }
 
+const formatNumber = (value: unknown): string => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "-";
+  return num.toLocaleString();
+};
+
 const ALL_INDIVIDUAL_COLUMNS: IndividualColumnDefinition[] = [
   { key: "name", label: "Name", minWidth: 220 },
   { key: "current_company", label: "Current Companies", minWidth: 180 },
   { key: "current_roles", label: "Current Roles", wrap: true, minWidth: 180 },
   { key: "location", label: "Location", wrap: true, minWidth: 200 },
+  { key: "advisor_deal_count", label: "Advisor Deal Count", minWidth: 150 },
   { key: "follow", label: "My Portfolio", minWidth: 120 },
 ];
 
@@ -142,10 +150,6 @@ export const IndividualSection = ({
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
     DEFAULT_VISIBLE_INDIVIDUAL_COLUMN_KEYS
   );
-  const [sortState, setSortState] = useState<{
-    key: string;
-    dir: "asc" | "desc";
-  } | null>(null);
   const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
   const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -243,25 +247,27 @@ export const IndividualSection = ({
     onColumnsCountChange?.(selectedColumns.length);
   }, [selectedColumns.length, onColumnsCountChange]);
 
-  useEffect(() => {
-    if (sortState && !selectedColumnKeys.includes(sortState.key)) {
-      setSortState(null);
-    }
-  }, [selectedColumnKeys, sortState]);
+  const sortState = useMemo(() => {
+    const uiKey = getIndividualUiColumnForServerSort(currentFilters?.sort_by);
+    if (!uiKey) return null;
+    return {
+      key: uiKey,
+      dir: (currentFilters?.sort_order ?? "asc") as IndividualSortOrder,
+    };
+  }, [currentFilters?.sort_by, currentFilters?.sort_order]);
 
-  const sortedIndividuals = useMemo(() => {
-    if (!sortState || !getIndividualColumnSortKind(sortState.key)) {
-      return individuals;
-    }
-    const { key, dir } = sortState;
-    return [...individuals].sort((a, b) =>
-      compareIndividualSortValues(
-        getIndividualSortValueForColumn(a, key),
-        getIndividualSortValueForColumn(b, key),
-        dir
-      )
-    );
-  }, [individuals, sortState]);
+  useEffect(() => {
+    if (!sortState) return;
+    if (selectedColumnKeys.includes(sortState.key)) return;
+
+    const filters = currentFilters ?? createDefaultIndividualFilters();
+    void fetchIndividuals(1, {
+      ...filters,
+      page: 1,
+      sort_by: "name",
+      sort_order: "asc",
+    });
+  }, [selectedColumnKeys, sortState, currentFilters, fetchIndividuals]);
 
   const handleIndividualClick = useCallback(
     (id: number) => {
@@ -278,13 +284,30 @@ export const IndividualSection = ({
     [currentFilters, fetchIndividuals]
   );
 
-  const handleSortColumn = useCallback((columnKey: string) => {
-    if (!getIndividualColumnSortKind(columnKey)) return;
-    setSortState((current) => {
-      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
-      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
-    });
-  }, []);
+  const handleSortColumn = useCallback(
+    (columnKey: string) => {
+      const apiSortBy = getIndividualServerSortColumn(columnKey);
+      if (!apiSortBy) return;
+
+      const filters = currentFilters ?? createDefaultIndividualFilters();
+      const currentSortBy = filters.sort_by ?? "name";
+      const currentSortOrder = filters.sort_order ?? "asc";
+      const nextSortOrder: IndividualSortOrder =
+        currentSortBy === apiSortBy
+          ? currentSortOrder === "asc"
+            ? "desc"
+            : "asc"
+          : "asc";
+
+      void fetchIndividuals(1, {
+        ...filters,
+        page: 1,
+        sort_by: apiSortBy,
+        sort_order: nextSortOrder,
+      });
+    },
+    [currentFilters, fetchIndividuals]
+  );
 
   const handleReorderTableColumns = useCallback(
     (dragKey: string, dropKey: string) => {
@@ -389,6 +412,8 @@ export const IndividualSection = ({
             text={formatIndividualLocation(individual._locations_individual)}
           />
         );
+      case "advisor_deal_count":
+        return formatNumber(individual.advisor_deal_count);
       case "follow":
         if (!individual.id) return null;
         return (
@@ -658,10 +683,10 @@ export const IndividualSection = ({
         />
       )}
       <div className="company-cards">
-        {sortedIndividuals.length === 0 ? (
+        {individuals.length === 0 ? (
           <div className="loading">No individuals found.</div>
         ) : (
-          sortedIndividuals.map((individual, index) => (
+          individuals.map((individual, index) => (
             <div className="company-card" key={`card-${individual.id ?? index}`}>
               <div className="company-card-header">
                 {renderIndividualCell("name", individual)}
@@ -797,14 +822,14 @@ export const IndividualSection = ({
             </tr>
           </thead>
           <tbody>
-            {sortedIndividuals.length === 0 ? (
+            {individuals.length === 0 ? (
               <tr>
                 <td colSpan={selectedColumns.length + (selectionEnabled ? 1 : 0)}>
                   No individuals found.
                 </td>
               </tr>
             ) : (
-              sortedIndividuals.map((individual, index) => {
+              individuals.map((individual, index) => {
                 const entityId = individual.id;
                 const isRowSelected =
                   typeof entityId === "number" && selectedEntityIds?.has(entityId);

@@ -15,10 +15,11 @@ import { normalizeIndividualExportRow } from "@/lib/normalizeIndividual";
 import { readFieldValue } from "./readFieldValue";
 import { runGenericListExport } from "./runListExport";
 import {
-  EXPORT_ALL_ENTITIES_CAP,
-  type ExportColumnDef,
-  type ListExportRequest,
-} from "./types";
+  applyFullListExportCap,
+  capExportTotalCount,
+  hasReachedExportCap,
+} from "./exportCap";
+import { type ExportColumnDef, type ListExportRequest } from "./types";
 
 const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
@@ -113,6 +114,11 @@ function getIndividualCellValue(
 
   if (column.key === "location") {
     return formatIndividualLocation(individual._locations_individual);
+  }
+
+  if (column.key === "advisor_deal_count") {
+    const num = Number(individual.advisor_deal_count);
+    return Number.isFinite(num) ? String(num) : EMPTY_DISPLAY;
   }
 
   const raw = readFieldValue(row, getIndividualFieldAliasesForColumn(column.key));
@@ -254,7 +260,7 @@ async function fetchAllIndividualsForExport(
       pageTotal = Math.min(
         result.pageTotal,
         resolvedTotalCount > 0
-          ? Math.ceil(Math.min(resolvedTotalCount, EXPORT_ALL_ENTITIES_CAP) / EXPORT_PER_PAGE)
+          ? Math.ceil(capExportTotalCount(resolvedTotalCount) / EXPORT_PER_PAGE)
           : result.pageTotal
       );
     }
@@ -264,14 +270,14 @@ async function fetchAllIndividualsForExport(
     const added = appendUniqueItems(allItems, seenIds, result.items);
     if (added === 0) break;
 
-    if (allItems.length >= EXPORT_ALL_ENTITIES_CAP) break;
+    if (hasReachedExportCap(allItems.length)) break;
     if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
     if (result.items.length < EXPORT_PER_PAGE) break;
 
     page += 1;
   }
 
-  return allItems.slice(0, EXPORT_ALL_ENTITIES_CAP);
+  return applyFullListExportCap(allItems);
 }
 
 export async function exportIndividualsList(

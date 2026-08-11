@@ -1,4 +1,4 @@
-export type IndividualColumnType = "text" | "follow";
+export type IndividualColumnType = "text" | "number" | "follow";
 
 export interface IndividualColumnMeta {
   id: string;
@@ -67,6 +67,13 @@ export const INDIVIDUALS_COLUMN_CATEGORIES: IndividualColumnCategory[] = [
         label: "Location",
         type: "text",
         defaultVisible: true,
+      },
+      {
+        id: "advisor_deal_count",
+        columnKey: "advisor_deal_count",
+        label: "Advisor Deal Count",
+        type: "number",
+        defaultVisible: false,
       },
     ],
   },

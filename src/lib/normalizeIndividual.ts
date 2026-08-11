@@ -101,6 +101,9 @@ export function normalizeIndividualFromApi(
     current_company_location: Array.isArray(raw.current_company_location)
       ? (raw.current_company_location as Individual["current_company_location"])
       : [],
+    advisor_deal_count: Number.isFinite(Number(raw.advisor_deal_count))
+      ? Number(raw.advisor_deal_count)
+      : 0,
   };
 }
 

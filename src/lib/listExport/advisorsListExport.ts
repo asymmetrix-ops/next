@@ -11,10 +11,11 @@ import { normalizeWebsiteUrl } from "@/lib/websiteUrl";
 import { readFieldValue } from "./readFieldValue";
 import { runGenericListExport } from "./runListExport";
 import {
-  EXPORT_ALL_ENTITIES_CAP,
-  type ExportColumnDef,
-  type ListExportRequest,
-} from "./types";
+  applyFullListExportCap,
+  capExportTotalCount,
+  hasReachedExportCap,
+} from "./exportCap";
+import { type ExportColumnDef, type ListExportRequest } from "./types";
 
 const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
@@ -288,7 +289,7 @@ async function fetchAllAdvisorsForExport(
       pageTotal = Math.min(
         result.pageTotal,
         resolvedTotalCount > 0
-          ? Math.ceil(Math.min(resolvedTotalCount, EXPORT_ALL_ENTITIES_CAP) / EXPORT_PER_PAGE)
+          ? Math.ceil(capExportTotalCount(resolvedTotalCount) / EXPORT_PER_PAGE)
           : result.pageTotal
       );
     }
@@ -298,14 +299,14 @@ async function fetchAllAdvisorsForExport(
     const added = appendUniqueItems(allItems, seenIds, result.items);
     if (added === 0) break;
 
-    if (allItems.length >= EXPORT_ALL_ENTITIES_CAP) break;
+    if (hasReachedExportCap(allItems.length)) break;
     if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
     if (result.items.length < EXPORT_PER_PAGE) break;
 
     page += 1;
   }
 
-  return allItems.slice(0, EXPORT_ALL_ENTITIES_CAP);
+  return applyFullListExportCap(allItems);
 }
 
 export async function exportAdvisorsList(

@@ -207,9 +207,22 @@ function IndividualsPageInner() {
   const handleSearch = useCallback(
     (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      void fetchIndividuals(1, listFilters, countsFilters);
+      void fetchIndividuals(
+        1,
+        {
+          ...listFilters,
+          sort_by: currentFilters?.sort_by ?? listFilters.sort_by ?? "name",
+          sort_order:
+            currentFilters?.sort_order ?? listFilters.sort_order ?? "asc",
+        },
+        countsFilters
+      );
     },
-    [fetchIndividuals]
+    [
+      fetchIndividuals,
+      currentFilters?.sort_by,
+      currentFilters?.sort_order,
+    ]
   );
 
   const handleFilterColumnsChange = useCallback(

@@ -15,7 +15,11 @@ import { normalizeCompaniesResponse } from "@/app/companies/normalizeCompaniesRe
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import { readFieldValue } from "./readFieldValue";
 import { runGenericListExport } from "./runListExport";
-import { EXPORT_ALL_ENTITIES_CAP, type ExportColumnDef, type ListExportRequest } from "./types";
+import {
+  applyFullListExportCap,
+  hasReachedExportCap,
+} from "./exportCap";
+import { type ExportColumnDef, type ListExportRequest } from "./types";
 
 const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
@@ -357,7 +361,7 @@ async function fetchAllCompaniesForExport(
     const added = appendUniqueItems(allItems, seenIds, result.items);
     if (added === 0) break;
 
-    if (allItems.length >= EXPORT_ALL_ENTITIES_CAP) break;
+    if (hasReachedExportCap(allItems.length)) break;
     if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
 
     const responsePerPage = result.perPage || EXPORT_PER_PAGE;
@@ -366,7 +370,7 @@ async function fetchAllCompaniesForExport(
     page += 1;
   }
 
-  return allItems.slice(0, EXPORT_ALL_ENTITIES_CAP);
+  return applyFullListExportCap(allItems);
 }
 
 export async function exportCompaniesList(

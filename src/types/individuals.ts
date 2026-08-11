@@ -66,6 +66,7 @@ export interface Individual {
   current_roles: CurrentRole[];
   current_company: string | null;
   current_company_location: Location[];
+  advisor_deal_count?: number;
 }
 
 // Individual Location with region fields

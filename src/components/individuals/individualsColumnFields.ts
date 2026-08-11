@@ -5,6 +5,7 @@ export const INDIVIDUAL_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> 
   current_company: ["current_company"],
   current_roles: ["current_roles"],
   location: ["_locations_individual"],
+  advisor_deal_count: ["advisor_deal_count"],
 };
 
 export function getIndividualFieldAliasesForColumn(

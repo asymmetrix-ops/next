@@ -12,6 +12,7 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "current_company",
   "current_roles",
   "location",
+  "advisor_deal_count",
 ]);
 
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {

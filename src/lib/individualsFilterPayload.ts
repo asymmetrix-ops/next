@@ -1,5 +1,13 @@
 import type { FilterBarState, FilterItem } from "@/components/companies/CompaniesFilterBar";
 
+export type IndividualSortBy =
+  | "name"
+  | "current_company"
+  | "advisor_deal_count"
+  | "country";
+
+export type IndividualSortOrder = "asc" | "desc";
+
 export interface IndividualsSearchFilters {
   Search_Query: string;
   page: number;
@@ -14,6 +22,8 @@ export interface IndividualsSearchFilters {
   Job_Titles: number[];
   Statuses: string[];
   portfolio_only: boolean;
+  sort_by?: IndividualSortBy;
+  sort_order?: IndividualSortOrder;
 }
 
 type SectorRef = { id: number; sector_name: string };
@@ -106,6 +116,8 @@ export const createDefaultIndividualFilters = (): IndividualsSearchFilters => ({
   Job_Titles: [],
   Statuses: [],
   portfolio_only: false,
+  sort_by: "name",
+  sort_order: "asc",
 });
 
 export function buildIndividualsSearchPayload(args: {
@@ -283,5 +295,7 @@ export function individualsFiltersToRequestBody(
     job_titles_ids: toIndividualsApiArray(filters.Job_Titles),
     statuses: toIndividualsApiArray(filters.Statuses),
     portfolio_only: filters.portfolio_only ? true : null,
+    sort_by: filters.sort_by ?? "name",
+    sort_order: filters.sort_order ?? "asc",
   };
 }
