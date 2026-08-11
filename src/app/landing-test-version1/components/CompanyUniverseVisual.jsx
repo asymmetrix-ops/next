@@ -3,16 +3,16 @@
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import React, { useEffect, useRef, useState } from "react";
 
-// Placeholder counts — swap in live figures from the database when ready.
+// Live company universe totals (companies_counts).
 const DEFAULT_DATA = {
-  all: 0,
-  public: 0,
-  peOwned: 0,
-  vcBacked: 0,
-  private: 0,
-  subsidiary: 0,
-  acquired: 0,
-  other: 0,
+  all: 6550,
+  public: 225,
+  peOwned: 671,
+  vcBacked: 1881,
+  private: 1671,
+  subsidiary: 385,
+  acquired: 1313,
+  other: 404,
 };
 
 const CATEGORY_ROWS = [
@@ -98,7 +98,7 @@ function CategoryRow({ label, value, maxValue, index, active }) {
         />
       </span>
       <span
-        className="w-12 shrink-0 text-right text-sm font-semibold tabular-nums"
+        className="w-14 shrink-0 text-right text-sm font-semibold tabular-nums"
         style={{ color: "#000B29" }}
       >
         {count.toLocaleString()}
@@ -211,7 +211,7 @@ export function CompanyUniverseVisual({ data }) {
                   />
                 </span>
                 <span
-                  className="w-12 shrink-0 text-right text-sm font-semibold tabular-nums"
+                  className="w-14 shrink-0 text-right text-sm font-semibold tabular-nums"
                   style={{ color: "#000B29" }}
                 >
                   {values[key].toLocaleString()}
