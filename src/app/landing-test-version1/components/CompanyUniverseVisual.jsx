@@ -27,23 +27,20 @@ const CATEGORY_ROWS = [
 ];
 
 const EASE = [0.16, 1, 0.3, 1];
-const LOOP_INTERVAL_MS = 7500;
-const LOOP_RESET_MS = 500;
 
 function easeOutExpo(t) {
   return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
 }
 
-// Restarts its rAF tween whenever `active` flips false -> true, and snaps
-// back to 0 while inactive so the periodic loop has something to count up from.
+// Counts up once when `active` becomes true, then holds the final value.
 function useCountUp(target, active, { duration = 1000, delay = 0 } = {}) {
   const [value, setValue] = useState(0);
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
-    if (!active) {
-      setValue(0);
-      return;
-    }
+    if (!active || hasStartedRef.current) return;
+    hasStartedRef.current = true;
+
     let rafId;
     let startTime;
     const timeoutId = setTimeout(() => {
@@ -111,22 +108,8 @@ export function CompanyUniverseVisual({ data }) {
   const values = { ...DEFAULT_DATA, ...data };
   const reduceMotion = useReducedMotion();
   const containerRef = useRef(null);
-  const inView = useInView(containerRef, { amount: 0.4 });
-  const [resetting, setResetting] = useState(false);
-  const active = inView && !reduceMotion && !resetting;
-
-  useEffect(() => {
-    if (!inView || reduceMotion) return;
-    let resetTimeoutId;
-    const intervalId = setInterval(() => {
-      setResetting(true);
-      resetTimeoutId = setTimeout(() => setResetting(false), LOOP_RESET_MS);
-    }, LOOP_INTERVAL_MS);
-    return () => {
-      clearInterval(intervalId);
-      clearTimeout(resetTimeoutId);
-    };
-  }, [inView, reduceMotion]);
+  const inView = useInView(containerRef, { amount: 0.4, once: true });
+  const active = inView && !reduceMotion;
 
   const maxValue = Math.max(...Object.values(values), 1);
   const totalCount = useCountUp(values.all, active, {
