@@ -22,6 +22,11 @@ import { FiFilterPicker } from "./FiFilterPicker";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 import { resolveSectorFilterChipLabel } from "@/lib/financialIntelligence/sectorFilters";
 import type { FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import {
+  formatFilterCurrencyValue,
+  getCurrencySymbol,
+} from "@/lib/filterCurrencyFormat";
 
 export interface FiIdOption {
   id: number;
@@ -59,17 +64,11 @@ function isUnboundedMax(max: number | undefined): boolean {
 
 function formatRangeValue(
   v: { min?: number; max?: number } | null | undefined,
-  unit?: string
+  unit?: string,
+  currencySymbol = "$"
 ): string {
   if (!v) return "";
-  const fmt = (n: number) => {
-    if (unit === "$m") {
-      return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}m`;
-    }
-    if (unit === "%") return `${n}%`;
-    if (unit === "x") return `${n}x`;
-    return n.toLocaleString();
-  };
+  const fmt = (n: number) => formatFilterCurrencyValue(n, unit, currencySymbol);
   if (v.min !== undefined && v.max !== undefined) {
     if (isUnboundedMax(v.max)) return `${fmt(v.min)} – no limit`;
     return `${fmt(v.min)}–${fmt(v.max)}`;
@@ -83,7 +82,8 @@ function summarize(
   def: FilterDef,
   value: unknown,
   countryOptions: FiIdOption[] = [],
-  regionOptions: FiIdOption[] = []
+  regionOptions: FiIdOption[] = [],
+  currencySymbol = "$"
 ): string {
   if (value == null) return "";
   if (ID_FILTER_IDS.has(def.id) && Array.isArray(value)) {
@@ -101,7 +101,7 @@ function summarize(
     return `${String(value[0])} +${value.length - 1}`;
   }
   if (def.editor === "range") {
-    return formatRangeValue(value as { min?: number; max?: number }, def.unit);
+    return formatRangeValue(value as { min?: number; max?: number }, def.unit, currencySymbol);
   }
   return String(value);
 }
@@ -126,7 +126,9 @@ function FilterChip({
   secondarySectors?: FiSecondarySectorLookup[];
 }) {
   const [hover, setHover] = useState(false);
-  const summary = summarize(def, value, countryOptions, regionOptions);
+  const { currency } = usePlatformCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
+  const summary = summarize(def, value, countryOptions, regionOptions, currencySymbol);
   const chipLabel =
     def.id === "primary_sector" || def.id === "secondary_sector"
       ? resolveSectorFilterChipLabel({ id: def.id, value: value as FilterState["value"] }, {

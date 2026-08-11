@@ -14,6 +14,15 @@ import {
   summarizeYesNoDualFilter,
   type YesNoDualFilterValue,
 } from "@/lib/yesNoDualFilter";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import {
+  formatFilterCurrencyValue,
+  getCurrencySymbol,
+  isCurrencyFilterUnit,
+  isMillionsCurrencyUnit,
+  localizeCurrencyFilterUnit,
+  localizeCurrencyPresetLabel,
+} from "@/lib/filterCurrencyFormat";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -331,21 +340,13 @@ function isUnboundedMax(max: number | undefined): boolean {
 function formatRangeValue(
   v: { min?: number; max?: number } | null | undefined,
   unit?: string,
-  type?: string
+  type?: string,
+  currencySymbol = "$"
 ): string {
   if (!v) return "";
   const isYear = type === "date";
-  const fmt = (n: number) => {
-    if (unit === "$m" && Math.abs(n) >= 1000)
-      return `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}b`;
-    if (unit === "$m") return `$${n}m`;
-    if (unit === "$k") return `$${n}k`;
-    if (unit === "%") return `${n}%`;
-    if (unit === "x") return `${n}x`;
-    if (unit === "yrs") return `${n}y`;
-    if (isYear) return String(n);
-    return n.toLocaleString();
-  };
+  const fmt = (n: number) =>
+    formatFilterCurrencyValue(n, unit, currencySymbol, { isYearRange: isYear });
   if (v.min !== undefined && v.max !== undefined) {
     if (isUnboundedMax(v.max)) {
       return `${fmt(v.min)} – no limit`;
@@ -360,7 +361,8 @@ function formatRangeValue(
 function summarize(
   def: FilterDef,
   value: unknown,
-  portfolioOnlyChipLabel = "My Portfolio only"
+  portfolioOnlyChipLabel = "My Portfolio only",
+  currencySymbol = "$"
 ): string {
   if (value == null) return "";
   if (def.editor === "enum") {
@@ -372,7 +374,8 @@ function summarize(
     return formatRangeValue(
       value as { min?: number; max?: number },
       def.unit,
-      def.type
+      def.type,
+      currencySymbol
     );
   if (def.editor === "date_range") {
     const v = value as { from?: string; to?: string };
@@ -426,7 +429,9 @@ function Chip({
   portfolioOnlyChipLabel,
 }: ChipProps) {
   const [hover, setHover] = useState(false);
-  const summary = summarize(def, value, portfolioOnlyChipLabel);
+  const { currency } = usePlatformCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
+  const summary = summarize(def, value, portfolioOnlyChipLabel, currencySymbol);
 
   let bg: string,
     fg: string,
@@ -541,11 +546,16 @@ interface PickerRowProps {
 
 function PickerRow({ def, onPick }: PickerRowProps) {
   const [hover, setHover] = useState(false);
+  const { currency } = usePlatformCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
+  const localizedUnit = def.unit
+    ? localizeCurrencyFilterUnit(def.unit, currencySymbol)
+    : "";
   const hint =
     def.editor === "enum"
       ? `${def.options?.length ?? 0} options`
       : def.editor === "range"
-        ? `range${def.unit ? ` (${def.unit})` : ""}`
+        ? `range${localizedUnit ? ` (${localizedUnit})` : ""}`
         : def.editor === "date_range"
           ? "date range"
           : def.editor === "segmented"
@@ -1460,6 +1470,8 @@ function RangeEditor({
   onDismiss,
   onClose,
 }: RangeEditorProps) {
+  const { currency } = usePlatformCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
   const v = (value as RangeValue) || {};
   const [lo, setLo] = useState<string>(
     v.min !== undefined ? String(v.min) : ""
@@ -1478,24 +1490,17 @@ function RangeEditor({
   const isYearRange = def.type === "date";
   const shellWidth = isYearRange ? 268 : 248;
 
-  const fmt = (n: number) => {
-    const u = def.unit;
-    if (u === "$m" && Math.abs(n) >= 1000)
-      return `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}b`;
-    if (u === "$m") return `$${n}m`;
-    if (u === "$k") return `$${n}k`;
-    if (u === "%") return `${n}%`;
-    if (u === "x") return `${n}x`;
-    if (u === "yrs") return `${n}y`;
-    // Years should never be formatted with thousand-separators
-    if (isYearRange) return String(n);
-    return n.toLocaleString();
-  };
+  const fmt = (n: number) =>
+    formatFilterCurrencyValue(n, def.unit, currencySymbol, { isYearRange });
+
+  const unitHint = def.unit
+    ? `unit: ${localizeCurrencyFilterUnit(def.unit, currencySymbol)}`
+    : undefined;
 
   return (
     <EditorShell
       title={def.fullLabel}
-      hint={def.unit ? `unit: ${def.unit}` : undefined}
+      hint={unitHint}
       compact
       onDismiss={onDismiss}
       footer={
@@ -1550,7 +1555,7 @@ function RangeEditor({
                   whiteSpace: "nowrap",
                 }}
               >
-                {p[0]}
+                {localizeCurrencyPresetLabel(p[0], currencySymbol)}
               </button>
             );
           })}
@@ -1586,6 +1591,7 @@ function RangeEditor({
           onChange={setLo}
           placeholder="Min"
           unit={def.unit}
+          currencySymbol={currencySymbol}
           compact
         />
         <span
@@ -1602,6 +1608,7 @@ function RangeEditor({
           onChange={setHi}
           placeholder={lo !== "" ? "No limit" : "Max"}
           unit={def.unit}
+          currencySymbol={currencySymbol}
           compact
         />
       </div>
@@ -1748,12 +1755,14 @@ function NumberInput({
   onChange,
   placeholder,
   unit,
+  currencySymbol = "$",
   compact = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   unit?: string;
+  currencySymbol?: string;
   compact?: boolean;
 }) {
   return (
@@ -1770,7 +1779,7 @@ function NumberInput({
         borderRadius: "var(--r-md)",
       }}
     >
-      {(unit === "$m" || unit === "$k") && (
+      {isCurrencyFilterUnit(unit) && (
         <span
           style={{
             color: "var(--fg-4)",
@@ -1778,7 +1787,7 @@ function NumberInput({
             fontFamily: "var(--font-sans)",
           }}
         >
-          $
+          {currencySymbol}
         </span>
       )}
       <input
@@ -1799,12 +1808,12 @@ function NumberInput({
           color: "var(--fg-1)",
         }}
       />
-      {unit && unit !== "$m" && unit !== "$k" && (
+      {unit && !isCurrencyFilterUnit(unit) && (
         <span style={{ color: "var(--fg-4)", fontSize: compact ? 10 : 11 }}>
           {unit}
         </span>
       )}
-      {unit === "$m" && (
+      {isMillionsCurrencyUnit(unit) && (
         <span style={{ color: "var(--fg-4)", fontSize: compact ? 10 : 11 }}>m</span>
       )}
       {unit === "$k" && (
