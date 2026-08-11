@@ -9,6 +9,7 @@ import {
 } from "@/components/redesign/primitives";
 import type { IncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
+import type { CurrencyDisplayMode } from "@/lib/financialsCurrencyToggle";
 import { IncomeStatementMetricsGrid } from "./IncomeStatementMetricsGrid";
 
 export function IncomeStatementFinancialsCard({
@@ -16,12 +17,14 @@ export function IncomeStatementFinancialsCard({
   showYoyColumn = false,
   reserveYoyColumn = false,
   allowedSources,
+  currencyMode = "preferred",
 }: {
   model: IncomeStatementFinancialsViewModel;
   showYoyColumn?: boolean;
   /** Empty YoY column so year columns line up with metrics cards below. */
   reserveYoyColumn?: boolean;
   allowedSources: FiMetricSourceType[];
+  currencyMode?: CurrencyDisplayMode;
 }) {
   return (
     <LinkPanel style={{ marginBottom: 16 }}>
@@ -52,6 +55,7 @@ export function IncomeStatementFinancialsCard({
         showYoyColumn={showYoyColumn}
         reserveYoyColumn={reserveYoyColumn}
         allowedSources={allowedSources}
+        currencyMode={currencyMode}
       />
     </LinkPanel>
   );

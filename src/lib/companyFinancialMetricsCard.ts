@@ -5,6 +5,7 @@ import {
   buildDualCurrencyDisplay,
   type FinancialMetricFxInfo,
 } from "@/lib/fxDisplay";
+import type { CurrencyDisplayMode } from "@/lib/financialsCurrencyToggle";
 import type { IncomeStatementApiEntry } from "@/lib/incomeStatement";
 import {
   resolveFinancialMetricSourceType,
@@ -138,6 +139,7 @@ export type FinancialsCellValue = {
   raw: number | null;
   sourceType: FiMetricSourceType | null;
   nativeDisplay?: string | null;
+  nativeRaw?: number | null;
   fxTooltip?: string | null;
 };
 
@@ -673,6 +675,7 @@ function formatMetricValue(
     raw,
     sourceType,
     nativeDisplay: dual.nativeDisplay,
+    nativeRaw: fx?.native_value ?? null,
     fxTooltip: dual.fxTooltip,
   };
 }
@@ -718,10 +721,21 @@ export function getYoyComparisonYears(years: number[]): {
   };
 }
 
+function cellForCurrencyMode(
+  cell: FinancialsCellValue,
+  currencyMode: CurrencyDisplayMode
+): FinancialsCellValue {
+  if (currencyMode === "native" && cell.nativeRaw != null) {
+    return { ...cell, raw: cell.nativeRaw };
+  }
+  return cell;
+}
+
 export function getVisibleYoyValue(
   metric: FinancialsMetricRow,
   years: number[],
-  allowedSources: FiMetricSourceType[]
+  allowedSources: FiMetricSourceType[],
+  currencyMode: CurrencyDisplayMode = "preferred"
 ): FinancialsYoyValue | null {
   const comparison = getYoyComparisonYears(years);
   if (!comparison) return null;
@@ -738,8 +752,8 @@ export function getVisibleYoyValue(
   }
 
   return computeYoyValue(
-    priorCell,
-    currentCell,
+    cellForCurrencyMode(priorCell, currencyMode),
+    cellForCurrencyMode(currentCell, currencyMode),
     Boolean(metric.yoyInverse)
   );
 }
@@ -1026,9 +1040,15 @@ export function isFinancialsCellVisible(
 
 export function getVisibleFinancialsCellDisplay(
   cell: FinancialsCellValue,
-  allowedSources: FiMetricSourceType[]
+  allowedSources: FiMetricSourceType[],
+  currencyMode: CurrencyDisplayMode = "preferred"
 ): string {
-  if (cell.raw == null) return "-";
+  const raw =
+    currencyMode === "native" && cell.nativeRaw != null
+      ? cell.nativeRaw
+      : cell.raw;
+  if (raw == null) return "-";
   if (!isFinancialsCellVisible(cell, allowedSources)) return "-";
+  if (currencyMode === "native" && cell.nativeDisplay) return cell.nativeDisplay;
   return cell.display;
 }
