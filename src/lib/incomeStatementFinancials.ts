@@ -3,6 +3,7 @@ import { formatPercentValue } from "@/lib/companyTableData";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import { buildDualCurrencyDisplay, type FinancialMetricFxInfo } from "@/lib/fxDisplay";
+import type { CurrencyDisplayMode } from "@/lib/financialsCurrencyToggle";
 import {
   formatIncomeStatementPeriodLabel,
   resolveIncomeStatementCurrency,
@@ -20,6 +21,7 @@ export type IncomeStatementExportFormat =
 export type IncomeStatementCellValue = {
   display: string;
   nativeDisplay?: string | null;
+  nativeRaw?: number | null;
   fxTooltip?: string | null;
 };
 
@@ -30,6 +32,7 @@ export type IncomeStatementMetricRow = {
   cells: IncomeStatementCellValue[];
   /** Unformatted numeric values aligned with `values` for spreadsheet export. */
   rawValues: (number | null)[];
+  nativeRawValues: (number | null)[];
   exportFormat: IncomeStatementExportFormat;
   yoy: string;
 };
@@ -104,6 +107,7 @@ function formatMoneyMillions(
   return {
     display: dual.display,
     nativeDisplay: dual.nativeDisplay,
+    nativeRaw: fx?.native_value ?? null,
     fxTooltip: dual.fxTooltip,
   };
 }
@@ -119,8 +123,33 @@ function formatRevenuePerFte(
   return {
     display: dual.display,
     nativeDisplay: dual.nativeDisplay,
+    nativeRaw: fx?.native_value ?? null,
     fxTooltip: dual.fxTooltip,
   };
+}
+
+export function resolveIncomeStatementCellDisplay(
+  cell: IncomeStatementCellValue,
+  currencyMode: CurrencyDisplayMode = "preferred"
+): string {
+  if (currencyMode === "native" && cell.nativeDisplay) return cell.nativeDisplay;
+  return cell.display;
+}
+
+export function resolveIncomeStatementMetricYoY(
+  metric: IncomeStatementMetricRow,
+  currencyMode: CurrencyDisplayMode = "preferred"
+): string {
+  if (currencyMode !== "native") return metric.yoy;
+
+  const rawValues = metric.nativeRawValues;
+  if (rawValues.length < 2) return metric.yoy;
+
+  const prior = rawValues[rawValues.length - 2];
+  const current = rawValues[rawValues.length - 1];
+  if (prior == null || current == null) return metric.yoy;
+
+  return formatYoYGrowth(current, prior);
 }
 
 export function formatYoYGrowth(
@@ -159,6 +188,9 @@ function buildMetricRow(
     return value != null && Number.isFinite(value) ? value : null;
   });
   const cells = columns.map(formatValue);
+  const nativeRawValues = cells.map((cell) =>
+    cell.nativeRaw != null && Number.isFinite(cell.nativeRaw) ? cell.nativeRaw : null
+  );
 
   return {
     key,
@@ -166,6 +198,7 @@ function buildMetricRow(
     values: cells.map((cell) => cell.display),
     cells,
     rawValues,
+    nativeRawValues,
     exportFormat,
     yoy: computeLatestYoY(columns, rawValue),
   };
@@ -319,6 +352,10 @@ export function remapIncomeStatementToTableYears(
       rawValues: tableYears.map((year) => {
         const index = indexByYear.get(year);
         return index != null ? (metric.rawValues[index] ?? null) : null;
+      }),
+      nativeRawValues: tableYears.map((year) => {
+        const index = indexByYear.get(year);
+        return index != null ? (metric.nativeRawValues[index] ?? null) : null;
       }),
     })),
   };

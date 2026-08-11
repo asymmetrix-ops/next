@@ -9,8 +9,12 @@ import type {
   IncomeStatementCellValue,
   IncomeStatementFinancialsViewModel,
 } from "@/lib/incomeStatementFinancials";
+import {
+  resolveIncomeStatementCellDisplay,
+  resolveIncomeStatementMetricYoY,
+} from "@/lib/incomeStatementFinancials";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
-import { DualCurrencyValue } from "@/components/company/DualCurrencyValue";
+import type { CurrencyDisplayMode } from "@/lib/financialsCurrencyToggle";
 
 function buildIncomeStatementGridTemplate(
   periodCount: number,
@@ -63,20 +67,30 @@ function YoyValueCell({ value, visible }: { value: string; visible: boolean }) {
 function ValueCell({
   cell,
   visible,
+  currencyMode,
 }: {
   cell: IncomeStatementCellValue;
   visible: boolean;
+  currencyMode: CurrencyDisplayMode;
 }) {
-  const display = !visible && cell.display !== "-" ? "-" : cell.display;
-  const muted = display === "-";
+  const resolved = resolveIncomeStatementCellDisplay(cell, currencyMode);
+  const display = !visible && resolved !== "-" ? "-" : resolved;
 
   return (
-    <DualCurrencyValue
-      display={display}
-      nativeDisplay={muted || !visible ? null : cell.nativeDisplay}
-      fxTooltip={muted || !visible ? null : cell.fxTooltip}
-      muted={muted}
-    />
+    <span
+      title={
+        currencyMode === "preferred" ? (cell.fxTooltip ?? undefined) : undefined
+      }
+      style={{
+        fontFamily: T.sans,
+        fontSize: 13,
+        fontWeight: display === "-" ? 400 : 600,
+        color: display === "-" ? T.muted : T.body,
+        textAlign: "center",
+      }}
+    >
+      {display}
+    </span>
   );
 }
 
@@ -85,11 +99,13 @@ export function IncomeStatementMetricsGrid({
   showYoyColumn = false,
   reserveYoyColumn = false,
   allowedSources,
+  currencyMode = "preferred",
 }: {
   model: IncomeStatementFinancialsViewModel;
   showYoyColumn?: boolean;
   reserveYoyColumn?: boolean;
   allowedSources: FiMetricSourceType[];
+  currencyMode?: CurrencyDisplayMode;
 }) {
   const sourceVisible = allowedSources.includes(model.sourceType);
   const includeYoySpacer = reserveYoyColumn && !showYoyColumn;
@@ -168,12 +184,16 @@ export function IncomeStatementMetricsGrid({
               <ValueCell
                 cell={metric.cells[valueIndex] ?? { display: metric.values[valueIndex] ?? "-" }}
                 visible={sourceVisible}
+                currencyMode={currencyMode}
               />
             </div>
           ))}
           {showYoyColumn ? (
             <div style={{ display: "flex", justifyContent: "center" }}>
-              <YoyValueCell value={metric.yoy} visible={sourceVisible} />
+              <YoyValueCell
+                value={resolveIncomeStatementMetricYoY(metric, currencyMode)}
+                visible={sourceVisible}
+              />
             </div>
           ) : includeYoySpacer ? (
             <div aria-hidden="true" />

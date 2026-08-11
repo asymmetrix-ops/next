@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import {
   CARD_HEADER_BAR_STYLE,
@@ -36,18 +36,22 @@ import {
   remapIncomeStatementToTableYears,
 } from "@/lib/incomeStatementFinancials";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
-import type { IncomeStatementRow } from "@/components/redesign/IncomeStatementSection";
+import type { NormalizedIncomeStatementRow } from "@/lib/incomeStatement";
 import { IncomeStatementFinancialsCard } from "@/components/company/IncomeStatementFinancialsCard";
-import { DualCurrencyValue } from "@/components/company/DualCurrencyValue";
+import { FinancialsCurrencyToggle } from "@/components/company/FinancialsCurrencyToggle";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import {
+  resolveFxToggleConfig,
+  type CurrencyDisplayMode,
+} from "@/lib/financialsCurrencyToggle";
 
 type Props = {
   rows: CompanyFinancialMetricsCardRow[];
   loading: boolean;
   companyName: string;
-  incomeStatementRows?: IncomeStatementRow[];
+  incomeStatementRows?: NormalizedIncomeStatementRow[];
   /** Full fiscal-year history for the Financials tab income statement table. */
-  incomeStatementHistoryRows?: IncomeStatementRow[];
+  incomeStatementHistoryRows?: NormalizedIncomeStatementRow[];
   employeeHistory?: EmployeeTimeSeriesPoint[];
 };
 
@@ -172,22 +176,35 @@ function SourceLegend({
 function MetricValueCell({
   cell,
   allowedSources,
+  currencyMode,
 }: {
   cell: FinancialsCellValue;
   allowedSources: FiMetricSourceType[];
+  currencyMode: CurrencyDisplayMode;
 }) {
-  const display = getVisibleFinancialsCellDisplay(cell, allowedSources);
+  const display = getVisibleFinancialsCellDisplay(
+    cell,
+    allowedSources,
+    currencyMode
+  );
   const color = cell.sourceType ? sourceTypeColor(cell.sourceType) : T.body;
-  const muted = display === "-";
 
   return (
-    <DualCurrencyValue
-      display={display}
-      nativeDisplay={muted ? null : cell.nativeDisplay}
-      fxTooltip={muted ? null : cell.fxTooltip}
-      color={color}
-      muted={muted}
-    />
+    <span
+      title={
+        currencyMode === "preferred" ? (cell.fxTooltip ?? undefined) : undefined
+      }
+      style={{
+        fontFamily: T.sans,
+        fontSize: 13,
+        fontWeight: display === "-" ? 400 : 600,
+        color: display === "-" ? T.muted : color,
+        minWidth: 0,
+        textAlign: "center",
+      }}
+    >
+      {display}
+    </span>
   );
 }
 
@@ -226,12 +243,14 @@ function FinancialsMetricsCard({
   allowedSources,
   showYoy,
   gridTemplate,
+  currencyMode,
 }: {
   card: CompanyFinancialsViewModel["cards"][number];
   years: number[];
   allowedSources: FiMetricSourceType[];
   showYoy: boolean;
   gridTemplate: string;
+  currencyMode: CurrencyDisplayMode;
 }) {
   return (
     <LinkPanel style={{ marginBottom: 16 }}>
@@ -305,13 +324,19 @@ function FinancialsMetricsCard({
               <MetricValueCell
                 cell={metric.cellsByYear[year] ?? { display: "-", raw: null, sourceType: null }}
                 allowedSources={allowedSources}
+                currencyMode={currencyMode}
               />
             </div>
           ))}
           {showYoy ? (
             <div style={{ display: "flex", justifyContent: "center" }}>
               <YoyCell
-                value={getVisibleYoyValue(metric, years, allowedSources)}
+                value={getVisibleYoyValue(
+                  metric,
+                  years,
+                  allowedSources,
+                  currencyMode
+                )}
               />
             </div>
           ) : null}
@@ -333,16 +358,32 @@ export function CompanyFinancialsSection({
   const [allowedSources, setAllowedSources] = useState<FiMetricSourceType[]>([
     ...DEFAULT_FI_SOURCE_TYPES,
   ]);
-
-  const model = useMemo(
-    () => buildCompanyFinancialsViewModel(rows, employeeHistory, platformCurrency),
-    [rows, employeeHistory, platformCurrency]
-  );
+  const [currencyMode, setCurrencyMode] =
+    useState<CurrencyDisplayMode>("preferred");
 
   const incomeStatementSourceRows =
     incomeStatementHistoryRows.length > 0
       ? incomeStatementHistoryRows
       : incomeStatementRows;
+
+  const fxToggleConfig = useMemo(
+    () =>
+      resolveFxToggleConfig(
+        rows,
+        incomeStatementSourceRows,
+        platformCurrency
+      ),
+    [rows, incomeStatementSourceRows, platformCurrency]
+  );
+
+  useEffect(() => {
+    setCurrencyMode("preferred");
+  }, [platformCurrency, rows, incomeStatementSourceRows]);
+
+  const model = useMemo(
+    () => buildCompanyFinancialsViewModel(rows, employeeHistory, platformCurrency),
+    [rows, employeeHistory, platformCurrency]
+  );
 
   const incomeStatementModel = useMemo(
     () =>
@@ -472,7 +513,22 @@ export function CompanyFinancialsSection({
               onToggleSourceType={toggleSourceType}
             />
           </div>
-          <div style={{ flexShrink: 0, paddingTop: 24 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexShrink: 0,
+              paddingTop: 24,
+            }}
+          >
+            {fxToggleConfig ? (
+              <FinancialsCurrencyToggle
+                config={fxToggleConfig}
+                mode={currencyMode}
+                onChange={setCurrencyMode}
+              />
+            ) : null}
             <ExportButton label="Export" onClick={() => void handleExport()} />
           </div>
         </div>
@@ -486,6 +542,7 @@ export function CompanyFinancialsSection({
             !incomeStatementUsesHistory && showTableYoyColumn
           }
           allowedSources={allowedSources}
+          currencyMode={currencyMode}
         />
       ) : null}
 
@@ -499,6 +556,7 @@ export function CompanyFinancialsSection({
               allowedSources={allowedSources}
               showYoy={showTableYoyColumn}
               gridTemplate={gridTemplate}
+              currencyMode={currencyMode}
             />
           ))}
     </div>
