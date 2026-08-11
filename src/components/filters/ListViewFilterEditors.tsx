@@ -2,7 +2,16 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FilterDef } from "@/app/financials-tsx/types";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { FILTER_POPOVER_SCROLL_STYLE } from "@/components/filters/AnchoredPopover";
+import {
+  formatFilterCurrencyValue,
+  getCurrencySymbol,
+  isCurrencyFilterUnit,
+  isMillionsCurrencyUnit,
+  localizeCurrencyFilterUnit,
+  localizeCurrencyPresetLabel,
+} from "@/lib/filterCurrencyFormat";
 import {
   CITY_FILTER_PAGE_SIZE,
   locationsService,
@@ -222,12 +231,14 @@ function NumberInput({
   onChange,
   placeholder,
   unit,
+  currencySymbol = "$",
   compact = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   unit?: string;
+  currencySymbol?: string;
   compact?: boolean;
 }) {
   return (
@@ -244,8 +255,8 @@ function NumberInput({
         borderRadius: "var(--r-md)",
       }}
     >
-      {(unit === "$m" || unit === "$k") && (
-        <span style={{ color: "var(--fg-4)", fontSize: "var(--fs-13)" }}>$</span>
+      {isCurrencyFilterUnit(unit) && (
+        <span style={{ color: "var(--fg-4)", fontSize: "var(--fs-13)" }}>{currencySymbol}</span>
       )}
       <input
         type="number"
@@ -265,10 +276,10 @@ function NumberInput({
           color: "var(--fg-1)",
         }}
       />
-      {unit && unit !== "$m" && unit !== "$k" && (
+      {unit && !isCurrencyFilterUnit(unit) && (
         <span style={{ color: "var(--fg-4)", fontSize: compact ? 10 : 11 }}>{unit}</span>
       )}
-      {unit === "$m" && (
+      {isMillionsCurrencyUnit(unit) && (
         <span style={{ color: "var(--fg-4)", fontSize: compact ? 10 : 11 }}>m</span>
       )}
       {unit === "$k" && (
@@ -295,6 +306,8 @@ export function ListViewRangeEditor({
   onRemove,
   onDismiss,
 }: ListViewRangeEditorProps) {
+  const { currency } = usePlatformCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
   const v = value || {};
   const [lo, setLo] = useState(v.min !== undefined ? String(v.min) : "");
   const [hi, setHi] = useState(
@@ -314,20 +327,17 @@ export function ListViewRangeEditor({
   const defMin = def.min ?? 0;
   const defMax = def.max ?? 100;
 
-  const fmt = (n: number) => {
-    const u = def.unit;
-    if (u === "$m") {
-      return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}m`;
-    }
-    if (u === "%") return `${n}%`;
-    if (u === "x") return `${n}x`;
-    return n.toLocaleString();
-  };
+  const fmt = (n: number) =>
+    formatFilterCurrencyValue(n, def.unit, currencySymbol);
+
+  const unitHint = def.unit
+    ? `unit: ${localizeCurrencyFilterUnit(def.unit, currencySymbol)}`
+    : undefined;
 
   return (
     <EditorShell
       title={def.fullLabel}
-      hint={def.unit ? `unit: ${def.unit}` : undefined}
+      hint={unitHint}
       compact
       onDismiss={onDismiss}
       footer={
@@ -372,7 +382,7 @@ export function ListViewRangeEditor({
                   whiteSpace: "nowrap",
                 }}
               >
-                {p[0]}
+                {localizeCurrencyPresetLabel(p[0], currencySymbol)}
               </button>
             );
           })}
@@ -403,13 +413,21 @@ export function ListViewRangeEditor({
           gap: 6,
         }}
       >
-        <NumberInput value={lo} onChange={setLo} placeholder="Min" unit={def.unit} compact />
+        <NumberInput
+          value={lo}
+          onChange={setLo}
+          placeholder="Min"
+          unit={def.unit}
+          currencySymbol={currencySymbol}
+          compact
+        />
         <span style={{ color: "var(--fg-4)", fontSize: "var(--fs-12)", flexShrink: 0 }}>to</span>
         <NumberInput
           value={hi}
           onChange={setHi}
           placeholder={lo !== "" ? "No limit" : "Max"}
           unit={def.unit}
+          currencySymbol={currencySymbol}
           compact
         />
       </div>
