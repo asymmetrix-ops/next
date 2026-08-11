@@ -336,7 +336,8 @@ export const AdvisorSection = ({
           },
           currentFilters ?? createDefaultAdvisorFilters(),
           selectedColumnKeys,
-          scope === "full_list" ? exportTotalCount : undefined
+          scope === "full_list" ? exportTotalCount : undefined,
+          limitCheck.isAdmin
         );
       } catch (exportError) {
         console.error("Advisor export failed:", exportError);

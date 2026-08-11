@@ -1309,7 +1309,8 @@ export const CompanySection = ({
           },
           currentFilters ?? createDefaultFilters(),
           selectedColumnKeys,
-          scope === "full_list" ? exportTotalCount : undefined
+          scope === "full_list" ? exportTotalCount : undefined,
+          limitCheck.isAdmin
         );
       } catch (exportError) {
         console.error("Companies export failed:", exportError);

@@ -536,7 +536,8 @@ export const InvestorSection = ({
           },
           currentFilters ?? createDefaultInvestorFilters(),
           selectedColumnKeys,
-          scope === "full_list" ? exportTotalCount : undefined
+          scope === "full_list" ? exportTotalCount : undefined,
+          limitCheck.isAdmin
         );
       } catch (exportError) {
         console.error("Investor export failed:", exportError);

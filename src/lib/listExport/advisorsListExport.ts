@@ -187,6 +187,7 @@ async function fetchAdvisorsPage(
   items: Record<string, unknown>[];
   pageTotal: number;
   totalCount: number;
+  perPage: number;
 }> {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
@@ -230,9 +231,31 @@ async function fetchAdvisorsPage(
     (item): item is Record<string, unknown> => !!item && typeof item === "object"
   );
   const totalCount = payload.itemsTotal ?? raw.itemsTotal ?? items.length;
-  const pageTotal = payload.pageTotal ?? raw.pageTotal ?? 1;
+  const responsePerPage = Number(
+    (payload as { perPage?: number }).perPage ??
+      (raw as { perPage?: number }).perPage
+  ) || perPage;
+  const pageTotal =
+    payload.pageTotal ??
+    raw.pageTotal ??
+    (responsePerPage > 0
+      ? Math.max(1, Math.ceil(totalCount / responsePerPage))
+      : 1);
 
-  return { items, pageTotal, totalCount };
+  return { items, pageTotal, totalCount, perPage: responsePerPage };
+}
+
+function resolveAdvisorsExportPageLimit(
+  totalCount: number,
+  perPage: number,
+  uncapped: boolean
+): number {
+  if (perPage <= 0) return 1;
+  const cappedTotal = capExportTotalCount(totalCount, uncapped);
+  return Math.min(
+    Math.max(1, Math.ceil(cappedTotal / perPage)),
+    MAX_EXPORT_PAGES
+  );
 }
 
 async function fetchSelectedAdvisorsForExport(
@@ -270,7 +293,8 @@ async function fetchSelectedAdvisorsForExport(
 
 async function fetchAllAdvisorsForExport(
   filters: AdvisorsSearchFilters,
-  expectedTotalCount?: number
+  expectedTotalCount?: number,
+  uncapped = false
 ): Promise<Record<string, unknown>[]> {
   let page = 1;
   let pageTotal = 1;
@@ -286,11 +310,10 @@ async function fetchAllAdvisorsForExport(
       if (!resolvedTotalCount && result.totalCount > 0) {
         resolvedTotalCount = result.totalCount;
       }
-      pageTotal = Math.min(
-        result.pageTotal,
-        resolvedTotalCount > 0
-          ? Math.ceil(capExportTotalCount(resolvedTotalCount) / EXPORT_PER_PAGE)
-          : result.pageTotal
+      pageTotal = resolveAdvisorsExportPageLimit(
+        resolvedTotalCount,
+        result.perPage,
+        uncapped
       );
     }
 
@@ -299,21 +322,22 @@ async function fetchAllAdvisorsForExport(
     const added = appendUniqueItems(allItems, seenIds, result.items);
     if (added === 0) break;
 
-    if (hasReachedExportCap(allItems.length)) break;
+    if (hasReachedExportCap(allItems.length, uncapped)) break;
     if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
-    if (result.items.length < EXPORT_PER_PAGE) break;
+    if (result.items.length < result.perPage) break;
 
     page += 1;
   }
 
-  return applyFullListExportCap(allItems);
+  return applyFullListExportCap(allItems, uncapped);
 }
 
 export async function exportAdvisorsList(
   request: ListExportRequest,
   filters: AdvisorsSearchFilters,
   visibleColumnKeys: string[],
-  expectedTotalCount?: number
+  expectedTotalCount?: number,
+  uncapped = false
 ): Promise<void> {
   let rows: Record<string, unknown>[];
 
@@ -327,7 +351,8 @@ export async function exportAdvisorsList(
   } else {
     rows = await fetchAllAdvisorsForExport(
       filters ?? createDefaultAdvisorFilters(),
-      expectedTotalCount
+      expectedTotalCount,
+      uncapped
     );
   }
 

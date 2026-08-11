@@ -4,10 +4,21 @@ import { authService } from "@/lib/auth";
 
 const EXPORT_LIMIT = 10;
 
+function resolveIsAdminFromAuthMe(data: Record<string, unknown>): boolean {
+  const status = String(data.Status ?? data.status ?? data.role ?? "").toLowerCase();
+  if (status === "admin" || status.includes("admin")) return true;
+
+  const roles = Array.isArray(data.roles)
+    ? data.roles.map((role) => String(role).toLowerCase())
+    : [];
+  return roles.includes("admin");
+}
+
 export const checkExportLimit = async (): Promise<{
   canExport: boolean;
   exportsLeft: number;
   exportedFiles: number;
+  isAdmin: boolean;
 }> => {
   try {
     const token = authService.getToken();
@@ -19,6 +30,7 @@ export const checkExportLimit = async (): Promise<{
         canExport: false,
         exportsLeft: 0,
         exportedFiles: 0,
+        isAdmin: false,
       };
     }
 
@@ -53,15 +65,14 @@ export const checkExportLimit = async (): Promise<{
         0
     );
 
-    // Check if user is admin - admins get unlimited exports
-    const userStatus = (anyData["Status"] as string | undefined) ?? "";
-    const isAdmin = userStatus.toLowerCase().includes("admin");
+    const isAdmin = resolveIsAdminFromAuthMe(anyData);
 
     if (isAdmin) {
       return {
         canExport: true,
         exportsLeft: EXPORT_LIMIT, // Show full limit for display purposes
         exportedFiles,
+        isAdmin: true,
       };
     }
 
@@ -71,6 +82,7 @@ export const checkExportLimit = async (): Promise<{
       canExport: exportsLeft > 0,
       exportsLeft: Math.max(0, exportsLeft),
       exportedFiles,
+      isAdmin: false,
     };
   } catch (error) {
     console.error("Error checking export limit:", error);
@@ -79,6 +91,7 @@ export const checkExportLimit = async (): Promise<{
       canExport: true,
       exportsLeft: EXPORT_LIMIT,
       exportedFiles: 0,
+      isAdmin: false,
     };
   }
 };

@@ -224,6 +224,7 @@ async function fetchInvestorsPage(
   items: Record<string, unknown>[];
   pageTotal: number;
   totalCount: number;
+  perPage: number;
 }> {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
@@ -255,9 +256,28 @@ async function fetchInvestorsPage(
   );
   const totalCount =
     typeof investors?.itemsTotal === "number" ? investors.itemsTotal : items.length;
-  const pageTotal = investors?.pageTotal || 1;
+  const responsePerPage =
+    Number(investors?.perPage) || perPage;
+  const pageTotal =
+    investors?.pageTotal ??
+    (responsePerPage > 0
+      ? Math.max(1, Math.ceil(totalCount / responsePerPage))
+      : 1);
 
-  return { items, pageTotal, totalCount };
+  return { items, pageTotal, totalCount, perPage: responsePerPage };
+}
+
+function resolveInvestorsExportPageLimit(
+  totalCount: number,
+  perPage: number,
+  uncapped: boolean
+): number {
+  if (perPage <= 0) return 1;
+  const cappedTotal = capExportTotalCount(totalCount, uncapped);
+  return Math.min(
+    Math.max(1, Math.ceil(cappedTotal / perPage)),
+    MAX_EXPORT_PAGES
+  );
 }
 
 async function fetchSelectedInvestorsForExport(
@@ -295,7 +315,8 @@ async function fetchSelectedInvestorsForExport(
 
 async function fetchAllInvestorsForExport(
   filters: InvestorsSearchFilters,
-  expectedTotalCount?: number
+  expectedTotalCount?: number,
+  uncapped = false
 ): Promise<Record<string, unknown>[]> {
   let page = 1;
   let pageTotal = 1;
@@ -311,11 +332,10 @@ async function fetchAllInvestorsForExport(
       if (!resolvedTotalCount && result.totalCount > 0) {
         resolvedTotalCount = result.totalCount;
       }
-      pageTotal = Math.min(
-        result.pageTotal,
-        resolvedTotalCount > 0
-          ? Math.ceil(capExportTotalCount(resolvedTotalCount) / EXPORT_PER_PAGE)
-          : result.pageTotal
+      pageTotal = resolveInvestorsExportPageLimit(
+        resolvedTotalCount,
+        result.perPage,
+        uncapped
       );
     }
 
@@ -324,21 +344,22 @@ async function fetchAllInvestorsForExport(
     const added = appendUniqueItems(allItems, seenIds, result.items);
     if (added === 0) break;
 
-    if (hasReachedExportCap(allItems.length)) break;
+    if (hasReachedExportCap(allItems.length, uncapped)) break;
     if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
-    if (result.items.length < EXPORT_PER_PAGE) break;
+    if (result.items.length < result.perPage) break;
 
     page += 1;
   }
 
-  return applyFullListExportCap(allItems);
+  return applyFullListExportCap(allItems, uncapped);
 }
 
 export async function exportInvestorsList(
   request: ListExportRequest,
   filters: InvestorsSearchFilters,
   visibleColumnKeys: string[],
-  expectedTotalCount?: number
+  expectedTotalCount?: number,
+  uncapped = false
 ): Promise<void> {
   let rows: Record<string, unknown>[];
 
@@ -352,7 +373,8 @@ export async function exportInvestorsList(
   } else {
     rows = await fetchAllInvestorsForExport(
       filters ?? createDefaultInvestorFilters(),
-      expectedTotalCount
+      expectedTotalCount,
+      uncapped
     );
   }
 

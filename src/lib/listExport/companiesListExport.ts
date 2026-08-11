@@ -328,7 +328,8 @@ async function fetchSelectedCompaniesForExport(
 
 async function fetchAllCompaniesForExport(
   filters: CompanySearchPayload,
-  expectedTotalCount?: number
+  expectedTotalCount?: number,
+  uncapped = false
 ): Promise<Record<string, unknown>[]> {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
@@ -361,7 +362,7 @@ async function fetchAllCompaniesForExport(
     const added = appendUniqueItems(allItems, seenIds, result.items);
     if (added === 0) break;
 
-    if (hasReachedExportCap(allItems.length)) break;
+    if (hasReachedExportCap(allItems.length, uncapped)) break;
     if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
 
     const responsePerPage = result.perPage || EXPORT_PER_PAGE;
@@ -370,14 +371,15 @@ async function fetchAllCompaniesForExport(
     page += 1;
   }
 
-  return applyFullListExportCap(allItems);
+  return applyFullListExportCap(allItems, uncapped);
 }
 
 export async function exportCompaniesList(
   request: ListExportRequest,
   filters: CompanySearchPayload,
   visibleColumnKeys: string[],
-  expectedTotalCount?: number
+  expectedTotalCount?: number,
+  uncapped = false
 ): Promise<void> {
   let rows: Record<string, unknown>[];
 
@@ -386,7 +388,7 @@ export async function exportCompaniesList(
     if (selectedIds.length === 0) return;
     rows = await fetchSelectedCompaniesForExport(filters, selectedIds);
   } else {
-    rows = await fetchAllCompaniesForExport(filters, expectedTotalCount);
+    rows = await fetchAllCompaniesForExport(filters, expectedTotalCount, uncapped);
   }
 
   await runGenericListExport({

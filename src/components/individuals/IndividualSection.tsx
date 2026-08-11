@@ -467,7 +467,8 @@ export const IndividualSection = ({
           },
           currentFilters ?? createDefaultIndividualFilters(),
           selectedColumnKeys,
-          scope === "full_list" ? exportTotalCount : undefined
+          scope === "full_list" ? exportTotalCount : undefined,
+          limitCheck.isAdmin
         );
       } catch (exportError) {
         console.error("Individual export failed:", exportError);

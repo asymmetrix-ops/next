@@ -165,6 +165,7 @@ async function fetchIndividualsPage(
   items: Record<string, unknown>[];
   pageTotal: number;
   totalCount: number;
+  perPage: number;
 }> {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
@@ -193,6 +194,7 @@ async function fetchIndividualsPage(
     totalPages?: number;
     totalItems?: number;
     totalIndividuals?: number;
+    perPage?: number;
   };
 
   const rawItems = data.items ?? data.individuals ?? [];
@@ -200,10 +202,28 @@ async function fetchIndividualsPage(
     .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
     .map(normalizeIndividualExportRow);
 
+  const responsePerPage = Number(data.perPage) || perPage;
   const totalCount = data.totalItems ?? data.totalIndividuals ?? items.length;
-  const pageTotal = data.totalPages || 1;
+  const pageTotal =
+    data.totalPages ??
+    (responsePerPage > 0
+      ? Math.max(1, Math.ceil(totalCount / responsePerPage))
+      : 1);
 
-  return { items, pageTotal, totalCount };
+  return { items, pageTotal, totalCount, perPage: responsePerPage };
+}
+
+function resolveIndividualsExportPageLimit(
+  totalCount: number,
+  perPage: number,
+  uncapped: boolean
+): number {
+  if (perPage <= 0) return 1;
+  const cappedTotal = capExportTotalCount(totalCount, uncapped);
+  return Math.min(
+    Math.max(1, Math.ceil(cappedTotal / perPage)),
+    MAX_EXPORT_PAGES
+  );
 }
 
 async function fetchSelectedIndividualsForExport(
@@ -241,7 +261,8 @@ async function fetchSelectedIndividualsForExport(
 
 async function fetchAllIndividualsForExport(
   filters: IndividualsSearchFilters,
-  expectedTotalCount?: number
+  expectedTotalCount?: number,
+  uncapped = false
 ): Promise<Record<string, unknown>[]> {
   let page = 1;
   let pageTotal = 1;
@@ -257,11 +278,10 @@ async function fetchAllIndividualsForExport(
       if (!resolvedTotalCount && result.totalCount > 0) {
         resolvedTotalCount = result.totalCount;
       }
-      pageTotal = Math.min(
-        result.pageTotal,
-        resolvedTotalCount > 0
-          ? Math.ceil(capExportTotalCount(resolvedTotalCount) / EXPORT_PER_PAGE)
-          : result.pageTotal
+      pageTotal = resolveIndividualsExportPageLimit(
+        resolvedTotalCount,
+        result.perPage,
+        uncapped
       );
     }
 
@@ -270,21 +290,22 @@ async function fetchAllIndividualsForExport(
     const added = appendUniqueItems(allItems, seenIds, result.items);
     if (added === 0) break;
 
-    if (hasReachedExportCap(allItems.length)) break;
+    if (hasReachedExportCap(allItems.length, uncapped)) break;
     if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
-    if (result.items.length < EXPORT_PER_PAGE) break;
+    if (result.items.length < result.perPage) break;
 
     page += 1;
   }
 
-  return applyFullListExportCap(allItems);
+  return applyFullListExportCap(allItems, uncapped);
 }
 
 export async function exportIndividualsList(
   request: ListExportRequest,
   filters: IndividualsSearchFilters,
   visibleColumnKeys: string[],
-  expectedTotalCount?: number
+  expectedTotalCount?: number,
+  uncapped = false
 ): Promise<void> {
   let rows: Record<string, unknown>[];
 
@@ -298,7 +319,8 @@ export async function exportIndividualsList(
   } else {
     rows = await fetchAllIndividualsForExport(
       filters ?? createDefaultIndividualFilters(),
-      expectedTotalCount
+      expectedTotalCount,
+      uncapped
     );
   }
 
