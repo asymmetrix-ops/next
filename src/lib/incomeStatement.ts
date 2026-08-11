@@ -1,3 +1,6 @@
+import type { FinancialMetricFxInfo } from "@/lib/fxDisplay";
+import { parseFinancialMetricFx, resolveCurrencyCode } from "@/lib/fxDisplay";
+
 export type IncomeStatementApiEntry = {
   id: number;
   period_display_end_date?: string;
@@ -15,6 +18,30 @@ export type IncomeStatementApiEntry = {
   Income_statement_currency?: string | null;
   currency?: string | null;
   cost_of_goods_sold_currency?: string | null;
+  revenue_native_value?: number | string | null;
+  revenue_native_currency_code?: string | null;
+  revenue_native_currency_symbol?: string | null;
+  revenue_fx_converted?: boolean;
+  revenue_fx_rate?: number | string | null;
+  revenue_fx_is_approximate?: boolean;
+  ebitda_native_value?: number | string | null;
+  ebitda_native_currency_code?: string | null;
+  ebitda_native_currency_symbol?: string | null;
+  ebitda_fx_converted?: boolean;
+  ebitda_fx_rate?: number | string | null;
+  ebitda_fx_is_approximate?: boolean;
+  ebit_native_value?: number | string | null;
+  ebit_native_currency_code?: string | null;
+  ebit_native_currency_symbol?: string | null;
+  ebit_fx_converted?: boolean;
+  ebit_fx_rate?: number | string | null;
+  ebit_fx_is_approximate?: boolean;
+  Revenue_per_FTE_native_value?: number | string | null;
+  Revenue_per_FTE_native_currency_code?: string | null;
+  Revenue_per_FTE_native_currency_symbol?: string | null;
+  Revenue_per_FTE_fx_converted?: boolean;
+  Revenue_per_FTE_fx_rate?: number | string | null;
+  Revenue_per_FTE_fx_is_approximate?: boolean;
 };
 
 export type NormalizedIncomeStatementRow = {
@@ -31,6 +58,10 @@ export type NormalizedIncomeStatementRow = {
   fte_count?: number | null;
   revenue_per_fte?: number | null;
   statement_currency?: string;
+  revenue_fx?: FinancialMetricFxInfo | null;
+  ebitda_fx?: FinancialMetricFxInfo | null;
+  ebit_fx?: FinancialMetricFxInfo | null;
+  revenue_per_fte_fx?: FinancialMetricFxInfo | null;
 };
 
 function sanitizeCurrencyCode(value?: string | null): string | undefined {
@@ -75,6 +106,29 @@ function parseIncomeStatementBlocks(
   });
 }
 
+function normalizeIncomeStatementFx(
+  row: IncomeStatementApiEntry,
+  prefix: "revenue" | "ebitda" | "ebit" | "Revenue_per_FTE"
+): FinancialMetricFxInfo | null {
+  const nativeValueKey = `${prefix}_native_value` as keyof IncomeStatementApiEntry;
+  const nativeCodeKey = `${prefix}_native_currency_code` as keyof IncomeStatementApiEntry;
+  const nativeSymbolKey = `${prefix}_native_currency_symbol` as keyof IncomeStatementApiEntry;
+  const fxConvertedKey = `${prefix}_fx_converted` as keyof IncomeStatementApiEntry;
+  const fxRateKey = `${prefix}_fx_rate` as keyof IncomeStatementApiEntry;
+  const fxApproxKey = `${prefix}_fx_is_approximate` as keyof IncomeStatementApiEntry;
+
+  return parseFinancialMetricFx({
+    native_value: row[nativeValueKey],
+    native_currency_code: resolveCurrencyCode(
+      row[nativeCodeKey] as string | null | undefined,
+      row[nativeSymbolKey] as string | null | undefined
+    ),
+    fx_converted: row[fxConvertedKey] as boolean | undefined,
+    fx_rate: row[fxRateKey],
+    fx_is_approximate: row[fxApproxKey] as boolean | undefined,
+  });
+}
+
 function normalizeRow(row: IncomeStatementApiEntry): NormalizedIncomeStatementRow {
   const revenue = parseNumeric(row.revenue);
   const fteCount = parseNumeric(row.FTE_count);
@@ -102,6 +156,10 @@ function normalizeRow(row: IncomeStatementApiEntry): NormalizedIncomeStatementRo
       sanitizeCurrencyCode(row.Income_statement_currency) ||
       sanitizeCurrencyCode(row.currency) ||
       undefined,
+    revenue_fx: normalizeIncomeStatementFx(row, "revenue"),
+    ebitda_fx: normalizeIncomeStatementFx(row, "ebitda"),
+    ebit_fx: normalizeIncomeStatementFx(row, "ebit"),
+    revenue_per_fte_fx: normalizeIncomeStatementFx(row, "Revenue_per_FTE"),
   };
 }
 

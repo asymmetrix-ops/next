@@ -1,6 +1,10 @@
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import { resolveLinkedInEmployeeCountForYear } from "@/lib/companyLinkedIn";
+import {
+  buildDualCurrencyDisplay,
+  type FinancialMetricFxInfo,
+} from "@/lib/fxDisplay";
 import type { IncomeStatementApiEntry } from "@/lib/incomeStatement";
 import {
   resolveFinancialMetricSourceType,
@@ -98,6 +102,8 @@ export type CompanyFinancialMetricsCardRow = {
   Revenue_per_employee_source_label?: string | null;
   Rev_per_employee_source?: number | string | null;
   Income_statement_currency?: string | null;
+  /** Native-currency metadata keyed by card metric key (e.g. revenue, ebitda). */
+  metric_fx?: Partial<Record<string, FinancialMetricFxInfo>>;
 };
 
 export type FinancialsMetricFormat =
@@ -131,6 +137,8 @@ export type FinancialsCellValue = {
   display: string;
   raw: number | null;
   sourceType: FiMetricSourceType | null;
+  nativeDisplay?: string | null;
+  fxTooltip?: string | null;
 };
 
 export type FinancialsYoyValue = {
@@ -577,6 +585,14 @@ function resolveRowCurrency(
   return null;
 }
 
+function resolveMetricFxFormat(
+  format: FinancialsMetricFormat
+): "money_millions" | "money_whole" | null {
+  if (format === "money_millions") return "money_millions";
+  if (format === "money_whole") return "money_whole";
+  return null;
+}
+
 function formatMetricValue(
   row: CompanyFinancialMetricsCardRow,
   metric: FinancialsMetricDef,
@@ -593,18 +609,19 @@ function formatMetricValue(
   const currency =
     platformCurrencyCode?.trim() ||
     (metric.currencyField ? resolveRowCurrency(row, metric.currencyField) : null);
+  const fx = row.metric_fx?.[metric.key] ?? null;
+  const fxFormat = resolveMetricFxFormat(metric.format);
 
   if (raw == null) {
     return { display: "-", raw: null, sourceType };
   }
 
+  let primaryDisplay = "-";
+
   switch (metric.format) {
     case "money_millions":
-      return {
-        display: formatMillions(raw, currency),
-        raw,
-        sourceType,
-      };
+      primaryDisplay = formatMillions(raw, currency);
+      break;
     case "percent":
       return {
         display: formatPercentValue(raw),
@@ -618,17 +635,14 @@ function formatMetricValue(
         sourceType,
       };
     case "money_whole":
-      return {
-        display: formatMoneyWhole(
-          raw,
-          metric.key === "rev_per_client" || !metric.formattedField
-            ? null
-            : row[metric.formattedField],
-          currency
-        ),
+      primaryDisplay = formatMoneyWhole(
         raw,
-        sourceType,
-      };
+        metric.key === "rev_per_client" || !metric.formattedField
+          ? null
+          : row[metric.formattedField],
+        currency
+      );
+      break;
     case "plain_number":
       return {
         display:
@@ -648,6 +662,19 @@ function formatMetricValue(
     default:
       return { display: "-", raw: null, sourceType };
   }
+
+  if (!fxFormat) {
+    return { display: primaryDisplay, raw, sourceType };
+  }
+
+  const dual = buildDualCurrencyDisplay(primaryDisplay, fx, fxFormat);
+  return {
+    display: dual.display,
+    raw,
+    sourceType,
+    nativeDisplay: dual.nativeDisplay,
+    fxTooltip: dual.fxTooltip,
+  };
 }
 
 export function computeYoyValue(

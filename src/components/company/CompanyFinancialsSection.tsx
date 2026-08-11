@@ -38,6 +38,7 @@ import {
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { IncomeStatementRow } from "@/components/redesign/IncomeStatementSection";
 import { IncomeStatementFinancialsCard } from "@/components/company/IncomeStatementFinancialsCard";
+import { DualCurrencyValue } from "@/components/company/DualCurrencyValue";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 type Props = {
@@ -177,20 +178,16 @@ function MetricValueCell({
 }) {
   const display = getVisibleFinancialsCellDisplay(cell, allowedSources);
   const color = cell.sourceType ? sourceTypeColor(cell.sourceType) : T.body;
+  const muted = display === "-";
 
   return (
-    <span
-      style={{
-        fontFamily: T.sans,
-        fontSize: 13,
-        fontWeight: display === "-" ? 400 : 600,
-        color: display === "-" ? T.muted : color,
-        minWidth: 0,
-        textAlign: "center",
-      }}
-    >
-      {display}
-    </span>
+    <DualCurrencyValue
+      display={display}
+      nativeDisplay={muted ? null : cell.nativeDisplay}
+      fxTooltip={muted ? null : cell.fxTooltip}
+      color={color}
+      muted={muted}
+    />
   );
 }
 
