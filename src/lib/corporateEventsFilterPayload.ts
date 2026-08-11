@@ -31,6 +31,19 @@ function hasDateRangeValue(
   return Boolean(rv.from || rv.to);
 }
 
+function hasRangeValue(
+  value: unknown
+): value is { min?: number; max?: number } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const rv = value as { min?: number; max?: number };
+  return rv.min !== undefined || rv.max !== undefined;
+}
+
+function toSentinel(value: number | undefined): string {
+  if (value == null || !Number.isFinite(value) || value <= 0) return "0";
+  return String(value);
+}
+
 function resolveSectorIds(names: string[], sectors: SectorRef[]): number[] {
   const ids = names
     .map((name) => sectors.find((sector) => sector.sector_name === name)?.id)
@@ -108,6 +121,15 @@ function buildFiltersFromFilterBar(args: {
     filter_investor_ids: [],
     filter_sector_ids: [],
     filter_individual_ids: [],
+    EV_min: "0",
+    EV_max: "0",
+    Amount_min: "0",
+    Amount_max: "0",
+    Product_Types: [],
+    target_company_id: 0,
+    new_company_id: 0,
+    individual_id: 0,
+    investor_id: 0,
   };
 
   let hasPriorClause = false;
@@ -170,6 +192,16 @@ function buildFiltersFromFilterBar(args: {
       filters.Date_end = v.to || null;
       continue;
     }
+    if (item.id === "investment_amount" && hasRangeValue(v)) {
+      filters.Amount_min = toSentinel(v.min);
+      filters.Amount_max = toSentinel(v.max);
+      continue;
+    }
+    if (item.id === "enterprise_value" && hasRangeValue(v)) {
+      filters.EV_min = toSentinel(v.min);
+      filters.EV_max = toSentinel(v.max);
+      continue;
+    }
     if (item.id === "followed" && v === true) {
       filters.show_followed = true;
       continue;
@@ -181,6 +213,10 @@ function buildFiltersFromFilterBar(args: {
       filters.filter_investor_ids = parsed.filter_investor_ids;
       filters.filter_sector_ids = parsed.filter_sector_ids;
       filters.filter_individual_ids = parsed.filter_individual_ids;
+      continue;
+    }
+    if (item.id === "product_type" && Array.isArray(v) && v.length > 0) {
+      filters.Product_Types = v as string[];
     }
   }
 
@@ -208,6 +244,15 @@ export const createDefaultCorporateEventFilters =
     filter_investor_ids: [],
     filter_sector_ids: [],
     filter_individual_ids: [],
+    EV_min: "0",
+    EV_max: "0",
+    Amount_min: "0",
+    Amount_max: "0",
+    Product_Types: [],
+    target_company_id: 0,
+    new_company_id: 0,
+    individual_id: 0,
+    investor_id: 0,
   });
 
 export function buildCorporateEventsSearchPayload(args: {
@@ -292,7 +337,10 @@ function appendSharedCorporateEventFilterParams(
     params.append("user_id", "0");
   }
 
-  params.append("new_company_id", "0");
+  params.append("new_company_id", String(filters.new_company_id ?? 0));
+  params.append("target_company_id", String(filters.target_company_id ?? 0));
+  params.append("individual_id", String(filters.individual_id ?? 0));
+  params.append("investor_id", String(filters.investor_id ?? 0));
 
   if (filters.search_query) {
     params.append("search_query", filters.search_query);
@@ -329,12 +377,18 @@ function appendSharedCorporateEventFilterParams(
     params.append("Deal_Status", filters.Deal_Status.join(","));
   }
   if (filters.Funding_stage && filters.Funding_stage.length > 0) {
-    params.append("Funding_stage", filters.Funding_stage.join(","));
+    filters.Funding_stage.forEach((stage) =>
+      params.append("Funding_stage[]", stage)
+    );
   }
   if (filters.Buyer_Investor_Types && filters.Buyer_Investor_Types.length > 0) {
-    params.append(
-      "Buyer_Investor_Types",
-      filters.Buyer_Investor_Types.join(",")
+    filters.Buyer_Investor_Types.forEach((type) =>
+      params.append("Buyer_Investor_Types[]", type)
+    );
+  }
+  if (filters.Product_Types && filters.Product_Types.length > 0) {
+    filters.Product_Types.forEach((productType) =>
+      params.append("Product_Types[]", productType)
     );
   }
   if (filters.Date_start) {
@@ -344,10 +398,26 @@ function appendSharedCorporateEventFilterParams(
     params.append("Date_end", filters.Date_end);
   }
 
+  params.append("EV_min", filters.EV_min ?? "0");
+  params.append("EV_max", filters.EV_max ?? "0");
+  params.append("Amount_min", filters.Amount_min ?? "0");
+  params.append("Amount_max", filters.Amount_max ?? "0");
+
   appendPreferredCurrencyIdToSearchParams(
     params,
     filters.preferred_currency_id
   );
+}
+
+function appendCorporateEventDealTypeParams(
+  params: URLSearchParams,
+  filters: CorporateEventsSearchFilters
+): void {
+  if (filters.deal_types.length > 0) {
+    filters.deal_types.forEach((dealType) =>
+      params.append("deal_types[]", dealType)
+    );
+  }
 }
 
 export function corporateEventsCountsFiltersToSearchParams(
@@ -372,10 +442,7 @@ export function corporateEventsFiltersToSearchParams(
   params.append("Per_page", String(perPage));
 
   appendSharedCorporateEventFilterParams(params, filters);
-
-  if (filters.deal_types.length > 0) {
-    params.append("deal_types", filters.deal_types.join(","));
-  }
+  appendCorporateEventDealTypeParams(params, filters);
 
   return params;
 }

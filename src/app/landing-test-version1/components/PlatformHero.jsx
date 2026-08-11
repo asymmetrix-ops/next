@@ -2,15 +2,9 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useState } from "react";
+import { CompanyGraphVisual } from "./CompanyGraphVisual";
 import { DashboardMockup } from "./DashboardMockup";
 
-// NOTE: the "Company Data" tab video is temporarily borrowed from gain.ai's
-// public marketing site (see public/landing-test-version1/PLACEHOLDER-ASSETS.md)
-// purely so this layout can be walked through internally — replace it with a
-// real Asymmetrix product recording before this page is ever made public.
-// The other two tabs use an abstract placeholder graphic instead of gain's
-// image assets, because those files turned out to be unrelated PE-firm logos
-// (Partners Group / Lincoln International) rather than product screenshots.
 const TABS = [
   {
     id: "company-data",
@@ -19,8 +13,6 @@ const TABS = [
     title: "Investment-grade intelligence, interlinked & proprietary",
     description:
       "The deepest Data & Analytics market graph — covering every company, its funding history, leadership team and product focus, all richly interconnected.",
-    video: "/landing-test-version1/videos/hero-demo.mp4",
-    poster: "/landing-test-version1/images/hero-mockup.webp",
   },
   {
     id: "deal-radar",
@@ -58,17 +50,20 @@ export function PlatformHero() {
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
             className="relative"
           >
-            <h1 className="text-balance text-5xl font-bold leading-[1.05] text-text-alternative md:text-7xl lg:text-8xl">
-              Intelligence on the{" "}
-              <span className="landing-gradient-text">
+            <h1 className="text-5xl font-bold leading-[1.05] text-text-alternative md:text-7xl lg:text-8xl">
+              Intelligence on the
+              <br />
+              <span className="landing-gradient-text whitespace-nowrap">
                 Data & Analytics Market
               </span>
             </h1>
             <h1
               aria-hidden="true"
-              className="landing-shine-overlay pointer-events-none absolute inset-0 select-none text-balance text-5xl font-bold leading-[1.05] md:text-7xl lg:text-8xl"
+              className="landing-shine-overlay pointer-events-none absolute inset-0 select-none text-5xl font-bold leading-[1.05] md:text-7xl lg:text-8xl"
             >
-              Intelligence on the Data & Analytics Market
+              Intelligence on the
+              <br />
+              Data & Analytics Market
             </h1>
           </motion.div>
 
@@ -132,7 +127,12 @@ export function PlatformHero() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                className="grid items-center gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-10"
+                className={
+                  "grid items-center gap-8 lg:gap-10 " +
+                  (content.id === "company-data"
+                    ? "lg:grid-cols-[0.85fr_1.35fr]"
+                    : "lg:grid-cols-[1fr_1.1fr]")
+                }
               >
                 <div className="text-left text-text-alternative">
                   <p className="landing-eyebrow-chip rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]">
@@ -146,20 +146,8 @@ export function PlatformHero() {
                   </p>
                 </div>
 
-                {content.video ? (
-                  <div className="landing-video-frame relative overflow-hidden rounded-2xl">
-                    <video
-                      key={content.video}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      poster={content.poster}
-                      className="h-auto w-full"
-                    >
-                      <source src={content.video} type="video/mp4" />
-                    </video>
-                  </div>
+                {content.id === "company-data" ? (
+                  <CompanyGraphVisual />
                 ) : (
                   <DashboardMockup
                     label={content.eyebrow}

@@ -7,6 +7,7 @@ import {
   TabsTrigger,
 } from "@relume_io/relume-ui";
 import React from "react";
+import { CompanyUniverseVisual } from "./CompanyUniverseVisual";
 import { DashboardMockup } from "./DashboardMockup";
 import { Reveal } from "./Reveal";
 
@@ -18,8 +19,6 @@ const TABS = [
     heading: "Company profiles",
     description:
       "Every company profile encompasses funding history, leadership team composition, product focus, and competitive positioning. Our cutting-edge analysis includes an assessment of each company's defensibility in the AI era.",
-    stat: { value: "89", caption: "Companies tracked" },
-    bars: [40, 65, 50, 80, 60],
   },
   {
     value: "sector-intelligence",
@@ -116,11 +115,15 @@ export function Coverage() {
                     {tab.description}
                   </p>
                 </div>
-                <DashboardMockup
-                  label={tab.heading}
-                  stat={tab.stat}
-                  bars={tab.bars}
-                />
+                {tab.value === "company-profiles" ? (
+                  <CompanyUniverseVisual />
+                ) : (
+                  <DashboardMockup
+                    label={tab.heading}
+                    stat={tab.stat}
+                    bars={tab.bars}
+                  />
+                )}
               </div>
             </TabsContent>
           ))}
