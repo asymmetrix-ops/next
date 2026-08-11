@@ -246,7 +246,9 @@ function CorporateEventsPageInner() {
     }
     if (!currentFilters) return;
     void fetchCorporateEvents(1, currentFilters, currentFilters);
-  }, [preferredCurrencyId, currentFilters, fetchCorporateEvents]);
+    // Only refetch when currency changes; currentFilters is read from the closure above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferredCurrencyId, fetchCorporateEvents]);
 
   const handleFilterColumnsChange = useCallback(
     ({ filterIds }: { filterIds: string[] }) => {

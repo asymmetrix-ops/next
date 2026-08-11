@@ -345,6 +345,48 @@
   }
 }
 
+.landing-rebrand .landing-node-glow {
+  animation: landing-node-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes landing-node-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-node-glow {
+    animation: none;
+  }
+}
+
+.landing-rebrand .landing-satellite-pulse {
+  animation: landing-satellite-pulse 3.4s ease-in-out infinite;
+}
+
+@keyframes landing-satellite-pulse {
+  0%,
+  100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.22;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-satellite-pulse {
+    animation: none;
+  }
+}
+
 .landing-rebrand .landing-mockup {
   border: 1px solid var(--asymmetrix-divider);
   background-color: var(--asymmetrix-near-black);

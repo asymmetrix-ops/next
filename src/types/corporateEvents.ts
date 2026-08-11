@@ -32,6 +32,15 @@ export interface CorporateEventsFilters {
   filter_investor_ids?: number[];
   filter_sector_ids?: number[];
   filter_individual_ids?: number[];
+  EV_min?: string;
+  EV_max?: string;
+  Amount_min?: string;
+  Amount_max?: string;
+  Product_Types?: string[];
+  target_company_id?: number;
+  new_company_id?: number;
+  individual_id?: number;
+  investor_id?: number;
   /** Platform currency for converted deal amounts (USD=15, EUR=6, GBP=7). */
   preferred_currency_id?: number;
 }
