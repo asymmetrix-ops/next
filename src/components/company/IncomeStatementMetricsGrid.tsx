@@ -5,8 +5,12 @@ import {
   T,
   tableColHeaderBarStyle,
 } from "@/components/redesign/primitives";
-import type { IncomeStatementFinancialsViewModel } from "@/lib/incomeStatementFinancials";
+import type {
+  IncomeStatementCellValue,
+  IncomeStatementFinancialsViewModel,
+} from "@/lib/incomeStatementFinancials";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
+import { DualCurrencyValue } from "@/components/company/DualCurrencyValue";
 
 function buildIncomeStatementGridTemplate(
   periodCount: number,
@@ -57,26 +61,22 @@ function YoyValueCell({ value, visible }: { value: string; visible: boolean }) {
 }
 
 function ValueCell({
-  value,
+  cell,
   visible,
 }: {
-  value: string;
+  cell: IncomeStatementCellValue;
   visible: boolean;
 }) {
-  const display = !visible && value !== "-" ? "-" : value;
+  const display = !visible && cell.display !== "-" ? "-" : cell.display;
+  const muted = display === "-";
 
   return (
-    <span
-      style={{
-        fontFamily: T.sans,
-        fontSize: 13,
-        fontWeight: display === "-" ? 400 : 600,
-        color: display === "-" ? T.muted : T.body,
-        textAlign: "center",
-      }}
-    >
-      {display}
-    </span>
+    <DualCurrencyValue
+      display={display}
+      nativeDisplay={muted || !visible ? null : cell.nativeDisplay}
+      fxTooltip={muted || !visible ? null : cell.fxTooltip}
+      muted={muted}
+    />
   );
 }
 
@@ -166,7 +166,7 @@ export function IncomeStatementMetricsGrid({
               style={{ display: "flex", justifyContent: "center" }}
             >
               <ValueCell
-                value={metric.values[valueIndex] ?? "-"}
+                cell={metric.cells[valueIndex] ?? { display: metric.values[valueIndex] ?? "-" }}
                 visible={sourceVisible}
               />
             </div>

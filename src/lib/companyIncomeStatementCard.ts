@@ -2,6 +2,10 @@ import type { IncomeStatementApiEntry } from "@/lib/incomeStatement";
 import type { CompanyFinancialMetricsCardRow } from "@/lib/companyFinancialMetricsCard";
 import { resolveFinancialMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import {
+  parseFinancialMetricFx,
+  resolveCurrencyCode,
+} from "@/lib/fxDisplay";
+import {
   appendPreferredCurrencyIdToSearchParams,
   readPlatformCurrencyIdClient,
 } from "@/lib/platformCurrency";
@@ -16,6 +20,12 @@ type CardMetricValue = {
   currency_symbol?: string | null;
   source_label?: string | null;
   color?: string | null;
+  native_value?: number | string | null;
+  native_currency_code?: string | null;
+  native_currency_symbol?: string | null;
+  fx_converted?: boolean;
+  fx_rate?: number | string | null;
+  fx_is_approximate?: boolean;
 };
 
 type CardMetric = {
@@ -210,16 +220,27 @@ export function mergeIncomeStatementCardEntries(
 }
 
 function resolveCellCurrency(cell: CardMetricValue): string | null {
-  const code = cell.currency_code?.trim();
-  if (code) return code;
+  return resolveCurrencyCode(cell.currency_code, cell.currency_symbol);
+}
 
-  const symbol = cell.currency_symbol?.trim();
-  if (symbol === "$") return "USD";
-  if (symbol === "£") return "GBP";
-  if (symbol === "€") return "EUR";
-  if (symbol === "¥") return "JPY";
-
-  return null;
+function applyMetricFxToRow(
+  row: CompanyFinancialMetricsCardRow,
+  metricKey: string,
+  cell: CardMetricValue
+): void {
+  const fx = parseFinancialMetricFx({
+    native_value: cell.native_value,
+    native_currency_code: resolveCurrencyCode(
+      cell.native_currency_code,
+      cell.native_currency_symbol
+    ),
+    fx_converted: cell.fx_converted,
+    fx_rate: cell.fx_rate,
+    fx_is_approximate: cell.fx_is_approximate,
+  });
+  if (!fx) return;
+  if (!row.metric_fx) row.metric_fx = {};
+  row.metric_fx[metricKey] = fx;
 }
 
 function applyCurrencyFallbacks(row: CompanyFinancialMetricsCardRow): void {
@@ -274,6 +295,8 @@ function applyMetricToRow(
         currency;
     }
   }
+
+  applyMetricFxToRow(row, metric.key, cell);
 }
 
 /** Converts the card-style API payload into per-year financial metrics rows. */

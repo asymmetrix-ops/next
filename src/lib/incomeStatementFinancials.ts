@@ -2,6 +2,7 @@ import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import { formatPercentValue } from "@/lib/companyTableData";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
+import { buildDualCurrencyDisplay, type FinancialMetricFxInfo } from "@/lib/fxDisplay";
 import {
   formatIncomeStatementPeriodLabel,
   resolveIncomeStatementCurrency,
@@ -16,10 +17,17 @@ export type IncomeStatementExportFormat =
   | "count"
   | "whole";
 
+export type IncomeStatementCellValue = {
+  display: string;
+  nativeDisplay?: string | null;
+  fxTooltip?: string | null;
+};
+
 export type IncomeStatementMetricRow = {
   key: string;
   label: string;
   values: string[];
+  cells: IncomeStatementCellValue[];
   /** Unformatted numeric values aligned with `values` for spreadsheet export. */
   rawValues: (number | null)[];
   exportFormat: IncomeStatementExportFormat;
@@ -82,21 +90,37 @@ function formatMarginValue(
 
 function formatMoneyMillions(
   value: number | null | undefined,
-  currency: string
-): string {
-  if (value == null || !Number.isFinite(value)) return "-";
-  return appendMetricCurrency(
+  currency: string,
+  fx?: FinancialMetricFxInfo | null
+): IncomeStatementCellValue {
+  if (value == null || !Number.isFinite(value)) {
+    return { display: "-" };
+  }
+  const primary = appendMetricCurrency(
     Math.round(value / 1_000_000).toLocaleString(),
     currency
   );
+  const dual = buildDualCurrencyDisplay(primary, fx, "money_from_units");
+  return {
+    display: dual.display,
+    nativeDisplay: dual.nativeDisplay,
+    fxTooltip: dual.fxTooltip,
+  };
 }
 
 function formatRevenuePerFte(
   value: number | null | undefined,
-  currency: string
-): string {
-  if (typeof value !== "number") return "-";
-  return appendMetricCurrency(Math.round(value).toLocaleString(), currency);
+  currency: string,
+  fx?: FinancialMetricFxInfo | null
+): IncomeStatementCellValue {
+  if (typeof value !== "number") return { display: "-" };
+  const primary = appendMetricCurrency(Math.round(value).toLocaleString(), currency);
+  const dual = buildDualCurrencyDisplay(primary, fx, "money_whole");
+  return {
+    display: dual.display,
+    nativeDisplay: dual.nativeDisplay,
+    fxTooltip: dual.fxTooltip,
+  };
 }
 
 export function formatYoYGrowth(
@@ -126,7 +150,7 @@ function buildMetricRow(
   key: string,
   label: string,
   columns: NormalizedIncomeStatementRow[],
-  formatValue: (row: NormalizedIncomeStatementRow) => string,
+  formatValue: (row: NormalizedIncomeStatementRow) => IncomeStatementCellValue,
   rawValue: (row: NormalizedIncomeStatementRow) => number | null | undefined,
   exportFormat: IncomeStatementExportFormat
 ): IncomeStatementMetricRow {
@@ -134,11 +158,13 @@ function buildMetricRow(
     const value = rawValue(row);
     return value != null && Number.isFinite(value) ? value : null;
   });
+  const cells = columns.map(formatValue);
 
   return {
     key,
     label,
-    values: columns.map(formatValue),
+    values: cells.map((cell) => cell.display),
+    cells,
     rawValues,
     exportFormat,
     yoy: computeLatestYoY(columns, rawValue),
@@ -191,7 +217,7 @@ export function buildIncomeStatementFinancialsViewModel(
       "revenue",
       "Revenue (m)",
       columns,
-      (row) => formatMoneyMillions(row.revenue, currency),
+      (row) => formatMoneyMillions(row.revenue, currency, row.revenue_fx),
       (row) => row.revenue ?? null,
       "millions_from_units"
     ),
@@ -199,7 +225,7 @@ export function buildIncomeStatementFinancialsViewModel(
       "ebitda",
       "EBITDA (m)",
       columns,
-      (row) => formatMoneyMillions(row.ebitda, currency),
+      (row) => formatMoneyMillions(row.ebitda, currency, row.ebitda_fx),
       (row) => row.ebitda ?? null,
       "millions_from_units"
     ),
@@ -207,7 +233,7 @@ export function buildIncomeStatementFinancialsViewModel(
       "ebitda_margin",
       "EBITDA %",
       columns,
-      (row) => formatMarginValue(row, "ebitda"),
+      (row) => ({ display: formatMarginValue(row, "ebitda") }),
       (row) => resolveMarginPct(row, "ebitda"),
       "percent"
     ),
@@ -215,7 +241,7 @@ export function buildIncomeStatementFinancialsViewModel(
       "ebit",
       "EBIT (m)",
       columns,
-      (row) => formatMoneyMillions(row.ebit, currency),
+      (row) => formatMoneyMillions(row.ebit, currency, row.ebit_fx),
       (row) => row.ebit ?? null,
       "millions_from_units"
     ),
@@ -223,7 +249,7 @@ export function buildIncomeStatementFinancialsViewModel(
       "ebit_margin",
       "EBIT %",
       columns,
-      (row) => formatMarginValue(row, "ebit"),
+      (row) => ({ display: formatMarginValue(row, "ebit") }),
       (row) => resolveMarginPct(row, "ebit"),
       "percent"
     ),
@@ -231,8 +257,10 @@ export function buildIncomeStatementFinancialsViewModel(
       "fte",
       "FTE",
       columns,
-      (row) =>
-        row.fte_count != null ? row.fte_count.toLocaleString() : "-",
+      (row) => ({
+        display:
+          row.fte_count != null ? row.fte_count.toLocaleString() : "-",
+      }),
       (row) => row.fte_count ?? null,
       "count"
     ),
@@ -240,7 +268,8 @@ export function buildIncomeStatementFinancialsViewModel(
       "revenue_per_fte",
       "Revenue / FTE",
       columns,
-      (row) => formatRevenuePerFte(row.revenue_per_fte, currency),
+      (row) =>
+        formatRevenuePerFte(row.revenue_per_fte, currency, row.revenue_per_fte_fx),
       (row) => row.revenue_per_fte ?? null,
       "whole"
     ),
@@ -280,6 +309,12 @@ export function remapIncomeStatementToTableYears(
       values: tableYears.map((year) => {
         const index = indexByYear.get(year);
         return index != null ? (metric.values[index] ?? "-") : "-";
+      }),
+      cells: tableYears.map((year) => {
+        const index = indexByYear.get(year);
+        return index != null
+          ? (metric.cells[index] ?? { display: "-" })
+          : { display: "-" };
       }),
       rawValues: tableYears.map((year) => {
         const index = indexByYear.get(year);
