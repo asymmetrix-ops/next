@@ -11,6 +11,10 @@ import {
 } from "@/lib/platformCurrency";
 import { peersRequestToSearchParams, appendExcludedSourceLabels } from "./filterPayload";
 import {
+  applyExcludedSourceLabelsToRow,
+  applyExcludedSourceLabelsToRows,
+} from "./applySourceExclusions";
+import {
   companyFinancialMetricsToRawFi,
   extractTargetRow,
   mergeFiCompanyRows,
@@ -178,6 +182,8 @@ export async function fetchFiTarget(
       excludedSourceLabels
     );
 
+    row = applyExcludedSourceLabelsToRow(row, excludedSourceLabels);
+
     return { ok: true, data: row };
   } catch (err) {
     return {
@@ -210,7 +216,15 @@ export async function fetchFiPeers(
     const fallbackCode = platformCurrencyIdToCode(
       request.preferred_currency_id ?? readPlatformCurrencyIdClient()
     ) ?? "USD";
-    return { ok: true, data: normalizePeersResponse(payload, fallbackCode) };
+    const data = normalizePeersResponse(payload, fallbackCode);
+    const excluded = request.excluded_source_labels ?? [];
+    return {
+      ok: true,
+      data: {
+        ...data,
+        peers: applyExcludedSourceLabelsToRows(data.peers, excluded),
+      },
+    };
   } catch (err) {
     return {
       ok: false,

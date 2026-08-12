@@ -62,52 +62,50 @@ function convertForDisplay(
   return convertCurrency(value, currency, fxRates) ?? value;
 }
 
-function formatMillionsCurrency(
+/** Millions-scale numeric value for export (header carries the unit, e.g. Revenue (m)). */
+function toMillionsExportNumber(
+  value: unknown,
+  ctx: FiBenchmarkExportFormatContext
+): number | null {
+  const num = parseExportNumber(value);
+  if (num == null) return null;
+  const converted = convertForDisplay(num, ctx.currency, ctx.fxRates);
+  return Math.round(converted * 10) / 10;
+}
+
+function formatMillionsDisplay(
   value: unknown,
   ctx: FiBenchmarkExportFormatContext
 ): string {
-  const num = parseExportNumber(value);
+  const num = toMillionsExportNumber(value, ctx);
   if (num == null) return EMPTY_DISPLAY;
-  const converted = convertForDisplay(num, ctx.currency, ctx.fxRates);
-  if (Math.abs(converted) >= 1000) {
-    return `${ctx.currencySymbol}${Math.round(converted / 1000)}b`;
-  }
-  return `${ctx.currencySymbol}${Math.round(converted)}m`;
+  return String(num);
 }
 
-function formatPerUnitCurrency(
+/** Per-unit currency columns are exported as plain numbers (no k/m suffix). */
+function toPerUnitExportNumber(
+  value: unknown,
+  ctx: FiBenchmarkExportFormatContext
+): number | null {
+  const num = parseExportNumber(value);
+  if (num == null) return null;
+  const converted = convertForDisplay(num, ctx.currency, ctx.fxRates);
+  return Math.round(converted);
+}
+
+function formatPerUnitDisplay(
   value: unknown,
   ctx: FiBenchmarkExportFormatContext
 ): string {
-  const num = parseExportNumber(value);
+  const num = toPerUnitExportNumber(value, ctx);
   if (num == null) return EMPTY_DISPLAY;
-  const converted = convertForDisplay(num, ctx.currency, ctx.fxRates);
-  if (Math.abs(converted) >= 1_000_000) {
-    return `${ctx.currencySymbol}${Math.round(converted / 1_000_000)}m`;
-  }
-  if (Math.abs(converted) >= 1000) {
-    return `${ctx.currencySymbol}${Math.round(converted / 1000)}k`;
-  }
-  return `${ctx.currencySymbol}${Math.round(converted).toLocaleString("en-US")}`;
+  return String(num);
 }
 
-function formatPercentExport(value: unknown, columnKey: string): string {
+function formatNumericDisplay(value: unknown): string {
   const num = parseExportNumber(value);
   if (num == null) return EMPTY_DISPLAY;
-  const sign = columnKey === "rev_growth" && num > 0 ? "+" : "";
-  return `${sign}${Math.round(num)}%`;
-}
-
-function formatMultipleExport(value: unknown): string {
-  const num = parseExportNumber(value);
-  if (num == null) return EMPTY_DISPLAY;
-  return `${Math.round(num)}x`;
-}
-
-function formatRuleOf40Export(value: unknown): string {
-  const num = parseExportNumber(value);
-  if (num == null) return EMPTY_DISPLAY;
-  return `${Math.round(num)}%`;
+  return String(Math.round(num * 10) / 10);
 }
 
 const COLUMN_TYPE_BY_KEY = new Map<string, CompanyColumnType>(
@@ -265,20 +263,16 @@ export function getFinancialBenchmarkCellValue(
 
     if (columnType === "currency") {
       return PER_UNIT_CURRENCY_KEYS.has(column.key)
-        ? formatPerUnitCurrency(raw, formatContext)
-        : formatMillionsCurrency(raw, formatContext);
+        ? formatPerUnitDisplay(raw, formatContext)
+        : formatMillionsDisplay(raw, formatContext);
     }
 
-    if (columnType === "percent") {
-      return formatPercentExport(raw, column.key);
-    }
-
-    if (column.key === "rule_of_40") {
-      return formatRuleOf40Export(raw);
+    if (columnType === "percent" || column.key === "rule_of_40") {
+      return formatNumericDisplay(raw);
     }
 
     if (columnType === "number" && MULTIPLE_COLUMN_KEYS.has(column.key)) {
-      return formatMultipleExport(raw);
+      return formatNumericDisplay(raw);
     }
 
     if (COUNT_COLUMN_KEYS.has(column.key)) {
@@ -314,6 +308,35 @@ export function getFinancialBenchmarkCellValue(
   );
 }
 
+function getFinancialBenchmarkNumericExportValue(
+  row: Record<string, unknown>,
+  column: ExportColumnDef,
+  formatContext: FiBenchmarkExportFormatContext
+): ExportCellValue {
+  const raw = row[column.key];
+  const columnType = columnTypeForExport(column);
+
+  if (columnType === "currency") {
+    return PER_UNIT_CURRENCY_KEYS.has(column.key)
+      ? toPerUnitExportNumber(raw, formatContext)
+      : toMillionsExportNumber(raw, formatContext);
+  }
+
+  if (
+    columnType === "percent" ||
+    column.key === "rule_of_40" ||
+    (columnType === "number" && MULTIPLE_COLUMN_KEYS.has(column.key))
+  ) {
+    return parseExportNumber(raw);
+  }
+
+  if (COUNT_COLUMN_KEYS.has(column.key)) {
+    return parseExportNumber(raw);
+  }
+
+  return null;
+}
+
 export function getFinancialBenchmarkCellExportValue(
   row: Record<string, unknown>,
   column: ExportColumnDef,
@@ -321,30 +344,29 @@ export function getFinancialBenchmarkCellExportValue(
   currencyCode?: string
 ): ExportCellValue {
   if (formatContext) {
-    const display = getFinancialBenchmarkCellValue(
-      row,
-      column,
-      formatContext,
-      currencyCode
-    );
-    if (
-      display === EMPTY_DISPLAY ||
-      display === "-" ||
-      display.trim() === ""
-    ) {
-      return null;
-    }
-
     if (column.key === "id") {
       const id = Number(row.id);
       return Number.isFinite(id) && id > 0 ? id : null;
     }
 
-    if (COUNT_COLUMN_KEYS.has(column.key)) {
-      return parseExportNumber(row[column.key]);
+    if (TEXT_COLUMN_KEYS.has(column.key) || column.key === "asymmetrix_url") {
+      const display = getFinancialBenchmarkCellValue(
+        row,
+        column,
+        formatContext,
+        currencyCode
+      );
+      if (
+        display === EMPTY_DISPLAY ||
+        display === "-" ||
+        display.trim() === ""
+      ) {
+        return null;
+      }
+      return display;
     }
 
-    return display;
+    return getFinancialBenchmarkNumericExportValue(row, column, formatContext);
   }
 
   if (TEXT_COLUMN_KEYS.has(column.key)) {

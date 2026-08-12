@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -51,9 +51,8 @@ import {
   SearchExportCsvIcon,
 } from "@/components/search/searchHeaderActions";
 import { annotateManuallyAddedPeers } from "@/lib/financialIntelligence/normalize";
-import { deriveSourceOptions } from "@/lib/financialIntelligence/deriveSourceOptions";
 import { useDataSourceFilter } from "@/lib/financialIntelligence/useDataSourceFilter";
-import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
+import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup, FiMetricSourceType } from "@/lib/financialIntelligence/types";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { getCurrencySymbol } from "@/lib/filterCurrencyFormat";
 import type { FinRow } from "@/app/financials-tsx/types";
@@ -164,10 +163,14 @@ export default function FinancialIntelligencePage() {
   const [regionOptions, setRegionOptions] = useState<FiIdOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<FiIdOption[]>([]);
   const [excludedPeers, setExcludedPeers] = useState<FiCompanyRow[]>([]);
-  const [allSources, setAllSources] = useState<string[]>([]);
-  const { checked, toggle, excludedSourceLabels, isDefaultSourceFilter } =
-    useDataSourceFilter(allSources);
-  const sourceFilterFetchReadyRef = useRef(false);
+  const {
+    checked,
+    toggle,
+    excludedSourceLabels,
+    allowedSourceTypes,
+    isDefaultSourceFilter,
+    resetSourceFilter,
+  } = useDataSourceFilter();
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [peerAggregateMode, setPeerAggregateMode] = useState<FiPeerAggregateMode>("median");
 
@@ -239,10 +242,6 @@ export default function FinancialIntelligencePage() {
     return () => window.clearTimeout(timer);
   }, [addQuery, target?.company_id, preferredCurrencyId]);
 
-  const resetSourceFilterFetchGate = useCallback(() => {
-    sourceFilterFetchReadyRef.current = false;
-  }, []);
-
   const loadBenchmark = useCallback(
     async (
       companyId: number,
@@ -250,19 +249,16 @@ export default function FinancialIntelligencePage() {
       include = companyIdsInclude,
       exclude = companyIdsExclude,
       applyDefaultsIfEmpty = false,
-      nextExcludedSourceLabels = excludedSourceLabels,
-      discoverSourceOptions = allSources.length === 0
+      nextExcludedSourceLabels = excludedSourceLabels
     ) => {
       setLoading(true);
       setError(null);
 
       try {
-        const labelsForRequest = discoverSourceOptions ? [] : nextExcludedSourceLabels;
-
         const targetResult = await fetchFiTarget(
           companyId,
           preferredCurrencyId,
-          labelsForRequest
+          nextExcludedSourceLabels
         );
         if (!targetResult.ok) {
           throw new Error(targetResult.error);
@@ -282,7 +278,7 @@ export default function FinancialIntelligencePage() {
           secondarySectors,
           regionOptions,
           preferredCurrencyId,
-          excludedSourceLabels: labelsForRequest,
+          excludedSourceLabels: nextExcludedSourceLabels,
         });
 
         const peersResult = await fetchFiPeers(request);
@@ -303,12 +299,6 @@ export default function FinancialIntelligencePage() {
         const logoMap = await fetchFiCompanyLogosByIds(missingLogoIds);
         const enrichedTarget = applyFiCompanyLogos([targetResult.data], logoMap)[0];
         const enrichedPeers = applyFiCompanyLogos(peersResult.data.peers, logoMap);
-
-        if (discoverSourceOptions) {
-          setAllSources(
-            deriveSourceOptions([enrichedTarget, ...enrichedPeers])
-          );
-        }
 
         setTarget((prev) => ({
           ...enrichedTarget,
@@ -337,7 +327,6 @@ export default function FinancialIntelligencePage() {
       secondarySectors,
       regionOptions,
       excludedSourceLabels,
-      allSources.length,
       preferredCurrencyId,
       currency,
     ]
@@ -351,8 +340,7 @@ export default function FinancialIntelligencePage() {
       companyIdsInclude,
       companyIdsExclude,
       false,
-      excludedSourceLabels,
-      false
+      excludedSourceLabels
     );
   }, [preferredCurrencyId]); // eslint-disable-line react-hooks/exhaustive-deps -- refetch when platform currency changes
 
@@ -364,12 +352,11 @@ export default function FinancialIntelligencePage() {
       setExcludedPeers([]);
       setPeers([]);
       setTotalPeers(0);
-      setAllSources([]);
-      resetSourceFilterFetchGate();
+      resetSourceFilter();
       setTarget(placeholderTarget(companyId, meta));
       void loadBenchmark(companyId, [], [], [], true);
     },
-    [loadBenchmark, resetSourceFilterFetchGate]
+    [loadBenchmark, resetSourceFilter]
   );
 
   const clearTarget = useCallback(() => {
@@ -380,10 +367,9 @@ export default function FinancialIntelligencePage() {
     setCompanyIdsInclude([]);
     setCompanyIdsExclude([]);
     setExcludedPeers([]);
-    setAllSources([]);
-    resetSourceFilterFetchGate();
+    resetSourceFilter();
     setError(null);
-  }, [resetSourceFilterFetchGate]);
+  }, [resetSourceFilter]);
 
   const refreshPeers = useCallback(
     (
@@ -399,27 +385,21 @@ export default function FinancialIntelligencePage() {
         include,
         exclude,
         false,
-        nextExcludedSourceLabels,
-        false
+        nextExcludedSourceLabels
       );
     },
     [loadBenchmark, target, excludedSourceLabels]
   );
 
   const handleToggleSourceLabel = useCallback(
-    (label: string) => {
+    (label: FiMetricSourceType) => {
       toggle(label);
     },
     [toggle]
   );
 
   useEffect(() => {
-    if (!target || allSources.length === 0) return;
-
-    if (!sourceFilterFetchReadyRef.current) {
-      sourceFilterFetchReadyRef.current = true;
-      return;
-    }
+    if (!target) return;
 
     void loadBenchmark(
       target.company_id,
@@ -427,8 +407,7 @@ export default function FinancialIntelligencePage() {
       companyIdsInclude,
       companyIdsExclude,
       false,
-      excludedSourceLabels,
-      false
+      excludedSourceLabels
     );
   }, [excludedSourceLabels]); // eslint-disable-line react-hooks/exhaustive-deps -- refetch peers/target when source flags change only
 
@@ -465,10 +444,9 @@ export default function FinancialIntelligencePage() {
     setCompanyIdsInclude([]);
     setCompanyIdsExclude([]);
     setExcludedPeers([]);
-    setAllSources([]);
-    resetSourceFilterFetchGate();
-    void loadBenchmark(target.company_id, [], [], [], false, [], true);
-  }, [loadBenchmark, resetSourceFilterFetchGate, target]);
+    resetSourceFilter();
+    void loadBenchmark(target.company_id, [], [], [], false, []);
+  }, [loadBenchmark, resetSourceFilter, target]);
 
   const applySuggestedFilters = useCallback(() => {
     if (!target) return;
@@ -552,20 +530,35 @@ export default function FinancialIntelligencePage() {
     setShowBulkAddModal(true);
   }, [selectedCompanyIdList]);
 
+  const effectiveDefaultMode = isDefaultMode && isDefaultSourceFilter;
+  const hasActiveSourceFilter = !isDefaultSourceFilter;
+
   const headlineMetrics = useMemo(() => {
     if (!target) return [];
-    return buildHeadlineMetrics(target, peers, peerAggregateMode, preferredCurrencyCode);
-  }, [target, peers, peerAggregateMode, preferredCurrencyCode]);
+    return buildHeadlineMetrics(
+      target,
+      peers,
+      peerAggregateMode,
+      preferredCurrencyCode,
+      allowedSourceTypes
+    );
+  }, [target, peers, peerAggregateMode, preferredCurrencyCode, allowedSourceTypes]);
 
   const benchmarkRows = useMemo(() => {
     if (!target) return [];
-    return buildBenchmarkMetricRows(target, peers, peerAggregateMode, preferredCurrencyCode);
-  }, [target, peers, peerAggregateMode, preferredCurrencyCode]);
+    return buildBenchmarkMetricRows(
+      target,
+      peers,
+      peerAggregateMode,
+      preferredCurrencyCode,
+      allowedSourceTypes
+    );
+  }, [target, peers, peerAggregateMode, preferredCurrencyCode, allowedSourceTypes]);
 
   const compositePercentile = useMemo(() => {
     if (!target) return null;
-    return computeCompositePercentile(target, peers);
-  }, [target, peers]);
+    return computeCompositePercentile(target, peers, allowedSourceTypes);
+  }, [target, peers, allowedSourceTypes]);
 
   const peerFinRows = useMemo(
     () =>
@@ -659,9 +652,6 @@ export default function FinancialIntelligencePage() {
     },
     []
   );
-
-  const effectiveDefaultMode = isDefaultMode && isDefaultSourceFilter;
-  const hasActiveSourceFilter = !isDefaultSourceFilter;
 
   const showBenchmarkSkeleton = loading && peers.length === 0;
   const showBenchmarkContent = target && !showBenchmarkSkeleton;
@@ -775,7 +765,6 @@ export default function FinancialIntelligencePage() {
           isDefaultMode={effectiveDefaultMode}
           onResetToDefault={resetToDefault}
           onApplySuggestedFilters={applySuggestedFilters}
-          sourceLabels={allSources}
           checkedSourceLabels={checked}
           onToggleSourceLabel={handleToggleSourceLabel}
           addQuery={addQuery}

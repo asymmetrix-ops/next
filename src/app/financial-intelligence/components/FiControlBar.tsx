@@ -8,9 +8,11 @@ import {
   type FiCompanySearchHit,
 } from "@/lib/financialIntelligence/apiClient";
 import {
-  sourceLabelDescription,
+  FI_SOURCE_TYPES_UI_ORDER,
+  SOURCE_TYPE_DESCRIPTIONS,
   sourceTypeColor,
 } from "@/lib/financialIntelligence/sourceTypes";
+import type { FiMetricSourceType } from "@/lib/financialIntelligence/types";
 import {
   ListViewEnumEditor,
   ListViewIdEnumEditor,
@@ -380,9 +382,8 @@ export interface FiControlBarProps {
   isDefaultMode: boolean;
   onResetToDefault: () => void;
   onApplySuggestedFilters?: () => void;
-  sourceLabels: string[];
-  checkedSourceLabels: Set<string>;
-  onToggleSourceLabel: (label: string) => void;
+  checkedSourceLabels: Set<FiMetricSourceType>;
+  onToggleSourceLabel: (label: FiMetricSourceType) => void;
   addQuery: string;
   onAddQueryChange: (query: string) => void;
   addResults: FiCompanySearchHit[];
@@ -412,7 +413,6 @@ export function FiControlBar({
   isDefaultMode,
   onResetToDefault,
   onApplySuggestedFilters,
-  sourceLabels,
   checkedSourceLabels,
   onToggleSourceLabel,
   addQuery,
@@ -976,12 +976,7 @@ export function FiControlBar({
                 gap: 10,
               }}
             >
-              {sourceLabels.length === 0 ? (
-                <div style={{ fontSize: 12, color: "var(--fg-4)" }}>
-                  Source options load after the benchmark data arrives.
-                </div>
-              ) : (
-                sourceLabels.map((label) => {
+              {FI_SOURCE_TYPES_UI_ORDER.map((label) => {
                   const checked = checkedSourceLabels.has(label);
                   const disabled = loading || (checked && checkedSourceLabels.size <= 1);
                   const color = sourceTypeColor(label);
@@ -1039,13 +1034,12 @@ export function FiControlBar({
                             color: "var(--fg-3)",
                           }}
                         >
-                          {sourceLabelDescription(label)}
+                          {SOURCE_TYPE_DESCRIPTIONS[label]}
                         </span>
                       </span>
                     </label>
                   );
-                })
-              )}
+                })}
             </div>
           </div>
         )}

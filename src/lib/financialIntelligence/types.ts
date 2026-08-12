@@ -47,6 +47,7 @@ export interface FiCompanyRow {
   rev_growth_source_type?: string | null;
   new_client_growth_source_type?: string | null;
   ebitda_source_type?: string | null;
+  ebitda_margin_source_type?: string | null;
   ebit_source_type?: string | null;
   ev_source_type?: string | null;
   no_of_clients_source_type?: string | null;

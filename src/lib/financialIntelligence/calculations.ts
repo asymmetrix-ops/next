@@ -6,7 +6,7 @@ import type {
   FiMetricSourceType,
   FiPeerAggregateMode,
 } from "./types";
-import { isMetricSourceAllowed } from "./sourceTypes";
+import { isMetricSourceAllowed, isDefaultSourceTypes } from "./sourceTypes";
 
 /** Metric defs aligned with company profile (`buildFinancialMetricsSections`) order and labels. */
 export const FI_BENCHMARK_METRICS: FiMetricDef[] = [
@@ -254,13 +254,31 @@ export function peerAggregate(
   return mode === "mean" ? peerMean(values) : peerMedian(values);
 }
 
+/** Metric value for display/benchmark math — null when the metric's source type is filtered out. */
+export function getMetricValueForDisplay(
+  row: FiCompanyRow,
+  key: FiMetricKey,
+  allowedSources?: FiMetricSourceType[] | null
+): number | null {
+  if (
+    allowedSources &&
+    allowedSources.length > 0 &&
+    !isDefaultSourceTypes(allowedSources) &&
+    !isMetricSourceAllowed(row, key, allowedSources)
+  ) {
+    return null;
+  }
+  return getMetricValue(row, key);
+}
+
 /** Collect finite peer values for a metric (respects API nulls from source filtering). */
 export function collectPeerMetricValues(
   peers: FiCompanyRow[],
-  key: FiMetricKey
+  key: FiMetricKey,
+  allowedSources?: FiMetricSourceType[] | null
 ): number[] {
   return peers
-    .map((peer) => getMetricValue(peer, key))
+    .map((peer) => getMetricValueForDisplay(peer, key, allowedSources))
     .filter((v): v is number => v != null && Number.isFinite(v));
 }
 
@@ -397,18 +415,17 @@ export function computeRank(
 
 export function computeCompositePercentile(
   target: FiCompanyRow,
-  peers: FiCompanyRow[]
+  peers: FiCompanyRow[],
+  allowedSources?: FiMetricSourceType[] | null
 ): number | null {
   const scores: number[] = [];
 
   for (const metric of FI_BENCHMARK_METRICS) {
     if (!FI_BENCHMARK_SCORECARD_KEYS.includes(metric.key)) continue;
-    const targetValue = getMetricValue(target, metric.key);
+    const targetValue = getMetricValueForDisplay(target, metric.key, allowedSources);
     if (targetValue == null) continue;
 
-    const peerValues = peers
-      .map((peer) => getMetricValue(peer, metric.key))
-      .filter((v): v is number => v != null && Number.isFinite(v));
+    const peerValues = collectPeerMetricValues(peers, metric.key, allowedSources);
 
     const percentile = computePercentile(targetValue, peerValues, metric.higherIsBetter);
     if (percentile != null) scores.push(percentile);

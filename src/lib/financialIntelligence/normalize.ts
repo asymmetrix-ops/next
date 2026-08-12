@@ -165,6 +165,10 @@ export function companyFinancialMetricsToRawFi(
     rev_growth_pc: firstDefined(raw.Rev_Growth_PC, raw.rev_growth_pc),
     rev_growth_source_type: firstDefined(raw.Rev_growth_source_label, raw.rev_growth_source_type),
     ebitda_margin: firstDefined(raw.EBITDA_margin, raw.ebitda_margin),
+    ebitda_margin_source_type: firstDefined(
+      raw.EBITDA_margin_source_label,
+      raw.ebitda_margin_source_type
+    ),
     ebitda_m_usd: firstDefined(raw.EBITDA_m, raw.ebitda_m_usd),
     ebitda_source_type: firstDefined(raw.EBITDA_source_label, raw.ebitda_source_type),
     ebit_m_usd: firstDefined(raw.EBIT_m, raw.ebit_m_usd),
@@ -377,6 +381,12 @@ export function normalizeCompanyRow(
       "ebitda_source_type",
       "EBITDA_source_label",
       "EBITDA_source"
+    ),
+    ebitda_margin_source_type: resolveRowSourceLabel(
+      raw,
+      "ebitda_margin_source_type",
+      "EBITDA_margin_source_label",
+      "EBITDA_margin_source"
     ),
     ebit_source_type: resolveRowSourceLabel(
       raw,

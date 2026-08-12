@@ -52,7 +52,7 @@ const METRIC_SOURCE_FIELD: Partial<
   cross_sell_pc: "cross_sell_source_type",
   price_increase_pc: "price_increase_source_type",
   rev_expansion_pc: "rev_expansion_source_type",
-  ebitda_margin: "ebitda_source_type",
+  ebitda_margin: "ebitda_margin_source_type",
   revenue_multiple: "revenue_multiple_source_type",
   ev_revenue_x: "ev_source_type",
   ev_ebitda_x: "ev_source_type",
@@ -159,6 +159,24 @@ export function isDefaultSourceTypes(types: FiMetricSourceType[]): boolean {
   return FI_SOURCE_TYPES.every((type) => types.includes(type));
 }
 
+/** Checked data-source labels → allowed Public / Estimate / Proprietary buckets. */
+export function deriveAllowedSourceTypes(
+  allSources: string[],
+  checked: Set<string>
+): FiMetricSourceType[] {
+  if (allSources.length === 0) return [...FI_SOURCE_TYPES];
+
+  const allowed = new Set<FiMetricSourceType>();
+  for (const label of allSources) {
+    if (!checked.has(label)) continue;
+    const bucket = resolveFinancialMetricSourceType(label);
+    if (bucket) allowed.add(bucket);
+  }
+
+  if (allowed.size === 0) return [...FI_SOURCE_TYPES];
+  return FI_SOURCE_TYPES.filter((type) => allowed.has(type));
+}
+
 export function sourceTypeColor(type: FiMetricSourceType | string | null | undefined): string {
   if (!type) return "var(--fg-4)";
   const bucket =
@@ -190,15 +208,24 @@ export function getMetricSourceType(
     return (
       row.rule_of_40_source_type ??
       row.rev_growth_source_type ??
+      row.ebitda_margin_source_type ??
       row.ebitda_source_type ??
       null
     );
   }
 
   const field = METRIC_SOURCE_FIELD[metricKey];
-  if (!field) return null;
-  const value = row[field];
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+  if (field) {
+    const value = row[field];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+
+  if (metricKey === "ebitda_margin") {
+    const fallback = row.ebitda_source_type;
+    return typeof fallback === "string" && fallback.trim() ? fallback.trim() : null;
+  }
+
+  return null;
 }
 
 function isSourceLabelAllowed(
