@@ -1,6 +1,7 @@
 import type { FiCompanyRow, FiPeersResponse } from "./types";
 import { resolveFinancialMetricSourceType } from "./sourceTypes";
 import { readEntityLogo, resolveCompanyLogoSrc } from "@/lib/companyLogo";
+import { readPreferredCurrencyCode } from "./fieldCurrency";
 
 export function safeFiniteNumber(value: unknown): number | null {
   if (value == null || value === "" || value === "$NaN" || value === "NaN") return null;
@@ -52,6 +53,79 @@ function normalizeFyYeMonth(value: unknown): number {
 
 function normalizeLogo(value: unknown): string | null {
   return resolveCompanyLogoSrc(typeof value === "string" ? value : null);
+}
+
+function readCurrencyCode(raw: Record<string, unknown>, key: string): string | null {
+  const value = raw[key];
+  if (typeof value !== "string" || !value.trim()) return null;
+  return value.trim().toUpperCase();
+}
+
+function readOptionalBoolean(raw: Record<string, unknown>, key: string): boolean | undefined {
+  const value = raw[key];
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function readOptionalNativeCurrencyId(raw: Record<string, unknown>, key: string): number | null {
+  const value = raw[key];
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+}
+
+function readFiCurrencyMeta(raw: Record<string, unknown>): Pick<
+  FiCompanyRow,
+  | "revenue_currency_code"
+  | "subscription_revenue_currency_code"
+  | "ebitda_currency_code"
+  | "ebit_currency_code"
+  | "ev_currency_code"
+  | "revenue_per_employee_currency_code"
+  | "revenue_converted"
+  | "subscription_revenue_converted"
+  | "ebitda_converted"
+  | "ebit_converted"
+  | "ev_converted"
+  | "revenue_per_employee_converted"
+  | "revenue_native_currency_id"
+  | "subscription_revenue_native_currency_id"
+  | "ebitda_native_currency_id"
+  | "ebit_native_currency_id"
+  | "ev_native_currency_id"
+  | "revenue_per_employee_native_currency_id"
+> {
+  return {
+    revenue_currency_code: readCurrencyCode(raw, "revenue_currency_code"),
+    subscription_revenue_currency_code: readCurrencyCode(
+      raw,
+      "subscription_revenue_currency_code"
+    ),
+    ebitda_currency_code: readCurrencyCode(raw, "ebitda_currency_code"),
+    ebit_currency_code: readCurrencyCode(raw, "ebit_currency_code"),
+    ev_currency_code: readCurrencyCode(raw, "ev_currency_code"),
+    revenue_per_employee_currency_code: readCurrencyCode(
+      raw,
+      "revenue_per_employee_currency_code"
+    ),
+    revenue_converted: readOptionalBoolean(raw, "revenue_converted"),
+    subscription_revenue_converted: readOptionalBoolean(raw, "subscription_revenue_converted"),
+    ebitda_converted: readOptionalBoolean(raw, "ebitda_converted"),
+    ebit_converted: readOptionalBoolean(raw, "ebit_converted"),
+    ev_converted: readOptionalBoolean(raw, "ev_converted"),
+    revenue_per_employee_converted: readOptionalBoolean(raw, "revenue_per_employee_converted"),
+    revenue_native_currency_id: readOptionalNativeCurrencyId(raw, "revenue_native_currency_id"),
+    subscription_revenue_native_currency_id: readOptionalNativeCurrencyId(
+      raw,
+      "subscription_revenue_native_currency_id"
+    ),
+    ebitda_native_currency_id: readOptionalNativeCurrencyId(raw, "ebitda_native_currency_id"),
+    ebit_native_currency_id: readOptionalNativeCurrencyId(raw, "ebit_native_currency_id"),
+    ev_native_currency_id: readOptionalNativeCurrencyId(raw, "ev_native_currency_id"),
+    revenue_per_employee_native_currency_id: readOptionalNativeCurrencyId(
+      raw,
+      "revenue_per_employee_native_currency_id"
+    ),
+  };
 }
 
 function firstDefined<T>(...values: T[]): T | undefined {
@@ -401,6 +475,7 @@ export function normalizeCompanyRow(
     is_manually_added: Boolean(
       raw.is_manually_added ?? raw.manually_added ?? raw.is_added
     ),
+    ...readFiCurrencyMeta(raw),
   };
 }
 
@@ -477,7 +552,10 @@ export function extractTargetRow(
   return { company_id: requestedCompanyId };
 }
 
-export function normalizePeersResponse(payload: unknown): FiPeersResponse {
+export function normalizePeersResponse(
+  payload: unknown,
+  fallbackPreferredCurrencyCode = "USD"
+): FiPeersResponse {
   if (Array.isArray(payload)) {
     const peers = payload.map((row) =>
       normalizeCompanyRow(row as Record<string, unknown>)
@@ -487,10 +565,15 @@ export function normalizePeersResponse(payload: unknown): FiPeersResponse {
       total_peers: peers.length,
       is_default_mode: true,
       target_logo: null,
+      preferred_currency_code: fallbackPreferredCurrencyCode,
     };
   }
 
   const obj = unwrapApiPayload(payload);
+  const preferredCurrencyCode = readPreferredCurrencyCode(
+    obj,
+    fallbackPreferredCurrencyCode
+  );
   const peerRows = Array.isArray(obj.peers)
     ? obj.peers
     : Array.isArray(obj.items)
@@ -501,11 +584,19 @@ export function normalizePeersResponse(payload: unknown): FiPeersResponse {
     normalizeCompanyRow(row as Record<string, unknown>)
   );
 
+  const preferredCurrencyIdRaw = obj.preferred_currency_id;
+  const preferredCurrencyId =
+    preferredCurrencyIdRaw != null && preferredCurrencyIdRaw !== ""
+      ? safeInt(preferredCurrencyIdRaw, 0) || undefined
+      : undefined;
+
   return {
     peers,
     total_peers: Number(obj.total_peers ?? peers.length),
     is_default_mode: Boolean(obj.is_default_mode ?? false),
     target_logo: normalizeLogo(obj.target_logo),
+    preferred_currency_id: preferredCurrencyId,
+    preferred_currency_code: preferredCurrencyCode,
   };
 }
 

@@ -66,6 +66,25 @@ export interface FiCompanyRow {
   revenue_multiple_source_type?: string | null;
   url?: string | null;
   is_manually_added?: boolean;
+  /** Present when backend converted this field to preferred currency. */
+  revenue_currency_code?: string | null;
+  subscription_revenue_currency_code?: string | null;
+  ebitda_currency_code?: string | null;
+  ebit_currency_code?: string | null;
+  ev_currency_code?: string | null;
+  revenue_per_employee_currency_code?: string | null;
+  revenue_converted?: boolean;
+  subscription_revenue_converted?: boolean;
+  ebitda_converted?: boolean;
+  ebit_converted?: boolean;
+  ev_converted?: boolean;
+  revenue_per_employee_converted?: boolean;
+  revenue_native_currency_id?: number | null;
+  subscription_revenue_native_currency_id?: number | null;
+  ebitda_native_currency_id?: number | null;
+  ebit_native_currency_id?: number | null;
+  ev_native_currency_id?: number | null;
+  revenue_per_employee_native_currency_id?: number | null;
 }
 
 export interface FiPeersResponse {
@@ -73,6 +92,8 @@ export interface FiPeersResponse {
   total_peers: number;
   is_default_mode: boolean;
   target_logo?: string | null;
+  preferred_currency_id?: number;
+  preferred_currency_code?: string;
 }
 
 export interface FiPeersRequest {
@@ -168,6 +189,7 @@ export interface FiBenchmarkMetricRow {
   directionHint?: FiMetricDirectionHint;
   format: FiMetricFormat;
   targetSourceType?: string | null;
+  displayCurrencyCode?: string;
 }
 
 export interface FiHeadlineMetric {
@@ -181,6 +203,7 @@ export interface FiHeadlineMetric {
   deltaVsMedian: number | null;
   higherIsBetter: boolean;
   format: "percent" | "currency";
+  displayCurrencyCode?: string;
 }
 
 export interface FiLocationRow {

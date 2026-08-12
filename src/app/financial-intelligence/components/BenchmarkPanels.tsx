@@ -25,7 +25,7 @@
   import { PercentileBar, PctPill } from "./benchmark-viz";
   import { fmtFiMetric, SourceColoredValue } from "./SourceTypeValue";
   import { formatFiMetricsPeriodDisplay } from "@/lib/financialIntelligence/mappers";
-  import { useFiFxRates } from "./FiFxContext";
+  import { resolveFiMetricKeyDisplayCurrency } from "@/lib/financialIntelligence/fieldCurrency";
   import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
   import type { Currency } from "@/lib/fxRates";
 
@@ -37,12 +37,14 @@
     sourceType,
     fontWeight,
     hasActiveSourceFilter = false,
+    displayCurrencyCode,
   }: {
     value: number | null;
     format: FiMetricFormat;
     sourceType?: FiMetricSourceType | string | null;
     fontWeight?: number;
     hasActiveSourceFilter?: boolean;
+    displayCurrencyCode?: string;
   }) {
     return (
       <SourceColoredValue
@@ -51,6 +53,7 @@
         sourceType={sourceType}
         fontWeight={fontWeight ?? 600}
         hiddenBySourceFilter={hasActiveSourceFilter && value == null}
+        displayCurrencyCode={displayCurrencyCode}
       />
     );
   }
@@ -60,8 +63,7 @@
     format: FiMetricFormat,
     higherIsBetter: boolean,
     aggregateNoun: string,
-    currencyCode: Currency = "USD",
-    fxRates: ReturnType<typeof useFiFxRates> = null
+    currencyCode: Currency | string = "USD"
   ): { text: string; positive: boolean | null } {
     if (delta == null || !Number.isFinite(delta)) return { text: "—", positive: null };
     const sign = delta > 0 ? "+" : "";
@@ -70,10 +72,10 @@
       text = `${formatMetricPercentDelta(delta)} vs ${aggregateNoun}`;
     }
     else if (format === "currency") {
-      text = `${sign}${fmtFiMetric(Math.abs(delta), "currency", currencyCode, fxRates).replace(/^—$/, "0")} vs ${aggregateNoun}`;
+      text = `${sign}${fmtFiMetric(Math.abs(delta), "currency", currencyCode).replace(/^—$/, "0")} vs ${aggregateNoun}`;
     }
     else if (format === "currency_k") {
-      text = `${sign}${fmtFiMetric(Math.abs(delta), "currency_k", currencyCode, fxRates).replace(/^—$/, "0")} vs ${aggregateNoun}`;
+      text = `${sign}${fmtFiMetric(Math.abs(delta), "currency_k", currencyCode).replace(/^—$/, "0")} vs ${aggregateNoun}`;
     }
     else if (format === "count") text = `${sign}${Math.round(delta).toLocaleString()} vs ${aggregateNoun}`;
     else text = `${sign}${Math.round(delta)}x vs ${aggregateNoun}`;
@@ -85,8 +87,7 @@
     delta: number | null,
     format: FiMetricFormat,
     higherIsBetter: boolean,
-    currencyCode: Currency = "USD",
-    fxRates: ReturnType<typeof useFiFxRates> = null
+    currencyCode: Currency | string = "USD"
   ): { text: string; positive: boolean | null } {
     if (delta == null || !Number.isFinite(delta)) return { text: "", positive: null };
     const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
@@ -94,9 +95,9 @@
     if (format === "percent") {
       text = formatMetricPercentDelta(delta, { paren: true });
     } else if (format === "currency") {
-      text = `(${sign}${fmtFiMetric(Math.abs(delta), "currency", currencyCode, fxRates).replace(/^—$/, "0")})`;
+      text = `(${sign}${fmtFiMetric(Math.abs(delta), "currency", currencyCode).replace(/^—$/, "0")})`;
     } else if (format === "currency_k") {
-      text = `(${sign}${fmtFiMetric(Math.abs(delta), "currency_k", currencyCode, fxRates).replace(/^—$/, "0")})`;
+      text = `(${sign}${fmtFiMetric(Math.abs(delta), "currency_k", currencyCode).replace(/^—$/, "0")})`;
     } else if (format === "count") {
       text = `(${sign}${Math.abs(Math.round(delta)).toLocaleString()})`;
     } else {
@@ -109,15 +110,14 @@
   function fmtSigned(
     delta: number,
     format: FiMetricFormat,
-    currencyCode: Currency = "USD",
-    fxRates: ReturnType<typeof useFiFxRates> = null
+    currencyCode: Currency | string = "USD"
   ): string {
     const sign = delta > 0 ? "+" : "";
     if (format === "currency") {
-      return `${sign}${fmtFiMetric(Math.abs(delta), "currency", currencyCode, fxRates).replace(/^—$/, "0")}`;
+      return `${sign}${fmtFiMetric(Math.abs(delta), "currency", currencyCode).replace(/^—$/, "0")}`;
     }
     if (format === "currency_k") {
-      return `${sign}${fmtFiMetric(Math.abs(delta), "currency_k", currencyCode, fxRates).replace(/^—$/, "0")}`;
+      return `${sign}${fmtFiMetric(Math.abs(delta), "currency_k", currencyCode).replace(/^—$/, "0")}`;
     }
     if (format === "count") return `${sign}${Math.round(delta).toLocaleString()}`;
     if (format === "percent") return formatMetricPercent(delta);
@@ -131,6 +131,7 @@
     isLast,
     peerAggregateMode,
     hasActiveSourceFilter = false,
+    preferredCurrencyCode = "USD",
   }: {
     row: FiBenchmarkMetricRow;
     target: FiCompanyRow;
@@ -138,9 +139,10 @@
     isLast: boolean;
     peerAggregateMode: FiPeerAggregateMode;
     hasActiveSourceFilter?: boolean;
+    preferredCurrencyCode?: string;
   }) {
     const { currency } = usePlatformCurrency();
-    const fxRates = useFiFxRates();
+    const fallbackCurrency = preferredCurrencyCode || currency;
     const aggregateLabels = peerAggregateLabels(peerAggregateMode);
     const metricKey = row.key as FiMetricKey;
     const list = [
@@ -150,6 +152,7 @@
         value: row.targetValue,
         sourceType: getMetricSourceType(target, metricKey),
         isTarget: true,
+        row: target,
       },
       ...peers.map((peer) => ({
         id: peer.company_id,
@@ -157,6 +160,7 @@
         value: getMetricValue(peer, metricKey),
         sourceType: getMetricSourceType(peer, metricKey),
         isTarget: false,
+        row: peer,
       })),
     ].filter(
       (entry): entry is typeof entry & { value: number } =>
@@ -226,7 +230,7 @@
                 whiteSpace: "nowrap",
               }}
             >
-              {aggregateLabels.peerColumn} · {fmtFiMetric(median, row.format, currency, fxRates)}
+              {aggregateLabels.peerColumn} · {fmtFiMetric(median, row.format, row.displayCurrencyCode ?? fallbackCurrency)}
             </span>
             <span style={{ flex: 1, height: 0, borderTop: "1px dashed var(--ax-gray-400)" }} />
           </div>
@@ -313,6 +317,11 @@
               fontWeight={entry.isTarget ? 700 : 600}
               fontSize={12.5}
               hiddenBySourceFilter={hasActiveSourceFilter && entry.value == null}
+              displayCurrencyCode={resolveFiMetricKeyDisplayCurrency(
+                entry.row,
+                metricKey,
+                fallbackCurrency
+              )}
             />
           </span>
         </div>
@@ -342,7 +351,7 @@
               <strong style={{ color: "var(--fg-1)" }}>
                 {row.format === "percent"
                   ? formatMetricPercentDelta(row.deltaVsMedian)
-                  : fmtSigned(row.deltaVsMedian, row.format, currency, fxRates)}
+                  : fmtSigned(row.deltaVsMedian, row.format, row.displayCurrencyCode ?? fallbackCurrency)}
               </strong>{" "}
               vs the peer {aggregateLabels.noun}
             </span>
@@ -474,27 +483,29 @@
     metrics,
     peerAggregateMode = "median",
     hasActiveSourceFilter = false,
+    preferredCurrencyCode = "USD",
   }: {
     metrics: FiHeadlineMetric[];
     peerAggregateMode?: FiPeerAggregateMode;
     hasActiveSourceFilter?: boolean;
+    preferredCurrencyCode?: string;
   }) {
     const { currency } = usePlatformCurrency();
-    const fxRates = useFiFxRates();
+    const fallbackCurrency = preferredCurrencyCode || currency;
     const aggregateLabels = peerAggregateLabels(peerAggregateMode);
     return (
       <>
         {metrics.map((metric) => {
+          const metricCurrency = metric.displayCurrencyCode ?? fallbackCurrency;
           const deltaParen = fmtHeadlineDeltaParen(
             metric.deltaVsMedian,
             metric.format,
             metric.higherIsBetter,
-            currency,
-            fxRates
+            metricCurrency
           );
           const medianText =
             metric.peerMedian != null && Number.isFinite(metric.peerMedian)
-              ? fmtFiMetric(metric.peerMedian, metric.format, currency, fxRates)
+              ? fmtFiMetric(metric.peerMedian, metric.format, metricCurrency)
               : null;
 
           return (
@@ -542,6 +553,7 @@
                   hiddenBySourceFilter={
                     hasActiveSourceFilter && metric.targetValue == null
                   }
+                  displayCurrencyCode={metricCurrency}
                 />
                 {medianText != null && (
                   <span
@@ -585,6 +597,7 @@
     peers: FiCompanyRow[];
     peerAggregateMode?: FiPeerAggregateMode;
     hasActiveSourceFilter?: boolean;
+    preferredCurrencyCode?: string;
   }
 
   const SCORECARD_COLS = "180px 92px 92px 1fr 96px 92px";
@@ -596,9 +609,10 @@
     peers,
     peerAggregateMode = "median",
     hasActiveSourceFilter = false,
+    preferredCurrencyCode = "USD",
   }: BenchmarkTableProps) {
     const { currency } = usePlatformCurrency();
-    const fxRates = useFiFxRates();
+    const fallbackCurrency = preferredCurrencyCode || currency;
     const aggregateLabels = peerAggregateLabels(peerAggregateMode);
     const targetPeriod = formatFiMetricsPeriodDisplay(target);
     const [openMetricKey, setOpenMetricKey] = useState<string | null>(null);
@@ -636,8 +650,7 @@
         row.format,
         row.higherIsBetter,
         aggregateLabels.noun,
-        currency,
-        fxRates
+        row.displayCurrencyCode ?? fallbackCurrency
       );
       const isLastInSection = index === sectionLength - 1;
       const isLastOverall = isLastSection && isLastInSection;
@@ -712,6 +725,7 @@
                 format={row.format}
                 sourceType={row.targetSourceType}
                 hasActiveSourceFilter={hasActiveSourceFilter}
+                displayCurrencyCode={row.displayCurrencyCode ?? fallbackCurrency}
               />
             </div>
             <div
@@ -722,7 +736,7 @@
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              <div>{fmtFiMetric(row.peerMedian, row.format, currency, fxRates)}</div>
+              <div>{fmtFiMetric(row.peerMedian, row.format, row.displayCurrencyCode ?? fallbackCurrency)}</div>
               {delta.positive != null && (
                 <div
                   style={{
@@ -772,6 +786,7 @@
               isLast={isLastOverall}
               peerAggregateMode={peerAggregateMode}
               hasActiveSourceFilter={hasActiveSourceFilter}
+              preferredCurrencyCode={fallbackCurrency}
             />
           )}
         </React.Fragment>

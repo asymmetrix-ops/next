@@ -25,6 +25,7 @@ import type {
   FiPeerAggregateMode,
   FiSectorLookup,
 } from "./types";
+import { buildFiFieldCurrencyCodes, resolveFiMetricKeyDisplayCurrency } from "./fieldCurrency";
 
 const BRAND_COLORS = [
   "#0370AA",
@@ -77,7 +78,8 @@ export function companyColor(companyId: number): string {
 export function mapCompanyToFinRow(
   row: FiCompanyRow,
   primarySectors: FiSectorLookup[],
-  secondarySectors: FiSectorLookup[]
+  secondarySectors: FiSectorLookup[],
+  preferredCurrencyCode = "USD"
 ): FinRow {
   const sectors = resolveSectorNames(row.sectors_id, primarySectors, secondarySectors);
   const revenue = toMillions(row.revenue_m_usd);
@@ -136,6 +138,7 @@ export function mapCompanyToFinRow(
     rev_per_client: row.revenue_per_client ?? undefined,
     num_employees: row.no_employees ?? undefined,
     rev_per_employee: row.revenue_per_employee ?? undefined,
+    fieldCurrencyCodes: buildFiFieldCurrencyCodes(row, preferredCurrencyCode),
   };
 }
 
@@ -255,7 +258,8 @@ export function buildPeerAggregateFinRow(
   peers: FiCompanyRow[],
   _primarySectors: FiSectorLookup[],
   _secondarySectors: FiSectorLookup[],
-  aggregateMode: FiPeerAggregateMode = "median"
+  aggregateMode: FiPeerAggregateMode = "median",
+  preferredCurrencyCode = "USD"
 ): FinRow {
   const aggregateLabel =
     aggregateMode === "mean" ? "Sector mean" : "Sector median";
@@ -281,6 +285,14 @@ export function buildPeerAggregateFinRow(
     ownership: "Private",
     color: "var(--ax-cyan-700)",
     trend: [],
+    fieldCurrencyCodes: {
+      revenue: preferredCurrencyCode,
+      ebitda: preferredCurrencyCode,
+      ebit: preferredCurrencyCode,
+      ev: preferredCurrencyCode,
+      subscription_revenue_m: preferredCurrencyCode,
+      rev_per_employee: preferredCurrencyCode,
+    },
     ...aggregated,
   };
 }
@@ -288,7 +300,8 @@ export function buildPeerAggregateFinRow(
 export function buildBenchmarkMetricRows(
   target: FiCompanyRow,
   peers: FiCompanyRow[],
-  aggregateMode: FiPeerAggregateMode = "median"
+  aggregateMode: FiPeerAggregateMode = "median",
+  preferredCurrencyCode = "USD"
 ): FiBenchmarkMetricRow[] {
   return FI_BENCHMARK_METRICS.filter((metric) =>
     FI_BENCHMARK_SCORECARD_KEYS.includes(metric.key)
@@ -328,6 +341,10 @@ export function buildBenchmarkMetricRows(
       directionHint: metric.directionHint,
       format: metric.format,
       targetSourceType: getMetricSourceType(target, metric.key),
+      displayCurrencyCode:
+        metric.format === "currency" || metric.format === "currency_k"
+          ? resolveFiMetricKeyDisplayCurrency(target, metric.key, preferredCurrencyCode)
+          : undefined,
     };
   });
 }
@@ -335,10 +352,12 @@ export function buildBenchmarkMetricRows(
 export function buildHeadlineMetrics(
   target: FiCompanyRow,
   peers: FiCompanyRow[],
-  aggregateMode: FiPeerAggregateMode = "median"
+  aggregateMode: FiPeerAggregateMode = "median",
+  preferredCurrencyCode = "USD"
 ): FiHeadlineMetric[] {
   const defs: Array<{
     key: "revenue" | "ebitda" | "rev_growth";
+    metricKey: FiMetricKey;
     label: string;
     getValue: (row: FiCompanyRow) => number | null;
     format: "percent" | "currency";
@@ -346,6 +365,7 @@ export function buildHeadlineMetrics(
   }> = [
     {
       key: "revenue",
+      metricKey: "revenue_m_usd",
       label: "Revenue (m)",
       getValue: (row) => toMillions(row.revenue_m_usd),
       format: "currency",
@@ -353,6 +373,7 @@ export function buildHeadlineMetrics(
     },
     {
       key: "ebitda",
+      metricKey: "ebitda_m_usd",
       label: "EBITDA (m)",
       getValue: (row) => toMillions(row.ebitda_m_usd),
       format: "currency",
@@ -360,6 +381,7 @@ export function buildHeadlineMetrics(
     },
     {
       key: "rev_growth",
+      metricKey: "rev_growth_pc",
       label: "Revenue Growth",
       getValue: (row) => row.rev_growth_pc,
       format: "percent",
@@ -393,6 +415,10 @@ export function buildHeadlineMetrics(
       deltaVsMedian,
       higherIsBetter: def.higherIsBetter,
       format: def.format,
+      displayCurrencyCode:
+        def.format === "currency"
+          ? resolveFiMetricKeyDisplayCurrency(target, def.metricKey, preferredCurrencyCode)
+          : undefined,
     };
   });
 }

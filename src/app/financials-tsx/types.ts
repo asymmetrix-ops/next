@@ -48,6 +48,8 @@ export interface FinRow {
   rev_per_employee?: number;
   financial_year?: string;
   rule_of_40?: number;
+  /** Resolved display currency per monetary column (from FI backend conversion). */
+  fieldCurrencyCodes?: Partial<Record<string, string>>;
 }
 
 export interface ColumnDef {

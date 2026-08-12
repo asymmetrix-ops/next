@@ -55,9 +55,7 @@ import { deriveSourceOptions } from "@/lib/financialIntelligence/deriveSourceOpt
 import { useDataSourceFilter } from "@/lib/financialIntelligence/useDataSourceFilter";
 import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
-import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
-import { FiFxProvider, useFiFxRates } from "./components/FiFxContext";
-import { CURRENCY_OPTIONS, getFXRates } from "@/lib/fxRates";
+import { getCurrencySymbol } from "@/lib/filterCurrencyFormat";
 import type { FinRow } from "@/app/financials-tsx/types";
 
 const REMOVED_FI_PEER_COLUMN_IDS = new Set(["ev_revenue", "ev_ebitda"]);
@@ -117,6 +115,7 @@ function FiPeerFinancialsTable({
   onSort,
   visibleColumnIds,
   sectorMedian,
+  preferredCurrencyCode,
 }: {
   rows: ReturnType<typeof mapCompanyToFinRow>[];
   tweaks: React.ComponentProps<typeof FinancialsTable>["tweaks"];
@@ -125,19 +124,19 @@ function FiPeerFinancialsTable({
   onSort: (id: string) => void;
   visibleColumnIds: string[];
   sectorMedian: ReturnType<typeof buildPeerSectorMedian>;
+  preferredCurrencyCode: string;
 }) {
-  const { currency } = usePlatformCurrency();
-  const fxRates = useFiFxRates();
-  const currencySymbol =
-    CURRENCY_OPTIONS.find((option) => option.value === currency)?.symbol ?? "$";
+  const currencySymbol = getCurrencySymbol(
+    preferredCurrencyCode as "USD" | "EUR" | "GBP"
+  );
 
   return (
     <FinancialsTable
       rows={rows}
       tweaks={tweaks}
       currencySymbol={currencySymbol}
-      displayCurrency={currency}
-      fxRates={fxRates}
+      displayCurrency={preferredCurrencyCode as "USD" | "EUR" | "GBP"}
+      fxRates={null}
       sortId={sortId}
       sortDir={sortDir}
       onSort={onSort}
@@ -151,6 +150,7 @@ export default function FinancialIntelligencePage() {
   const { currencyId: preferredCurrencyId, currency } = usePlatformCurrency();
   const [target, setTarget] = useState<FiCompanyRow | null>(null);
   const [peers, setPeers] = useState<FiCompanyRow[]>([]);
+  const [preferredCurrencyCode, setPreferredCurrencyCode] = useState<string>(currency);
   const [totalPeers, setTotalPeers] = useState(0);
   const [isDefaultMode, setIsDefaultMode] = useState(true);
   const [filters, setFilters] = useState<FilterState[]>([]);
@@ -261,7 +261,7 @@ export default function FinancialIntelligencePage() {
 
         const targetResult = await fetchFiTarget(
           companyId,
-          DEFAULT_PLATFORM_CURRENCY_ID,
+          preferredCurrencyId,
           labelsForRequest
         );
         if (!targetResult.ok) {
@@ -281,7 +281,7 @@ export default function FinancialIntelligencePage() {
           primarySectors,
           secondarySectors,
           regionOptions,
-          preferredCurrencyId: DEFAULT_PLATFORM_CURRENCY_ID,
+          preferredCurrencyId,
           excludedSourceLabels: labelsForRequest,
         });
 
@@ -289,6 +289,10 @@ export default function FinancialIntelligencePage() {
         if (!peersResult.ok) {
           throw new Error(peersResult.error);
         }
+
+        const responsePreferredCurrencyCode =
+          peersResult.data.preferred_currency_code ?? currency;
+        setPreferredCurrencyCode(responsePreferredCurrencyCode);
 
         const missingLogoIds = [
           ...(targetResult.data.company_logo ? [] : [targetResult.data.company_id]),
@@ -334,10 +338,23 @@ export default function FinancialIntelligencePage() {
       regionOptions,
       excludedSourceLabels,
       allSources.length,
+      preferredCurrencyId,
+      currency,
     ]
   );
 
-  // Benchmark monetary fields are stored in USD and converted client-side when platform currency changes.
+  useEffect(() => {
+    if (!target) return;
+    void loadBenchmark(
+      target.company_id,
+      filters,
+      companyIdsInclude,
+      companyIdsExclude,
+      false,
+      excludedSourceLabels,
+      false
+    );
+  }, [preferredCurrencyId]); // eslint-disable-line react-hooks/exhaustive-deps -- refetch when platform currency changes
 
   const selectTarget = useCallback(
     (companyId: number, meta?: FiCompanySearchHit) => {
@@ -537,13 +554,13 @@ export default function FinancialIntelligencePage() {
 
   const headlineMetrics = useMemo(() => {
     if (!target) return [];
-    return buildHeadlineMetrics(target, peers, peerAggregateMode);
-  }, [target, peers, peerAggregateMode]);
+    return buildHeadlineMetrics(target, peers, peerAggregateMode, preferredCurrencyCode);
+  }, [target, peers, peerAggregateMode, preferredCurrencyCode]);
 
   const benchmarkRows = useMemo(() => {
     if (!target) return [];
-    return buildBenchmarkMetricRows(target, peers, peerAggregateMode);
-  }, [target, peers, peerAggregateMode]);
+    return buildBenchmarkMetricRows(target, peers, peerAggregateMode, preferredCurrencyCode);
+  }, [target, peers, peerAggregateMode, preferredCurrencyCode]);
 
   const compositePercentile = useMemo(() => {
     if (!target) return null;
@@ -551,8 +568,11 @@ export default function FinancialIntelligencePage() {
   }, [target, peers]);
 
   const peerFinRows = useMemo(
-    () => peers.map((peer) => mapCompanyToFinRow(peer, primarySectors, secondarySectors)),
-    [peers, primarySectors, secondarySectors]
+    () =>
+      peers.map((peer) =>
+        mapCompanyToFinRow(peer, primarySectors, secondarySectors, preferredCurrencyCode)
+      ),
+    [peers, primarySectors, secondarySectors, preferredCurrencyCode]
   );
 
   const handleExport = useCallback(async () => {
@@ -560,13 +580,18 @@ export default function FinancialIntelligencePage() {
 
     setExporting(true);
     try {
-      const fxRates = await getFXRates();
-      const targetRow = mapCompanyToFinRow(target, primarySectors, secondarySectors);
+      const targetRow = mapCompanyToFinRow(
+        target,
+        primarySectors,
+        secondarySectors,
+        preferredCurrencyCode
+      );
       const aggregateRow = buildPeerAggregateFinRow(
         peers,
         primarySectors,
         secondarySectors,
-        peerAggregateMode
+        peerAggregateMode,
+        preferredCurrencyCode
       );
 
       const sortedPeerRows = [...peerFinRows].sort((a, b) => {
@@ -593,8 +618,8 @@ export default function FinancialIntelligencePage() {
           peerRows: sortedPeerRows,
           visibleColumnKeys: peerColumnIds,
           peerAggregateMode,
-          displayCurrency: currency,
-          fxRates,
+          displayCurrency: preferredCurrencyCode as typeof currency,
+          fxRates: null,
         }
       );
     } finally {
@@ -610,7 +635,7 @@ export default function FinancialIntelligencePage() {
     sortId,
     sortDir,
     peerColumnIds,
-    currency,
+    preferredCurrencyCode,
   ]);
 
   const sectorMedian = useMemo(
@@ -643,7 +668,6 @@ export default function FinancialIntelligencePage() {
   const isRefreshingBenchmark = loading && peers.length > 0;
 
   return (
-    <FiFxProvider>
     <div className="min-h-screen" style={{ background: "var(--ax-gray-25)", fontFamily: "var(--font-sans)" }}>
       <Header />
       <main style={{ width: "100%", padding: "20px 28px 48px", boxSizing: "border-box" }}>
@@ -814,6 +838,7 @@ export default function FinancialIntelligencePage() {
                 metrics={headlineMetrics}
                 peerAggregateMode={peerAggregateMode}
                 hasActiveSourceFilter={hasActiveSourceFilter}
+                preferredCurrencyCode={preferredCurrencyCode}
               />
             </div>
 
@@ -834,6 +859,7 @@ export default function FinancialIntelligencePage() {
                 peers={peers}
                 peerAggregateMode={peerAggregateMode}
                 hasActiveSourceFilter={hasActiveSourceFilter}
+                preferredCurrencyCode={preferredCurrencyCode}
               />
               <PeerCompaniesCard
                 peers={peers}
@@ -887,6 +913,7 @@ export default function FinancialIntelligencePage() {
 
               <FiPeerFinancialsTable
                 rows={peerFinRows}
+                preferredCurrencyCode={preferredCurrencyCode}
                 tweaks={{
                   sectionName: "Financial Intelligence",
                   showMedian: true,
@@ -945,6 +972,5 @@ export default function FinancialIntelligencePage() {
         </>
       )}
     </div>
-    </FiFxProvider>
   );
 }
