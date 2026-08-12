@@ -13,7 +13,14 @@ import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
 import { convertFiMetricForDisplay } from "@/lib/financialIntelligence/fxDisplay";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import type { Currency, FXRates } from "@/lib/fxRates";
-import { useFiFxRates } from "./FiFxContext";
+
+function resolveDisplayCurrencyCode(code: string): Currency {
+  const normalized = code.trim().toUpperCase();
+  if (normalized === "USD" || normalized === "EUR" || normalized === "GBP") {
+    return normalized;
+  }
+  return "USD";
+}
 
 export function SourceTypeDot({
   type,
@@ -62,34 +69,35 @@ export function FilteredMetricPlaceholder({ title }: { title?: string }) {
 export function fmtFiMetric(
   value: number | null,
   format: FiMetricFormat,
-  currencyCode: Currency = "USD",
-  fxRates: FXRates | null = null
+  currencyCode: Currency | string = "USD",
+  _fxRates: FXRates | null = null
 ): string {
-  const displayValue = convertFiMetricForDisplay(value, format, currencyCode, fxRates);
+  const displayCurrency = resolveDisplayCurrencyCode(String(currencyCode));
+  const displayValue = convertFiMetricForDisplay(value, format, displayCurrency, _fxRates);
   if (displayValue == null || !Number.isFinite(displayValue)) return "—";
   if (format === "currency") {
     const n = Math.abs(displayValue);
     if (n >= 1000) {
-      return appendMetricCurrency(`${Math.round(displayValue / 1000)}b`, currencyCode);
+      return appendMetricCurrency(`${Math.round(displayValue / 1000)}b`, displayCurrency);
     }
     const plain = formatMetricMillionsPlain(displayValue);
     if (plain === "—") return plain;
-    return appendMetricCurrency(`${plain}m`, currencyCode);
+    return appendMetricCurrency(`${plain}m`, displayCurrency);
   }
   if (format === "currency_k") {
     if (Math.abs(displayValue) >= 1_000_000) {
       return appendMetricCurrency(
         formatMetricMillionsPlain(displayValue / 1_000_000),
-        currencyCode
+        displayCurrency
       );
     }
     if (Math.abs(displayValue) >= 1000) {
       return appendMetricCurrency(
         `${Math.round(displayValue / 1000)}k`,
-        currencyCode
+        displayCurrency
       );
     }
-    return appendMetricCurrency(formatMetricMillionsPlain(displayValue), currencyCode);
+    return appendMetricCurrency(formatMetricMillionsPlain(displayValue), displayCurrency);
   }
   if (format === "count") {
     return Math.round(displayValue).toLocaleString("en-US");
@@ -108,6 +116,7 @@ export function SourceColoredValue({
   fontSize,
   justify = "flex-end",
   hiddenBySourceFilter = false,
+  displayCurrencyCode,
 }: {
   value: number | null;
   format: FiMetricFormat;
@@ -116,9 +125,10 @@ export function SourceColoredValue({
   fontSize?: number | string;
   justify?: "flex-start" | "flex-end" | "center";
   hiddenBySourceFilter?: boolean;
+  displayCurrencyCode?: string;
 }) {
   const { currency } = usePlatformCurrency();
-  const fxRates = useFiFxRates();
+  const resolvedCurrency = displayCurrencyCode ?? currency;
 
   if (value == null && hiddenBySourceFilter) {
     return (
@@ -151,7 +161,7 @@ export function SourceColoredValue({
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      {fmtFiMetric(value, format, currency, fxRates)}
+      {fmtFiMetric(value, format, resolvedCurrency)}
     </span>
   );
 }

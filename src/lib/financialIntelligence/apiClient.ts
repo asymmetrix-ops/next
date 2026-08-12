@@ -18,6 +18,7 @@ import {
   normalizePeersResponse,
   readApiError,
 } from "./normalize";
+import { platformCurrencyIdToCode } from "@/lib/platformCurrency";
 import type {
   FiCompanyRow,
   FiFetchResult,
@@ -206,7 +207,10 @@ export async function fetchFiPeers(
     }
 
     const payload = await response.json();
-    return { ok: true, data: normalizePeersResponse(payload) };
+    const fallbackCode = platformCurrencyIdToCode(
+      request.preferred_currency_id ?? readPlatformCurrencyIdClient()
+    ) ?? "USD";
+    return { ok: true, data: normalizePeersResponse(payload, fallbackCode) };
   } catch (err) {
     return {
       ok: false,

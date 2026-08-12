@@ -3,7 +3,25 @@ import type { FinRow, ColumnDef, Tweaks, SectorMedian } from './types';
 import { FIN_SECTOR_MEDIAN } from './financials-data';
 import { CompanyAvatar } from '@/components/CompanyAvatar';
 import type { Currency, FXRates } from '@/lib/fxRates';
-import { convertCurrency } from '@/lib/fxRates';
+import { convertCurrency, CURRENCY_OPTIONS } from '@/lib/fxRates';
+
+function resolveColumnCurrencySymbol(
+  colId: string,
+  row: FinRow,
+  fallbackSymbol: string
+): string {
+  const code = row.fieldCurrencyCodes?.[colId];
+  if (!code) return fallbackSymbol;
+  const normalized = code.trim().toUpperCase();
+  if (normalized === 'USD' || normalized === 'EUR' || normalized === 'GBP') {
+    return CURRENCY_OPTIONS.find((option) => option.value === normalized)?.symbol ?? fallbackSymbol;
+  }
+  return fallbackSymbol;
+}
+
+function shouldSkipClientFxConversion(row: FinRow, colId: string): boolean {
+  return Boolean(row.fieldCurrencyCodes?.[colId]);
+}
 
 // ── Number formatting ────────────────────────────────────────────────────────
 
@@ -11,14 +29,15 @@ function fmtCurrency(
   v: number | undefined | null,
   symbol = '$',
   displayCurrency: Currency = 'USD',
-  fxRates: FXRates | null = null
+  fxRates: FXRates | null = null,
+  skipConversion = false
 ): string {
   if (v === null || v === undefined) return '—';
   const n = Number(v);
   const converted =
-    displayCurrency !== 'USD' && fxRates
-      ? (convertCurrency(n, displayCurrency, fxRates) ?? n)
-      : n;
+    skipConversion || displayCurrency === 'USD' || !fxRates
+      ? n
+      : (convertCurrency(n, displayCurrency, fxRates) ?? n);
   if (Math.abs(converted) >= 1000) return symbol + Math.round(converted / 1000) + 'b';
   return symbol + Math.round(converted) + 'm';
 }
@@ -223,11 +242,12 @@ export function Cell({
       if (col.id === 'rev_per_employee' || col.id === 'rev_per_client') {
         const n = v as number;
         if (n == null || !Number.isFinite(n)) return <span style={{ color: 'var(--fg-4)' }}>—</span>;
+        const skipConversion = shouldSkipClientFxConversion(row, col.id);
         const converted =
-          displayCurrency !== 'USD' && fxRates
-            ? (convertCurrency(n, displayCurrency, fxRates) ?? n)
-            : n;
-        const sym = col.symbol ?? currencySymbol;
+          skipConversion || displayCurrency === 'USD' || !fxRates
+            ? n
+            : (convertCurrency(n, displayCurrency, fxRates) ?? n);
+        const sym = resolveColumnCurrencySymbol(col.id, row, col.symbol ?? currencySymbol);
         if (Math.abs(converted) >= 1_000_000) {
           return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{sym}{Math.round(converted / 1_000_000)}m</span>;
         }
@@ -238,7 +258,13 @@ export function Cell({
       }
       return (
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-          {fmtCurrency(v as number, col.symbol ?? currencySymbol, displayCurrency, fxRates)}
+          {fmtCurrency(
+            v as number,
+            resolveColumnCurrencySymbol(col.id, row, col.symbol ?? currencySymbol),
+            displayCurrency,
+            fxRates,
+            shouldSkipClientFxConversion(row, col.id)
+          )}
         </span>
       );
 
