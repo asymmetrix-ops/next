@@ -4,7 +4,7 @@ import { motion, useInView, useMotionValue, useReducedMotion, useSpring } from "
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const VIEW_W = 780;
-const VIEW_H = 520;
+const VIEW_H = 600;
 const EASE = [0.16, 1, 0.3, 1];
 
 // Camera: content is authored in a coordinate space centered on the hero
@@ -26,7 +26,7 @@ const NAMED_NODES = [
     id: "event",
     type: "event",
     x: 0,
-    y: -146,
+    y: -138,
     w: 196,
     h: 66,
     big: true,
@@ -37,8 +37,8 @@ const NAMED_NODES = [
   {
     id: "financial",
     type: "financial",
-    x: -185,
-    y: -92,
+    x: -198,
+    y: -125,
     w: 152,
     h: 58,
     primary: "Revenue $22M",
@@ -48,8 +48,8 @@ const NAMED_NODES = [
   {
     id: "headcount",
     type: "headcount",
-    x: 185,
-    y: -96,
+    x: 198,
+    y: -125,
     w: 150,
     h: 58,
     primary: "340 employees",
@@ -60,8 +60,8 @@ const NAMED_NODES = [
   {
     id: "investor",
     type: "investor",
-    x: -209,
-    y: 15,
+    x: -215,
+    y: 122,
     w: 156,
     h: 58,
     primary: "Bridgepoint",
@@ -71,8 +71,8 @@ const NAMED_NODES = [
   {
     id: "advisor",
     type: "advisor",
-    x: 209,
-    y: 18,
+    x: 215,
+    y: 122,
     w: 148,
     h: 58,
     primary: "Goldman Sachs",
@@ -82,8 +82,8 @@ const NAMED_NODES = [
   {
     id: "leadership",
     type: "leadership",
-    x: -161,
-    y: 146,
+    x: -215,
+    y: 192,
     w: 138,
     h: 58,
     primary: "Sarah Chen",
@@ -94,7 +94,7 @@ const NAMED_NODES = [
     id: "product",
     type: "product",
     x: 0,
-    y: 189,
+    y: 260,
     w: 168,
     h: 58,
     primary: "Core Platform",
@@ -104,8 +104,8 @@ const NAMED_NODES = [
   {
     id: "competitor",
     type: "competitor",
-    x: 161,
-    y: 146,
+    x: 215,
+    y: 192,
     w: 134,
     h: 58,
     primary: "DataForge",
@@ -115,8 +115,8 @@ const NAMED_NODES = [
   {
     id: "competitor2",
     type: "competitor",
-    x: -228,
-    y: 88,
+    x: -285,
+    y: -195,
     w: 134,
     h: 54,
     faint: true,
@@ -233,7 +233,7 @@ function SatelliteCard({ node, delay, entered, dimmed, hovered, onEnter, onLeave
         transition={T(reduceMotion, 0.5, delay)}
       >
         <motion.g
-          animate={{ opacity: dimmed ? 0.22 : 1, scale: hovered ? 1.3 : 1 }}
+          animate={{ opacity: dimmed ? 0.22 : 1, scale: hovered ? 1.06 : 1 }}
           transition={{ duration: 0.28, ease: EASE }}
           onMouseEnter={onEnter}
           onMouseLeave={onLeave}
