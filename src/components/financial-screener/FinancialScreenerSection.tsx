@@ -41,6 +41,7 @@ import { fetchFinancialScreenerServer } from "@/app/financials/actions";
 import { applyClientFilters } from "./financialScreenerFilterPayload";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
 import { SEARCH_BULK_TOOLBAR_STYLES } from "@/components/search/searchTableStyles";
+import CompactPagination from "@/components/ui/CompactPagination";
 
 const COLUMN_STORAGE_KEY = "financial-screener-column-keys-v2";
 const SELECT_COLUMN_WIDTH = 44;
@@ -243,6 +244,22 @@ export const FinancialScreenerSection = ({
     }
     setShowColumnsModal(false);
   };
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      if (
+        loading ||
+        page < 1 ||
+        page > pagination.totalPages ||
+        page === pagination.page
+      ) {
+        return;
+      }
+
+      fetchPage(page, currentFilters);
+    },
+    [currentFilters, fetchPage, loading, pagination.page, pagination.totalPages]
+  );
 
   const handleExportCSV = useCallback(async () => {
     try {
@@ -644,59 +661,14 @@ export const FinancialScreenerSection = ({
           </table>
         </div>
 
-        {!loading && pagination.totalPages > 1 ? (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: 16,
-              color: "#64748b",
-              fontSize: 13,
-            }}
-          >
-            <span>
-              Page {pagination.page} of {pagination.totalPages} ·{" "}
-              {pagination.total.toLocaleString()} companies
-            </span>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                disabled={!pagination.prevPage}
-                onClick={() =>
-                  pagination.prevPage &&
-                  fetchPage(pagination.prevPage, currentFilters)
-                }
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #e2e8f0",
-                  background: "#fff",
-                  cursor: pagination.prevPage ? "pointer" : "not-allowed",
-                  opacity: pagination.prevPage ? 1 : 0.5,
-                }}
-              >
-                Previous
-              </button>
-              <button
-                disabled={!pagination.nextPage}
-                onClick={() =>
-                  pagination.nextPage &&
-                  fetchPage(pagination.nextPage, currentFilters)
-                }
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #e2e8f0",
-                  background: "#fff",
-                  cursor: pagination.nextPage ? "pointer" : "not-allowed",
-                  opacity: pagination.nextPage ? 1 : 0.5,
-                }}
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        ) : null}
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+          <CompactPagination
+            curPage={pagination.page}
+            pageTotal={pagination.totalPages}
+            onPageChange={handlePageChange}
+            disabled={loading}
+          />
+        </div>
       </div>
 
       <ExportLimitModal

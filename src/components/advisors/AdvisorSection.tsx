@@ -42,6 +42,7 @@ import { exportAdvisorsList } from "@/lib/listExport/advisorsListExport";
 import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
 import { checkExportLimit } from "@/utils/exportLimitCheck";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
+import CompactPagination from "@/components/ui/CompactPagination";
 import {
   isSearchTableSelectionEnabled,
   SEARCH_TABLE_SELECT_COLUMN_WIDTH,
@@ -267,12 +268,22 @@ export const AdvisorSection = ({
     [router]
   );
 
+  const pageTotal =
+    pagination.pageTotal ||
+    (pagination.nextPage != null
+      ? Math.max(pagination.nextPage, pagination.curPage + 1)
+      : 1);
+
   const handlePageChange = useCallback(
     (page: number) => {
+      if (loading || page < 1 || page > pageTotal || page === pagination.curPage) {
+        return;
+      }
+
       const filters = currentFilters ?? createDefaultAdvisorFilters();
       void fetchAdvisors(page, { ...filters, page });
     },
-    [currentFilters, fetchAdvisors]
+    [currentFilters, fetchAdvisors, loading, pageTotal, pagination.curPage]
   );
 
   const handleSortColumn = useCallback(
@@ -452,110 +463,6 @@ export const AdvisorSection = ({
       default:
         return "-";
     }
-  };
-
-  const generatePaginationButtons = () => {
-    const buttons: React.ReactNode[] = [];
-    const maxVisible = 7;
-    const totalPages =
-      pagination.pageTotal ||
-      (pagination.nextPage != null
-        ? Math.max(pagination.nextPage, pagination.curPage + 1)
-        : 0);
-    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
-    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
-
-    if (totalPages <= 1) return buttons;
-
-    buttons.push(
-      <button
-        key="previous"
-        type="button"
-        className="pagination-button pagination-nav"
-        onClick={() => handlePageChange(prevPage)}
-        disabled={pagination.curPage <= 1}
-      >
-        Previous
-      </button>
-    );
-
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
-            onClick={() => handlePageChange(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-    } else {
-      buttons.push(
-        <button
-          key={1}
-          type="button"
-          className={`pagination-button ${pagination.curPage === 1 ? "active" : ""}`}
-          onClick={() => handlePageChange(1)}
-        >
-          1
-        </button>
-      );
-      if (pagination.curPage > 3) {
-        buttons.push(
-          <span key="ellipsis1" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-      const start = Math.max(2, pagination.curPage - 1);
-      const end = Math.min(totalPages - 1, pagination.curPage + 1);
-      for (let i = start; i <= end; i++) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-button ${i === pagination.curPage ? "active" : ""}`}
-            onClick={() => handlePageChange(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-      if (pagination.curPage < totalPages - 2) {
-        buttons.push(
-          <span key="ellipsis2" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-      buttons.push(
-        <button
-          key={totalPages}
-          type="button"
-          className={`pagination-button ${totalPages === pagination.curPage ? "active" : ""}`}
-          onClick={() => handlePageChange(totalPages)}
-        >
-          {totalPages}
-        </button>
-      );
-    }
-
-    buttons.push(
-      <button
-        key="next"
-        type="button"
-        className="pagination-button pagination-nav"
-        onClick={() => handlePageChange(nextPage)}
-        disabled={pagination.curPage >= totalPages}
-      >
-        Next
-      </button>
-    );
-
-    return buttons;
   };
 
   const columnsModalLayer =
@@ -838,7 +745,14 @@ export const AdvisorSection = ({
         </table>
       </div>
 
-      <div className="pagination">{generatePaginationButtons()}</div>
+      <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+        <CompactPagination
+          curPage={pagination.curPage}
+          pageTotal={pageTotal}
+          onPageChange={handlePageChange}
+          disabled={loading}
+        />
+      </div>
       {columnsModalLayer}
       <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
     </div>
