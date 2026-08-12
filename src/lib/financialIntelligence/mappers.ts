@@ -9,7 +9,6 @@ import {
   computeRank,
   aggregatePeerMetric,
   collectPeerMetricValues,
-  getMetricValue,
   getMetricValueForDisplay,
   peerAggregate,
   toMillions,
@@ -160,12 +159,13 @@ const SECTOR_AGGREGATE_METRIC: Partial<Record<keyof SectorMedian, FiMetricKey>> 
 
 function aggregateEvEbit(
   peers: FiCompanyRow[],
-  mode: FiPeerAggregateMode
+  mode: FiPeerAggregateMode,
+  allowedSources?: FiMetricSourceType[] | null
 ): number | null {
   const values = peers
     .map((peer) => {
-      const ev = getMetricValue(peer, "ev_usd");
-      const ebit = getMetricValue(peer, "ebit_m_usd");
+      const ev = getMetricValueForDisplay(peer, "ev_usd", allowedSources);
+      const ebit = getMetricValueForDisplay(peer, "ebit_m_usd", allowedSources);
       if (ev != null && ebit != null && ebit !== 0) return ev / ebit;
       return null;
     })
@@ -175,14 +175,15 @@ function aggregateEvEbit(
 
 export function buildPeerSectorMedian(
   peers: FiCompanyRow[],
-  aggregateMode: FiPeerAggregateMode = "median"
+  aggregateMode: FiPeerAggregateMode = "median",
+  allowedSources?: FiMetricSourceType[] | null
 ): SectorMedian {
   const pick = (key: keyof SectorMedian) => {
     if (key === "fte") return 0;
-    if (key === "ev_ebit") return aggregateEvEbit(peers, aggregateMode) ?? 0;
+    if (key === "ev_ebit") return aggregateEvEbit(peers, aggregateMode, allowedSources) ?? 0;
     const metricKey = SECTOR_AGGREGATE_METRIC[key];
     if (!metricKey) return 0;
-    return aggregatePeerMetric(peers, metricKey, aggregateMode) ?? 0;
+    return aggregatePeerMetric(peers, metricKey, aggregateMode, allowedSources) ?? 0;
   };
 
   return {
@@ -263,17 +264,18 @@ export function buildPeerAggregateFinRow(
   _primarySectors: FiSectorLookup[],
   _secondarySectors: FiSectorLookup[],
   aggregateMode: FiPeerAggregateMode = "median",
-  preferredCurrencyCode = "USD"
+  preferredCurrencyCode = "USD",
+  allowedSources?: FiMetricSourceType[] | null
 ): FinRow {
   const aggregateLabel =
     aggregateMode === "mean" ? "Sector mean" : "Sector median";
 
   const pick = (key: (typeof AGGREGATE_FIN_ROW_NUMERIC_KEYS)[number]) => {
     if (key === "fte") return 0;
-    if (key === "ev_ebit") return aggregateEvEbit(peers, aggregateMode) ?? 0;
+    if (key === "ev_ebit") return aggregateEvEbit(peers, aggregateMode, allowedSources) ?? 0;
     const metricKey = FIN_ROW_AGGREGATE_METRIC[key];
     if (!metricKey) return 0;
-    return aggregatePeerMetric(peers, metricKey, aggregateMode) ?? 0;
+    return aggregatePeerMetric(peers, metricKey, aggregateMode, allowedSources) ?? 0;
   };
 
   const aggregated = Object.fromEntries(

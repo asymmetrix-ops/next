@@ -1,6 +1,7 @@
 import { FI_BENCHMARK_SCORECARD_KEYS } from "./calculations";
 import {
   FI_SOURCE_TYPES,
+  isDefaultSourceTypes,
   isMetricSourceAllowed,
   resolveFinancialMetricSourceType,
 } from "./sourceTypes";
@@ -49,15 +50,12 @@ export function excludedLabelsToAllowedSources(
   return FI_SOURCE_TYPES.filter((type) => !excluded.has(type));
 }
 
-/** Null metric values whose source bucket is excluded (mirrors backend per-field filtering). */
-export function applyExcludedSourceLabelsToRow(
+/** Null metric values whose source bucket is not in the allowed set. */
+export function filterCompanyRowByAllowedSources(
   row: FiCompanyRow,
-  excludedLabels: string[]
+  allowedSources: FiMetricSourceType[]
 ): FiCompanyRow {
-  if (excludedLabels.length === 0) return row;
-
-  const allowedSources = excludedLabelsToAllowedSources(excludedLabels);
-  if (allowedSources.length === FI_SOURCE_TYPES.length) return row;
+  if (isDefaultSourceTypes(allowedSources)) return row;
 
   const next: FiCompanyRow = { ...row };
 
@@ -74,6 +72,26 @@ export function applyExcludedSourceLabelsToRow(
   }
 
   return next;
+}
+
+export function filterCompanyRowsByAllowedSources(
+  rows: FiCompanyRow[],
+  allowedSources: FiMetricSourceType[]
+): FiCompanyRow[] {
+  if (isDefaultSourceTypes(allowedSources)) return rows;
+  return rows.map((row) => filterCompanyRowByAllowedSources(row, allowedSources));
+}
+
+/** Null metric values whose source bucket is excluded (mirrors backend per-field filtering). */
+export function applyExcludedSourceLabelsToRow(
+  row: FiCompanyRow,
+  excludedLabels: string[]
+): FiCompanyRow {
+  if (excludedLabels.length === 0) return row;
+  return filterCompanyRowByAllowedSources(
+    row,
+    excludedLabelsToAllowedSources(excludedLabels)
+  );
 }
 
 export function applyExcludedSourceLabelsToRows(

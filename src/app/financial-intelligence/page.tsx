@@ -51,6 +51,10 @@ import {
   SearchExportCsvIcon,
 } from "@/components/search/searchHeaderActions";
 import { annotateManuallyAddedPeers } from "@/lib/financialIntelligence/normalize";
+import {
+  filterCompanyRowByAllowedSources,
+  filterCompanyRowsByAllowedSources,
+} from "@/lib/financialIntelligence/applySourceExclusions";
 import { useDataSourceFilter } from "@/lib/financialIntelligence/useDataSourceFilter";
 import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup, FiMetricSourceType } from "@/lib/financialIntelligence/types";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
@@ -533,58 +537,81 @@ export default function FinancialIntelligencePage() {
   const effectiveDefaultMode = isDefaultMode && isDefaultSourceFilter;
   const hasActiveSourceFilter = !isDefaultSourceFilter;
 
+  const displayTarget = useMemo(() => {
+    if (!target) return null;
+    return filterCompanyRowByAllowedSources(target, allowedSourceTypes);
+  }, [target, allowedSourceTypes]);
+
+  const displayPeers = useMemo(
+    () => filterCompanyRowsByAllowedSources(peers, allowedSourceTypes),
+    [peers, allowedSourceTypes]
+  );
+
   const headlineMetrics = useMemo(() => {
-    if (!target) return [];
+    if (!displayTarget) return [];
     return buildHeadlineMetrics(
-      target,
-      peers,
+      displayTarget,
+      displayPeers,
       peerAggregateMode,
       preferredCurrencyCode,
       allowedSourceTypes
     );
-  }, [target, peers, peerAggregateMode, preferredCurrencyCode, allowedSourceTypes]);
+  }, [
+    displayTarget,
+    displayPeers,
+    peerAggregateMode,
+    preferredCurrencyCode,
+    allowedSourceTypes,
+  ]);
 
   const benchmarkRows = useMemo(() => {
-    if (!target) return [];
+    if (!displayTarget) return [];
     return buildBenchmarkMetricRows(
-      target,
-      peers,
+      displayTarget,
+      displayPeers,
       peerAggregateMode,
       preferredCurrencyCode,
       allowedSourceTypes
     );
-  }, [target, peers, peerAggregateMode, preferredCurrencyCode, allowedSourceTypes]);
+  }, [
+    displayTarget,
+    displayPeers,
+    peerAggregateMode,
+    preferredCurrencyCode,
+    allowedSourceTypes,
+  ]);
 
   const compositePercentile = useMemo(() => {
-    if (!target) return null;
-    return computeCompositePercentile(target, peers, allowedSourceTypes);
-  }, [target, peers, allowedSourceTypes]);
+    if (!displayTarget) return null;
+    return computeCompositePercentile(displayTarget, displayPeers, allowedSourceTypes);
+  }, [displayTarget, displayPeers, allowedSourceTypes]);
 
   const peerFinRows = useMemo(
     () =>
-      peers.map((peer) =>
+      displayPeers.map((peer) =>
         mapCompanyToFinRow(peer, primarySectors, secondarySectors, preferredCurrencyCode)
       ),
-    [peers, primarySectors, secondarySectors, preferredCurrencyCode]
+    [displayPeers, primarySectors, secondarySectors, preferredCurrencyCode]
   );
 
   const handleExport = useCallback(async () => {
-    if (!target) return;
+    if (!displayTarget) return;
 
     setExporting(true);
     try {
       const targetRow = mapCompanyToFinRow(
-        target,
+        displayTarget,
         primarySectors,
         secondarySectors,
         preferredCurrencyCode
       );
       const aggregateRow = buildPeerAggregateFinRow(
-        peers,
+        displayPeers,
         primarySectors,
         secondarySectors,
         peerAggregateMode,
-        preferredCurrencyCode
+        preferredCurrencyCode,
+        allowedSourceTypes
       );
 
       const sortedPeerRows = [...peerFinRows].sort((a, b) => {
@@ -620,7 +647,9 @@ export default function FinancialIntelligencePage() {
     }
   }, [
     target,
+    displayTarget,
     peers,
+    displayPeers,
     peerFinRows,
     primarySectors,
     secondarySectors,
@@ -632,8 +661,8 @@ export default function FinancialIntelligencePage() {
   ]);
 
   const sectorMedian = useMemo(
-    () => buildPeerSectorMedian(peers, peerAggregateMode),
-    [peers, peerAggregateMode]
+    () => buildPeerSectorMedian(displayPeers, peerAggregateMode, allowedSourceTypes),
+    [displayPeers, peerAggregateMode, allowedSourceTypes]
   );
 
   const visibleColumnIds = peerColumnIds.filter(
@@ -844,10 +873,11 @@ export default function FinancialIntelligencePage() {
               <BenchmarkTable
                 rows={benchmarkRows}
                 targetName={target.company_name}
-                target={target}
-                peers={peers}
+                target={displayTarget ?? target}
+                peers={displayPeers}
                 peerAggregateMode={peerAggregateMode}
                 hasActiveSourceFilter={hasActiveSourceFilter}
+                allowedSourceTypes={allowedSourceTypes}
                 preferredCurrencyCode={preferredCurrencyCode}
               />
               <PeerCompaniesCard

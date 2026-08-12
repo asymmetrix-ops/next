@@ -12,7 +12,7 @@
     FI_BENCHMARK_SECTIONS,
     formatMetricPercent,
     formatMetricPercentDelta,
-    getMetricValue,
+    getMetricValueForDisplay,
     peerAggregateLabels,
   } from "@/lib/financialIntelligence/calculations";
   import type { FiPeerAggregateMode } from "@/lib/financialIntelligence/types";
@@ -131,6 +131,7 @@
     isLast,
     peerAggregateMode,
     hasActiveSourceFilter = false,
+    allowedSourceTypes,
     preferredCurrencyCode = "USD",
   }: {
     row: FiBenchmarkMetricRow;
@@ -139,6 +140,7 @@
     isLast: boolean;
     peerAggregateMode: FiPeerAggregateMode;
     hasActiveSourceFilter?: boolean;
+    allowedSourceTypes?: FiMetricSourceType[];
     preferredCurrencyCode?: string;
   }) {
     const { currency } = usePlatformCurrency();
@@ -157,7 +159,7 @@
       ...peers.map((peer) => ({
         id: peer.company_id,
         name: peer.company_name,
-        value: getMetricValue(peer, metricKey),
+        value: getMetricValueForDisplay(peer, metricKey, allowedSourceTypes),
         sourceType: getMetricSourceType(peer, metricKey),
         isTarget: false,
         row: peer,
@@ -597,6 +599,7 @@
     peers: FiCompanyRow[];
     peerAggregateMode?: FiPeerAggregateMode;
     hasActiveSourceFilter?: boolean;
+    allowedSourceTypes?: FiMetricSourceType[];
     preferredCurrencyCode?: string;
   }
 
@@ -609,6 +612,7 @@
     peers,
     peerAggregateMode = "median",
     hasActiveSourceFilter = false,
+    allowedSourceTypes,
     preferredCurrencyCode = "USD",
   }: BenchmarkTableProps) {
     const { currency } = usePlatformCurrency();
@@ -786,6 +790,7 @@
               isLast={isLastOverall}
               peerAggregateMode={peerAggregateMode}
               hasActiveSourceFilter={hasActiveSourceFilter}
+              allowedSourceTypes={allowedSourceTypes}
               preferredCurrencyCode={fallbackCurrency}
             />
           )}

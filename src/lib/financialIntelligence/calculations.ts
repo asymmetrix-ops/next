@@ -285,9 +285,10 @@ export function collectPeerMetricValues(
 export function aggregatePeerMetric(
   peers: FiCompanyRow[],
   key: FiMetricKey,
-  mode: FiPeerAggregateMode = "median"
+  mode: FiPeerAggregateMode = "median",
+  allowedSources?: FiMetricSourceType[] | null
 ): number | null {
-  return peerAggregate(collectPeerMetricValues(peers, key), mode);
+  return peerAggregate(collectPeerMetricValues(peers, key, allowedSources), mode);
 }
 
 export function peerAggregateLabels(mode: FiPeerAggregateMode) {
