@@ -232,7 +232,10 @@ function isSourceLabelAllowed(
   label: string | null,
   allowedSources: FiMetricSourceType[]
 ): boolean {
-  if (label == null) return true;
+  if (label == null) {
+    // Unknown source: only show when no source filter is active (all buckets allowed).
+    return isDefaultSourceTypes(allowedSources);
+  }
   if (allowedSources.includes(label as FiMetricSourceType)) return true;
   const bucket = resolveFinancialMetricSourceType(label);
   return bucket != null && allowedSources.includes(bucket);
