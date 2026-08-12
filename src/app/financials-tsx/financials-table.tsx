@@ -451,7 +451,7 @@ export function FinancialsTable({
                         <span style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--ax-cyan-700)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>Σ</span>
                       )}
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ax-cyan-800)' }}>Sector median</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ax-cyan-800)' }}>{aggregateRowLabel}</div>
                         <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--ax-cyan-700)' }}>across {rows.length} matching companies</div>
                       </div>
                     </div>

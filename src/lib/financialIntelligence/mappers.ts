@@ -10,18 +10,22 @@ import {
   aggregatePeerMetric,
   collectPeerMetricValues,
   getMetricValue,
+  getMetricValueForDisplay,
   peerAggregate,
   toMillions,
 } from "./calculations";
 import {
   getMetricSourceType,
   getHeadlineMetricSourceType,
+  isDefaultSourceTypes,
+  isHeadlineSourceAllowed,
 } from "./sourceTypes";
 import type {
   FiBenchmarkMetricRow,
   FiCompanyRow,
   FiHeadlineMetric,
   FiMetricKey,
+  FiMetricSourceType,
   FiPeerAggregateMode,
   FiSectorLookup,
 } from "./types";
@@ -301,13 +305,14 @@ export function buildBenchmarkMetricRows(
   target: FiCompanyRow,
   peers: FiCompanyRow[],
   aggregateMode: FiPeerAggregateMode = "median",
-  preferredCurrencyCode = "USD"
+  preferredCurrencyCode = "USD",
+  allowedSources?: FiMetricSourceType[] | null
 ): FiBenchmarkMetricRow[] {
   return FI_BENCHMARK_METRICS.filter((metric) =>
     FI_BENCHMARK_SCORECARD_KEYS.includes(metric.key)
   ).map((metric) => {
-    const targetValue = getMetricValue(target, metric.key);
-    const peerValues = collectPeerMetricValues(peers, metric.key);
+    const targetValue = getMetricValueForDisplay(target, metric.key, allowedSources);
+    const peerValues = collectPeerMetricValues(peers, metric.key, allowedSources);
     const median = peerAggregate(peerValues, aggregateMode);
     const percentile =
       targetValue != null
@@ -353,7 +358,8 @@ export function buildHeadlineMetrics(
   target: FiCompanyRow,
   peers: FiCompanyRow[],
   aggregateMode: FiPeerAggregateMode = "median",
-  preferredCurrencyCode = "USD"
+  preferredCurrencyCode = "USD",
+  allowedSources?: FiMetricSourceType[] | null
 ): FiHeadlineMetric[] {
   const defs: Array<{
     key: "revenue" | "ebitda" | "rev_growth";
@@ -390,9 +396,20 @@ export function buildHeadlineMetrics(
   ];
 
   return defs.map((def) => {
-    const targetValue = def.getValue(target);
+    const targetValue =
+      allowedSources &&
+      !isDefaultSourceTypes(allowedSources) &&
+      !isHeadlineSourceAllowed(target, def.key, allowedSources)
+        ? null
+        : def.getValue(target);
     const peerValues = peers
-      .map((peer) => def.getValue(peer))
+      .map((peer) =>
+        allowedSources &&
+        !isDefaultSourceTypes(allowedSources) &&
+        !isHeadlineSourceAllowed(peer, def.key, allowedSources)
+          ? null
+          : def.getValue(peer)
+      )
       .filter((v): v is number => v != null && Number.isFinite(v));
     const median = peerAggregate(peerValues, aggregateMode);
     const percentile =

@@ -5,6 +5,7 @@ export const FI_SOURCE_TYPE_FIELDS = [
   "subscription_revenue_pc_source_type",
   "subscription_revenue_m_source_type",
   "ebitda_source_type",
+  "ebitda_margin_source_type",
   "ebit_source_type",
   "ev_source_type",
   "no_of_clients_source_type",
