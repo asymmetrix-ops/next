@@ -2323,6 +2323,48 @@ const SubSectorPage = () => {
     if (activeTab === "insights") fetchInsights(1);
   }, [activeTab, fetchInsights]);
 
+  const handleCompaniesPageChange = useCallback(
+    (page: number) => {
+      if (
+        companiesLoading ||
+        page < 1 ||
+        page > companiesPagination.pageTotal ||
+        page === companiesPagination.curPage
+      ) {
+        return;
+      }
+
+      void fetchCompanies(page);
+    },
+    [
+      companiesLoading,
+      companiesPagination.curPage,
+      companiesPagination.pageTotal,
+      fetchCompanies,
+    ]
+  );
+
+  const handleInsightsPageChange = useCallback(
+    (page: number) => {
+      if (
+        insightsLoading ||
+        page < 1 ||
+        page > insightsPagination.pageTotal ||
+        page === insightsPagination.curPage
+      ) {
+        return;
+      }
+
+      void fetchInsights(page);
+    },
+    [
+      insightsLoading,
+      insightsPagination.curPage,
+      insightsPagination.pageTotal,
+      fetchInsights,
+    ]
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br to-blue-50 from-slate-50">
       <Header />
@@ -3033,34 +3075,14 @@ const SubSectorPage = () => {
                 )}
               </div>
             </div>
-            {companiesPagination.pageTotal > 1 && (
-              <div className="flex gap-2 justify-center items-center">
-                <button
-                  disabled={!companiesPagination.prevPage}
-                  onClick={() =>
-                    companiesPagination.prevPage &&
-                    fetchCompanies(companiesPagination.prevPage)
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm text-slate-600">
-                  Page {companiesPagination.curPage} of{" "}
-                  {companiesPagination.pageTotal}
-                </span>
-                <button
-                  disabled={!companiesPagination.nextPage}
-                  onClick={() =>
-                    companiesPagination.nextPage &&
-                    fetchCompanies(companiesPagination.nextPage)
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  Next →
-                </button>
-              </div>
-            )}
+            <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+              <CompactPagination
+                curPage={companiesPagination.curPage}
+                pageTotal={companiesPagination.pageTotal}
+                onPageChange={handleCompaniesPageChange}
+                disabled={companiesLoading}
+              />
+            </div>
           </div>
         )}
 
@@ -3144,34 +3166,14 @@ const SubSectorPage = () => {
                 )}
               </div>
             </div>
-            {insightsPagination.pageTotal > 1 && (
-              <div className="flex gap-2 justify-center items-center">
-                <button
-                  disabled={!insightsPagination.prevPage}
-                  onClick={() =>
-                    insightsPagination.prevPage &&
-                    fetchInsights(insightsPagination.prevPage)
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm text-slate-600">
-                  Page {insightsPagination.curPage} of{" "}
-                  {insightsPagination.pageTotal}
-                </span>
-                <button
-                  disabled={!insightsPagination.nextPage}
-                  onClick={() =>
-                    insightsPagination.nextPage &&
-                    fetchInsights(insightsPagination.nextPage)
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  Next →
-                </button>
-              </div>
-            )}
+            <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+              <CompactPagination
+                curPage={insightsPagination.curPage}
+                pageTotal={insightsPagination.pageTotal}
+                onPageChange={handleInsightsPageChange}
+                disabled={insightsLoading}
+              />
+            </div>
           </div>
         )}
       </main>

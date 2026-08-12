@@ -1656,33 +1656,21 @@ function MostActivePagination({
   currentPage,
   totalPages,
   onPageChange,
+  disabled = false,
 }: {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  disabled?: boolean;
 }) {
-  if (totalPages <= 1) return null;
   return (
-    <div className="flex items-center justify-between pt-4 mt-2 border-t border-slate-100">
-      <p className="text-sm text-slate-500">
-        Page {currentPage} of {totalPages}
-      </p>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="px-3 py-1.5 text-sm rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          Previous
-        </button>
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="px-3 py-1.5 text-sm rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          Next
-        </button>
-      </div>
+    <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+      <CompactPagination
+        curPage={currentPage}
+        pageTotal={totalPages}
+        onPageChange={onPageChange}
+        disabled={disabled}
+      />
     </div>
   );
 }
@@ -3427,9 +3415,60 @@ const SectorDetailPage = ({
 
   const handlePageChange = useCallback(
     (page: number) => {
+      if (
+        companiesLoading ||
+        page < 1 ||
+        page > pagination.pageTotal ||
+        page === pagination.curPage
+      ) {
+        return;
+      }
+
       fetchCompanies(page);
     },
-    [fetchCompanies]
+    [fetchCompanies, companiesLoading, pagination.curPage, pagination.pageTotal]
+  );
+
+  const handleAllCompaniesPageChange = useCallback(
+    (page: number) => {
+      if (
+        allCompaniesLoading ||
+        page < 1 ||
+        page > allCompaniesPagination.pageTotal ||
+        page === allCompaniesPagination.curPage
+      ) {
+        return;
+      }
+
+      void fetchAllCompaniesForSector(page);
+    },
+    [
+      allCompaniesLoading,
+      allCompaniesPagination.curPage,
+      allCompaniesPagination.pageTotal,
+      fetchAllCompaniesForSector,
+    ]
+  );
+
+  const handlePublicCompaniesPageChange = useCallback(
+    (page: number) => {
+      if (
+        publicCompaniesLoading ||
+        page < 1 ||
+        page > publicCompaniesPagination.pageTotal ||
+        page === publicCompaniesPagination.curPage
+      ) {
+        return;
+      }
+
+      void fetchPublicCompaniesForSector(page);
+    },
+    [
+      publicCompaniesLoading,
+      publicCompaniesPagination.curPage,
+      publicCompaniesPagination.pageTotal,
+      fetchPublicCompaniesForSector,
+    ]
   );
 
   // Fetch Sub-Sectors for this sector
@@ -6468,11 +6507,6 @@ const SectorDetailPage = ({
                   )}{" "}
                   of {formatNumber(companiesTotal ?? totalCompaniesStat)}{" "}
                   companies
-                  {pagination.pageTotal > 1 && (
-                    <span className="ml-2">
-                      (Page {pagination.curPage} of {pagination.pageTotal})
-                    </span>
-                  )}
                 </div>
                 <div className="flex gap-2 items-center">
                   <label className="text-sm text-slate-600">Show</label>
@@ -6492,34 +6526,13 @@ const SectorDetailPage = ({
                     <option value={500}>500</option>
                   </select>
                   <span className="text-sm text-slate-600">per page</span>
-                  <div className="flex gap-2 items-center ml-4">
-                    <button
-                      className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                      onClick={() =>
-                        handlePageChange(
-                          Math.max(1, (pagination.curPage || 1) - 1)
-                        )
-                      }
-                      disabled={(pagination.curPage || 1) <= 1}
-                    >
-                      ← Previous
-                    </button>
-                    <button
-                      className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                      onClick={() =>
-                        handlePageChange(
-                          Math.min(
-                            pagination.pageTotal || 1,
-                            (pagination.curPage || 1) + 1
-                          )
-                        )
-                      }
-                      disabled={
-                        (pagination.curPage || 1) >= (pagination.pageTotal || 1)
-                      }
-                    >
-                      Next →
-                    </button>
+                  <div className="ml-4">
+                    <CompactPagination
+                      curPage={pagination.curPage}
+                      pageTotal={pagination.pageTotal}
+                      onPageChange={handlePageChange}
+                      disabled={companiesLoading}
+                    />
                   </div>
                 </div>
               </div>
@@ -6614,34 +6627,14 @@ const SectorDetailPage = ({
                 />
               </div>
             </div>
-            {allCompaniesPagination.pageTotal > 1 && (
-              <div className="flex gap-2 justify-center items-center">
-                <button
-                  disabled={!allCompaniesPagination.prevPage}
-                  onClick={() =>
-                    allCompaniesPagination.prevPage &&
-                    fetchAllCompaniesForSector(allCompaniesPagination.prevPage)
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm text-slate-600">
-                  Page {allCompaniesPagination.curPage} of{" "}
-                  {allCompaniesPagination.pageTotal}
-                </span>
-                <button
-                  disabled={!allCompaniesPagination.nextPage}
-                  onClick={() =>
-                    allCompaniesPagination.nextPage &&
-                    fetchAllCompaniesForSector(allCompaniesPagination.nextPage)
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  Next →
-                </button>
-              </div>
-            )}
+            <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+              <CompactPagination
+                curPage={allCompaniesPagination.curPage}
+                pageTotal={allCompaniesPagination.pageTotal}
+                onPageChange={handleAllCompaniesPageChange}
+                disabled={allCompaniesLoading}
+              />
+            </div>
           </div>
         ) : activeTab === "public" ? (
           <div className="space-y-4">
@@ -6810,38 +6803,14 @@ const SectorDetailPage = ({
                 )}
               </div>
             </div>
-            {publicCompaniesPagination.pageTotal > 1 && (
-              <div className="flex gap-2 justify-center items-center">
-                <button
-                  disabled={!publicCompaniesPagination.prevPage}
-                  onClick={() =>
-                    publicCompaniesPagination.prevPage &&
-                    fetchPublicCompaniesForSector(
-                      publicCompaniesPagination.prevPage
-                    )
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm text-slate-600">
-                  Page {publicCompaniesPagination.curPage} of{" "}
-                  {publicCompaniesPagination.pageTotal}
-                </span>
-                <button
-                  disabled={!publicCompaniesPagination.nextPage}
-                  onClick={() =>
-                    publicCompaniesPagination.nextPage &&
-                    fetchPublicCompaniesForSector(
-                      publicCompaniesPagination.nextPage
-                    )
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  Next →
-                </button>
-              </div>
-            )}
+            <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
+              <CompactPagination
+                curPage={publicCompaniesPagination.curPage}
+                pageTotal={publicCompaniesPagination.pageTotal}
+                onPageChange={handlePublicCompaniesPageChange}
+                disabled={publicCompaniesLoading}
+              />
+            </div>
           </div>
         ) : activeTab === "subsectors" ? (
           <div className="space-y-4">
