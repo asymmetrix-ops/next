@@ -1933,6 +1933,33 @@ function ContentTab() {
     created_at?: number;
     Created_by?: number | null;
   }
+  const CONTENT_LIST_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content";
+
+  const buildContentListUrl = () => {
+    const params = new URLSearchParams({
+      page: "1",
+      per_page: "25",
+      search: "",
+      sort_by: "",
+      sort_dir: "",
+      column_filters: "{}",
+      filter_column: "",
+      filter_search: "",
+      filter_limit: "100",
+    });
+    return `${CONTENT_LIST_URL}?${params.toString()}`;
+  };
+
+  const parseContentArticles = (data: unknown): ContentArticle[] => {
+    if (Array.isArray(data)) return data as ContentArticle[];
+    if (data && typeof data === "object") {
+      const obj = data as Record<string, unknown>;
+      const items = obj.items ?? obj.data ?? obj.result;
+      if (Array.isArray(items)) return items as ContentArticle[];
+    }
+    return [];
+  };
+
   const [allContentArticles, setAllContentArticles] = useState<ContentArticle[]>([]);
   const [contentArticlesLoading, setContentArticlesLoading] = useState(false);
   const [selectedEditContentId, setSelectedEditContentId] = useState<number | "">("");
@@ -2316,19 +2343,16 @@ function ContentTab() {
       try {
         setContentArticlesLoading(true);
         const token = localStorage.getItem("asymmetrix_auth_token");
-        const res = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content",
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-          }
-        );
+        const res = await fetch(buildContentListUrl(), {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
         const data = await res.json();
-        if (!cancelled && Array.isArray(data)) {
-          setAllContentArticles(data as ContentArticle[]);
+        if (!cancelled) {
+          setAllContentArticles(parseContentArticles(data));
         }
       } catch {
         // ignore
@@ -2744,20 +2768,15 @@ function ContentTab() {
       
       // Refresh content articles list after successful save
       if (isEditing) {
-        const refreshRes = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content",
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const refreshRes = await fetch(buildContentListUrl(), {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
         const refreshData = await refreshRes.json();
-        if (Array.isArray(refreshData)) {
-          setAllContentArticles(refreshData as ContentArticle[]);
-        }
+        setAllContentArticles(parseContentArticles(refreshData));
       }
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to create content");
