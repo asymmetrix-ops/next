@@ -387,6 +387,74 @@
   }
 }
 
+.landing-rebrand .landing-radar-sweep {
+  animation: landing-radar-sweep 7s linear infinite;
+  transform-origin: 0px 0px;
+}
+
+@keyframes landing-radar-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.landing-rebrand .landing-radar-blip-ping {
+  animation: landing-radar-blip-ping 7s ease-in-out infinite;
+}
+
+@keyframes landing-radar-blip-ping {
+  0%,
+  90%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  2% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  10% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+.landing-rebrand .landing-radar-card-reveal {
+  opacity: 0;
+  animation: landing-radar-card-reveal 7s ease-in-out infinite;
+}
+
+@keyframes landing-radar-card-reveal {
+  0%,
+  88%,
+  100% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.94);
+  }
+  3%,
+  22% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    opacity: 0;
+    transform: translateY(2px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-radar-sweep,
+  .landing-rebrand .landing-radar-blip-ping,
+  .landing-rebrand .landing-radar-card-reveal {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .landing-rebrand .landing-mockup {
   border: 1px solid var(--asymmetrix-divider);
   background-color: var(--asymmetrix-near-black);

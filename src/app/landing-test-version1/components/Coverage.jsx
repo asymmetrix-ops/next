@@ -9,6 +9,7 @@ import {
 import React from "react";
 import { CompanyUniverseVisual } from "./CompanyUniverseVisual";
 import { DashboardMockup } from "./DashboardMockup";
+import { DealRadarVisual } from "./DealRadarVisual";
 import { Reveal } from "./Reveal";
 
 const TABS = [
@@ -117,6 +118,8 @@ export function Coverage() {
                 </div>
                 {tab.value === "company-profiles" ? (
                   <CompanyUniverseVisual />
+                ) : tab.value === "deal-tracking" ? (
+                  <DealRadarVisual />
                 ) : (
                   <DashboardMockup
                     label={tab.heading}

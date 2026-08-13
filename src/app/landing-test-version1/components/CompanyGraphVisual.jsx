@@ -30,9 +30,9 @@ const NAMED_NODES = [
     w: 196,
     h: 66,
     big: true,
-    primary: "Acquired by Halcyon Capital",
-    secondary: "$210M · Mar 2026",
-    detail: "Confirmed deal",
+    primary: "Corporate Event",
+    secondary: "Deal type · value · date",
+    detail: "Tracked",
   },
   {
     id: "financial",
@@ -41,8 +41,8 @@ const NAMED_NODES = [
     y: -125,
     w: 152,
     h: 58,
-    primary: "Revenue $22M",
-    secondary: "EBITDA 28% · 3.5x",
+    primary: "Financial Metrics",
+    secondary: "Revenue · EBITDA",
     detail: "Estimate",
   },
   {
@@ -52,9 +52,9 @@ const NAMED_NODES = [
     y: -125,
     w: 150,
     h: 58,
-    primary: "340 employees",
-    secondary: "+18% YoY",
-    detail: "Source: LinkedIn",
+    primary: "Headcount Trend",
+    secondary: "Employees · growth",
+    detail: "Verified",
     spark: true,
   },
   {
@@ -64,8 +64,8 @@ const NAMED_NODES = [
     y: 122,
     w: 156,
     h: 58,
-    primary: "Bridgepoint",
-    secondary: "18 active D&A deals",
+    primary: "Investor",
+    secondary: "Active portfolio",
     detail: "Confirmed",
   },
   {
@@ -75,8 +75,8 @@ const NAMED_NODES = [
     y: 122,
     w: 148,
     h: 58,
-    primary: "Goldman Sachs",
-    secondary: "Sell-side advisor",
+    primary: "Advisor",
+    secondary: "Deal mandate",
     detail: "Confirmed",
   },
   {
@@ -86,19 +86,19 @@ const NAMED_NODES = [
     y: 192,
     w: 138,
     h: 58,
-    primary: "Sarah Chen",
-    secondary: "Chief Executive Officer",
+    primary: "Leadership",
+    secondary: "Name & role",
     detail: "Verified",
   },
   {
     id: "product",
     type: "product",
     x: 0,
-    y: 260,
+    y: 235,
     w: 168,
     h: 58,
-    primary: "Core Platform",
-    secondary: "Data ingestion & modelling",
+    primary: "Product",
+    secondary: "Core offering",
     detail: "Verified",
   },
   {
@@ -108,8 +108,8 @@ const NAMED_NODES = [
     y: 192,
     w: 134,
     h: 58,
-    primary: "DataForge",
-    secondary: "Series B",
+    primary: "Competitor",
+    secondary: "Market position",
     detail: "Tracked",
   },
   {
@@ -120,9 +120,20 @@ const NAMED_NODES = [
     w: 134,
     h: 54,
     faint: true,
-    primary: "Streamline AI",
-    secondary: "Series C",
+    primary: "Competitor",
+    secondary: "Peer company",
     detail: "Tracked",
+  },
+  {
+    id: "analysis",
+    type: "analysis",
+    x: 285,
+    y: -195,
+    w: 160,
+    h: 58,
+    primary: "Company Analysis",
+    secondary: "Market commentary",
+    detail: "Published",
   },
 ];
 
@@ -136,6 +147,7 @@ const EDGES = [
   { a: "hero", b: "product" },
   { a: "hero", b: "competitor", dashed: true },
   { a: "hero", b: "competitor2", dashed: true },
+  { a: "hero", b: "analysis" },
   { a: "competitor", b: "investor" },
 ];
 
@@ -386,7 +398,10 @@ export function CompanyGraphVisual() {
     >
       <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="absolute inset-0 h-full w-full">
         <defs>
-          <linearGradient id="cgv-line" x1="0" y1="0" x2="1" y2="1">
+          {/* userSpaceOnUse — objectBoundingBox is degenerate for perfectly
+              vertical/horizontal lines (zero-width bbox), which silently
+              fails to paint the "event" and "product" edges. */}
+          <linearGradient id="cgv-line" gradientUnits="userSpaceOnUse" x1="-320" y1="-320" x2="320" y2="320">
             <stop offset="0%" stopColor="#536FF0" stopOpacity="0.85" />
             <stop offset="100%" stopColor="#3E5EDC" stopOpacity="0.3" />
           </linearGradient>
@@ -466,27 +481,27 @@ export function CompanyGraphVisual() {
                     />
                     <rect x={0} y={0} width={CARD_W} height={CARD_H} rx={16} fill="#FFFFFF" stroke="rgba(0,11,41,0.08)" />
 
-                    <CardRow label="Company" value="Vantage Analytics" x={16} y={30} valueSize={13} delay={0.3} reduceMotion={reduceMotion} />
+                    <CardRow label="Company" value="Company Name" x={16} y={30} valueSize={13} delay={0.3} reduceMotion={reduceMotion} />
                     <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={T(reduceMotion, 0.4, 0.32)}>
                       <rect x={143} y={13} width={54} height={17} rx={8.5} fill="#F0F3FF" stroke="#536FF0" strokeWidth={0.75} />
                       <text x={170} y={24.5} textAnchor="middle" fontSize="6.5" fontWeight="700" fill="#3E5EDC">
-                        DATA INFRA
+                        SECTOR
                       </text>
                     </motion.g>
 
                     <line x1={16} y1={44} x2={CARD_W - 16} y2={44} stroke="rgba(0,11,41,0.08)" />
 
-                    <CardRow label="Stage" value="Series B" x={16} y={62} delay={0.44} reduceMotion={reduceMotion} />
-                    <CardRow label="Raised" value="$42M" x={112} y={62} delay={0.5} reduceMotion={reduceMotion} />
-                    <CardRow label="Investors" value="Bridgepoint · Insight +3" x={16} y={90} valueSize={9.5} delay={0.58} reduceMotion={reduceMotion} />
-                    <CardRow label="Products" value="Core Platform · API Suite" x={16} y={116} valueSize={9.5} delay={0.66} reduceMotion={reduceMotion} />
+                    <CardRow label="Stage" value="Funding Round" x={16} y={62} delay={0.44} reduceMotion={reduceMotion} />
+                    <CardRow label="Raised" value="Funds Raised" x={112} y={62} delay={0.5} reduceMotion={reduceMotion} />
+                    <CardRow label="Investors" value="Investor Names" x={16} y={90} valueSize={9.5} delay={0.58} reduceMotion={reduceMotion} />
+                    <CardRow label="Products" value="Core Products" x={16} y={116} valueSize={9.5} delay={0.66} reduceMotion={reduceMotion} />
 
                     <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={T(reduceMotion, 0.45, 0.74)}>
                       <circle cx={22} cy={140} r={6.5} fill="#536FF0" opacity={0.85} />
                       <circle cx={32} cy={140} r={6.5} fill="#3E5EDC" opacity={0.85} />
                       <circle cx={42} cy={140} r={6.5} fill="#203FBF" opacity={0.85} />
                       <text x={54} y={143} fontSize="9.5" fontWeight="600" fill="#000B29">
-                        12 leaders
+                        Leadership Team
                       </text>
                     </motion.g>
                   </g>

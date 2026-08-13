@@ -2,8 +2,10 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useState } from "react";
+import { AIDefensibilityVisual } from "./AIDefensibilityVisual";
 import { CompanyGraphVisual } from "./CompanyGraphVisual";
 import { DashboardMockup } from "./DashboardMockup";
+import { DealRadarVisual } from "./DealRadarVisual";
 
 const TABS = [
   {
@@ -148,6 +150,10 @@ export function PlatformHero() {
 
                 {content.id === "company-data" ? (
                   <CompanyGraphVisual />
+                ) : content.id === "deal-radar" ? (
+                  <DealRadarVisual />
+                ) : content.id === "ai-index" ? (
+                  <AIDefensibilityVisual />
                 ) : (
                   <DashboardMockup
                     label={content.eyebrow}
