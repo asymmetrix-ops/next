@@ -3,7 +3,9 @@
 import { Button } from "@relume_io/relume-ui";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useState } from "react";
+import { AIDefensibilityVisual } from "./AIDefensibilityVisual";
 import { DashboardMockup } from "./DashboardMockup";
+import { DealRadarVisual } from "./DealRadarVisual";
 import { Reveal } from "./Reveal";
 
 const buttonClassName = "landing-btn-secondary h-12 rounded-full px-8";
@@ -123,11 +125,17 @@ export function Layout485() {
             </div>
 
             <div className="landing-panel flex items-center rounded-[28px] p-8 sm:p-10">
-              <DashboardMockup
-                label={feature.label}
-                stat={feature.stat}
-                bars={feature.bars}
-              />
+              {feature.id === "deal-radar" ? (
+                <DealRadarVisual />
+              ) : feature.id === "ai-defensibility" ? (
+                <AIDefensibilityVisual />
+              ) : (
+                <DashboardMockup
+                  label={feature.label}
+                  stat={feature.stat}
+                  bars={feature.bars}
+                />
+              )}
             </div>
           </motion.div>
         </AnimatePresence>
