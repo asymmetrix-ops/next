@@ -11,6 +11,7 @@ import { CompanyUniverseVisual } from "./CompanyUniverseVisual";
 import { DashboardMockup } from "./DashboardMockup";
 import { DealRadarVisual } from "./DealRadarVisual";
 import { Reveal } from "./Reveal";
+import { SectorTaxonomyVisual } from "./SectorTaxonomyVisual";
 
 const TABS = [
   {
@@ -120,6 +121,8 @@ export function Coverage() {
                   <CompanyUniverseVisual />
                 ) : tab.value === "deal-tracking" ? (
                   <DealRadarVisual />
+                ) : tab.value === "sector-intelligence" ? (
+                  <SectorTaxonomyVisual />
                 ) : (
                   <DashboardMockup
                     label={tab.heading}
