@@ -84,7 +84,7 @@ export const CORPORATE_EVENTS_COLUMN_CATEGORIES: CorporateEventColumnCategory[] 
         {
           id: "primary_sectors",
           columnKey: "primary_sectors",
-          label: "Primary Sectors",
+          label: "Primary Sector(s)",
           type: "paragraph",
           defaultVisible: true,
         },

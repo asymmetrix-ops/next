@@ -12,6 +12,8 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "parties",
   "advisors",
   "details",
+  // Both sector filters are defined in EXTRA_FILTER_DEFS (one column, two filters).
+  "primary_sectors",
 ]);
 
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
@@ -229,8 +231,8 @@ export const EXTRA_FILTER_DEFS: Pick<
   },
   {
     id: "primary_sector",
-    label: "Primary Sector",
-    fullLabel: "Primary Sector",
+    label: "Primary Sector(s)",
+    fullLabel: "Primary Sector(s)",
     category: "sectors",
     type: "Aa",
     editor: "enum",
@@ -238,8 +240,8 @@ export const EXTRA_FILTER_DEFS: Pick<
   },
   {
     id: "secondary_sector",
-    label: "Secondary Sector",
-    fullLabel: "Secondary Sector",
+    label: "Secondary Sector(s)",
+    fullLabel: "Secondary Sector(s)",
     category: "sectors",
     type: "Aa",
     editor: "enum",

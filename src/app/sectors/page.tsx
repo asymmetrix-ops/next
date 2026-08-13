@@ -131,7 +131,7 @@ const SectorSearchResults = ({
         <div className="search-results-header">
           <span>Sector</span>
           <span>Type</span>
-          <span>Primary sector</span>
+          <span>Primary Sector(s)</span>
           <span>Companies</span>
         </div>
         {results.map((sector) => {

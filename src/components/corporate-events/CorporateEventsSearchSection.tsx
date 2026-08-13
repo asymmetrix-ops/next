@@ -92,7 +92,7 @@ const ALL_CORPORATE_EVENT_COLUMNS: CorporateEventColumnDefinition[] = [
   { key: "deal_status", label: "Deal Status", minWidth: 110 },
   { key: "details", label: "Details", wrap: true, minWidth: 140 },
   { key: "advisors", label: "Advisors", wrap: true, minWidth: 120 },
-  { key: "primary_sectors", label: "Primary Sectors", wrap: true, minWidth: 130 },
+  { key: "primary_sectors", label: "Primary Sector(s)", wrap: true, minWidth: 130 },
 ];
 
 const COLUMN_MAP = new Map(
