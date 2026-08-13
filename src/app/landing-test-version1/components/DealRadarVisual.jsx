@@ -134,6 +134,15 @@ function wrapText(text, maxWidth, fontSize) {
   return lines.length > 0 ? lines : [text];
 }
 
+function formatStageLabel(stage, contentW, stageFont) {
+  let label = stage;
+  const wouldWrap = wrapText(label.toUpperCase(), contentW - 6, stageFont).length > 1;
+  if (wouldWrap && /^transaction\s/i.test(label)) {
+    label = label.replace(/^transaction\s+/i, "");
+  }
+  return label;
+}
+
 function getCardMetrics(deal) {
   const cardW = Math.round(152 * CARD_SCALE);
   const padX = Math.round(13 * CARD_SCALE);
@@ -142,7 +151,8 @@ function getCardMetrics(deal) {
   const sectorFont = 7.8 * CARD_SCALE;
   const stageFont = 7.2 * CARD_SCALE;
   const sectorLines = wrapText(deal.sectors.join(" · "), contentW, sectorFont);
-  const stageLines = wrapText(deal.stage.toUpperCase(), contentW - 6, stageFont);
+  const stageLabel = formatStageLabel(deal.stage, contentW, stageFont);
+  const stageLines = wrapText(stageLabel.toUpperCase(), contentW - 6, stageFont);
   const sectorLineH = 10 * CARD_SCALE;
   const chipLineH = 9 * CARD_SCALE;
   const chipPadY = 3.5 * CARD_SCALE;
