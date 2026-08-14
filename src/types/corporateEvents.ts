@@ -59,6 +59,7 @@ export interface InvestmentData {
   investment_amount_m: string;
   currency: Currency;
   investment_amount_m_native_currency_id?: number;
+  _currency?: Currency;
   // Optional funding stage for investment-type events. API currently uses
   // `Funding_stage` (capital F) but we also accept a lowercase variant.
   Funding_stage?: string;
@@ -69,6 +70,8 @@ export interface EnterpriseValueData {
   enterprise_value_m: string;
   currency: Currency;
   enterprise_value_m_native_currency_id?: number;
+  _currency?: Currency;
+  ev_band?: string;
 }
 
 export interface Sector {
@@ -148,6 +151,10 @@ export interface CorporateEvent {
   ev_data: EnterpriseValueData;
   other_counterparties: OtherCounterparty[];
   advisors: Advisor[];
+  /** Platform-currency formatted amount when API converts deal values. */
+  investment_display?: string | null;
+  /** Platform-currency formatted EV when API converts deal values. */
+  ev_display?: string | null;
 }
 
 export interface CorporateEventsResponse {

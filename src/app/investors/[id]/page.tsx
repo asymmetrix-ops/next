@@ -227,6 +227,7 @@ interface CorporateEvent {
 interface CorporateEventsResponse {
   New_Events_Wits_Advisors?: CorporateEvent[];
   Corporate_Events?: CorporateEvent[];
+  items?: CorporateEvent[];
 }
 
 interface InvestorData {
@@ -814,7 +815,8 @@ const InvestorDetailPage = () => {
       const data: CorporateEventsResponse = await response.json();
       console.log("Corporate events API response:", data);
       // Handle both API response formats
-      const events = data.Corporate_Events || data.New_Events_Wits_Advisors || [];
+      const events =
+        data.Corporate_Events || data.New_Events_Wits_Advisors || data.items || [];
 
       // Normalize advisors so `CorporateEventsTable` can render + link them.
       // Investor CE endpoint often returns { advisor_company_id, advisor_company_name } instead of { advisor_company: {id,name} }.

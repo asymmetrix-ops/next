@@ -70,6 +70,12 @@ export interface CorporateEvent {
   description: string;
   announcement_date: string;
   deal_type: string;
+  investment_data?: {
+    investment_amount_m?: string | number;
+    currency_id?: number;
+    Funding_stage?: string;
+    _currency?: Currency;
+  };
   ev_data: EnterpriseValueData;
   _other_advisors_of_corporate_event: OtherAdvisor[];
   _target_counterparty_of_corporate_events?: TargetCounterparty;

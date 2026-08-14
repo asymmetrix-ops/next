@@ -247,3 +247,101 @@ export function renderSectorLinks(
       id: nameToId[normalizeSectorName(name)],
     }));
 }
+
+type CorporateEventWithConvertedAmounts = CorporateEvent & {
+  investment_display?: string | null;
+  ev_display?: string | null;
+};
+
+function resolveInvestmentCurrencyCode(
+  event: CorporateEventWithConvertedAmounts
+): string | undefined {
+  const data = event.investment_data as
+    | {
+        currency?: string | { Currency?: string };
+        _currency?: { Currency?: string };
+      }
+    | undefined;
+  if (!data) return undefined;
+  if (typeof data.currency === "string" && data.currency.trim()) {
+    return data.currency.trim();
+  }
+  return (
+    data._currency?.Currency?.trim() ||
+    (typeof data.currency === "object" ? data.currency?.Currency?.trim() : undefined)
+  );
+}
+
+function resolveEvCurrencyCode(
+  event: CorporateEventWithConvertedAmounts
+): string | undefined {
+  const data = event.ev_data as
+    | {
+        currency?: { Currency?: string };
+        _currency?: { Currency?: string };
+        ev_band?: string;
+      }
+    | undefined;
+  return data?._currency?.Currency?.trim() || data?.currency?.Currency?.trim();
+}
+
+function formatMillionsWithCurrencySuffix(
+  amount: string | number | null | undefined,
+  currency: string | undefined,
+  notAvailableLabel: string
+): string {
+  if (amount == null || !currency) return notAvailableLabel;
+  const value = Number(String(amount).replace(/,/g, "").trim());
+  if (!Number.isFinite(value)) return notAvailableLabel;
+  return `${currency}${value.toLocaleString(undefined, {
+    maximumFractionDigits: 3,
+  })}m`;
+}
+
+/** Prefer API `investment_display`, then converted/native amount fields. */
+export function formatCorporateEventInvestmentAmount(
+  event: CorporateEventWithConvertedAmounts,
+  notAvailableLabel = "Not available"
+): string {
+  const display = event.investment_display?.trim();
+  if (display) return display;
+
+  const investment = event.investment_data as
+    | {
+        investment_amount_m?: string | number | null;
+        investment_amount?: string | number | null;
+      }
+    | undefined;
+
+  return formatMillionsWithCurrencySuffix(
+    investment?.investment_amount_m ?? investment?.investment_amount ?? null,
+    resolveInvestmentCurrencyCode(event),
+    notAvailableLabel
+  );
+}
+
+/** Prefer API `ev_display`, then converted/native EV fields or EV band. */
+export function formatCorporateEventEnterpriseValue(
+  event: CorporateEventWithConvertedAmounts,
+  notAvailableLabel = "Not available"
+): string {
+  const display = event.ev_display?.trim();
+  if (display) return display;
+
+  const evData = event.ev_data as
+    | {
+        enterprise_value_m?: string | number | null;
+        ev_band?: string;
+      }
+    | undefined;
+
+  const formatted = formatMillionsWithCurrencySuffix(
+    evData?.enterprise_value_m ?? null,
+    resolveEvCurrencyCode(event),
+    notAvailableLabel
+  );
+  if (formatted !== notAvailableLabel) return formatted;
+
+  const band = evData?.ev_band?.trim();
+  return band || notAvailableLabel;
+}

@@ -48,6 +48,12 @@ import {
 } from "@/components/companies/companyColumnDefinitions";
 import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
 import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
+import {
+  formatCorporateEventEnterpriseValue,
+  formatCorporateEventInvestmentAmount,
+} from "@/components/corporate-events/corporateEventsTableUtils";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
 
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { SEARCH_MULTI_VALUE_STYLES } from "@/components/search/SearchEntityMultiValueCell";
@@ -4037,6 +4043,7 @@ const SectorDetailPage = ({
   // Comprehensive Transactions Tab Component
   function SectorTransactionsTab({ sectorId }: { sectorId: string }) {
     const hasInitialLoaded = useRef(false);
+    const { currencyId: preferredCurrencyId } = usePlatformCurrency();
     // State for filters
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState<CorporateEventsFilters>({
@@ -4389,6 +4396,8 @@ const SectorDetailPage = ({
           params.append("Date_end", filters.Date_end);
         }
 
+        appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
+
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
 
         const response = await fetch(url, {
@@ -4454,6 +4463,13 @@ const SectorDetailPage = ({
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sectorId]);
+
+    useEffect(() => {
+      if (!hasInitialLoaded.current) return;
+      if (filters.primary_sectors_ids.length === 0) return;
+      fetchCorporateEvents(filters);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [preferredCurrencyId]);
 
     // Fetch provinces when countries change
     useEffect(() => {
@@ -4573,6 +4589,8 @@ const SectorDetailPage = ({
       if (dateEnd) {
         params.append("Date_end", dateEnd);
       }
+
+      appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
 
       return params;
     };
@@ -5317,18 +5335,6 @@ const SectorDetailPage = ({
                     }
                   };
 
-                  const formatCurrency = (
-                    amount: string | undefined,
-                    currency: string | undefined
-                  ) => {
-                    if (!amount || !currency) return "Not available";
-                    const n = Number(amount);
-                    if (Number.isNaN(n)) return "Not available";
-                    return `${currency}${n.toLocaleString(undefined, {
-                      maximumFractionDigits: 3,
-                    })}m`;
-                  };
-
                   type SectorLinkItem =
                     | string
                     | {
@@ -5700,17 +5706,11 @@ const SectorDetailPage = ({
                         </div>
                         <div className="text-xs text-slate-600">
                           <strong>Amount (m):</strong>{" "}
-                          {formatCurrency(
-                            event.investment_data?.investment_amount_m,
-                            event.investment_data?.currency?.Currency
-                          )}
+                          {formatCorporateEventInvestmentAmount(event)}
                         </div>
                         <div className="text-xs text-slate-600">
                           <strong>EV (m):</strong>{" "}
-                          {formatCurrency(
-                            event.ev_data?.enterprise_value_m,
-                            event.ev_data?.currency?.Currency
-                          )}
+                          {formatCorporateEventEnterpriseValue(event)}
                         </div>
                       </td>
                       {/* Advisors */}

@@ -9,6 +9,7 @@ import {
   extractIndividualCorporateEvents,
   normalizeIndividualCorporateEvent,
 } from "./normalizeIndividualCorporateEvent";
+import { readPlatformCurrencyIdClient } from "./platformCurrency";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
 
@@ -20,6 +21,7 @@ const CURRENCY_ID_TO_CODE: Record<number, string> = {
 function cleanIndividualEventName(name: unknown): string {
   return String(name ?? "")
     .replace(/\s*\([^)]*\)\s*/g, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -82,6 +84,7 @@ function buildIndividualEventsFromCounterpartyPayload(
     const investmentData = corpEvent?.investment_data as
       | {
           currency_id?: number;
+          Funding_stage?: string;
           investment_amount_m?: string | number | null;
         }
       | undefined;
@@ -96,18 +99,14 @@ function buildIndividualEventsFromCounterpartyPayload(
       enterprise_value_m?: string | number | null;
       currency_id?: number;
     };
-    let enterpriseValue = String(evObj?.enterprise_value_m ?? "");
-    let currencyId = Number(evObj?.currency_id ?? 0);
+    const enterpriseValue = String(evObj?.enterprise_value_m ?? "");
+    const evCurrencyId = Number(evObj?.currency_id ?? 0);
+    const evCurrencyCode = CURRENCY_ID_TO_CODE[evCurrencyId];
+
     const investmentAmount = investmentData?.investment_amount_m;
-    if (
-      (enterpriseValue === "" || enterpriseValue === "null") &&
-      investmentAmount != null &&
-      investmentAmount !== ""
-    ) {
-      enterpriseValue = String(investmentAmount);
-      currencyId = Number(investmentData?.currency_id ?? currencyId);
-    }
-    const currencyCode = CURRENCY_ID_TO_CODE[currencyId];
+    const investmentCurrencyId = Number(investmentData?.currency_id ?? 0);
+    const investmentCurrencyCode = CURRENCY_ID_TO_CODE[investmentCurrencyId];
+    const fundingStage = String(investmentData?.Funding_stage ?? "").trim();
 
     const relatedCounterparty = (evt?.["Related Counterparty"] ?? {}) as {
       counterparty_status?: string;
@@ -198,21 +197,42 @@ function buildIndividualEventsFromCounterpartyPayload(
       },
     }));
 
+    const hasInvestmentAmount =
+      investmentAmount != null && String(investmentAmount).trim() !== "";
+
     return {
       id: eventId,
       description,
       announcement_date: announced,
       deal_type: type,
+      ...(hasInvestmentAmount
+        ? {
+            investment_data: {
+              investment_amount_m: String(investmentAmount),
+              currency_id: investmentCurrencyId,
+              ...(fundingStage ? { Funding_stage: fundingStage } : {}),
+              ...(investmentCurrencyCode
+                ? {
+                    _currency: {
+                      id: investmentCurrencyId,
+                      created_at: 0,
+                      Currency: investmentCurrencyCode,
+                    },
+                  }
+                : {}),
+            },
+          }
+        : {}),
       ev_data: {
         ev_source: "",
         enterprise_value_m: enterpriseValue,
-        currency_id: currencyId,
-        ...(currencyCode
+        currency_id: evCurrencyId,
+        ...(evCurrencyCode
           ? {
               _currency: {
-                id: currencyId,
+                id: evCurrencyId,
                 created_at: 0,
-                Currency: currencyCode,
+                Currency: evCurrencyCode,
               },
             }
           : {}),
@@ -325,7 +345,8 @@ class IndividualService {
   async getIndividualEvents(
     individualId: number
   ): Promise<IndividualEventsResponse> {
-    const url = `${BASE_URL}/get_individuals_events?individual_id=${individualId}`;
+    const preferredCurrencyId = readPlatformCurrencyIdClient();
+    const url = `${BASE_URL}/get_individuals_events?individual_id=${individualId}&preferred_currency_id=${preferredCurrencyId}`;
 
     const response = await fetch(url, {
       method: "GET",

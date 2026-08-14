@@ -35,6 +35,7 @@ function mapIndividualEventsForProfile(
       description: event.description,
       announcement_date: event.announcement_date,
       deal_type: event.deal_type,
+      investment_data: event.investment_data,
       ev_data: event.ev_data,
       targets:
         target && targetId

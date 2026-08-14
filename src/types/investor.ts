@@ -105,7 +105,9 @@ export interface CorporateEvent {
 }
 
 export interface CorporateEventsResponse {
-  New_Events_Wits_Advisors: CorporateEvent[];
+  New_Events_Wits_Advisors?: CorporateEvent[];
+  Corporate_Events?: CorporateEvent[];
+  items?: CorporateEvent[];
 }
 
 export interface InvestorData {
