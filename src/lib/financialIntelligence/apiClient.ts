@@ -5,6 +5,11 @@ import {
   companySearchPayloadToSearchParams,
   normalizeCompanySearchPayload,
 } from "@/lib/companiesFilterPayload";
+import {
+  appendPreferredCurrencyIdToSearchParams,
+  readPlatformCurrencyIdClient,
+  resolvePreferredCurrencyId,
+} from "@/lib/platformCurrency";
 import { peersRequestToSearchParams } from "./filterPayload";
 import {
   companyFinancialMetricsToRawFi,
@@ -44,10 +49,12 @@ function getAuthHeaders(): Record<string, string> | null {
 
 async function fetchCompanyFinancialMetricsRow(
   companyId: number,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  preferredCurrencyId: number
 ): Promise<Record<string, unknown> | null> {
   try {
     const params = new URLSearchParams({ new_company_id: String(companyId) });
+    appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
     let response = await fetch(
       `${COMPANY_FINANCIAL_METRICS_API_BASE}?${params.toString()}`,
       { method: "GET", headers, cache: "no-store" }
@@ -55,9 +62,9 @@ async function fetchCompanyFinancialMetricsRow(
 
     if (!response.ok) {
       const candidateBodies = [
-        { new_company_id: companyId },
-        { company_id: companyId },
-        { id: companyId },
+        { new_company_id: companyId, preferred_currency_id: preferredCurrencyId },
+        { company_id: companyId, preferred_currency_id: preferredCurrencyId },
+        { id: companyId, preferred_currency_id: preferredCurrencyId },
       ];
       for (const body of candidateBodies) {
         const attempt = await fetch(COMPANY_FINANCIAL_METRICS_API_BASE, {
@@ -89,9 +96,14 @@ async function fetchCompanyFinancialMetricsRow(
 
 async function enrichTargetFromCompanyProfile(
   row: FiCompanyRow,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  preferredCurrencyId: number
 ): Promise<FiCompanyRow> {
-  const profileRaw = await fetchCompanyFinancialMetricsRow(row.company_id, headers);
+  const profileRaw = await fetchCompanyFinancialMetricsRow(
+    row.company_id,
+    headers,
+    preferredCurrencyId
+  );
   if (!profileRaw) return row;
 
   const profileRow = normalizeCompanyRow(
@@ -102,7 +114,8 @@ async function enrichTargetFromCompanyProfile(
 }
 
 export async function fetchFiTarget(
-  companyId: number
+  companyId: number,
+  preferredCurrencyId?: number
 ): Promise<FiFetchResult<FiCompanyRow>> {
   try {
     const headers = getAuthHeaders();
@@ -110,8 +123,13 @@ export async function fetchFiTarget(
       return { ok: false, error: "Authentication required — please log in again." };
     }
 
+    const currencyId = resolvePreferredCurrencyId(
+      preferredCurrencyId ?? readPlatformCurrencyIdClient()
+    );
+    const params = new URLSearchParams();
+    appendPreferredCurrencyIdToSearchParams(params, currencyId);
     const response = await fetch(
-      `${FI_API_BASE}/financial-intelligence/target/${companyId}`,
+      `${FI_API_BASE}/financial-intelligence/target/${companyId}?${params.toString()}`,
       { method: "GET", headers, cache: "no-store" }
     );
 
@@ -130,7 +148,7 @@ export async function fetchFiTarget(
       };
     }
 
-    row = await enrichTargetFromCompanyProfile(row, headers);
+    row = await enrichTargetFromCompanyProfile(row, headers, currencyId);
 
     return { ok: true, data: row };
   } catch (err) {
@@ -218,7 +236,8 @@ export function applyFiCompanyLogos(
 }
 
 export async function searchFiCompanies(
-  query: string
+  query: string,
+  preferredCurrencyId?: number
 ): Promise<FiCompanySearchHit[]> {
   try {
     const headers = getAuthHeaders();
@@ -229,6 +248,9 @@ export async function searchFiCompanies(
         query: query.trim(),
         Offset: 1,
         Per_page: 10,
+        preferred_currency_id: resolvePreferredCurrencyId(
+          preferredCurrencyId ?? readPlatformCurrencyIdClient()
+        ),
       }),
       { page: 1, perPage: 10 }
     );

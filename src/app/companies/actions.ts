@@ -9,6 +9,7 @@ import {
   normalizeCompanySearchPayload,
   withCompanyPayloadColumns,
 } from "@/lib/companiesFilterPayload";
+import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 import { normalizeCompaniesResponse } from "./normalizeCompaniesResponse";
 
 export type CompaniesFilters = CompanySearchPayload;
@@ -115,8 +116,12 @@ export async function fetchCompaniesCountsServer(
       return null;
     }
 
+    const preferredCurrencyId = await readPlatformCurrencyIdServer();
     const payload = withCompanyPayloadColumns(
-      normalizeCompanySearchPayload(filters),
+      normalizeCompanySearchPayload({
+        ...filters,
+        preferred_currency_id: preferredCurrencyId,
+      }),
       filters.columns ?? []
     );
     const params = companyCountsPayloadToSearchParams(payload);
@@ -157,11 +162,15 @@ export async function fetchCompaniesServer(
       return null;
     }
 
+    const preferredCurrencyId = await readPlatformCurrencyIdServer();
     const perPageRaw = filters.Per_page ?? 20;
     const perPage = perPageRaw > 0 ? perPageRaw : 20;
     const payload: CompanySearchPayload = withCompanyPayloadColumns(
       {
-        ...normalizeCompanySearchPayload(filters),
+        ...normalizeCompanySearchPayload({
+          ...filters,
+          preferred_currency_id: preferredCurrencyId,
+        }),
         Offset: page,
         Per_page: perPage,
       },

@@ -67,6 +67,58 @@ export function parseSourceType(value: unknown): FiMetricSourceType | null {
   return null;
 }
 
+function parseSourceLabelFuzzy(value: unknown): FiMetricSourceType | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "linkedin") return "Public";
+  if (normalized.includes("public") || normalized.includes("filing")) {
+    return "Public";
+  }
+  if (
+    normalized.includes("proprietary") ||
+    normalized.includes("asymmetrix") ||
+    normalized.includes("company provided") ||
+    normalized.includes("third party") ||
+    normalized.includes("trusted third")
+  ) {
+    return "Proprietary";
+  }
+  if (
+    normalized.includes("estimate") ||
+    normalized.includes("model") ||
+    normalized.includes("analyst")
+  ) {
+    return "Estimate";
+  }
+  return null;
+}
+
+const SOURCE_TYPE_BY_COLOR: Record<string, FiMetricSourceType> = {
+  "#2db7ff": "Proprietary",
+  "#0f172a": "Public",
+  "#9ca3af": "Estimate",
+};
+
+export function resolveFinancialMetricSourceType(
+  label?: unknown,
+  code?: unknown,
+  color?: unknown
+): FiMetricSourceType | null {
+  const fromLabel = parseSourceType(label) ?? parseSourceLabelFuzzy(label);
+  if (fromLabel) return fromLabel;
+
+  const fromCode = parseSourceType(code) ?? parseSourceLabelFuzzy(code);
+  if (fromCode) return fromCode;
+
+  if (typeof color === "string") {
+    const byColor = SOURCE_TYPE_BY_COLOR[color.trim().toLowerCase()];
+    if (byColor) return byColor;
+  }
+
+  return null;
+}
+
 export function isDefaultSourceTypes(types: FiMetricSourceType[]): boolean {
   if (types.length !== FI_SOURCE_TYPES.length) return false;
   return FI_SOURCE_TYPES.every((type) => types.includes(type));

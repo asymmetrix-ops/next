@@ -53,6 +53,7 @@ import {
   type FiMetricSourceType,
 } from "@/lib/financialIntelligence/sourceTypes";
 import type { FiCompanyRow, FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow {
   return {
@@ -94,6 +95,7 @@ function placeholderTarget(id: number, meta?: FiCompanySearchHit): FiCompanyRow 
 }
 
 export default function FinancialIntelligencePage() {
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const [target, setTarget] = useState<FiCompanyRow | null>(null);
   const [peers, setPeers] = useState<FiCompanyRow[]>([]);
   const [totalPeers, setTotalPeers] = useState(0);
@@ -176,11 +178,11 @@ export default function FinancialIntelligencePage() {
       return;
     }
     const timer = window.setTimeout(async () => {
-      const items = await searchFiCompanies(addQuery);
+      const items = await searchFiCompanies(addQuery, preferredCurrencyId);
       setAddResults(items.filter((item) => item.id !== target?.company_id));
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [addQuery, target?.company_id]);
+  }, [addQuery, target?.company_id, preferredCurrencyId]);
 
   const loadBenchmark = useCallback(
     async (
@@ -194,7 +196,7 @@ export default function FinancialIntelligencePage() {
       setError(null);
 
       try {
-        const targetResult = await fetchFiTarget(companyId);
+        const targetResult = await fetchFiTarget(companyId, preferredCurrencyId);
         if (!targetResult.ok) {
           throw new Error(targetResult.error);
         }
@@ -212,6 +214,7 @@ export default function FinancialIntelligencePage() {
           primarySectors,
           secondarySectors,
           regionOptions,
+          preferredCurrencyId,
         });
 
         const peersResult = await fetchFiPeers(request);
@@ -247,8 +250,14 @@ export default function FinancialIntelligencePage() {
         setLoading(false);
       }
     },
-    [filters, companyIdsInclude, companyIdsExclude, filterLookups, primarySectors, secondarySectors]
+    [filters, companyIdsInclude, companyIdsExclude, filterLookups, primarySectors, secondarySectors, regionOptions, preferredCurrencyId]
   );
+
+  useEffect(() => {
+    if (!target?.company_id) return;
+    void loadBenchmark(target.company_id, filters, companyIdsInclude, companyIdsExclude);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferredCurrencyId]);
 
   const selectTarget = useCallback(
     (companyId: number, meta?: FiCompanySearchHit) => {

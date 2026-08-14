@@ -6,6 +6,7 @@ import "./globals.css";
 import "react-h5-audio-player/lib/styles.css";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { PlatformCurrencyProvider } from "@/components/providers/PlatformCurrencyProvider";
 import { PortfolioHydrator } from "@/components/providers/PortfolioHydrator";
 import { Toaster } from "react-hot-toast";
 import DownloadMessageListener from "@/components/DownloadMessageListener";
@@ -137,22 +138,24 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AuthProvider>
-          <AnalyticsProvider>
+          <PlatformCurrencyProvider>
             <PortfolioHydrator />
-            <ChunkErrorRecovery />
-            <TitleUpdater />
-            <AuthRouteGuard />
-            <ContributorRouteGuard />
-            <TrialRouteGuard />
-            <Suspense fallback={null}>
-              <RouteTracker />
-            </Suspense>
-            <ErrorTracker />
-            <DownloadMessageListener />
-            <PageRemountOnLogin>{children}</PageRemountOnLogin>
-            <AuthLoginModal />
-            <Toaster position="top-right" />
-          </AnalyticsProvider>
+            <AnalyticsProvider>
+              <ChunkErrorRecovery />
+              <TitleUpdater />
+              <AuthRouteGuard />
+              <ContributorRouteGuard />
+              <TrialRouteGuard />
+              <Suspense fallback={null}>
+                <RouteTracker />
+              </Suspense>
+              <ErrorTracker />
+              <DownloadMessageListener />
+              <PageRemountOnLogin>{children}</PageRemountOnLogin>
+              <AuthLoginModal />
+              <Toaster position="top-right" />
+            </AnalyticsProvider>
+          </PlatformCurrencyProvider>
         </AuthProvider>
       </body>
     </html>

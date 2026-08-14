@@ -284,6 +284,8 @@ export interface CompanySearchPayload {
   /** Top-level date-added range — handled by Xano, not filters_sql. */
   created_at_from?: string;
   created_at_to?: string;
+  /** Platform display currency — Xano converts financial columns server-side. */
+  preferred_currency_id?: number;
 }
 
 export function buildApiPayload(

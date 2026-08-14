@@ -14,6 +14,7 @@ import {
   type FilterClause,
   type FilterOperator,
 } from "@/lib/filterBuilder";
+import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
 
 export const COMPANIES_API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
@@ -98,6 +99,8 @@ export function normalizeCompanySearchPayload(
     has_financial_filters: Boolean(filters.has_financial_filters),
     has_year_filter: Boolean(filters.has_year_filter),
     company_ids: filters.company_ids ?? [],
+    preferred_currency_id:
+      filters.preferred_currency_id ?? DEFAULT_PLATFORM_CURRENCY_ID,
     ...pickCompanyDateAddedParams(filters),
   };
 }
@@ -649,6 +652,11 @@ function appendSharedCompanyFilterParams(
   }
 
   params.append("company_ids", JSON.stringify(payload.company_ids ?? []));
+
+  params.append(
+    "preferred_currency_id",
+    String(payload.preferred_currency_id ?? DEFAULT_PLATFORM_CURRENCY_ID)
+  );
 
   (payload.columns ?? []).forEach((col) => {
     params.append("columns[]", col);
