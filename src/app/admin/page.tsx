@@ -1960,8 +1960,45 @@ function ContentTab() {
     return [];
   };
 
+  const parseContentArticleDetail = (data: unknown): ContentArticle | null => {
+    const raw = Array.isArray(data) ? data[0] : data;
+    if (!raw || typeof raw !== "object") return null;
+    return raw as ContentArticle;
+  };
+
+  async function fetchContentArticleDetail(
+    contentId: number
+  ): Promise<ContentArticle | null> {
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    if (!token) return null;
+    const res = await fetch(`${CONTENT_LIST_URL}/${contentId}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!res.ok) return null;
+    const data: unknown = await res.json();
+    return parseContentArticleDetail(data);
+  }
+
+  function parseSummaryField(value: unknown): string[] {
+    if (Array.isArray(value)) return value.map(String);
+    if (typeof value === "string" && value.trim()) {
+      try {
+        const parsed = JSON.parse(value) as unknown;
+        if (Array.isArray(parsed)) return parsed.map(String);
+      } catch {
+        // ignore invalid JSON
+      }
+    }
+    return [];
+  }
+
   const [allContentArticles, setAllContentArticles] = useState<ContentArticle[]>([]);
   const [contentArticlesLoading, setContentArticlesLoading] = useState(false);
+  const [editContentLoading, setEditContentLoading] = useState(false);
   const [selectedEditContentId, setSelectedEditContentId] = useState<number | "">("");
   const [editingContentId, setEditingContentId] = useState<number | null>(null);
   const [visibility, setVisibility] = useState<Visibility>("Admin");
@@ -2368,11 +2405,26 @@ function ContentTab() {
 
   // Handler to pre-load content article fields into form
   const handleEditContentSelect = async (contentId: number) => {
-    const article = allContentArticles.find((c) => c.id === contentId);
-    if (!article) return;
+    const listArticle = allContentArticles.find(
+      (c) => Number(c.id) === contentId
+    );
 
-    // Set editing mode
     setEditingContentId(contentId);
+    setEditContentLoading(true);
+
+    let article = listArticle ?? null;
+    try {
+      const detail = await fetchContentArticleDetail(contentId);
+      if (detail) {
+        article = { ...(listArticle ?? {}), ...detail, id: contentId } as ContentArticle;
+      }
+    } catch {
+      // fall back to list item when detail fetch fails
+    } finally {
+      setEditContentLoading(false);
+    }
+
+    if (!article) return;
 
     // Pre-load headline and strapline
     setHeadline(article.Headline || "");
@@ -2401,11 +2453,7 @@ function ContentTab() {
     );
 
     // Pre-load summary array
-    if (Array.isArray(article.summary)) {
-      setSummaryItems(article.summary);
-    } else {
-      setSummaryItems([]);
-    }
+    setSummaryItems(parseSummaryField(article.summary));
 
     // Pre-load Company of Focus
     // API can return either array of IDs [4453] or array of objects [{id: 4453, company_name: "..."}]
@@ -2535,7 +2583,11 @@ function ContentTab() {
     }
 
     // Pre-load editor: take existing HTML (strip legacy Unlayer marker if present)
-    const rawBody = String(article.Body || "");
+    const rawBody = String(
+      article.Body ??
+        (article as { body?: string | null }).body ??
+        ""
+    );
     const cleaned = rawBody ? stripUnlayerDesignComment(rawBody) : "";
     const nextBodyHtml = cleaned ? extractInnerContent(cleaned) : "";
     setBodyHtml(nextBodyHtml || "<p></p>");
@@ -2974,9 +3026,12 @@ function ContentTab() {
               ? "Loading content..."
               : "Search and select content to edit"
           }
-          disabled={contentArticlesLoading}
+          disabled={contentArticlesLoading || editContentLoading}
           style={{ width: "100%" }}
         />
+        {editContentLoading && (
+          <div className="mt-1 text-xs text-gray-500">Loading content…</div>
+        )}
         {editingContentId && (
           <div className="mt-1 text-xs text-blue-600">
             Editing content ID: {editingContentId}

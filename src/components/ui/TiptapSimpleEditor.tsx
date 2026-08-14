@@ -612,6 +612,9 @@ export default function TiptapSimpleEditor({
     applyingExternalRef.current = true;
     try {
       editor.commands.setContent(next, { emitUpdate: false });
+      // Parent-driven updates (e.g. "Edit Content") must not be skipped later
+      // because the editor still matches a previous lastEmittedHtmlRef value.
+      lastEmittedHtmlRef.current = null;
     } finally {
       applyingExternalRef.current = false;
     }
