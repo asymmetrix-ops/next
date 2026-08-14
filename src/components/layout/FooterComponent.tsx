@@ -128,7 +128,7 @@ export default function FooterComponent() {
         <div className="pt-8 mt-8 border-t border-gray-800">
           <div className="flex flex-col justify-between items-center md:flex-row">
             <p className="text-sm text-gray-400">
-              © 2024 Asymmetrix. All rights reserved.
+              © 2026 Asymmetrix. All rights reserved.
             </p>
             <div className="flex mt-4 space-x-6 md:mt-0">
               <Link

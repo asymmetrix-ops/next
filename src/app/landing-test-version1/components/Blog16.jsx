@@ -9,11 +9,135 @@ import {
 } from "@relume_io/relume-ui";
 import React from "react";
 import { RxChevronRight } from "react-icons/rx";
+import { ContentTypeBadge } from "./ContentTypeBadge";
 import { Reveal } from "./Reveal";
 
-export function Blog16() {
+const DEFAULT_THUMBNAIL = "/images/asymmetrix-video-thumbnail.png";
+
+const EMPTY_SUBSTACK_TABS = {
+  latest: [],
+  top: [],
+  discussion: [],
+};
+
+function formatPublicationDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function externalLinkProps(href) {
+  if (!href || href.startsWith("/")) return {};
+  return { target: "_blank", rel: "noopener noreferrer" };
+}
+
+function ArticleCard({ article }) {
+  const titleHref = article.href || "#";
+  const formattedDate = formatPublicationDate(article.publicationDate);
+  const thumbnailSrc = article.thumbnailUrl || DEFAULT_THUMBNAIL;
+  const linkProps = externalLinkProps(article.href);
+
   return (
-    <section id="relume" className="landing-navy-bg px-[5%] py-16 md:py-24 lg:py-28">
+    <article className="landing-panel landing-blog-card flex h-full flex-col overflow-hidden rounded-xl p-0">
+      <a
+        href={titleHref}
+        className="block w-full shrink-0"
+        {...linkProps}
+        {...(article.href ? {} : { "aria-disabled": true, tabIndex: -1 })}
+      >
+        <div
+          className={`landing-blog-thumb w-full overflow-hidden ${
+            article.coverImageIsSquare
+              ? "landing-blog-thumb-square"
+              : "landing-blog-thumb-wide"
+          }`}
+        >
+          <img
+            src={thumbnailSrc}
+            alt=""
+            className="landing-blog-thumb-image"
+            loading="lazy"
+          />
+        </div>
+      </a>
+      <div className="flex flex-1 flex-col items-start p-4 md:p-5">
+        <div className="landing-blog-card-meta mb-2 flex w-full min-h-6 flex-wrap items-center gap-2">
+          <ContentTypeBadge contentType={article.contentType} />
+          {formattedDate ? (
+            <p className="inline text-xs font-semibold text-text-alternative md:text-sm">
+              {formattedDate}
+            </p>
+          ) : (
+            <span className="inline-block min-h-4 flex-1" aria-hidden />
+          )}
+        </div>
+
+        <a className="mb-2 block w-full" href={titleHref} {...linkProps}>
+          <h3 className="landing-blog-card-title text-lg font-bold leading-snug text-text-alternative md:text-xl">
+            {article.headline}
+          </h3>
+        </a>
+
+        <p className="landing-blog-card-strapline landing-text-secondary w-full flex-1 text-sm leading-relaxed">
+          {article.strapline || "\u00a0"}
+        </p>
+
+        <div className="landing-blog-card-footer mt-auto w-full pt-3">
+          {article.href ? (
+            <a href={article.href} className="inline-flex" {...linkProps}>
+              <Button
+                title="Read"
+                variant="secondary"
+                size="sm"
+                iconRight={<RxChevronRight />}
+                className="landing-btn-secondary flex h-9 w-fit items-center justify-center gap-x-1.5 rounded-full px-4 text-sm"
+              >
+                Read
+              </Button>
+            </a>
+          ) : (
+            <span className="inline-block h-9" aria-hidden />
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ArticleGrid({ articles, emptyMessage }) {
+  if (!articles?.length) {
+    return (
+      <p className="landing-text-secondary text-center md:text-md">
+        {emptyMessage}
+      </p>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 md:gap-5 lg:gap-6">
+      {articles.map((article) => (
+        <ArticleCard key={article.id} article={article} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * @param {{
+ *   substackTabs?: import("@/lib/fetchSubstackArchive").SubstackArchiveTabs;
+ * }} props
+ */
+export function Blog16({ substackTabs = EMPTY_SUBSTACK_TABS }) {
+  return (
+    <section
+      id="relume"
+      className="landing-navy-bg px-[5%] py-16 md:py-24 lg:py-28"
+    >
       <div className="container">
         <Reveal className="mb-12 md:mb-18 lg:mb-20">
           <div className="mx-auto flex w-full max-w-lg flex-col items-center text-center text-text-alternative">
@@ -23,721 +147,55 @@ export function Blog16() {
             <h1 className="mb-5 text-6xl font-bold md:mb-6 md:text-9xl lg:text-10xl">
               What&apos;s worth reading
             </h1>
-            <p className="landing-text-secondary md:text-md">Our substack is updated weekly</p>
+            <p className="landing-text-secondary md:text-md">
+              Our substack is updated weekly
+            </p>
           </div>
         </Reveal>
-        <Tabs defaultValue="view-all" className="flex flex-col justify-center">
+        <Tabs defaultValue="latest" className="flex flex-col justify-center">
           <TabsList className="landing-tab-track-list no-scrollbar mb-12 ml-[-5vw] flex w-screen items-center justify-start overflow-scroll pl-[5vw] md:mb-16 md:ml-auto md:mr-auto md:w-fit md:justify-center md:overflow-hidden md:pl-0">
             <TabsTrigger
-              value="view-all"
-              className="landing-tab-trigger whitespace-nowrap px-4"
-            >
-              View all
-            </TabsTrigger>
-            <TabsTrigger
-              value="category-one"
+              value="latest"
               className="landing-tab-trigger whitespace-nowrap px-4"
             >
               Latest
             </TabsTrigger>
             <TabsTrigger
-              value="category-two"
+              value="top"
               className="landing-tab-trigger whitespace-nowrap px-4"
             >
               Top
             </TabsTrigger>
             <TabsTrigger
-              value="category-three"
+              value="discussion"
               className="landing-tab-trigger whitespace-nowrap px-4"
             >
               Discussion
             </TabsTrigger>
-            <TabsTrigger
-              value="category-four"
-              className="landing-tab-trigger whitespace-nowrap px-4"
-            >
-              Category four
-            </TabsTrigger>
           </TabsList>
-          <TabsContent
-            value="view-all"
-            className="data-[state=active]:animate-tabs"
-          >
-            <div className="grid grid-cols-1 gap-x-12 gap-y-12 md:grid-cols-1 md:gap-y-16 lg:grid-cols-2">
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Markets
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">7 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      The next wave of Data & Analytics M&A: research firms are
-                      buying their moats (oh and about that $1,350,000,000
-                      invested yesterday)
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    Owning analysis is no longer enough and a new wave of Data &
-                    Analytics M&A is already closing the gap + Kpler and
-                    AlphaSense raise big
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Strategy
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">8 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      What MCPs mean for Data & Analytics Providers
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    Asymmetrix analyzes the opportunities and challenges of MCP
-                    development for data businesses
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Deals
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">6 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      CME and Silicon Data partner to launch first compute
-                      futures
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    The world’s largest derivatives exchange teams up with the
-                    pioneer of daily GPU benchmarks to build a tradable market
-                    for computing power
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Deals
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">9 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      When data companies acquire their way to scale
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    How institutional investors are positioning for the next
-                    cycle
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-            </div>
+
+          <TabsContent value="latest" className="data-[state=active]:animate-tabs">
+            <ArticleGrid
+              articles={substackTabs.latest}
+              emptyMessage="No Substack posts available."
+            />
           </TabsContent>
-          <TabsContent
-            value="category-one"
-            className="data-[state=active]:animate-tabs"
-          >
-            <div className="grid grid-cols-1 gap-x-12 gap-y-12 md:grid-cols-1 md:gap-y-16 lg:grid-cols-2">
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Markets
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">7 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      The next wave of Data & Analytics M&A: research firms are
-                      buying their moats (oh and about that $1,350,000,000
-                      invested yesterday)
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    Owning analysis is no longer enough and a new wave of Data &
-                    Analytics M&A is already closing the gap + Kpler and
-                    AlphaSense raise big
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Strategy
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">8 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      What MCPs mean for Data & Analytics Providers
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    Asymmetrix analyzes the opportunities and challenges of MCP
-                    development for data businesses
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Deals
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">6 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      CME and Silicon Data partner to launch first compute
-                      futures
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    The world’s largest derivatives exchange teams up with the
-                    pioneer of daily GPU benchmarks to build a tradable market
-                    for computing power
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Deals
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">9 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      When data companies acquire their way to scale
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    How institutional investors are positioning for the next
-                    cycle
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-            </div>
+
+          <TabsContent value="top" className="data-[state=active]:animate-tabs">
+            <ArticleGrid
+              articles={substackTabs.top}
+              emptyMessage="No top Substack posts available."
+            />
           </TabsContent>
+
           <TabsContent
-            value="category-two"
+            value="discussion"
             className="data-[state=active]:animate-tabs"
           >
-            <div className="grid grid-cols-1 gap-x-12 gap-y-12 md:grid-cols-1 md:gap-y-16 lg:grid-cols-2">
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Markets
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">7 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      The next wave of Data & Analytics M&A: research firms are
-                      buying their moats (oh and about that $1,350,000,000
-                      invested yesterday)
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    Owning analysis is no longer enough and a new wave of Data &
-                    Analytics M&A is already closing the gap + Kpler and
-                    AlphaSense raise big
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Strategy
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">8 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      What MCPs mean for Data & Analytics Providers
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    Asymmetrix analyzes the opportunities and challenges of MCP
-                    development for data businesses
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Deals
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">6 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      CME and Silicon Data partner to launch first compute
-                      futures
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    The world’s largest derivatives exchange teams up with the
-                    pioneer of daily GPU benchmarks to build a tradable market
-                    for computing power
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Deals
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">9 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      When data companies acquire their way to scale
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    How institutional investors are positioning for the next
-                    cycle
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-          <TabsContent
-            value="category-three"
-            className="data-[state=active]:animate-tabs"
-          >
-            <div className="grid grid-cols-1 gap-x-12 gap-y-12 md:grid-cols-1 md:gap-y-16 lg:grid-cols-2">
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Markets
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">7 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      The next wave of Data & Analytics M&A: research firms are
-                      buying their moats (oh and about that $1,350,000,000
-                      invested yesterday)
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    Owning analysis is no longer enough and a new wave of Data &
-                    Analytics M&A is already closing the gap + Kpler and
-                    AlphaSense raise big
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Strategy
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">8 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      What MCPs mean for Data & Analytics Providers
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    Asymmetrix analyzes the opportunities and challenges of MCP
-                    development for data businesses
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Deals
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">6 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      CME and Silicon Data partner to launch first compute
-                      futures
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    The world’s largest derivatives exchange teams up with the
-                    pioneer of daily GPU benchmarks to build a tradable market
-                    for computing power
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Deals
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">9 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      When data companies acquire their way to scale
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    How institutional investors are positioning for the next
-                    cycle
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-          <TabsContent
-            value="category-four"
-            className="data-[state=active]:animate-tabs"
-          >
-            <div className="grid grid-cols-1 gap-x-12 gap-y-12 md:grid-cols-1 md:gap-y-16 lg:grid-cols-2">
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Markets
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">7 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      The next wave of Data & Analytics M&A: research firms are
-                      buying their moats (oh and about that $1,350,000,000
-                      invested yesterday)
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    Owning analysis is no longer enough and a new wave of Data &
-                    Analytics M&A is already closing the gap + Kpler and
-                    AlphaSense raise big
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Strategy
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">8 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      What MCPs mean for Data & Analytics Providers
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    Asymmetrix analyzes the opportunities and challenges of MCP
-                    development for data businesses
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Deals
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">6 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      CME and Silicon Data partner to launch first compute
-                      futures
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    The world’s largest derivatives exchange teams up with the
-                    pioneer of daily GPU benchmarks to build a tradable market
-                    for computing power
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-              <div className="landing-panel grid gap-x-8 gap-y-6 rounded-2xl p-5 md:grid-cols-[.75fr_1fr] md:gap-y-4 md:p-6">
-                <a href="#" className="w-full">
-                  <div className="landing-blog-thumb aspect-square w-full rounded-xl" />
-                </a>
-                <div className="flex h-full flex-col items-start justify-center">
-                  <div className="rb-4 mb-4 flex w-full items-center justify-start">
-                    <p className="mr-4 bg-background-secondary px-2 py-1 text-sm font-semibold">
-                      Deals
-                    </p>
-                    <p className="inline text-sm font-semibold text-text-alternative">9 min read</p>
-                  </div>
-                  <a className="mb-2" href="#">
-                    <h3 className="text-xl font-bold text-text-alternative md:text-2xl">
-                      When data companies acquire their way to scale
-                    </h3>
-                  </a>
-                  <p className="landing-text-secondary">
-                    How institutional investors are positioning for the next
-                    cycle
-                  </p>
-                  <Button
-                    title="Read"
-                    variant="secondary"
-                    size="sm"
-                    iconRight={<RxChevronRight />}
-                    className="landing-btn-secondary mt-6 flex w-fit items-center justify-center gap-x-2 rounded-full"
-                  >
-                    Read
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <ArticleGrid
+              articles={substackTabs.discussion}
+              emptyMessage="No discussion posts available."
+            />
           </TabsContent>
         </Tabs>
       </div>

@@ -1,80 +1,86 @@
 "use client";
 
 import { motion, useInView, useReducedMotion } from "framer-motion";
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
+import { ContentTypeBadge } from "./ContentTypeBadge";
 
-// Illustrative report cards — real categories used across Asymmetrix
-// research, distinct from the Substack tags shown lower on the page
-// (Markets/Strategy/Deals) so the two sections don't read as duplicates.
-const REPORTS = [
-  {
-    tag: "Sector Analysis",
-    headline: "Why data pureplays are consolidating faster than software",
-    meta: "Market Commentary · 3 days ago",
-    offset: false,
-  },
-  {
-    tag: "Deal Perspective",
-    headline: "Inside the Northbridge / Signalwave process",
-    meta: "Deal Perspective · 1 week ago",
-    offset: true,
-  },
-  {
-    tag: "Executive Interview",
-    headline: "What buyers want from AI-native data vendors",
-    meta: "Executive Interview · 2 weeks ago",
-    offset: true,
-  },
-  {
-    tag: "Valuation Watch",
-    headline: "The multiple compression nobody priced in",
-    meta: "Valuation Watch · 3 weeks ago",
-    offset: false,
-  },
-];
+// Illustrative layout stagger — cards 2 and 3 offset on desktop for visual rhythm.
+function mapReportOffset(index) {
+  return index === 1 || index === 2;
+}
 
-const EASE = [0.16, 1, 0.3, 1];
+const ENTRANCE_EASE = [0.16, 1, 0.3, 1];
+const FOCUS_SPRING = { type: "spring", stiffness: 260, damping: 30, mass: 0.9 };
 
-function ReportCard({ report, index, active }) {
+function ReportCard({
+  report,
+  index,
+  revealed,
+  motionEnabled,
+  isFocused,
+  isDimmed,
+  onFocus,
+}) {
   const delayS = 0.35 + index * 0.12;
+
   return (
     <motion.div
-      className={`flex flex-col gap-2 rounded-xl border p-4 md:p-5 ${
+      role="article"
+      tabIndex={0}
+      className={`landing-market-card flex cursor-pointer flex-col gap-2 rounded-xl border p-4 outline-none md:p-5 ${
         report.offset ? "md:mt-8" : ""
-      }`}
-      style={{
-        borderColor: "rgba(0,11,41,0.08)",
-        background: "#FAFBFF",
+      } ${isFocused ? "is-focused" : ""} ${isDimmed ? "is-dimmed" : ""}`}
+      initial={{ opacity: 0, y: motionEnabled ? 14 : 0 }}
+      animate={{
+        opacity: !revealed ? 0 : isDimmed ? 0.64 : 1,
+        y: motionEnabled && isFocused ? -4 : 0,
+        scale: motionEnabled && isFocused ? 1.012 : 1,
       }}
-      initial={{ opacity: 0, y: 16 }}
-      animate={active ? { opacity: 1, y: 0 } : undefined}
-      whileHover={{ y: -3, borderColor: "rgba(83,111,240,0.35)" }}
-      transition={{ duration: 0.5, delay: delayS, ease: EASE }}
+      transition={
+        revealed
+          ? isFocused || isDimmed
+            ? FOCUS_SPRING
+            : { duration: 0.55, delay: delayS, ease: ENTRANCE_EASE }
+          : FOCUS_SPRING
+      }
+      onMouseEnter={() => onFocus(index)}
+      onFocus={() => onFocus(index)}
     >
-      <span
-        className="w-fit rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide"
-        style={{ background: "#F0F3FF", color: "#3E5EDC" }}
-      >
-        {report.tag}
-      </span>
-      <p
-        className="text-sm font-bold leading-snug md:text-base"
-        style={{ color: "#000B29" }}
-      >
+      <ContentTypeBadge contentType={report.tag} className="shrink-0" />
+      <p className="landing-market-card-title text-sm font-bold leading-snug md:text-base">
         {report.headline}
       </p>
-      <span className="text-xs" style={{ color: "#8791A8" }}>
-        {report.meta}
-      </span>
+      {report.meta ? (
+        <span className="landing-market-card-meta text-xs">{report.meta}</span>
+      ) : null}
     </motion.div>
   );
 }
 
-export function MarketAnalysisVisual() {
+/**
+ * @param {{
+ *   articles?: import("@/lib/fetchTopViewedLandingArticles").TopViewedLandingArticle[];
+ * }} props
+ */
+export function MarketAnalysisVisual({ articles = [] }) {
   const reduceMotion = useReducedMotion();
   const containerRef = useRef(null);
   const inView = useInView(containerRef, { amount: 0.4, once: true });
-  const active = inView && !reduceMotion;
+  const motionEnabled = !reduceMotion;
+  const revealed = inView;
+  const [focusedIndex, setFocusedIndex] = useState(null);
+  const reports = articles.map((article, index) => ({
+    ...article,
+    offset: article.offset ?? mapReportOffset(index),
+  }));
+
+  const handleFocus = (index) => {
+    setFocusedIndex(index);
+  };
+
+  const handleClearFocus = () => {
+    setFocusedIndex(null);
+  };
 
   return (
     <div
@@ -107,10 +113,33 @@ export function MarketAnalysisVisual() {
         </span>
       </div>
 
-      <div className="relative grid grid-cols-1 gap-4 md:grid-cols-2">
-        {REPORTS.map((report, index) => (
-          <ReportCard key={report.headline} report={report} index={index} active={active} />
-        ))}
+      <div
+        className="relative grid grid-cols-1 gap-4 md:grid-cols-2"
+        onMouseLeave={handleClearFocus}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) {
+            handleClearFocus();
+          }
+        }}
+      >
+        {reports.length === 0 ? (
+          <p className="col-span-full text-sm" style={{ color: "#8791A8" }}>
+            Top research reports will appear here soon.
+          </p>
+        ) : (
+          reports.map((report, index) => (
+            <ReportCard
+              key={`${report.headline}-${index}`}
+              report={report}
+              index={index}
+              revealed={revealed}
+              motionEnabled={motionEnabled}
+              isFocused={focusedIndex === index}
+              isDimmed={focusedIndex !== null && focusedIndex !== index}
+              onFocus={handleFocus}
+            />
+          ))
+        )}
       </div>
     </div>
   );

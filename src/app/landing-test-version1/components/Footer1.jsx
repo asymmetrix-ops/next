@@ -148,7 +148,9 @@ export function Footer1() {
               <ul className="flex flex-col items-start">
                 <li className="py-2 text-sm">
                   <a
-                    href="#"
+                    href="https://asymmetrixintelligence.substack.com/?sort=community"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <SiSubstack className="size-6" />
@@ -157,7 +159,9 @@ export function Footer1() {
                 </li>
                 <li className="py-2 text-sm">
                   <a
-                    href="#"
+                    href="https://www.linkedin.com/company/asymmetrixintelligence"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <BiLogoLinkedinSquare className="size-6" />
@@ -170,7 +174,7 @@ export function Footer1() {
         </div>
         <div className="landing-divider h-px w-full" />
         <div className="landing-text-secondary flex flex-col-reverse items-start justify-between pb-4 pt-6 text-sm md:flex-row md:items-center md:pb-0 md:pt-8">
-          <p className="mt-6 md:mt-0">© 2024 Asymmetrix. All rights reserved.</p>
+          <p className="mt-6 md:mt-0">© 2026 Asymmetrix. All rights reserved.</p>
           <ul className="grid grid-flow-row grid-cols-[max-content] justify-center gap-y-4 text-sm md:grid-flow-col md:gap-x-6 md:gap-y-0">
             <li className="underline hover:text-text-alternative">
               <a href="#">Privacy policy</a>

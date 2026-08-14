@@ -3,6 +3,7 @@
 import { Button, useMediaQuery } from "@relume_io/relume-ui";
 import { motion } from "framer-motion";
 import React, { useState } from "react";
+import { openCalendlyPopup } from "@/lib/calendlyWidget";
 
 const useRelume = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -131,7 +132,11 @@ export function Navbar1() {
               title="Talk to Sales"
               variant="secondary"
               size="sm"
+              data-calendly-trigger
               className="landing-btn-primary landing-btn-primary-nav h-11 w-full rounded-full text-text-alternative lg:w-auto"
+              onClick={() => {
+                void openCalendlyPopup();
+              }}
             >
               Talk to Sales
             </Button>

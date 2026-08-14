@@ -6,6 +6,7 @@ import { AIDefensibilityVisual } from "./AIDefensibilityVisual";
 import { CompanyGraphVisual } from "./CompanyGraphVisual";
 import { DashboardMockup } from "./DashboardMockup";
 import { DealRadarVisual } from "./DealRadarVisual";
+import { openCalendlyPopup } from "@/lib/calendlyWidget";
 
 const TABS = [
   {
@@ -73,20 +74,18 @@ export function PlatformHero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4"
+            className="mt-8 flex justify-center"
           >
-            <a
-              href="#"
+            <button
+              type="button"
+              data-calendly-trigger
+              onClick={() => {
+                void openCalendlyPopup();
+              }}
               className="landing-btn-primary inline-flex h-12 min-w-[180px] items-center justify-center rounded-full px-8 text-sm font-semibold text-text-alternative"
             >
               Book a demo
-            </a>
-            <a
-              href="#"
-              className="landing-btn-secondary inline-flex h-12 min-w-[180px] items-center justify-center rounded-full border px-8 text-sm font-semibold text-text-alternative transition-colors"
-            >
-              Explore the data
-            </a>
+            </button>
           </motion.div>
         </div>
 

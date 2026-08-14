@@ -1,0 +1,24 @@
+# Asymmetrix
+
+> Asymmetrix is a B2B market intelligence platform focused on the Data & Analytics (D&A) industry — covering data, research and content providers of every shape, size and business model. It gives PE firms, venture investors, M&A advisors and operators proprietary intelligence on companies, deals, investors and people shaping the sector, unified under a single consistent taxonomy.
+
+## Key facts
+
+- Tracks 6,550+ Data & Analytics companies (public, PE-owned, VC-backed, private, subsidiary and acquired).
+- Covers 3,636 investors (PE firms, venture investors and corporate investors) active in Data & Analytics.
+- Covers 290 M&A advisors active in the space.
+- Tracks 5,708 corporate events (acquisitions, investments, IPOs, sales, partnerships, strategic reviews and divestments) in Data & Analytics.
+- Every company sits within a single, consistent D&A taxonomy spanning data, research and content sub-sectors.
+- Publishes original research reports and market commentary on valuations, consolidation and disruption across the sector, including an AI Exposure Index assessing individual companies' AI risk and defensibility.
+
+## Public pages
+
+- [Homepage](https://www.asymmetrixintelligence.com): Overview of the Asymmetrix platform and what it covers.
+- [About Us](https://www.asymmetrixintelligence.com/about-us): Background on Asymmetrix and its mission.
+- [Companies](https://www.asymmetrixintelligence.com/companies): Directory of Data & Analytics companies tracked by Asymmetrix.
+- [Investors](https://www.asymmetrixintelligence.com/investors): Directory of PE firms, venture investors and corporate investors active in Data & Analytics.
+- [Advisors](https://www.asymmetrixintelligence.com/advisors): Directory of M&A advisors active in Data & Analytics deals.
+- [Corporate Events](https://www.asymmetrixintelligence.com/corporate-events): Deal and transaction history across the Data & Analytics sector.
+- [Individuals](https://www.asymmetrixintelligence.com/individuals): Leadership and people data linked to Data & Analytics companies.
+- [Sectors](https://www.asymmetrixintelligence.com/sectors): The Asymmetrix Data & Analytics sector taxonomy.
+- [Insights & Analysis](https://www.asymmetrixintelligence.com/insights-analysis): Research reports and market commentary on Data & Analytics M&A, valuations and disruption.

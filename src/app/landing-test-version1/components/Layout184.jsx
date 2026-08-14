@@ -3,6 +3,7 @@
 import { Button } from "@relume_io/relume-ui";
 import React from "react";
 import { RxChevronRight } from "react-icons/rx";
+import { openCalendlyPopup } from "@/lib/calendlyWidget";
 import { Reveal } from "./Reveal";
 
 export function Layout184() {
@@ -29,17 +30,21 @@ export function Layout184() {
             <Button
               title="Demo"
               variant="secondary-alt"
+              data-calendly-trigger
               className="landing-btn-secondary h-12 rounded-full px-8"
+              onClick={() => {
+                void openCalendlyPopup();
+              }}
             >
               Demo
             </Button>
-            <Button
-              title="Platform Features"
-              className="landing-btn-primary h-12 rounded-full px-8"
-              iconRight={<RxChevronRight />}
+            <a
+              href="#coverage"
+              className="landing-btn-primary inline-flex h-12 items-center justify-center gap-x-2 rounded-full px-8 text-sm font-semibold text-text-alternative"
             >
               Platform Features
-            </Button>
+              <RxChevronRight />
+            </a>
           </div>
         </Reveal>
       </div>
