@@ -3,17 +3,39 @@
 import React from "react";
 import { Reveal } from "./Reveal";
 
-const CLIENT_LOGOS = ["Collingwood", "PLURAL", "eci", "CortenCapital", "Bridgepoint"];
+const CLIENT_LOGOS = [
+  { src: "/client_logos/collingwood-trim.png", alt: "Collingwood" },
+  { src: "/client_logos/plural.png", alt: "PLURAL" },
+  { src: "/client_logos/eci.jpg", alt: "ECI" },
+  { src: "/client_logos/Bridgepoint_Logo_185C.png", alt: "Bridgepoint" },
+  { src: "/client_logos/endicott.svg", alt: "Endicott" },
+  { src: "/client_logos/motive-trim.png", alt: "Motive" },
+  { src: "/client_logos/mayfair.png", alt: "Mayfair" },
+  { src: "/client_logos/burghclere.png", alt: "Burghclere" },
+  { src: "/client_logos/FPE-Logo.png", alt: "FPE" },
+  { src: "/client_logos/Perwyn logo.jpg", alt: "Perwyn" },
+  { src: "/client_logos/raymond-james-trim.jpg", alt: "Raymond James" },
+  { src: "/client_logos/Cardean_Bell_Assets-Primary-Positive-300x300.png", alt: "Cardean Bell" },
+];
 
-const LogoRow = () => (
-  <div className="flex shrink-0 animate-loop-horizontally items-center">
-    {CLIENT_LOGOS.map((name, index) => (
-      <span
-        key={index}
-        className="landing-text-muted mx-7 shrink-0 text-xl font-semibold tracking-tight md:mx-10 md:text-2xl"
+const LogoRow = ({ ariaHidden = false }) => (
+  <div
+    className="flex shrink-0 items-center"
+    aria-hidden={ariaHidden || undefined}
+  >
+    {CLIENT_LOGOS.map((logo) => (
+      <div
+        key={logo.src}
+        className="mx-7 flex shrink-0 items-center justify-center md:mx-10"
       >
-        {name}
-      </span>
+        <img
+          src={logo.src}
+          alt={ariaHidden ? "" : logo.alt}
+          className="landing-logo-strip-image"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
     ))}
   </div>
 );
@@ -29,9 +51,11 @@ export function Logo3() {
           Trusted by leading firms across the data and analytics industry
         </h1>
       </Reveal>
-      <div className="flex items-center pt-7 md:pt-0">
-        <LogoRow />
-        <LogoRow />
+      <div className="overflow-hidden pt-7 md:pt-0">
+        <div className="landing-logo-strip-track flex w-max items-center">
+          <LogoRow />
+          <LogoRow ariaHidden />
+        </div>
       </div>
     </section>
   );

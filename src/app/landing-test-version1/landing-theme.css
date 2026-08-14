@@ -491,3 +491,37 @@
 .landing-rebrand .landing-navbar-icon {
   background-color: var(--asymmetrix-text-primary);
 }
+
+/* Client logo marquee strip */
+.landing-rebrand .landing-logo-strip-track {
+  animation: landing-logo-strip-scroll 45s linear infinite;
+}
+
+@keyframes landing-logo-strip-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.landing-rebrand .landing-logo-strip-image {
+  height: 2rem;
+  width: auto;
+  max-width: 9rem;
+  object-fit: contain;
+}
+
+@media (min-width: 768px) {
+  .landing-rebrand .landing-logo-strip-image {
+    height: 2.5rem;
+    max-width: 11rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-logo-strip-track {
+    animation: none;
+  }
+}
