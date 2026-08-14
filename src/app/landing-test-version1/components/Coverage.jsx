@@ -89,10 +89,15 @@ const TABS = [
   },
 ];
 
-export function Coverage() {
+/**
+ * @param {{
+ *   topViewedArticles?: import("@/lib/fetchTopViewedLandingArticles").TopViewedLandingArticle[];
+ * }} props
+ */
+export function Coverage({ topViewedArticles = [] }) {
   return (
     <section
-      id="relume"
+      id="coverage"
       className="landing-navy-bg px-[5%] py-16 md:py-24 lg:py-28"
     >
       <div className="container">
@@ -157,7 +162,7 @@ export function Coverage() {
                 ) : tab.value === "investors-advisors" ? (
                   <InvestorPortfolioVisual />
                 ) : tab.value === "market-analysis" ? (
-                  <MarketAnalysisVisual />
+                  <MarketAnalysisVisual articles={topViewedArticles} />
                 ) : (
                   <DashboardMockup
                     label={tab.heading}

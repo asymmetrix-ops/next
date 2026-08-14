@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-mot
 import React, { useEffect, useRef, useState } from "react";
 
 const EASE = [0.16, 1, 0.3, 1];
-const AUTO_CYCLE_MS = 2200;
+const AUTO_CYCLE_MS = 1500;
 const BATCH_SIZE = 8;
 const TOTAL_PRIMARY = 42;
 const TOTAL_SECONDARY = 908;
@@ -146,7 +146,7 @@ export function SectorTaxonomyVisual() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={T(reduceMotion, 0.35)}
+            transition={T(reduceMotion, 0.22)}
             className="flex flex-wrap content-start gap-3"
           >
             {batch.map((name, i) => {
@@ -156,7 +156,7 @@ export function SectorTaxonomyVisual() {
                   key={name}
                   initial={{ opacity: 0, y: reduceMotion ? 0 : 10, scale: 0.94 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={T(reduceMotion, 0.4, entered ? 0.05 + i * 0.05 : 0)}
+                  transition={T(reduceMotion, 0.28, entered ? 0.02 + i * 0.03 : 0)}
                   className="rounded-full px-4 py-2 text-sm font-semibold"
                   style={{ background: "#F0F3FF", color: tone, border: `1px solid ${tone}33` }}
                 >
@@ -185,7 +185,7 @@ export function SectorTaxonomyVisual() {
               initial={{ opacity: 0, y: reduceMotion ? 0 : 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
-              transition={T(reduceMotion, 0.35)}
+              transition={T(reduceMotion, 0.22)}
               className="text-sm font-semibold"
               style={{ color: "#000B29" }}
             >

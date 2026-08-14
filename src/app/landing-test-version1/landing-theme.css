@@ -480,12 +480,104 @@
 }
 
 .landing-rebrand .landing-blog-thumb {
-  border: 1px solid var(--asymmetrix-divider);
-  background: linear-gradient(
-    135deg,
-    hsla(228, 85%, 63%, 0.12),
-    hsl(228, 85%, 96%)
-  );
+  border-bottom: 1px solid var(--asymmetrix-divider);
+  background-color: #000b29;
+}
+
+.landing-rebrand .landing-blog-thumb-wide {
+  aspect-ratio: 16 / 9;
+}
+
+.landing-rebrand .landing-blog-card .landing-blog-thumb-wide {
+  aspect-ratio: 16 / 9;
+}
+
+.landing-rebrand .landing-blog-thumb-wide .landing-blog-thumb-image {
+  object-fit: cover;
+  object-position: center;
+}
+
+.landing-rebrand .landing-blog-thumb-square {
+  aspect-ratio: 16 / 9;
+}
+
+.landing-rebrand .landing-blog-thumb-square .landing-blog-thumb-image {
+  object-fit: cover;
+  object-position: center;
+}
+
+.landing-rebrand .landing-blog-thumb-image {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.landing-rebrand .landing-blog-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  min-height: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.landing-rebrand .landing-blog-card-strapline {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  min-height: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.landing-rebrand .landing-blog-card-footer {
+  min-height: 2rem;
+}
+
+.landing-rebrand .landing-market-card {
+  border-color: rgba(0, 11, 41, 0.08);
+  background-color: #fafbff;
+  box-shadow: 0 1px 2px rgba(0, 11, 41, 0.04);
+  transition:
+    border-color 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-rebrand .landing-market-card.is-focused {
+  border-color: rgba(83, 111, 240, 0.5);
+  background-color: #ffffff;
+  box-shadow:
+    0 14px 36px rgba(83, 111, 240, 0.16),
+    0 0 0 1px rgba(83, 111, 240, 0.1);
+}
+
+.landing-rebrand .landing-market-card-title {
+  color: #1a2340;
+  transition: color 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-rebrand .landing-market-card.is-focused .landing-market-card-title {
+  color: #000b29;
+}
+
+.landing-rebrand .landing-market-card-meta {
+  color: #8791a8;
+  transition: color 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-rebrand .landing-market-card.is-focused .landing-market-card-meta {
+  color: #5a6272;
+}
+
+.landing-rebrand .landing-market-card:focus-visible {
+  box-shadow:
+    0 14px 36px rgba(83, 111, 240, 0.16),
+    0 0 0 3px rgba(83, 111, 240, 0.28);
 }
 
 .landing-rebrand .landing-navbar-icon {

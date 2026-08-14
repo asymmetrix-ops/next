@@ -1,6 +1,6 @@
-export const CALENDLY_URL =
-  process.env.NEXT_PUBLIC_CALENDLY_URL ??
-  "https://calendly.com/d/cvxj-zdj-nss/intro-call-with-asymmetrix";
+import { CALENDLY_URL } from "@/lib/prospect";
+
+export { CALENDLY_URL };
 
 const CALENDLY_WIDGET_CSS =
   "https://assets.calendly.com/assets/external/widget.css";

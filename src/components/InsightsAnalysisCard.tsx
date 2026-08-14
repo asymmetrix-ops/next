@@ -3,6 +3,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import type { ContentArticle } from "@/types/insightsAnalysis";
+import { getContentTypeBadgeStyle } from "@/lib/contentTypeBadge";
 
 interface InsightsAnalysisCardProps {
   article: ContentArticle;
@@ -178,67 +179,6 @@ const transactionStatusBadgeStyle: React.CSSProperties = {
   whiteSpace: "nowrap" as const,
 };
 
-const badgeClassFor = (contentType?: string): React.CSSProperties => {
-  const base: React.CSSProperties = {
-    display: "inline-block",
-    fontSize: 12,
-    lineHeight: 1,
-    padding: "6px 10px",
-    borderRadius: 9999,
-    border: "1px solid transparent",
-    fontWeight: 600,
-  };
-
-  const t = (contentType || "").toLowerCase();
-  if (t === "company analysis") {
-    return {
-      ...base,
-      backgroundColor: "#ecfdf5",
-      color: "#065f46",
-      borderColor: "#a7f3d0",
-    };
-  }
-  if (t === "deal analysis") {
-    return {
-      ...base,
-      backgroundColor: "#eff6ff",
-      color: "#1e40af",
-      borderColor: "#bfdbfe",
-    };
-  }
-  if (t === "sector analysis") {
-    return {
-      ...base,
-      backgroundColor: "#f5f3ff",
-      color: "#5b21b6",
-      borderColor: "#ddd6fe",
-    };
-  }
-  if (t === "hot take") {
-    return {
-      ...base,
-      backgroundColor: "#fff7ed",
-      color: "#9a3412",
-      borderColor: "#fed7aa",
-    };
-  }
-  if (t === "executive interview") {
-    return {
-      ...base,
-      backgroundColor: "#f0fdf4",
-      color: "#166534",
-      borderColor: "#bbf7d0",
-    };
-  }
-
-  return {
-    ...base,
-    backgroundColor: "#f3f4f6",
-    color: "#374151",
-    borderColor: "#e5e7eb",
-  };
-};
-
 export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   article,
   showMeta = true,
@@ -378,7 +318,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
             {/* Badge (below date) */}
             {effectiveContentType && (
               <div className="content-type-row" style={{ marginBottom: 10 }}>
-                <span style={badgeClassFor(effectiveContentType)}>
+                <span style={getContentTypeBadgeStyle(effectiveContentType)}>
                   {effectiveContentType}
                 </span>
               </div>
@@ -418,7 +358,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
               </h3>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
                 {effectiveContentType && (
-                  <span style={{ ...badgeClassFor(effectiveContentType), flexShrink: 0 }}>
+                  <span style={{ ...getContentTypeBadgeStyle(effectiveContentType), flexShrink: 0 }}>
                     {effectiveContentType}
                   </span>
                 )}
