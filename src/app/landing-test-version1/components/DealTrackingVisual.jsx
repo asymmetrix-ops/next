@@ -3,27 +3,29 @@
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import React, { useEffect, useRef, useState } from "react";
 
-// Live company universe totals (companies_counts).
+// Live corporate events totals (corporate_events_counts).
 const DEFAULT_DATA = {
-  all: 6550,
-  public: 225,
-  peOwned: 671,
-  vcBacked: 1881,
-  private: 1671,
-  subsidiary: 385,
-  acquired: 1313,
-  other: 404,
+  all: 5708,
+  acquisitions: 2043,
+  investments: 2894,
+  ipos: 46,
+  sales: 36,
+  partnerships: 442,
+  strategicReviews: 7,
+  divestments: 71,
+  other: 169,
 };
 
 const CATEGORY_ROWS = [
   { key: "all", label: "All" },
-  { key: "public", label: "Public" },
-  { key: "peOwned", label: "PE-owned" },
-  { key: "vcBacked", label: "VC-backed" },
-  { key: "private", label: "Private" },
-  { key: "subsidiary", label: "Subsidiary" },
-  { key: "acquired", label: "Acquired" },
+  { key: "investments", label: "Investments" },
+  { key: "acquisitions", label: "Acquisitions" },
+  { key: "partnerships", label: "Partnerships" },
   { key: "other", label: "Other" },
+  { key: "divestments", label: "Divestments" },
+  { key: "ipos", label: "IPOs" },
+  { key: "sales", label: "Sales" },
+  { key: "strategicReviews", label: "Strategic Reviews" },
 ];
 
 const EASE = [0.16, 1, 0.3, 1];
@@ -70,7 +72,7 @@ function useCountUp(target, active, { duration = 1000, delay = 0 } = {}) {
 }
 
 function CategoryRow({ label, value, maxValue, isAll, index, active }) {
-  const delayS = 0.95 + index * 0.09;
+  const delayS = 0.95 + index * 0.08;
   const pct = scalePct(value, maxValue, isAll);
   const count = useCountUp(value, active, {
     duration: 900,
@@ -85,7 +87,7 @@ function CategoryRow({ label, value, maxValue, isAll, index, active }) {
       transition={{ duration: 0.5, delay: delayS, ease: EASE }}
     >
       <span
-        className="w-[88px] shrink-0 text-sm font-medium"
+        className="w-[116px] shrink-0 text-sm font-medium"
         style={{ color: "#000B29" }}
       >
         {label}
@@ -112,7 +114,7 @@ function CategoryRow({ label, value, maxValue, isAll, index, active }) {
   );
 }
 
-export function CompanyUniverseVisual({ data }) {
+export function DealTrackingVisual({ data }) {
   const values = { ...DEFAULT_DATA, ...data };
   const reduceMotion = useReducedMotion();
   const containerRef = useRef(null);
@@ -162,7 +164,7 @@ export function CompanyUniverseVisual({ data }) {
           className="text-xs font-medium uppercase tracking-wide"
           style={{ color: "#5A6272" }}
         >
-          Company universe · live
+          Corporate events · live
         </span>
       </div>
 
@@ -173,7 +175,7 @@ export function CompanyUniverseVisual({ data }) {
               className="mb-2 text-xs font-semibold uppercase tracking-[0.14em]"
               style={{ color: "#5A6272" }}
             >
-              All Companies
+              All Corporate Events
             </span>
             <span className="landing-gradient-text text-6xl font-bold tabular-nums md:text-7xl">
               {values.all.toLocaleString()}
@@ -187,7 +189,7 @@ export function CompanyUniverseVisual({ data }) {
             {CATEGORY_ROWS.map(({ key, label }) => (
               <div key={key} className="flex items-center gap-4">
                 <span
-                  className="w-[88px] shrink-0 text-sm font-medium"
+                  className="w-[116px] shrink-0 text-sm font-medium"
                   style={{ color: "#000B29" }}
                 >
                   {label}
@@ -221,7 +223,7 @@ export function CompanyUniverseVisual({ data }) {
               className="mb-2 text-xs font-semibold uppercase tracking-[0.14em]"
               style={{ color: "#5A6272" }}
             >
-              All Companies
+              All Corporate Events
             </span>
             <motion.span
               className="landing-gradient-text text-6xl font-bold tabular-nums md:text-7xl"
