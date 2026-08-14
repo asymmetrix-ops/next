@@ -14,6 +14,7 @@ import { DealRadarVisual } from "./DealRadarVisual";
 import { DealTrackingVisual } from "./DealTrackingVisual";
 import { FinancialBenchmarkVisual } from "./FinancialBenchmarkVisual";
 import { InvestorPortfolioVisual } from "./InvestorPortfolioVisual";
+import { MarketAnalysisVisual } from "./MarketAnalysisVisual";
 import { Reveal } from "./Reveal";
 import { SectorTaxonomyVisual } from "./SectorTaxonomyVisual";
 
@@ -85,8 +86,6 @@ const TABS = [
     heading: "Market analysis",
     description:
       "Go beyond the data with research reports and market commentary that explain what's driving valuations, consolidation and disruption across the Data & Analytics sector.",
-    stat: { value: "11k+", caption: "Advisors indexed" },
-    bars: [45, 70, 55, 65, 40],
   },
 ];
 
@@ -157,6 +156,8 @@ export function Coverage() {
                   <AIDefensibilityVisual />
                 ) : tab.value === "investors-advisors" ? (
                   <InvestorPortfolioVisual />
+                ) : tab.value === "market-analysis" ? (
+                  <MarketAnalysisVisual />
                 ) : (
                   <DashboardMockup
                     label={tab.heading}
