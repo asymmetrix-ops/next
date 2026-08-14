@@ -3,9 +3,282 @@ import {
   IndividualEventsResponse,
   IndividualNameResponse,
   CorporateEvent,
+  RelatedIndividual,
 } from "../types/individual";
+import {
+  extractIndividualCorporateEvents,
+  normalizeIndividualCorporateEvent,
+} from "./normalizeIndividualCorporateEvent";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
+
+const CURRENCY_ID_TO_CODE: Record<number, string> = {
+  7: "GBP",
+  15: "USD",
+};
+
+function cleanIndividualEventName(name: unknown): string {
+  return String(name ?? "")
+    .replace(/\s*\([^)]*\)\s*/g, "")
+    .trim();
+}
+
+function parseCounterpartyRelatedEvents(relatedEvents: unknown): Record<string, unknown> | null {
+  if (relatedEvents == null) return null;
+  if (typeof relatedEvents === "string") {
+    const trimmed = relatedEvents.trim();
+    if (!trimmed) return null;
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      return parsed && typeof parsed === "object"
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof relatedEvents === "object") {
+    return relatedEvents as Record<string, unknown>;
+  }
+  return null;
+}
+
+function buildIndividualEventsFromCounterpartyPayload(
+  parsed: Record<string, unknown>
+): IndividualEventsResponse {
+  const eventsTable = Array.isArray(parsed.Events_Table)
+    ? (parsed.Events_Table as Record<string, unknown>[])
+    : [];
+
+  const corporateEventsById = new Map<number, Record<string, unknown>>();
+  if (Array.isArray(parsed.Corporate_Events)) {
+    for (const item of parsed.Corporate_Events) {
+      if (!item || typeof item !== "object") continue;
+      const id = Number((item as Record<string, unknown>).id ?? 0);
+      if (id > 0) corporateEventsById.set(id, item as Record<string, unknown>);
+    }
+  }
+
+  const otherIndividualIdToName = new Map<number, string>();
+  const otherIndividualIdToLogo = new Map<number, string>();
+  for (const evt of eventsTable) {
+    const arr = Array.isArray(evt?.["Other Individuals"])
+      ? (evt["Other Individuals"] as Array<Record<string, unknown>>)
+      : [];
+    for (const oi of arr) {
+      const id = Number(oi?.individuals_id ?? 0);
+      const name = String(oi?.name ?? "").trim();
+      const logo = String(oi?.company_logo ?? "").trim();
+      if (id > 0) {
+        if (name) otherIndividualIdToName.set(id, name);
+        if (logo) otherIndividualIdToLogo.set(id, logo);
+      }
+    }
+  }
+
+  const events = eventsTable.map((evt) => {
+    const eventId = Number(evt?.id ?? 0);
+    const corpEvent = eventId > 0 ? corporateEventsById.get(eventId) : undefined;
+    const investmentData = corpEvent?.investment_data as
+      | {
+          currency_id?: number;
+          investment_amount_m?: string | number | null;
+        }
+      | undefined;
+
+    const description = String(evt?.Description ?? evt?.description ?? "");
+    const announced = String(
+      evt?.["Date Announced"] ?? evt?.announcement_date ?? ""
+    );
+    const type = String(evt?.Type ?? evt?.deal_type ?? "");
+
+    const evObj = (evt?.["Enterprise Value"] ?? evt?.ev_data ?? {}) as {
+      enterprise_value_m?: string | number | null;
+      currency_id?: number;
+    };
+    let enterpriseValue = String(evObj?.enterprise_value_m ?? "");
+    let currencyId = Number(evObj?.currency_id ?? 0);
+    const investmentAmount = investmentData?.investment_amount_m;
+    if (
+      (enterpriseValue === "" || enterpriseValue === "null") &&
+      investmentAmount != null &&
+      investmentAmount !== ""
+    ) {
+      enterpriseValue = String(investmentAmount);
+      currencyId = Number(investmentData?.currency_id ?? currencyId);
+    }
+    const currencyCode = CURRENCY_ID_TO_CODE[currencyId];
+
+    const relatedCounterparty = (evt?.["Related Counterparty"] ?? {}) as {
+      counterparty_status?: string;
+      counterparty_id?: number;
+      counterparty_name?: string;
+    };
+    const relatedCounterpartyStatus = String(
+      relatedCounterparty?.counterparty_status ?? ""
+    );
+    const relatedCounterpartyId = Number(relatedCounterparty?.counterparty_id ?? 0);
+    const relatedCounterpartyName = cleanIndividualEventName(
+      relatedCounterparty?.counterparty_name
+    );
+
+    const otherCpsArr = Array.isArray(evt?.["Other Counterparties"])
+      ? (evt["Other Counterparties"] as Array<{
+          counterparty_id?: number;
+          counterparty_name?: string;
+        }>)
+      : [];
+
+    const otherCounterparties = otherCpsArr.map((cp) => ({
+      new_company_counterparty: Number(cp?.counterparty_id ?? 0),
+      id: Number(cp?.counterparty_id ?? 0),
+      name: cleanIndividualEventName(cp?.counterparty_name),
+      _is_that_investor: false,
+      _is_that_data_analytic_company: false,
+    }));
+
+    const primaryTarget = otherCounterparties[0];
+    const targetCounterparty =
+      primaryTarget && primaryTarget.id > 0 && primaryTarget.name
+        ? {
+            new_company_counterparty: primaryTarget.id,
+            id: primaryTarget.id,
+            name: primaryTarget.name,
+          }
+        : relatedCounterpartyId > 0 && relatedCounterpartyName
+          ? {
+              new_company_counterparty: relatedCounterpartyId,
+              id: relatedCounterpartyId,
+              name: relatedCounterpartyName,
+            }
+          : undefined;
+
+    const otherCounterpartiesForDisplay = primaryTarget
+      ? [
+          ...otherCounterparties.slice(1),
+          ...(relatedCounterpartyId > 0 &&
+          relatedCounterpartyName &&
+          relatedCounterpartyId !== primaryTarget.id
+            ? [
+                {
+                  new_company_counterparty: relatedCounterpartyId,
+                  id: relatedCounterpartyId,
+                  name: relatedCounterpartyName,
+                  _is_that_investor: false,
+                  _is_that_data_analytic_company: false,
+                },
+              ]
+            : []),
+        ]
+      : otherCounterparties;
+
+    const otherIndividualsArr = Array.isArray(evt?.["Other Individuals"])
+      ? (evt["Other Individuals"] as Array<{ individuals_id?: number; name?: string }>)
+      : [];
+    const relatedIndividuals = otherIndividualsArr.map((oi) => {
+      const id = Number(oi?.individuals_id ?? 0);
+      const name = String(oi?.name ?? "").trim();
+      return {
+        id,
+        advisor_individuals: name || (id ? `Individual ${id}` : ""),
+      };
+    });
+
+    const advisorsArr = Array.isArray(evt?.Advisors)
+      ? (evt.Advisors as Array<{ company_id?: number; company_name?: string }>)
+      : [];
+    const relatedAdvisors = advisorsArr.map((a) => ({
+      new_company_advised: Number(a?.company_id ?? 0),
+      _new_company: {
+        id: Number(a?.company_id ?? 0),
+        name: cleanIndividualEventName(a?.company_name),
+        primary_business_focus_id: [] as number[],
+        _is_that_investor: false,
+        _is_that_data_analytic_company: false,
+      },
+    }));
+
+    return {
+      id: eventId,
+      description,
+      announcement_date: announced,
+      deal_type: type,
+      ev_data: {
+        ev_source: "",
+        enterprise_value_m: enterpriseValue,
+        currency_id: currencyId,
+        ...(currencyCode
+          ? {
+              _currency: {
+                id: currencyId,
+                created_at: 0,
+                Currency: currencyCode,
+              },
+            }
+          : {}),
+      },
+      _other_advisors_of_corporate_event: [],
+      _target_counterparty_of_corporate_events: targetCounterparty,
+      _other_counterparties_of_corporate_events: otherCounterpartiesForDisplay,
+      _relater_to_corporate_event_cpawa_advisors_individuals: [],
+      _counterparty_advised_of_corporate_events: [
+        {
+          counterparty_type: 0,
+          _counterpartys_type: {
+            counterparty_status: relatedCounterpartyStatus || "",
+          },
+        },
+      ],
+      _related_to_corporate_event_individuals: relatedIndividuals,
+      _related_advisor_to_corporate_events: relatedAdvisors,
+    } as CorporateEvent;
+  });
+
+  const otherIndividuals = Array.isArray(parsed.Other_individuals)
+    ? (parsed.Other_individuals as Array<Record<string, unknown>>)
+    : [];
+
+  const all_related_individuals = otherIndividuals.flatMap((ind) => {
+    const indId = Number(ind?.individuals_id ?? 0);
+    const roles = Array.isArray(ind?.roles)
+      ? (ind.roles as Array<{
+          role_id?: number;
+          company_id?: number;
+          company_name?: string;
+          status?: string;
+          job_titles?: string[];
+        }>)
+      : [];
+
+    return roles.map((r) => ({
+      id: Number(r?.role_id ?? indId),
+      individuals_id: indId,
+      employee_new_company_id: Number(r?.company_id ?? 0),
+      Status: (r?.status as "Current" | "Past") || "Current",
+      job_titles_id: (Array.isArray(r?.job_titles) ? r.job_titles : []).map(
+        (jt) => ({ job_title: String(jt) })
+      ),
+      _individuals: {
+        id: indId,
+        advisor_individuals:
+          otherIndividualIdToName.get(indId) || `Individual ${indId}`,
+      },
+      _new_company: {
+        id: Number(r?.company_id ?? 0),
+        name: String(r?.company_name ?? ""),
+        linkedin_data: {
+          linkedin_logo: otherIndividualIdToLogo.get(indId) || "",
+        },
+        _is_that_investor: false,
+        _linkedin_data_of_new_company: {
+          linkedin_logo: otherIndividualIdToLogo.get(indId) || "",
+        },
+      },
+    }));
+  });
+
+  return { events, all_related_individuals };
+}
 
 class IndividualService {
   private getAuthHeaders() {
@@ -73,217 +346,25 @@ class IndividualService {
     const raw: any = await response.json();
 
     try {
-      // New shape detection
       const container = raw?.conterparty_table_content?.[0];
-      const relatedEventsStr = container?.related_events;
+      const parsed = parseCounterpartyRelatedEvents(container?.related_events);
 
-      if (
-        typeof relatedEventsStr === "string" &&
-        relatedEventsStr.trim().length > 0
-      ) {
-        // Parse the embedded JSON string
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const parsed: any = JSON.parse(relatedEventsStr);
+      if (parsed && Array.isArray(parsed.Events_Table)) {
+        return buildIndividualEventsFromCounterpartyPayload(parsed);
+      }
 
-        // Map Events_Table -> events
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const eventsTable: any[] = Array.isArray(parsed?.Events_Table)
-          ? parsed.Events_Table
-          : [];
-
-        // Build lookup maps of individual_id -> name/logo from Events_Table[]."Other Individuals"
-        const otherIndividualIdToName = new Map<number, string>();
-        const otherIndividualIdToLogo = new Map<number, string>();
-        for (const evt of eventsTable) {
-          const arr = Array.isArray(evt?.["Other Individuals"])
-            ? evt?.["Other Individuals"]
-            : [];
-          for (const oi of arr) {
-            const id = Number(oi?.individuals_id ?? 0);
-            const name = (oi?.name || "").toString().trim();
-            const logo = (oi?.company_logo || "").toString().trim();
-            if (id > 0) {
-              if (name) otherIndividualIdToName.set(id, name);
-              if (logo) otherIndividualIdToLogo.set(id, logo);
-            }
-          }
-        }
-
-        // Minimal currency id to code mapping (extend as needed)
-        const currencyIdToCode: Record<number, string> = {
-          7: "USD",
-        };
-
-        const cleanName = (name: unknown): string => {
-          const rawName = (name || "").toString();
-          // Remove anything inside parentheses including parentheses, typically notion URLs or status labels
-          // e.g., "With Intelligence (https://...)" -> "With Intelligence"
-          return rawName.replace(/\s*\([^)]*\)\s*/g, "").trim();
-        };
-
-        const events = eventsTable.map((evt) => {
-          // Safely pick fields with fallbacks
-          const description: string =
-            evt?.Description ?? evt?.description ?? "";
-          const announced: string =
-            evt?.["Date Announced"] ?? evt?.announcement_date ?? "";
-          const type: string = evt?.Type ?? evt?.deal_type ?? "";
-
-          // Enterprise Value mapping
-          const evObj = evt?.["Enterprise Value"] ?? evt?.ev_data ?? {};
-          const enterpriseValue = String(evObj?.enterprise_value_m ?? "");
-          const currencyId = Number(evObj?.currency_id ?? 0);
-          const currencyCode = currencyIdToCode[currencyId];
-
-          // Related counterparty mapping -> map into prior shape used by UI
-          const relatedCounterparty = evt?.["Related Counterparty"] ?? {};
-          const relatedCounterpartyStatus: string =
-            relatedCounterparty?.counterparty_status ?? "";
-          const relatedCounterpartyId = Number(
-            relatedCounterparty?.counterparty_id ?? 0
-          );
-          const relatedCounterpartyName = cleanName(
-            relatedCounterparty?.counterparty_name ?? ""
-          );
-
-          // Other counterparties mapping -> prior shape expects array with name
-          const otherCpsArr = Array.isArray(evt?.["Other Counterparties"])
-            ? evt?.["Other Counterparties"]
-            : [];
-
-          const otherCounterparties = otherCpsArr.map(
-            (cp: { counterparty_id?: number; counterparty_name?: string }) => ({
-              new_company_counterparty: Number(cp?.counterparty_id ?? 0),
-              id: Number(cp?.counterparty_id ?? 0),
-              name: cleanName(cp?.counterparty_name ?? ""),
-              _is_that_investor: false,
-              _is_that_data_analytic_company: false,
-            })
-          );
-
-          // Other individuals -> prior UI expects array with id + name; we only have ids here
-          const otherIndividualsArr = Array.isArray(evt?.["Other Individuals"])
-            ? evt?.["Other Individuals"]
-            : [];
-          const relatedIndividuals = otherIndividualsArr.map(
-            (oi: { individuals_id?: number; name?: string }) => {
-              const id = Number(oi?.individuals_id ?? 0);
-              const name = (oi?.name || "").toString().trim();
-              return {
-                id,
-                advisor_individuals: name || (id ? `Individual ${id}` : ""),
-              };
-            }
-          );
-
-          // Advisors -> map to prior shape expecting _new_company.name
-          const advisorsArr = Array.isArray(evt?.Advisors) ? evt?.Advisors : [];
-          const relatedAdvisors = advisorsArr.map(
-            (a: { company_id?: number; company_name?: string }) => ({
-              new_company_advised: Number(a?.company_id ?? 0),
-              _new_company: {
-                id: Number(a?.company_id ?? 0),
-                name: cleanName(a?.company_name ?? ""),
-                primary_business_focus_id: [],
-                _is_that_investor: false,
-                _is_that_data_analytic_company: false,
-              },
-            })
-          );
-
-          return {
-            id: Number(evt?.id ?? 0),
-            description,
-            announcement_date: announced,
-            deal_type: type,
-            ev_data: {
-              ev_source: "",
-              enterprise_value_m: enterpriseValue,
-              currency_id: currencyId,
-              ...(currencyCode
-                ? {
-                    _currency: {
-                      id: currencyId,
-                      created_at: 0,
-                      Currency: currencyCode,
-                    },
-                  }
-                : {}),
-            },
-            _other_advisors_of_corporate_event: [],
-            _target_counterparty_of_corporate_events:
-              relatedCounterpartyId > 0
-                ? {
-                    new_company_counterparty: relatedCounterpartyId,
-                    id: relatedCounterpartyId,
-                    name: relatedCounterpartyName,
-                  }
-                : undefined,
-            _other_counterparties_of_corporate_events: otherCounterparties,
-            _relater_to_corporate_event_cpawa_advisors_individuals: [],
-            _counterparty_advised_of_corporate_events: [
-              {
-                counterparty_type: 0,
-                _counterpartys_type: {
-                  counterparty_status: relatedCounterpartyStatus || "",
-                },
-              },
-            ],
-            _related_to_corporate_event_individuals: relatedIndividuals,
-            _related_advisor_to_corporate_events: relatedAdvisors,
-          } as CorporateEvent;
-        });
-
-        // Map Other_individuals -> all_related_individuals (best-effort)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const otherIndividuals: any[] = Array.isArray(parsed?.Other_individuals)
-          ? parsed.Other_individuals
-          : [];
-
-        const all_related_individuals = otherIndividuals.flatMap((ind) => {
-          const indId = Number(ind?.individuals_id ?? 0);
-          const roles: Array<{
-            role_id?: number;
-            company_id?: number;
-            company_name?: string;
-            status?: string;
-            job_titles?: string[];
-          }> = Array.isArray(ind?.roles) ? ind.roles : [];
-
-          return roles.map((r) => ({
-            id: Number(r?.role_id ?? indId),
-            individuals_id: indId,
-            employee_new_company_id: Number(r?.company_id ?? 0),
-            Status: (r?.status as "Current" | "Past") || "Current",
-            job_titles_id: (Array.isArray(r?.job_titles)
-              ? r?.job_titles
-              : []
-            ).map((jt) => ({ job_title: String(jt) })),
-            _individuals: {
-              id: indId,
-              advisor_individuals:
-                otherIndividualIdToName.get(indId) || `Individual ${indId}`,
-            },
-            _new_company: {
-              id: Number(r?.company_id ?? 0),
-              name: r?.company_name ?? "",
-              linkedin_data: {
-                linkedin_logo: otherIndividualIdToLogo.get(indId) || "",
-              },
-              _is_that_investor: false,
-              _linkedin_data_of_new_company: {
-                linkedin_logo: otherIndividualIdToLogo.get(indId) || "",
-              },
-            },
-          }));
-        });
-
-        const normalized: IndividualEventsResponse = {
+      const extracted = extractIndividualCorporateEvents(raw);
+      if (extracted.length > 0) {
+        const events = extracted.map((item) =>
+          normalizeIndividualCorporateEvent(item)
+        );
+        const relatedRaw = raw?.all_related_individuals ?? raw?.related_individuals;
+        return {
           events,
-          all_related_individuals,
+          all_related_individuals: Array.isArray(relatedRaw)
+            ? (relatedRaw as RelatedIndividual[])
+            : [],
         };
-
-        return normalized;
       }
     } catch (e) {
       console.warn(
@@ -293,7 +374,22 @@ class IndividualService {
     }
 
     // Fallback: assume it's already in the old, expected shape
-    return raw as IndividualEventsResponse;
+    const legacyEvents = extractIndividualCorporateEvents(raw);
+    if (legacyEvents.length > 0) {
+      return {
+        events: legacyEvents.map((item) => normalizeIndividualCorporateEvent(item)),
+        all_related_individuals: Array.isArray(raw?.all_related_individuals)
+          ? raw.all_related_individuals
+          : [],
+      };
+    }
+
+    return {
+      events: Array.isArray(raw?.events) ? raw.events : [],
+      all_related_individuals: Array.isArray(raw?.all_related_individuals)
+        ? raw.all_related_individuals
+        : [],
+    };
   }
 
   /**

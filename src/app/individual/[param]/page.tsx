@@ -122,11 +122,10 @@ export default function IndividualProfilePage() {
     }
   }, [displayName]);
 
-  const events = eventsData?.events || [];
-  const allCorporateEventsForProfile = useMemo(
-    () => mapIndividualEventsForProfile(events),
-    [events]
-  );
+  const allCorporateEventsForProfile = useMemo(() => {
+    const events = eventsData?.events ?? eventsData?.items ?? [];
+    return mapIndividualEventsForProfile(events);
+  }, [eventsData?.events, eventsData?.items]);
 
   const ceTotal = allCorporateEventsForProfile.length;
   const ceTotalPages =

@@ -5,7 +5,7 @@ import { decodeJwt, type JWTPayload } from "jose";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 
-import CorporateEventsPage from "@/app/corporate-events/page";
+import { CorporateEventsPageContent } from "@/components/corporate-events/CorporateEventsPageContent";
 import CorporateEventForm, {
   type CorporateEventFormData,
 } from "@/app/admin/data-entry/_components/CorporateEventForm";
@@ -119,7 +119,7 @@ function CEDataEntryContent() {
 
   return (
     <>
-      <CorporateEventsPage />
+      <CorporateEventsPageContent />
 
       <button
         type="button"

@@ -60,6 +60,7 @@ export interface Location {
 // API 2: Get Individual Events Response
 export interface IndividualEventsResponse {
   events: CorporateEvent[];
+  items?: CorporateEvent[];
   all_related_individuals: RelatedIndividual[];
 }
 
