@@ -7,8 +7,6 @@ import type {
   BuyerInvestorType,
   CorporateEventsFilters,
 } from "@/types/corporateEvents";
-import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
-
 export type CorporateEventsSearchFilters = CorporateEventsFilters;
 
 type SectorRef = { id: number; sector_name: string };
@@ -385,13 +383,6 @@ function appendSharedCorporateEventFilterParams(
 
   params.append("EV_min", filters.EV_min ?? "0");
   params.append("EV_max", filters.EV_max ?? "0");
-  params.append("Amount_min", filters.Amount_min ?? "0");
-  params.append("Amount_max", filters.Amount_max ?? "0");
-
-  appendPreferredCurrencyIdToSearchParams(
-    params,
-    filters.preferred_currency_id
-  );
 }
 
 function appendCorporateEventDealTypeParams(

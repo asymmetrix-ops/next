@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { PlusIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { corporateEventsService } from "../../../lib/corporateEventsService";
-import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import { useAuth } from "@/components/providers/AuthProvider";
 import {
   CorporateEventDetailResponse,
   CorporateEventAdvisor,
@@ -508,7 +508,9 @@ const CorporateEventDetail = ({
     };
   });
 
-  const advisorsData = advisors.map((a) => {
+  const advisorsData = advisors
+    .filter((advisor) => advisor?._new_company?.name)
+    .map((a) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const anyA = a as any;
     const rawLogo =
@@ -1267,7 +1269,7 @@ const CorporateEventDetail = ({
 // Main Page Component
 const CorporateEventDetailPage = () => {
   const params = useParams();
-  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
+  const { loading: authLoading, loginVersion } = useAuth();
   const [data, setData] = useState<CorporateEventDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1284,8 +1286,7 @@ const CorporateEventDetailPage = () => {
       }
 
       const response = await corporateEventsService.getCorporateEvent(
-        corporateEventId,
-        preferredCurrencyId
+        corporateEventId
       );
       setData(response);
     } catch (err) {
@@ -1294,26 +1295,27 @@ const CorporateEventDetailPage = () => {
 
       if (
         errorMessage === "Authentication required" ||
-        errorMessage.includes("Authentication token not found")
+        errorMessage.includes("Authentication token not found") ||
+        errorMessage.includes("authentication required")
       ) {
-        // AuthRouteGuard / PageRemountOnLogin handle login modal and prospect gate.
         setError(null);
+        setData(null);
         return;
       }
 
       setError(errorMessage);
+      setData(null);
     } finally {
       setLoading(false);
     }
-  }, [params.id, preferredCurrencyId]);
+  }, [params.id]);
 
   useEffect(() => {
-    if (params.id) {
-      fetchData();
-    }
-  }, [fetchData, params.id]);
+    if (authLoading || !params.id) return;
+    void fetchData();
+  }, [authLoading, fetchData, loginVersion, params.id]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div
         style={{

@@ -4,6 +4,24 @@ import { dispatchUnauthorized } from "./authEvents";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
 
+function extractAdvisorCorporateEvents(payload: unknown) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object") return [];
+
+  const record = payload as Record<string, unknown>;
+  const candidates = [
+    record.items,
+    record.events,
+    record.New_Events_Wits_Advisors,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+  }
+
+  return [];
+}
+
 class AdvisorService {
   private getAuthHeaders() {
     const token = authService.getToken();
@@ -77,7 +95,7 @@ class AdvisorService {
 
     const payload = (await response.json()) as unknown;
     return {
-      events: Array.isArray(payload) ? payload : [],
+      events: extractAdvisorCorporateEvents(payload),
     };
   }
 

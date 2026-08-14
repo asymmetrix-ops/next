@@ -111,6 +111,8 @@ function resolveChartEmployeeCount(data: EmployeeTimeSeriesPoint[]): number {
   return last > 0 ? last : lastNonZero;
 }
 
+const DEALS_PREVIEW_COUNT = 3;
+
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   if (logo) {
     return (
@@ -283,6 +285,7 @@ export default function AdvisorProfilePage() {
   const [jobTitleById, setJobTitleById] = useState<Map<number, string>>(
     () => new Map()
   );
+  const [dealsPage, setDealsPage] = useState(1);
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
     advisorId,
@@ -632,6 +635,10 @@ export default function AdvisorProfilePage() {
     }
   }, [advisorData?.Advisor?.name]);
 
+  useEffect(() => {
+    setDealsPage(1);
+  }, [advisorId]);
+
   const safeEvents: AdvisorDealEvent[] = useMemo(
     () =>
       Array.isArray(corporateEvents)
@@ -639,6 +646,36 @@ export default function AdvisorProfilePage() {
         : [],
     [corporateEvents]
   );
+
+  const sortedDeals = useMemo(
+    () =>
+      [...safeEvents].sort((a, b) => {
+        const ta = a.announcement_date
+          ? new Date(a.announcement_date).getTime()
+          : 0;
+        const tb = b.announcement_date
+          ? new Date(b.announcement_date).getTime()
+          : 0;
+        return tb - ta;
+      }),
+    [safeEvents]
+  );
+
+  const dealsTotal = sortedDeals.length;
+  const dealsTotalPages =
+    dealsTotal > 0 ? Math.ceil(dealsTotal / DEALS_PREVIEW_COUNT) : 0;
+  const dealsShowingFrom =
+    dealsTotal > 0 ? (dealsPage - 1) * DEALS_PREVIEW_COUNT + 1 : 0;
+  const dealsShowingTo =
+    dealsTotal > 0
+      ? Math.min(dealsPage * DEALS_PREVIEW_COUNT, dealsTotal)
+      : 0;
+  const displayedDeals = useMemo(() => {
+    const start = (dealsPage - 1) * DEALS_PREVIEW_COUNT;
+    return sortedDeals.slice(start, start + DEALS_PREVIEW_COUNT);
+  }, [sortedDeals, dealsPage]);
+  const canDealsPrev = dealsTotal > 0 && dealsPage > 1;
+  const canDealsNext = dealsTotal > 0 && dealsPage < dealsTotalPages;
 
   if (loading) {
     return (
@@ -992,8 +1029,20 @@ export default function AdvisorProfilePage() {
               <LinkPanel fillGridCell className="advisor-deals-v3-card">
                 <AdvisorDealsProfilePanel
                   variant="summary"
-                  events={safeEvents}
-                  totalCount={safeEvents.length}
+                  events={displayedDeals}
+                  totalCount={dealsTotal}
+                  rangeStart={dealsShowingFrom}
+                  rangeEnd={dealsShowingTo}
+                  canPrev={canDealsPrev}
+                  canNext={canDealsNext}
+                  onPrev={() => {
+                    if (dealsPage > 1) setDealsPage(dealsPage - 1);
+                  }}
+                  onNext={() => {
+                    if (dealsPage < dealsTotalPages) setDealsPage(dealsPage + 1);
+                  }}
+                  browseAllHref="/corporate-events"
+                  fillGridCell
                 />
               </LinkPanel>
             </div>

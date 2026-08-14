@@ -33,6 +33,7 @@ export const useAdvisorProfile = ({ advisorId }: UseAdvisorProfileProps) => {
       const eventsPayload = completeProfile.events;
       const events =
         (eventsPayload as CorporateEventsResponse | null | undefined)?.events ||
+        (eventsPayload as CorporateEventsResponse | null | undefined)?.items ||
         (eventsPayload as CorporateEventsResponse | null | undefined)
           ?.New_Events_Wits_Advisors ||
         [];
@@ -100,7 +101,9 @@ export const useAdvisorIndividualCalls = ({
       const data: CorporateEventsResponse = await advisorService.getCorporateEvents(
         advisorId
       );
-      setCorporateEvents(data?.events || []);
+      setCorporateEvents(
+        data?.events || data?.items || data?.New_Events_Wits_Advisors || []
+      );
     } catch (err) {
       setEventsError(
         err instanceof Error ? err.message : "Failed to fetch corporate events"

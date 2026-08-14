@@ -5,15 +5,17 @@ import {
   CorporateEventDetailResponse,
 } from "../types/corporateEvents";
 import {
-  appendPreferredCurrencyIdToSearchParams,
-  readPlatformCurrencyIdClient,
-} from "@/lib/platformCurrency";
+  getCorporateEventDetailApiError,
+  hasCorporateEventDetailPayload,
+  normalizeCorporateEventDetailResponse,
+} from "@/lib/corporateEventDetail";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
 
 class CorporateEventsService {
   private getAuthHeaders() {
-    const token = authService.getToken();
+    authService.ensureAuthCookie();
+    const token = authService.getToken() ?? authService.getTokenFromCookie();
     if (!token) {
       throw new Error("Authentication token not found");
     }
@@ -81,13 +83,6 @@ class CorporateEventsService {
     }
     queryParams.append("EV_min", filters.EV_min ?? "0");
     queryParams.append("EV_max", filters.EV_max ?? "0");
-    queryParams.append("Amount_min", filters.Amount_min ?? "0");
-    queryParams.append("Amount_max", filters.Amount_max ?? "0");
-
-    appendPreferredCurrencyIdToSearchParams(
-      queryParams,
-      filters.preferred_currency_id ?? readPlatformCurrencyIdClient()
-    );
 
     const url = `${BASE_URL}/get_all_corporate_events?${queryParams.toString()}`;
 
@@ -137,17 +132,13 @@ class CorporateEventsService {
   }
 
   async getCorporateEvent(
-    corporateEventId: string,
-    preferredCurrencyId?: number
+    corporateEventId: string
   ): Promise<CorporateEventDetailResponse> {
-    const params = new URLSearchParams({
-      corporate_event_id: corporateEventId,
-    });
-    appendPreferredCurrencyIdToSearchParams(
-      params,
-      preferredCurrencyId ?? readPlatformCurrencyIdClient()
-    );
-    const url = `${BASE_URL}/corporate_event_v2?${params.toString()}`;
+    // Production api:617tZc8l does not support preferred_currency_id on this
+    // endpoint yet (develop api:617tZc8l:develop does). Sending it triggers a
+    // Xano runtime error in result1. Amounts use native deal currency until prod
+    // backend currency conversion is deployed.
+    const url = `${BASE_URL}/corporate_event_v2?corporate_event_id=${encodeURIComponent(corporateEventId)}`;
 
     const response = await fetch(url, {
       method: "GET",
@@ -167,38 +158,17 @@ class CorporateEventsService {
     }
 
     const data = await response.json();
-
-    // Normalize v2 response that wraps JSON strings inside result1[0]
-    // and gracefully fallback to already-normalized shapes
-    const safeParse = <T>(value: unknown, fallback: T): T => {
-      if (typeof value !== "string") return (value as T) ?? fallback;
-      try {
-        const parsed = JSON.parse(value as string);
-        return (parsed as T) ?? fallback;
-      } catch {
-        return fallback;
-      }
-    };
-
-    if (
-      data &&
-      (Array.isArray(data.result1) || typeof data.result1 === "object")
-    ) {
-      const r1 = data.result1 as unknown;
-      const first = (Array.isArray(r1) ? r1[0] : r1) as Record<string, unknown>;
-      const normalized: CorporateEventDetailResponse = {
-        Event: safeParse(first.Event, []),
-        Event_counterparties: safeParse(first.Event_counterparties, []),
-        Event_advisors: safeParse(first.Event_advisors, []),
-        Primary_sectors: safeParse(first.Primary_sectors, []),
-        // Note: key contains a hyphen
-        ["Sub-sectors"]: safeParse(first["Sub-sectors"], []),
-        Previous_Corporate_Events: safeParse(first.Previous_Corporate_Events, []),
-      } as CorporateEventDetailResponse;
-      return normalized;
+    const apiError = getCorporateEventDetailApiError(data);
+    if (apiError) {
+      throw new Error(
+        "Corporate event data is temporarily unavailable. Deal amounts are shown in native currency until currency conversion is enabled on production."
+      );
     }
-
-    return data as CorporateEventDetailResponse;
+    const normalized = normalizeCorporateEventDetailResponse(data);
+    if (!hasCorporateEventDetailPayload(normalized)) {
+      throw new Error("Corporate event not found");
+    }
+    return normalized;
   }
 }
 

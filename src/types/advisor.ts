@@ -136,6 +136,7 @@ export type AdvisorCorporateEvent = AdvisorCorporateEventBase & {
 // Backends have shipped multiple payload shapes over time; support both.
 export interface CorporateEventsResponse {
   events?: AdvisorCorporateEvent[];
+  items?: AdvisorCorporateEvent[];
   New_Events_Wits_Advisors?: AdvisorCorporateEvent[];
 }
 

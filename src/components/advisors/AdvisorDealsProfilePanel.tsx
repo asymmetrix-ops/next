@@ -58,6 +58,15 @@ type Props = {
   events: AdvisorDealEvent[];
   totalCount: number;
   variant?: "summary" | "full";
+  loading?: boolean;
+  rangeStart?: number;
+  rangeEnd?: number;
+  canPrev?: boolean;
+  canNext?: boolean;
+  onPrev?: () => void;
+  onNext?: () => void;
+  browseAllHref?: string;
+  fillGridCell?: boolean;
   loadingFilters?: boolean;
   filterPrimarySectors?: SectorOption[];
   filterSecondarySectors?: SectorOption[];
@@ -209,10 +218,67 @@ function DealSectorLinks({
   );
 }
 
-function headerRightLine(total: number, pageSize: number, showAll: boolean): string {
-  if (total === 0) return "";
-  if (showAll) return `${total} deal${total === 1 ? "" : "s"}`;
-  return `${Math.min(pageSize, total)} of ${total}`;
+function DealsPagerBtn({
+  label,
+  enabled,
+  onClick,
+  ariaLabel,
+}: {
+  label: string;
+  enabled: boolean;
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={!enabled}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      style={{
+        width: 26,
+        height: 26,
+        borderRadius: 6,
+        border: `1px solid ${T.inset}`,
+        background: T.paper,
+        color: T.body,
+        fontFamily: T.sans,
+        fontSize: 14,
+        lineHeight: 1,
+        cursor: enabled ? "pointer" : "default",
+        opacity: enabled ? 1 : 0.35,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function headerRightLine(
+  events: AdvisorDealEvent[],
+  loading: boolean,
+  totalCount?: number
+): string {
+  const n = totalCount ?? events.length;
+  if (loading || n === 0) return "";
+  const years = events
+    .map((event) => {
+      const d = event.announcement_date;
+      if (!d) return null;
+      const y = new Date(d).getFullYear();
+      return Number.isNaN(y) ? null : y;
+    })
+    .filter((y): y is number => y != null);
+  const now = new Date().getFullYear();
+  let span = 5;
+  if (years.length) {
+    const minY = Math.min(...years);
+    span = Math.max(1, Math.min(99, now - minY + 1));
+  }
+  return `${n} deal${n === 1 ? "" : "s"} · Last ${span} yrs`;
 }
 
 function formatEnterpriseValue(
@@ -419,6 +485,15 @@ export function AdvisorDealsProfilePanel({
   events,
   totalCount,
   variant = "summary",
+  loading = false,
+  rangeStart = 0,
+  rangeEnd = 0,
+  canPrev = false,
+  canNext = false,
+  onPrev,
+  onNext,
+  browseAllHref = "/corporate-events",
+  fillGridCell = false,
   filterPrimarySectors = [],
   filterSecondarySectors = [],
   selectedFilterPrimary = [],
@@ -437,19 +512,33 @@ export function AdvisorDealsProfilePanel({
   const [showAll, setShowAll] = useState(false);
   const isSummary = variant === "summary";
   const sectorNameToId = useGlobalSectorNameLookup();
+  const usePagination = totalCount != null && onPrev != null && onNext != null;
 
   const sortedEvents = useMemo(() => sortEventsByDateDesc(events), [events]);
 
-  const displayed = showAll ? sortedEvents : sortedEvents.slice(0, pageSize);
+  const displayed = usePagination
+    ? sortedEvents
+    : showAll
+      ? sortedEvents
+      : sortedEvents.slice(0, pageSize);
   const total = totalCount > 0 ? totalCount : sortedEvents.length;
+  const resolvedTotal = totalCount ?? sortedEvents.length;
+  const rangeLabel =
+    resolvedTotal > 0
+      ? `${rangeStart}–${rangeEnd} of ${resolvedTotal}`
+      : `0 of 0`;
 
   const headerRight = useMemo(
-    () => headerRightLine(total, pageSize, showAll),
-    [pageSize, showAll, total]
+    () =>
+      usePagination
+        ? headerRightLine(events, loading, totalCount)
+        : headerRightLine(sortedEvents, false, total),
+    [events, loading, sortedEvents, total, totalCount, usePagination]
   );
 
   const rowGrid = isSummary ? SUMMARY_ROW_GRID : FULL_ROW_GRID;
   const headers = isSummary ? SUMMARY_HEADERS : FULL_HEADERS;
+  const pinFooter = fillGridCell && usePagination;
 
   return (
     <div
@@ -460,6 +549,11 @@ export function AdvisorDealsProfilePanel({
         display: "flex",
         flexDirection: "column",
         height: "100%",
+        ...(pinFooter
+          ? {
+              minHeight: 0,
+            }
+          : {}),
       }}
     >
       {isSummary ? (
@@ -678,7 +772,16 @@ export function AdvisorDealsProfilePanel({
         </>
       ) : null}
 
-      <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, flex: 1, minHeight: 0 }}>
+      <div
+        style={{
+          overflowX: "auto",
+          maxWidth: "100%",
+          minWidth: 0,
+          flex: 1,
+          minHeight: 0,
+          ...(pinFooter ? { flex: 1, minHeight: 0 } : {}),
+        }}
+      >
         {isSummary ? (
           <SummaryDealsTable
             events={displayed}
@@ -850,7 +953,52 @@ export function AdvisorDealsProfilePanel({
         )}
       </div>
 
-      {isSummary && total > pageSize ? (
+      {usePagination ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "10px 16px",
+            borderTop: `1px solid ${T.hair}`,
+            fontFamily: T.sans,
+            fontSize: 13,
+            flexShrink: 0,
+            ...(pinFooter ? { marginTop: "auto" } : {}),
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <DealsPagerBtn
+              label="‹"
+              enabled={canPrev}
+              onClick={onPrev!}
+              ariaLabel="Previous deals advised"
+            />
+            <DealsPagerBtn
+              label="›"
+              enabled={canNext}
+              onClick={onNext!}
+              ariaLabel="Next deals advised"
+            />
+            <span style={{ color: T.muted, fontSize: 13 }}>
+              {loading ? "-" : `Showing ${rangeLabel}`}
+            </span>
+          </div>
+          <Link
+            href={browseAllHref}
+            prefetch={false}
+            style={{
+              color: T.azure,
+              fontWeight: 500,
+              textDecoration: "none",
+              fontFamily: T.sans,
+              fontSize: 13,
+            }}
+          >
+            Browse all {loading ? "-" : resolvedTotal} →
+          </Link>
+        </div>
+      ) : isSummary && total > pageSize ? (
         <div style={{ textAlign: "center", padding: "12px 0 16px" }}>
           <button
             type="button"
@@ -871,7 +1019,7 @@ export function AdvisorDealsProfilePanel({
         </div>
       ) : null}
 
-      {!isSummary && sortedEvents.length > pageSize && !showAll ? (
+      {!usePagination && !isSummary && sortedEvents.length > pageSize && !showAll ? (
         <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.hair}` }}>
           <button
             type="button"
