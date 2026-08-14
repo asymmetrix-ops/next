@@ -29,6 +29,7 @@ export type CompanyRow = {
 export type CompanyColumnRenderContext = {
   index: number;
   onCompanyClick: (companyId: number) => void;
+  currencyCode?: string;
 };
 
 export interface CompanyColumnDefinition {
@@ -311,7 +312,7 @@ const makeTextColumn = (
   label,
   group,
   ...options,
-  render: (company) => {
+  render: (company, context) => {
     if (key === "years_since_last_investment") {
       return toPlainText(company.years_since_last_investment);
     }
@@ -324,7 +325,12 @@ const makeTextColumn = (
     if (columnType === "text" || columnType === "paragraph" || columnType === "url") {
       return toPlainText(raw);
     }
-    return formatCompanyColumnDisplay(key, columnType, raw);
+    return formatCompanyColumnDisplay(
+      key,
+      columnType,
+      raw,
+      context.currencyCode
+    );
   },
 });
 

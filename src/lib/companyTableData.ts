@@ -124,12 +124,18 @@ export function formatNrrValue(value: unknown): string {
   return formatPercentValue(value);
 }
 
-export function formatMetricMillions(value: unknown): string {
+export function formatMetricMillions(
+  value: unknown,
+  currencyCode: string = DEFAULT_METRIC_CURRENCY
+): string {
   if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
-  return appendMetricCurrency(formatPlainNumber(value), DEFAULT_METRIC_CURRENCY);
+  return appendMetricCurrency(formatPlainNumber(value), currencyCode);
 }
 
-export function formatMetricCurrency(value: unknown): string {
+export function formatMetricCurrency(
+  value: unknown,
+  currencyCode: string = DEFAULT_METRIC_CURRENCY
+): string {
   if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
   const num =
     typeof value === "number"
@@ -139,7 +145,7 @@ export function formatMetricCurrency(value: unknown): string {
   const formatted = Math.round(num).toLocaleString("en-US", {
     maximumFractionDigits: 0,
   });
-  return appendMetricCurrency(formatted, DEFAULT_METRIC_CURRENCY);
+  return appendMetricCurrency(formatted, currencyCode);
 }
 
 export function formatWholeNumberValue(value: unknown): string {
@@ -179,7 +185,8 @@ const PERCENT_COLUMN_KEYS = new Set([
 export function formatCompanyColumnDisplay(
   columnKey: string,
   columnType: CompanyColumnType,
-  raw: unknown
+  raw: unknown,
+  currencyCode: string = DEFAULT_METRIC_CURRENCY
 ): string {
   if (isEmptyMetricValue(raw)) return EMPTY_DISPLAY;
 
@@ -216,17 +223,19 @@ export function formatCompanyColumnDisplay(
     columnKey === "revenue_m" ||
     columnKey === "ebitda_m" ||
     columnKey === "enterprise_value" ||
-    columnKey === "ebit_m"
+    columnKey === "ev" ||
+    columnKey === "ebit_m" ||
+    columnKey === "subscription_revenue_m"
   ) {
-    return formatMetricMillions(raw);
+    return formatMetricMillions(raw, currencyCode);
   }
 
   if (columnKey === "rev_per_client" || columnKey === "rev_per_employee") {
-    return formatMetricCurrency(raw);
+    return formatMetricCurrency(raw, currencyCode);
   }
 
   if (columnType === "currency") {
-    return formatMetricMillions(raw);
+    return formatMetricMillions(raw, currencyCode);
   }
 
   if (columnType === "number") {

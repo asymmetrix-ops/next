@@ -9,7 +9,11 @@ import {
 import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
 import { companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
 import type { CompanySearchPayload } from "@/lib/filterBuilder";
-import { readPlatformCurrencyIdClient } from "@/lib/platformCurrency";
+import {
+  DEFAULT_PLATFORM_CURRENCY,
+  platformCurrencyIdToCode,
+  readPlatformCurrencyIdClient,
+} from "@/lib/platformCurrency";
 import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
 import { mapCompanyTableApiRow } from "@/lib/companyTableData";
 import { normalizeCompaniesResponse } from "@/app/companies/normalizeCompaniesResponse";
@@ -207,7 +211,13 @@ function getCompanyCellValue(
     return toPlainText(raw);
   }
 
-  return formatCompanyColumnDisplay(column.key, columnType, raw);
+  return formatCompanyColumnDisplay(
+    column.key,
+    columnType,
+    raw,
+    platformCurrencyIdToCode(readPlatformCurrencyIdClient()) ??
+      DEFAULT_PLATFORM_CURRENCY
+  );
 }
 
 function appendUniqueItems(

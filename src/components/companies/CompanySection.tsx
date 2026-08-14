@@ -42,6 +42,7 @@ import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
 import { readLogoFromRecord } from "@/lib/companyLogo";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   getApiColumnsForSelectedKeys,
   getApiColumnsSignature,
@@ -217,6 +218,7 @@ type CompanyColumnRenderContext = {
   onGuestConversionClick?: () => void;
   readOnlyGuestMode?: boolean;
   sectorMaps?: SectorNameIdMaps;
+  currencyCode?: string;
 };
 
 interface CompanyColumnDefinition {
@@ -350,7 +352,7 @@ const makeTextColumn = (
   label,
   group,
   ...options,
-  render: (company) => {
+  render: (company, context) => {
     if (key === "years_since_last_investment") {
       return toPlainText(company.years_since_last_investment);
     }
@@ -377,7 +379,12 @@ const makeTextColumn = (
     if (columnType === "text" || columnType === "url") {
       return toPlainText(raw);
     }
-    return formatCompanyColumnDisplay(key, columnType, raw);
+    return formatCompanyColumnDisplay(
+      key,
+      columnType,
+      raw,
+      context.currencyCode
+    );
   },
 });
 
@@ -930,6 +937,7 @@ export const CompanySection = ({
   readOnlyGuestMode?: boolean;
 }) => {
   const router = useRouter();
+  const { currency: platformCurrency } = usePlatformCurrency();
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const sectionClassName = embedded
     ? "company-section company-section-embedded"
@@ -1457,6 +1465,7 @@ export const CompanySection = ({
                     onGuestConversionClick: openSalesConversion,
                     readOnlyGuestMode,
                     sectorMaps,
+                    currencyCode: platformCurrency,
                   })
                 )}
               </td>

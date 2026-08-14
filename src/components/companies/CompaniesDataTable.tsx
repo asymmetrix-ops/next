@@ -38,6 +38,7 @@ import {
   getSortValueForColumn,
 } from "./companiesTableSort";
 import { SEARCH_IDENTITY_COLUMN_KEYS } from "@/components/search/searchTableUtils";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 const ColumnsControlRoom = dynamic(
   () =>
@@ -109,6 +110,7 @@ export function CompaniesDataTable({
   emptyMessage = "No companies found.",
 }: CompaniesDataTableProps) {
   const router = useRouter();
+  const { currency: platformCurrency } = usePlatformCurrency();
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const apiColumnsSigRef = useRef<string | null>(null);
@@ -581,6 +583,7 @@ export function CompaniesDataTable({
                     {column.render(company, {
                       index,
                       onCompanyClick: handleCompanyClick,
+                      currencyCode: platformCurrency,
                     })}
                   </td>
                 ))}
