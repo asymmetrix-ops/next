@@ -841,12 +841,19 @@ function unwrapFinancialMetricsApiRows(data: unknown): FinancialMetricsApiRow[] 
     return data as FinancialMetricsApiRow[];
   }
   if (typeof data === "object" && data != null) {
-    const obj = data as { items?: unknown; financial_metrics?: unknown };
+    const obj = data as Record<string, unknown>;
     if (Array.isArray(obj.items)) {
       return obj.items as FinancialMetricsApiRow[];
     }
     if (Array.isArray(obj.financial_metrics)) {
       return obj.financial_metrics as FinancialMetricsApiRow[];
+    }
+    if (
+      "new_company_id" in obj ||
+      "Revenue_m" in obj ||
+      "id" in obj
+    ) {
+      return [obj as FinancialMetricsApiRow];
     }
   }
   return [];
@@ -953,16 +960,40 @@ export async function fetchCompanyFinancialMetricsCard(
 
   const params = new URLSearchParams();
   params.set("new_company_id", String(numericId));
-  appendPreferredCurrencyIdToSearchParams(
-    params,
-    preferredCurrencyId ?? readPlatformCurrencyIdClient()
-  );
+  const resolvedCurrencyId =
+    preferredCurrencyId ?? readPlatformCurrencyIdClient();
+  appendPreferredCurrencyIdToSearchParams(params, resolvedCurrencyId);
 
-  const res = await fetch(`${API_BASE}?${params.toString()}`, {
+  const headersWithJson: Record<string, string> = {
+    ...headers,
+    "Content-Type": "application/json",
+  };
+
+  let res = await fetch(`${API_BASE}?${params.toString()}`, {
     method: "GET",
     headers,
     credentials: "include",
   });
+
+  if (!res.ok) {
+    const candidateBodies = [
+      { new_company_id: numericId, preferred_currency_id: resolvedCurrencyId },
+      { company_id: numericId, preferred_currency_id: resolvedCurrencyId },
+      { id: numericId, preferred_currency_id: resolvedCurrencyId },
+    ];
+    for (const body of candidateBodies) {
+      const attempt = await fetch(API_BASE, {
+        method: "POST",
+        headers: headersWithJson,
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      if (attempt.ok) {
+        res = attempt;
+        break;
+      }
+    }
+  }
 
   if (!res.ok) return empty;
 

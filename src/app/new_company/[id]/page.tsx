@@ -12,7 +12,10 @@ import { FollowButton } from "@/components/FollowButton";
 import { BellIcon } from "@heroicons/react/24/outline";
 import { useRightClick } from "@/hooks/useRightClick";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
-import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
+import {
+  fetchCompanyFinancialMetricsCard,
+  resolveLatestFinancialMetricsRow,
+} from "@/lib/companyFinancialMetricsCard";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
 import {
@@ -1150,58 +1153,15 @@ const CompanyDetail = () => {
         setFinancialMetrics(null);
         return;
       }
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      };
 
-      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics`;
-      // Attempt GET with query param
-      const params = new URLSearchParams();
-      params.append("new_company_id", String(id));
-      appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
-      let res = await fetch(`${base}?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        // Fallback to POST with common id keys
-        const candidateBodies = [
-          { new_company_id: Number(id), preferred_currency_id: preferredCurrencyId },
-          { company_id: Number(id), preferred_currency_id: preferredCurrencyId },
-          { id: Number(id), preferred_currency_id: preferredCurrencyId },
-        ];
-        for (const body of candidateBodies) {
-          const attempt = await fetch(base, {
-            method: "POST",
-            headers,
-            credentials: "include",
-            body: JSON.stringify(body),
-          });
-          if (attempt.ok) {
-            res = attempt;
-            break;
-          }
-        }
-      }
-
-      if (!res.ok) {
-        setFinancialMetrics(null);
-        return;
-      }
-      const data = await res.json();
-      // API may return a single object or an array
-      const payload: CompanyFinancialMetrics | null = Array.isArray(data)
-        ? (data[0] as CompanyFinancialMetrics | undefined) || null
-        : (data as CompanyFinancialMetrics);
-      if (payload && typeof payload === "object") {
-        setFinancialMetrics(payload);
-      } else {
-        setFinancialMetrics(null);
-      }
+      const { metricsRows } = await fetchCompanyFinancialMetricsCard(
+        id,
+        preferredCurrencyId
+      );
+      const latest = resolveLatestFinancialMetricsRow(metricsRows);
+      setFinancialMetrics(
+        latest ? (latest as CompanyFinancialMetrics) : null
+      );
     } catch {
       setFinancialMetrics(null);
     }

@@ -26,8 +26,9 @@ import {
 } from "@/utils/individualHelpers";
 import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
 import {
-  appendPreferredCurrencyIdToSearchParams,
-} from "@/lib/platformCurrency";
+  fetchCompanyFinancialMetricsCard,
+  resolveLatestFinancialMetricsRow,
+} from "@/lib/companyFinancialMetricsCard";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   fetchCompanyLinkedIn,
@@ -1750,73 +1751,15 @@ const CompanyDetail = () => {
         setFinancialMetrics(null);
         return;
       }
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      };
 
-      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics`;
-      // Attempt GET with query param
-      const params = new URLSearchParams();
-      params.append("new_company_id", String(id));
-      appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
-      let res = await fetch(`${base}?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        // Fallback to POST with common id keys
-        const candidateBodies = [
-          { new_company_id: Number(id), preferred_currency_id: preferredCurrencyId },
-          { company_id: Number(id), preferred_currency_id: preferredCurrencyId },
-          { id: Number(id), preferred_currency_id: preferredCurrencyId },
-        ];
-        for (const body of candidateBodies) {
-          const attempt = await fetch(base, {
-            method: "POST",
-            headers,
-            credentials: "include",
-            body: JSON.stringify(body),
-          });
-          if (attempt.ok) {
-            res = attempt;
-            break;
-          }
-        }
-      }
-
-      if (!res.ok) {
-        setFinancialMetrics(null);
-        return;
-      }
-      const data = await res.json();
-      const rows: CompanyFinancialMetrics[] = Array.isArray(data)
-        ? (data as CompanyFinancialMetrics[])
-        : data && typeof data === "object"
-          ? [data as CompanyFinancialMetrics]
-          : [];
-      const payload =
-        rows.length === 0
-          ? null
-          : [...rows].sort((a, b) => {
-              const yearA =
-                extractValidYear(
-                  a.financial_year_text ?? a.Financial_Year
-                ) ?? 0;
-              const yearB =
-                extractValidYear(
-                  b.financial_year_text ?? b.Financial_Year
-                ) ?? 0;
-              return yearA - yearB;
-            })[rows.length - 1] ?? null;
-      if (payload && typeof payload === "object") {
-        setFinancialMetrics(payload);
-      } else {
-        setFinancialMetrics(null);
-      }
+      const { metricsRows } = await fetchCompanyFinancialMetricsCard(
+        id,
+        preferredCurrencyId
+      );
+      const latest = resolveLatestFinancialMetricsRow(metricsRows);
+      setFinancialMetrics(
+        latest ? (latest as CompanyFinancialMetrics) : null
+      );
     } catch {
       setFinancialMetrics(null);
     }
