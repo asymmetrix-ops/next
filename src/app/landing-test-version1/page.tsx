@@ -2,7 +2,6 @@ import { Navbar1 } from "./components/Navbar1";
 import { PlatformHero } from "./components/PlatformHero";
 import { Logo3 } from "./components/Logo3";
 import { Layout184 } from "./components/Layout184";
-import { Layout485 } from "./components/Layout485";
 import { Coverage } from "./components/Coverage";
 import { Testimonial1 } from "./components/Testimonial1";
 import { Blog16 } from "./components/Blog16";
@@ -23,7 +22,6 @@ export default function LandingTestVersion1Page() {
       <PlatformHero />
       <Logo3 />
       <Layout184 />
-      <Layout485 />
       <Coverage />
       <Testimonial1 />
       <Blog16 />

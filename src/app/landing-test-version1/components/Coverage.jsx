@@ -7,13 +7,41 @@ import {
   TabsTrigger,
 } from "@relume_io/relume-ui";
 import React from "react";
+import { AIDefensibilityVisual } from "./AIDefensibilityVisual";
 import { CompanyUniverseVisual } from "./CompanyUniverseVisual";
 import { DashboardMockup } from "./DashboardMockup";
 import { DealRadarVisual } from "./DealRadarVisual";
+import { DealTrackingVisual } from "./DealTrackingVisual";
+import { FinancialBenchmarkVisual } from "./FinancialBenchmarkVisual";
+import { InvestorPortfolioVisual } from "./InvestorPortfolioVisual";
 import { Reveal } from "./Reveal";
 import { SectorTaxonomyVisual } from "./SectorTaxonomyVisual";
 
 const TABS = [
+  {
+    value: "financial-intelligence",
+    trigger: "Financial Intelligence",
+    label: "Benchmark",
+    heading: "Financial Intelligence",
+    description:
+      "Asymmetrix gathers hard-to-find proprietary financial data specific to Data & Analytics companies, moving your understanding beyond generic company data providers, and enabling deal sourcing, benchmarking and market intelligence.",
+  },
+  {
+    value: "deal-radar",
+    trigger: "Deal Radar",
+    label: "Surface",
+    heading: "Deal Radar",
+    description:
+      "Know which Data & Analytics companies will transact before the rest of the market does. Asymmetrix provides proprietary intelligence on in-market companies and surfaces deal signals long before a process formally begins.",
+  },
+  {
+    value: "ai-defensibility",
+    trigger: "AI defensibility",
+    label: "Defend",
+    heading: "AI defensibility",
+    description:
+      "Asymmetrix's AI Exposure Index assesses individual data companies' AI risk exposure and defensibility. Our research reports analyse which business models AI disrupts, which it reinforces, and how this is reshaping valuations across the sector.",
+  },
   {
     value: "company-profiles",
     trigger: "Company profiles",
@@ -39,8 +67,7 @@ const TABS = [
     heading: "Investors & Advisors",
     description:
       "Follow the PE firms, venture investors and M&A advisors active in the space — their portfolios, mandates and deal history — so you always know who is transacting and who is advising them.",
-    stat: { value: "20k+", caption: "Investors covered" },
-    bars: [30, 60, 45, 75, 55],
+    stat: { value: "3,636", caption: "Investors covered" },
   },
   {
     value: "deal-tracking",
@@ -49,8 +76,7 @@ const TABS = [
     heading: "Deal tracking",
     description:
       "See in-market companies and live processes surfaced through proprietary deal signals, long before a transaction is formally announced.",
-    stat: { value: "500k+", caption: "Deals recorded" },
-    bars: [65, 50, 80, 40, 70],
+    stat: { value: "5,708", caption: "Corporate events tracked" },
   },
   {
     value: "market-analysis",
@@ -119,10 +145,18 @@ export function Coverage() {
                 </div>
                 {tab.value === "company-profiles" ? (
                   <CompanyUniverseVisual />
-                ) : tab.value === "deal-tracking" ? (
+                ) : tab.value === "deal-radar" ? (
                   <DealRadarVisual />
+                ) : tab.value === "deal-tracking" ? (
+                  <DealTrackingVisual />
                 ) : tab.value === "sector-intelligence" ? (
                   <SectorTaxonomyVisual />
+                ) : tab.value === "financial-intelligence" ? (
+                  <FinancialBenchmarkVisual />
+                ) : tab.value === "ai-defensibility" ? (
+                  <AIDefensibilityVisual />
+                ) : tab.value === "investors-advisors" ? (
+                  <InvestorPortfolioVisual />
                 ) : (
                   <DashboardMockup
                     label={tab.heading}
