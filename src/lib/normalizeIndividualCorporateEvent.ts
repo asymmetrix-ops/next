@@ -122,9 +122,117 @@ function isLegacyIndividualCorporateEvent(
   );
 }
 
+function resolvePreferredCurrencyName(raw: Record<string, unknown>): string | undefined {
+  const topLevel = String(raw.currency_name ?? "").trim();
+  if (topLevel) return topLevel;
+
+  const investmentData = raw.investment_data as Record<string, unknown> | undefined;
+  if (typeof investmentData?.currency === "string" && investmentData.currency.trim()) {
+    return investmentData.currency.trim();
+  }
+
+  const nestedCurrency = investmentData?.currency as { Currency?: string } | undefined;
+  if (nestedCurrency?.Currency?.trim()) {
+    return nestedCurrency.Currency.trim();
+  }
+
+  const evData = raw.ev_data as Record<string, unknown> | undefined;
+  if (typeof evData?.currency === "string" && evData.currency.trim()) {
+    return evData.currency.trim();
+  }
+
+  return undefined;
+}
+
+function resolveInvestmentData(
+  raw: Record<string, unknown>
+): CorporateEvent["investment_data"] | undefined {
+  const investmentDataRaw = raw.investment_data as Record<string, unknown> | undefined;
+  const amount =
+    investmentDataRaw?.investment_amount_m ??
+    investmentDataRaw?.investment_amount ??
+    raw.investment_amount_m ??
+    raw.investment_amount ??
+    null;
+
+  if (amount == null || String(amount).trim() === "") return undefined;
+
+  const preferredCurrency = resolvePreferredCurrencyName(raw);
+  const nativeCurrencyId = Number(investmentDataRaw?.currency_id ?? raw.currency_id ?? 0);
+  const nativeCurrency = (
+    investmentDataRaw?._currency as { Currency?: string } | undefined
+  )?.Currency?.trim();
+  const displayCurrency = preferredCurrency || nativeCurrency;
+  const fundingStage = String(
+    investmentDataRaw?.Funding_stage ?? investmentDataRaw?.funding_stage ?? ""
+  ).trim();
+
+  return {
+    investment_amount_m: String(amount),
+    currency_id: nativeCurrencyId,
+    ...(fundingStage ? { Funding_stage: fundingStage } : {}),
+    ...(displayCurrency
+      ? {
+          currency: displayCurrency,
+          _currency: {
+            id: nativeCurrencyId,
+            created_at: 0,
+            Currency: displayCurrency,
+          },
+        }
+      : {}),
+  };
+}
+
+function resolveEvData(
+  raw: Record<string, unknown>,
+  fallback?: CorporateEvent["ev_data"]
+): CorporateEvent["ev_data"] {
+  const evData = (raw.ev_data ?? fallback ?? {}) as {
+    ev_source?: string;
+    enterprise_value_m?: string | number | null;
+    currency_id?: number;
+    currency?: string | { Currency?: string };
+    _currency?: { Currency?: string };
+    ev_band?: string;
+  };
+
+  const enterpriseValueRaw =
+    raw.enterprise_value_m ?? evData.enterprise_value_m ?? "";
+  const currencyId = Number(raw.currency_id ?? evData.currency_id ?? 0);
+  const preferredCurrency = resolvePreferredCurrencyName(raw);
+  const nativeCurrency =
+    evData._currency?.Currency?.trim() ??
+    (typeof evData.currency === "string" ? evData.currency.trim() : undefined);
+  const currencyName = preferredCurrency || nativeCurrency;
+
+  return {
+    ev_source: String(raw.ev_source ?? evData.ev_source ?? ""),
+    enterprise_value_m: String(enterpriseValueRaw ?? ""),
+    currency_id: currencyId,
+    ...(evData.ev_band ? { ev_band: evData.ev_band } : {}),
+    ...(currencyName
+      ? {
+          _currency: {
+            id: currencyId,
+            created_at: 0,
+            Currency: currencyName,
+          },
+        }
+      : {}),
+  };
+}
+
 function resolveTargetCounterparty(
   raw: Record<string, unknown>
 ): TargetCounterparty | undefined {
+  const legacyTarget = raw._target_counterparty_of_corporate_events as
+    | TargetCounterparty
+    | undefined;
+  if (legacyTarget?.id && legacyTarget?.name) {
+    return legacyTarget;
+  }
+
   const target = parseTargetCompanies(raw.target_companies)[0];
   if (target) {
     return {
@@ -195,26 +303,24 @@ export function normalizeIndividualCorporateEvent(event: unknown): CorporateEven
     unknown
   >;
 
+  const investmentData = resolveInvestmentData(raw);
+  const investmentDisplay =
+    raw.investment_display != null ? String(raw.investment_display) : undefined;
+  const evDisplay = raw.ev_display != null ? String(raw.ev_display) : undefined;
+  const currencyName = resolvePreferredCurrencyName(raw);
+  const evData = resolveEvData(raw);
+
   if (isLegacyIndividualCorporateEvent(raw)) {
-    return raw as CorporateEvent;
+    const legacy = raw as CorporateEvent;
+    return {
+      ...legacy,
+      ...(investmentData ? { investment_data: investmentData } : {}),
+      ...(investmentDisplay ? { investment_display: investmentDisplay } : {}),
+      ...(evDisplay ? { ev_display: evDisplay } : {}),
+      ...(currencyName ? { currency_name: currencyName } : {}),
+      ev_data: evData,
+    };
   }
-
-  const evData = raw.ev_data as
-    | {
-        ev_source?: string;
-        enterprise_value_m?: string | number | null;
-        currency_id?: number;
-        _currency?: { Currency?: string };
-      }
-    | undefined;
-
-  const enterpriseValueRaw =
-    raw.enterprise_value_m ?? evData?.enterprise_value_m ?? "";
-  const currencyId = Number(raw.currency_id ?? evData?.currency_id ?? 0);
-  const currencyName =
-    String(raw.currency_name ?? "").trim() ||
-    evData?._currency?.Currency ||
-    undefined;
 
   const targetCounterparty = resolveTargetCounterparty(raw);
   const otherCounterparties = parseOtherCounterparties(
@@ -263,20 +369,11 @@ export function normalizeIndividualCorporateEvent(event: unknown): CorporateEven
       raw.announcement_date ?? raw["Date Announced"] ?? ""
     ),
     deal_type: String(raw.deal_type ?? raw.Type ?? ""),
-    ev_data: {
-      ev_source: String(raw.ev_source ?? evData?.ev_source ?? ""),
-      enterprise_value_m: String(enterpriseValueRaw ?? ""),
-      currency_id: currencyId,
-      ...(currencyName
-        ? {
-            _currency: {
-              id: currencyId,
-              created_at: 0,
-              Currency: currencyName,
-            },
-          }
-        : {}),
-    },
+    ...(investmentData ? { investment_data: investmentData } : {}),
+    ...(investmentDisplay ? { investment_display: investmentDisplay } : {}),
+    ...(evDisplay ? { ev_display: evDisplay } : {}),
+    ...(currencyName ? { currency_name: currencyName } : {}),
+    ev_data: evData,
     _other_advisors_of_corporate_event: [],
     _target_counterparty_of_corporate_events: targetCounterparty,
     _other_counterparties_of_corporate_events: otherCounterparties,

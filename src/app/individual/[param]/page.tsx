@@ -36,6 +36,9 @@ function mapIndividualEventsForProfile(
       announcement_date: event.announcement_date,
       deal_type: event.deal_type,
       investment_data: event.investment_data,
+      investment_display: event.investment_display,
+      ev_display: event.ev_display,
+      currency_name: event.currency_name,
       ev_data: event.ev_data,
       targets:
         target && targetId

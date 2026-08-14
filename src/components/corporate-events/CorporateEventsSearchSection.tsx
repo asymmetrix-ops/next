@@ -41,6 +41,8 @@ import {
 import {
   derivePrimaryFromCompany,
   formatCorporateEventDate,
+  formatCorporateEventEnterpriseValue,
+  formatCorporateEventInvestmentAmount,
   getFundingStage,
   getTargetCompany,
   getTargetCountry,
@@ -506,28 +508,12 @@ export const CorporateEventsSearchSection = ({
     );
   };
 
-  const formatAmountMillions = (
-    amount: number | string | null | undefined,
-    currency: string | null | undefined
-  ): string => {
-    if (amount == null || !currency) return "-";
-    const value = Number(amount);
-    if (!Number.isFinite(value)) return "-";
-    return `${currency}${value.toLocaleString(undefined, { maximumFractionDigits: 3 })}`;
-  };
-
   const renderDetailsCell = (event: CorporateEventItem): React.ReactNode => {
     const fundingStage = getFundingStage(event);
     const dealType = event.deal_type?.trim() || "";
     const isPartnership = /partnership/i.test(dealType);
-    const amount = formatAmountMillions(
-      event.investment_data?.investment_amount_m,
-      event.investment_data?.currency?.Currency
-    );
-    const ev = formatAmountMillions(
-      event.ev_data?.enterprise_value_m,
-      event.ev_data?.currency?.Currency
-    );
+    const amount = formatCorporateEventInvestmentAmount(event);
+    const ev = formatCorporateEventEnterpriseValue(event);
 
     return (
       <div>
@@ -546,10 +532,11 @@ export const CorporateEventsSearchSection = ({
         {!isPartnership && (
           <>
             <div className="muted-row">
-              <strong>Amount (m):</strong> {amount}
+              <strong>Amount (m):</strong>{" "}
+              {amount === "Not available" ? "-" : amount}
             </div>
             <div className="muted-row">
-              <strong>EV (m):</strong> {ev}
+              <strong>EV (m):</strong> {ev === "Not available" ? "-" : ev}
             </div>
           </>
         )}

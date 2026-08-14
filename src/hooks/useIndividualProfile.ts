@@ -4,6 +4,7 @@ import {
   IndividualResponse,
   IndividualEventsResponse,
 } from "../types/individual";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 interface UseIndividualProfileProps {
   individualId: number;
@@ -12,6 +13,7 @@ interface UseIndividualProfileProps {
 export const useIndividualProfile = ({
   individualId,
 }: UseIndividualProfileProps) => {
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const [profileData, setProfileData] = useState<IndividualResponse | null>(
     null
   );
@@ -50,7 +52,7 @@ export const useIndividualProfile = ({
     if (individualId && individualId > 0) {
       fetchData();
     }
-  }, [individualId, fetchData]);
+  }, [individualId, preferredCurrencyId, fetchData]);
 
   return {
     profileData,

@@ -1,6 +1,10 @@
 "use client";
 
 import React from "react";
+import {
+  formatCorporateEventEnterpriseValue,
+  formatCorporateEventInvestmentAmount,
+} from "@/lib/corporateEventAmountDisplay";
 
 export interface CorporateEventDealMetricsProps {
   dealType?: string | null;
@@ -15,6 +19,7 @@ export interface CorporateEventDealMetricsProps {
   evMillions?: number | string | null;
   evCurrency?: string | null;
   evBandFallback?: string | null;
+  event?: unknown;
 }
 
 const isNonEmptyString = (value: unknown): value is string =>
@@ -46,21 +51,6 @@ const pillGreenStyle: React.CSSProperties = {
   color: "#15803d",
 };
 
-const formatMillions = (
-  amount: number | string | null | undefined,
-  currency: string | null | undefined
-): string => {
-  if (amount == null || !isNonEmptyString(currency)) return "Not available";
-  const n =
-    typeof amount === "number"
-      ? amount
-      : Number(String(amount).replace(/,/g, "").trim());
-  if (Number.isNaN(n)) return "Not available";
-  return `${currency}${n.toLocaleString(undefined, {
-    maximumFractionDigits: 3,
-  })}`;
-};
-
 export const CorporateEventDealMetrics: React.FC<
   CorporateEventDealMetricsProps
 > = ({
@@ -70,24 +60,18 @@ export const CorporateEventDealMetrics: React.FC<
   amountLabel = "Amount (m)",
   evLabel = "EV (m)",
   amountDisplay,
-  amountMillions,
-  amountCurrency,
   evDisplay,
-  evMillions,
-  evCurrency,
-  evBandFallback,
+  event,
 }) => {
-  const hasEvDisplay = isNonEmptyString(evDisplay);
-  const hasEvNumeric =
-    evMillions != null &&
-    isNonEmptyString(evCurrency) &&
-    !Number.isNaN(
-      typeof evMillions === "number"
-        ? evMillions
-        : Number(String(evMillions).replace(/,/g, "").trim())
-    );
-  const hasEvBand = isNonEmptyString(evBandFallback);
-  const shouldShowEvRow = hasEvDisplay || hasEvNumeric || hasEvBand;
+  const resolvedAmountDisplay =
+    (isNonEmptyString(amountDisplay) ? amountDisplay : null) ??
+    (event ? formatCorporateEventInvestmentAmount(event) : "Not available");
+
+  const resolvedEvDisplay =
+    (isNonEmptyString(evDisplay) ? evDisplay : null) ??
+    (event ? formatCorporateEventEnterpriseValue(event, "") : "");
+
+  const shouldShowEvRow = isNonEmptyString(resolvedEvDisplay);
 
   return (
     <>
@@ -112,21 +96,11 @@ export const CorporateEventDealMetrics: React.FC<
       {!isPartnership && (
         <>
           <div style={mutedRowStyle}>
-            <strong>{amountLabel}:</strong>{" "}
-            {isNonEmptyString(amountDisplay)
-              ? amountDisplay
-              : formatMillions(amountMillions, amountCurrency)}
+            <strong>{amountLabel}:</strong> {resolvedAmountDisplay}
           </div>
           {shouldShowEvRow && (
             <div style={mutedRowStyle}>
-              <strong>{evLabel}:</strong>{" "}
-              {isNonEmptyString(evDisplay)
-                ? evDisplay
-                : hasEvNumeric
-                  ? formatMillions(evMillions, evCurrency)
-                  : isNonEmptyString(evBandFallback)
-                    ? evBandFallback
-                    : null}
+              <strong>{evLabel}:</strong> {resolvedEvDisplay}
             </div>
           )}
         </>

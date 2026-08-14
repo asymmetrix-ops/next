@@ -18,6 +18,7 @@ import {
   resolveAdvisorRouteId,
 } from "@/components/corporate-events/corporateEventsPartyLinks";
 import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
+import { formatCorporateEventAmountCell } from "@/lib/corporateEventAmountDisplay";
 
 type Props = {
   events: CorporateEvent[];
@@ -55,68 +56,8 @@ function formatFullDate(iso?: string | null): string {
   }
 }
 
-function sanitizeAmountValue(value?: number | string | null): number | string | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value === "number") return value;
-  const trimmed = String(value).trim();
-  if (!trimmed) return null;
-  const num = Number(trimmed.replace(/,/g, ""));
-  return Number.isNaN(num) ? trimmed : num;
-}
-
 function formatAmountCell(event: CorporateEvent): string {
-  const ne = event as {
-    deal_type?: string;
-    investment_display?: string | null;
-    ev_display?: string | null;
-    investment_data?: {
-      investment_amount_m?: number | string;
-      investment_amount?: number | string;
-      currency?: string | { Currency?: string } | null;
-      _currency?: { Currency?: string };
-    };
-    ev_data?: {
-      enterprise_value_m?: number | string;
-      ev_band?: string;
-      currency?: { Currency?: string } | null;
-      _currency?: { Currency?: string };
-    };
-  };
-
-  const dealType = ne.deal_type || "";
-  if (/partnership/i.test(dealType)) return "-";
-
-  const amountDisplay = ne.investment_display ?? null;
-  if (isNonEmptyString(amountDisplay)) return amountDisplay;
-
-  const amountRaw =
-    ne.investment_data?.investment_amount_m ?? ne.investment_data?.investment_amount ?? null;
-  const amount = sanitizeAmountValue(amountRaw);
-  const currency =
-    typeof ne.investment_data?.currency === "string"
-      ? ne.investment_data.currency
-      : ne.investment_data?.currency?.Currency ||
-        ne.investment_data?._currency?.Currency;
-
-  if (amount != null && typeof amount === "number" && isNonEmptyString(currency)) {
-    const cur = currency!.trim();
-    const prefix = cur.length <= 4 ? `${cur} ` : `${cur} `;
-    return `${prefix}${amount.toLocaleString(undefined, { maximumFractionDigits: 1 })}m`;
-  }
-
-  const evDisplay = ne.ev_display ?? null;
-  if (isNonEmptyString(evDisplay)) return evDisplay;
-
-  const evRaw = ne.ev_data?.enterprise_value_m ?? null;
-  const evAmount = sanitizeAmountValue(evRaw);
-  const evCurrency =
-    ne.ev_data?._currency?.Currency || ne.ev_data?.currency?.Currency;
-  if (evAmount != null && typeof evAmount === "number" && isNonEmptyString(evCurrency)) {
-    return `${evCurrency!.trim()} ${evAmount.toLocaleString(undefined, { maximumFractionDigits: 1 })}m`;
-  }
-
-  if (isNonEmptyString(ne.ev_data?.ev_band)) return ne.ev_data!.ev_band!;
-  return "-";
+  return formatCorporateEventAmountCell(event);
 }
 
 type Coinvestor = { id?: number; name: string; href?: string };

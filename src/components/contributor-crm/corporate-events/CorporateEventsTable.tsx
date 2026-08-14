@@ -277,17 +277,6 @@ const truncateDescription = (
     : description;
 };
 
-const sanitizeAmountValue = (
-  value?: number | string | null
-): number | string | null => {
-  if (value === null || value === undefined) return null;
-  if (typeof value === "number") return value;
-  const trimmed = String(value).trim();
-  if (!trimmed) return null;
-  const num = Number(trimmed.replace(/,/g, ""));
-  return Number.isNaN(num) ? trimmed : num;
-};
-
 const normalizeEntityHref = (args: {
   id?: number;
   route?: string;
@@ -521,52 +510,12 @@ export function CorporateEventsTable({
 
               const anyEvent = event as {
                 investment_data?: {
-                  investment_amount_m?: number | string;
-                  investment_amount?: number | string;
-                  currency?: string | { Currency?: string | null } | null;
-                  _currency?: { Currency?: string | null };
                   Funding_stage?: string;
                   funding_stage?: string;
-                };
-                ev_data?: {
-                  enterprise_value_m?: number | string;
-                  ev_band?: string;
-                  currency?: { Currency?: string | null } | null;
-                  _currency?: { Currency?: string | null };
                 };
               };
 
               const dealType = newEvent.deal_type || legacyEvent.deal_type;
-              const amountDisplay = newEvent.investment_display || null;
-              const amountRaw =
-                anyEvent.investment_data?.investment_amount_m ??
-                anyEvent.investment_data?.investment_amount ??
-                null;
-              const amountMillions = sanitizeAmountValue(amountRaw);
-              const amountCurrency: string | undefined =
-                typeof anyEvent.investment_data?.currency === "string"
-                  ? anyEvent.investment_data.currency
-                  : anyEvent.investment_data?.currency?.Currency ??
-                    anyEvent.investment_data?._currency?.Currency ??
-                    undefined;
-
-              const evDataRaw = legacyEvent.ev_data || newEvent.ev_data;
-              const evMillions = sanitizeAmountValue(
-                evDataRaw?.enterprise_value_m ?? null
-              );
-              const evCurrency: string | undefined =
-                evDataRaw?._currency?.Currency ??
-                evDataRaw?.currency?.Currency ??
-                undefined;
-              const hasEvNumeric =
-                evMillions !== null &&
-                typeof evCurrency === "string" &&
-                evCurrency.trim().length > 0;
-              const evDisplay = hasEvNumeric
-                ? null
-                : newEvent.ev_display || legacyEvent.ev_display || null;
-              const evBandFallback = hasEvNumeric ? null : evDataRaw?.ev_band || null;
-
               const fundingStage = (
                 anyEvent.investment_data?.Funding_stage ||
                 anyEvent.investment_data?.funding_stage ||
@@ -896,13 +845,7 @@ export function CorporateEventsTable({
                       dealType={dealType}
                       fundingStage={fundingStage || undefined}
                       isPartnership={isPartnership}
-                      amountDisplay={amountDisplay}
-                      amountMillions={amountMillions}
-                      amountCurrency={amountCurrency}
-                      evDisplay={evDisplay}
-                      evMillions={evMillions}
-                      evCurrency={evCurrency}
-                      evBandFallback={evBandFallback}
+                      event={event}
                     />
                   </td>
 

@@ -11,6 +11,10 @@ import {
   extractSellerLinks,
   extractTargetLinks,
 } from "@/components/corporate-events/corporateEventsPartyLinks";
+import {
+  formatCorporateEventEnterpriseValue,
+  formatCorporateEventInvestmentAmount,
+} from "@/lib/corporateEventAmountDisplay";
 
 export interface CorporateEventCSVRow {
   Description: string;
@@ -185,14 +189,8 @@ export class CSVExporter {
             : secondarySectors,
         "Deal Type": event.deal_type || "Not Available",
         "Funding Stage": fundingStage,
-        "Amount (m)": this.formatCurrency(
-          event.investment_data?.investment_amount_m,
-          event.investment_data?.currency?.Currency
-        ),
-        "EV (m)": this.formatCurrency(
-          event.ev_data?.enterprise_value_m,
-          event.ev_data?.currency?.Currency
-        ),
+        "Amount (m)": formatCorporateEventInvestmentAmount(event),
+        "EV (m)": formatCorporateEventEnterpriseValue(event),
         "Buyer(s)/Investor(s)": buyersInvestors || "Not Available",
         "Seller(s)": sellers || "Not Available",
         Advisors: advisors,

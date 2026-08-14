@@ -710,25 +710,6 @@ const formatWholeNumber = (value?: number | string | null): string => {
   if (n === undefined) return "-";
   return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
 };
-
-// Plain number formatter (no currency, preserve decimals as given)
-const formatPlainNumber = (value?: number | string | null): string => {
-  if (value === undefined || value === null) return "-";
-  if (typeof value === "number") {
-    return value.toLocaleString("en-US", { maximumFractionDigits: 10 });
-  }
-  const trimmed = String(value).trim();
-  if (trimmed.length === 0 || isEmptyDisplayValue(trimmed)) return "-";
-  const num = Number(trimmed.replace(/,/g, ""));
-  if (!Number.isFinite(num)) return "-";
-  const match = trimmed.match(/\.([0-9]+)/);
-  const frac = match ? Math.min(10, match[1].length) : 0;
-  return num.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: frac,
-  });
-};
-
 // Numeric parsing helper for numbers that may arrive as strings
 const getNumeric = (value?: number | string | null): number | undefined => {
   if (value === null || value === undefined) return undefined;
@@ -2650,10 +2631,6 @@ const CompanyDetail = () => {
         company.ev_data?.currency?.Currency
     ) || undefined;
 
-  const revenuePlain = formatPlainNumber(financialMetrics?.Revenue_m);
-  const ebitdaPlain = formatPlainNumber(financialMetrics?.EBITDA_m);
-  const evPlain = formatPlainNumber(financialMetrics?.EV);
-
   // Currency suffix to show once in heading (from company_financial_metrics only)
   const metricsCurrencyCode =
     normalizeCurrency(financialMetrics?.Income_statement_currency) ||
@@ -2815,14 +2792,10 @@ const CompanyDetail = () => {
 
   const finMetricsData = buildFinancialMetricsSections({
     financialMetrics,
-    revenuePlain,
-    ebitdaPlain,
-    evPlain,
     currencyCode: metricsCurrencyCode,
     getSourceText,
     formatPercent,
     formatMultiple,
-    formatPlainNumber,
     formatWholeNumber,
     getNumeric,
     periodDisplay: financialMetricsPeriodDisplay || undefined,

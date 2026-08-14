@@ -39,6 +39,7 @@ import {
   type CompanyLinkedInResponse,
 } from "@/lib/companyLinkedIn";
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
 import { ExpandableText } from "@/components/common/ExpandableText";
 import {
   formatCompanyMcpDisplay,
@@ -536,25 +537,6 @@ const formatDate = (dateString: string): string => {
   const date = new Date(parseInt(year), parseInt(month) - 1);
   return date.toLocaleDateString("en-US", { year: "numeric", month: "short" });
 };
-
-// Plain number formatter (no currency, preserve decimals as given)
-const formatPlainNumber = (value?: number | string | null): string => {
-  if (value === undefined || value === null) return "Not available";
-  if (typeof value === "number") {
-    return value.toLocaleString("en-US", { maximumFractionDigits: 10 });
-  }
-  const trimmed = String(value).trim();
-  if (trimmed.length === 0) return "Not available";
-  const num = Number(trimmed.replace(/,/g, ""));
-  if (!Number.isFinite(num)) return trimmed;
-  const match = trimmed.match(/\.([0-9]+)/);
-  const frac = match ? Math.min(10, match[1].length) : 0;
-  return num.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: frac,
-  });
-};
-
 // Numeric parsing helper for numbers that may arrive as strings
 const getNumeric = (value?: number | string | null): number | undefined => {
   if (value === null || value === undefined) return undefined;
@@ -1947,9 +1929,9 @@ const CompanyDetail = () => {
         company.ev_data?.currency?.Currency
     ) || undefined;
 
-  const revenuePlain = formatPlainNumber(financialMetrics?.Revenue_m);
-  const ebitdaPlain = formatPlainNumber(financialMetrics?.EBITDA_m);
-  const evPlain = formatPlainNumber(financialMetrics?.EV);
+  const revenuePlain = formatMetricMillionsPlain(financialMetrics?.Revenue_m);
+  const ebitdaPlain = formatMetricMillionsPlain(financialMetrics?.EBITDA_m);
+  const evPlain = formatMetricMillionsPlain(financialMetrics?.EV);
 
   // Currency suffix to show once in heading (from company_financial_metrics only)
   const metricsCurrencyCode =
@@ -4137,7 +4119,7 @@ const CompanyDetail = () => {
                 <span style={styles.label}>Subscription revenue (m):</span>
                 <span style={styles.value}>
                   {subscriptionMoney(
-                    formatPlainNumber(financialMetrics?.Subscription_revenue_m)
+                    formatMetricMillionsPlain(financialMetrics?.Subscription_revenue_m)
                   )}
                 </span>
                 <span style={styles.sourceValue}>
@@ -4265,7 +4247,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
                 <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.EBIT_m)}
+                  {formatMetricMillionsPlain(financialMetrics?.EBIT_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4663,7 +4645,7 @@ const CompanyDetail = () => {
                 <span style={styles.label}>Subscription revenue (m):</span>
                 <span style={styles.value}>
                   {subscriptionMoney(
-                    formatPlainNumber(financialMetrics?.Subscription_revenue_m)
+                    formatMetricMillionsPlain(financialMetrics?.Subscription_revenue_m)
                   )}
                 </span>
                 <span style={styles.sourceValue}>
@@ -4791,7 +4773,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
                 <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.EBIT_m)}
+                  {formatMetricMillionsPlain(financialMetrics?.EBIT_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(

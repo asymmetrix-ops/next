@@ -28,6 +28,9 @@ import {
 import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
+import { extractInvestorCorporateEvents } from "@/lib/normalizeCounterpartyCorporateEvents";
 
 const CE_PREVIEW_COUNT = 2;
 
@@ -386,6 +389,7 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
 const InvestorDetailPage = () => {
   const params = useParams();
   const investorId = params.id as string;
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const descriptionRef = useRef<HTMLDivElement>(null);
   const overviewGridRef = useRef<HTMLDivElement | null>(null);
   const descriptionGridRef = useRef<HTMLDivElement | null>(null);
@@ -793,6 +797,7 @@ const InvestorDetailPage = () => {
 
       const params = new URLSearchParams();
       params.append("new_company_id", investorId);
+      appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
 
       const response = await fetch(
         `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/Get_investors_corporate_events?${params.toString()}`,
@@ -814,9 +819,7 @@ const InvestorDetailPage = () => {
 
       const data: CorporateEventsResponse = await response.json();
       console.log("Corporate events API response:", data);
-      // Handle both API response formats
-      const events =
-        data.Corporate_Events || data.New_Events_Wits_Advisors || data.items || [];
+      const events = extractInvestorCorporateEvents(data);
 
       // Normalize advisors so `CorporateEventsTable` can render + link them.
       // Investor CE endpoint often returns { advisor_company_id, advisor_company_name } instead of { advisor_company: {id,name} }.
@@ -846,7 +849,8 @@ const InvestorDetailPage = () => {
       };
 
       const normalizedEvents: CorporateEvent[] = (Array.isArray(events) ? events : []).map(
-        (ev): CorporateEvent => {
+        (rawEv): CorporateEvent => {
+        const ev = rawEv as CorporateEvent;
         const rawAdvisors = (ev as unknown as { advisors?: unknown }).advisors;
         if (!Array.isArray(rawAdvisors)) return ev;
 
@@ -917,7 +921,7 @@ const InvestorDetailPage = () => {
     } finally {
       setCorporateEventsLoading(false);
     }
-  }, [investorId]);
+  }, [investorId, preferredCurrencyId]);
 
   // Fetch LinkedIn history data using the same API pattern as company page
   const fetchLinkedInHistory = useCallback(async () => {

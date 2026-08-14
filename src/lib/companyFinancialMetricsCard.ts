@@ -1,4 +1,8 @@
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import {
+  formatMetricMillionsPlain,
+  normalizeMillionsFieldValue,
+} from "@/lib/formatMetricMillions";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import { resolveLinkedInEmployeeCountForYear } from "@/lib/companyLinkedIn";
 import {
@@ -518,12 +522,7 @@ export function resolveLatestFinancialMetricsRow(
 }
 
 function formatMillions(value: number, currency?: string | null): string {
-  const abs = Math.abs(value);
-  const compact =
-    abs >= 100
-      ? Math.round(value).toLocaleString("en-US")
-      : value.toFixed(1);
-  return appendMetricCurrency(compact, currency ?? undefined);
+  return appendMetricCurrency(formatMetricMillionsPlain(value), currency ?? undefined);
 }
 
 function formatPercentValue(value: number): string {
@@ -600,10 +599,16 @@ function formatMetricValue(
   metric: FinancialsMetricDef,
   platformCurrencyCode?: string | null
 ): FinancialsCellValue {
-  const raw =
+  const rawValue =
     metric.key === "rev_per_client"
       ? resolveRevPerClientDollars(row)
-      : toNumber(row[metric.valueField]);
+      : row[metric.valueField];
+  const raw =
+    metric.format === "money_millions"
+      ? normalizeMillionsFieldValue(rawValue) ?? toNumber(rawValue)
+      : metric.key === "rev_per_client"
+        ? resolveRevPerClientDollars(row)
+        : toNumber(row[metric.valueField]);
   const sourceType = resolveFinancialsSourceType(
     row[metric.sourceField],
     metric.sourceCodeField ? row[metric.sourceCodeField] : undefined

@@ -3,6 +3,7 @@
  */
 
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
 import type { CompanyColumnType } from "@/components/companies/companiesColumnCategories";
 import { EMPTY_DISPLAY, normalizeEmptyDisplay, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 
@@ -129,7 +130,7 @@ export function formatMetricMillions(
   currencyCode: string = DEFAULT_METRIC_CURRENCY
 ): string {
   if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
-  return appendMetricCurrency(formatPlainNumber(value), currencyCode);
+  return appendMetricCurrency(formatMetricMillionsPlain(value), currencyCode);
 }
 
 export function formatMetricCurrency(
@@ -225,7 +226,8 @@ export function formatCompanyColumnDisplay(
     columnKey === "enterprise_value" ||
     columnKey === "ev" ||
     columnKey === "ebit_m" ||
-    columnKey === "subscription_revenue_m"
+    columnKey === "subscription_revenue_m" ||
+    columnKey === "arr_m"
   ) {
     return formatMetricMillions(raw, currencyCode);
   }
@@ -334,11 +336,11 @@ export function mapCompanyTableApiRow(
     li_emp: formatPlainNumber(row.linkedin_employee),
     li_growth_pc: formatPercentValue(row.linkedin_growth_1y_pct),
     linkedin_growth: formatPercentValue(row.linkedin_growth_1y_pct),
-    revenue_m: formatPlainNumber(row.Revenue_m),
-    ebitda_m: formatPlainNumber(row.EBITDA_m),
-    ebit_m: formatPlainNumber(row.EBIT_m),
-    ev: formatPlainNumber(row.EV),
-    enterprise_value: formatPlainNumber(row.EV),
+    revenue_m: formatMetricMillionsPlain(row.Revenue_m),
+    ebitda_m: formatMetricMillionsPlain(row.EBITDA_m),
+    ebit_m: formatMetricMillionsPlain(row.EBIT_m),
+    ev: formatMetricMillionsPlain(row.EV),
+    enterprise_value: formatMetricMillionsPlain(row.EV),
     churn_pc: formatPercentValue(row.Churn_pc),
     grr_pc: formatPercentValue(row.GRR_pc),
     nrr: formatPercentValue(row.NRR),

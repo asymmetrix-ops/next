@@ -264,17 +264,6 @@ const truncateDescription = (
   return { text: truncated, isLong };
 };
 
-const sanitizeAmountValue = (
-  value?: number | string | null
-): number | string | null => {
-  if (value === null || value === undefined) return null;
-  if (typeof value === "number") return value;
-  const trimmed = String(value).trim();
-  if (!trimmed) return null;
-  const num = Number(trimmed.replace(/,/g, ""));
-  return Number.isNaN(num) ? trimmed : num;
-};
-
 export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
   events,
   loading = false,
@@ -432,59 +421,14 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   })),
                 ].filter((a) => Boolean(a.name));
 
-                // Extract deal metrics
                 const anyEvent = event as unknown as {
                   investment_data?: {
-                    investment_amount_m?: number | string;
-                    investment_amount?: number | string;
-                    currency?: string | { Currency?: string };
-                    _currency?: { Currency?: string };
-                    currency_id?: number | string;
                     Funding_stage?: string;
                     funding_stage?: string;
-                    investment_amount_url?: string | null;
-                  };
-                  ev_data?: {
-                    enterprise_value_m?: number | string;
-                    ev_band?: string;
-                    currency?: { Currency?: string };
-                    _currency?: { Currency?: string };
                   };
                 };
 
                 const dealType = newEvent.deal_type || legacyEvent.deal_type;
-                const amountDisplay = newEvent.investment_display || null;
-                const amountRaw =
-                  anyEvent.investment_data?.investment_amount_m ??
-                  anyEvent.investment_data?.investment_amount ??
-                  null;
-                const amountMillions = sanitizeAmountValue(amountRaw);
-                // Handle both string format (new API) and object format (legacy)
-                const amountCurrency: string | undefined =
-                  typeof anyEvent.investment_data?.currency === "string"
-                    ? anyEvent.investment_data.currency
-                    : anyEvent.investment_data?.currency?.Currency ||
-                      anyEvent.investment_data?._currency?.Currency;
-                      
-
-                const evDataRaw = legacyEvent.ev_data || newEvent.ev_data;
-                const evMillions = sanitizeAmountValue(
-                  evDataRaw?.enterprise_value_m ?? null
-                );
-                const evCurrency: string | undefined =
-                  evDataRaw?._currency?.Currency ||
-                  evDataRaw?.currency?.Currency;
-                const hasEvNumeric =
-                  evMillions !== null &&
-                  typeof evCurrency === "string" &&
-                  evCurrency.trim().length > 0;
-                const evDisplay = hasEvNumeric
-                  ? null
-                  : (newEvent.ev_display || null);
-                const evBandFallback = hasEvNumeric
-                  ? null
-                  : evDataRaw?.ev_band || null;
-
                 const fundingStage = (
                   anyEvent.investment_data?.Funding_stage ||
                   anyEvent.investment_data?.funding_stage ||
@@ -1010,13 +954,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         dealType={dealType}
                         fundingStage={fundingStage || undefined}
                         isPartnership={isPartnership}
-                        amountDisplay={amountDisplay}
-                        amountMillions={amountMillions}
-                        amountCurrency={amountCurrency}
-                        evDisplay={evDisplay}
-                        evMillions={evMillions}
-                        evCurrency={evCurrency}
-                        evBandFallback={evBandFallback}
+                        event={event}
                       />
                     </td>
 

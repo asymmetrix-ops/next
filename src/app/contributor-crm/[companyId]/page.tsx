@@ -36,6 +36,7 @@ import {
   isAdminUser,
   isTokenExpired,
 } from "@/lib/contributorCrm/auth";
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
@@ -12144,15 +12145,15 @@ const CompanyDetail = () => {
   // Prefer values from `company_financial_metrics` when available for base figures (plain numbers, no currency)
   const revenueFromMetrics =
     getNumeric(financialMetrics?.Revenue_m) !== undefined
-      ? formatPlainNumber(financialMetrics?.Revenue_m)
+      ? formatMetricMillionsPlain(financialMetrics?.Revenue_m)
       : undefined;
   const ebitdaFromMetrics =
     getNumeric(financialMetrics?.EBITDA_m) !== undefined
-      ? formatPlainNumber(financialMetrics?.EBITDA_m)
+      ? formatMetricMillionsPlain(financialMetrics?.EBITDA_m)
       : undefined;
   const evFromMetrics =
     getNumeric(financialMetrics?.EV) !== undefined
-      ? formatPlainNumber(financialMetrics?.EV)
+      ? formatMetricMillionsPlain(financialMetrics?.EV)
       : undefined;
 
   // Plain fallbacks from company data (no currency, preserve decimals)
@@ -14626,7 +14627,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>ARR (m):</span>
                 <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.ARR_m)}
+                  {formatMetricMillionsPlain(financialMetrics?.ARR_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -14741,7 +14742,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
                 <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.EBIT_m)}
+                  {formatMetricMillionsPlain(financialMetrics?.EBIT_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -15125,7 +15126,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>ARR (m):</span>
                 <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.ARR_m)}
+                  {formatMetricMillionsPlain(financialMetrics?.ARR_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -15240,7 +15241,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
                 <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.EBIT_m)}
+                  {formatMetricMillionsPlain(financialMetrics?.EBIT_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
