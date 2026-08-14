@@ -52,6 +52,8 @@ function useFinancialScreenerAPI(preferredCurrencyId: number) {
     page: 1,
     per_page: PER_PAGE,
     ownership_tab: "all",
+    sort_field: "ev_m",
+    sort_dir: "desc",
   });
   const [currentFilters, setCurrentFilters] = useState<FinancialScreenerFilters>(
     currentFiltersRef.current

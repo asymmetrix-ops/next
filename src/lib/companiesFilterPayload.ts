@@ -99,6 +99,8 @@ export function normalizeCompanySearchPayload(
     has_financial_filters: Boolean(filters.has_financial_filters),
     has_year_filter: Boolean(filters.has_year_filter),
     company_ids: filters.company_ids ?? [],
+    sort_column: filters.sort_column ?? null,
+    sort_direction: filters.sort_direction ?? null,
     preferred_currency_id:
       filters.preferred_currency_id ?? DEFAULT_PLATFORM_CURRENCY_ID,
     ...pickCompanyDateAddedParams(filters),
@@ -652,6 +654,13 @@ function appendSharedCompanyFilterParams(
   }
 
   params.append("company_ids", JSON.stringify(payload.company_ids ?? []));
+
+  if (payload.sort_column) {
+    params.append("sort_column", payload.sort_column);
+  }
+  if (payload.sort_direction) {
+    params.append("sort_direction", payload.sort_direction);
+  }
 
   params.append(
     "preferred_currency_id",

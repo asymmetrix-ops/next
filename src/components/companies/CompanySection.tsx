@@ -35,8 +35,11 @@ import {
 import { FILTER_PINNED_TOOLTIP } from "@/components/companies/companiesColumnFilterMap";
 import {
   compareSortValues,
+  getApiSortColumn,
   getColumnSortKind,
+  getServerSortDefaultDirection,
   getSortValueForColumn,
+  getUiColumnForApiSortColumn,
 } from "@/components/companies/companiesTableSort";
 import { formatWebsiteLabel, normalizeWebsiteUrl } from "@/lib/websiteUrl";
 import { readLogoFromRecord } from "@/lib/companyLogo";
@@ -101,6 +104,8 @@ export const createDefaultFilters = (): Filters => ({
   has_year_filter: false,
   query: null,
   columns: [],
+  sort_column: null,
+  sort_direction: null,
 });
 
 const formatNumber = (num: number | undefined): string => {
@@ -1181,9 +1186,34 @@ export const CompanySection = ({
 
   useEffect(() => {
     if (sortState && !selectedColumnKeys.includes(sortState.key)) {
+      const droppedKey = sortState.key;
       setSortState(null);
+      if (getApiSortColumn(droppedKey)) {
+        void fetchCompanies(1, {
+          ...(currentFilters ?? createDefaultFilters()),
+          sort_column: null,
+          sort_direction: null,
+        });
+      }
     }
-  }, [selectedColumnKeys, sortState]);
+  }, [selectedColumnKeys, sortState, currentFilters, fetchCompanies]);
+
+  useEffect(() => {
+    const apiColumn = currentFilters?.sort_column;
+    if (!apiColumn) {
+      setSortState((current) => {
+        if (current && getApiSortColumn(current.key)) return null;
+        return current;
+      });
+      return;
+    }
+    const uiKey = getUiColumnForApiSortColumn(apiColumn) ?? apiColumn;
+    const dir = currentFilters?.sort_direction ?? "desc";
+    setSortState((current) => {
+      if (current?.key === uiKey && current.dir === dir) return current;
+      return { key: uiKey, dir };
+    });
+  }, [currentFilters?.sort_column, currentFilters?.sort_direction]);
 
   // Report selected columns count to parent (for header button label)
   useEffect(() => {
@@ -1191,16 +1221,54 @@ export const CompanySection = ({
   }, [selectedColumns.length, onColumnsCountChange]);
 
 
-  const handleSortColumn = useCallback((columnKey: string) => {
-    if (!getColumnSortKind(columnKey)) return;
-    setSortState((current) => {
-      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
-      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
-    });
-  }, []);
+  const handleSortColumn = useCallback(
+    (columnKey: string) => {
+      const apiColumn = getApiSortColumn(columnKey);
+      if (apiColumn) {
+        const nextDirection: "asc" | "desc" =
+          sortState?.key === columnKey
+            ? sortState.dir === "asc"
+              ? "desc"
+              : "asc"
+            : getServerSortDefaultDirection(columnKey);
+
+        setSortState({ key: columnKey, dir: nextDirection });
+        void fetchCompanies(1, {
+          ...(currentFilters ?? createDefaultFilters()),
+          sort_column: apiColumn,
+          sort_direction: nextDirection,
+        });
+        return;
+      }
+
+      if (!getColumnSortKind(columnKey)) return;
+
+      const nextDirection: "asc" | "desc" =
+        sortState?.key === columnKey
+          ? sortState.dir === "asc"
+            ? "desc"
+            : "asc"
+          : "asc";
+
+      setSortState({ key: columnKey, dir: nextDirection });
+
+      if (currentFilters?.sort_column) {
+        void fetchCompanies(1, {
+          ...(currentFilters ?? createDefaultFilters()),
+          sort_column: null,
+          sort_direction: null,
+        });
+      }
+    },
+    [sortState, currentFilters, fetchCompanies]
+  );
 
   const sortedCompanies = useMemo(() => {
-    if (!sortState || !getColumnSortKind(sortState.key)) {
+    if (
+      (sortState && getApiSortColumn(sortState.key)) ||
+      !sortState ||
+      !getColumnSortKind(sortState.key)
+    ) {
       return companies;
     }
     const { key, dir } = sortState;

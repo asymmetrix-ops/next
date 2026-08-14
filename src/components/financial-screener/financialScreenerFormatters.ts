@@ -81,9 +81,11 @@ export function formatScreenerHq(item: FinancialScreenerItem): string {
 
 export function getScreenerCellValue(
   item: FinancialScreenerItem,
-  columnKey: string
+  columnKey: string,
+  platformCurrencyCode?: string
 ): string {
   const fin = item.financials ?? {};
+  const currency = platformCurrencyCode?.trim() || undefined;
   switch (columnKey) {
     case "company":
       return item.name?.trim() || EMPTY_DISPLAY;
@@ -106,17 +108,17 @@ export function getScreenerCellValue(
         ? String(item.financial_year)
         : EMPTY_DISPLAY;
     case "revenue":
-      return formatScreenerCurrency(fin.revenue_m, fin.revenue_currency);
+      return formatScreenerCurrency(fin.revenue_m, currency);
     case "revenue_growth":
       return formatPercentValue(fin.rev_growth_pct);
     case "ebitda":
-      return formatScreenerCurrency(fin.ebitda_m, fin.revenue_currency);
+      return formatScreenerCurrency(fin.ebitda_m, currency);
     case "ebitda_margin":
       return formatPercentValue(fin.ebitda_margin_pct);
     case "ebit":
-      return formatScreenerCurrency(fin.ebit_m, fin.revenue_currency);
+      return formatScreenerCurrency(fin.ebit_m, currency);
     case "ev":
-      return formatScreenerCurrency(fin.ev_m, fin.ev_currency);
+      return formatScreenerCurrency(fin.ev_m, currency);
     case "ev_revenue":
       return formatMultipleValue(fin.ev_revenue);
     case "ev_ebit":

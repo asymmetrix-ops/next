@@ -35,6 +35,7 @@ import {
   compareSortValues,
   getApiSortColumn,
   getColumnSortKind,
+  getServerSortDefaultDirection,
   getSortValueForColumn,
 } from "./companiesTableSort";
 import { SEARCH_IDENTITY_COLUMN_KEYS } from "@/components/search/searchTableUtils";
@@ -281,26 +282,36 @@ export function CompaniesDataTable({
 
   const handleSortColumn = useCallback(
     (columnKey: string) => {
+      const apiColumn = getApiSortColumn(columnKey);
+      if (apiColumn) {
+        const nextDirection: "asc" | "desc" =
+          sortState?.key === columnKey
+            ? sortState.dir === "asc"
+              ? "desc"
+              : "asc"
+            : getServerSortDefaultDirection(columnKey);
+
+        setSortState({ key: columnKey, dir: nextDirection });
+        onSortChange?.({
+          sort_column: apiColumn,
+          sort_direction: nextDirection,
+        });
+        return;
+      }
+
       if (!getColumnSortKind(columnKey)) return;
-      setSortState((current) => {
-        const next =
-          current?.key === columnKey
-            ? {
-                key: columnKey,
-                dir: current.dir === "asc" ? ("desc" as const) : ("asc" as const),
-              }
-            : { key: columnKey, dir: "asc" as const };
-        const apiColumn = getApiSortColumn(columnKey);
-        if (apiColumn) {
-          onSortChange?.({
-            sort_column: apiColumn,
-            sort_direction: next.dir,
-          });
-        }
-        return next;
-      });
+
+      const nextDirection: "asc" | "desc" =
+        sortState?.key === columnKey
+          ? sortState.dir === "asc"
+            ? "desc"
+            : "asc"
+          : "asc";
+
+      setSortState({ key: columnKey, dir: nextDirection });
+      onSortChange?.({ sort_column: null, sort_direction: null });
     },
-    [onSortChange]
+    [onSortChange, sortState]
   );
 
   const sortedCompanies = useMemo(() => {

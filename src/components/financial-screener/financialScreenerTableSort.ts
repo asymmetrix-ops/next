@@ -34,6 +34,42 @@ export function getColumnSortKind(columnKey: string): ColumnSortKind | null {
   return FINANCIAL_SCREENER_COLUMN_SORT_KIND[columnKey] ?? null;
 }
 
+/** UI column → `get_financial_screener` sort_field (SQL uses sort_* columns). */
+export const UI_COLUMN_TO_SORT_FIELD: Record<string, string> = {
+  fte: "fte",
+  financial_year: "financial_year",
+  revenue: "revenue_m",
+  revenue_growth: "rev_growth_pct",
+  ebitda: "ebitda_m",
+  ebitda_margin: "ebitda_margin_pct",
+  ebit: "ebit_m",
+  ev: "ev_m",
+  ev_revenue: "ev_revenue",
+  ev_ebit: "ev_ebit",
+  ev_ebitda: "ev_ebitda",
+  rev_multiple: "rev_multiple",
+};
+
+export function getApiSortField(columnKey: string): string | undefined {
+  return UI_COLUMN_TO_SORT_FIELD[columnKey];
+}
+
+export function getUiColumnForSortField(
+  sortField: string
+): string | undefined {
+  const entry = Object.entries(UI_COLUMN_TO_SORT_FIELD).find(
+    ([, field]) => field === sortField
+  );
+  return entry?.[0];
+}
+
+export function getServerSortDefaultDirection(
+  columnKey: string
+): "asc" | "desc" {
+  const kind = getColumnSortKind(columnKey);
+  return kind === "text" ? "asc" : "desc";
+}
+
 const parseSortNumber = (value: unknown): number | null => {
   if (value == null) return null;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;

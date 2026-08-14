@@ -13,31 +13,48 @@ const NOT_SORTABLE = null;
 
 /** UI column key → Get_new_companies `sort_column` (server-side sort). */
 export const UI_COLUMN_TO_API_SORT_COLUMN: Record<string, string> = {
-  name: "name",
   linkedin_members: "linkedin_members",
   linkedin_growth: "linkedin_growth",
+  year_founded: "year_founded",
+  created_at: "created_at",
   hq: "country",
   country: "country",
-  year_founded: "year_founded",
   revenue_m: "revenue_m",
   ebitda_m: "ebitda_m",
   enterprise_value: "ev",
+  subscription_revenue_m: "arr_m",
+  ebit_m: "ebit_m",
+  rev_per_client: "rev_per_client",
+  rev_per_employee: "rev_per_employee",
   revenue_multiple: "revenue_multiple",
   revenue_growth: "revenue_growth",
   ebitda_margin: "ebitda_margin",
   rule_of_40: "rule_of_40",
   subscription_revenue_pc: "subscription_revenue_pc",
-  subscription_revenue_m: "subscription_revenue_m",
   churn_pc: "churn",
+  grr_pc: "grr_pc",
   nrr: "nrr",
-  ebit_m: "ebit_m",
+  new_client_growth_pc: "new_client_growth_pc",
+  upsell_pc: "upsell_pc",
+  cross_sell_pc: "cross_sell_pc",
+  price_increase_pc: "price_increase_pc",
+  rev_expansion_pc: "rev_expansion_pc",
   no_of_clients: "no_clients",
-  no_employees: "no_employees",
+  no_employees: "employees_count",
   financial_year: "financial_year",
 };
 
 export function getApiSortColumn(columnKey: string): string | undefined {
   return UI_COLUMN_TO_API_SORT_COLUMN[columnKey];
+}
+
+export function getUiColumnForApiSortColumn(
+  apiColumn: string
+): string | undefined {
+  const entry = Object.entries(UI_COLUMN_TO_API_SORT_COLUMN).find(
+    ([, api]) => api === apiColumn
+  );
+  return entry?.[0];
 }
 
 export function isServerSortableColumn(columnKey: string): boolean {
@@ -109,6 +126,13 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
 
 export function getColumnSortKind(columnKey: string): ColumnSortKind | null {
   return COLUMN_SORT_KIND[columnKey] ?? null;
+}
+
+export function getServerSortDefaultDirection(
+  columnKey: string
+): "asc" | "desc" {
+  const kind = getColumnSortKind(columnKey);
+  return kind === "text" ? "asc" : "desc";
 }
 
 const isEmptySortValue = (value: unknown): boolean => {

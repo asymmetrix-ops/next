@@ -19,6 +19,8 @@ export interface FinancialScreenerFilters {
   filters?: FilterItem[];
   filter_logic?: "and" | "or";
   preferred_currency_id?: number;
+  sort_field?: string | null;
+  sort_dir?: "asc" | "desc" | null;
 }
 
 function hasRangeValue(value: unknown): value is { min?: number; max?: number } {
@@ -91,6 +93,13 @@ export function financialScreenerFiltersToSearchParams(
     if (filters.filter_logic) {
       params.set("filter_logic", filters.filter_logic);
     }
+  }
+
+  if (filters.sort_field) {
+    params.set("sort_field", filters.sort_field);
+  }
+  if (filters.sort_dir) {
+    params.set("sort_dir", filters.sort_dir);
   }
 
   return params;

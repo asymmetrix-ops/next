@@ -21,8 +21,11 @@ import {
 } from "./financialScreenerColumnCategories";
 import {
   compareSortValues,
+  getApiSortField,
   getColumnSortKind,
+  getServerSortDefaultDirection,
   getSortValueForColumn,
+  getUiColumnForSortField,
 } from "./financialScreenerTableSort";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
@@ -38,7 +41,11 @@ import { CompaniesCSVExporter } from "@/utils/companiesCSVExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { fetchFinancialScreenerServer } from "@/app/financials/actions";
-import { applyClientFilters } from "./financialScreenerFilterPayload";
+import {
+  applyClientFilters,
+  hasActiveClientFilters,
+} from "./financialScreenerFilterPayload";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
 import { SEARCH_BULK_TOOLBAR_STYLES } from "@/components/search/searchTableStyles";
 import CompactPagination from "@/components/ui/CompactPagination";
@@ -149,6 +156,8 @@ export const FinancialScreenerSection = ({
   onClearSelection,
 }: FinancialScreenerSectionProps) => {
   const router = useRouter();
+  const { currency: platformCurrency } = usePlatformCurrency();
+  const usesClientFiltering = hasActiveClientFilters(currentFilters ?? {});
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
   const showColumnsModal = externalShowColumnsModal ?? internalShowColumnsModal;
   const setShowColumnsModal =
@@ -200,6 +209,13 @@ export const FinancialScreenerSection = ({
   );
 
   const sortedItems = useMemo(() => {
+    if (
+      !usesClientFiltering &&
+      sortState.key &&
+      getApiSortField(sortState.key)
+    ) {
+      return items;
+    }
     if (!sortState.key || !getColumnSortKind(sortState.key)) return items;
     const { key, dir } = sortState;
     return [...items].sort((a, b) =>
@@ -209,21 +225,60 @@ export const FinancialScreenerSection = ({
         dir
       )
     );
-  }, [items, sortState]);
+  }, [items, sortState, usesClientFiltering]);
 
   const pageIds = useMemo(() => sortedItems.map((item) => item.id), [sortedItems]);
   const allPageSelected =
     pageIds.length > 0 && pageIds.every((id) => selectedCompanyIds.has(id));
 
-  const handleSort = (columnKey: string) => {
-    if (!getColumnSortKind(columnKey)) return;
-    setSortState((prev) => {
-      if (prev.key === columnKey) {
-        return { key: columnKey, dir: prev.dir === "asc" ? "desc" : "asc" };
-      }
-      const kind = getColumnSortKind(columnKey);
-      return { key: columnKey, dir: kind === "text" ? "asc" : "desc" };
+  useEffect(() => {
+    const sortField = currentFilters?.sort_field;
+    if (!sortField) return;
+    const uiKey = getUiColumnForSortField(sortField) ?? sortField;
+    const dir = currentFilters?.sort_dir ?? "desc";
+    setSortState((current) => {
+      if (current.key === uiKey && current.dir === dir) return current;
+      return { key: uiKey, dir };
     });
+  }, [currentFilters?.sort_field, currentFilters?.sort_dir]);
+
+  const handleSort = (columnKey: string) => {
+    const apiSortField = getApiSortField(columnKey);
+    if (apiSortField && !usesClientFiltering) {
+      const nextDirection: "asc" | "desc" =
+        sortState.key === columnKey
+          ? sortState.dir === "asc"
+            ? "desc"
+            : "asc"
+          : getServerSortDefaultDirection(columnKey);
+
+      setSortState({ key: columnKey, dir: nextDirection });
+      fetchPage(1, {
+        ...(currentFilters ?? {}),
+        sort_field: apiSortField,
+        sort_dir: nextDirection,
+      });
+      return;
+    }
+
+    if (!getColumnSortKind(columnKey)) return;
+
+    const nextDirection: "asc" | "desc" =
+      sortState.key === columnKey
+        ? sortState.dir === "asc"
+          ? "desc"
+          : "asc"
+        : getServerSortDefaultDirection(columnKey);
+
+    setSortState({ key: columnKey, dir: nextDirection });
+
+    if (!usesClientFiltering && currentFilters?.sort_field) {
+      fetchPage(1, {
+        ...(currentFilters ?? {}),
+        sort_field: null,
+        sort_dir: null,
+      });
+    }
   };
 
   const handleApplyColumns = (
@@ -290,7 +345,9 @@ export const FinancialScreenerSection = ({
       const filtered = applyClientFilters(allItems, filters);
       const headers = activeColumns.map((col) => col.label);
       const rows = filtered.map((item) =>
-        activeColumns.map((col) => getScreenerCellValue(item, col.key))
+        activeColumns.map((col) =>
+          getScreenerCellValue(item, col.key, platformCurrency)
+        )
       );
 
       const csv = buildSimpleCSV(headers, rows);
@@ -389,12 +446,14 @@ export const FinancialScreenerSection = ({
       const isPositive = num != null && num > 0;
       return (
         <span style={{ color: isPositive ? "#15803d" : "#0f172a", fontWeight: 500 }}>
-          {num != null && num > 0 ? `+${num}%` : getScreenerCellValue(item, columnKey)}
+          {num != null && num > 0
+            ? `+${num}%`
+            : getScreenerCellValue(item, columnKey, platformCurrency)}
         </span>
       );
     }
 
-    const text = getScreenerCellValue(item, columnKey);
+    const text = getScreenerCellValue(item, columnKey, platformCurrency);
     return <span>{text}</span>;
   };
 
