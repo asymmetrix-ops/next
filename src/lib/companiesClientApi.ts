@@ -6,6 +6,7 @@ import {
   companySearchPayloadToSearchParams,
   withCompanyPayloadColumns,
 } from "@/lib/companiesFilterPayload";
+import { readPlatformCurrencyIdClient } from "@/lib/platformCurrency";
 
 function getAuthToken(explicitToken?: string | null): string | null {
   if (explicitToken) return explicitToken;
@@ -32,6 +33,8 @@ export async function fetchCompaniesClient(
       query: filters.query?.trim() || null,
       has_financial_filters: Boolean(filters.has_financial_filters),
       has_year_filter: Boolean(filters.has_year_filter),
+      preferred_currency_id:
+        filters.preferred_currency_id ?? readPlatformCurrencyIdClient(),
     },
     filters.columns ?? []
   );
@@ -72,6 +75,8 @@ export async function fetchCompaniesCountsClient(
       filters_sql: filters.filters_sql || null,
       has_financial_filters: Boolean(filters.has_financial_filters),
       has_year_filter: Boolean(filters.has_year_filter),
+      preferred_currency_id:
+        filters.preferred_currency_id ?? readPlatformCurrencyIdClient(),
     },
     filters.columns ?? []
   );

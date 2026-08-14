@@ -18,6 +18,7 @@ export interface FinancialScreenerFilters {
   ownership_tab?: FinancialScreenerOwnershipTab;
   filters?: FilterItem[];
   filter_logic?: "and" | "or";
+  preferred_currency_id?: number;
 }
 
 function hasRangeValue(value: unknown): value is { min?: number; max?: number } {

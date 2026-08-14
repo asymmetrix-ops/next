@@ -11,6 +11,8 @@ import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
 import { BellIcon } from "@heroicons/react/24/outline";
 import { useRightClick } from "@/hooks/useRightClick";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
 import {
@@ -950,6 +952,7 @@ const EmployeeChart = ({ data }: { data: EmployeeCount[] }) => {
 const CompanyDetail = () => {
   const params = useParams();
   const companyId = params.id as string;
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const { createClickableElement } = useRightClick();
 
   const [company, setCompany] = useState<Company | null>(null);
@@ -1157,6 +1160,7 @@ const CompanyDetail = () => {
       // Attempt GET with query param
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
+      appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
       let res = await fetch(`${base}?${params.toString()}`, {
         method: "GET",
         headers,
@@ -1166,9 +1170,9 @@ const CompanyDetail = () => {
       if (!res.ok) {
         // Fallback to POST with common id keys
         const candidateBodies = [
-          { new_company_id: Number(id) },
-          { company_id: Number(id) },
-          { id: Number(id) },
+          { new_company_id: Number(id), preferred_currency_id: preferredCurrencyId },
+          { company_id: Number(id), preferred_currency_id: preferredCurrencyId },
+          { id: Number(id), preferred_currency_id: preferredCurrencyId },
         ];
         for (const body of candidateBodies) {
           const attempt = await fetch(base, {
@@ -1201,7 +1205,7 @@ const CompanyDetail = () => {
     } catch {
       setFinancialMetrics(null);
     }
-  }, []);
+  }, [preferredCurrencyId]);
 
   // Fetch investors from company_investors API endpoint
   const fetchCompanyInvestors = useCallback(async (id: string | number) => {

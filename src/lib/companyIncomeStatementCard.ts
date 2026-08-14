@@ -11,7 +11,7 @@ import {
 } from "@/lib/platformCurrency";
 
 const API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_financials_card";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financials_card";
 
 type CardMetricValue = {
   value?: number | string | null;

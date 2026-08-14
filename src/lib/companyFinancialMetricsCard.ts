@@ -17,7 +17,7 @@ import {
 } from "@/lib/platformCurrency";
 
 const API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_financial_metrics";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics";
 
 /** Financials tab and export show the two most recent fiscal years plus YoY. */
 export const FINANCIALS_DISPLAY_YEAR_COUNT = 2;

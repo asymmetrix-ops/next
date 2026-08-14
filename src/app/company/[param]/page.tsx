@@ -26,6 +26,10 @@ import {
 } from "@/utils/individualHelpers";
 import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
 import {
+  appendPreferredCurrencyIdToSearchParams,
+} from "@/lib/platformCurrency";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import {
   fetchCompanyLinkedIn,
   formatLinkedInEmployeeCountDate,
   mapLinkedInHistoryToTimeSeries,
@@ -1334,6 +1338,7 @@ const CompanyLogo = ({
 const CompanyDetail = () => {
   const params = useParams();
   const companyId = params.param as string;
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const {
     display: timeSinceLastInvestment,
     loading: timeSinceLastInvestmentLoading,
@@ -1755,6 +1760,7 @@ const CompanyDetail = () => {
       // Attempt GET with query param
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
+      appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
       let res = await fetch(`${base}?${params.toString()}`, {
         method: "GET",
         headers,
@@ -1764,9 +1770,9 @@ const CompanyDetail = () => {
       if (!res.ok) {
         // Fallback to POST with common id keys
         const candidateBodies = [
-          { new_company_id: Number(id) },
-          { company_id: Number(id) },
-          { id: Number(id) },
+          { new_company_id: Number(id), preferred_currency_id: preferredCurrencyId },
+          { company_id: Number(id), preferred_currency_id: preferredCurrencyId },
+          { id: Number(id), preferred_currency_id: preferredCurrencyId },
         ];
         for (const body of candidateBodies) {
           const attempt = await fetch(base, {
@@ -1814,7 +1820,7 @@ const CompanyDetail = () => {
     } catch {
       setFinancialMetrics(null);
     }
-  }, []);
+  }, [preferredCurrencyId]);
 
   const fetchCompanyAiRisksData = useCallback(async (id: string | number) => {
     setAiRiskData(null);

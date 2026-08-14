@@ -90,7 +90,8 @@ export async function fetchFinancialScreenerServer(
     }
 
     const params = financialScreenerFiltersToSearchParams(filters);
-    const preferredCurrencyId = await readPlatformCurrencyIdServer();
+    const preferredCurrencyId =
+      filters.preferred_currency_id ?? (await readPlatformCurrencyIdServer());
     appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
     const url = `${FINANCIAL_SCREENER_API_BASE}/get_financial_screener?${params.toString()}`;
 

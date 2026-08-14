@@ -22,6 +22,7 @@ import {
   type CorporateEventsSummaryStats,
 } from "@/components/corporate-events/corporateEventsFilterConfig";
 import { fetchCorporateEventsServer, fetchCorporateEventsCountsServer } from "./actions";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import type { CorporateEventListItem } from "./actions";
 import type { CorporateEventsSearchFilters } from "@/lib/corporateEventsFilterPayload";
 
@@ -50,7 +51,10 @@ function parseCorporateEventsUrlFilters(): Partial<CorporateEventsSearchFilters>
   };
 }
 
-const useCorporateEventsAPI = (userId: number | null) => {
+const useCorporateEventsAPI = (
+  userId: number | null,
+  preferredCurrencyId: number
+) => {
   const [events, setEvents] = useState<CorporateEventListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +107,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
         mergeUrlFilters({
           ...countsFilters,
           user_id: userId,
+          preferred_currency_id: preferredCurrencyId,
         })
       )
         .then((countsData) => {
@@ -119,7 +124,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
           console.error("Error fetching corporate event counts:", countsError);
         });
     }, 400);
-  }, [userId, mergeUrlFilters]);
+  }, [userId, mergeUrlFilters, preferredCurrencyId]);
 
   const fetchCorporateEvents = useCallback(
     async (
@@ -153,6 +158,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
         ...filtersToUse,
         user_id: userId,
         Page: page,
+        preferred_currency_id: preferredCurrencyId,
       });
 
       try {
@@ -160,6 +166,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
           scheduleCountsFetch({
             ...mergeUrlFilters(countsFiltersToUse),
             user_id: userId,
+            preferred_currency_id: preferredCurrencyId,
           });
         }
 
@@ -210,7 +217,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
         }
       }
     },
-    [userId, scheduleCountsFetch, mergeUrlFilters]
+    [userId, scheduleCountsFetch, mergeUrlFilters, preferredCurrencyId]
   );
 
   useEffect(() => {
@@ -221,7 +228,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
     });
     fetchCorporateEvents(1, defaults, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, urlFiltersReady]);
+  }, [userId, urlFiltersReady, preferredCurrencyId]);
 
   return {
     events,
@@ -236,6 +243,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
 
 function CorporateEventsPageInner() {
   const { user } = useAuth();
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const userId =
     user?.id != null && Number.isFinite(Number.parseInt(String(user.id), 10))
       ? Number.parseInt(String(user.id), 10)
@@ -249,7 +257,7 @@ function CorporateEventsPageInner() {
     summaryStats,
     fetchCorporateEvents,
     currentFilters,
-  } = useCorporateEventsAPI(userId);
+  } = useCorporateEventsAPI(userId, preferredCurrencyId);
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(

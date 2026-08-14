@@ -141,11 +141,11 @@ const useCompaniesAPI = (
 
       try {
         const serverFilters: ServerFilters = withCompanyPayloadColumns(
-          filtersToUse,
+          { ...filtersToUse, preferred_currency_id: preferredCurrencyId },
           requestColumnsRef.current
         );
         const countsServerFilters: ServerFilters = withCompanyPayloadColumns(
-          countsFiltersToUse,
+          { ...countsFiltersToUse, preferred_currency_id: preferredCurrencyId },
           requestColumnsRef.current
         );
 
@@ -192,7 +192,7 @@ const useCompaniesAPI = (
         }
       }
     },
-    [scheduleCountsFetch, isMcpGuest]
+    [scheduleCountsFetch, isMcpGuest, preferredCurrencyId]
   );
 
   useEffect(() => {

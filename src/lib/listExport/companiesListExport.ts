@@ -9,6 +9,7 @@ import {
 import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
 import { companySearchPayloadToSearchParams } from "@/lib/companiesFilterPayload";
 import type { CompanySearchPayload } from "@/lib/filterBuilder";
+import { readPlatformCurrencyIdClient } from "@/lib/platformCurrency";
 import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
 import { mapCompanyTableApiRow } from "@/lib/companyTableData";
 import { normalizeCompaniesResponse } from "@/app/companies/normalizeCompaniesResponse";
@@ -265,7 +266,12 @@ async function fetchCompaniesPage(
 }> {
   const token = getAuthToken();
   const params = companySearchPayloadToSearchParams(
-    { ...filters, columns: apiColumns },
+    {
+      ...filters,
+      columns: apiColumns,
+      preferred_currency_id:
+        filters.preferred_currency_id ?? readPlatformCurrencyIdClient(),
+    },
     { page, perPage }
   );
   const url = `${COMPANIES_API_BASE}/Get_new_companies?${params.toString()}`;

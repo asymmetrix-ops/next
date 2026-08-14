@@ -25,15 +25,13 @@ import {
   hasActiveClientFilters,
   type FinancialScreenerFilters,
 } from "@/components/financial-screener/financialScreenerFilterPayload";
-import {
-  fetchFinancialScreenerServer,
-  type FinancialScreenerItem,
-} from "./actions";
+import { fetchFinancialScreenerServer, type FinancialScreenerItem } from "./actions";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
 
 const PER_PAGE = 25;
 
-function useFinancialScreenerAPI() {
+function useFinancialScreenerAPI(preferredCurrencyId: number) {
   const [items, setItems] = useState<FinancialScreenerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +68,7 @@ function useFinancialScreenerAPI() {
         ...(filters ?? currentFiltersRef.current),
         page,
         per_page: PER_PAGE,
+        preferred_currency_id: preferredCurrencyId,
       };
       currentFiltersRef.current = filtersToUse;
       setCurrentFilters(filtersToUse);
@@ -157,12 +156,12 @@ function useFinancialScreenerAPI() {
         }
       }
     },
-    []
+    [preferredCurrencyId]
   );
 
   useEffect(() => {
     void fetchScreener(1);
-  }, [fetchScreener]);
+  }, [fetchScreener, preferredCurrencyId]);
 
   return {
     items,
@@ -178,6 +177,7 @@ function useFinancialScreenerAPI() {
 }
 
 export default function FinancialsPage() {
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const {
     items,
     loading,
@@ -188,7 +188,7 @@ export default function FinancialsPage() {
     totalUniverseCount,
     fetchScreener,
     currentFilters,
-  } = useFinancialScreenerAPI();
+  } = useFinancialScreenerAPI(preferredCurrencyId);
 
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
     []

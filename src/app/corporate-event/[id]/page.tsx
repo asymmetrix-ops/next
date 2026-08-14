@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { PlusIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { corporateEventsService } from "../../../lib/corporateEventsService";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   CorporateEventDetailResponse,
   CorporateEventAdvisor,
@@ -1266,6 +1267,7 @@ const CorporateEventDetail = ({
 // Main Page Component
 const CorporateEventDetailPage = () => {
   const params = useParams();
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const [data, setData] = useState<CorporateEventDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1282,7 +1284,8 @@ const CorporateEventDetailPage = () => {
       }
 
       const response = await corporateEventsService.getCorporateEvent(
-        corporateEventId
+        corporateEventId,
+        preferredCurrencyId
       );
       setData(response);
     } catch (err) {
@@ -1302,7 +1305,7 @@ const CorporateEventDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [params.id]);
+  }, [params.id, preferredCurrencyId]);
 
   useEffect(() => {
     if (params.id) {
