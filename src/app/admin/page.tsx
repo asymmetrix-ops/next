@@ -1615,11 +1615,79 @@ function EmailsTab() {
   );
 }
 
+type ContentCorrection = { note: string; updated_at: string };
+
+function isNewsContentType(value: string): boolean {
+  return value.trim().toLowerCase() === "news";
+}
+
+function unixSecondsToDatetimeLocal(unix: number | null): string {
+  if (unix == null || unix <= 0) return "";
+  const d = new Date(unix * 1000);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function datetimeLocalToUnixSeconds(local: string): number | null {
+  const trimmed = local.trim();
+  if (!trimmed) return null;
+  const parsed = Date.parse(trimmed);
+  if (Number.isNaN(parsed)) return null;
+  return Math.floor(parsed / 1000);
+}
+
+function isoToDatetimeLocal(iso: string | null | undefined): string {
+  const raw = String(iso ?? "").trim();
+  if (!raw) return "";
+  const parsed = Date.parse(raw);
+  if (Number.isNaN(parsed)) return "";
+  return unixSecondsToDatetimeLocal(Math.floor(parsed / 1000));
+}
+
+function datetimeLocalToIso(local: string): string | null {
+  const unix = datetimeLocalToUnixSeconds(local);
+  if (unix == null) return null;
+  return new Date(unix * 1000).toISOString();
+}
+
+function parseBylineField(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map(String).filter(Boolean).join(", ");
+  }
+  if (typeof value === "string") return value.trim();
+  return "";
+}
+
+function parseCorrectionsField(value: unknown): ContentCorrection[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const obj = item as Record<string, unknown>;
+      const note = String(obj.note ?? obj.text ?? "").trim();
+      const updatedAt = String(obj.updated_at ?? obj.updatedAt ?? "").trim();
+      if (!note && !updatedAt) return null;
+      return {
+        note,
+        updated_at: updatedAt || new Date().toISOString(),
+      } satisfies ContentCorrection;
+    })
+    .filter((x): x is ContentCorrection => Boolean(x));
+}
+
 function ContentTab() {
   const [html, setHtml] = useState("");
   const [bodyHtml, setBodyHtml] = useState<string>("<p></p>");
   const [headline, setHeadline] = useState("");
   const [strapline, setStrapline] = useState("");
+  const [byline, setByline] = useState("");
+  const [rightToReply, setRightToReply] = useState(false);
+  const [corrections, setCorrections] = useState<ContentCorrection[]>([]);
+  const [correctionNoteInput, setCorrectionNoteInput] = useState("");
+  const [publishedDateLocal, setPublishedDateLocal] = useState("");
+  const [scheduledDateLocal, setScheduledDateLocal] = useState("");
+  const [publishAtIso, setPublishAtIso] = useState<string | null>(null);
   const [contentType, setContentType] = useState("");
   const [contentTypes, setContentTypes] = useState<string[]>([]);
   const [singleRecipient, setSingleRecipient] = useState(false);
@@ -1916,6 +1984,11 @@ function ContentTab() {
     Body?: string | null;
     Content_Type?: string | null;
     Visibility?: string | null;
+    byline?: string[] | string | null;
+    right_to_reply?: boolean | null;
+    corrections?: ContentCorrection[] | null;
+    publish_at?: string | null;
+    public?: boolean | null;
     summary?: string[] | null;
     // Can be array of IDs or array of objects
     Company_of_Focus?: Array<number | { id: number; company_name?: string; name?: string }> | null;
@@ -2118,6 +2191,58 @@ function ContentTab() {
       cancelled = true;
     };
   }, []);
+
+  const contentTypeOptions = useMemo(() => {
+    const values = new Set(contentTypes);
+    values.add("News");
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [contentTypes]);
+
+  const isNews = isNewsContentType(contentType);
+
+  const workflowStatus = useMemo((): "Draft" | "Scheduled" | "Published" => {
+    if (publishAtIso) {
+      const scheduledMs = Date.parse(publishAtIso);
+      if (!Number.isNaN(scheduledMs) && scheduledMs > Date.now()) {
+        return "Scheduled";
+      }
+    }
+    if (visibility === "Public") return "Published";
+    return "Draft";
+  }, [publishAtIso, visibility]);
+
+  const isEditingPublishedContent =
+    editingContentId !== null &&
+    visibility === "Public" &&
+    (existingPublicationDateUnix != null || workflowStatus === "Published");
+
+  const resetContentForm = () => {
+    setHeadline("");
+    setStrapline("");
+    setByline("");
+    setRightToReply(false);
+    setCorrections([]);
+    setCorrectionNoteInput("");
+    setPublishedDateLocal("");
+    setScheduledDateLocal("");
+    setPublishAtIso(null);
+    setContentType("");
+    setVisibility("Admin");
+    setCreatedByUserId("");
+    setExistingPublicationDateUnix(null);
+    setSummaryItems([]);
+    setCompanyOfFocus([]);
+    setCompaniesMentioned([]);
+    setPeersAndCompetitors([]);
+    setPotentialAcquirers([]);
+    setAcquisitionTargets([]);
+    setSelectedSectorIds([]);
+    setSelectedCorporateEvents([]);
+    setUploadedMp3Files([]);
+    setUploadedRelatedFiles([]);
+    setBodyHtml("<p></p>");
+    setHtml("");
+  };
 
   // Fetch users for "Created by" dropdown (via API route to avoid CORS)
   useEffect(() => {
@@ -2429,6 +2554,17 @@ function ContentTab() {
     // Pre-load headline and strapline
     setHeadline(article.Headline || "");
     setStrapline(article.Strapline || "");
+    setByline(parseBylineField(article.byline));
+    setRightToReply(Boolean(article.right_to_reply));
+    setCorrections(parseCorrectionsField(article.corrections));
+    setCorrectionNoteInput("");
+
+    const pubUnix = toPublicationDateUnixSeconds(article.Publication_Date);
+    setPublishedDateLocal(unixSecondsToDatetimeLocal(pubUnix));
+
+    const publishAtRaw = String(article.publish_at ?? "").trim();
+    setPublishAtIso(publishAtRaw || null);
+    setScheduledDateLocal(isoToDatetimeLocal(publishAtRaw));
 
     // Pre-load content type
     if (article.Content_Type) {
@@ -2644,6 +2780,91 @@ function ContentTab() {
     } catch {}
   };
 
+  const buildContentPayload = (options?: {
+    scheduledDate?: Date | null;
+    publishAtOverride?: string | null;
+    appendCorrectionNote?: string;
+  }): Record<string, unknown> => {
+    const Headline = headline.trim();
+    const Strapline = strapline.trim();
+    const Content_Type = contentType.trim();
+    const sanitized = sanitizeHtml(bodyHtml);
+    const Body = `<div>${sanitized}</div>`;
+
+    const companyOfFocusIds = companyOfFocus.map((c) => c.id);
+    const companiesMentionedIds = companiesMentioned.map((c) => c.id);
+    const peersAndCompetitorsIds = peersAndCompetitors.map((c) => c.id);
+    const potentialAcquirersIds = potentialAcquirers.map((c) => c.id);
+    const acquisitionTargetsIds = acquisitionTargets.map((c) => c.id);
+    const relatedCorporateEventIds = selectedCorporateEvents.map((e) => e.id);
+    const relatedDocs = [...uploadedRelatedFiles, ...uploadedMp3Files];
+
+    const manualPublicationUnix = datetimeLocalToUnixSeconds(publishedDateLocal);
+    const publicationDateUnix =
+      manualPublicationUnix ??
+      resolvePublicationDateUnixSeconds({
+        visibility,
+        existingUnix:
+          editingContentId !== null ? existingPublicationDateUnix : null,
+        scheduledDate: options?.scheduledDate ?? null,
+      });
+
+    const scheduledIso =
+      options?.publishAtOverride !== undefined
+        ? options.publishAtOverride
+        : scheduledDateLocal.trim()
+        ? datetimeLocalToIso(scheduledDateLocal)
+        : publishAtIso;
+
+    const bylineItems = byline.trim() ? [byline.trim()] : [];
+
+    let nextCorrections = [...corrections];
+    const correctionNote = (options?.appendCorrectionNote ?? correctionNoteInput).trim();
+    if (correctionNote) {
+      nextCorrections = [
+        ...nextCorrections,
+        { note: correctionNote, updated_at: new Date().toISOString() },
+      ];
+    }
+
+    const payload: Record<string, unknown> = {
+      Publication_Date: publicationDateUnix,
+      Headline,
+      Strapline,
+      Content_Type,
+      Body,
+      summary: isNews ? [] : summaryItems,
+      Company_of_Focus: isNews ? [] : companyOfFocusIds,
+      sectors: selectedSectorIds,
+      companies_mentioned: companiesMentionedIds,
+      Peers_and_Competitors: isNews ? [] : peersAndCompetitorsIds,
+      Potential_Acquirers: isNews ? [] : potentialAcquirersIds,
+      Acquisition_Targets: isNews ? [] : acquisitionTargetsIds,
+      Visibility: visibility,
+      Related_Documents: isNews ? [] : relatedDocs,
+      Related_Corporate_Event: relatedCorporateEventIds,
+      last_sent_at: null,
+      public: visibility === "Public",
+      publish_at: scheduledIso,
+      test: false,
+      content_series_id: 0,
+      byline: bylineItems,
+      right_to_reply: rightToReply,
+      corrections: nextCorrections,
+    };
+
+    if (editingContentId !== null) {
+      payload.content_id = editingContentId;
+    }
+
+    const creatorId = parsePositiveCreatorId(createdByUserId);
+    if (creatorId != null) {
+      payload.Created_by = creatorId;
+    }
+
+    return payload;
+  };
+
   const openPreview = () => {
     const Headline = headline.trim();
     const Strapline = strapline.trim();
@@ -2684,13 +2905,18 @@ function ContentTab() {
     const payload = {
       id: editingContentId ?? 0,
       created_at: Date.now(),
-      Publication_Date: new Date().toISOString(),
+      Publication_Date: publishedDateLocal
+        ? new Date(publishedDateLocal).toISOString()
+        : new Date().toISOString(),
       Headline,
       Strapline,
       Content_Type,
       Body,
-      Summary: summaryItems,
-      summary: summaryItems,
+      byline: byline.trim() ? [byline.trim()] : [],
+      right_to_reply: rightToReply,
+      corrections,
+      Summary: isNews ? [] : summaryItems,
+      summary: isNews ? [] : summaryItems,
       sectors: sectorsPreview,
       companies_mentioned: companiesPreview,
       Peers_and_Competitors: peersPreview,
@@ -2718,7 +2944,6 @@ function ContentTab() {
     }
 
     const Headline = headline.trim();
-    const Strapline = strapline.trim();
     const Content_Type = contentType.trim();
     if (!Headline) {
       alert("Headline is required");
@@ -2728,75 +2953,32 @@ function ContentTab() {
       alert("Content Type is required");
       return;
     }
+
+    if (isEditingPublishedContent && !correctionNoteInput.trim()) {
+      const proceed = window.confirm(
+        "This article is already published. Add a correction note to record what changed, or click OK to save without a correction note."
+      );
+      if (!proceed) return;
+    }
+
     const sanitized = sanitizeHtml(bodyHtml);
-    const Body = `<div>${sanitized}</div>`;
-
-    const companyOfFocusIds = companyOfFocus.map((c) => c.id);
-    const companiesMentionedIds = companiesMentioned.map((c) => c.id);
-    const peersAndCompetitorsIds = peersAndCompetitors.map((c) => c.id);
-    const potentialAcquirersIds = potentialAcquirers.map((c) => c.id);
-    const acquisitionTargetsIds = acquisitionTargets.map((c) => c.id);
-    const relatedCorporateEventIds = selectedCorporateEvents.map((e) => e.id);
-
-    const buildJsonPayload = (): Record<string, unknown> => {
-      const payload: Record<string, unknown> = {};
-
-      // For PATCH updates, Xano expects content_id in payload (in addition to URL param)
-      if (editingContentId !== null) {
-        payload.content_id = editingContentId;
-      }
-
-      // Scalars
-      const publicationDateUnix = resolvePublicationDateUnixSeconds({
-        visibility,
-        existingUnix:
-          editingContentId !== null ? existingPublicationDateUnix : null,
-      });
-      if (publicationDateUnix != null) {
-        payload.Publication_Date = publicationDateUnix;
-      }
-      payload.Headline = Headline;
-      payload.Strapline = Strapline;
-      payload.Content_Type = Content_Type;
-      payload.Body = Body;
-      payload.Visibility = visibility;
-
-      // IDs: send as JSON arrays (not "{1,2}" strings)
-      payload.Company_of_Focus = companyOfFocusIds;
-      payload.sectors = selectedSectorIds;
-      payload.companies_mentioned = companiesMentionedIds;
-      payload.Peers_and_Competitors = peersAndCompetitorsIds;
-      payload.Potential_Acquirers = potentialAcquirersIds;
-      payload.Acquisition_Targets = acquisitionTargetsIds;
-      payload.Related_Corporate_Event = relatedCorporateEventIds;
-
-      // Related_Documents: omit entirely if empty
-      const relatedDocs = [...uploadedRelatedFiles, ...uploadedMp3Files];
-      if (relatedDocs.length > 0) {
-        payload.Related_Documents = relatedDocs;
-      }
-
-      // Summary as string (matches your working curl)
-      payload.summary = JSON.stringify(summaryItems);
-
-      // Created by
-      const creatorId = parsePositiveCreatorId(createdByUserId);
-      if (creatorId != null) {
-        payload.Created_by = creatorId;
-      }
-
-      return payload;
-    };
 
     setSending(true);
     try {
-      // Keep UI "Generated HTML" consistent with export button
       setHtml(
         buildBrandedEmailHtml({
           bodyHtml: `<div>${sanitized}</div>`,
           subject: Content_Type,
         })
       );
+
+      const payload = buildContentPayload({
+        appendCorrectionNote: correctionNoteInput.trim() || undefined,
+      });
+      if (correctionNoteInput.trim()) {
+        setCorrections(parseCorrectionsField(payload.corrections));
+        setCorrectionNoteInput("");
+      }
 
       const isEditing = editingContentId !== null;
       const apiUrl = isEditing
@@ -2808,7 +2990,7 @@ function ContentTab() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(buildJsonPayload()),
+        body: JSON.stringify(payload),
       });
       const text = await res.text().catch(() => "");
 
@@ -2817,8 +2999,7 @@ function ContentTab() {
       }
 
       alert(isEditing ? "Content updated successfully" : "Content created successfully");
-      
-      // Refresh content articles list after successful save
+
       if (isEditing) {
         const refreshRes = await fetch(buildContentListUrl(), {
           method: "GET",
@@ -2850,7 +3031,6 @@ function ContentTab() {
     }
 
     const Headline = headline.trim();
-    const Strapline = strapline.trim();
     const Content_Type = contentType.trim();
     if (!Headline) {
       alert("Headline is required");
@@ -2865,9 +3045,7 @@ function ContentTab() {
     let publishAt: string;
     let scheduledDate: Date;
     try {
-      // Create a date string that includes timezone offset by using Intl
       const localDateTimeStr = `${scheduleDate}T${scheduleTime}:00`;
-      // Get the UTC offset for the chosen timezone at that local time
       const tzDate = new Date(
         new Date(localDateTimeStr).toLocaleString("en-US", {
           timeZone: scheduleTimezone,
@@ -2882,68 +3060,31 @@ function ContentTab() {
       return;
     }
 
-    const sanitized = sanitizeHtml(bodyHtml);
-    const Body = `<div>${sanitized}</div>`;
-
-    const companyOfFocusIds = companyOfFocus.map((c) => c.id);
-    const companiesMentionedIds = companiesMentioned.map((c) => c.id);
-    const peersAndCompetitorsIds = peersAndCompetitors.map((c) => c.id);
-    const potentialAcquirersIds = potentialAcquirers.map((c) => c.id);
-    const acquisitionTargetsIds = acquisitionTargets.map((c) => c.id);
-    const relatedCorporateEventIds = selectedCorporateEvents.map((e) => e.id);
-    const relatedDocs = [...uploadedRelatedFiles, ...uploadedMp3Files];
-
-    const payload: Record<string, unknown> = {
-      Publication_Date: resolvePublicationDateUnixSeconds({
-        visibility,
-        existingUnix: existingPublicationDateUnix,
-        scheduledDate,
-      }),
-      Headline,
-      Strapline,
-      Content_Type,
-      Body,
-      Visibility: visibility,
-      Company_of_Focus: companyOfFocusIds,
-      sectors: selectedSectorIds,
-      companies_mentioned: companiesMentionedIds,
-      Peers_and_Competitors: peersAndCompetitorsIds,
-      Potential_Acquirers: potentialAcquirersIds,
-      Acquisition_Targets: acquisitionTargetsIds,
-      Related_Corporate_Event: relatedCorporateEventIds,
-      summary: JSON.stringify(summaryItems),
-      last_sent_at: null,
-      publish_at: publishAt,
-      public: visibility === "Public",
-    };
-
-    if (relatedDocs.length > 0) {
-      payload.Related_Documents = relatedDocs;
-    }
-
-    const creatorId = parsePositiveCreatorId(createdByUserId);
-    if (creatorId != null) {
-      payload.Created_by = creatorId;
-      payload.created_by = creatorId;
-    }
-
     setScheduleSubmitting(true);
     try {
-      const res = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      const payload = buildContentPayload({
+        scheduledDate,
+        publishAtOverride: publishAt,
+      });
+
+      const isEditing = editingContentId !== null;
+      const apiUrl = isEditing
+        ? `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${editingContentId}`
+        : "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content";
+      const res = await fetch(apiUrl, {
+        method: isEditing ? "PATCH" : "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
       const text = await res.text().catch(() => "");
       if (!res.ok) {
         throw new Error(`Failed to schedule content: ${res.status} ${text}`);
       }
+      setPublishAtIso(publishAt);
+      setScheduledDateLocal(isoToDatetimeLocal(publishAt));
       alert(`Content scheduled for publication at ${new Date(publishAt).toLocaleString("en-US", { timeZone: scheduleTimezone })} (${scheduleTimezone})`);
       setShowScheduleModal(false);
       setScheduleDate("");
@@ -2994,25 +3135,7 @@ function ContentTab() {
             if (value === "" || value === null || value === undefined) {
               setSelectedEditContentId("");
               setEditingContentId(null);
-              // Reset form to empty state when deselecting
-              setHeadline("");
-              setStrapline("");
-              setContentType("");
-              setVisibility("Admin");
-              setCreatedByUserId("");
-              setExistingPublicationDateUnix(null);
-              setSummaryItems([]);
-              setCompanyOfFocus([]);
-              setCompaniesMentioned([]);
-              setPeersAndCompetitors([]);
-              setPotentialAcquirers([]);
-              setAcquisitionTargets([]);
-              setSelectedSectorIds([]);
-              setSelectedCorporateEvents([]);
-              setUploadedMp3Files([]);
-              setUploadedRelatedFiles([]);
-              setBodyHtml("<p></p>");
-              setHtml("");
+              resetContentForm();
               return;
             }
             const idNum = typeof value === "number" ? value : Number(value);
@@ -3047,12 +3170,45 @@ function ContentTab() {
           onChange={(e) => setContentType(e.target.value)}
         >
           <option value="">Choose content type</option>
-          {contentTypes.map((ct) => (
+          {contentTypeOptions.map((ct) => (
             <option key={ct} value={ct}>
               {ct}
             </option>
           ))}
         </select>
+      </div>
+
+      {isNews && (
+        <div className="mb-3">
+          <label className="block mb-1 text-sm font-medium">Story type</label>
+          <input
+            type="text"
+            className="p-2 w-full text-gray-600 bg-gray-100 border rounded"
+            value="News"
+            readOnly
+            aria-readonly
+          />
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-3 items-center mb-3">
+        <div>
+          <label className="block mb-1 text-sm font-medium">Workflow status</label>
+          <span
+            className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded ${
+              workflowStatus === "Published"
+                ? "bg-green-100 text-green-800"
+                : workflowStatus === "Scheduled"
+                ? "bg-orange-100 text-orange-800"
+                : "bg-gray-100 text-gray-700"
+            }`}
+          >
+            {workflowStatus}
+          </span>
+        </div>
+        <div className="text-xs text-gray-500">
+          Draft = Admin visibility · Scheduled = future publish date · Published = Public visibility
+        </div>
       </div>
 
       <div className="mb-3">
@@ -3097,7 +3253,90 @@ function ContentTab() {
         </select>
       </div>
 
+      <div className="grid grid-cols-1 gap-3 mb-3 md:grid-cols-2">
+        <div>
+          <label className="block mb-1 text-sm font-medium">Published date</label>
+          <input
+            type="datetime-local"
+            className="p-2 w-full border rounded"
+            value={publishedDateLocal}
+            onChange={(e) => setPublishedDateLocal(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Auto-populated on publish; editable before and after publication.
+          </p>
+        </div>
+        {(workflowStatus === "Scheduled" || scheduledDateLocal) && (
+          <div>
+            <label className="block mb-1 text-sm font-medium">Scheduled date</label>
+            <input
+              type="datetime-local"
+              className="p-2 w-full border rounded"
+              value={scheduledDateLocal}
+              onChange={(e) => {
+                setScheduledDateLocal(e.target.value);
+                setPublishAtIso(datetimeLocalToIso(e.target.value));
+              }}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Article goes live automatically at this date/time.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {isNews && (
+        <div className="mb-3">
+          <label className="flex gap-2 items-center text-sm">
+            <input
+              type="checkbox"
+              checked={rightToReply}
+              onChange={(e) => setRightToReply(e.target.checked)}
+            />
+            <span className="font-medium">Right-of-reply confirmed</span>
+          </label>
+          <p className="mt-1 ml-6 text-xs text-gray-500">
+            Confirm deal participants or companies mentioned were given the opportunity to respond before publication.
+          </p>
+        </div>
+      )}
+
+      {isEditingPublishedContent && (
+        <div className="p-4 mb-3 rounded border border-amber-200 bg-amber-50">
+          <label className="block mb-1 text-sm font-medium text-amber-900">
+            Correction note
+          </label>
+          <textarea
+            className="p-2 w-full bg-white rounded border"
+            rows={3}
+            placeholder="Record what was corrected and why (shown as Updated on the platform)"
+            value={correctionNoteInput}
+            onChange={(e) => setCorrectionNoteInput(e.target.value)}
+          />
+          {corrections.length > 0 && (
+            <div className="mt-3 space-y-2">
+              <div className="text-xs font-medium text-amber-900">Previous corrections</div>
+              {corrections.map((c, idx) => (
+                <div key={`correction-${idx}`} className="p-2 text-sm bg-white rounded border">
+                  <div className="text-xs text-gray-500">
+                    Updated{" "}
+                    {c.updated_at
+                      ? new Date(c.updated_at).toLocaleString("en-GB", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })
+                      : "—"}
+                  </div>
+                  <div>{c.note}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {!isNews && (
         <div>
           <label className="block mb-1 text-sm font-medium">
             Company of Focus (select one or more)
@@ -3163,10 +3402,11 @@ function ContentTab() {
             </div>
           )}
       </div>
+        )}
 
         <div>
           <label className="block mb-1 text-sm font-medium">
-            Companies Mentioned (select one or more)
+            {isNews ? "Companies tags (select one or more)" : "Companies Mentioned (select one or more)"}
           </label>
           <div className="flex gap-2 mb-2">
             <input
@@ -3237,6 +3477,7 @@ function ContentTab() {
         </div>
         </div>
 
+      {!isNews && (
       <div className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-2 xl:grid-cols-3">
         <div>
           <label className="block mb-1 text-sm font-medium">
@@ -3448,10 +3689,11 @@ function ContentTab() {
           )}
         </div>
       </div>
+      )}
 
       <div className="mt-4">
           <label className="block mb-1 text-sm font-medium">
-          Sectors (select one or more)
+          {isNews ? "Sectors tags (select one or more)" : "Sectors (select one or more)"}
           </label>
           <SearchableSelect
           options={allSectors.map((s) => ({
@@ -3495,7 +3737,9 @@ function ContentTab() {
 
       <div className="mt-4">
         <label className="block mb-1 text-sm font-medium">
-          Related Corporate Events (select one or more)
+          {isNews
+            ? "Related events tags (select one or more)"
+            : "Related Corporate Events (select one or more)"}
         </label>
         <SearchableSelect
           options={corporateEventsResults.map((ev) => ({
@@ -3562,6 +3806,8 @@ function ContentTab() {
         )}
       </div>
 
+      {!isNews && (
+      <>
       <div className="mt-4">
         <label className="block mb-1 text-sm font-medium">
           Related Documents (upload one or more)
@@ -3706,10 +3952,14 @@ function ContentTab() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       <div className="grid grid-cols-1 gap-3 mt-4 md:grid-cols-2">
         <div>
-          <label className="block mb-1 text-sm font-medium">Headline</label>
+          <label className="block mb-1 text-sm font-medium">
+            Headline{isNews ? " (required)" : ""}
+          </label>
           <input
             type="text"
             className="p-2 w-full border rounded"
@@ -3721,21 +3971,39 @@ function ContentTab() {
           />
         </div>
         <div>
-          <label className="block mb-1 text-sm font-medium">Strapline</label>
+          <label className="block mb-1 text-sm font-medium">
+            {isNews ? "Standfirst / strapline" : "Strapline"}
+          </label>
           <input
             type="text"
             className="p-2 w-full border rounded"
-            placeholder="Enter strapline"
+            placeholder={isNews ? "Optional short summary beneath the headline" : "Enter strapline"}
             value={strapline}
             onChange={(e) => setStrapline(e.target.value)}
             spellCheck
             lang="en"
           />
         </div>
+        {isNews && (
+          <div className="md:col-span-2">
+            <label className="block mb-1 text-sm font-medium">Byline</label>
+            <input
+              type="text"
+              className="p-2 w-full border rounded"
+              placeholder='e.g. "by Jordan Bintcliffe" or "by Jordan Bintcliffe and John Smith"'
+              value={byline}
+              onChange={(e) => setByline(e.target.value)}
+              spellCheck
+              lang="en"
+            />
+          </div>
+        )}
       </div>
 
       <div className="mt-4">
-        <label className="block mb-1 text-sm font-medium">Body</label>
+        <label className="block mb-1 text-sm font-medium">
+          {isNews ? "Body copy" : "Body"}
+        </label>
         <TiptapSimpleEditor
           valueHtml={bodyHtml}
           onChangeHtml={setBodyHtml}
@@ -3790,42 +4058,22 @@ function ContentTab() {
         >
           {sending ? "Submitting…" : editingContentId ? "Update Content" : "Create Content"}
         </button>
-        {!editingContentId && (
-          <button
-            className="px-4 py-2 text-white bg-orange-500 rounded hover:bg-orange-600 disabled:opacity-50"
-            onClick={() => setShowScheduleModal(true)}
-            disabled={sending}
-            type="button"
-            title="Schedule this content for future publication"
-          >
-            Schedule
-          </button>
-        )}
+        <button
+          className="px-4 py-2 text-white bg-orange-500 rounded hover:bg-orange-600 disabled:opacity-50"
+          onClick={() => setShowScheduleModal(true)}
+          disabled={sending || scheduleSubmitting}
+          type="button"
+          title="Schedule this content for future publication"
+        >
+          Schedule
+        </button>
         {editingContentId && (
           <button
             className="px-4 py-2 text-white bg-gray-500 rounded hover:bg-gray-600"
             onClick={() => {
               setSelectedEditContentId("");
               setEditingContentId(null);
-              // Reset form to empty state
-              setHeadline("");
-              setStrapline("");
-              setContentType("");
-              setVisibility("Admin");
-              setCreatedByUserId("");
-              setExistingPublicationDateUnix(null);
-              setSummaryItems([]);
-              setCompanyOfFocus([]);
-              setCompaniesMentioned([]);
-              setPeersAndCompetitors([]);
-              setPotentialAcquirers([]);
-              setAcquisitionTargets([]);
-              setSelectedSectorIds([]);
-              setSelectedCorporateEvents([]);
-              setUploadedMp3Files([]);
-              setUploadedRelatedFiles([]);
-              setBodyHtml("<p></p>");
-              setHtml("");
+              resetContentForm();
             }}
           >
             Clear / New Content
