@@ -7,28 +7,30 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function GET(req: NextRequest, context: RouteContext) {
   const auth = await requireAuthUser();
   if (!auth.ok) return auth.response;
 
+  const { id } = await context.params;
   const { searchParams } = new URL(req.url);
   const query = new URLSearchParams();
 
-  const date = searchParams.get("date");
-  if (date) query.set("date", date);
+  for (const key of ["from_date", "to_date", "timezone"] as const) {
+    const value = searchParams.get(key);
+    if (value) query.set(key, value);
+  }
 
-  const timezone = searchParams.get("timezone") ?? "Europe/London";
-  query.set("timezone", timezone);
-
-  const userId = searchParams.get("user_id");
-  if (userId) query.set("user_id", userId);
-
-  const itemType = searchParams.get("item_type");
-  if (itemType) query.set("item_type", itemType);
+  if (!query.has("timezone")) {
+    query.set("timezone", "Europe/London");
+  }
 
   const qs = query.toString();
   const upstreamResp = await analyticsUpstream(
-    `/analytics/users${qs ? `?${qs}` : ""}`,
+    `/analytics/dcp/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`,
     { method: "GET" }
   );
 

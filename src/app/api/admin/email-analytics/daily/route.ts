@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import {
-  alertsUpstream,
+  analyticsUpstream,
   proxyAlertsResponse,
   requireAuthUser,
 } from "@/lib/emailAlertsServer";
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   if (itemType) query.set("item_type", itemType);
 
   const qs = query.toString();
-  const upstreamResp = await alertsUpstream(
+  const upstreamResp = await analyticsUpstream(
     `/analytics/daily${qs ? `?${qs}` : ""}`,
     { method: "GET" }
   );

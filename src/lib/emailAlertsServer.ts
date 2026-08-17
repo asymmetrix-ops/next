@@ -1,6 +1,10 @@
 import { cookies, headers } from "next/headers";
 
-const ALERTS_BASE_URL = "https://asymmetrix-email-service.fly.dev/alerts";
+const EMAIL_SERVICE_BASE_URL =
+  process.env.EMAIL_SERVICE_BASE_URL?.trim() ||
+  "https://asymmetrix-email-service.fly.dev";
+
+const ALERTS_BASE_URL = `${EMAIL_SERVICE_BASE_URL}/alerts`;
 
 const AUTH_API_URL =
   process.env.NEXT_PUBLIC_XANO_API_URL ||
@@ -100,6 +104,22 @@ export async function alertsUpstream(
   path: string,
   init: RequestInit = {}
 ): Promise<Response> {
+  return emailServiceUpstream(ALERTS_BASE_URL, path, init);
+}
+
+/** Analytics lives at /analytics/* on the email service root, not under /alerts. */
+export async function analyticsUpstream(
+  path: string,
+  init: RequestInit = {}
+): Promise<Response> {
+  return emailServiceUpstream(EMAIL_SERVICE_BASE_URL, path, init);
+}
+
+async function emailServiceUpstream(
+  baseUrl: string,
+  path: string,
+  init: RequestInit = {}
+): Promise<Response> {
   const apiKey = getAlertsApiKey();
   if (!apiKey) {
     return new Response(
@@ -108,7 +128,9 @@ export async function alertsUpstream(
     );
   }
 
-  const url = path.startsWith("http") ? path : `${ALERTS_BASE_URL}${path}`;
+  const url = path.startsWith("http")
+    ? path
+    : `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
   return fetch(url, {
     ...init,
     headers: {
