@@ -2296,8 +2296,13 @@ const CompanyDetail = () => {
             financial_metrics_period: financialMetricsPeriod,
             financial_metrics_year: financialMetricsYear,
             source: FINANCIAL_METRICS_EXPORT_SOURCE,
+            preferred_currency_id: preferredCurrencyId,
           }
-        : { company_id: company.id, version: "v2" };
+        : {
+            company_id: company.id,
+            version: "v2",
+            preferred_currency_id: preferredCurrencyId,
+          };
       const response = await fetch(
         "https://asymmetrix-pdf-service.fly.dev/api/export-company-pdf",
         {
@@ -2349,6 +2354,7 @@ const CompanyDetail = () => {
     company?.id,
     company?.name,
     financialMetrics,
+    preferredCurrencyId,
   ]);
 
   if (loading) {

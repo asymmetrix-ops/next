@@ -37,6 +37,7 @@ import {
   isTokenExpired,
 } from "@/lib/contributorCrm/auth";
 import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
+import { readPlatformCurrencyIdClient } from "@/lib/platformCurrency";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
@@ -11866,7 +11867,11 @@ const CompanyDetail = () => {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ company_id: company.id, source: "contributor" }),
+          body: JSON.stringify({
+            company_id: company.id,
+            source: "contributor",
+            preferred_currency_id: readPlatformCurrencyIdClient(),
+          }),
         }
       );
 
