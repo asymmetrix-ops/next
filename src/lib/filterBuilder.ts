@@ -234,26 +234,47 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
   return null;
 }
 
+function joinOrGroup(clauses: string[]): string {
+  if (clauses.length === 0) return "";
+  if (clauses.length === 1) return clauses[0];
+  return `(${clauses.join(" OR ")})`;
+}
+
+/** Combine SQL fragments respecting AND/OR precedence (OR groups, then AND). */
+export function combineFilterSqlParts(
+  parts: Array<{ sql: string; op: FilterOperator }>
+): string {
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0].sql;
+
+  const groups: string[] = [];
+  let currentGroup: string[] = [parts[0].sql];
+
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    if (part.op === "OR") {
+      currentGroup.push(part.sql);
+      continue;
+    }
+
+    groups.push(joinOrGroup(currentGroup));
+    currentGroup = [part.sql];
+  }
+
+  groups.push(joinOrGroup(currentGroup));
+  return groups.join(" AND ");
+}
+
 export function buildFiltersSql(clauses: FilterClause[]): string {
-  let result = "";
+  const parts: Array<{ sql: string; op: FilterOperator }> = [];
 
   for (const clause of clauses) {
     const sql = buildFilterClauseSql(clause);
     if (!sql) continue;
-
-    if (!result) {
-      result = sql;
-      continue;
-    }
-
-    if (clause.op === "OR") {
-      result = `(${result} OR ${sql})`;
-    } else {
-      result = `${result} AND ${sql}`;
-    }
+    parts.push({ sql, op: clause.op });
   }
 
-  return result;
+  return combineFilterSqlParts(parts);
 }
 
 export function deriveBackendSignals(clauses: FilterClause[]) {

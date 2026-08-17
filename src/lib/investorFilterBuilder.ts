@@ -1,4 +1,8 @@
-import type { FilterOperator, FilterValue } from "@/lib/filterBuilder";
+import {
+  combineFilterSqlParts,
+  type FilterOperator,
+  type FilterValue,
+} from "@/lib/filterBuilder";
 
 export type InvestorFilterType =
   | "name_search"
@@ -191,22 +195,7 @@ function buildMainFilterClauseSql(clause: InvestorFilterClause): string | null {
 }
 
 function combineFilterParts(parts: { sql: string; op: FilterOperator }[]): string {
-  let result = "";
-
-  for (const part of parts) {
-    if (!result) {
-      result = part.sql;
-      continue;
-    }
-
-    if (part.op === "OR") {
-      result = `(${result} OR ${part.sql})`;
-    } else {
-      result = `${result} AND ${part.sql}`;
-    }
-  }
-
-  return result;
+  return combineFilterSqlParts(parts);
 }
 
 function buildPortfolioGeoFilterSql(geoClauses: InvestorFilterClause[]): string {

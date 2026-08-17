@@ -1,4 +1,8 @@
-import type { FilterOperator, FilterValue } from "@/lib/filterBuilder";
+import {
+  combineFilterSqlParts,
+  type FilterOperator,
+  type FilterValue,
+} from "@/lib/filterBuilder";
 
 export type AdvisorFilterType =
   | "name_search"
@@ -131,25 +135,15 @@ export function buildAdvisorFiltersSql(
   clauses: AdvisorFilterClause[],
   linkedinAlias: "ll" | "ld" = "ld"
 ): string {
-  let result = "";
+  const parts: Array<{ sql: string; op: FilterOperator }> = [];
 
   for (const clause of clauses) {
     const sql = buildAdvisorFilterClauseSql(clause, linkedinAlias);
     if (!sql) continue;
-
-    if (!result) {
-      result = sql;
-      continue;
-    }
-
-    if (clause.op === "OR") {
-      result = `(${result} OR ${sql})`;
-    } else {
-      result = `${result} AND ${sql}`;
-    }
+    parts.push({ sql, op: clause.op });
   }
 
-  return result;
+  return combineFilterSqlParts(parts);
 }
 
 export function deriveAdvisorSectorParams(
