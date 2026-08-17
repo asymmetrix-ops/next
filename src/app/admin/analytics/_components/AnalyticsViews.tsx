@@ -1265,27 +1265,16 @@ export function ContentInsightsTab() {
         const url = new URL(
           "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/content_insights"
         );
+        url.searchParams.set("view", view);
+        url.searchParams.set("content_type", selectedContentTypes.join(","));
 
-        let resp: Response;
-        if (selectedContentTypes.length > 0) {
-          resp = await fetch(url.toString(), {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({ view, content_type: selectedContentTypes }),
-          });
-        } else {
-          url.searchParams.append("view", view);
-          resp = await fetch(url.toString(), {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-          });
-        }
+        const resp = await fetch(url.toString(), {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
 
         if (!resp.ok) {
           const text = await resp.text().catch(() => "");
