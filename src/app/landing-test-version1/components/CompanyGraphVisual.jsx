@@ -30,7 +30,7 @@ const NAMED_NODES = [
     w: 196,
     h: 66,
     big: true,
-    primary: "Corporate Event",
+    primary: "Deal",
     secondary: "Deal type · value · date",
     detail: "Tracked",
   },
