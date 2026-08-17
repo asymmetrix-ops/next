@@ -21,6 +21,11 @@ import {
   type RankedEntity,
 } from "@/lib/sectorMostActiveRanked";
 import { locationsService } from "@/lib/locationsService";
+import {
+  getArticleByline,
+  isNewsArticle,
+  normalizeContentArticles,
+} from "@/lib/contentArticleDisplay";
 import { BuildingOfficeIcon } from "@heroicons/react/24/outline";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import {
@@ -2433,7 +2438,7 @@ const SectorDetailPage = ({
 
         const data: InsightsAnalysisResponse = await response.json();
 
-        setArticles(data.items);
+        setArticles(normalizeContentArticles(data.items || []));
         setPagination({
           itemsReceived: data.itemsReceived,
           curPage: data.curPage,
@@ -2718,6 +2723,10 @@ const SectorDetailPage = ({
           <div className="insights-analysis-cards">
             {articles.map((article: ContentArticle, index: number) => {
               const effectiveContentType = getEffectiveContentType(article);
+              const isNews = isNewsArticle({
+                Content_Type: effectiveContentType,
+              });
+              const byline = isNews ? getArticleByline(article) : "";
 
               return (
                 <a
@@ -2758,6 +2767,9 @@ const SectorDetailPage = ({
                       </span>
                     </div>
                   )}
+                  {byline ? (
+                    <p className="article-byline">{byline}</p>
+                  ) : null}
                   <p className="article-summary">
                     {article.Strapline || "No summary available"}
                   </p>
@@ -2849,6 +2861,12 @@ const SectorDetailPage = ({
           .article-badge-row {
             margin: -8px 0 16px 0;
             display: block;
+          }
+          .article-byline {
+            font-size: 13px;
+            color: #6b7280;
+            margin: -12px 0 16px 0;
+            font-style: italic;
           }
           .badge {
             display: inline-block;

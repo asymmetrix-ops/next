@@ -155,16 +155,6 @@ function ArticleRow({
         <Pill tone={tone} style={insightTagPillStyle}>
           {tag}
         </Pill>
-        <div
-          style={{
-            fontSize: 13,
-            color: T.muted,
-            fontVariantNumeric: "tabular-nums",
-            marginTop: 8,
-          }}
-        >
-          {date || "-"}
-        </div>
         {isNews && byline ? (
           <div
             style={{
@@ -178,6 +168,16 @@ function ArticleRow({
             {byline}
           </div>
         ) : null}
+        <div
+          style={{
+            fontSize: 13,
+            color: T.muted,
+            fontVariantNumeric: "tabular-nums",
+            marginTop: 8,
+          }}
+        >
+          {date || "-"}
+        </div>
       </div>
       <div style={{ minWidth: 0 }}>
         {headline ? (

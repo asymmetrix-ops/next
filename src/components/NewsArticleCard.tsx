@@ -69,6 +69,18 @@ export function NewsArticleCard({ article, className }: NewsArticleCardProps) {
     >
       <div style={{ marginBottom: 10 }}>
         <span style={getContentTypeBadgeStyle("News")}>News</span>
+        {byline ? (
+          <p
+            style={{
+              fontSize: 13,
+              color: "#6b7280",
+              margin: "8px 0 0 0",
+              fontStyle: "italic",
+            }}
+          >
+            {byline}
+          </p>
+        ) : null}
       </div>
 
       <h3
@@ -107,19 +119,6 @@ export function NewsArticleCard({ article, className }: NewsArticleCardProps) {
       >
         {formatArticleDate(article.Publication_Date)}
       </p>
-
-      {byline ? (
-        <p
-          style={{
-            fontSize: 13,
-            color: "#6b7280",
-            margin: "0 0 8px 0",
-            fontStyle: "italic",
-          }}
-        >
-          {byline}
-        </p>
-      ) : null}
 
       {corrections.length > 0 ? (
         <ArticleCorrectionNotice corrections={corrections} variant="card" />
