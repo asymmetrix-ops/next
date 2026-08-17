@@ -1,13 +1,13 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { RxChevronLeft, RxChevronRight } from "react-icons/rx";
 import { Reveal } from "./Reveal";
 
 const AUTO_ADVANCE_MS = 7000;
 const EASE = [0.16, 1, 0.3, 1];
-const SPRING = { type: "spring", stiffness: 260, damping: 28, mass: 0.9 };
+const SPRING = { type: "spring", stiffness: 210, damping: 32, mass: 1 };
 const STACK_DEPTH = 3;
 const SWIPE_THRESHOLD = 80;
 
@@ -58,7 +58,7 @@ const STACK_VARIANTS = {
     opacity: 0,
     scale: 0.92,
     rotate: direction > 0 ? -7 : 7,
-    transition: { duration: 0.35, ease: EASE },
+    transition: { duration: 0.45, ease: EASE },
   }),
 };
 
@@ -84,11 +84,13 @@ function TestimonialCard({ testimonial, slot, direction, draggable, onDragEnd })
       }}
       className="landing-panel flex min-h-[300px] flex-col overflow-hidden rounded-[28px] p-6 text-center text-text-alternative md:min-h-[240px] md:flex-row md:items-center md:gap-8 md:p-8 md:text-left"
     >
-      <div className="mb-4 text-4xl font-bold leading-none text-background-alternative md:mb-0 md:shrink-0">
+      <div className="mb-4 flex shrink-0 items-start justify-center text-4xl font-bold leading-none text-background-alternative md:mb-0 md:justify-start">
         &ldquo;
       </div>
-      <blockquote className="line-clamp-5 flex-1 text-base font-bold leading-relaxed md:line-clamp-4 md:text-lg">
-        &ldquo;{testimonial.quote}&rdquo;
+      <blockquote className="flex flex-1 items-center">
+        <span className="line-clamp-5 text-base font-bold leading-relaxed md:line-clamp-4 md:text-lg">
+          &ldquo;{testimonial.quote}&rdquo;
+        </span>
       </blockquote>
       <div className="mt-6 flex shrink-0 flex-col items-center justify-center md:mt-0 md:w-44">
         <div className="mb-3 flex size-12 min-h-12 min-w-12 items-center justify-center rounded-full bg-background-alternative text-sm font-semibold">
@@ -107,8 +109,33 @@ export function Testimonial1() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
+  const [progress, setProgress] = useState(0);
   const reduceMotion = useReducedMotion();
   const total = TESTIMONIALS.length;
+  const progressRef = useRef(0);
+
+  // Resets the active dot's fill whenever the slide changes. Kept separate
+  // from the ticking effect below so pausing/resuming never resets progress.
+  useEffect(() => {
+    progressRef.current = reduceMotion ? 1 : 0;
+    setProgress(progressRef.current);
+  }, [activeIndex, reduceMotion]);
+
+  // Ticks the fill on a fixed-step interval rather than requestAnimationFrame
+  // — rAF gets throttled/suspended by the browser once a tab is treated as
+  // backgrounded, which would freeze the bar; setInterval keeps advancing.
+  useEffect(() => {
+    if (reduceMotion || isPaused) return undefined;
+
+    const stepMs = 50;
+    const increment = stepMs / AUTO_ADVANCE_MS;
+    const id = window.setInterval(() => {
+      progressRef.current = Math.min(progressRef.current + increment, 1);
+      setProgress(progressRef.current);
+    }, stepMs);
+
+    return () => window.clearInterval(id);
+  }, [isPaused, reduceMotion, activeIndex]);
 
   const goTo = useCallback(
     (index, dir) => {
@@ -201,24 +228,15 @@ export function Testimonial1() {
                     onClick={() => goTo(index, index > activeIndex ? 1 : -1)}
                     className={`relative h-2.5 overflow-hidden rounded-full transition-[width] duration-300 ${
                       index === activeIndex
-                        ? "w-10 bg-white/25"
-                        : "w-2.5 bg-white/25 hover:bg-white/40"
+                        ? "w-10 bg-[#000B29]/10"
+                        : "w-2.5 bg-[#000B29]/15 hover:bg-[#000B29]/25"
                     }`}
                   >
-                    {index === activeIndex && !reduceMotion && (
+                    {index === activeIndex && (
                       <span
-                        key={testimonial.id}
-                        className="landing-testimonial-progress-fill absolute inset-y-0 left-0 rounded-full bg-background-alternative"
-                        style={{
-                          "--testimonial-duration": `${AUTO_ADVANCE_MS}ms`,
-                          "--testimonial-play-state": isPaused
-                            ? "paused"
-                            : "running",
-                        }}
+                        className="absolute inset-y-0 left-0 rounded-full bg-background-alternative"
+                        style={{ width: `${progress * 100}%` }}
                       />
-                    )}
-                    {index === activeIndex && reduceMotion && (
-                      <span className="absolute inset-0 rounded-full bg-background-alternative" />
                     )}
                   </button>
                 ))}
