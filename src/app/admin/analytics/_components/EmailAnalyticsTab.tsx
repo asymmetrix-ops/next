@@ -45,15 +45,6 @@ type UserAnalytics = {
   clicked_urls: ClickedUrl[];
 };
 
-type UsersSummary = {
-  users_count: number;
-  total_sent: number;
-  total_opened: number;
-  overall_open_rate: number;
-  avg_user_open_rate: number;
-  total_clicks: number;
-};
-
 type UserSortCol = "openRate" | "sent" | "clicks" | "email";
 
 function eaNum(value: unknown): number {
@@ -156,36 +147,15 @@ function normalizeUserAnalytics(raw: unknown): UserAnalytics | null {
   };
 }
 
-function normalizeUsersResponse(raw: unknown): {
-  summary: UsersSummary | null;
-  users: UserAnalytics[];
-} {
+function normalizeUsersResponse(raw: unknown): UserAnalytics[] {
   const root =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
-  if (!root) return { summary: null, users: [] };
-
-  const summaryRaw =
-    root.summary && typeof root.summary === "object"
-      ? (root.summary as Record<string, unknown>)
-      : null;
-
-  const summary = summaryRaw
-    ? {
-        users_count: eaNum(summaryRaw.users_count),
-        total_sent: eaNum(summaryRaw.total_sent),
-        total_opened: eaNum(summaryRaw.total_opened),
-        overall_open_rate: eaNum(summaryRaw.overall_open_rate),
-        avg_user_open_rate: eaNum(summaryRaw.avg_user_open_rate),
-        total_clicks: eaNum(summaryRaw.total_clicks),
-      }
-    : null;
+  if (!root) return [];
 
   const usersRaw = root.users ?? root.items ?? [];
-  const users = (Array.isArray(usersRaw) ? usersRaw : [])
+  return (Array.isArray(usersRaw) ? usersRaw : [])
     .map(normalizeUserAnalytics)
     .filter((user): user is UserAnalytics => user !== null);
-
-  return { summary, users };
 }
 
 function UserDetailPanel({ user }: { user: UserAnalytics }) {
@@ -344,7 +314,6 @@ export function EmailAnalyticsTab() {
   const [dailyLoading, setDailyLoading] = useState(true);
   const [dailyError, setDailyError] = useState<string | null>(null);
 
-  const [usersSummary, setUsersSummary] = useState<UsersSummary | null>(null);
   const [allUsers, setAllUsers] = useState<UserAnalytics[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -402,11 +371,8 @@ export function EmailAnalyticsTab() {
       }
       const json = await res.json();
       setUsersRaw(json && typeof json === "object" ? (json as object) : null);
-      const { summary, users } = normalizeUsersResponse(json);
-      setUsersSummary(summary);
-      setAllUsers(users);
+      setAllUsers(normalizeUsersResponse(json));
     } catch (error) {
-      setUsersSummary(null);
       setAllUsers([]);
       setUsersRaw(null);
       setUsersError(
@@ -472,11 +438,6 @@ export function EmailAnalyticsTab() {
   const pagedUsers = sortedUsers.slice(
     (currentPage - 1) * LIST_PER_PAGE,
     currentPage * LIST_PER_PAGE
-  );
-
-  const neverOpened = useMemo(
-    () => allUsers.filter((user) => user.sent > 0 && user.opened === 0).length,
-    [allUsers]
   );
 
   const periodLabel = useMemo(() => {
@@ -639,53 +600,6 @@ export function EmailAnalyticsTab() {
       {usersError ? (
         <div className="bg-red-50 text-red-700 rounded border border-red-200 px-3 py-2 text-sm">
           Failed to load user analytics: {usersError}
-        </div>
-      ) : null}
-
-      {usersLoading && !usersSummary ? (
-        <div className="text-center py-6 text-sm text-gray-500">Loading overview…</div>
-      ) : null}
-
-      {usersSummary ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <div className="bg-white rounded border px-4 py-3">
-            <div className="text-xs text-gray-500 mb-1">Emails sent</div>
-            <div className="text-2xl font-medium text-gray-900">
-              {usersSummary.total_sent.toLocaleString()}
-            </div>
-            <div className="text-xs text-gray-400 mt-1">
-              {usersSummary.users_count.toLocaleString()} recipients · {periodLabel}
-            </div>
-          </div>
-          <div className="bg-white rounded border px-4 py-3">
-            <div className="text-xs text-gray-500 mb-1">Open rate (overall)</div>
-            <div className="text-2xl font-medium text-green-700">
-              {eaFormatRate(usersSummary.overall_open_rate)}
-            </div>
-            <div className="text-xs text-gray-400 mt-1">
-              {usersSummary.total_opened.toLocaleString()} of{" "}
-              {usersSummary.total_sent.toLocaleString()} messages opened
-            </div>
-          </div>
-          <div className="bg-white rounded border px-4 py-3">
-            <div className="text-xs text-gray-500 mb-1">Total clicks</div>
-            <div className="text-2xl font-medium text-blue-700">
-              {usersSummary.total_clicks.toLocaleString()}
-            </div>
-          </div>
-          <div className="bg-white rounded border px-4 py-3">
-            <div className="text-xs text-gray-500 mb-1">Avg open rate per user</div>
-            <div className="text-2xl font-medium text-green-700">
-              {eaFormatRate(usersSummary.avg_user_open_rate)}
-            </div>
-          </div>
-          <div className="bg-white rounded border px-4 py-3">
-            <div className="text-xs text-gray-500 mb-1">Never opened</div>
-            <div className="text-2xl font-medium text-amber-700">{neverOpened}</div>
-            <div className="text-xs text-gray-400 mt-1">
-              users received email but 0 opens
-            </div>
-          </div>
         </div>
       ) : null}
 
