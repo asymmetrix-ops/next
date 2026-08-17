@@ -8,8 +8,7 @@ const UNIFIED_OVERVIEW_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/admin_analytics/unified_overview";
 const COMPANY_SUMMARY_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/admin_analytics/company_summary";
-const EMAIL_ANALYTICS_DAILY_STATS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_analytics/daily_stats";
+const EMAIL_ANALYTICS_DAILY_URL = "/api/admin/email-analytics/daily";
 
 const UA_ALERT_LABELS: Record<string, { label: string; cls: string }> = {
   corporate_events: { label: "Corporate Events", cls: "bg-violet-50 text-violet-700" },
@@ -818,8 +817,11 @@ export function UnifiedActivityTab() {
     setDailyLoading(true);
     setDailyError(null);
     try {
-      const params = new URLSearchParams({ date: auditDate });
-      const res = await authFetch(`${EMAIL_ANALYTICS_DAILY_STATS_URL}?${params.toString()}`);
+      const params = new URLSearchParams({
+        date: auditDate,
+        timezone: "Europe/London",
+      });
+      const res = await authFetch(`${EMAIL_ANALYTICS_DAILY_URL}?${params.toString()}`);
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         throw new Error(`${res.status} ${text}`);
