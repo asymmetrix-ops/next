@@ -7,10 +7,18 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
-import type { ArticleSeries } from "@/types/insightsAnalysis";
+import type { ArticleSeries, ContentArticle, ContentCorrection } from "@/types/insightsAnalysis";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
+import {
+  formatCorrectionTimestamp,
+  getArticleByline,
+  getArticleCorrections,
+  getLatestCorrection,
+  isNewsArticle,
+} from "@/lib/contentArticleDisplay";
+import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
@@ -77,6 +85,9 @@ interface ArticleDetail {
   }>;
   is_series?: boolean;
   series?: ArticleSeries;
+  byline?: string | string[] | null;
+  right_to_reply?: boolean;
+  corrections?: ContentCorrection[] | null;
 }
 
 interface CompanyOfFocusOverview {
@@ -654,6 +665,9 @@ const ArticleDetailPage = () => {
               url: string;
             }>
           >(raw.Related_Documents) || [],
+        byline:
+          tryParse<string | string[] | Array<string | string[]>>(raw.byline) ??
+          raw.byline,
       } as ArticleDetail;
 
       setArticle(normalized);
@@ -1437,6 +1451,11 @@ const ArticleDetailPage = () => {
         (companyOfFocusCompanyId != null && companyOfFocusCompanyId > 0)
     );
   const hqCountryIso2 = getInsightHqCountryIso2(article);
+  const contentArticle = article as unknown as ContentArticle;
+  const isNews = isNewsArticle(contentArticle);
+  const byline = getArticleByline(article);
+  const corrections = getArticleCorrections(contentArticle);
+  const latestCorrection = getLatestCorrection(contentArticle);
 
   return (
     <div style={styles.container}>
@@ -1480,6 +1499,22 @@ const ArticleDetailPage = () => {
               </div>
             )}
             <p style={styles.strapline}>{article.Strapline}</p>
+            {isNews && byline ? (
+              <p
+                style={{
+                  fontSize: 16,
+                  color: "#6b7280",
+                  marginTop: -20,
+                  marginBottom: 24,
+                  fontStyle: "italic",
+                }}
+              >
+                {byline}
+              </p>
+            ) : null}
+            {corrections.length > 0 ? (
+              <ArticleCorrectionNotice corrections={corrections} variant="banner" />
+            ) : null}
             {(() => {
               const ct = (
                 article.Content_Type ||
@@ -1646,6 +1681,18 @@ const ArticleDetailPage = () => {
                 <p style={{ ...styles.date, marginBottom: 0 }}>
                   {formatDate(article.Publication_Date)}
                 </p>
+                {latestCorrection?.updated_at ? (
+                  <p
+                    style={{
+                      ...styles.date,
+                      marginBottom: 0,
+                      fontSize: 14,
+                      color: "#92400e",
+                    }}
+                  >
+                    Updated {formatCorrectionTimestamp(latestCorrection.updated_at)}
+                  </p>
+                ) : null}
                 {/* Export PDF Button */}
                 {ENABLE_PDF_EXPORT && (
                   <button

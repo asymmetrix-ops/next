@@ -7,6 +7,9 @@ import { Reveal } from "./Reveal";
 
 const AUTO_ADVANCE_MS = 7000;
 const EASE = [0.16, 1, 0.3, 1];
+const SPRING = { type: "spring", stiffness: 260, damping: 28, mass: 0.9 };
+const STACK_DEPTH = 3;
+const SWIPE_THRESHOLD = 80;
 
 const TESTIMONIALS = [
   {
@@ -43,13 +46,48 @@ const TESTIMONIALS = [
   },
 ];
 
-function TestimonialCard({ testimonial }) {
+// Slot 0 = front (active), higher slots recede into the stack behind it.
+const STACK_VARIANTS = {
+  enter: { y: -52, scale: 0.82, opacity: 0, rotate: 0 },
+  slot0: { y: 0, scale: 1, opacity: 1, rotate: 0, transition: SPRING },
+  slot1: { y: -16, scale: 0.95, opacity: 0.55, rotate: 0, transition: SPRING },
+  slot2: { y: -30, scale: 0.9, opacity: 0.28, rotate: 0, transition: SPRING },
+  exit: (direction) => ({
+    x: direction > 0 ? -140 : 140,
+    y: 12,
+    opacity: 0,
+    scale: 0.92,
+    rotate: direction > 0 ? -7 : 7,
+    transition: { duration: 0.35, ease: EASE },
+  }),
+};
+
+function TestimonialCard({ testimonial, slot, direction, draggable, onDragEnd }) {
   return (
-    <div className="landing-panel relative flex min-h-[280px] flex-col overflow-hidden rounded-[28px] p-6 text-center text-text-alternative md:min-h-[240px] md:flex-row md:items-center md:gap-8 md:p-8 md:text-left">
+    <motion.div
+      custom={direction}
+      variants={STACK_VARIANTS}
+      initial="enter"
+      animate={`slot${slot}`}
+      exit="exit"
+      drag={draggable ? "x" : false}
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.6}
+      onDragEnd={onDragEnd}
+      whileDrag={{ cursor: "grabbing" }}
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: STACK_DEPTH - slot,
+        pointerEvents: slot === 0 ? "auto" : "none",
+        cursor: draggable ? "grab" : "default",
+      }}
+      className="landing-panel flex min-h-[300px] flex-col overflow-hidden rounded-[28px] p-6 text-center text-text-alternative md:min-h-[240px] md:flex-row md:items-center md:gap-8 md:p-8 md:text-left"
+    >
       <div className="mb-4 text-4xl font-bold leading-none text-background-alternative md:mb-0 md:shrink-0">
         &ldquo;
       </div>
-      <blockquote className="flex-1 text-base font-bold leading-relaxed md:text-lg">
+      <blockquote className="line-clamp-5 flex-1 text-base font-bold leading-relaxed md:line-clamp-4 md:text-lg">
         &ldquo;{testimonial.quote}&rdquo;
       </blockquote>
       <div className="mt-6 flex shrink-0 flex-col items-center justify-center md:mt-0 md:w-44">
@@ -61,38 +99,56 @@ function TestimonialCard({ testimonial }) {
           {testimonial.title}
         </p>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 export function Testimonial1() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
   const reduceMotion = useReducedMotion();
+  const total = TESTIMONIALS.length;
 
-  const goTo = useCallback((index) => {
-    setActiveIndex((index + TESTIMONIALS.length) % TESTIMONIALS.length);
-  }, []);
+  const goTo = useCallback(
+    (index, dir) => {
+      setDirection(dir);
+      setActiveIndex((index + total) % total);
+    },
+    [total],
+  );
 
   const goNext = useCallback(() => {
-    goTo(activeIndex + 1);
+    goTo(activeIndex + 1, 1);
   }, [activeIndex, goTo]);
 
   const goPrev = useCallback(() => {
-    goTo(activeIndex - 1);
+    goTo(activeIndex - 1, -1);
   }, [activeIndex, goTo]);
 
   useEffect(() => {
     if (reduceMotion || isPaused) return undefined;
 
     const timer = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % TESTIMONIALS.length);
+      setDirection(1);
+      setActiveIndex((current) => (current + 1) % total);
     }, AUTO_ADVANCE_MS);
 
     return () => window.clearInterval(timer);
-  }, [isPaused, reduceMotion]);
+  }, [isPaused, reduceMotion, total]);
 
-  const activeTestimonial = TESTIMONIALS[activeIndex];
+  const handleDragEnd = (_event, info) => {
+    if (info.offset.x <= -SWIPE_THRESHOLD) {
+      goNext();
+    } else if (info.offset.x >= SWIPE_THRESHOLD) {
+      goPrev();
+    }
+  };
+
+  const stack = Array.from({ length: Math.min(STACK_DEPTH, total) }, (_, slot) => ({
+    slot,
+    testimonial: TESTIMONIALS[(activeIndex + slot) % total],
+  }));
 
   return (
     <section
@@ -110,21 +166,18 @@ export function Testimonial1() {
       <div className="container">
         <Reveal>
           <div className="relative mx-auto max-w-6xl">
-            <div className="overflow-hidden">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={activeTestimonial.id}
-                  initial={
-                    reduceMotion ? false : { opacity: 0, x: 24 }
-                  }
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={
-                    reduceMotion ? undefined : { opacity: 0, x: -24 }
-                  }
-                  transition={{ duration: 0.45, ease: EASE }}
-                >
-                  <TestimonialCard testimonial={activeTestimonial} />
-                </motion.div>
+            <div className="relative min-h-[336px] md:min-h-[272px]">
+              <AnimatePresence initial={false} custom={direction}>
+                {stack.map(({ slot, testimonial }) => (
+                  <TestimonialCard
+                    key={testimonial.id}
+                    testimonial={testimonial}
+                    slot={slot}
+                    direction={direction}
+                    draggable={slot === 0 && !reduceMotion}
+                    onDragEnd={handleDragEnd}
+                  />
+                ))}
               </AnimatePresence>
             </div>
 
@@ -145,13 +198,29 @@ export function Testimonial1() {
                     type="button"
                     aria-label={`Show testimonial from ${testimonial.name}`}
                     aria-current={index === activeIndex ? "true" : undefined}
-                    onClick={() => goTo(index)}
-                    className={`h-2.5 rounded-full transition-all ${
+                    onClick={() => goTo(index, index > activeIndex ? 1 : -1)}
+                    className={`relative h-2.5 overflow-hidden rounded-full transition-[width] duration-300 ${
                       index === activeIndex
-                        ? "w-8 bg-background-alternative"
+                        ? "w-10 bg-white/25"
                         : "w-2.5 bg-white/25 hover:bg-white/40"
                     }`}
-                  />
+                  >
+                    {index === activeIndex && !reduceMotion && (
+                      <span
+                        key={testimonial.id}
+                        className="landing-testimonial-progress-fill absolute inset-y-0 left-0 rounded-full bg-background-alternative"
+                        style={{
+                          "--testimonial-duration": `${AUTO_ADVANCE_MS}ms`,
+                          "--testimonial-play-state": isPaused
+                            ? "paused"
+                            : "running",
+                        }}
+                      />
+                    )}
+                    {index === activeIndex && reduceMotion && (
+                      <span className="absolute inset-0 rounded-full bg-background-alternative" />
+                    )}
+                  </button>
                 ))}
               </div>
 

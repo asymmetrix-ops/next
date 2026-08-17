@@ -69,6 +69,14 @@ export function getContentTypeBadgeStyle(contentType?: string): CSSProperties {
       borderColor: "#bbf7d0",
     };
   }
+  if (t === "news") {
+    return {
+      ...base,
+      backgroundColor: "#fff1f2",
+      color: "#9f1239",
+      borderColor: "#fecdd3",
+    };
+  }
 
   return {
     ...base,

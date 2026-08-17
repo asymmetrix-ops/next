@@ -4,6 +4,12 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import type { ContentArticle } from "@/types/insightsAnalysis";
 import { getContentTypeBadgeStyle } from "@/lib/contentTypeBadge";
+import {
+  decodeHtmlEntities,
+  getEffectiveContentType,
+  isNewsArticle,
+} from "@/lib/contentArticleDisplay";
+import NewsArticleCard from "@/components/NewsArticleCard";
 
 interface InsightsAnalysisCardProps {
   article: ContentArticle;
@@ -39,25 +45,7 @@ const formatDate = (dateString: string) => {
   }
 };
 
-const decodeHtmlEntities = (input: string): string => {
-  if (!input) return "";
-
-  // Prefer DOM-based decoding when running in the browser
-  if (typeof window !== "undefined") {
-    const div = document.createElement("div");
-    div.innerHTML = input;
-    return (div.textContent || div.innerText || "").trim();
-  }
-
-  // Fallback for server-side: handle common entities
-  return input
-    .replace(/&amp;/g, "&")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'");
-};
+const decodeHtmlEntitiesLocal = decodeHtmlEntities;
 
 const stripHtmlToText = (html: string | undefined | null): string => {
   if (!html) return "";
@@ -75,7 +63,7 @@ const formatSectors = (
     .filter(Boolean)
     .flat()
     .filter(Boolean)
-    .map((s) => decodeHtmlEntities(s?.sector_name || ""))
+    .map((s) => decodeHtmlEntitiesLocal(s?.sector_name || ""))
     .filter((name): name is string => Boolean(name && name.trim().length));
   return allSectors.length ? allSectors.join(", ") : "-";
 };
@@ -87,7 +75,7 @@ const formatCompanies = (
     return "-";
   const names = companies
     .filter(Boolean)
-    .map((c) => decodeHtmlEntities(c?.name || ""))
+    .map((c) => decodeHtmlEntitiesLocal(c?.name || ""))
     .filter((name): name is string => Boolean(name && name.trim().length));
   return names.length ? names.join(", ") : "-";
 };
@@ -98,7 +86,7 @@ const getCompanyNames = (
   if (!Array.isArray(companies) || companies.length === 0) return [];
   return companies
     .filter(Boolean)
-    .map((c) => decodeHtmlEntities(c?.name || ""))
+    .map((c) => decodeHtmlEntitiesLocal(c?.name || ""))
     .filter((name): name is string => Boolean(name && name.trim().length));
 };
 
@@ -110,7 +98,7 @@ const getSectorNames = (
     .filter(Boolean)
     .flat()
     .filter(Boolean)
-    .map((s) => decodeHtmlEntities(s?.sector_name || ""))
+    .map((s) => decodeHtmlEntitiesLocal(s?.sector_name || ""))
     .filter((name): name is string => Boolean(name && name.trim().length));
 };
 
@@ -137,7 +125,7 @@ const renderBadgeList = (
 
 const normalizeContentTypeLabel = (raw: unknown): string | undefined => {
   if (typeof raw !== "string") return undefined;
-  const trimmed = decodeHtmlEntities(raw).trim();
+  const trimmed = decodeHtmlEntitiesLocal(raw).trim();
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
@@ -188,25 +176,18 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   const router = useRouter();
 
   // Robust content type detection across backend shapes
-  const effectiveContentType = React.useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const anyA = article as any;
-    return (
-      normalizeContentTypeLabel(anyA?.Content_Type) ||
-      normalizeContentTypeLabel(anyA?.content_type) ||
-      normalizeContentTypeLabel(anyA?.ContentType) ||
-      normalizeContentTypeLabel(anyA?.contentType) ||
-      inferContentTypeFromHeadline(anyA?.Headline)
-    );
-  }, [article]);
+  const effectiveContentType = React.useMemo(
+    () => getEffectiveContentType(article) || inferContentTypeFromHeadline(article.Headline),
+    [article]
+  );
 
   const plainHeadline = React.useMemo(
-    () => decodeHtmlEntities(article.Headline),
+    () => decodeHtmlEntitiesLocal(article.Headline),
     [article.Headline]
   );
 
   const plainStrapline = React.useMemo(
-    () => decodeHtmlEntities(article.Strapline),
+    () => decodeHtmlEntitiesLocal(article.Strapline),
     [article.Strapline]
   );
 
@@ -224,6 +205,10 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
     () => getSectorNames(article.sectors),
     [article.sectors]
   );
+
+  if (isNewsArticle(article)) {
+    return <NewsArticleCard article={article} />;
+  }
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (
