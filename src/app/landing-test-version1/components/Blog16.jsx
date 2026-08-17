@@ -65,8 +65,8 @@ function ArticleCard({ article }) {
           />
         </div>
       </a>
-      <div className="flex flex-1 flex-col items-start p-4 md:p-5">
-        <div className="landing-blog-card-meta mb-2 flex w-full min-h-6 flex-wrap items-center gap-2">
+      <div className="flex flex-1 flex-col items-start p-3 md:p-4">
+        <div className="landing-blog-card-meta mb-1.5 flex w-full min-h-6 flex-wrap items-center gap-2">
           <ContentTypeBadge contentType={article.contentType} />
           {formattedDate ? (
             <p className="inline text-xs font-semibold text-text-alternative md:text-sm">
@@ -77,8 +77,8 @@ function ArticleCard({ article }) {
           )}
         </div>
 
-        <a className="mb-2 block w-full" href={titleHref} {...linkProps}>
-          <h3 className="landing-blog-card-title text-lg font-bold leading-snug text-text-alternative md:text-xl">
+        <a className="mb-1.5 block w-full" href={titleHref} {...linkProps}>
+          <h3 className="landing-blog-card-title text-base font-bold leading-snug text-text-alternative md:text-lg">
             {article.headline}
           </h3>
         </a>
@@ -87,7 +87,7 @@ function ArticleCard({ article }) {
           {article.strapline || "\u00a0"}
         </p>
 
-        <div className="landing-blog-card-footer mt-auto w-full pt-3">
+        <div className="landing-blog-card-footer mt-auto w-full pt-2">
           {article.href ? (
             <a href={article.href} className="inline-flex" {...linkProps}>
               <Button
@@ -95,13 +95,13 @@ function ArticleCard({ article }) {
                 variant="secondary"
                 size="sm"
                 iconRight={<RxChevronRight />}
-                className="landing-btn-secondary flex h-9 w-fit items-center justify-center gap-x-1.5 rounded-full px-4 text-sm"
+                className="landing-btn-secondary flex h-8 w-fit items-center justify-center gap-x-1.5 rounded-full px-3.5 text-sm"
               >
                 Read
               </Button>
             </a>
           ) : (
-            <span className="inline-block h-9" aria-hidden />
+            <span className="inline-block h-8" aria-hidden />
           )}
         </div>
       </div>
@@ -119,7 +119,7 @@ function ArticleGrid({ articles, emptyMessage }) {
   }
 
   return (
-    <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 md:gap-5 lg:gap-6">
+    <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 md:gap-4 lg:grid-cols-4 lg:gap-5">
       {articles.map((article) => (
         <ArticleCard key={article.id} article={article} />
       ))}
