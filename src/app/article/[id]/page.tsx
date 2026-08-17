@@ -1499,19 +1499,6 @@ const ArticleDetailPage = () => {
               </div>
             )}
             <p style={styles.strapline}>{article.Strapline}</p>
-            {isNews && byline ? (
-              <p
-                style={{
-                  fontSize: 16,
-                  color: "#6b7280",
-                  marginTop: -20,
-                  marginBottom: 24,
-                  fontStyle: "italic",
-                }}
-              >
-                {byline}
-              </p>
-            ) : null}
             {corrections.length > 0 ? (
               <ArticleCorrectionNotice corrections={corrections} variant="banner" />
             ) : null}
@@ -1529,6 +1516,19 @@ const ArticleDetailPage = () => {
                 </div>
               ) : null;
             })()}
+            {isNews && byline ? (
+              <p
+                style={{
+                  fontSize: 16,
+                  color: "#6b7280",
+                  marginTop: -16,
+                  marginBottom: 24,
+                  fontStyle: "italic",
+                }}
+              >
+                {byline}
+              </p>
+            ) : null}
 
             {/* Summary (collapsible) */}
             {(() => {
