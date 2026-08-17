@@ -38,6 +38,15 @@ type DcpCompanyRow = {
   was_opened: boolean;
   was_clicked: boolean;
   contributed: boolean;
+  contribution_approved: boolean;
+  contributions_count: number;
+  last_contribution_at: number | null;
+  contribution_entity_types: string[];
+  contribution_source: string;
+  content_id: number | null;
+  ceo_email: string;
+  key_contact_email: string;
+  inactive: boolean;
   rounds: Record<string, DcpRoundLog>;
   engagement_pattern: string;
   rounds_opened: number[];
@@ -55,6 +64,7 @@ type DcpSummary = {
   opened_email: number;
   open_rate: number;
   contributed_data: number;
+  contributed_approved: number;
   contribution_rate: number;
   outreach_sent_no_data: number;
   engagement_patterns: Record<string, number>;
@@ -261,6 +271,11 @@ function dcpParseFilterCounts(value: unknown): Record<DcpFilter, number> {
   };
 }
 
+function dcpParseStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item)).filter(Boolean);
+}
+
 function normalizeDcpCompanyRow(row: unknown): DcpCompanyRow | null {
   const r = row && typeof row === "object" ? (row as Record<string, unknown>) : null;
   if (!r) return null;
@@ -292,6 +307,18 @@ function normalizeDcpCompanyRow(row: unknown): DcpCompanyRow | null {
     was_opened: Boolean(r.was_opened ?? r.opened),
     was_clicked: Boolean(r.was_clicked ?? r.clicked),
     contributed: Boolean(r.contributed),
+    contribution_approved: Boolean(r.contribution_approved),
+    contributions_count: dcpNum(r.contributions_count),
+    last_contribution_at: dcpOptionalTs(r.last_contribution_at),
+    contribution_entity_types: dcpParseStringArray(r.contribution_entity_types),
+    contribution_source: String(r.contribution_source ?? ""),
+    content_id:
+      r.content_id == null || r.content_id === ""
+        ? null
+        : dcpNum(r.content_id) || null,
+    ceo_email: String(r.ceo_email ?? ""),
+    key_contact_email: String(r.key_contact_email ?? ""),
+    inactive: Boolean(r.inactive),
     rounds,
     engagement_pattern: String(
       r.engagement_pattern ?? r.pattern ?? r.engagementPattern ?? ""
@@ -313,6 +340,7 @@ function normalizeDcpSummary(raw: unknown): DcpSummary {
     opened_email: dcpNum(row.opened_email ?? row.total_opened),
     open_rate: dcpNum(row.open_rate),
     contributed_data: dcpNum(row.contributed_data ?? row.total_contributed),
+    contributed_approved: dcpNum(row.contributed_approved ?? row.approved),
     contribution_rate: dcpNum(row.contribution_rate),
     outreach_sent_no_data: dcpNum(
       row.outreach_sent_no_data ??
@@ -375,6 +403,38 @@ function DcpStatusBadge({
     >
       {value ? positiveLabel : negativeLabel}
     </span>
+  );
+}
+
+function DcpContributionBadge({ company }: { company: DcpCompanyRow }) {
+  if (!company.contributed) {
+    return (
+      <DcpStatusBadge
+        value={false}
+        positiveLabel="Contributed"
+        negativeLabel="None"
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 w-fit">
+        Contributed
+        {company.contributions_count > 1
+          ? ` (${company.contributions_count})`
+          : ""}
+      </span>
+      <span
+        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium w-fit ${
+          company.contribution_approved
+            ? "bg-green-50 text-green-700"
+            : "bg-amber-50 text-amber-700"
+        }`}
+      >
+        {company.contribution_approved ? "Approved" : "Pending approval"}
+      </span>
+    </div>
   );
 }
 
@@ -622,8 +682,60 @@ function DcpCompanyRowExpand({
 
   return (
     <tr className="bg-gray-50">
-      <td colSpan={10} className="px-3 py-3">
-        <div className="text-xs font-medium text-gray-500 mb-2">Round history</div>
+      <td colSpan={10} className="px-3 py-3 space-y-4">
+        {company.contributed ? (
+          <div>
+            <div className="text-xs font-medium text-gray-500 mb-2">
+              Contribution details
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-1">
+              <div className="rounded border bg-white px-3 py-2">
+                <div className="text-xs text-gray-500">Contributions</div>
+                <div className="text-sm font-medium text-blue-700">
+                  {company.contributions_count || 1}
+                </div>
+              </div>
+              <div className="rounded border bg-white px-3 py-2">
+                <div className="text-xs text-gray-500">Last contribution</div>
+                <div className="text-sm font-medium text-gray-900">
+                  {formatTimestamp(company.last_contribution_at)}
+                </div>
+              </div>
+              <div className="rounded border bg-white px-3 py-2">
+                <div className="text-xs text-gray-500">Source</div>
+                <div className="text-sm font-medium text-gray-900 capitalize">
+                  {company.contribution_source.replace(/_/g, " ") || "—"}
+                </div>
+              </div>
+              <div className="rounded border bg-white px-3 py-2">
+                <div className="text-xs text-gray-500">Approval</div>
+                <div className="text-sm font-medium text-gray-900">
+                  {company.contribution_approved ? "Approved" : "Pending"}
+                </div>
+              </div>
+            </div>
+            {company.contribution_entity_types.length > 0 ? (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {company.contribution_entity_types.map((type) => (
+                  <span
+                    key={type}
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700"
+                  >
+                    {type.replace(/_/g, " ")}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {company.content_id ? (
+              <div className="text-xs text-gray-500 mt-2">
+                Content ID {company.content_id}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div>
+          <div className="text-xs font-medium text-gray-500 mb-2">Round history</div>
         {loading ? (
           <div className="text-xs text-gray-500 py-2">Loading round history…</div>
         ) : null}
@@ -633,6 +745,7 @@ function DcpCompanyRowExpand({
           </div>
         ) : null}
         <DcpRoundHistoryTable rounds={detailRounds} />
+        </div>
       </td>
     </tr>
   );
@@ -654,6 +767,7 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
     opened_email: 0,
     open_rate: 0,
     contributed_data: 0,
+    contributed_approved: 0,
     contribution_rate: 0,
     outreach_sent_no_data: 0,
     engagement_patterns: {},
@@ -708,6 +822,7 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
         opened_email: 0,
         open_rate: 0,
         contributed_data: 0,
+        contributed_approved: 0,
         contribution_rate: 0,
         outreach_sent_no_data: 0,
         engagement_patterns: {},
@@ -811,6 +926,9 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
           </div>
           <div className="text-xs text-gray-400 mt-1">
             {contributionRatePct}% contribution rate
+            {summary.contributed_approved > 0
+              ? ` · ${summary.contributed_approved.toLocaleString()} approved`
+              : ""}
           </div>
         </div>
         <div className="rounded border px-4 py-3">
@@ -1004,11 +1122,7 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
                           <DcpStatusBadge value={company.was_clicked} />
                         </td>
                         <td className="px-3 py-2">
-                          <DcpStatusBadge
-                            value={company.contributed}
-                            positiveLabel="Contributed"
-                            negativeLabel="None"
-                          />
+                          <DcpContributionBadge company={company} />
                         </td>
                       </tr>
                       {expanded ? (

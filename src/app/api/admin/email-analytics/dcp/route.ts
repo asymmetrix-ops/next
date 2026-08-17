@@ -1,9 +1,9 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   analyticsUpstream,
-  proxyAlertsResponse,
   requireAuthUser,
 } from "@/lib/emailAlertsServer";
+import { enrichDcpAnalyticsResponse } from "@/lib/dcpAnalyticsServer";
 
 export const dynamic = "force-dynamic";
 
@@ -36,5 +36,25 @@ export async function GET(req: NextRequest) {
     { method: "GET" }
   );
 
-  return proxyAlertsResponse(upstreamResp);
+  const text = await upstreamResp.text().catch(() => "");
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!upstreamResp.ok) {
+    return NextResponse.json(
+      {
+        error: "Upstream error",
+        statusText: upstreamResp.statusText,
+        data,
+      },
+      { status: upstreamResp.status }
+    );
+  }
+
+  const enriched = await enrichDcpAnalyticsResponse(auth.token, data);
+  return NextResponse.json(enriched, { status: upstreamResp.status });
 }
