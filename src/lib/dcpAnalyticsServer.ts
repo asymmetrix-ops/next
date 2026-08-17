@@ -110,22 +110,9 @@ async function fetchXanoDcpCompaniesUrl(url: string, token: string) {
   return resp;
 }
 
-/** Fetch the full DCP company catalog from Xano (same as ids=null&company_ids=null). */
-export async function fetchAllXanoDcpCompanies(
-  token: string
-): Promise<XanoDcpCompaniesResponse | null> {
-  const params = new URLSearchParams({
-    ids: "null",
-    company_ids: "null",
-  });
-  const url = `${getXanoDcpCompaniesUrl()}?${params.toString()}`;
-  const resp = await fetchXanoDcpCompaniesUrl(url, token);
-  if (!resp.ok) return null;
-
-  const json = (await resp.json().catch(() => null)) as
-    | Record<string, unknown>
-    | XanoDcpCompany[]
-    | null;
+function parseXanoCompaniesResponse(
+  json: Record<string, unknown> | XanoDcpCompany[] | null
+): XanoDcpCompaniesResponse | null {
   if (!json) return null;
 
   const root = Array.isArray(json) ? { companies: json } : json;
@@ -150,8 +137,96 @@ export async function fetchAllXanoDcpCompanies(
   };
 }
 
+/** Fetch Xano enrichment for the outreach sequence + company ids returned by Turso. */
+export async function fetchXanoDcpCompanies(
+  token: string,
+  outreachSequenceIds: number[],
+  companyIds: number[]
+): Promise<XanoDcpCompaniesResponse | null> {
+  const ids = Array.from(
+    new Set(outreachSequenceIds.filter((id) => Number.isFinite(id) && id > 0))
+  );
+  const companyIdsUnique = Array.from(
+    new Set(companyIds.filter((id) => Number.isFinite(id) && id > 0))
+  );
+
+  if (ids.length === 0 && companyIdsUnique.length === 0) {
+    return null;
+  }
+
+  const params = new URLSearchParams();
+  if (ids.length > 0) {
+    params.set("ids", ids.join(","));
+  }
+  if (companyIdsUnique.length > 0) {
+    params.set("company_ids", companyIdsUnique.join(","));
+  }
+
+  const url = `${getXanoDcpCompaniesUrl()}?${params.toString()}`;
+  const resp = await fetchXanoDcpCompaniesUrl(url, token);
+  if (!resp.ok) return null;
+
+  const json = (await resp.json().catch(() => null)) as
+    | Record<string, unknown>
+    | XanoDcpCompany[]
+    | null;
+
+  return parseXanoCompaniesResponse(json);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function extractOutreachSequenceId(row: Record<string, unknown>): number {
+  return dcpNum(
+    row.outreach_sequence_id ??
+      row.outreachSequenceId ??
+      row.outreach_sequence ??
+      row.sequence_id ??
+      row.id ??
+      row.contact_id
+  );
+}
+
+function extractCompanyId(row: Record<string, unknown>): number {
+  return dcpNum(row.company_id ?? row.new_company_id ?? row.target_company_id);
+}
+
+function collectTursoCompanyRows(data: Record<string, unknown>): Record<string, unknown>[] {
+  if (Array.isArray(data.companies)) {
+    return data.companies.filter(isRecord);
+  }
+  if (isRecord(data.company)) {
+    return [data.company];
+  }
+  if (
+    extractOutreachSequenceId(data) > 0 ||
+    extractCompanyId(data) > 0
+  ) {
+    return [data];
+  }
+  return [];
+}
+
+function extractTursoIds(data: Record<string, unknown>): {
+  outreachSequenceIds: number[];
+  companyIds: number[];
+} {
+  const outreachSequenceIds = new Set<number>();
+  const companyIds = new Set<number>();
+
+  for (const row of collectTursoCompanyRows(data)) {
+    const outreachSequenceId = extractOutreachSequenceId(row);
+    const companyId = extractCompanyId(row);
+    if (outreachSequenceId > 0) outreachSequenceIds.add(outreachSequenceId);
+    if (companyId > 0) companyIds.add(companyId);
+  }
+
+  return {
+    outreachSequenceIds: Array.from(outreachSequenceIds),
+    companyIds: Array.from(companyIds),
+  };
 }
 
 function mergeCompanyRow(
@@ -163,8 +238,8 @@ function mergeCompanyRow(
   return {
     ...row,
     outreach_sequence_id:
-      dcpNum(row.outreach_sequence_id) || xano.outreach_sequence_id,
-    company_id: dcpNum(row.company_id) || xano.company_id,
+      extractOutreachSequenceId(row) || xano.outreach_sequence_id,
+    company_id: extractCompanyId(row) || xano.company_id,
     company_name: xano.company_name || row.company_name || row.name || "",
     company_url: xano.website || row.company_url || row.website || "",
     website: xano.website || row.website || row.company_url || "",
@@ -261,10 +336,8 @@ function findXanoCompany(
   row: Record<string, unknown>,
   lookups: XanoLookups
 ): XanoDcpCompany | undefined {
-  const outreachSequenceId = dcpNum(
-    row.outreach_sequence_id ?? row.outreachSequenceId ?? row.id
-  );
-  const companyId = dcpNum(row.company_id);
+  const outreachSequenceId = extractOutreachSequenceId(row);
+  const companyId = extractCompanyId(row);
 
   const byId =
     (outreachSequenceId > 0
@@ -288,13 +361,32 @@ export async function enrichDcpAnalyticsResponse(
 ): Promise<unknown> {
   if (!isRecord(data)) return data;
 
-  const xano = await fetchAllXanoDcpCompanies(token);
+  const { outreachSequenceIds, companyIds } = extractTursoIds(data);
+
+  if (outreachSequenceIds.length === 0 && companyIds.length === 0) {
+    return {
+      ...data,
+      xano_enrichment: {
+        ok: false,
+        error: "No outreach_sequence_id or company_id found in Turso response",
+      },
+    };
+  }
+
+  const xano = await fetchXanoDcpCompanies(
+    token,
+    outreachSequenceIds,
+    companyIds
+  );
+
   if (!xano) {
     return {
       ...data,
       xano_enrichment: {
         ok: false,
         error: "Failed to fetch Xano DCP companies",
+        ids_sent: outreachSequenceIds,
+        company_ids_sent: companyIds,
       },
     };
   }
@@ -316,13 +408,18 @@ export async function enrichDcpAnalyticsResponse(
     const xanoCompany = findXanoCompany(data.company, lookups);
     if (xanoCompany) rowsMerged += 1;
     enriched.company = mergeCompanyRow(data.company, xanoCompany);
-  } else if (dcpNum(data.outreach_sequence_id ?? data.company_id) > 0) {
+  } else if (
+    extractOutreachSequenceId(data) > 0 ||
+    extractCompanyId(data) > 0
+  ) {
     const xanoCompany = findXanoCompany(data, lookups);
     if (xanoCompany) rowsMerged += 1;
     return {
       ...mergeCompanyRow(data, xanoCompany),
       xano_enrichment: {
         ok: true,
+        ids_sent: outreachSequenceIds,
+        company_ids_sent: companyIds,
         companies_fetched: xano.companies.length,
         rows_merged: xanoCompany ? 1 : 0,
         summary: xano.summary,
@@ -355,10 +452,63 @@ export async function enrichDcpAnalyticsResponse(
 
   enriched.xano_enrichment = {
     ok: true,
+    ids_sent: outreachSequenceIds,
+    company_ids_sent: companyIds,
     companies_fetched: xano.companies.length,
     rows_merged: rowsMerged,
     summary: xano.summary,
   };
 
   return enriched;
+}
+
+export async function enrichDcpAnalyticsResponseWithRouteId(
+  token: string,
+  data: unknown,
+  routeOutreachSequenceId: string
+): Promise<unknown> {
+  if (!isRecord(data)) return data;
+
+  const routeId = dcpNum(routeOutreachSequenceId);
+  const extracted = extractTursoIds(data);
+  const outreachSequenceIds = Array.from(
+    new Set([
+      ...extracted.outreachSequenceIds,
+      ...(routeId > 0 ? [routeId] : []),
+    ])
+  );
+
+  const xano = await fetchXanoDcpCompanies(
+    token,
+    outreachSequenceIds,
+    extracted.companyIds
+  );
+
+  if (!xano) {
+    return {
+      ...data,
+      xano_enrichment: {
+        ok: false,
+        error: "Failed to fetch Xano DCP companies",
+        ids_sent: outreachSequenceIds,
+        company_ids_sent: extracted.companyIds,
+      },
+    };
+  }
+
+  const lookups = buildXanoLookups(xano.companies);
+  const root = isRecord(data.company) ? data.company : data;
+  const xanoCompany = isRecord(root) ? findXanoCompany(root, lookups) : undefined;
+
+  return {
+    ...mergeCompanyRow(isRecord(root) ? root : {}, xanoCompany),
+    xano_enrichment: {
+      ok: true,
+      ids_sent: outreachSequenceIds,
+      company_ids_sent: extracted.companyIds,
+      companies_fetched: xano.companies.length,
+      rows_merged: xanoCompany ? 1 : 0,
+      summary: xano.summary,
+    },
+  };
 }

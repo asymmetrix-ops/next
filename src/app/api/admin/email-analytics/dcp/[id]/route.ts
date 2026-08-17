@@ -3,7 +3,7 @@ import {
   analyticsUpstream,
   requireAuthUser,
 } from "@/lib/emailAlertsServer";
-import { enrichDcpAnalyticsResponse } from "@/lib/dcpAnalyticsServer";
+import { enrichDcpAnalyticsResponseWithRouteId } from "@/lib/dcpAnalyticsServer";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +53,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
     );
   }
 
-  const enriched = await enrichDcpAnalyticsResponse(auth.token, data);
+  const enriched = await enrichDcpAnalyticsResponseWithRouteId(
+    auth.token,
+    data,
+    id
+  );
   return NextResponse.json(enriched, { status: upstreamResp.status });
 }
