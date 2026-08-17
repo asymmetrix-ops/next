@@ -13,6 +13,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
 import { normalizeAdvisorDealEvent } from "@/lib/normalizeAdvisorDealEvent";
+import { buildCorporateEventsBrowseAllHref } from "@/lib/corporateEventsFilterPayload";
 import {
   formatCurrency,
   formatDate,
@@ -1041,7 +1042,9 @@ export default function AdvisorProfilePage() {
                   onNext={() => {
                     if (dealsPage < dealsTotalPages) setDealsPage(dealsPage + 1);
                   }}
-                  browseAllHref="/corporate-events"
+                  browseAllHref={buildCorporateEventsBrowseAllHref({
+                    advisorId,
+                  })}
                   fillGridCell
                 />
               </LinkPanel>

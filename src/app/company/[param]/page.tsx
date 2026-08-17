@@ -71,6 +71,7 @@ import {
   type SubsidiaryAcquisitionEvent,
 } from "@/lib/subsidiaryAcquisitionYears";
 import { fetchCompanyCorporateEvents } from "@/lib/companyCorporateEvents";
+import { buildCorporateEventsBrowseAllHref } from "@/lib/corporateEventsFilterPayload";
 import { buildSectorNameLookup } from "@/lib/sectorLinks";
 import { useGlobalSectorNameLookup } from "@/hooks/useGlobalSectorNameLookup";
 import {
@@ -4575,11 +4576,9 @@ const CompanyDetail = () => {
                         void fetchCompanyCorporateEventsPage(company.id, cePage + 1);
                       }
                     }}
-                    browseAllHref={
-                      company?.id
-                        ? `/corporate-events?target_company_id=${company.id}`
-                        : "/corporate-events"
-                    }
+                    browseAllHref={buildCorporateEventsBrowseAllHref({
+                      companyId: company?.id,
+                    })}
                     fillGridCell
                   />
                 </LinkPanel>

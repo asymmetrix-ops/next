@@ -429,3 +429,105 @@ export function corporateEventsFiltersToSearchParams(
 
   return params;
 }
+
+function parsePositiveIntParam(raw: string | null): number {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function parseEntityIdListParam(
+  params: URLSearchParams,
+  key: string
+): number[] {
+  const values = [
+    ...params.getAll(`${key}[]`),
+    ...params.getAll(key),
+  ];
+  if (values.length === 0) return [];
+
+  return Array.from(
+    new Set(
+      values
+        .flatMap((value) => value.split(","))
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    )
+  );
+}
+
+/** Parse profile-page deep-link filters from the corporate events URL. */
+export function parseCorporateEventsUrlFilters(
+  search?: string
+): Partial<CorporateEventsSearchFilters> {
+  if (typeof window === "undefined" && search == null) return {};
+
+  const params = new URLSearchParams(
+    search ?? (typeof window !== "undefined" ? window.location.search : "")
+  );
+
+  const targetCompanyId = parsePositiveIntParam(
+    params.get("target_company_id")
+  );
+  const newCompanyId = parsePositiveIntParam(params.get("new_company_id"));
+  const individualId = parsePositiveIntParam(params.get("individual_id"));
+  const investorId = parsePositiveIntParam(params.get("investor_id"));
+
+  let filterCompanyIds = parseEntityIdListParam(params, "filter_company_ids");
+  if (filterCompanyIds.length === 0 && newCompanyId > 0) {
+    filterCompanyIds = [newCompanyId];
+  } else if (filterCompanyIds.length === 0 && targetCompanyId > 0) {
+    filterCompanyIds = [targetCompanyId];
+  }
+
+  return {
+    search_query: params.get("search")?.trim() || "",
+    target_company_id: targetCompanyId,
+    new_company_id: newCompanyId,
+    individual_id: individualId,
+    investor_id: investorId,
+    filter_advisor_ids: parseEntityIdListParam(params, "filter_advisor_ids"),
+    filter_company_ids: filterCompanyIds,
+  };
+}
+
+export function mergeCorporateEventsUrlFilters(
+  filters: CorporateEventsSearchFilters,
+  urlFilters: Partial<CorporateEventsSearchFilters>
+): CorporateEventsSearchFilters {
+  return {
+    ...filters,
+    target_company_id: urlFilters.target_company_id ?? 0,
+    new_company_id: urlFilters.new_company_id ?? 0,
+    individual_id: urlFilters.individual_id ?? 0,
+    investor_id: urlFilters.investor_id ?? 0,
+    filter_advisor_ids:
+      urlFilters.filter_advisor_ids ?? filters.filter_advisor_ids ?? [],
+    filter_company_ids:
+      urlFilters.filter_company_ids ?? filters.filter_company_ids ?? [],
+  };
+}
+
+export function buildCorporateEventsBrowseAllHref(args: {
+  companyId?: number | null;
+  advisorId?: number | null;
+  individualId?: number | null;
+  investorId?: number | null;
+}): string {
+  const params = new URLSearchParams();
+
+  if (args.companyId != null && args.companyId > 0) {
+    params.set("filter_company_ids", String(args.companyId));
+  }
+  if (args.advisorId != null && args.advisorId > 0) {
+    params.set("filter_advisor_ids", String(args.advisorId));
+  }
+  if (args.individualId != null && args.individualId > 0) {
+    params.set("individual_id", String(args.individualId));
+  }
+  if (args.investorId != null && args.investorId > 0) {
+    params.set("investor_id", String(args.investorId));
+  }
+
+  const query = params.toString();
+  return query ? `/corporate-events?${query}` : "/corporate-events";
+}
