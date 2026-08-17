@@ -9,24 +9,9 @@ function parseMetricNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/**
- * Preferred-currency conversion sometimes returns monetary *_m fields at
- * 1000× scale with spurious decimals (e.g. 22471.42 instead of 22.47142).
- */
+/** Parses API *_m monetary fields (already in millions) without rescaling. */
 export function normalizeMillionsFieldValue(value: unknown): number | null {
-  const num = parseMetricNumber(value);
-  if (num == null) return null;
-
-  const abs = Math.abs(num);
-  const hasSpuriousFraction =
-    abs >= 100 && Math.abs(num - Math.round(num)) > 0.001;
-
-  if (hasSpuriousFraction && abs >= 1_000) {
-    const scaled = num / 1_000;
-    if (Math.abs(scaled) < 100_000) return scaled;
-  }
-
-  return num;
+  return parseMetricNumber(value);
 }
 
 /** Rounds millions-style metrics for display (e.g. 22.47 → "22.5", 16600 → "16,600"). */
