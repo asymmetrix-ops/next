@@ -9,6 +9,13 @@ import Link from "next/link";
 import { ContentArticle } from "@/types/insightsAnalysis";
 import { hasInsightSummary } from "@/lib/insightSummary";
 import { InsightSummaryModal } from "@/components/insights/InsightSummaryModal";
+import {
+  decodeHtmlEntities,
+  getArticleByline,
+  getArticleCorrections,
+  isNewsArticle,
+} from "@/lib/contentArticleDisplay";
+import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
 import { LinkPanel, LinkedH, Pill, T } from "./primitives";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -16,6 +23,7 @@ function badgeTone(
   contentType: string
 ): "coral" | "azure" | "emerald" | "neutral" {
   const ct = contentType.toLowerCase().trim();
+  if (ct === "news") return "neutral";
   if (ct === "company analysis" || ct === "company update") return "coral";
   if (ct === "sector analysis") return "azure";
   if (ct === "deal analysis" || ct === "deal perspective") return "emerald";
@@ -42,20 +50,8 @@ function formatDate(iso: string): string {
   }
 }
 
-function decodeHtmlEntities(input: string): string {
-  if (!input) return "";
-  if (typeof window !== "undefined") {
-    const div = document.createElement("div");
-    div.innerHTML = input;
-    return (div.textContent || div.innerText || "").trim();
-  }
-  return input
-    .replace(/&amp;/g, "&")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'");
+function decodeHtmlEntitiesLocal(input: string): string {
+  return decodeHtmlEntities(input);
 }
 
 // ── skeleton row ─────────────────────────────────────────────────────────────
@@ -131,16 +127,30 @@ function ArticleRow({
   isLast?: boolean;
 }) {
   const tone = badgeTone(article.Content_Type || "");
+  const isNews = isNewsArticle(article);
   const tag = article.Content_Type?.trim()
     ? titleCase(article.Content_Type.trim())
     : "Analysis";
   const date = article.Publication_Date ? formatDate(article.Publication_Date) : "";
-  const headline = decodeHtmlEntities(article.Headline?.trim() || "");
-  const strapline = decodeHtmlEntities(article.Strapline?.trim() || "");
-  const showSummaryBtn = hasInsightSummary(article.summary);
+  const headline = decodeHtmlEntitiesLocal(article.Headline?.trim() || "");
+  const strapline = decodeHtmlEntitiesLocal(article.Strapline?.trim() || "");
+  const byline = getArticleByline(article);
+  const corrections = getArticleCorrections(article);
+  const showSummaryBtn = !isNews && hasInsightSummary(article.summary);
 
   return (
-    <div style={insightsRowGridStyle(isLast)}>
+    <div
+      style={{
+        ...insightsRowGridStyle(isLast),
+        ...(isNews
+          ? {
+              borderLeft: `3px solid #e11d48`,
+              paddingLeft: 13,
+              background: "linear-gradient(90deg, #fffafb 0%, transparent 100%)",
+            }
+          : {}),
+      }}
+    >
       <div style={insightsMetaColStyle}>
         <Pill tone={tone} style={insightTagPillStyle}>
           {tag}
@@ -155,6 +165,19 @@ function ArticleRow({
         >
           {date || "-"}
         </div>
+        {isNews && byline ? (
+          <div
+            style={{
+              fontSize: 12,
+              lineHeight: 1.5,
+              color: T.muted,
+              fontStyle: "italic",
+              marginTop: 8,
+            }}
+          >
+            {byline}
+          </div>
+        ) : null}
       </div>
       <div style={{ minWidth: 0 }}>
         {headline ? (
@@ -177,13 +200,29 @@ function ArticleRow({
               lineHeight: 1.55,
               color: T.body,
               display: "-webkit-box",
-              WebkitLineClamp: 2,
+              WebkitLineClamp: isNews ? 3 : 2,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
             }}
           >
             {strapline}
           </div>
+        ) : null}
+        {!isNews && byline ? (
+          <div
+            style={{
+              fontSize: 12,
+              lineHeight: 1.5,
+              color: T.muted,
+              fontStyle: "italic",
+              marginTop: strapline ? 6 : 0,
+            }}
+          >
+            {byline}
+          </div>
+        ) : null}
+        {corrections.length > 0 ? (
+          <ArticleCorrectionNotice corrections={corrections} variant="card" />
         ) : null}
         {!headline && !strapline ? (
           <div style={{ fontSize: 13, color: T.muted }}>-</div>
@@ -201,7 +240,7 @@ function ArticleRow({
             prefetch={false}
             style={{ color: T.azure, fontSize: 13, fontWeight: 500, textDecoration: "none" }}
           >
-            Open report →
+            {isNews ? "Read more →" : "Open report →"}
           </Link>
           {showSummaryBtn && (
             <button

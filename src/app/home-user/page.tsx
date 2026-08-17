@@ -28,6 +28,9 @@ import {
 } from "@/lib/dealRadar";
 import { CorporateEventPartyLink, CorporateEventTargetLink, CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
+import NewsArticleCard from "@/components/NewsArticleCard";
+import { isNewsArticle } from "@/lib/contentArticleDisplay";
+import type { ContentArticle } from "@/types/insightsAnalysis";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -453,6 +456,13 @@ function contentTypeBadgeStyle(contentType?: string) {
       backgroundColor: "#f0fdf4",
       color: "#166534",
       borderColor: "#bbf7d0",
+    };
+  }
+  if (t === "news") {
+    return {
+      backgroundColor: "#fff1f2",
+      color: "#9f1239",
+      borderColor: "#fecdd3",
     };
   }
   return {
@@ -2372,6 +2382,15 @@ export default function HomeUserPage() {
               ) : insightsArticles.length > 0 ? (
                 <div className="space-y-4">
                   {insightsArticles.slice(0, 10).map((article) => {
+                    if (isNewsArticle(article)) {
+                      return (
+                        <NewsArticleCard
+                          key={article.id}
+                          article={article as unknown as ContentArticle}
+                        />
+                      );
+                    }
+
                     const ct = (
                       article.Content_Type ||
                       article.content_type ||

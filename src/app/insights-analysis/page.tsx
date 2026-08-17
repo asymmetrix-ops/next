@@ -13,9 +13,11 @@ import {
   InsightsAnalysisFilters,
 } from "../../types/insightsAnalysis";
 import SeriesArticleCard from "@/components/SeriesArticleCard";
+import NewsArticleCard from "@/components/NewsArticleCard";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
+import { isNewsArticle, normalizeContentArticles } from "@/lib/contentArticleDisplay";
 
 const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
@@ -354,6 +356,7 @@ const InsightsAnalysisCards = ({
     if (t === "sector analysis") return "badge badge-sector-analysis";
     if (t === "hot take") return "badge badge-hot-take";
     if (t === "executive interview") return "badge badge-executive-interview";
+    if (t === "news") return "badge badge-news";
     return "badge";
   };
 
@@ -369,6 +372,8 @@ const InsightsAnalysisCards = ({
             formatCompanies={formatCompanies}
             badgeClassFor={badgeClassFor}
           />
+        ) : isNewsArticle(article) ? (
+          <NewsArticleCard key={article.id || index} article={article} />
         ) : (
           <a
             key={article.id || index}
@@ -565,8 +570,8 @@ function InsightsAnalysisPageContent() {
 
         const topCompany = [...company].sort(byDateDesc).slice(0, 3);
         const topDeal = [...deal].sort(byDateDesc).slice(0, 3);
-        const combined = [...hotTakes, ...topCompany, ...topDeal].sort(
-          byDateDesc
+        const combined = normalizeContentArticles(
+          [...hotTakes, ...topCompany, ...topDeal].sort(byDateDesc)
         );
 
         setArticles(combined);
@@ -633,7 +638,7 @@ function InsightsAnalysisPageContent() {
 
       const data: InsightsAnalysisResponse = await response.json();
 
-      setArticles(data.items);
+      setArticles(normalizeContentArticles(data.items || []));
       setPagination({
         itemsReceived: data.itemsReceived,
         curPage: data.curPage,
@@ -982,6 +987,11 @@ function InsightsAnalysisPageContent() {
       background: #f0fdf4;
       color: #166534;
       border-color: #bbf7d0;
+    }
+    .badge-news {
+      background: #fff1f2;
+      color: #9f1239;
+      border-color: #fecdd3;
     }
     .article-transaction-status-row {
       margin: 0 0 10px 0;
