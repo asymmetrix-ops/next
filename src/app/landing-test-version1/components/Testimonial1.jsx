@@ -41,7 +41,7 @@ const TESTIMONIALS = [
     quote:
       "Asymmetrix is an invaluable intelligence tool and data set for our team",
     initials: "EY",
-    name: "Corporate Finance / M&A Partner",
+    name: "Corporate Finance\nM&A Partner",
     title: "EY (Anonymised)",
   },
 ];
@@ -92,12 +92,14 @@ function TestimonialCard({ testimonial, slot, direction, draggable, onDragEnd })
           &ldquo;{testimonial.quote}&rdquo;
         </span>
       </blockquote>
-      <div className="mt-6 flex shrink-0 flex-col items-center justify-center md:mt-0 md:w-44">
+      <div className="mt-6 flex shrink-0 flex-col items-center justify-center self-center md:mt-0 md:w-44">
         <div className="mb-3 flex size-12 min-h-12 min-w-12 items-center justify-center rounded-full bg-background-alternative text-sm font-semibold">
           {testimonial.initials}
         </div>
-        <p className="text-sm font-semibold">{testimonial.name}</p>
-        <p className="landing-text-secondary text-xs md:text-sm">
+        <p className="whitespace-pre-line text-center text-sm font-semibold">
+          {testimonial.name}
+        </p>
+        <p className="landing-text-secondary text-center text-xs md:text-sm">
           {testimonial.title}
         </p>
       </div>
