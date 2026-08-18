@@ -79,14 +79,18 @@ export async function fetchCompanyLinkedIn(
   newCompanyId: string | number,
   token?: string | null
 ): Promise<CompanyLinkedInResponse> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(
-    `${getCompanyLinkedInApiBase()}/get_company_linkedin/${newCompanyId}`,
+    `/api/company-linkedin/${encodeURIComponent(String(newCompanyId))}`,
     {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers,
       credentials: "include",
     }
   );

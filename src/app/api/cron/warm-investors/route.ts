@@ -1,15 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
+import { NextRequest, NextResponse } from "next/server";
+import { Redis } from "@upstash/redis";
+import {
+  getInvestorsListCacheKey,
+  warmInvestorsListCache,
+} from "@/lib/investorsListServer";
+import { runInBackground } from "@/lib/run-background";
 
-import { INVESTORS_API_BASE } from '@/lib/investorsApiBase';
-import { runInBackground } from '@/lib/run-background';
-
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const maxDuration = 300;
 
-const XANO_URL = `${INVESTORS_API_BASE}/investors_with_d_a_list`;
-const XANO_AUTH_URL = 'https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/login';
+const XANO_AUTH_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/login";
 
 const CRON_AUTH_EMAIL = process.env.CRON_AUTH_EMAIL;
 const CRON_AUTH_PASSWORD = process.env.CRON_AUTH_PASSWORD;
@@ -17,7 +19,10 @@ const CRON_MANUAL_SECRET = process.env.CRON_MANUAL_SECRET;
 const XANO_SERVICE_TOKEN = process.env.XANO_SERVICE_TOKEN;
 
 function getRedisClient(): Redis | null {
-  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+  if (
+    process.env.UPSTASH_REDIS_REST_URL &&
+    process.env.UPSTASH_REDIS_REST_TOKEN
+  ) {
     return Redis.fromEnv();
   }
   return null;
@@ -27,9 +32,12 @@ async function getAuthToken(): Promise<string | null> {
   if (!CRON_AUTH_EMAIL || !CRON_AUTH_PASSWORD) return null;
   try {
     const resp = await fetch(XANO_AUTH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: CRON_AUTH_EMAIL, password: CRON_AUTH_PASSWORD }),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: CRON_AUTH_EMAIL,
+        password: CRON_AUTH_PASSWORD,
+      }),
     });
     if (!resp.ok) return null;
     const data = await resp.json();
@@ -40,68 +48,55 @@ async function getAuthToken(): Promise<string | null> {
 }
 
 function isLondonSixAM(): { ok: boolean; londonHour: string } {
-  const londonHourStr = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/London',
-    hour: '2-digit',
+  const londonHourStr = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    hour: "2-digit",
     hour12: false,
   }).format(new Date());
-  return { ok: Number.parseInt(londonHourStr, 10) === 6, londonHour: londonHourStr };
+  return {
+    ok: Number.parseInt(londonHourStr, 10) === 6,
+    londonHour: londonHourStr,
+  };
 }
 
-async function warmInvestorsCache(
-  redis: Redis,
-  ttlSeconds: number,
-  page: number,
-  perPage: number,
-  cacheKey: string
-): Promise<void> {
+async function warmInvestors(page: number, perPage: number): Promise<void> {
   const start = performance.now();
+  const cacheKey = getInvestorsListCacheKey(page, perPage);
 
   try {
     const token = XANO_SERVICE_TOKEN || (await getAuthToken());
     if (!token) {
-      console.error('[CRON] ❌ warm-investors: Failed to authenticate with Xano');
+      console.error("[CRON] warm-investors: Failed to authenticate with Xano");
       return;
     }
 
-    const params = new URLSearchParams();
-    params.append('page', String(page));
-    params.append('per_page', String(perPage));
-
-    const resp = await fetch(`${XANO_URL}?${params.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      cache: 'no-store',
-    });
-
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => '');
-      console.error(`[CRON] ❌ warm-investors: Xano error ${resp.status}`, text);
+    const ok = await warmInvestorsListCache(token, page, perPage);
+    if (!ok) {
+      console.error("[CRON] warm-investors: Redis not configured");
       return;
     }
-
-    const data = await resp.json();
-    await redis.set(cacheKey, data as never, { ex: ttlSeconds });
 
     const totalMs = Math.round(performance.now() - start);
-    console.log(`[CRON] ✅ warm-investors cached key=${cacheKey} ttl=${ttlSeconds}s totalMs=${totalMs}`);
-  } catch (e) {
-    console.error('[CRON] ❌ warm-investors failed:', e);
+    console.log(
+      `[CRON] warm-investors cached key=${cacheKey} totalMs=${totalMs}`
+    );
+  } catch (error) {
+    console.error("[CRON] warm-investors failed:", error);
   }
 }
 
 export async function GET(request: NextRequest) {
   const force =
-    request.nextUrl.searchParams.get('force') === '1' ||
-    request.nextUrl.searchParams.get('force') === 'true';
+    request.nextUrl.searchParams.get("force") === "1" ||
+    request.nextUrl.searchParams.get("force") === "true";
 
   if (force) {
-    const provided = request.headers.get('x-cron-manual-secret') ?? '';
+    const provided = request.headers.get("x-cron-manual-secret") ?? "";
     if (!CRON_MANUAL_SECRET || provided !== CRON_MANUAL_SECRET) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
   }
 
@@ -111,7 +106,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         skipped: true,
-        reason: 'Not 06:00 Europe/London',
+        reason: "Not 06:00 Europe/London",
         londonHour,
       });
     }
@@ -122,20 +117,23 @@ export async function GET(request: NextRequest) {
   const redis = getRedisClient();
   if (!redis) {
     return NextResponse.json(
-      { success: false, error: 'Redis not configured (UPSTASH_REDIS_REST_URL/TOKEN missing)' },
+      {
+        success: false,
+        error: "Redis not configured (UPSTASH_REDIS_REST_URL/TOKEN missing)",
+      },
       { status: 500 }
     );
   }
 
   const page = 1;
   const perPage = 50;
-  const cacheKey = `investors:initial:v1:page${page}:per${perPage}`;
+  const cacheKey = getInvestorsListCacheKey(page, perPage);
   const ttlSeconds = Math.min(
     Math.max(Number(process.env.INVESTORS_INITIAL_TTL_SECONDS ?? 26 * 60 * 60), 60),
     7 * 24 * 60 * 60
   );
 
-  runInBackground(warmInvestorsCache(redis, ttlSeconds, page, perPage, cacheKey));
+  runInBackground(warmInvestors(page, perPage));
 
   return NextResponse.json({
     success: true,

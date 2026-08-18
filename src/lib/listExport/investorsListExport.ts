@@ -24,9 +24,6 @@ import { type ExportColumnDef, type ListExportRequest } from "./types";
 const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
 
-const INVESTORS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm";
-
 const EXTRA_INVESTOR_COLUMNS: ExportColumnDef[] = [
   {
     key: "id",
@@ -234,12 +231,12 @@ async function fetchInvestorsPage(
     page,
     per_page: perPage,
   });
-  const url = `${INVESTORS_API_BASE}/investors_with_d_a_list?${params.toString()}`;
-  const response = await fetch(url, {
+  const response = await fetch(`/api/investors/list?${params.toString()}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
   });
 
   if (!response.ok) {
