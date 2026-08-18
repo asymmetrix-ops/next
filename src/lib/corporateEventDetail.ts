@@ -157,7 +157,11 @@ export function normalizeCorporateEventDetailResponse(
     return EMPTY_CORPORATE_EVENT_DETAIL;
   }
 
-  return buildDetailFromRecord(record);
+  const detail = buildDetailFromRecord(record);
+  const preferredCurrencyId = Number(root.preferred_currency_id ?? 0);
+  return preferredCurrencyId > 0
+    ? { ...detail, preferred_currency_id: preferredCurrencyId }
+    : detail;
 }
 
 export function getCorporateEventDetailApiError(data: unknown): string | null {

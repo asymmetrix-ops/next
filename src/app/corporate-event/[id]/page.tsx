@@ -33,6 +33,13 @@ import {
   buildSectorInsightsBrowseAllHref,
   mapArticlesForPdfExport,
 } from "@/lib/sectorInsightsArticles";
+import {
+  resolveCorporateEventDetailEnterpriseValueAmount,
+  resolveCorporateEventDetailEnterpriseValueCurrency,
+  resolveCorporateEventDetailInvestmentAmount,
+  resolveCorporateEventDetailInvestmentCurrency,
+} from "@/lib/corporateEventAmountDisplay";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 // Type-safe check for Data & Analytics company flag
 const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
@@ -86,10 +93,16 @@ const CorporateEventDetail = ({
     investment_amount_m?: string | number | null;
     investment_amount?: string | number | null;
     investment_currency?: string | null;
+    investment_amount_m_converted?: boolean;
     enterprise_value_m?: string | number | null;
     enterprise_value_currency?: string | null;
+    enterprise_value_m_converted?: boolean;
     enterprise_value_source_type?: string | null;
   };
+  const preferredCurrencyId =
+    typeof data.preferred_currency_id === "number" && data.preferred_currency_id > 0
+      ? data.preferred_currency_id
+      : null;
   const event =
     Array.isArray(data?.Event) && data.Event.length > 0
       ? data.Event[0]
@@ -207,32 +220,17 @@ const CorporateEventDetail = ({
     return n.toLocaleString(undefined, { maximumFractionDigits: 3 });
   };
 
-  const getInvestmentCurrency = (): string | undefined => {
-    const inv = event?.investment_data as
-      | { _currency?: { Currency?: string }; currency?: { Currency?: string } }
-      | undefined;
-    const fromInvestment = inv?.currency?.Currency || inv?._currency?.Currency;
-    const flatEvent = (event ?? {}) as FlatEventFields;
-    const topLevelCurrency =
-      flatEvent.investment_currency || flatEvent.enterprise_value_currency;
-    return (
-      fromInvestment ||
-      topLevelCurrency ||
-      event?.ev_data?._currency?.Currency ||
-      undefined
-    );
-  };
+  const getInvestmentCurrency = (): string | undefined =>
+    resolveCorporateEventDetailInvestmentCurrency(event, preferredCurrencyId);
 
-  const getInvestmentAmount = (): string | undefined => {
-    const nested = event?.investment_data?.investment_amount_m;
-    if (nested) return nested;
-    const flatEvent = (event ?? {}) as FlatEventFields;
-    const top =
-      flatEvent.investment_amount_m ?? flatEvent.investment_amount ?? undefined;
-    if (typeof top === "number") return String(top);
-    if (typeof top === "string" && top.trim().length > 0) return top.trim();
-    return undefined;
-  };
+  const getInvestmentAmount = (): string | undefined =>
+    resolveCorporateEventDetailInvestmentAmount(event, preferredCurrencyId);
+
+  const getEnterpriseValueAmount = (): string | undefined =>
+    resolveCorporateEventDetailEnterpriseValueAmount(event, preferredCurrencyId);
+
+  const getEnterpriseValueCurrency = (): string | undefined =>
+    resolveCorporateEventDetailEnterpriseValueCurrency(event, preferredCurrencyId);
 
   const getEnterpriseValueSourceLabel = (): string | undefined => {
     const flatEvent = (event ?? {}) as FlatEventFields;
@@ -385,30 +383,11 @@ const CorporateEventDetail = ({
     })(),
     currency: getInvestmentCurrency(),
     enterpriseValue: (() => {
-      const flatEvent = (event ?? {}) as FlatEventFields;
-      const amountRaw =
-        event?.ev_data?.enterprise_value_m ??
-        flatEvent.enterprise_value_m ??
-        "";
-      // Check if the value is empty, null, or 0
-      if (amountRaw === null || amountRaw === undefined || amountRaw === "" || amountRaw === 0 || amountRaw === "0") {
-        return undefined;
-      }
-      const amount =
-        typeof amountRaw === "number"
-          ? String(amountRaw)
-          : amountRaw;
-      const formatted = formatMillionsValue(amount);
-      return formatted || undefined;
+      const amount = getEnterpriseValueAmount();
+      if (!amount) return undefined;
+      return formatMillionsValue(amount) || undefined;
     })(),
-    enterpriseValueCurrency: (() => {
-      const flatEvent = (event ?? {}) as FlatEventFields;
-                        return (
-        event?.ev_data?._currency?.Currency ||
-        flatEvent.enterprise_value_currency ||
-        undefined
-      );
-    })(),
+    enterpriseValueCurrency: getEnterpriseValueCurrency(),
     enterpriseValueSourceLabel: getEnterpriseValueSourceLabel(),
   };
 
@@ -914,6 +893,7 @@ const CorporateEventDetail = ({
         event_articles: eventArticles || [],
         related_transactions: relatedTransactions || [],
         related_insights: mapArticlesForPdfExport(sectorArticles),
+        preferred_currency_id: preferredCurrencyId ?? undefined,
         xano_auth_token: token,
       };
 
@@ -954,7 +934,7 @@ const CorporateEventDetail = ({
     } finally {
       setIsExportingPdf(false);
     }
-  }, [corporateEventId, event?.description, data, eventArticles, relatedTransactions, sectorArticles]);
+  }, [corporateEventId, event?.description, data, eventArticles, relatedTransactions, sectorArticles, preferredCurrencyId]);
 
   const eventTitle = event?.description || "Corporate Event";
   const eventDescription = event?.long_description || "";
@@ -1270,6 +1250,7 @@ const CorporateEventDetail = ({
 const CorporateEventDetailPage = () => {
   const params = useParams();
   const { loading: authLoading, loginVersion } = useAuth();
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const [data, setData] = useState<CorporateEventDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1286,7 +1267,8 @@ const CorporateEventDetailPage = () => {
       }
 
       const response = await corporateEventsService.getCorporateEvent(
-        corporateEventId
+        corporateEventId,
+        preferredCurrencyId
       );
       setData(response);
     } catch (err) {
@@ -1308,12 +1290,12 @@ const CorporateEventDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [params.id]);
+  }, [params.id, preferredCurrencyId]);
 
   useEffect(() => {
     if (authLoading || !params.id) return;
     void fetchData();
-  }, [authLoading, fetchData, loginVersion, params.id]);
+  }, [authLoading, fetchData, loginVersion, params.id, preferredCurrencyId]);
 
   if (authLoading || loading) {
     return (

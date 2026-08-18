@@ -9,6 +9,11 @@ import {
   hasCorporateEventDetailPayload,
   normalizeCorporateEventDetailResponse,
 } from "@/lib/corporateEventDetail";
+import {
+  appendPreferredCurrencyIdToSearchParams,
+  readPlatformCurrencyIdClient,
+  resolvePreferredCurrencyId,
+} from "@/lib/platformCurrency";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
 
@@ -132,13 +137,16 @@ class CorporateEventsService {
   }
 
   async getCorporateEvent(
-    corporateEventId: string
+    corporateEventId: string,
+    preferredCurrencyId?: number
   ): Promise<CorporateEventDetailResponse> {
-    // Production api:617tZc8l does not support preferred_currency_id on this
-    // endpoint yet (develop api:617tZc8l:develop does). Sending it triggers a
-    // Xano runtime error in result1. Amounts use native deal currency until prod
-    // backend currency conversion is deployed.
-    const url = `${BASE_URL}/corporate_event_v2?corporate_event_id=${encodeURIComponent(corporateEventId)}`;
+    const resolvedCurrencyId = resolvePreferredCurrencyId(
+      preferredCurrencyId ?? readPlatformCurrencyIdClient()
+    );
+    const params = new URLSearchParams();
+    params.set("corporate_event_id", corporateEventId);
+    appendPreferredCurrencyIdToSearchParams(params, resolvedCurrencyId);
+    const url = `${BASE_URL}/corporate_event_v2?${params.toString()}`;
 
     const response = await fetch(url, {
       method: "GET",
@@ -160,9 +168,7 @@ class CorporateEventsService {
     const data = await response.json();
     const apiError = getCorporateEventDetailApiError(data);
     if (apiError) {
-      throw new Error(
-        "Corporate event data is temporarily unavailable. Deal amounts are shown in native currency until currency conversion is enabled on production."
-      );
+      throw new Error("Corporate event data is temporarily unavailable.");
     }
     const normalized = normalizeCorporateEventDetailResponse(data);
     if (!hasCorporateEventDetailPayload(normalized)) {

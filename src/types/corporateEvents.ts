@@ -184,6 +184,14 @@ export interface CorporateEventDetail {
   announcement_date: string;
   closed_date: string;
   deal_type: string;
+  investment_amount_m?: number | string | null;
+  investment_currency?: string | null;
+  investment_amount_m_converted?: boolean;
+  investment_amount_m_native_currency_id?: number;
+  enterprise_value_m?: number | string | null;
+  enterprise_value_currency?: string | null;
+  enterprise_value_m_converted?: boolean;
+  enterprise_value_m_native_currency_id?: number;
   investment_data: {
     investment_amount_source: string;
     investment_amount_m: string;
@@ -283,6 +291,7 @@ export interface CorporateEventDetailResponse {
   Primary_sectors: PrimarySector[];
   "Sub-sectors": SubSector[];
   Previous_Corporate_Events?: PreviousCorporateEvent[];
+  preferred_currency_id?: number;
 }
 
 export interface PreviousCorporateEventCounterparty {

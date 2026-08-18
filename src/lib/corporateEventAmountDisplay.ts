@@ -1,5 +1,6 @@
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
+import { platformCurrencyIdToCode } from "@/lib/platformCurrency";
 
 const SYMBOL_TO_CODE: Record<string, string> = {
   $: "USD",
@@ -202,6 +203,180 @@ export function formatCorporateEventEnterpriseValue(
   const band =
     typeof evData?.ev_band === "string" ? evData.ev_band.trim() : "";
   return band || notAvailableLabel;
+}
+
+function hasMeaningfulAmount(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  const trimmed = String(value).trim();
+  return trimmed !== "" && trimmed !== "0";
+}
+
+function asDetailEventRecord(
+  event: unknown
+): Record<string, unknown> | null {
+  if (!event || typeof event !== "object") return null;
+  return event as Record<string, unknown>;
+}
+
+function resolveDetailPreferredCurrencyCode(
+  preferredCurrencyId?: number | null
+): string | undefined {
+  if (preferredCurrencyId == null || preferredCurrencyId <= 0) return undefined;
+  return platformCurrencyIdToCode(preferredCurrencyId) ?? undefined;
+}
+
+function readNestedInvestmentCurrency(
+  event: Record<string, unknown>
+): string | undefined {
+  const inv = event.investment_data as
+    | {
+        _currency?: { Currency?: string };
+        currency?: { Currency?: string } | string;
+      }
+    | undefined;
+  if (typeof inv?.currency === "string" && inv.currency.trim()) {
+    return normalizeCurrencyCode(inv.currency);
+  }
+  const currencyObject =
+    inv?.currency && typeof inv.currency === "object" ? inv.currency : undefined;
+  return (
+    normalizeCurrencyCode(currencyObject?.Currency) ??
+    normalizeCurrencyCode(inv?._currency?.Currency)
+  );
+}
+
+function readNestedEvCurrency(event: Record<string, unknown>): string | undefined {
+  const evData = event.ev_data as
+    | {
+        _currency?: { Currency?: string };
+        currency?: { Currency?: string } | string;
+      }
+    | undefined;
+  if (typeof evData?.currency === "string" && evData.currency.trim()) {
+    return normalizeCurrencyCode(evData.currency);
+  }
+  const currencyObject =
+    evData?.currency && typeof evData.currency === "object"
+      ? evData.currency
+      : undefined;
+  return (
+    normalizeCurrencyCode(evData?._currency?.Currency) ??
+    normalizeCurrencyCode(currencyObject?.Currency)
+  );
+}
+
+/** Resolve investment amount (m) for corporate event detail pages. */
+export function resolveCorporateEventDetailInvestmentAmount(
+  event: unknown,
+  preferredCurrencyId?: number | null
+): string | undefined {
+  const record = asDetailEventRecord(event);
+  if (!record) return undefined;
+
+  const converted = record.investment_amount_m_converted === true;
+  const preferredCode = resolveDetailPreferredCurrencyCode(preferredCurrencyId);
+
+  if (converted && hasMeaningfulAmount(record.investment_amount_m)) {
+    return String(record.investment_amount_m);
+  }
+
+  const nested = (record.investment_data as { investment_amount_m?: unknown })
+    ?.investment_amount_m;
+  if (hasMeaningfulAmount(nested)) return String(nested);
+
+  const flat = record.investment_amount_m ?? record.investment_amount;
+  if (hasMeaningfulAmount(flat)) return String(flat);
+
+  if (preferredCode && hasMeaningfulAmount(record.investment_amount_m)) {
+    return String(record.investment_amount_m);
+  }
+
+  return undefined;
+}
+
+/** Resolve investment currency for corporate event detail pages. */
+export function resolveCorporateEventDetailInvestmentCurrency(
+  event: unknown,
+  preferredCurrencyId?: number | null
+): string | undefined {
+  const record = asDetailEventRecord(event);
+  if (!record) return undefined;
+
+  const converted = record.investment_amount_m_converted === true;
+  const preferredCode = resolveDetailPreferredCurrencyCode(preferredCurrencyId);
+  if (converted && preferredCode) return preferredCode;
+
+  const topLevel = normalizeCurrencyCode(
+    typeof record.investment_currency === "string"
+      ? record.investment_currency
+      : undefined
+  );
+  if (topLevel) return topLevel;
+
+  const nested = readNestedInvestmentCurrency(record);
+  if (nested) return nested;
+
+  return (
+    normalizeCurrencyCode(
+      typeof record.enterprise_value_currency === "string"
+        ? record.enterprise_value_currency
+        : undefined
+    ) ?? readNestedEvCurrency(record)
+  );
+}
+
+/** Resolve enterprise value (m) for corporate event detail pages. */
+export function resolveCorporateEventDetailEnterpriseValueAmount(
+  event: unknown,
+  preferredCurrencyId?: number | null
+): string | undefined {
+  const record = asDetailEventRecord(event);
+  if (!record) return undefined;
+
+  const converted = record.enterprise_value_m_converted === true;
+
+  if (converted && hasMeaningfulAmount(record.enterprise_value_m)) {
+    return String(record.enterprise_value_m);
+  }
+
+  const nested = (record.ev_data as { enterprise_value_m?: unknown })
+    ?.enterprise_value_m;
+  if (hasMeaningfulAmount(nested)) return String(nested);
+
+  const flat = record.enterprise_value_m ?? record.enterprise_value;
+  if (hasMeaningfulAmount(flat)) return String(flat);
+
+  const preferredCode = resolveDetailPreferredCurrencyCode(preferredCurrencyId);
+  if (preferredCode && hasMeaningfulAmount(record.enterprise_value_m)) {
+    return String(record.enterprise_value_m);
+  }
+
+  return undefined;
+}
+
+/** Resolve enterprise value currency for corporate event detail pages. */
+export function resolveCorporateEventDetailEnterpriseValueCurrency(
+  event: unknown,
+  preferredCurrencyId?: number | null
+): string | undefined {
+  const record = asDetailEventRecord(event);
+  if (!record) return undefined;
+
+  const converted = record.enterprise_value_m_converted === true;
+  const preferredCode = resolveDetailPreferredCurrencyCode(preferredCurrencyId);
+  if (converted && preferredCode) return preferredCode;
+
+  const topLevel = normalizeCurrencyCode(
+    typeof record.enterprise_value_currency === "string"
+      ? record.enterprise_value_currency
+      : undefined
+  );
+  if (topLevel) return topLevel;
+
+  const nested = readNestedEvCurrency(record);
+  if (nested) return nested;
+
+  return resolveCorporateEventDetailInvestmentCurrency(event, preferredCurrencyId);
 }
 
 /** Amount column helper: investment first, then EV; partnerships show dash. */
