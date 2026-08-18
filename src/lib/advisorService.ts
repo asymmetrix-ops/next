@@ -1,6 +1,12 @@
 import { authService } from "./auth";
 import { AdvisorResponse, CorporateEventsResponse } from "../types/advisor";
 import { dispatchUnauthorized } from "./authEvents";
+import { applyFlatCorporateEventCurrencyConversion } from "./normalizeCounterpartyCorporateEvents";
+import {
+  appendPreferredCurrencyIdToSearchParams,
+  readPlatformCurrencyIdClient,
+  resolvePreferredCurrencyId,
+} from "./platformCurrency";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
 
@@ -20,6 +26,27 @@ function extractAdvisorCorporateEvents(payload: unknown) {
   }
 
   return [];
+}
+
+function readResponsePreferredCurrencyId(payload: unknown): number | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+  const id = Number((payload as Record<string, unknown>).preferred_currency_id ?? 0);
+  return id > 0 ? id : null;
+}
+
+function applyAdvisorCorporateEventCurrencyConversion(
+  events: unknown[],
+  preferredCurrencyId: number
+): unknown[] {
+  const effectiveId = resolvePreferredCurrencyId(preferredCurrencyId);
+  return events.map((event) => {
+    const raw = (
+      event && typeof event === "object" ? event : {}
+    ) as Record<string, unknown>;
+    return applyFlatCorporateEventCurrencyConversion(raw, effectiveId);
+  });
 }
 
 class AdvisorService {
@@ -74,9 +101,16 @@ class AdvisorService {
    * Query Parameters: { "new_comp_id": number } (same id as dynamic /advisor/[param])
    */
   async getCorporateEvents(
-    advisorId: number
+    advisorId: number,
+    preferredCurrencyId?: number
   ): Promise<CorporateEventsResponse> {
-    const url = `${BASE_URL}/advisors_ce?new_comp_id=${encodeURIComponent(String(advisorId))}`;
+    const resolvedCurrencyId = resolvePreferredCurrencyId(
+      preferredCurrencyId ?? readPlatformCurrencyIdClient()
+    );
+    const params = new URLSearchParams();
+    params.set("new_comp_id", String(advisorId));
+    appendPreferredCurrencyIdToSearchParams(params, resolvedCurrencyId);
+    const url = `${BASE_URL}/advisors_ce?${params.toString()}`;
     const response = await fetch(url, {
       method: "GET",
       headers: { ...this.getAuthHeaders() },
@@ -94,8 +128,18 @@ class AdvisorService {
     }
 
     const payload = (await response.json()) as unknown;
+    const rawEvents = extractAdvisorCorporateEvents(payload);
+    const responsePreferredCurrencyId = readResponsePreferredCurrencyId(payload);
+    const effectivePreferredCurrencyId =
+      responsePreferredCurrencyId ?? resolvedCurrencyId;
     return {
-      events: extractAdvisorCorporateEvents(payload),
+      events: applyAdvisorCorporateEventCurrencyConversion(
+        rawEvents,
+        effectivePreferredCurrencyId
+      ) as CorporateEventsResponse["events"],
+      ...(responsePreferredCurrencyId
+        ? { preferred_currency_id: responsePreferredCurrencyId }
+        : { preferred_currency_id: resolvedCurrencyId }),
     };
   }
 
@@ -103,14 +147,17 @@ class AdvisorService {
    * Combined API call to fetch both advisor profile and corporate events
    * This method calls both APIs in parallel for better performance
    */
-  async getAdvisorCompleteProfile(advisorId: number): Promise<{
+  async getAdvisorCompleteProfile(
+    advisorId: number,
+    preferredCurrencyId?: number
+  ): Promise<{
     advisor: AdvisorResponse;
     events: CorporateEventsResponse;
   }> {
     try {
       const [advisorResponse, eventsResponse] = await Promise.all([
         this.getAdvisorProfile(advisorId),
-        this.getCorporateEvents(advisorId),
+        this.getCorporateEvents(advisorId, preferredCurrencyId),
       ]);
 
       return {

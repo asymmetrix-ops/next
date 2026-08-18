@@ -5,12 +5,14 @@ import {
   type AdvisorResponse,
   type CorporateEventsResponse,
 } from "../types/advisor";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 interface UseAdvisorProfileProps {
   advisorId: number;
 }
 
 export const useAdvisorProfile = ({ advisorId }: UseAdvisorProfileProps) => {
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const [advisorData, setAdvisorData] = useState<AdvisorResponse | null>(null);
   const [corporateEvents, setCorporateEvents] =
     useState<AdvisorCorporateEvent[] | null>(null);
@@ -26,7 +28,8 @@ export const useAdvisorProfile = ({ advisorId }: UseAdvisorProfileProps) => {
       // API 1: get_the_advisor_new_company
       // API 2: get_advosirs_corporate_ivents_new
       const completeProfile = await advisorService.getAdvisorCompleteProfile(
-        advisorId
+        advisorId,
+        preferredCurrencyId
       );
 
       setAdvisorData(completeProfile.advisor);
@@ -48,7 +51,7 @@ export const useAdvisorProfile = ({ advisorId }: UseAdvisorProfileProps) => {
     } finally {
       setLoading(false);
     }
-  }, [advisorId]);
+  }, [advisorId, preferredCurrencyId]);
 
   useEffect(() => {
     if (advisorId && advisorId > 0) {
@@ -69,6 +72,7 @@ export const useAdvisorProfile = ({ advisorId }: UseAdvisorProfileProps) => {
 export const useAdvisorIndividualCalls = ({
   advisorId,
 }: UseAdvisorProfileProps) => {
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const [advisorData, setAdvisorData] = useState<AdvisorResponse | null>(null);
   const [corporateEvents, setCorporateEvents] =
     useState<AdvisorCorporateEvent[] | null>(null);
@@ -99,7 +103,8 @@ export const useAdvisorIndividualCalls = ({
       setLoadingEvents(true);
       setEventsError(null);
       const data: CorporateEventsResponse = await advisorService.getCorporateEvents(
-        advisorId
+        advisorId,
+        preferredCurrencyId
       );
       setCorporateEvents(
         data?.events || data?.items || data?.New_Events_Wits_Advisors || []
@@ -111,14 +116,14 @@ export const useAdvisorIndividualCalls = ({
     } finally {
       setLoadingEvents(false);
     }
-  }, [advisorId]);
+  }, [advisorId, preferredCurrencyId]);
 
   useEffect(() => {
     if (advisorId && advisorId > 0) {
       fetchAdvisorProfile();
       fetchCorporateEvents();
     }
-  }, [advisorId, fetchAdvisorProfile, fetchCorporateEvents]);
+  }, [advisorId, fetchAdvisorProfile, fetchCorporateEvents, preferredCurrencyId]);
 
   return {
     advisorData,

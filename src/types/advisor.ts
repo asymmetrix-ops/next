@@ -138,6 +138,7 @@ export interface CorporateEventsResponse {
   events?: AdvisorCorporateEvent[];
   items?: AdvisorCorporateEvent[];
   New_Events_Wits_Advisors?: AdvisorCorporateEvent[];
+  preferred_currency_id?: number;
 }
 
 // Corporate Event

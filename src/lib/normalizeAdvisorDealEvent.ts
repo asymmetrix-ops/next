@@ -1,5 +1,6 @@
 import { getTargetCompany } from "@/components/corporate-events/corporateEventsTableUtils";
 import type { AdvisorDealEvent } from "@/components/advisors/AdvisorDealsProfilePanel";
+import { formatCorporateEventMillionsAmount } from "@/lib/corporateEventAmountDisplay";
 import {
   coerceSectorNameList,
   extractSectorId,
@@ -281,6 +282,17 @@ export function normalizeAdvisorDealEvent(event: unknown): AdvisorDealEvent {
     evData?._currency?.Currency ||
     evData?.currency?.Currency ||
     null;
+  const evDisplayRaw =
+    raw.ev_display != null && String(raw.ev_display).trim()
+      ? String(raw.ev_display).trim()
+      : null;
+  const evDisplay =
+    evDisplayRaw ||
+    (enterpriseValue != null &&
+    String(enterpriseValue).trim() !== "" &&
+    currencyName
+      ? formatCorporateEventMillionsAmount(enterpriseValue, currencyName, "")
+      : null);
 
   return {
     id: typeof raw.id === "number" ? raw.id : 0,
@@ -294,6 +306,7 @@ export function normalizeAdvisorDealEvent(event: unknown): AdvisorDealEvent {
     target_companies: parseTargetCompanies(raw.target_companies),
     enterprise_value_m: enterpriseValue,
     currency_name: currencyName,
+    ev_display: evDisplay,
     ev_source:
       typeof raw.ev_source === "string" && raw.ev_source.trim()
         ? raw.ev_source.trim()

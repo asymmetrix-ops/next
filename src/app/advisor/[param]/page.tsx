@@ -15,10 +15,11 @@ import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
 import { normalizeAdvisorDealEvent } from "@/lib/normalizeAdvisorDealEvent";
 import { buildCorporateEventsBrowseAllHref } from "@/lib/corporateEventsFilterPayload";
 import {
-  formatCurrency,
   formatDate,
   getAdvisorYearFoundedDisplay,
 } from "../../../utils/advisorHelpers";
+import { formatCorporateEventEnterpriseValue } from "@/lib/corporateEventAmountDisplay";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
@@ -287,6 +288,7 @@ export default function AdvisorProfilePage() {
     () => new Map()
   );
   const [dealsPage, setDealsPage] = useState(1);
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
     advisorId,
@@ -360,12 +362,17 @@ export default function AdvisorProfilePage() {
 
       const currency = (event.currency_name || "").trim() || null;
       const value = event.enterprise_value_m ?? null;
-      const evFormatted =
-        value === null || value === undefined || value === ""
-          ? "-"
-          : currency
-          ? formatCurrency(String(value), currency)
-          : String(value);
+      const evFormatted = formatCorporateEventEnterpriseValue(
+        {
+          ev_display: event.ev_display,
+          currency_name: currency,
+          ev_data: {
+            enterprise_value_m: value,
+            _currency: currency ? { Currency: currency } : undefined,
+          },
+        },
+        "-"
+      );
 
       const sectorsArr = coerceUnknownToArray(event.primary_sectors as unknown).map(
         (s) => {
@@ -429,6 +436,7 @@ export default function AdvisorProfilePage() {
           value_m: value,
           currency_name: currency,
           formatted: evFormatted,
+          ...(event.ev_display ? { ev_display: event.ev_display } : {}),
         },
         sectors: sectorsArr,
         advisor_individuals: advisorIndividualsArr,
@@ -487,6 +495,7 @@ export default function AdvisorProfilePage() {
         page_path: pagePath,
         page_url: pageUrl,
         advisor_id: advisorId,
+        preferred_currency_id: preferredCurrencyId,
       },
       advisor: {
         id: advisor?.id ?? advisorId,

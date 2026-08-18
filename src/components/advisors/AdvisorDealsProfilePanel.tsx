@@ -15,7 +15,7 @@ import {
   LinkedH,
 } from "@/components/redesign/primitives";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import { formatCurrency } from "@/utils/advisorHelpers";
+import { formatCorporateEventEnterpriseValue } from "@/lib/corporateEventAmountDisplay";
 import { useGlobalSectorNameLookup } from "@/hooks/useGlobalSectorNameLookup";
 import {
   enrichSectorEntries,
@@ -36,6 +36,7 @@ export type AdvisorDealEvent = {
   target_companies?: Array<{ id: number; name: string }> | null;
   enterprise_value_m?: string | number | null;
   currency_name?: string | null;
+  ev_display?: string | null;
   ev_source?: string | null;
   advisor_individuals?: Array<{ id?: number; name?: string }> | null;
   other_advisors?: Array<{
@@ -282,14 +283,10 @@ function headerRightLine(
 }
 
 function formatEnterpriseValue(
-  value: string | number | null | undefined,
-  currency: string | null | undefined
+  event: Pick<AdvisorDealEvent, "enterprise_value_m" | "currency_name" | "ev_display">
 ): string {
-  if (value === null || value === undefined || value === "") return "-";
-  const cur = (currency || "").trim();
-  if (cur) return formatCurrency(String(value), cur);
-  const n = Number(String(value).replace(/,/g, ""));
-  return Number.isFinite(n) ? `${Math.round(n).toLocaleString()}M` : String(value);
+  const formatted = formatCorporateEventEnterpriseValue(event, "-");
+  return formatted === "Not available" ? "-" : formatted;
 }
 
 function dedupeSectors(
@@ -916,7 +913,7 @@ export function AdvisorDealsProfilePanel({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {formatEnterpriseValue(event.enterprise_value_m, event.currency_name)}
+                    {formatEnterpriseValue(event)}
                   </div>
                   <div style={{ textAlign: colAlign(7), color: T.muted, minWidth: 0 }}>
                     {individuals.length > 0
