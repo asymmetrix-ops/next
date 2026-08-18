@@ -16,6 +16,7 @@ const CLIENT_LOGOS = [
   { src: "/client_logos/Perwyn logo.png", alt: "Perwyn" },
   { src: "/client_logos/raymond-james-trim.png", alt: "Raymond James" },
   { src: "/client_logos/Cardean_Bell_Assets-Primary-Positive-300x300.png", alt: "Cardean Bell" },
+  { src: "/client_logos/Financial_Times_idRlWoph_N_0.png", alt: "Financial Times" },
 ];
 
 const LogoRow = ({ ariaHidden = false }) => (

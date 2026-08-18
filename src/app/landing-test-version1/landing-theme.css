@@ -6,6 +6,14 @@
   }
 }
 
+.landing-rebrand .landing-kanban-scroll {
+  scrollbar-width: none;
+}
+
+.landing-rebrand .landing-kanban-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .landing-rebrand {
   --asymmetrix-blue: hsl(228, 85%, 63%);
   --asymmetrix-blue-dark: hsl(228, 85%, 55%);
@@ -618,3 +626,37 @@
     animation: none;
   }
 }
+
+/* Press releases */
+.landing-rebrand .landing-press-card {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.landing-rebrand .landing-press-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 11, 41, 0.1);
+}
+
+.landing-rebrand .landing-press-card-accent {
+  background: linear-gradient(
+    180deg,
+    var(--asymmetrix-blue-light) 0%,
+    #ffffff 100%
+  );
+}
+
+.landing-rebrand .landing-press-quote {
+  border-color: var(--asymmetrix-blue);
+  background-color: var(--asymmetrix-blue-light);
+  border-radius: 0 0.75rem 0.75rem 0;
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+
+.landing-rebrand .landing-press-contact {
+  border: 1px solid hsla(228, 85%, 63%, 0.2);
+  background-color: var(--asymmetrix-blue-light);
+}
+

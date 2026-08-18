@@ -7,8 +7,6 @@ import { Reveal } from "./Reveal";
 
 const AUTO_ADVANCE_MS = 7000;
 const EASE = [0.16, 1, 0.3, 1];
-const SPRING = { type: "spring", stiffness: 210, damping: 32, mass: 1 };
-const STACK_DEPTH = 3;
 const SWIPE_THRESHOLD = 80;
 
 const TESTIMONIALS = [
@@ -36,59 +34,36 @@ const TESTIMONIALS = [
     name: "Mike Chinn",
     title: "Endicott",
   },
-  {
-    id: "ey-anonymised",
-    quote:
-      "Asymmetrix is an invaluable intelligence tool and data set for our team",
-    initials: "EY",
-    name: "Corporate Finance\nM&A Partner",
-    title: "EY (Anonymised)",
-  },
 ];
 
-// Slot 0 = front (active), higher slots recede into the stack behind it.
-const STACK_VARIANTS = {
-  enter: { y: -52, scale: 0.82, opacity: 0, rotate: 0 },
-  slot0: { y: 0, scale: 1, opacity: 1, rotate: 0, transition: SPRING },
-  slot1: { y: -16, scale: 0.95, opacity: 0.55, rotate: 0, transition: SPRING },
-  slot2: { y: -30, scale: 0.9, opacity: 0.28, rotate: 0, transition: SPRING },
-  exit: (direction) => ({
-    x: direction > 0 ? -140 : 140,
-    y: 12,
-    opacity: 0,
-    scale: 0.92,
-    rotate: direction > 0 ? -7 : 7,
-    transition: { duration: 0.45, ease: EASE },
-  }),
+const SLIDE_VARIANTS = {
+  enter: (direction) => ({ opacity: 0, x: direction > 0 ? 48 : -48 }),
+  center: { opacity: 1, x: 0 },
+  exit: (direction) => ({ opacity: 0, x: direction > 0 ? -48 : 48 }),
 };
 
-function TestimonialCard({ testimonial, slot, direction, draggable, onDragEnd }) {
+function TestimonialCard({ testimonial, direction, draggable, onDragEnd }) {
   return (
     <motion.div
       custom={direction}
-      variants={STACK_VARIANTS}
+      variants={SLIDE_VARIANTS}
       initial="enter"
-      animate={`slot${slot}`}
+      animate="center"
       exit="exit"
+      transition={{ duration: 0.45, ease: EASE }}
       drag={draggable ? "x" : false}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.6}
       onDragEnd={onDragEnd}
       whileDrag={{ cursor: "grabbing" }}
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: STACK_DEPTH - slot,
-        pointerEvents: slot === 0 ? "auto" : "none",
-        cursor: draggable ? "grab" : "default",
-      }}
-      className="landing-panel flex min-h-[300px] flex-col overflow-hidden rounded-[28px] p-6 text-center text-text-alternative md:min-h-[240px] md:flex-row md:items-center md:gap-8 md:p-8 md:text-left"
+      style={{ cursor: draggable ? "grab" : "default" }}
+      className="landing-panel flex min-h-[220px] flex-col rounded-[28px] p-6 text-center text-text-alternative md:min-h-[180px] md:flex-row md:items-center md:gap-8 md:p-8 md:text-left"
     >
       <div className="mb-4 flex shrink-0 items-start justify-center text-4xl font-bold leading-none text-background-alternative md:mb-0 md:justify-start">
         &ldquo;
       </div>
-      <blockquote className="flex flex-1 items-center">
-        <span className="line-clamp-5 text-base font-bold leading-relaxed md:line-clamp-4 md:text-lg">
+      <blockquote className="flex-1">
+        <span className="text-base font-bold leading-relaxed md:text-lg">
           &ldquo;{testimonial.quote}&rdquo;
         </span>
       </blockquote>
@@ -96,9 +71,7 @@ function TestimonialCard({ testimonial, slot, direction, draggable, onDragEnd })
         <div className="mb-3 flex size-12 min-h-12 min-w-12 items-center justify-center rounded-full bg-background-alternative text-sm font-semibold">
           {testimonial.initials}
         </div>
-        <p className="whitespace-pre-line text-center text-sm font-semibold">
-          {testimonial.name}
-        </p>
+        <p className="text-center text-sm font-semibold">{testimonial.name}</p>
         <p className="landing-text-secondary text-center text-xs md:text-sm">
           {testimonial.title}
         </p>
@@ -174,10 +147,7 @@ export function Testimonial1() {
     }
   };
 
-  const stack = Array.from({ length: Math.min(STACK_DEPTH, total) }, (_, slot) => ({
-    slot,
-    testimonial: TESTIMONIALS[(activeIndex + slot) % total],
-  }));
+  const activeTestimonial = TESTIMONIALS[activeIndex];
 
   return (
     <section
@@ -194,65 +164,60 @@ export function Testimonial1() {
     >
       <div className="container">
         <Reveal>
-          <div className="relative mx-auto max-w-6xl">
-            <div className="relative min-h-[336px] md:min-h-[272px]">
-              <AnimatePresence initial={false} custom={direction}>
-                {stack.map(({ slot, testimonial }) => (
-                  <TestimonialCard
-                    key={testimonial.id}
-                    testimonial={testimonial}
-                    slot={slot}
-                    direction={direction}
-                    draggable={slot === 0 && !reduceMotion}
-                    onDragEnd={handleDragEnd}
-                  />
-                ))}
-              </AnimatePresence>
+          <motion.div layout className="relative mx-auto max-w-6xl overflow-hidden">
+            <AnimatePresence mode="wait" initial={false} custom={direction}>
+              <TestimonialCard
+                key={activeTestimonial.id}
+                testimonial={activeTestimonial}
+                direction={direction}
+                draggable={!reduceMotion}
+                onDragEnd={handleDragEnd}
+              />
+            </AnimatePresence>
+          </motion.div>
+
+          <div className="mt-6 flex items-center justify-center gap-3 md:gap-4">
+            <button
+              type="button"
+              aria-label="Previous testimonial"
+              onClick={goPrev}
+              className="landing-btn-secondary inline-flex size-10 items-center justify-center rounded-full"
+            >
+              <RxChevronLeft className="size-5" />
+            </button>
+
+            <div className="flex items-center gap-2">
+              {TESTIMONIALS.map((testimonial, index) => (
+                <button
+                  key={testimonial.id}
+                  type="button"
+                  aria-label={`Show testimonial from ${testimonial.name}`}
+                  aria-current={index === activeIndex ? "true" : undefined}
+                  onClick={() => goTo(index, index > activeIndex ? 1 : -1)}
+                  className={`relative h-2.5 overflow-hidden rounded-full transition-[width] duration-300 ${
+                    index === activeIndex
+                      ? "w-10 bg-[#000B29]/10"
+                      : "w-2.5 bg-[#000B29]/15 hover:bg-[#000B29]/25"
+                  }`}
+                >
+                  {index === activeIndex && (
+                    <span
+                      className="absolute inset-y-0 left-0 rounded-full bg-background-alternative"
+                      style={{ width: `${progress * 100}%` }}
+                    />
+                  )}
+                </button>
+              ))}
             </div>
 
-            <div className="mt-6 flex items-center justify-center gap-3 md:gap-4">
-              <button
-                type="button"
-                aria-label="Previous testimonial"
-                onClick={goPrev}
-                className="landing-btn-secondary inline-flex size-10 items-center justify-center rounded-full"
-              >
-                <RxChevronLeft className="size-5" />
-              </button>
-
-              <div className="flex items-center gap-2">
-                {TESTIMONIALS.map((testimonial, index) => (
-                  <button
-                    key={testimonial.id}
-                    type="button"
-                    aria-label={`Show testimonial from ${testimonial.name}`}
-                    aria-current={index === activeIndex ? "true" : undefined}
-                    onClick={() => goTo(index, index > activeIndex ? 1 : -1)}
-                    className={`relative h-2.5 overflow-hidden rounded-full transition-[width] duration-300 ${
-                      index === activeIndex
-                        ? "w-10 bg-[#000B29]/10"
-                        : "w-2.5 bg-[#000B29]/15 hover:bg-[#000B29]/25"
-                    }`}
-                  >
-                    {index === activeIndex && (
-                      <span
-                        className="absolute inset-y-0 left-0 rounded-full bg-background-alternative"
-                        style={{ width: `${progress * 100}%` }}
-                      />
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                aria-label="Next testimonial"
-                onClick={goNext}
-                className="landing-btn-secondary inline-flex size-10 items-center justify-center rounded-full"
-              >
-                <RxChevronRight className="size-5" />
-              </button>
-            </div>
+            <button
+              type="button"
+              aria-label="Next testimonial"
+              onClick={goNext}
+              className="landing-btn-secondary inline-flex size-10 items-center justify-center rounded-full"
+            >
+              <RxChevronRight className="size-5" />
+            </button>
           </div>
         </Reveal>
       </div>
