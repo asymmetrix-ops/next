@@ -195,6 +195,61 @@ export default function AboutUs() {
                   </div>
                 </div>
               </div>
+              {/* Jordan Bintcliffe */}
+              <div className="flex gap-6 items-start p-6 bg-white rounded-lg shadow-lg">
+                <div className="flex-shrink-0">
+                  <Image
+                    src="/images/jordan_b_image.png"
+                    alt="Jordan Bintcliffe"
+                    width={180}
+                    height={180}
+                    className="object-cover w-44 h-44 rounded-full"
+                  />
+                </div>
+                <div className="flex-1">
+                  <h4 className="mb-1 text-xl font-bold text-gray-900">
+                    Jordan Bintcliffe
+                  </h4>
+                  <p className="mb-3 text-sm text-gray-600">Head of News</p>
+                  <div className="flex gap-2">
+                    <a
+                      href="https://www.linkedin.com/in/jordan-bintcliffe/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex justify-center items-center w-8 h-8 text-white bg-blue-600 rounded-full transition-colors hover:bg-blue-700"
+                      aria-label="Jordan Bintcliffe's LinkedIn profile"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                      </svg>
+                    </a>
+                    <a
+                      href="mailto:j.bintcliffe@asymmetrixintelligence.com"
+                      className="inline-flex justify-center items-center w-8 h-8 text-white bg-blue-600 rounded-full transition-colors hover:bg-blue-700"
+                      aria-label="Email Jordan Bintcliffe"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="2" y="4" width="20" height="16" rx="2" />
+                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
               {/* Alex Grishko */}
               <div className="flex gap-6 items-start p-6 bg-white rounded-lg shadow-lg">
                 <div className="flex-shrink-0">
@@ -417,8 +472,41 @@ export default function AboutUs() {
           </div>
         </section>
 
-        {/* Our Values Section */}
+        {/* Contact Section */}
         <section className="px-4 py-20 bg-white">
+          <div className="mx-auto max-w-6xl">
+            <h2 className="mb-8 text-4xl font-bold text-gray-900 md:text-5xl">
+              Contact Us
+            </h2>
+            <p className="mb-6 text-lg text-gray-700 md:text-xl">
+              Have a question or want to get in touch? We&apos;d love to hear
+              from you.
+            </p>
+            <a
+              href="mailto:h.crean@asymmetrixintelligence.com"
+              className="inline-flex gap-2 items-center text-lg text-blue-600 transition-colors hover:text-blue-800"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+              h.crean@asymmetrixintelligence.com
+            </a>
+          </div>
+        </section>
+
+        {/* Our Values Section */}
+        <section className="px-4 py-20 bg-gray-50">
           <div className="mx-auto max-w-6xl">
             <h2 className="mb-12 text-4xl font-bold text-gray-900 md:text-5xl">
               Our Values
@@ -450,7 +538,7 @@ export default function AboutUs() {
         </section>
 
         {/* Come and Join Us Section */}
-        <section className="px-4 py-20 bg-gray-50">
+        <section className="px-4 py-20 bg-white">
           <div className="mx-auto max-w-6xl">
             <h2 className="mb-8 text-4xl font-bold text-gray-900 md:text-5xl">
               Come and join us
