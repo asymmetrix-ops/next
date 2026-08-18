@@ -493,7 +493,7 @@ export function CompanyGraphVisual() {
 
                     <CardRow label="Stage" value="Funding Round" x={16} y={62} delay={0.44} reduceMotion={reduceMotion} />
                     <CardRow label="Raised" value="Funds Raised" x={112} y={62} delay={0.5} reduceMotion={reduceMotion} />
-                    <CardRow label="Investors" value="Investor Names" x={16} y={90} valueSize={9.5} delay={0.58} reduceMotion={reduceMotion} />
+                    <CardRow label="Investors" value="Investor" x={16} y={90} valueSize={9.5} delay={0.58} reduceMotion={reduceMotion} />
                     <CardRow label="Products" value="Core Products" x={16} y={116} valueSize={9.5} delay={0.66} reduceMotion={reduceMotion} />
 
                     <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={T(reduceMotion, 0.45, 0.74)}>

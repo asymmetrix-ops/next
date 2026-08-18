@@ -407,7 +407,7 @@ export function InvestorPortfolioVisual() {
                     />
                     <rect x={0} y={0} width={CARD_W} height={CARD_H} rx={16} fill="#FFFFFF" stroke="rgba(0,11,41,0.08)" />
 
-                    <CardRow label="Investor" value="Investor Name" x={16} y={30} valueSize={13} delay={0.3} reduceMotion={reduceMotion} />
+                    <CardRow label="Investor" value="Investor" x={16} y={30} valueSize={13} delay={0.3} reduceMotion={reduceMotion} />
                     <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={T(reduceMotion, 0.4, 0.32)}>
                       <rect x={135} y={13} width={62} height={17} rx={8.5} fill="#F0F3FF" stroke="#536FF0" strokeWidth={0.75} />
                       <text x={166} y={24.5} textAnchor="middle" fontSize="6.5" fontWeight="700" fill="#3E5EDC">
