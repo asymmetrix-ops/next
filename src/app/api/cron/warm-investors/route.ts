@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 
 import { INVESTORS_API_BASE } from '@/lib/investorsApiBase';
+import { runInBackground } from '@/lib/run-background';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -47,6 +48,51 @@ function isLondonSixAM(): { ok: boolean; londonHour: string } {
   return { ok: Number.parseInt(londonHourStr, 10) === 6, londonHour: londonHourStr };
 }
 
+async function warmInvestorsCache(
+  redis: Redis,
+  ttlSeconds: number,
+  page: number,
+  perPage: number,
+  cacheKey: string
+): Promise<void> {
+  const start = performance.now();
+
+  try {
+    const token = XANO_SERVICE_TOKEN || (await getAuthToken());
+    if (!token) {
+      console.error('[CRON] ❌ warm-investors: Failed to authenticate with Xano');
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.append('page', String(page));
+    params.append('per_page', String(perPage));
+
+    const resp = await fetch(`${XANO_URL}?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      cache: 'no-store',
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      console.error(`[CRON] ❌ warm-investors: Xano error ${resp.status}`, text);
+      return;
+    }
+
+    const data = await resp.json();
+    await redis.set(cacheKey, data as never, { ex: ttlSeconds });
+
+    const totalMs = Math.round(performance.now() - start);
+    console.log(`[CRON] ✅ warm-investors cached key=${cacheKey} ttl=${ttlSeconds}s totalMs=${totalMs}`);
+  } catch (e) {
+    console.error('[CRON] ❌ warm-investors failed:', e);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const force =
     request.nextUrl.searchParams.get('force') === '1' ||
@@ -81,48 +127,19 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const page = 1;
+  const perPage = 50;
+  const cacheKey = `investors:initial:v1:page${page}:per${perPage}`;
   const ttlSeconds = Math.min(
     Math.max(Number(process.env.INVESTORS_INITIAL_TTL_SECONDS ?? 26 * 60 * 60), 60),
     7 * 24 * 60 * 60
   );
 
-  const start = performance.now();
-  const page = 1;
-  const perPage = 50;
-
-  const token = XANO_SERVICE_TOKEN || (await getAuthToken());
-  if (!token) {
-    return NextResponse.json({ success: false, error: 'Failed to authenticate with Xano' }, { status: 500 });
-  }
-
-  const params = new URLSearchParams();
-  params.append('page', String(page));
-  params.append('per_page', String(perPage));
-
-  const resp = await fetch(`${XANO_URL}?${params.toString()}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    cache: 'no-store',
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => '');
-    return NextResponse.json(
-      { success: false, error: `Xano error ${resp.status}`, details: text },
-      { status: 502 }
-    );
-  }
-
-  const data = await resp.json();
-  const cacheKey = `investors:initial:v1:page${page}:per${perPage}`;
-  await redis.set(cacheKey, data as never, { ex: ttlSeconds });
+  runInBackground(warmInvestorsCache(redis, ttlSeconds, page, perPage, cacheKey));
 
   return NextResponse.json({
     success: true,
-    totalMs: Math.round(performance.now() - start),
+    started: true,
     cachedKey: cacheKey,
     ttlSeconds,
     page,
@@ -133,4 +150,3 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return GET(request);
 }
-

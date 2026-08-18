@@ -4,6 +4,7 @@ import {
   createDefaultIndividualFilters,
   individualsFiltersToRequestBody,
 } from '@/lib/individualsFilterPayload';
+import { runInBackground } from '@/lib/run-background';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -68,6 +69,61 @@ function isLondonSixAM(): { ok: boolean; londonHour: string } {
   return { ok: Number.parseInt(londonHourStr, 10) === 6, londonHour: londonHourStr };
 }
 
+async function warmIndividualsCache(
+  redis: Redis,
+  ttlSeconds: number,
+  offset: number,
+  perPage: number,
+  cacheKey: string,
+  bearerFromReq: string | null
+): Promise<void> {
+  const start = performance.now();
+
+  try {
+    const auth = await getAuthToken();
+    const token = XANO_SERVICE_TOKEN || bearerFromReq || auth.token;
+    if (!token) {
+      console.error('[CRON] ❌ warm-individuals: Failed to authenticate with Xano', {
+        hasXanoServiceToken: !!XANO_SERVICE_TOKEN,
+        hasBearerFromRequest: !!bearerFromReq,
+        cronAuthConfigured: !!CRON_AUTH_EMAIL && !!CRON_AUTH_PASSWORD,
+        authDebug: auth.debug,
+      });
+      return;
+    }
+
+    const filters = {
+      ...createDefaultIndividualFilters(),
+      page: offset,
+      per_page: perPage,
+    };
+
+    const resp = await fetch(XANO_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(individualsFiltersToRequestBody(filters)),
+      cache: 'no-store',
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      console.error(`[CRON] ❌ warm-individuals: Xano error ${resp.status}`, text);
+      return;
+    }
+
+    const data = await resp.json();
+    await redis.set(cacheKey, data as never, { ex: ttlSeconds });
+
+    const totalMs = Math.round(performance.now() - start);
+    console.log(`[CRON] ✅ warm-individuals cached key=${cacheKey} ttl=${ttlSeconds}s totalMs=${totalMs}`);
+  } catch (e) {
+    console.error('[CRON] ❌ warm-individuals failed:', e);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const force =
     request.nextUrl.searchParams.get('force') === '1' ||
@@ -102,62 +158,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const offset = 0;
+  const perPage = 50;
+  const cacheKey = `individuals:initial:v1:offset${offset}:per${perPage}`;
   const ttlSeconds = Math.min(
     Math.max(Number(process.env.INDIVIDUALS_INITIAL_TTL_SECONDS ?? 26 * 60 * 60), 60),
     7 * 24 * 60 * 60
   );
-
-  const start = performance.now();
-  const offset = 0;
-  const perPage = 50;
-
   const bearerFromReq = getBearerFromRequest(request);
-  const auth = await getAuthToken();
-  const token = XANO_SERVICE_TOKEN || bearerFromReq || auth.token;
-  if (!token) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to authenticate with Xano',
-        debug: {
-          hasXanoServiceToken: !!XANO_SERVICE_TOKEN,
-          hasBearerFromRequest: !!bearerFromReq,
-          cronAuthConfigured: !!CRON_AUTH_EMAIL && !!CRON_AUTH_PASSWORD,
-          authDebug: auth.debug,
-        },
-      },
-      { status: 500 }
-    );
-  }
 
-  const filters = {
-    ...createDefaultIndividualFilters(),
-    page: offset,
-    per_page: perPage,
-  };
-
-  const resp = await fetch(XANO_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(individualsFiltersToRequestBody(filters)),
-    cache: 'no-store',
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => '');
-    return NextResponse.json({ success: false, error: `Xano error ${resp.status}`, details: text }, { status: 502 });
-  }
-
-  const data = await resp.json();
-  const cacheKey = `individuals:initial:v1:offset${offset}:per${perPage}`;
-  await redis.set(cacheKey, data as never, { ex: ttlSeconds });
+  runInBackground(warmIndividualsCache(redis, ttlSeconds, offset, perPage, cacheKey, bearerFromReq));
 
   return NextResponse.json({
     success: true,
-    totalMs: Math.round(performance.now() - start),
+    started: true,
     cachedKey: cacheKey,
     ttlSeconds,
     offset,
@@ -168,4 +182,3 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return GET(request);
 }
-

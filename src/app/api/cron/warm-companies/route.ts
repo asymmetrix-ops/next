@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { runInBackground } from '@/lib/run-background';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -19,7 +20,7 @@ function getRedisClient(): Redis | null {
   }
   return null;
 }
-  
+
 async function getAuthToken(): Promise<string | null> {
   if (!CRON_AUTH_EMAIL || !CRON_AUTH_PASSWORD) {
     console.error('[CRON] ❌ Missing CRON_AUTH_EMAIL or CRON_AUTH_PASSWORD environment variables');
@@ -60,6 +61,52 @@ function isLondonSixAM(): { ok: boolean; londonHour: string } {
   return { ok: Number.parseInt(londonHourStr, 10) === 6, londonHour: londonHourStr };
 }
 
+async function warmCompaniesCache(
+  redis: Redis,
+  ttlSeconds: number,
+  perPage: number,
+  offset: number,
+  cacheKey: string
+): Promise<void> {
+  const start = performance.now();
+
+  try {
+    const token = XANO_SERVICE_TOKEN || (await getAuthToken());
+    if (!token) {
+      console.error('[CRON] ❌ warm-companies: Failed to authenticate with Xano');
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.append('Offset', String(offset));
+    params.append('Per_page', String(perPage));
+
+    const url = `${XANO_COMPANIES_URL}?${params.toString()}`;
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      cache: 'no-store',
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error(`[CRON] ❌ warm-companies: Xano error ${resp.status}`, text);
+      return;
+    }
+
+    const data = await resp.json();
+    await redis.set(cacheKey, data as never, { ex: ttlSeconds });
+
+    const totalMs = Math.round(performance.now() - start);
+    console.log(`[CRON] ✅ warm-companies cached key=${cacheKey} ttl=${ttlSeconds}s totalMs=${totalMs}`);
+  } catch (e) {
+    console.error('[CRON] ❌ warm-companies failed:', e);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const force = request.nextUrl.searchParams.get('force') === '1' || request.nextUrl.searchParams.get('force') === 'true';
   if (force) {
@@ -84,10 +131,6 @@ export async function GET(request: NextRequest) {
     console.warn('[CRON] ⚠️ London time check failed, continuing anyway:', e);
   }
 
-  const start = performance.now();
-  const perPage = 20;
-  const offset = 1;
-
   const redis = getRedisClient();
   if (!redis) {
     return NextResponse.json(
@@ -96,51 +139,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const perPage = 20;
+  const offset = 1;
+  const cacheKey = `companies:initial:v1:per${perPage}`;
   const ttlSeconds = Math.min(
     Math.max(Number(process.env.COMPANIES_INITIAL_TTL_SECONDS ?? 26 * 60 * 60), 60),
     7 * 24 * 60 * 60
   );
 
-  const token = XANO_SERVICE_TOKEN || (await getAuthToken());
-  if (!token) {
-    return NextResponse.json(
-      { success: false, error: 'Failed to authenticate with Xano' },
-      { status: 500 }
-    );
-  }
+  runInBackground(warmCompaniesCache(redis, ttlSeconds, perPage, offset, cacheKey));
 
-  const params = new URLSearchParams();
-  params.append('Offset', String(offset));
-  params.append('Per_page', String(perPage));
-
-  const url = `${XANO_COMPANIES_URL}?${params.toString()}`;
-  const resp = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    cache: 'no-store',
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    return NextResponse.json(
-      { success: false, error: `Xano error ${resp.status}`, details: text },
-      { status: 500 }
-    );
-  }
-
-  const data = await resp.json();
-
-  const key = `companies:initial:v1:per${perPage}`;
-  await redis.set(key, data as never, { ex: ttlSeconds });
-
-  const totalMs = Math.round(performance.now() - start);
   return NextResponse.json({
     success: true,
-    totalMs,
-    cachedKey: key,
+    started: true,
+    cachedKey: cacheKey,
     ttlSeconds,
     perPage,
     offset,
@@ -150,4 +162,3 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return GET(request);
 }
-
