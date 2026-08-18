@@ -11,7 +11,6 @@ export type TopViewedLandingArticle = {
   tag: string;
   headline: string;
   meta: string;
-  offset: boolean;
 };
 
 export async function fetchTopViewedLandingArticles(): Promise<
@@ -26,20 +25,17 @@ export async function fetchTopViewedLandingArticles(): Promise<
     const data = (await res.json()) as { top_articles?: unknown };
     if (!Array.isArray(data.top_articles)) return [];
 
-    return (data.top_articles as RawTopViewedArticle[])
-      .slice(0, 4)
-      .map((item, index) => {
-        const contentType = item.Content_Type?.trim() || "Analysis";
-        const headline = item.Headline?.trim() || "Untitled article";
-        const timeAgo = item.time_ago?.trim() || "";
+    return (data.top_articles as RawTopViewedArticle[]).slice(0, 4).map((item) => {
+      const contentType = item.Content_Type?.trim() || "Analysis";
+      const headline = item.Headline?.trim() || "Untitled article";
+      const timeAgo = item.time_ago?.trim() || "";
 
-        return {
-          tag: contentType,
-          headline,
-          meta: timeAgo,
-          offset: index === 1 || index === 2,
-        };
-      });
+      return {
+        tag: contentType,
+        headline,
+        meta: timeAgo,
+      };
+    });
   } catch {
     return [];
   }

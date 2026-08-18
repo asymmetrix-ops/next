@@ -4,11 +4,6 @@ import { motion, useInView, useReducedMotion } from "framer-motion";
 import React, { useRef, useState } from "react";
 import { ContentTypeBadge } from "./ContentTypeBadge";
 
-// Illustrative layout stagger — cards 2 and 3 offset on desktop for visual rhythm.
-function mapReportOffset(index) {
-  return index === 1 || index === 2;
-}
-
 const ENTRANCE_EASE = [0.16, 1, 0.3, 1];
 const FOCUS_SPRING = { type: "spring", stiffness: 260, damping: 30, mass: 0.9 };
 
@@ -27,9 +22,9 @@ function ReportCard({
     <motion.div
       role="article"
       tabIndex={0}
-      className={`landing-market-card flex cursor-pointer flex-col gap-2 rounded-xl border p-4 outline-none md:p-5 ${
-        report.offset ? "md:mt-8" : ""
-      } ${isFocused ? "is-focused" : ""} ${isDimmed ? "is-dimmed" : ""}`}
+      className={`landing-market-card flex h-full cursor-pointer flex-col gap-2 rounded-xl border p-4 outline-none md:p-5 ${
+        isFocused ? "is-focused" : ""
+      } ${isDimmed ? "is-dimmed" : ""}`}
       initial={{ opacity: 0, y: motionEnabled ? 14 : 0 }}
       animate={{
         opacity: !revealed ? 0 : isDimmed ? 0.64 : 1,
@@ -47,11 +42,13 @@ function ReportCard({
       onFocus={() => onFocus(index)}
     >
       <ContentTypeBadge contentType={report.tag} className="shrink-0" />
-      <p className="landing-market-card-title text-sm font-bold leading-snug md:text-base">
+      <p className="landing-market-card-title flex-1 text-sm font-bold leading-snug md:text-base">
         {report.headline}
       </p>
       {report.meta ? (
-        <span className="landing-market-card-meta text-xs">{report.meta}</span>
+        <span className="landing-market-card-meta mt-auto shrink-0 text-xs">
+          {report.meta}
+        </span>
       ) : null}
     </motion.div>
   );
@@ -69,10 +66,7 @@ export function MarketAnalysisVisual({ articles = [] }) {
   const motionEnabled = !reduceMotion;
   const revealed = inView;
   const [focusedIndex, setFocusedIndex] = useState(null);
-  const reports = articles.map((article, index) => ({
-    ...article,
-    offset: article.offset ?? mapReportOffset(index),
-  }));
+  const reports = articles;
 
   const handleFocus = (index) => {
     setFocusedIndex(index);
@@ -114,7 +108,7 @@ export function MarketAnalysisVisual({ articles = [] }) {
       </div>
 
       <div
-        className="relative grid grid-cols-1 gap-4 md:grid-cols-2"
+        className="landing-market-grid relative grid grid-cols-1 items-stretch gap-4 md:grid-cols-2"
         onMouseLeave={handleClearFocus}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) {
