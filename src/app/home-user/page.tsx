@@ -208,7 +208,15 @@ function dealRadarStageLabel(status: string): string {
   const s = status.toLowerCase();
   if (s.includes("reported")) return "Reported in Market";
   if (s.includes("rumoured") || s.includes("rumored")) return "Rumored in Market";
-  if (s.includes("anticipated")) return "Anticipated within\n18 months";
+  if (s.includes("hold")) return "Process on Hold";
+  if (s.includes("anticipated")) {
+    const cleaned = status.replace(/^transaction\s+/i, "").trim();
+    const withinMatch = cleaned.match(/^anticipated\s+within\s+(.+)$/i);
+    if (withinMatch) {
+      return `Anticipated within\n${withinMatch[1].trim()}`;
+    }
+    return cleaned.replace(/ within /i, " within\n");
+  }
   return status;
 }
 
