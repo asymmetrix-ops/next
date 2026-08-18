@@ -248,9 +248,30 @@ class DashboardApiService {
       params.append("user_id", String(filters.userId));
     }
 
-    return this.request<Record<string, unknown>[]>(
-      `/corporate_events?${params.toString()}`
+    const headers = {
+      "Content-Type": "application/json",
+      ...authService.getAuthHeaders(),
+    };
+
+    const response = await fetch(
+      `/api/home-corporate-events?${params.toString()}`,
+      {
+        method: "GET",
+        headers,
+        cache: "no-store",
+        credentials: "include",
+      }
     );
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Authentication required");
+      }
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data as ApiResponse<Record<string, unknown>[]>;
   }
 
   // New home page corporate events endpoint (returns a raw array, not { data: ... })
@@ -570,22 +591,21 @@ class DashboardApiService {
     offset: number;
     signal?: AbortSignal;
   }): Promise<DealRadarListResponse> {
-    const url = new URL(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/get_deal_radar"
-    );
-    url.searchParams.set("limit", String(params.limit));
-    url.searchParams.set("offset", String(params.offset));
+    const query = new URLSearchParams({
+      limit: String(params.limit),
+      offset: String(params.offset),
+    });
 
     const headers = {
       "Content-Type": "application/json",
-      "X-Data-Source": "live",
       ...authService.getAuthHeaders(),
     };
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(`/api/deal-radar?${query.toString()}`, {
       method: "GET",
       headers,
       cache: "no-store",
+      credentials: "include",
       signal: params.signal,
     });
 

@@ -1,0 +1,3605 @@
+"use client";
+
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useRef,
+  type CSSProperties,
+} from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { dashboardApiService } from "@/lib/dashboardApi";
+import { trackEvent } from "@/lib/tracking";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
+import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
+import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
+import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
+import {
+  appendDealRadarItems,
+  applyHqCountryIso2ToCorporateEvents,
+  applyHqCountryIso2ToDealRadarItems,
+  collectMissingHqCountryIso2CompanyIdsFromCorporateEvents,
+  mapDealRadarItem,
+  readHqCountryIso2,
+  type DealRadarItem,
+} from "@/lib/dealRadar";
+import {
+  CorporateEventTargetLink,
+  CountryFlagImg,
+} from "@/components/corporate-events/CorporateEventPartyLink";
+import { hasInsightSummary } from "@/lib/insightSummary";
+import { InsightSummaryModal } from "@/components/insights/InsightSummaryModal";
+// import { useRightClick } from "@/hooks/useRightClick";
+
+// Types for dashboard data
+interface AsymmetrixData {
+  label: string;
+  value: string;
+}
+
+interface CorporateEvent {
+  id?: number;
+  corporate_event_id?: number;
+  description: string;
+  announcement_date?: string;
+  // New home events endpoint fields
+  date?: string;
+  type?: string;
+  target?: unknown;
+  investors?: unknown;
+  amount?: unknown;
+  primary?: unknown;
+  secondary?: unknown;
+  buyers?: unknown;
+  sales?: unknown;
+  all_targets?: unknown;
+  deal_status?: string;
+  created_at?: number;
+  Target_Counterparty?: {
+    new_company?: {
+      name: string;
+      _locations?: {
+        Country: string;
+      };
+      _sectors_objects?: {
+        sectors_id: Array<{
+          sector_name: string;
+          Sector_importance: string;
+          // When a sector is Secondary, API may include related Primary sectors here
+          Related_to_primary_sectors?: Array<
+            | {
+                id: number;
+                sector_name: string;
+                Sector_importance: string;
+              }
+            | {
+                secondary_sectors?: {
+                  id?: number;
+                  sector_name?: string;
+                  Sector_importance?: string;
+                };
+              }
+          >;
+        }>;
+      };
+    };
+  };
+  deal_type?: string;
+  investment_data?: {
+    investment_amount_m?: string;
+    currrency?: {
+      Currency: string;
+    };
+  };
+  ev_data?: {
+    enterprise_value_m?: string;
+    Currency?: string;
+  };
+  Other_Counterparties_of_Corporate_Event?: Array<{
+    _new_company?: {
+      name: string;
+    };
+  }>;
+  Advisors_of_Corporate_Event?: Array<{
+    _new_company?: {
+      name: string;
+    };
+  }>;
+}
+
+interface InsightArticle {
+  id: number;
+  Headline: string;
+  Strapline?: string;
+  Publication_Date?: string;
+  created_at?: number;
+  // Content type fields may arrive in different shapes/keys
+  Content_Type?: string;
+  content_type?: string;
+  Content?: { Content_type?: string; Content_Type?: string };
+  keywords?: string[];
+  related_documents?: Array<{
+    url: string;
+  }>;
+  image?: string;
+  companies_mentioned?: Array<{
+    id: number;
+    name: string;
+    locations_id: number;
+    _locations: {
+      Country: string;
+    };
+    _is_that_investor: boolean;
+  }>;
+  Transaction_status?: string;
+  transaction_status?: string;
+  /** Summary bullets — may be HTML string, plain string, or array of strings */
+  summary?: unknown;
+  hq_country_iso2?: string | null;
+  hqCountryIso2?: string | null;
+  Company_of_Focus?: Array<{
+    id?: number;
+    Transaction_status?: string;
+    hq_country_iso2?: string | null;
+    hqCountryIso2?: string | null;
+  }>;
+}
+
+function getInsightHqCountryIso2(article: InsightArticle): string | null {
+  const fromArticle = readHqCountryIso2(
+    article as unknown as Record<string, unknown>
+  );
+  if (fromArticle) return fromArticle;
+
+  for (const company of article.Company_of_Focus ?? []) {
+    const iso2 = readHqCountryIso2(company as unknown as Record<string, unknown>);
+    if (iso2) return iso2;
+  }
+
+  return null;
+}
+
+function getInsightTransactionStatus(article: InsightArticle): string {
+  const top = (article.Transaction_status || article.transaction_status || "")
+    .trim();
+  const raw =
+    top ||
+    article.Company_of_Focus?.find((c) => c?.Transaction_status)
+      ?.Transaction_status?.trim() ||
+    "";
+  if (!raw) return "";
+  return raw.replace(/^transaction\s+/i, "").trim() || raw;
+}
+
+function dealRadarStageStyle(
+  status: string
+): { pill: CSSProperties; dot: string } {
+  const s = status.toLowerCase();
+  if (s.includes("reported")) {
+    return {
+      pill: { backgroundColor: "#dcfce7", color: "#166534" },
+      dot: "#22c55e",
+    };
+  }
+  if (s.includes("rumoured") || s.includes("rumored")) {
+    return {
+      pill: { backgroundColor: "#fef9c3", color: "#854d0e" },
+      dot: "#eab308",
+    };
+  }
+  if (s.includes("hold")) {
+    return {
+      pill: { backgroundColor: "#f3f4f6", color: "#4b5563" },
+      dot: "#9ca3af",
+    };
+  }
+  return {
+    pill: { backgroundColor: "#dbeafe", color: "#1e40af" },
+    dot: "#3b82f6",
+  };
+}
+
+function dealRadarStageLabel(status: string): string {
+  const s = status.toLowerCase();
+  if (s.includes("reported")) return "Reported in Market";
+  if (s.includes("rumoured") || s.includes("rumored")) return "Rumored in Market";
+  if (s.includes("hold")) return "Process on Hold";
+  if (s.includes("anticipated")) {
+    const cleaned = status.replace(/^transaction\s+/i, "").trim();
+    const withinMatch = cleaned.match(/^anticipated\s+within\s+(.+)$/i);
+    if (withinMatch) {
+      return `Anticipated within\n${withinMatch[1].trim()}`;
+    }
+    return cleaned.replace(/ within /i, " within\n");
+  }
+  return status;
+}
+
+function transactionStatusPillStyle(status: string): CSSProperties {
+  const { pill, dot } = dealRadarStageStyle(status);
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    fontSize: 11,
+    lineHeight: 1,
+    padding: "5px 10px",
+    borderRadius: 9999,
+    fontWeight: 700,
+    letterSpacing: "0.03em",
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+    border: `1.5px solid ${dot}`,
+    ...pill,
+  };
+}
+
+const DEAL_STAGE_DEFINITIONS = [
+  {
+    label: "Reported in Market",
+    description:
+      "Substantiated by credible media outlets or company press releases that a sale process is actively underway.",
+    styleKey: "reported",
+  },
+  {
+    label: "Rumored in Market",
+    description:
+      "Based on proprietary intelligence obtained by Asymmetrix suggesting the asset is in market and a sale process has begun or will commence imminently.",
+    styleKey: "rumored",
+  },
+  {
+    label: "Anticipated within 18 months",
+    description:
+      "Asymmetrix assessment that a transaction is expected in the near- to medium-term based on factors such as sponsor fund lifecycle, ownership hold period, increase in transaction activity in company's sector or market chatter.",
+    styleKey: "anticipated",
+  },
+  {
+    label: "Process on Hold",
+    description:
+      "A sale process was launched but has been paused or failed. The transaction may resume later but is not actively progressing at present.",
+    styleKey: "hold",
+  },
+] as const;
+
+function DealStageInfoTooltip() {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({});
+
+  const updatePosition = useCallback(() => {
+    const anchor = anchorRef.current;
+    const popover = popoverRef.current;
+    if (!anchor) return;
+
+    const rect = anchor.getBoundingClientRect();
+    const padding = 16;
+    const gap = 10;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const popoverW = popover?.offsetWidth ?? 360;
+    const popoverH = popover?.offsetHeight ?? 420;
+    const spaceRight = viewportW - rect.right - padding;
+    const spaceLeft = rect.left - padding;
+    const showLeft = spaceRight < popoverW + gap && spaceLeft > spaceRight;
+
+    let left = showLeft ? rect.left - gap - popoverW : rect.right + gap;
+    left = Math.max(padding, Math.min(left, viewportW - popoverW - padding));
+
+    // Anchor below the icon so it clears the table header.
+    let top = rect.bottom + gap + 6;
+    if (top + popoverH > viewportH - padding) {
+      top = Math.max(padding, viewportH - popoverH - padding);
+    }
+
+    setPopoverStyle({ left, top });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    const frame = requestAnimationFrame(() => {
+      updatePosition();
+      requestAnimationFrame(updatePosition);
+    });
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const anchor = anchorRef.current;
+      const popover = popoverRef.current;
+      if (!(e.target instanceof Node)) return;
+      if (anchor?.contains(e.target)) return;
+      if (popover?.contains(e.target)) return;
+      setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const show = () => {
+    updatePosition();
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        aria-label="Deal stage definitions"
+        aria-expanded={open}
+        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+        onMouseEnter={show}
+        onMouseLeave={() => setOpen(false)}
+        onClick={() => {
+          updatePosition();
+          setOpen((prev) => !prev);
+        }}
+      >
+        <svg
+          className="w-3.5 h-3.5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 16v-4" />
+          <path d="M12 8h.01" />
+        </svg>
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            role="tooltip"
+            className="fixed z-[9999] w-[min(22.5rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white shadow-xl"
+            style={popoverStyle}
+            onMouseEnter={show}
+            onMouseLeave={() => setOpen(false)}
+          >
+            <div className="border-b border-gray-100 px-4 py-3">
+              <div className="text-sm font-semibold text-gray-900">Deal stage</div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="space-y-4">
+                {DEAL_STAGE_DEFINITIONS.map((item, index) => {
+                  const stageStyle = dealRadarStageStyle(item.styleKey);
+                  return (
+                    <div
+                      key={item.label}
+                      className={
+                        index < DEAL_STAGE_DEFINITIONS.length - 1
+                          ? "border-b border-gray-100 pb-4"
+                          : undefined
+                      }
+                    >
+                      <span
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-2xl px-2.5 py-1 text-[11px] font-semibold leading-snug"
+                        style={stageStyle.pill}
+                      >
+                        <span
+                          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: stageStyle.dot }}
+                        />
+                        <span>{item.label}</span>
+                      </span>
+                      <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
+                        {item.description}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
+import {
+  type GlobalSearchResult,
+  type GlobalSearchPagination,
+  type SearchPageType,
+  fetchGlobalSearchProgressive,
+  sortSearchResults,
+  badgeClassForSearchType,
+  resolveSearchHref,
+  getSearchBadgeLabel,
+  SEARCH_PAGE_TYPES,
+  SEARCH_PAGE_TYPE_LABELS,
+} from "@/lib/globalSearch";
+
+function contentTypeBadgeStyle(contentType?: string) {
+  const t = (contentType || "").toLowerCase().trim();
+  if (t === "company analysis") {
+    return {
+      backgroundColor: "#ecfdf5",
+      color: "#065f46",
+      borderColor: "#a7f3d0",
+    };
+  }
+  if (t === "deal analysis") {
+    return {
+      backgroundColor: "#eff6ff",
+      color: "#1e40af",
+      borderColor: "#bfdbfe",
+    };
+  }
+  if (t === "deal perspective") {
+    return {
+      backgroundColor: "#ecfeff",
+      color: "#155e75",
+      borderColor: "#a5f3fc",
+    };
+  }
+  if (t === "market commentary") {
+    return {
+      backgroundColor: "#fefce8",
+      color: "#854d0e",
+      borderColor: "#fde68a",
+    };
+  }
+  if (t === "sector analysis") {
+    return {
+      backgroundColor: "#f5f3ff",
+      color: "#5b21b6",
+      borderColor: "#ddd6fe",
+    };
+  }
+  if (t === "hot take") {
+    return {
+      backgroundColor: "#fff7ed",
+      color: "#9a3412",
+      borderColor: "#fed7aa",
+    };
+  }
+  if (t === "executive interview") {
+    return {
+      backgroundColor: "#f0fdf4",
+      color: "#166534",
+      borderColor: "#bbf7d0",
+    };
+  }
+  return {
+    backgroundColor: "#f3f4f6",
+    color: "#374151",
+    borderColor: "#e5e7eb",
+  };
+}
+
+// Removed NewCompany interface along with the related UI section
+
+export type InitialDealRadarData = {
+  items: DealRadarItem[];
+  nextOffset: number | null;
+};
+
+interface HomeUserClientProps {
+  initialDealRadar?: InitialDealRadarData | null;
+  initialCorporateEvents?: Array<Record<string, unknown>> | null;
+}
+
+export default function HomeUserClient({
+  initialDealRadar = null,
+  initialCorporateEvents = null,
+}: HomeUserClientProps) {
+  const router = useRouter();
+  const {
+    isAuthenticated,
+    user,
+    loading: authLoading,
+    isTrialActive,
+    trialDaysLeft,
+  } = useAuth();
+  // Right-click handled via native anchors now
+
+  // Helper function to format dates consistently
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "Not Available";
+    try {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return "Invalid date";
+    }
+  };
+
+  const resolveAsymmetrixStatHref = (label: string): string => {
+    const key = String(label || "").toLowerCase().trim();
+    if (key === "companies") return "/companies";
+    if (key === "corporate events") return "/corporate-events";
+    if (key === "individuals") return "/individuals";
+    if (key === "primary sectors" || key === "secondary sectors") return "/sectors";
+    if (key === "pe investors") return "/investors?investorTypeId=23699";
+    if (key === "vc investors") return "/investors?investorTypeId=23877";
+    if (key === "advisors") return "/advisors";
+    return "";
+  };
+
+  // Resolve corporate event id from inconsistent API shapes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getCorporateEventId = (ev: any): number | undefined => {
+    const possible = (ev?.id ??
+      ev?.event_id ??
+      ev?.events_id ??
+      ev?.corporate_event_id ??
+      ev?.corporate_events_id ??
+      ev?.CorporateEvent_id ??
+      ev?.Corporate_Events_id) as unknown;
+    const n = Number(possible);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  };
+
+  // (removed unused parseBraceList helper)
+
+  // Safe JSON.parse for stringified objects like '{"Type":"Investment"}'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const safeParseJson = <T = any,>(value?: unknown): T | null => {
+    if (!value || typeof value !== "string") return null;
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return null;
+    }
+  };
+
+  type SectorRef = { id: number; name: string };
+  const parseSectorRefs = (value?: unknown): SectorRef[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return (value as unknown[])
+        .map((v) => v as Partial<SectorRef>)
+        .filter(
+          (v): v is SectorRef =>
+            typeof v?.id === "number" &&
+            Number.isFinite(v.id) &&
+            v.id > 0 &&
+            typeof v?.name === "string" &&
+            Boolean(v.name.trim())
+        )
+        .map((v) => ({ id: v.id, name: v.name.trim() }));
+    }
+    if (typeof value === "string") {
+      const parsed = safeParseJson<unknown>(value);
+      if (Array.isArray(parsed)) return parseSectorRefs(parsed);
+      return [];
+    }
+    return [];
+  };
+
+  // Normalize entity link based on new API flags (route/path/entity_type)
+  // Prefer ID-based routes; fall back to path when ID or route is missing/unknown
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const normalizeEntityHref = (entity: any | null | undefined): string => {
+    if (!entity || typeof entity !== "object") return "";
+    const id = Number((entity as { id?: unknown }).id);
+    const route = String(
+      ((entity as { route?: unknown }).route ||
+        (entity as { entity_type?: unknown }).entity_type ||
+        "company") as string
+    )
+      .toLowerCase()
+      .trim();
+    if (Number.isFinite(id) && id > 0) {
+      // Our app uses plural investors route
+      if (route === "investor" || route === "investors")
+        return `/investors/${id}`;
+      return `/company/${id}`;
+    }
+    // Fallback to provided path (normalize investor singular to plural)
+    const rawPath = String((entity as { path?: unknown }).path || "").trim();
+    if (rawPath) {
+      return rawPath.replace(/^\/investor\//, "/investors/");
+    }
+    return "";
+  };
+
+  const dedupeById = (entities: EntityRef[]): EntityRef[] => {
+    const seenIds = new Set<number>();
+    const result: EntityRef[] = [];
+    for (const e of entities) {
+      const id = Number(e?.id);
+      if (Number.isFinite(id) && id > 0) {
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+      }
+      result.push(e);
+    }
+    return result;
+  };
+
+  type EntityRef = {
+    id?: number;
+    name?: string;
+    path?: string;
+    route?: string;
+    entity_type?: string;
+    hq_country_iso2?: string | null;
+    hqCountryIso2?: string | null;
+  };
+
+  const partyLinkClassName =
+    "text-blue-600 underline hover:text-blue-800";
+
+  const renderTargetEntityInline = (entity: EntityRef): React.ReactNode => {
+    const href = normalizeEntityHref(entity);
+    const name = entity?.name || "Unknown";
+
+    return (
+      <CorporateEventTargetLink
+        name={name}
+        href={href || undefined}
+        entity={entity as unknown as Record<string, unknown>}
+        linkClassName={partyLinkClassName}
+        linkStyle={{ fontWeight: "500" }}
+      />
+    );
+  };
+
+  // Parse list of entities from new API fields which may be JSON strings or arrays
+  const parseEntityArray = <T = unknown,>(value?: unknown): T[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value as unknown[] as T[];
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? (parsed as T[]) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Helper function to normalize primary sector(s) from either old or new shape
+  const getRelatedPrimarySectors = (
+    secondarySectorsOrObjects:
+      | { sector_name: string }[]
+      | {
+          sector_name: string;
+          Sector_importance: string;
+          Related_to_primary_sectors?: Array<{
+            secondary_sectors?: { sector_name?: string };
+          }>;
+        }[]
+      | undefined
+  ) => {
+    if (!secondarySectorsOrObjects || secondarySectorsOrObjects.length === 0)
+      return "Not available";
+
+    // If new endpoint structure (contains Sector_importance), derive primaries from mapping
+    if (
+      typeof secondarySectorsOrObjects[0] === "object" &&
+      (secondarySectorsOrObjects[0] as { Sector_importance?: string })
+        .Sector_importance !== undefined
+    ) {
+      const sectors = secondarySectorsOrObjects as Array<{
+        sector_name: string;
+        Sector_importance: string;
+        Related_to_primary_sectors?: Array<{
+          secondary_sectors?: { sector_name?: string };
+        }>;
+      }>;
+      const explicitPrimaries = sectors
+        .filter((s) => s && s.Sector_importance === "Primary")
+        .map((s) => s.sector_name)
+        .filter(Boolean);
+      const relatedFromSecondaries = sectors
+        .filter((s) => s && s.Sector_importance !== "Primary")
+        .flatMap((s) =>
+          Array.isArray(s.Related_to_primary_sectors)
+            ? (s.Related_to_primary_sectors.map(
+                (r) =>
+                  // Support both shapes: { sector_name } and { secondary_sectors: { sector_name } }
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (r as any)?.secondary_sectors?.sector_name ??
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (r as any)?.sector_name
+              ).filter(Boolean) as string[])
+            : []
+        );
+      const combined = Array.from(
+        new Set([...(explicitPrimaries as string[]), ...relatedFromSecondaries])
+      );
+      return combined.length > 0 ? combined.join(", ") : "Not available";
+    }
+
+    // Otherwise old shape (array of secondary names) – use fallback mapping
+    const secondarySectors = secondarySectorsOrObjects as {
+      sector_name: string;
+    }[];
+    const sectorMapping: { [key: string]: string } = {
+      Crypto: "Web 3",
+      Blockchain: "Web 3",
+      DeFi: "Web 3",
+      NFT: "Web 3",
+      Web3: "Web 3",
+      "Business Intelligence": "Data Analytics",
+      "Data Science": "Data Analytics",
+      "Machine Learning": "Data Analytics",
+      AI: "Data Analytics",
+      Analytics: "Data Analytics",
+      "Big Data": "Data Analytics",
+      "Cloud Computing": "Infrastructure",
+      SaaS: "Software",
+      Cybersecurity: "Security",
+      FinTech: "Financial Services",
+      InsurTech: "Financial Services",
+      PropTech: "Real Estate",
+      HealthTech: "Healthcare",
+      EdTech: "Education",
+      LegalTech: "Legal",
+      HRTech: "Human Resources",
+      MarTech: "Marketing",
+      AdTech: "Advertising",
+      Gaming: "Entertainment",
+      "E-commerce": "Retail",
+      Logistics: "Supply Chain",
+      IoT: "Internet of Things",
+      Robotics: "Automation",
+    };
+    const relatedPrimary = secondarySectors
+      .map((s) => sectorMapping[s.sector_name] || s.sector_name)
+      .filter((value, index, self) => self.indexOf(value) === index);
+    return relatedPrimary.join(", ");
+  };
+
+  // Derive primary sector(s) for an event's target from provided structure
+  const getEventPrimarySectors = (event: CorporateEvent): string => {
+    const sectors =
+      event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id ||
+      [];
+
+    // 1) Any explicitly marked Primary sectors
+    const explicitPrimary = sectors
+      .filter((s) => s && s.Sector_importance === "Primary")
+      .map((s) => s.sector_name)
+      .filter(Boolean);
+
+    // 2) For Secondary sectors, collect their related primary sectors (from API)
+    const relatedFromSecondaries = sectors
+      .filter((s) => s && s.Sector_importance !== "Primary")
+      .flatMap((s) =>
+        Array.isArray(s.Related_to_primary_sectors)
+          ? (s.Related_to_primary_sectors.map(
+              (p) =>
+                // Support both shapes: { sector_name } and { secondary_sectors: { sector_name } }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (p as any)?.secondary_sectors?.sector_name ??
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (p as any)?.sector_name
+            ).filter(Boolean) as string[])
+          : []
+      );
+
+    const combined = Array.from(
+      new Set([...explicitPrimary, ...relatedFromSecondaries])
+    );
+    if (combined.length > 0) return combined.join(", ");
+
+    // 3) Fallback: map secondary names via heuristic mapping (e.g., Crypto -> Web 3)
+    const fallbackSecondaries = sectors
+      .filter((s) => s && s.Sector_importance !== "Primary")
+      .map((s) => ({ sector_name: s.sector_name }));
+    const mapped = getRelatedPrimarySectors(fallbackSecondaries);
+    return mapped || "Not Available";
+  };
+
+  // Corporate Event navigation handler with graceful fallback to search
+  const handleCorporateEventClick = useCallback(
+    (eventId?: number, description?: string) => {
+      if (eventId) {
+        router.push(`/corporate-event/${eventId}`);
+        return;
+      }
+      if (description) {
+        router.push(
+          `/corporate-events?search=${encodeURIComponent(description)}`
+        );
+      }
+    },
+    [router]
+  );
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
+
+  const DEAL_RADAR_PAGE_LIMIT = 25;
+  const DEAL_RADAR_SCROLL_THRESHOLD_PX = 48;
+
+  const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>(
+    initialDealRadar?.items ?? []
+  );
+  const [dealRadarNextOffset, setDealRadarNextOffset] = useState<number | null>(
+    initialDealRadar?.nextOffset ?? null
+  );
+  const [dealRadarLoading, setDealRadarLoading] = useState(!initialDealRadar);
+  const [dealRadarLoadingMore, setDealRadarLoadingMore] = useState(false);
+  const dealRadarFetchAbortRef = useRef<AbortController | null>(null);
+  const dealRadarFetchGenerationRef = useRef(0);
+  const dealRadarScrollRef = useRef<HTMLDivElement | null>(null);
+  const dealRadarNextOffsetRef = useRef<number | null>(null);
+  const dealRadarLoadingMoreRef = useRef(false);
+  const dealRadarLoadedOffsetsRef = useRef<Set<number>>(new Set());
+  const insightsCardRef = useRef<HTMLDivElement | null>(null);
+  const [sideColumnHeight, setSideColumnHeight] = useState<number | null>(null);
+  const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>(
+    (initialCorporateEvents as CorporateEvent[] | null) ?? []
+  );
+  const [corporateEventsLoading, setCorporateEventsLoading] = useState(
+    !initialCorporateEvents
+  );
+  const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
+  const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
+    []
+  );
+  const [summaryArticle, setSummaryArticle] = useState<InsightArticle | null>(
+    null
+  );
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchWrapRef = useRef<HTMLDivElement | null>(null);
+  const [searchPopupOpen, setSearchPopupOpen] = useState(false);
+  const [, setSearchPagination] =
+    useState<GlobalSearchPagination | null>(null);
+  const [popupResults, setPopupResults] = useState<GlobalSearchResult[]>([]);
+  const [searchPageType, setSearchPageType] = useState<SearchPageType | null>(
+    null
+  );
+  const [searchLoadingSources, setSearchLoadingSources] = useState(false);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const searchRunIdRef = useRef(0);
+  const loggedSearchRunIdRef = useRef(0);
+
+  const mergeResults = useCallback(
+    (prev: GlobalSearchResult[], newItems: GlobalSearchResult[]) => {
+      const seen = new Set(prev.map((r) => `${r.type}-${r.id}`));
+      const added = newItems.filter((r) => {
+        const key = `${r.type}-${r.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return [...prev, ...added];
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (isTrialActive) {
+      setSearchOpen(false);
+      return;
+    }
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setSearchError(null);
+      setSearchLoading(false);
+      setSearchLoadingSources(false);
+      return;
+    }
+    if (q.length < 2) {
+      setSearchResults([]);
+      setSearchError(null);
+      setSearchLoading(false);
+      setSearchLoadingSources(false);
+      return;
+    }
+
+    const ac = new AbortController();
+    searchAbortRef.current = ac;
+    setSearchLoading(true);
+    setSearchLoadingSources(true);
+    setSearchError(null);
+    if (!searchPopupOpen) {
+      setSearchOpen(true);
+    }
+    setSearchResults([]);
+
+    searchRunIdRef.current += 1;
+    const runId = searchRunIdRef.current;
+
+    const allResultsRef = { current: [] as GlobalSearchResult[] };
+
+    const t = window.setTimeout(() => {
+      fetchGlobalSearchProgressive(q, null, {
+        signal: ac.signal,
+        onBatch: (items) => {
+          if (ac.signal.aborted) return;
+          const merged = mergeResults(allResultsRef.current, items);
+          allResultsRef.current = merged;
+          setSearchResults(merged);
+
+          // Log platform-wide search only once per search run, and only when we actually have results.
+          if (merged.length > 0 && loggedSearchRunIdRef.current !== runId) {
+            loggedSearchRunIdRef.current = runId;
+            const parsedUserId = Number.parseInt(String(user?.id || ""), 10);
+            const userId =
+              Number.isFinite(parsedUserId) && parsedUserId > 0
+                ? parsedUserId
+                : undefined;
+            trackEvent({
+              eventType: "platform_wide_search",
+              userId,
+              pageVisit: "home_user",
+              pageHeading: "Asymmetrix Dashboard",
+              query: q,
+            });
+          }
+        },
+        onComplete: () => {
+          if (ac.signal.aborted) return;
+          setSearchResults(sortSearchResults(allResultsRef.current));
+          setSearchLoading(false);
+          setSearchLoadingSources(false);
+          const total = allResultsRef.current.length;
+          const perPage = 25;
+          const totalPages = Math.max(1, Math.ceil(total / perPage));
+          setSearchPagination({
+            current_page: 1,
+            per_page: perPage,
+            total_results: total,
+            total_pages: totalPages,
+            next_page: totalPages > 1 ? 2 : null,
+            prev_page: null,
+            pages_left: Math.max(0, totalPages - 1),
+          });
+        },
+        onError: (_source, err) => {
+          const name =
+            err && typeof err === "object" ? String((err as { name?: unknown }).name) : "";
+          if (name !== "AbortError") {
+            setSearchError("Search failed. Please try again.");
+          }
+        },
+      });
+    }, 250);
+
+    return () => {
+      window.clearTimeout(t);
+      ac.abort();
+      searchAbortRef.current = null;
+    };
+  }, [searchQuery, mergeResults, isTrialActive, user?.id, searchPopupOpen]);
+
+  const [popupDisplayedCount, setPopupDisplayedCount] = useState(25);
+
+  const matchesPopupFilter = useCallback(
+    (result: GlobalSearchResult, pageType: SearchPageType | null) => {
+      if (!pageType) return true;
+      const t = String(result.type || "").toLowerCase().trim();
+      const allowed: Record<SearchPageType, string[]> = {
+        companies: ["company", "companies"],
+        sectors: ["sector", "sectors", "sub_sector", "sub-sector"],
+        investors: ["investor", "investors"],
+        advisors: ["advisor", "advisors"],
+        individuals: ["individual", "individuals"],
+        "corporate events": ["corporate_event", "corporate-events", "event"],
+        "insights and analysis": ["insight", "insights", "article"],
+      };
+      return (allowed[pageType] || []).includes(t);
+    },
+    []
+  );
+
+  const handleLoadMoreInPopup = useCallback(() => {
+    setPopupDisplayedCount((prev) => prev + 25);
+  }, []);
+
+  const openSearchPopup = useCallback(() => {
+    setPopupResults(searchResults);
+    setPopupDisplayedCount(25);
+    setSearchPageType(null);
+    setSearchOpen(false);
+    setSearchPopupOpen(true);
+  }, [searchResults]);
+
+  const closeSearchPopup = useCallback(() => {
+    setSearchPopupOpen(false);
+    setSearchPageType(null);
+  }, []);
+
+  const handleSearchFilterChange = useCallback(
+    (pageType: SearchPageType | null) => {
+      setSearchPageType(pageType);
+      setPopupDisplayedCount(25);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!searchPopupOpen) return;
+    setPopupResults(searchResults);
+  }, [searchPopupOpen, searchResults]);
+
+  useEffect(() => {
+    if (!searchPopupOpen) return;
+    setPopupDisplayedCount(25);
+  }, [searchPopupOpen, searchQuery]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const el = searchWrapRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+    };
+  }, [searchOpen]);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+
+      const [
+        companiesCountResponse,
+        eventsCountResponse,
+        individualsCountResponse,
+        sectorsCountResponse,
+        advisorsCountResponse,
+        investorsResponse,
+      ] = await Promise.allSettled([
+        dashboardApiService.getHeroScreenStatisticCompanies(),
+        dashboardApiService.getHeroScreenStatisticEventsCount(),
+        dashboardApiService.getAllIndividualsCount(),
+        dashboardApiService.getHeroScreenStatisticSectors(),
+        dashboardApiService.getHeroScreenStatisticAdvisorsCount(),
+        dashboardApiService.getHeroScreenStatisticInvestors(),
+      ]);
+
+      const statsData: AsymmetrixData[] = [];
+
+      if (companiesCountResponse.status === "fulfilled") {
+        const companiesCount =
+          (companiesCountResponse.value as unknown as number) || 0;
+        if (companiesCount) {
+          statsData.push({
+            label: "Companies",
+            value: companiesCount.toString(),
+          });
+        }
+      }
+
+      if (eventsCountResponse.status === "fulfilled") {
+        const responseValue = eventsCountResponse.value as unknown as Record<
+          string,
+          unknown
+        >;
+        const eventsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.Corporate_Events_count as number) || 0
+            : 0;
+
+        if (eventsCount) {
+          statsData.push({
+            label: "Corporate Events",
+            value: eventsCount.toString(),
+          });
+        }
+      }
+
+      if (individualsCountResponse.status === "fulfilled") {
+        const responseValue =
+          individualsCountResponse.value as unknown as Record<string, unknown>;
+        const individualsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.count as number) || 0
+            : 0;
+
+        if (individualsCount) {
+          statsData.push({
+            label: "Individuals",
+            value: individualsCount.toString(),
+          });
+        }
+      }
+
+      if (sectorsCountResponse.status === "fulfilled") {
+        const responseValue = sectorsCountResponse.value as unknown as Record<
+          string,
+          unknown
+        >;
+        const primarySectorsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.primarySectors as number) || 0
+            : 0;
+        const secondarySectorsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.secondarySectors as number) || 0
+            : 0;
+
+        if (primarySectorsCount) {
+          statsData.push({
+            label: "Primary Sectors",
+            value: primarySectorsCount.toString(),
+          });
+        }
+
+        if (secondarySectorsCount) {
+          statsData.push({
+            label: "Secondary Sectors",
+            value: secondarySectorsCount.toString(),
+          });
+        }
+      }
+
+      if (investorsResponse.status === "fulfilled") {
+        const responseValue = investorsResponse.value as unknown as Record<
+          string,
+          unknown
+        >;
+        const peInvestors =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.peInvestors as number) || 0
+            : 0;
+        const vcInvestors =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.vcInvestors as number) || 0
+            : 0;
+
+        if (peInvestors) {
+          statsData.push({
+            label: "PE Investors",
+            value: peInvestors.toString(),
+          });
+        }
+
+        if (vcInvestors) {
+          statsData.push({
+            label: "VC Investors",
+            value: vcInvestors.toString(),
+          });
+        }
+      }
+
+      if (advisorsCountResponse.status === "fulfilled") {
+        const responseValue = advisorsCountResponse.value as unknown as Record<
+          string,
+          unknown
+        >;
+        const advisorsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.Advisorc_companies_count as number) || 0
+            : 0;
+
+        if (advisorsCount) {
+          statsData.push({
+            label: "Advisors",
+            value: advisorsCount.toString(),
+          });
+        }
+      }
+
+      setAsymmetrixData(statsData);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      if (
+        error instanceof Error &&
+        error.message === "Authentication required"
+      ) {
+        // Modal is shown by the global auth interceptor; no redirect needed
+        return;
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const enrichDealRadarCountryFlags = useCallback(
+    async (items: DealRadarItem[]): Promise<DealRadarItem[]> => {
+      const missingCompanyIds = items
+        .filter((item) => !item.hqCountryIso2 && item.companyId > 0)
+        .map((item) => item.companyId);
+      if (missingCompanyIds.length === 0) return items;
+
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) return items;
+
+      try {
+        const rows = await fetchCompanyTableDataByIds(missingCompanyIds, token);
+        const isoByCompanyId = new Map<number, string | null>(
+          Array.from(rows.entries()).map(([companyId, row]) => [
+            companyId,
+            readHqCountryIso2(row),
+          ])
+        );
+        return applyHqCountryIso2ToDealRadarItems(items, isoByCompanyId);
+      } catch (error) {
+        console.error("Error enriching Deal Radar country flags:", error);
+        return items;
+      }
+    },
+    []
+  );
+
+  const fetchDealRadar = useCallback(async () => {
+    dealRadarFetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    dealRadarFetchAbortRef.current = controller;
+    const generation = ++dealRadarFetchGenerationRef.current;
+
+    try {
+      setDealRadarLoading(true);
+      setDealRadarNextOffset(null);
+      dealRadarNextOffsetRef.current = null;
+      dealRadarLoadedOffsetsRef.current = new Set();
+
+      const initialOffset = 0;
+      const res = await dashboardApiService.getDealRadar({
+        limit: DEAL_RADAR_PAGE_LIMIT,
+        offset: initialOffset,
+        signal: controller.signal,
+      });
+      if (generation !== dealRadarFetchGenerationRef.current) return;
+
+      const mappedItems = res.items.map((item) =>
+        mapDealRadarItem(item as unknown as Record<string, unknown>)
+      );
+      const enrichedItems = await enrichDealRadarCountryFlags(mappedItems);
+      if (generation !== dealRadarFetchGenerationRef.current) return;
+
+      setDealRadarItems(enrichedItems);
+      dealRadarLoadedOffsetsRef.current.add(initialOffset);
+      const nextOffset = res.has_next_page ? res.next_offset : null;
+      setDealRadarNextOffset(nextOffset);
+      dealRadarNextOffsetRef.current = nextOffset;
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      console.error("Error fetching Deal Radar:", error);
+    } finally {
+      if (generation === dealRadarFetchGenerationRef.current) {
+        setDealRadarLoading(false);
+      }
+    }
+  }, [enrichDealRadarCountryFlags]);
+
+  const isDealRadarNearBottom = useCallback((): boolean => {
+    const scrollRoot = dealRadarScrollRef.current;
+    if (!scrollRoot) return false;
+    const distanceFromBottom =
+      scrollRoot.scrollHeight -
+      scrollRoot.scrollTop -
+      scrollRoot.clientHeight;
+    return distanceFromBottom <= DEAL_RADAR_SCROLL_THRESHOLD_PX;
+  }, []);
+
+  const loadMoreDealRadar = useCallback(async () => {
+    const requestOffset = dealRadarNextOffsetRef.current;
+    if (requestOffset == null || dealRadarLoadingMoreRef.current) {
+      return;
+    }
+
+    if (dealRadarLoadedOffsetsRef.current.has(requestOffset)) {
+      return;
+    }
+
+    dealRadarLoadingMoreRef.current = true;
+    dealRadarLoadedOffsetsRef.current.add(requestOffset);
+    setDealRadarLoadingMore(true);
+
+    try {
+      const res = await dashboardApiService.getDealRadar({
+        limit: DEAL_RADAR_PAGE_LIMIT,
+        offset: requestOffset,
+      });
+
+      const incoming = res.items.map((item) =>
+        mapDealRadarItem(item as unknown as Record<string, unknown>)
+      );
+      const enrichedIncoming = await enrichDealRadarCountryFlags(incoming);
+
+      setDealRadarItems((prev) =>
+        appendDealRadarItems(prev, enrichedIncoming)
+      );
+      const nextOffset = res.has_next_page ? res.next_offset : null;
+      setDealRadarNextOffset(nextOffset);
+      dealRadarNextOffsetRef.current = nextOffset;
+    } catch (error) {
+      console.error("Error loading more Deal Radar items:", error);
+      dealRadarLoadedOffsetsRef.current.delete(requestOffset);
+    } finally {
+      dealRadarLoadingMoreRef.current = false;
+      setDealRadarLoadingMore(false);
+    }
+  }, [enrichDealRadarCountryFlags]);
+
+  const tryLoadMoreDealRadarIfNearBottom = useCallback(() => {
+    if (
+      dealRadarLoading ||
+      sideColumnHeight == null ||
+      dealRadarNextOffsetRef.current == null ||
+      dealRadarLoadingMoreRef.current
+    ) {
+      return;
+    }
+    if (isDealRadarNearBottom()) {
+      void loadMoreDealRadar();
+    }
+  }, [
+    dealRadarLoading,
+    isDealRadarNearBottom,
+    loadMoreDealRadar,
+    sideColumnHeight,
+  ]);
+
+  const scheduleDealRadarScrollCheck = useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        tryLoadMoreDealRadarIfNearBottom();
+      });
+    });
+  }, [tryLoadMoreDealRadarIfNearBottom]);
+
+  const enrichCorporateEventCountryFlags = useCallback(
+    async (events: CorporateEvent[]): Promise<CorporateEvent[]> => {
+      const missingCompanyIds =
+        collectMissingHqCountryIso2CompanyIdsFromCorporateEvents(
+          events as unknown as Record<string, unknown>[]
+        );
+      if (missingCompanyIds.length === 0) return events;
+
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) return events;
+
+      try {
+        const rows = await fetchCompanyTableDataByIds(missingCompanyIds, token);
+        const isoByCompanyId = new Map<number, string | null>(
+          Array.from(rows.entries()).map(([companyId, row]) => [
+            companyId,
+            readHqCountryIso2(row),
+          ])
+        );
+        return applyHqCountryIso2ToCorporateEvents(
+          events as unknown as Record<string, unknown>[],
+          isoByCompanyId
+        ) as unknown as CorporateEvent[];
+      } catch (error) {
+        console.error("Error enriching corporate event country flags:", error);
+        return events;
+      }
+    },
+    []
+  );
+
+  const fetchCorporateEvents = useCallback(async () => {
+    try {
+      setCorporateEventsLoading(true);
+
+      const eventsResponse = await dashboardApiService.getCorporateEvents({
+        showFollowed: false,
+        userId: null,
+      });
+
+      let eventsData: CorporateEvent[] = [];
+      const responseValue = eventsResponse as unknown as Record<string, unknown>;
+
+      if (responseValue.CorporateEvents) {
+        eventsData = responseValue.CorporateEvents as CorporateEvent[];
+      } else if (responseValue.data) {
+        eventsData = responseValue.data as CorporateEvent[];
+      } else if (Array.isArray(responseValue)) {
+        eventsData = responseValue as CorporateEvent[];
+      }
+
+      const enrichedEvents = await enrichCorporateEventCountryFlags(
+        eventsData || []
+      );
+      setCorporateEvents(enrichedEvents);
+    } catch (error) {
+      console.error("Error fetching corporate events:", error);
+      if (
+        error instanceof Error &&
+        error.message === "Authentication required"
+      ) {
+        return;
+      }
+      setCorporateEvents([]);
+    } finally {
+      setCorporateEventsLoading(false);
+    }
+  }, [enrichCorporateEventCountryFlags]);
+
+  const fetchInsightsArticles = useCallback(async () => {
+    try {
+      setInsightsArticlesLoading(true);
+
+      const insightsResponse =
+        await dashboardApiService.getAllContentArticlesHome();
+
+      let insightsData: InsightArticle[] = [];
+      if (Array.isArray(insightsResponse)) {
+        insightsData = insightsResponse as InsightArticle[];
+      } else if (insightsResponse && typeof insightsResponse === "object") {
+        const wrapped = insightsResponse as Record<string, unknown>;
+        if (Array.isArray(wrapped.data)) {
+          insightsData = wrapped.data as InsightArticle[];
+        } else if (Array.isArray(wrapped.items)) {
+          insightsData = wrapped.items as InsightArticle[];
+        }
+      }
+
+      setInsightsArticles(insightsData || []);
+    } catch (error) {
+      console.error("Error fetching insights articles:", error);
+      if (
+        error instanceof Error &&
+        error.message === "Authentication required"
+      ) {
+        return;
+      }
+      setInsightsArticles([]);
+    } finally {
+      setInsightsArticlesLoading(false);
+    }
+  }, []);
+
+  // Check authentication on component mount
+  useEffect(() => {
+    console.log("Dashboard page - authLoading:", authLoading);
+    console.log("Dashboard page - isAuthenticated:", isAuthenticated);
+
+    // Wait for auth context to finish loading
+    if (authLoading) {
+      console.log("Dashboard page - Still loading auth, waiting...");
+      return;
+    }
+
+    if (!isAuthenticated) {
+      // AuthRouteGuard will show the login modal — no redirect needed
+      return;
+    }
+
+    console.log("Dashboard page - Authenticated, fetching data");
+    // Only fetch data if we're authenticated
+    if (isAuthenticated) {
+      fetchDashboardData();
+    }
+  }, [fetchDashboardData, isAuthenticated, authLoading]);
+
+  useEffect(() => {
+    if (!initialDealRadar) return;
+    dealRadarNextOffsetRef.current = initialDealRadar.nextOffset;
+    dealRadarLoadedOffsetsRef.current = new Set([0]);
+  }, [initialDealRadar]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    if (initialDealRadar) return;
+    fetchDealRadar();
+  }, [authLoading, isAuthenticated, fetchDealRadar, initialDealRadar]);
+
+  // I&A sets the row height; Deal Radar + CE match it and scroll inside.
+  const syncInsightsColumnHeight = useCallback(() => {
+    const el = insightsCardRef.current;
+    if (!el) return;
+    const h = Math.round(el.offsetHeight);
+    if (h > 0) {
+      setSideColumnHeight((prev) => (prev === h ? prev : h));
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    if (insightsArticlesLoading) return;
+    syncInsightsColumnHeight();
+    const raf = requestAnimationFrame(syncInsightsColumnHeight);
+    const el = insightsCardRef.current;
+    if (!el) return () => cancelAnimationFrame(raf);
+
+    const ro = new ResizeObserver(syncInsightsColumnHeight);
+    ro.observe(el);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [
+    insightsArticlesLoading,
+    insightsArticles.length,
+    dealRadarLoading,
+    corporateEventsLoading,
+    syncInsightsColumnHeight,
+  ]);
+
+  // Re-sync after side columns paint so height stays locked to I&A.
+  useLayoutEffect(() => {
+    if (
+      insightsArticlesLoading ||
+      dealRadarLoading ||
+      corporateEventsLoading
+    ) {
+      return;
+    }
+    syncInsightsColumnHeight();
+  }, [
+    dealRadarLoading,
+    dealRadarItems.length,
+    corporateEventsLoading,
+    corporateEvents.length,
+    insightsArticlesLoading,
+    syncInsightsColumnHeight,
+  ]);
+
+  const sideColumnHeightStyle: React.CSSProperties | undefined =
+    sideColumnHeight != null
+      ? {
+          height: sideColumnHeight,
+          maxHeight: sideColumnHeight,
+          minHeight: sideColumnHeight,
+        }
+      : undefined;
+
+  useEffect(() => {
+    const scrollRoot = dealRadarScrollRef.current;
+    // Only paginate inside the fixed-height scroll area (never while unconstrained).
+    if (!scrollRoot || dealRadarLoading || sideColumnHeight == null) {
+      return;
+    }
+
+    const onScroll = () => {
+      tryLoadMoreDealRadarIfNearBottom();
+    };
+
+    scrollRoot.addEventListener("scroll", onScroll, { passive: true });
+    scheduleDealRadarScrollCheck();
+
+    return () => scrollRoot.removeEventListener("scroll", onScroll);
+  }, [
+    dealRadarLoading,
+    dealRadarLoadingMore,
+    dealRadarNextOffset,
+    scheduleDealRadarScrollCheck,
+    sideColumnHeight,
+    tryLoadMoreDealRadarIfNearBottom,
+  ]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    if (initialCorporateEvents) return;
+    fetchCorporateEvents();
+  }, [
+    authLoading,
+    isAuthenticated,
+    fetchCorporateEvents,
+    initialCorporateEvents,
+  ]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    fetchInsightsArticles();
+  }, [authLoading, isAuthenticated, fetchInsightsArticles]);
+
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 rounded-full border-b-2 border-blue-600 animate-spin"></div>
+          <p className="mt-4 text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, don't render the dashboard
+  if (!isAuthenticated) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 rounded-full border-b-2 border-red-600 animate-spin"></div>
+          <p className="mt-4 text-gray-600">Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 rounded-full border-b-2 border-blue-600 animate-spin"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleClickCapture: React.MouseEventHandler<HTMLDivElement> = (e) => {
+    if (!isTrialActive) return;
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    const anchor = target.closest("a[href]") as HTMLAnchorElement | null;
+    if (
+      anchor &&
+      anchor.getAttribute("href") &&
+      anchor.getAttribute("href") !== "#"
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
+  return (
+    <div className="min-h-screen">
+      <Header />
+
+      {/* Main Content */}
+      <main
+        className="px-2 py-4 mx-auto w-full sm:px-4 sm:py-8"
+        style={{ position: "relative" }}
+        onClickCapture={handleClickCapture}
+      >
+        {isTrialActive && (
+          <div className="px-4 py-3 mb-4 text-yellow-900 bg-yellow-50 rounded-lg border border-yellow-300 sm:mb-6">
+            <div className="font-semibold">Trial access</div>
+            <div className="text-sm">
+              You have limited navigation.{" "}
+              {typeof trialDaysLeft === "number" && trialDaysLeft >= 0
+                ? `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left`
+                : "Expires soon"}
+              .
+            </div>
+          </div>
+        )}
+        {/* Dashboard Subheader */}
+        <div className="flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
+          <div
+            ref={searchWrapRef}
+            className={`relative w-full min-w-0 rounded-lg border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
+              isTrialActive
+                ? "border-gray-200"
+                : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
+            }`}
+          >
+            <input
+              type="search"
+              value={searchQuery}
+              disabled={isTrialActive}
+              placeholder={
+                isTrialActive
+                  ? "Search is disabled during trial access"
+                  : "Search all pages..."
+              }
+              className={`w-full px-4 py-3 text-base rounded-lg border-0 bg-transparent focus:outline-none focus:ring-0 ${
+                isTrialActive
+                  ? "text-gray-500 cursor-not-allowed"
+                  : "text-gray-900 placeholder-gray-500"
+              }`}
+              onFocus={() => {
+                if (!isTrialActive) setSearchOpen(true);
+              }}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+              }}
+            />
+
+            {searchOpen && !searchPopupOpen && !isTrialActive && searchQuery.trim().length >= 2 && (
+              <div className="absolute z-50 mt-2 w-full bg-white rounded-lg border-2 border-blue-200 shadow-lg">
+                {searchLoading && searchResults.length === 0 ? (
+                  <div className="px-3 py-3 text-xs text-gray-600">
+                    Searching…
+                  </div>
+                ) : searchLoadingSources && searchResults.length > 0 ? (
+                  <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                    Loading more results…
+                  </div>
+                ) : null}
+                {searchError ? (
+                  <div className="px-3 py-3 text-xs text-red-600">
+                    {searchError}
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="px-3 py-3 text-xs text-gray-600">
+                    No results
+                  </div>
+                ) : (
+                  <>
+                    <ul className="py-1 max-h-72 overflow-auto">
+                      {searchResults.slice(0, 25).map((r, idx) => {
+                        const href = resolveSearchHref(r);
+                        const t = String(r.type || "").toLowerCase().trim();
+                        const isInsight =
+                          t === "insight" || t === "insights" || t === "article";
+                        const badgeLabel = getSearchBadgeLabel(r.type);
+                        return (
+                          <li key={`${r.type}-${r.id}-${idx}`}>
+                            <a
+                              href={href || "#"}
+                              className="group flex items-start justify-between gap-3 px-3 py-2 w-full hover:bg-blue-50 hover:shadow-sm no-underline cursor-pointer transition-all duration-150 rounded-md"
+                              onClick={(e) => {
+                                if (!href) {
+                                  e.preventDefault();
+                                  return;
+                                }
+                                if (
+                                  e.defaultPrevented ||
+                                  e.button !== 0 ||
+                                  e.metaKey ||
+                                  e.ctrlKey ||
+                                  e.shiftKey ||
+                                  e.altKey
+                                ) {
+                                  return;
+                                }
+                                e.preventDefault();
+                                setSearchOpen(false);
+                                setSearchQuery("");
+                                setSearchResults([]);
+                                setSearchPopupOpen(false);
+                                router.push(href);
+                              }}
+                            >
+                              <span className="text-sm text-gray-900 group-hover:text-blue-700 transition-colors">
+                                {r.title}
+                              </span>
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border shrink-0 ${badgeClassForSearchType(
+                                  String(r.type || "")
+                                )} ${isInsight ? "normal-case" : "uppercase"}`}
+                              >
+                                {badgeLabel}
+                              </span>
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <div className="px-3 py-3 border-t border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          openSearchPopup();
+                        }}
+                        className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+                      >
+                        View more
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="shrink-0 ml-auto">
+            <NewFeatureCallout
+              featureKey="dashboard-request-data-research"
+              launchedAt="2026-05-26T00:00:00.000Z"
+              durationDays={30}
+              persistDismissal
+              side="left"
+            >
+              <RequestDataResearchButton
+                label="Request Data and Research"
+                context="dashboard"
+                sourcePage="Dashboard"
+              />
+            </NewFeatureCallout>
+          </div>
+        </div>
+
+        {asymmetrixData.length > 0 && (
+          <div className="mb-4 sm:mb-6 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <div className="flex min-w-max w-full divide-x divide-gray-200">
+              {asymmetrixData.map((item, index) => {
+                const href = resolveAsymmetrixStatHref(item.label);
+                const RowTag = href ? "a" : "div";
+                const formattedValue = parseInt(item.value, 10)
+                  ? parseInt(item.value, 10).toLocaleString()
+                  : item.value;
+
+                return (
+                  <RowTag
+                    // eslint-disable-next-line react/no-array-index-key
+                    key={`${item.label}-${index}`}
+                    href={href || undefined}
+                    className={`group flex flex-1 flex-col items-start justify-center min-w-[7.5rem] px-4 py-3.5 sm:min-w-0 sm:px-5 sm:py-4 transition-colors ${
+                      href
+                        ? "cursor-pointer hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-200"
+                        : ""
+                    }`}
+                    onClick={(e: React.MouseEvent<HTMLElement>) => {
+                      if (!href) return;
+                      if (
+                        e.defaultPrevented ||
+                        e.button !== 0 ||
+                        e.metaKey ||
+                        e.ctrlKey ||
+                        e.shiftKey ||
+                        e.altKey
+                      ) {
+                        return;
+                      }
+                      e.preventDefault();
+                      router.push(href);
+                    }}
+                  >
+                    <span
+                      className={`text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${
+                        href
+                          ? "text-gray-500 group-hover:text-blue-600"
+                          : "text-gray-500"
+                      } transition-colors`}
+                    >
+                      {item.label}
+                    </span>
+                    <span
+                      className={`mt-1 text-lg font-semibold tabular-nums tracking-tight sm:text-xl ${
+                        href
+                          ? "text-gray-900 group-hover:text-blue-700"
+                          : "text-gray-900"
+                      } transition-colors`}
+                    >
+                      {formattedValue}
+                    </span>
+                  </RowTag>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Search results popup */}
+        {searchPopupOpen && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="search-popup-title"
+            onClick={closeSearchPopup}
+          >
+            <div
+              className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 p-4 border-b border-gray-200">
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search all pages..."
+                  className="flex-1 px-4 py-2.5 text-base rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  aria-label="Search"
+                  id="search-popup-title"
+                />
+                <button
+                  type="button"
+                  onClick={closeSearchPopup}
+                  className="p-2 text-gray-500 rounded-md hover:bg-gray-100 hover:text-gray-700"
+                  aria-label="Close"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 p-4 border-b border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => handleSearchFilterChange(null)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    searchPageType === null
+                      ? "bg-gray-900 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  All
+                </button>
+                {SEARCH_PAGE_TYPES.map((pt) => (
+                  <button
+                    key={pt}
+                    type="button"
+                    onClick={() => handleSearchFilterChange(pt)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
+                      searchPageType === pt
+                        ? "bg-gray-900 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {SEARCH_PAGE_TYPE_LABELS[pt]}
+                  </button>
+                ))}
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                {(() => {
+                  const visibleResults =
+                    searchPageType === null
+                      ? popupResults
+                      : popupResults.filter((r) =>
+                          matchesPopupFilter(r, searchPageType)
+                        );
+                  const displayed = visibleResults.slice(0, popupDisplayedCount);
+                  const popupSearchLoading =
+                    searchQuery.trim().length >= 2 &&
+                    (searchLoading || searchLoadingSources);
+
+                  if (popupSearchLoading && visibleResults.length === 0) {
+                    return (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
+                        <span className="ml-2 text-sm text-gray-600">
+                          Searching…
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (searchPageType === null && searchError) {
+                    return (
+                      <p className="text-sm text-red-600 py-4">{searchError}</p>
+                    );
+                  }
+                  if (visibleResults.length === 0) {
+                    return (
+                      <p className="text-sm text-gray-500 py-4">No results</p>
+                    );
+                  }
+                  return (
+                    <>
+                      {(popupSearchLoading && visibleResults.length > 0) && (
+                        <div className="pb-2 text-xs text-gray-500">
+                          Loading more results…
+                        </div>
+                      )}
+                      <ul className="space-y-1">
+                        {displayed.map((r, idx) => {
+                          const href = resolveSearchHref(r);
+                          const t = String(r.type || "").toLowerCase().trim();
+                          const isInsight =
+                            t === "insight" ||
+                            t === "insights" ||
+                            t === "article";
+                          const badgeLabel = getSearchBadgeLabel(r.type);
+                          return (
+                            <li key={`popup-${r.type}-${r.id}-${idx}`}>
+                              <a
+                                href={href || "#"}
+                                className="group flex items-start justify-between gap-3 px-3 py-2.5 w-full rounded-md hover:bg-blue-50 hover:shadow-sm no-underline cursor-pointer transition-all duration-150"
+                                onClick={(e) => {
+                                  if (!href) {
+                                    e.preventDefault();
+                                    return;
+                                  }
+                                  // Allow default behavior for right-click, ctrl+click, cmd+click, etc.
+                                  if (
+                                    e.defaultPrevented ||
+                                    e.button !== 0 ||
+                                    e.metaKey ||
+                                    e.ctrlKey ||
+                                    e.shiftKey ||
+                                    e.altKey
+                                  ) {
+                                    return;
+                                  }
+                                  e.preventDefault();
+                                  closeSearchPopup();
+                                  setSearchOpen(false);
+                                  setSearchQuery("");
+                                  setSearchResults([]);
+                                  router.push(href);
+                                }}
+                              >
+                                <span className="text-sm text-gray-900 group-hover:text-blue-700 line-clamp-2 transition-colors">
+                                  {r.title}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border shrink-0 ${badgeClassForSearchType(
+                                    String(r.type || "")
+                                  )} ${
+                                    isInsight ? "normal-case" : "uppercase"
+                                  }`}
+                                >
+                                  {badgeLabel}
+                                </span>
+                              </a>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  );
+                })()}
+              </div>
+              <div className="p-4 border-t border-gray-200 space-y-3">
+                {(() => {
+                  const visibleResults =
+                    searchPageType === null
+                      ? popupResults
+                      : popupResults.filter((r) =>
+                          matchesPopupFilter(r, searchPageType)
+                        );
+                  const showing = Math.min(
+                    popupDisplayedCount,
+                    visibleResults.length
+                  );
+                  const canLoadMore = showing < visibleResults.length;
+
+                  if (visibleResults.length === 0) return null;
+                  return (
+                    <>
+                      <p className="text-xs text-gray-600">
+                        Showing {showing} of {visibleResults.length} results
+                      </p>
+                      {canLoadMore ? (
+                        <button
+                          type="button"
+                          onClick={handleLoadMoreInPopup}
+                          className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+                        >
+                          Load more
+                        </button>
+                      ) : null}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 lg:items-start">
+          {/* Deal Radar - last on mobile, first on lg+ */}
+          <div
+            className="grid grid-rows-[auto_1fr] overflow-hidden bg-white rounded-lg shadow order-3 lg:order-1"
+            style={sideColumnHeightStyle}
+          >
+            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700 shrink-0">
+                  <svg
+                    className="w-[18px] h-[18px]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="2" />
+                    <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
+                    <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
+                  </svg>
+                </div>
+                <NewFeatureCallout
+                  featureKey="dashboard-deal-radar"
+                  launchedAt="2026-05-26T00:00:00.000Z"
+                  durationDays={30}
+                  persistDismissal
+                  side="right"
+                >
+                  <h2
+                    className="text-base font-semibold text-gray-900 sm:text-lg"
+                    style={{ fontWeight: "600" }}
+                  >
+                    Deal Radar
+                  </h2>
+                </NewFeatureCallout>
+              </div>
+            </div>
+            <div
+              ref={dealRadarScrollRef}
+              className="min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
+            >
+              {dealRadarLoading ? (
+                <div className="p-4 space-y-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    // eslint-disable-next-line react/no-array-index-key
+                    <div key={i} className="grid grid-cols-3 gap-3 py-2 animate-pulse">
+                      <div className="space-y-1.5 col-span-1">
+                        <div className="h-3.5 bg-gray-200 rounded w-3/4" />
+                        <div className="h-3 bg-gray-200 rounded w-1/2" />
+                      </div>
+                      <div className="h-3.5 bg-gray-200 rounded col-span-1" />
+                      <div className="h-5 bg-gray-200 rounded-full col-span-1 w-20" />
+                    </div>
+                  ))}
+                </div>
+              ) : dealRadarItems.length > 0 ? (
+                <div className="min-w-0 w-full">
+                    <table className="w-full table-fixed">
+                      <colgroup>
+                        <col style={{ width: "26%" }} />
+                        <col style={{ width: "30%" }} />
+                        <col style={{ width: "44%" }} />
+                      </colgroup>
+                      <thead className="sticky top-0 z-10 bg-gray-50">
+                        <tr>
+                          <th className="pl-3 pr-1 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                            Company
+                          </th>
+                          <th className="px-2 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
+                            Sector
+                          </th>
+                          <th className="px-3 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
+                            <span className="inline-flex items-center justify-center gap-1.5">
+                              Stage
+                              <DealStageInfoTooltip />
+                            </span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {dealRadarItems.map((item) => {
+                          const stageStyle = dealRadarStageStyle(
+                            item.transactionStatus
+                          );
+
+                          return (
+                            <tr
+                              key={item.companyId}
+                              className="align-top hover:bg-gray-50"
+                            >
+                              <td className="pl-3 pr-1 py-3 min-w-0 align-top">
+                                <div className="space-y-1 min-w-0">
+                                  <a
+                                    href={`/company/${item.companyId}`}
+                                    className="inline-block max-w-full text-sm font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+                                    onClick={(
+                                      e: React.MouseEvent<HTMLAnchorElement>
+                                    ) => {
+                                      if (
+                                        e.defaultPrevented ||
+                                        e.button !== 0 ||
+                                        e.metaKey ||
+                                        e.ctrlKey ||
+                                        e.shiftKey ||
+                                        e.altKey
+                                      ) {
+                                        return;
+                                      }
+                                      e.preventDefault();
+                                      router.push(`/company/${item.companyId}`);
+                                    }}
+                                    >
+                                      <span className="break-words">{item.companyName}</span>
+                                      {"\u00A0"}
+                                      <CountryFlagImg iso2={item.hqCountryIso2} className="ml-0" />
+                                    </a>
+                                  {item.latestContent && (
+                                    <a
+                                      href={`/article/${item.latestContent.id}?from=home`}
+                                      className="block text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                      onClick={(
+                                        e: React.MouseEvent<HTMLAnchorElement>
+                                      ) => {
+                                        if (
+                                          e.defaultPrevented ||
+                                          e.button !== 0 ||
+                                          e.metaKey ||
+                                          e.ctrlKey ||
+                                          e.shiftKey ||
+                                          e.altKey
+                                        ) {
+                                          return;
+                                        }
+                                        e.preventDefault();
+                                        router.push(
+                                          `/article/${item.latestContent!.id}?from=home`
+                                        );
+                                      }}
+                                    >
+                                      Read our research
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-2 py-3 min-w-0 text-sm text-gray-700 align-top text-center">
+                                {item.primarySectors.length > 0 ? (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    {item.primarySectors.map((sector, idx) => (
+                                      <div
+                                        key={`${sector.id}-${sector.name}-${idx}`}
+                                        className="leading-snug break-normal"
+                                      >
+                                        {sector.id > 0 ? (
+                                          <a
+                                            href={`/sector/${sector.id}`}
+                                            className="text-blue-700 hover:text-blue-900 hover:underline"
+                                            onClick={(
+                                              e: React.MouseEvent<HTMLAnchorElement>
+                                            ) => {
+                                              if (
+                                                e.defaultPrevented ||
+                                                e.button !== 0 ||
+                                                e.metaKey ||
+                                                e.ctrlKey ||
+                                                e.shiftKey ||
+                                                e.altKey
+                                              ) {
+                                                return;
+                                              }
+                                              e.preventDefault();
+                                              router.push(`/sector/${sector.id}`);
+                                            }}
+                                          >
+                                            {sector.name}
+                                          </a>
+                                        ) : (
+                                          sector.name
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-center align-top">
+                                <span
+                                  className="inline-flex items-start gap-1.5 rounded-2xl px-2.5 py-1.5 text-xs font-medium leading-snug text-center max-w-full"
+                                  style={stageStyle.pill}
+                                >
+                                  <span
+                                    className="inline-block w-1.5 h-1.5 rounded-full shrink-0 mt-1"
+                                    style={{ backgroundColor: stageStyle.dot }}
+                                  />
+                                  <span className="whitespace-pre-line">
+                                    {dealRadarStageLabel(item.transactionStatus)}
+                                  </span>
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {dealRadarLoadingMore && (
+                      <div className="flex justify-center px-4 py-3 border-t border-gray-100">
+                        <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <svg
+                            className="w-3 h-3 animate-spin"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8v8H4z"
+                            />
+                          </svg>
+                          Loading more…
+                        </span>
+                      </div>
+                    )}
+                </div>
+              ) : (
+                <div className="p-4 py-6 text-center sm:py-8">
+                  <p className="text-sm text-gray-500">No active transactions</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Insights & Analysis - first on mobile */}
+          <div
+            ref={insightsCardRef}
+            className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2"
+          >
+            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M9 21h6M10 17h4M8.5 14.6c-1.9-1.3-3.1-3.4-3.1-5.7C5.4 5.6 8.4 3 12 3s6.6 2.6 6.6 5.9c0 2.3-1.2 4.4-3.1 5.7-.8.5-1.3 1.4-1.3 2.4V18H9.8v-1c0-1-.5-1.9-1.3-2.4Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <a
+                  href="/insights-analysis"
+                  className="text-base font-semibold text-blue-600 underline hover:text-blue-800 sm:text-lg"
+                  style={{ fontWeight: "600" }}
+                >
+                  Insights &amp; Analysis
+                </a>
+              </div>
+            </div>
+            <div className="p-3 sm:p-4">
+              {insightsArticlesLoading ? (
+                <div className="py-6 text-center sm:py-8">
+                  <p className="text-sm text-gray-500">
+                    Loading insights articles...
+                  </p>
+                </div>
+              ) : insightsArticles.length > 0 ? (
+                <div className="space-y-4">
+                  {insightsArticles.slice(0, 10).map((article) => {
+                    const ct = (
+                      article.Content_Type ||
+                      article.content_type ||
+                      article.Content?.Content_type ||
+                      article.Content?.Content_Type ||
+                      ""
+                    ).trim();
+                    const href = `/article/${article.id}?from=home`;
+                    const hqCountryIso2 = getInsightHqCountryIso2(article);
+
+                    return (
+                      <div
+                        key={article.id}
+                        className="p-4 rounded-xl border border-blue-100 bg-white shadow-sm hover:shadow transition-shadow"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            <span
+                              className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-lg border"
+                              style={contentTypeBadgeStyle(ct)}
+                            >
+                              {ct || "Insight"}
+                            </span>
+                            {(() => {
+                              const ts = getInsightTransactionStatus(article);
+                              return ts ? (
+                                <span style={transactionStatusPillStyle(ts)}>
+                                  {ts}
+                                </span>
+                              ) : null;
+                            })()}
+                          </div>
+                          <span className="text-xs text-gray-500 shrink-0">
+                            {formatDate(article.Publication_Date)}
+                          </span>
+                        </div>
+
+                        <a
+                          href={href}
+                          className="mt-3 inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-semibold text-gray-900 hover:text-blue-700"
+                          onClick={(e) => {
+                            if (
+                              e.defaultPrevented ||
+                              e.button !== 0 ||
+                              e.metaKey ||
+                              e.ctrlKey ||
+                              e.shiftKey ||
+                              e.altKey
+                            )
+                              return;
+                            e.preventDefault();
+                            router.push(href);
+                          }}
+                          >
+                            <span className="min-w-0 break-words">{article.Headline}</span>
+                            <CountryFlagImg iso2={hqCountryIso2} className="ml-0 shrink-0" />
+                          </a>
+
+                        {article.Strapline ? (
+                          <p className="mt-2 text-xs leading-5 text-gray-600 line-clamp-3">
+                            {article.Strapline}
+                          </p>
+                        ) : null}
+
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+                          <a
+                            href={href}
+                            className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+                            onClick={(e) => {
+                              if (
+                                e.defaultPrevented ||
+                                e.button !== 0 ||
+                                e.metaKey ||
+                                e.ctrlKey ||
+                                e.shiftKey ||
+                                e.altKey
+                              )
+                                return;
+                              e.preventDefault();
+                              router.push(href);
+                            }}
+                          >
+                            Read full article <span aria-hidden="true">→</span>
+                          </a>
+                          {hasInsightSummary(article.summary) ? (
+                            <button
+                              type="button"
+                              onClick={() => setSummaryArticle(article)}
+                              className="inline-flex items-center rounded border border-gray-300 px-2 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                              View summary
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-6 text-center sm:py-8">
+                  <p className="text-sm text-gray-500">No insights available</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Corporate Events - second on mobile */}
+          <div
+            className="grid grid-rows-[auto_1fr] overflow-hidden bg-white rounded-lg shadow order-2 lg:order-3"
+            style={sideColumnHeightStyle}
+          >
+            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <a
+                  href="/corporate-events"
+                  className="text-base font-semibold text-blue-600 underline hover:text-blue-800 sm:text-lg"
+                  style={{ fontWeight: "600" }}
+                >
+                  Corporate Events
+                </a>
+              </div>
+            </div>
+            <div className="min-h-0 min-w-0 overflow-y-auto overflow-x-auto">
+              {corporateEventsLoading ? (
+                <div className="p-4 text-center">
+                  <p className="text-sm text-gray-500">
+                    Loading corporate events...
+                  </p>
+                </div>
+              ) : corporateEvents.length > 0 ? (
+                <div className="min-w-full">
+                  {/* Mobile view - cards */}
+                  <div className="block lg:hidden">
+                    <div className="p-3 space-y-3">
+                      {corporateEvents.slice(0, 10).map((event, idx) => (
+                        <div
+                          key={getCorporateEventId(event) ?? `ev-card-${idx}`}
+                          className="p-3 space-y-2 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex justify-between items-start">
+                            {(() => {
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              const eid = getCorporateEventId(event as any);
+                              const desc = event.description;
+                              const safeHref = eid
+                                ? `/corporate-event/${eid}`
+                                : desc
+                                ? `/corporate-events?search=${encodeURIComponent(
+                                    desc
+                                  )}`
+                                : "#";
+                              return (
+                                <a
+                                  href={safeHref}
+                                  className="flex-1 text-sm font-medium text-blue-600 underline break-words hover:text-blue-800"
+                                  style={{
+                                    textDecoration: "underline",
+                                    color: "#0075df",
+                                    fontWeight: "500",
+                                  }}
+                                  onClick={(e) => {
+                                    if (
+                                      e.defaultPrevented ||
+                                      e.button !== 0 ||
+                                      e.metaKey ||
+                                      e.ctrlKey ||
+                                      e.shiftKey ||
+                                      e.altKey
+                                    ) {
+                                      return;
+                                    }
+                                    e.preventDefault();
+                                    handleCorporateEventClick(eid, desc);
+                                  }}
+                                >
+                                  {event.description}
+                                </a>
+                              );
+                            })()}
+                          </div>
+                          <div className="space-y-1 text-xs text-gray-500">
+                            <div>
+                              <strong>Date:</strong>{" "}
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                return formatDate(ev.date || event.announcement_date);
+                              })()}
+                            </div>
+                            <div>
+                              <strong>Target:</strong>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const isPartnership =
+                                  (ev.deal_type || "")
+                                    .toLowerCase()
+                                    .trim() === "partnership";
+
+                                const targetsArr =
+                                  parseEntityArray<EntityRef>(ev.targets);
+
+                                const targetObj = (safeParseJson<EntityRef>(
+                                  ev.target
+                                ) ||
+                                  (typeof ev.target === "object"
+                                    ? (ev.target as Record<string, unknown>)
+                                    : null)) as EntityRef | null;
+                                const targetLegacyName =
+                                  event.Target_Counterparty?.new_company?.name;
+
+                                const displayTargets =
+                                  targetsArr.length > 0
+                                    ? isPartnership
+                                      ? dedupeById(targetsArr)
+                                      : dedupeById(targetsArr).slice(0, 1)
+                                    : [];
+
+                                const targetName =
+                                  targetObj?.name || targetLegacyName;
+
+                                if (displayTargets.length > 0) {
+                                  return (
+                                    <>
+                                      {displayTargets.map((tgt, i, arr) => (
+                                        <span key={`m-tgt-${tgt?.id ?? i}`}>
+                                          {renderTargetEntityInline(tgt)}
+                                          {i < arr.length - 1 && ", "}
+                                        </span>
+                                      ))}
+                                    </>
+                                  );
+                                } else if (targetName && targetObj) {
+                                  return renderTargetEntityInline(targetObj);
+                                } else if (targetName) {
+                                  return <span>{targetName}</span>;
+                                }
+                                return <span>Not Available</span>;
+                              })()}
+                              </div>
+                            </div>
+                            <div>
+                              <strong>Seller(s):</strong>{" "}
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const sellersNew = parseEntityArray<EntityRef>(
+                                  ev.sales
+                                );
+
+                                if (sellersNew.length === 0) {
+                                  return <span>Not Available</span>;
+                                }
+
+                                return (
+                                  <>
+                                    {dedupeById(sellersNew).map((s, i, arr) => {
+                                      const href = normalizeEntityHref(s);
+                                      const name = s?.name || "Unknown";
+                                      return (
+                                        <span key={`m-seller-${s?.id ?? i}`}>
+                                          {href ? (
+                                            <a
+                                              href={href}
+                                              className="text-blue-600 underline hover:text-blue-800"
+                                              style={{ fontWeight: "500" }}
+                                            >
+                                              {name}
+                                            </a>
+                                          ) : (
+                                            <span>{name}</span>
+                                          )}
+                                          {i < arr.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    })}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                            <div>
+                              <strong>Type:</strong>{" "}
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const details = safeParseJson<{
+                                  Type?: string;
+                                  Funding_Stage?: string;
+                                  Amount?: string;
+                                  Investment_Amount?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  };
+                                  Enterprise_Value?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  } | null;
+                                }>(ev.deal_details);
+
+                                const dealType =
+                                  details?.Type || ev.deal_type || ev.type;
+                                return dealType ? (
+                                  <DealTypeBadge dealType={dealType} />
+                                ) : (
+                                  "Not Available"
+                                );
+                              })()}
+                            </div>
+                            <div>
+                              <strong>Deal Stage:</strong>{" "}
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const details = safeParseJson<{
+                                  Funding_Stage?: string;
+                                }>(ev.deal_details);
+
+                                const fundingStage = (
+                                  (details?.Funding_Stage ||
+                                    (event as {
+                                      investment_data?: {
+                                        Funding_stage?: string;
+                                        funding_stage?: string;
+                                      };
+                                    }).investment_data?.Funding_stage ||
+                                    (event as {
+                                      investment_data?: {
+                                        Funding_stage?: string;
+                                        funding_stage?: string;
+                                      };
+                                    }).investment_data?.funding_stage ||
+                                    "") as string
+                                ).trim();
+
+                                if (!fundingStage) return "Not Available";
+                                return (
+                                  <span className="inline-block px-2 py-0.5 ml-1 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">
+                                    {fundingStage}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                            <div>
+                              <strong>Amount (m):</strong>{" "}
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const details = safeParseJson<{
+                                  Amount?: string;
+                                  Investment_Amount?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  };
+                                }>(ev.deal_details);
+
+                                const rawAmount = (details?.Amount || "")
+                                  .toString()
+                                  .trim();
+                                const cleanedAmount = rawAmount.replace(
+                                  /^amount:\s*/i,
+                                  ""
+                                );
+                                const formatAmountString = (
+                                  value: string
+                                ): string => {
+                                  const v = (value || "").trim();
+                                  if (!v) return "";
+                                  const m1 = v.match(
+                                    /^(?:Currency:)?\s*([A-Z]{3})\s*([0-9]+(?:[.,][0-9]+)?)/i
+                                  );
+                                  if (m1)
+                                    return `${m1[1].toUpperCase()}${m1[2]}`;
+                                  const m2 = v.match(
+                                    /^([0-9]+(?:[.,][0-9]+)?)\s*([A-Z]{3})$/i
+                                  );
+                                  if (m2)
+                                    return `${m2[2].toUpperCase()}${m2[1]}`;
+                                  const m3 = v.match(/^([A-Z]{3})([0-9].*)$/i);
+                                  if (m3)
+                                    return `${m3[1].toUpperCase()}${m3[2]}`;
+                                  return v;
+                                };
+
+                                const formatAmountObject = (opts?: {
+                                  value?: number;
+                                  currency?: string;
+                                  formatted?: string;
+                                }): string => {
+                                  if (!opts) return "";
+                                  const { value, currency, formatted } = opts;
+                                  if (formatted && formatted.trim()) {
+                                    return formatted.trim();
+                                  }
+                                  if (
+                                    typeof value === "number" &&
+                                    typeof currency === "string" &&
+                                    currency.trim()
+                                  ) {
+                                    return `${currency.trim().toUpperCase()}${value}`;
+                                  }
+                                  return "";
+                                };
+
+                                const amountFromDetailsObject =
+                                  formatAmountObject(details?.Investment_Amount);
+                                const amountFromDetailsString =
+                                  formatAmountString(cleanedAmount);
+
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const amountRaw = (event as any)?.amount;
+                                const parsed = safeParseJson<{
+                                  formatted?: string;
+                                  currency?: string;
+                                  value?: string | number;
+                                }>(amountRaw);
+                                const fromNew =
+                                  parsed?.formatted ||
+                                  (parsed?.currency &&
+                                  parsed.value !== undefined &&
+                                  parsed.value !== null
+                                    ? `${String(parsed.value)} ${String(
+                                        parsed.currency
+                                      )}`
+                                    : "");
+
+                                const amount =
+                                  amountFromDetailsObject ||
+                                  amountFromDetailsString ||
+                                  fromNew ||
+                                  (event.investment_data?.investment_amount_m &&
+                                  event.investment_data?.currrency?.Currency
+                                    ? `${event.investment_data.currrency.Currency}${event.investment_data.investment_amount_m}`
+                                    : "");
+
+                                return amount || "Not Available";
+                              })()}
+                            </div>
+                            <div>
+                              <strong>EV (m):</strong>{" "}
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const details = safeParseJson<{
+                                  Enterprise_Value?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  } | null;
+                                }>(ev.deal_details);
+
+                                const formatAmountObject = (opts?: {
+                                  value?: number;
+                                  currency?: string;
+                                  formatted?: string;
+                                }): string => {
+                                  if (!opts) return "";
+                                  const { value, currency, formatted } = opts;
+                                  if (formatted && formatted.trim()) {
+                                    return formatted.trim();
+                                  }
+                                  if (
+                                    typeof value === "number" &&
+                                    typeof currency === "string" &&
+                                    currency.trim()
+                                  ) {
+                                    return `${currency.trim().toUpperCase()}${value}`;
+                                  }
+                                  return "";
+                                };
+
+                                const valuationFromDetails =
+                                  formatAmountObject(
+                                    details?.Enterprise_Value ?? undefined
+                                  );
+                                const valuationFallback =
+                                  event.ev_data?.enterprise_value_m &&
+                                  event.ev_data?.Currency
+                                    ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
+                                    : "";
+                                const valuation =
+                                  valuationFromDetails || valuationFallback;
+
+                                return valuation || "Not Available";
+                              })()}
+                            </div>
+                            <div>
+                              <strong>Primary:</strong>{" "}
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const sectors = safeParseJson<{
+                                  Primary?: string[];
+                                  Secondary?: string[];
+                                }>(ev.sectors);
+
+                                const primaryNewArr = Array.isArray(sectors?.Primary)
+                                  ? (sectors!.Primary as string[]).filter(Boolean)
+                                  : [];
+
+                                const primaryRefs = parseSectorRefs(ev.primary);
+
+                                const primaryFromNew = primaryNewArr.join(", ");
+
+                                const primary =
+                                  primaryFromNew ||
+                                  (primaryRefs.length > 0
+                                    ? primaryRefs.map((s) => s.name).join(", ")
+                                    : "") ||
+                                  getEventPrimarySectors(event);
+
+                                if (!primary || primary === "Not Available") {
+                                  return "Not Available";
+                                }
+
+                                return primaryRefs.length > 0 ? (
+                                  <>
+                                    {primaryRefs.map((s, idx, arr) => (
+                                      <span key={`m-primary-${s.id}`}>
+                                        <a
+                                          href={`/sector/${s.id}`}
+                                          className="text-blue-600 underline hover:text-blue-800"
+                                          style={{ fontWeight: "500" }}
+                                        >
+                                          {s.name}
+                                        </a>
+                                        {idx < arr.length - 1 && ", "}
+                                      </span>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <>
+                                    {primary.split(",").map((name, idx, arr) => {
+                                      const trimmed = name.trim();
+                                      return (
+                                        <span key={`m-primary-str-${idx}`}>
+                                          {trimmed}
+                                          {idx < arr.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    })}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                            <div>
+                              <strong>Secondary:</strong>{" "}
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const sectors = safeParseJson<{
+                                  Primary?: string[];
+                                  Secondary?: string[];
+                                }>(ev.sectors);
+
+                                const secondaryNewArr = Array.isArray(sectors?.Secondary)
+                                  ? (sectors!.Secondary as string[]).filter(Boolean)
+                                  : [];
+
+                                const secondaryRefs = parseSectorRefs(ev.secondary);
+
+                                const secondaryFromNew = secondaryNewArr.slice(0, 3);
+
+                                const list =
+                                  event.Target_Counterparty?.new_company
+                                    ?._sectors_objects?.sectors_id || [];
+                                const secondaryLegacy = list
+                                  .filter(
+                                    (sector) =>
+                                      sector &&
+                                      sector.Sector_importance !== "Primary"
+                                  )
+                                  .map((sector) => sector.sector_name)
+                                  .filter(Boolean)
+                                  .slice(0, 3);
+                                const secondary =
+                                  secondaryFromNew.length > 0
+                                    ? secondaryFromNew
+                                    : secondaryRefs.length > 0
+                                    ? secondaryRefs.slice(0, 3).map((s) => s.name)
+                                    : secondaryLegacy;
+
+                                if (secondary.length === 0) {
+                                  return "Not Available";
+                                }
+
+                                return secondaryRefs.length > 0 ? (
+                                  <>
+                                    {secondaryRefs.slice(0, 3).map((s, idx, arr) => (
+                                      <span key={`m-secondary-${s.id}`}>
+                                        <a
+                                          href={`/sub-sector/${s.id}`}
+                                          className="text-blue-600 underline hover:text-blue-800"
+                                          style={{ fontWeight: "500" }}
+                                        >
+                                          {s.name}
+                                        </a>
+                                        {idx < arr.length - 1 && ", "}
+                                      </span>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <>
+                                    {secondary.map((name, idx, arr) => (
+                                      <span key={`m-secondary-str-${idx}`}>
+                                        {name}
+                                        {idx < arr.length - 1 && ", "}
+                                      </span>
+                                    ))}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Desktop view - table (scroll handled by parent column body) */}
+                  <div className="hidden lg:block min-w-full">
+                    <table className="w-full min-w-max table-fixed">
+                      <colgroup>
+                        <col />
+                        <col style={{ width: "22%" }} />
+                        <col />
+                        <col />
+                      </colgroup>
+                      <thead className="sticky top-0 z-10 bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                            Event Details
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                            Parties
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                            Deal Details
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                            Sectors
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {corporateEvents.slice(0, 25).map((event, idx) => {
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const eid = getCorporateEventId(event as any);
+                          const desc = event.description;
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const ev: any = event as any;
+
+                          return (
+                            <tr
+                              key={eid ?? `ev-row-${idx}`}
+                              className="hover:bg-gray-50"
+                            >
+                              <td className="px-4 py-4 max-w-xs text-xs text-gray-900">
+                                <div className="mb-2">
+                                  {(() => {
+                                    const safeHref = eid
+                                      ? `/corporate-event/${eid}`
+                                      : desc
+                                      ? `/corporate-events?search=${encodeURIComponent(
+                                          desc
+                                        )}`
+                                      : "#";
+                                    return (
+                                      <a
+                                        href={safeHref}
+                                        className="font-medium text-blue-600 underline break-words hover:text-blue-800"
+                                        style={{
+                                          textDecoration: "underline",
+                                          color: "#0075df",
+                                          fontWeight: "500",
+                                        }}
+                                        onClick={(e) => {
+                                          if (
+                                            e.defaultPrevented ||
+                                            e.button !== 0 ||
+                                            e.metaKey ||
+                                            e.ctrlKey ||
+                                            e.shiftKey ||
+                                            e.altKey
+                                          )
+                                            return;
+                                          e.preventDefault();
+                                          handleCorporateEventClick(eid, desc);
+                                        }}
+                                      >
+                                        {event.description}
+                                      </a>
+                                    );
+                                  })()}
+                                </div>
+                                <div className="mb-1 text-xs text-gray-500">
+                                  Date: {formatDate(
+                                    ev.date || event.announcement_date
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-4 min-w-0 overflow-hidden text-xs text-gray-900">
+                                {/* Parties column */}
+                                {(() => {
+                                  const isPartnership =
+                                    (ev.deal_type || "")
+                                      .toLowerCase()
+                                      .trim() === "partnership";
+
+                                  const targetsArr =
+                                    parseEntityArray<EntityRef>(ev.targets);
+
+                                  const targetObj = (safeParseJson<EntityRef>(
+                                    ev.target
+                                  ) ||
+                                    (typeof ev.target === "object"
+                                      ? (ev.target as Record<string, unknown>)
+                                      : null)) as EntityRef | null;
+                                  const targetLegacyName =
+                                    event.Target_Counterparty?.new_company?.name;
+
+                                  const buyersArr = parseEntityArray<EntityRef>(
+                                    (ev as { buyers?: unknown }).buyers
+                                  );
+                                  const investorsArr =
+                                    parseEntityArray<EntityRef>(
+                                      (ev as { investors?: unknown }).investors
+                                    );
+                                  const buyersInvestorsCombined =
+                                    parseEntityArray<EntityRef>(
+                                      (ev as { buyers_investors?: unknown })
+                                        .buyers_investors
+                                    );
+                                  type LegacyCounterparty = {
+                                    _new_company?: {
+                                      name?: string;
+                                      _is_that_investor?: boolean;
+                                    };
+                                    _counterparty_type?: {
+                                      counterparty_status?: string;
+                                    };
+                                  };
+                                  const legacyCounterparties: LegacyCounterparty[] =
+                                    event.Other_Counterparties_of_Corporate_Event ||
+                                    [];
+                                  const legacyCombinedNames = legacyCounterparties
+                                    .map((cp) => cp?._new_company?.name)
+                                    .filter(Boolean) as string[];
+
+                                  const sellersNew = parseEntityArray<EntityRef>(
+                                    ev.sales
+                                  );
+
+                                  const advisors = (
+                                    event.Advisors_of_Corporate_Event || []
+                                  )
+                                    .map((a) => a._new_company?.name)
+                                    .filter(Boolean);
+
+                                  const displayTargets =
+                                    targetsArr.length > 0
+                                      ? isPartnership
+                                        ? dedupeById(targetsArr)
+                                        : dedupeById(targetsArr).slice(0, 1)
+                                      : [];
+
+                                  const targetName =
+                                    targetObj?.name || targetLegacyName;
+
+                                  return (
+                                    <div className="space-y-1">
+                                      {displayTargets.length > 0 ? (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>
+                                            {isPartnership
+                                              ? "Target(s):"
+                                              : "Target:"}
+                                          </strong>
+                                          <div className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                                            {displayTargets.map((tgt, i, arr) => (
+                                              <span key={`tgt-${tgt?.id ?? i}`}>
+                                                {renderTargetEntityInline(tgt)}
+                                                {i < arr.length - 1 && ", "}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ) : targetName && targetObj ? (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>
+                                            {isPartnership
+                                              ? "Target(s):"
+                                              : "Target:"}
+                                          </strong>
+                                          <div className="mt-0.5">
+                                            {renderTargetEntityInline(targetObj)}
+                                          </div>
+                                        </div>
+                                      ) : targetName ? (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>
+                                            {isPartnership
+                                              ? "Target(s):"
+                                              : "Target:"}
+                                          </strong>{" "}
+                                          <span>{targetName}</span>
+                                        </div>
+                                      ) : null}
+
+                                      {buyersArr.length > 0 && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Buyer(s):</strong>{" "}
+                                          {dedupeById(buyersArr).map(
+                                            (b, i, arr) => {
+                                              const href = normalizeEntityHref(b);
+                                              const name = b?.name || "Unknown";
+                                              return (
+                                                <span key={`buyer-${i}`}>
+                                                  {href ? (
+                                                    <a
+                                                      href={href}
+                                                      className="text-blue-600 underline hover:text-blue-800"
+                                                      style={{
+                                                        fontWeight: "500",
+                                                      }}
+                                                    >
+                                                      {name}
+                                                    </a>
+                                                  ) : (
+                                                    <span>{name}</span>
+                                                  )}
+                                                  {i < arr.length - 1 && ", "}
+                                                </span>
+                                              );
+                                            }
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {investorsArr.length > 0 && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Investor(s):</strong>{" "}
+                                          {dedupeById(investorsArr).map(
+                                            (inv, i, arr) => {
+                                              const href =
+                                                normalizeEntityHref(inv);
+                                              const name = inv?.name || "Unknown";
+                                              return (
+                                                <span key={`investor-${i}`}>
+                                                  {href ? (
+                                                    <a
+                                                      href={href}
+                                                      className="text-blue-600 underline hover:text-blue-800"
+                                                      style={{
+                                                        fontWeight: "500",
+                                                      }}
+                                                    >
+                                                      {name}
+                                                    </a>
+                                                  ) : (
+                                                    <span>{name}</span>
+                                                  )}
+                                                  {i < arr.length - 1 && ", "}
+                                                </span>
+                                              );
+                                            }
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {buyersArr.length === 0 &&
+                                        investorsArr.length === 0 &&
+                                        (buyersInvestorsCombined.length > 0 ||
+                                          legacyCombinedNames.length > 0) && (
+                                          <div className="text-xs text-gray-500">
+                                            <strong>
+                                              Buyer(s) / Investor(s):
+                                            </strong>{" "}
+                                            {buyersInvestorsCombined.length > 0
+                                              ? dedupeById(
+                                                  buyersInvestorsCombined
+                                                ).map((b, i, arr) => {
+                                                  const href =
+                                                    normalizeEntityHref(b);
+                                                  const name =
+                                                    b?.name || "Unknown";
+                                                  return (
+                                                    <span key={`bi-${i}`}>
+                                                      {href ? (
+                                                        <a
+                                                          href={href}
+                                                          className="text-blue-600 underline hover:text-blue-800"
+                                                          style={{
+                                                            fontWeight: "500",
+                                                          }}
+                                                        >
+                                                          {name}
+                                                        </a>
+                                                      ) : (
+                                                        <span>{name}</span>
+                                                      )}
+                                                      {i < arr.length - 1 && ", "}
+                                                    </span>
+                                                  );
+                                                })
+                                              : legacyCombinedNames.join(", ")}
+                                          </div>
+                                        )}
+
+                                      {sellersNew.length > 0 && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Seller(s):</strong>{" "}
+                                          {dedupeById(sellersNew).map(
+                                            (s, i, arr) => {
+                                              const href = normalizeEntityHref(s);
+                                              const name = s?.name || "Unknown";
+                                              return (
+                                                <span key={`seller-${i}`}>
+                                                  {href ? (
+                                                    <a
+                                                      href={href}
+                                                      className="text-blue-600 underline hover:text-blue-800"
+                                                      style={{
+                                                        fontWeight: "500",
+                                                      }}
+                                                    >
+                                                      {name}
+                                                    </a>
+                                                  ) : (
+                                                    <span>{name}</span>
+                                                  )}
+                                                  {i < arr.length - 1 && ", "}
+                                                </span>
+                                              );
+                                            }
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {advisors.length > 0 && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Advisor(s):</strong>{" "}
+                                          {advisors.join(", ")}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+                              <td className="px-4 py-4 text-xs text-gray-900">
+                                {/* Deal Details column */}
+                                {(() => {
+                                  const details = safeParseJson<{
+                                    Type?: string;
+                                    Funding_Stage?: string;
+                                    Amount?: string;
+                                    Investment_Amount?: {
+                                      value?: number;
+                                      currency?: string;
+                                      formatted?: string;
+                                    };
+                                    Enterprise_Value?: {
+                                      value?: number;
+                                      currency?: string;
+                                      formatted?: string;
+                                    } | null;
+                                  }>(ev.deal_details);
+
+                                  const dealType =
+                                    details?.Type || event.deal_type;
+
+                                  const fundingStage = (
+                                    (details?.Funding_Stage ||
+                                      (event as {
+                                        investment_data?: {
+                                          Funding_stage?: string;
+                                          funding_stage?: string;
+                                        };
+                                      }).investment_data?.Funding_stage ||
+                                      (event as {
+                                        investment_data?: {
+                                          Funding_stage?: string;
+                                          funding_stage?: string;
+                                        };
+                                      }).investment_data?.funding_stage ||
+                                      "") as string
+                                  ).trim();
+
+                                  const rawAmount = (details?.Amount || "")
+                                    .toString()
+                                    .trim();
+                                  const cleanedAmount = rawAmount.replace(
+                                    /^amount:\s*/i,
+                                    ""
+                                  );
+                                  const formatAmountString = (
+                                    value: string
+                                  ): string => {
+                                    const v = (value || "").trim();
+                                    if (!v) return "";
+                                    const m1 = v.match(
+                                      /^(?:Currency:)?\s*([A-Z]{3})\s*([0-9]+(?:[.,][0-9]+)?)/i
+                                    );
+                                    if (m1)
+                                      return `${m1[1].toUpperCase()}${m1[2]}`;
+                                    const m2 = v.match(
+                                      /^([0-9]+(?:[.,][0-9]+)?)\s*([A-Z]{3})$/i
+                                    );
+                                    if (m2)
+                                      return `${m2[2].toUpperCase()}${m2[1]}`;
+                                    const m3 = v.match(/^([A-Z]{3})([0-9].*)$/i);
+                                    if (m3)
+                                      return `${m3[1].toUpperCase()}${m3[2]}`;
+                                    return v;
+                                  };
+
+                                  const formatAmountObject = (opts?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  }): string => {
+                                    if (!opts) return "";
+                                    const { value, currency, formatted } = opts;
+                                    if (formatted && formatted.trim()) {
+                                      return formatted.trim();
+                                    }
+                                    if (
+                                      typeof value === "number" &&
+                                      typeof currency === "string" &&
+                                      currency.trim()
+                                    ) {
+                                      return `${currency.trim().toUpperCase()}${value}`;
+                                    }
+                                    return "";
+                                  };
+
+                                  const amountFromDetailsObject =
+                                    formatAmountObject(details?.Investment_Amount);
+                                  const amountFromDetailsString =
+                                    formatAmountString(cleanedAmount);
+
+                                  const amount =
+                                    amountFromDetailsObject ||
+                                    amountFromDetailsString ||
+                                    (event.investment_data?.investment_amount_m &&
+                                    event.investment_data?.currrency?.Currency
+                                      ? `${String(
+                                          event.investment_data.currrency.Currency
+                                        )}${String(
+                                          event.investment_data
+                                            .investment_amount_m
+                                        )}`
+                                      : "");
+
+                                  const valuationFromDetails =
+                                    formatAmountObject(
+                                      details?.Enterprise_Value ?? undefined
+                                    );
+                                  const valuationFallback =
+                                    event.ev_data?.enterprise_value_m &&
+                                    event.ev_data?.Currency
+                                      ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
+                                      : "";
+                                  const valuation =
+                                    valuationFromDetails || valuationFallback;
+
+                                  return (
+                                    <div className="space-y-1">
+                                      {dealType && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Type:</strong>{" "}
+                                          <DealTypeBadge dealType={dealType} />
+                                        </div>
+                                      )}
+                                      {fundingStage && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Deal Stage:</strong>{" "}
+                                          <span className="inline-block px-2 py-0.5 ml-1 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">
+                                            {fundingStage}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {amount && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Amount (m):</strong> {amount}
+                                        </div>
+                                      )}
+                                      {valuation && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>EV (m):</strong> {valuation}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+                              <td className="px-4 py-4 text-xs text-gray-900">
+                                {/* Sectors column */}
+                                {(() => {
+                                  const sectors = safeParseJson<{
+                                    Primary?: string[];
+                                    Secondary?: string[];
+                                  }>(ev.sectors);
+
+                                  const primaryNewArr = Array.isArray(sectors?.Primary)
+                                    ? (sectors!.Primary as string[]).filter(Boolean)
+                                    : [];
+                                  const secondaryNewArr = Array.isArray(sectors?.Secondary)
+                                    ? (sectors!.Secondary as string[]).filter(Boolean)
+                                    : [];
+
+                                  const primaryRefs = parseSectorRefs(ev.primary);
+                                  const secondaryRefs = parseSectorRefs(ev.secondary);
+
+                                  const primaryFromNew = primaryNewArr.join(", ");
+                                  const secondaryFromNew = secondaryNewArr.slice(0, 3);
+
+                                  const primary =
+                                    primaryFromNew ||
+                                    (primaryRefs.length > 0
+                                      ? primaryRefs.map((s) => s.name).join(", ")
+                                      : "") ||
+                                    getEventPrimarySectors(event);
+                                  const list =
+                                    event.Target_Counterparty?.new_company
+                                      ?._sectors_objects?.sectors_id || [];
+                                  const secondaryLegacy = list
+                                    .filter(
+                                      (sector) =>
+                                        sector &&
+                                        sector.Sector_importance !== "Primary"
+                                    )
+                                    .map((sector) => sector.sector_name)
+                                    .filter(Boolean)
+                                    .slice(0, 3);
+                                  const secondary =
+                                    secondaryFromNew.length > 0
+                                      ? secondaryFromNew
+                                      : secondaryRefs.length > 0
+                                      ? secondaryRefs.slice(0, 3).map((s) => s.name)
+                                      : secondaryLegacy;
+                                  return (
+                                    <div className="space-y-1">
+                                      {primary && primary !== "Not Available" && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Primary:</strong>{" "}
+                                          {primaryRefs.length > 0
+                                            ? primaryRefs.map((s, idx, arr) => (
+                                                <span key={`primary-${s.id}`}>
+                                                  <a
+                                                    href={`/sector/${s.id}`}
+                                                    className="text-blue-600 underline hover:text-blue-800"
+                                                  >
+                                                    {s.name}
+                                                  </a>
+                                                  {idx < arr.length - 1 && ", "}
+                                                </span>
+                                              ))
+                                            : primary.split(",").map((name, idx, arr) => {
+                                                const trimmed = name.trim();
+                                                return (
+                                                  <span key={`primary-${idx}`}>
+                                                    {trimmed}
+                                                    {idx < arr.length - 1 && ", "}
+                                                  </span>
+                                                );
+                                              })}
+                                        </div>
+                                      )}
+                                      {secondary.length > 0 && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Secondary:</strong>{" "}
+                                          {secondaryRefs.length > 0
+                                            ? secondaryRefs.slice(0, 3).map((s, idx, arr) => (
+                                                <span key={`secondary-${s.id}`}>
+                                                  <a
+                                                    href={`/sub-sector/${s.id}`}
+                                                    className="text-blue-600 underline hover:text-blue-800"
+                                                  >
+                                                    {s.name}
+                                                  </a>
+                                                  {idx < arr.length - 1 && ", "}
+                                                </span>
+                                              ))
+                                            : secondary.map((name, idx, arr) => (
+                                                <span key={`secondary-${idx}`}>
+                                                  {name}
+                                                  {idx < arr.length - 1 && ", "}
+                                                </span>
+                                              ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 text-center">
+                  <p className="text-sm text-gray-500">
+                    No corporate events available
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+      <Footer />
+      {summaryArticle ? (
+        <InsightSummaryModal
+          article={summaryArticle}
+          onClose={() => setSummaryArticle(null)}
+          articleHref={`/article/${summaryArticle.id}?from=home`}
+          footerLinkLabel="Read full article →"
+        />
+      ) : null}
+    </div>
+  );
+}
