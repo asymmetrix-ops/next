@@ -1,134 +1,128 @@
 "use client";
 
-import { motion, useInView, useReducedMotion } from "framer-motion";
-import React, { useEffect, useRef, useState } from "react";
-
-// Live corporate events totals (corporate_events_counts).
-const DEFAULT_DATA = {
-  all: 5708,
-  acquisitions: 2043,
-  investments: 2894,
-  ipos: 46,
-  sales: 36,
-  partnerships: 442,
-  strategicReviews: 7,
-  divestments: 71,
-  other: 169,
-};
-
-const CATEGORY_ROWS = [
-  { key: "all", label: "All" },
-  { key: "investments", label: "Investments" },
-  { key: "acquisitions", label: "Acquisitions" },
-  { key: "partnerships", label: "Partnerships" },
-  { key: "other", label: "Other" },
-  { key: "divestments", label: "Divestments" },
-  { key: "ipos", label: "IPOs" },
-  { key: "sales", label: "Sales" },
-  { key: "strategicReviews", label: "Strategic Reviews" },
-];
+import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const EASE = [0.16, 1, 0.3, 1];
+const ADVANCE_MS = 4200;
 
-function easeOutExpo(t) {
-  return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+// Illustrative pipeline stages — mirrors the real deal-signal statuses
+// (rumoured/reported/anticipated → in-market → exclusivity → closed) without
+// naming any actual company or live process.
+const COLUMNS = [
+  { id: "not-launched", title: "Not yet launched", status: "Signal detected" },
+  { id: "deal-prep", title: "Deal prep", status: "Advisor engaged" },
+  { id: "strategic-review", title: "Strategic review", status: "Board mandate" },
+  { id: "in-market", title: "In market", status: "Teaser out", accent: true },
+  { id: "in-exclusivity", title: "In exclusivity", status: "Due diligence" },
+  { id: "completed", title: "Completed", status: "Deal closed", success: true },
+];
+
+const INITIAL_CARDS = {
+  "company-f": { name: "Company F", column: "not-launched" },
+  "company-g": { name: "Company G", column: "deal-prep" },
+  "company-h": { name: "Company H", column: "strategic-review" },
+  "company-a": { name: "Company A", column: "in-market", status: "Teaser out" },
+  "company-b": { name: "Company B", column: "in-market", status: "First round bids" },
+  "company-c": { name: "Company C", column: "in-exclusivity" },
+  "company-d": { name: "Company D", column: "completed" },
+};
+
+// Scripted, deterministic pipeline progression — cards advance one stage at
+// a time on a loop so the board reads as "live" without relying on
+// Math.random() (which would desync server/client render).
+const MOVES = [
+  { cardId: "company-h", to: "in-market" },
+  { cardId: "company-c", to: "completed" },
+  { cardId: "company-b", to: "in-exclusivity" },
+  { cardId: "company-g", to: "strategic-review" },
+  { cardId: "company-f", to: "deal-prep" },
+];
+
+function columnStyle(column) {
+  if (column.success) {
+    return { bg: "#ECFDF3", border: "rgba(5,150,105,0.24)", text: "#047857" };
+  }
+  if (column.accent) {
+    return { bg: "#F0F3FF", border: "rgba(83,111,240,0.35)", text: "#3E5EDC" };
+  }
+  return { bg: "#FAFBFF", border: "rgba(0,11,41,0.08)", text: "#000B29" };
 }
 
-// Sqrt curve compresses the long tail of small categories so every bar
-// reads as substantially filled, while still preserving rank order — the
-// "All" total is excluded from maxValue since it dwarfs every sub-category.
-function scalePct(value, maxValue, isAll) {
-  if (isAll) return 100;
-  return Math.max(Math.sqrt(value / maxValue) * 100, 14);
-}
-
-// Counts up once when `active` becomes true, then holds the final value.
-function useCountUp(target, active, { duration = 1000, delay = 0 } = {}) {
-  const [value, setValue] = useState(0);
-  const hasStartedRef = useRef(false);
-
-  useEffect(() => {
-    if (!active || hasStartedRef.current) return;
-    hasStartedRef.current = true;
-
-    let rafId;
-    let startTime;
-    const timeoutId = setTimeout(() => {
-      const tick = (now) => {
-        if (startTime === undefined) startTime = now;
-        const progress = Math.min((now - startTime) / duration, 1);
-        setValue(Math.round(target * easeOutExpo(progress)));
-        if (progress < 1) rafId = requestAnimationFrame(tick);
-      };
-      rafId = requestAnimationFrame(tick);
-    }, delay);
-    return () => {
-      clearTimeout(timeoutId);
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [active, target, duration, delay]);
-
-  return value;
-}
-
-function CategoryRow({ label, value, maxValue, isAll, index, active }) {
-  const delayS = 0.95 + index * 0.08;
-  const pct = scalePct(value, maxValue, isAll);
-  const count = useCountUp(value, active, {
-    duration: 900,
-    delay: delayS * 1000,
-  });
-
+const DealCard = React.forwardRef(function DealCard(
+  { card, column, index, entered, reduceMotion },
+  ref,
+) {
+  const style = columnStyle(column);
   return (
     <motion.div
-      className="flex items-center gap-4"
-      initial={false}
-      animate={{ opacity: active ? 1 : 0, y: active ? 0 : 10 }}
-      transition={{ duration: 0.5, delay: delayS, ease: EASE }}
+      ref={ref}
+      layout
+      layoutId={card.id}
+      initial={{ opacity: 0, y: 10 }}
+      animate={entered ? { opacity: 1, y: 0 } : undefined}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={
+        reduceMotion
+          ? { duration: 0 }
+          : { layout: { duration: 0.6, ease: EASE }, duration: 0.4, delay: 0.5 + index * 0.08, ease: EASE }
+      }
+      className="rounded-lg border px-3 py-2.5"
+      style={{ background: style.bg, borderColor: style.border }}
     >
-      <span
-        className="w-[116px] shrink-0 text-sm font-medium"
-        style={{ color: "#000B29" }}
-      >
-        {label}
-      </span>
-      <span
-        className="relative h-2 flex-1 overflow-hidden rounded-full"
-        style={{ background: "#EEF0F7" }}
-      >
-        <motion.span
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ background: "linear-gradient(90deg, #536FF0, #3E5EDC)" }}
-          initial={false}
-          animate={{ width: active ? `${pct}%` : "0%" }}
-          transition={{ duration: 0.75, delay: delayS, ease: EASE }}
-        />
-      </span>
-      <span
-        className="w-14 shrink-0 text-right text-sm font-semibold tabular-nums"
-        style={{ color: "#000B29" }}
-      >
-        {count.toLocaleString()}
-      </span>
+      <p className="text-sm font-semibold" style={{ color: column.success ? style.text : "#000B29" }}>
+        {card.name}
+      </p>
+      <p className="mt-0.5 text-xs" style={{ color: column.success ? style.text : "#5A6272" }}>
+        {card.status || column.status}
+      </p>
     </motion.div>
   );
-}
+});
 
-export function DealTrackingVisual({ data }) {
-  const values = { ...DEFAULT_DATA, ...data };
+export function DealTrackingVisual() {
   const reduceMotion = useReducedMotion();
   const containerRef = useRef(null);
-  const inView = useInView(containerRef, { amount: 0.4, once: true });
-  const active = inView && !reduceMotion;
+  const inView = useInView(containerRef, { amount: 0.3, once: true });
+  const entered = inView;
 
-  const maxValue = Math.max(
-    ...CATEGORY_ROWS.filter((r) => r.key !== "all").map((r) => values[r.key]),
-    1
-  );
-  const totalCount = useCountUp(values.all, active, {
-    duration: 1100,
-    delay: 0,
-  });
+  const [cards, setCards] = useState(INITIAL_CARDS);
+  const moveIndexRef = useRef(0);
+
+  useEffect(() => {
+    if (reduceMotion || !entered) return undefined;
+
+    const timer = window.setInterval(() => {
+      const current = moveIndexRef.current;
+      const next = current + 1;
+      if (next > MOVES.length) {
+        setCards(INITIAL_CARDS);
+        moveIndexRef.current = 0;
+        return;
+      }
+      const move = MOVES[current];
+      setCards((prev) => ({
+        ...prev,
+        [move.cardId]: {
+          ...prev[move.cardId],
+          column: move.to,
+          status: undefined,
+        },
+      }));
+      moveIndexRef.current = next;
+    }, ADVANCE_MS);
+
+    return () => window.clearInterval(timer);
+  }, [reduceMotion, entered]);
+
+  const columns = useMemo(() => {
+    return COLUMNS.map((column) => ({
+      column,
+      cards: Object.entries(cards)
+        .filter(([, card]) => card.column === column.id)
+        .map(([id, card]) => ({ id, ...card })),
+    }));
+  }, [cards]);
 
   return (
     <div
@@ -144,120 +138,52 @@ export function DealTrackingVisual({ data }) {
         aria-hidden
         className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full opacity-40 blur-3xl"
         style={{
-          background:
-            "radial-gradient(circle, rgba(83,111,240,0.25), transparent 70%)",
+          background: "radial-gradient(circle, rgba(83,111,240,0.25), transparent 70%)",
         }}
       />
 
-      <div className="relative mb-6 flex items-center gap-2">
+      <div className="relative mb-5 flex items-center gap-2">
         <span className="relative flex size-2 items-center justify-center">
           <span
             className="absolute inline-flex size-full animate-ping rounded-full opacity-60"
             style={{ background: "#536FF0" }}
           />
-          <span
-            className="relative inline-flex size-2 rounded-full"
-            style={{ background: "#536FF0" }}
-          />
+          <span className="relative inline-flex size-2 rounded-full" style={{ background: "#536FF0" }} />
         </span>
-        <span
-          className="text-xs font-medium uppercase tracking-wide"
-          style={{ color: "#5A6272" }}
-        >
-          Corporate events · live
+        <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "#5A6272" }}>
+          Deal signals · live
         </span>
       </div>
 
-      {reduceMotion ? (
-        <>
-          <div className="mb-8 flex flex-col items-center text-center">
-            <span
-              className="mb-2 text-xs font-semibold uppercase tracking-[0.14em]"
-              style={{ color: "#5A6272" }}
-            >
-              All Corporate Events
-            </span>
-            <span className="landing-gradient-text text-6xl font-bold tabular-nums md:text-7xl">
-              {values.all.toLocaleString()}
-            </span>
-          </div>
-          <div
-            className="mb-6 h-px w-full"
-            style={{ background: "rgba(0,11,41,0.08)" }}
-          />
-          <div className="flex flex-col gap-3">
-            {CATEGORY_ROWS.map(({ key, label }) => (
-              <div key={key} className="flex items-center gap-4">
-                <span
-                  className="w-[116px] shrink-0 text-sm font-medium"
-                  style={{ color: "#000B29" }}
-                >
-                  {label}
-                </span>
-                <span
-                  className="relative h-2 flex-1 overflow-hidden rounded-full"
-                  style={{ background: "#EEF0F7" }}
-                >
-                  <span
-                    className="absolute inset-y-0 left-0 rounded-full"
-                    style={{
-                      width: `${scalePct(values[key], maxValue, key === "all")}%`,
-                      background: "linear-gradient(90deg, #536FF0, #3E5EDC)",
-                    }}
-                  />
-                </span>
-                <span
-                  className="w-14 shrink-0 text-right text-sm font-semibold tabular-nums"
-                  style={{ color: "#000B29" }}
-                >
-                  {values[key].toLocaleString()}
-                </span>
+      <div className="landing-kanban-scroll relative -mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+        {columns.map(({ column, cards: columnCards }) => {
+          const style = columnStyle(column);
+          return (
+            <div key={column.id} className="min-w-[128px] flex-1">
+              <p
+                className="mb-2 truncate text-xs font-semibold"
+                style={{ color: column.accent || column.success ? style.text : "#5A6272" }}
+              >
+                {column.title}
+              </p>
+              <div className="flex flex-col gap-2">
+                <AnimatePresence mode="popLayout">
+                  {columnCards.map((card, index) => (
+                    <DealCard
+                      key={card.id}
+                      card={card}
+                      column={column}
+                      index={index}
+                      entered={entered}
+                      reduceMotion={reduceMotion}
+                    />
+                  ))}
+                </AnimatePresence>
               </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="relative mb-8 flex flex-col items-center text-center">
-            <span
-              className="mb-2 text-xs font-semibold uppercase tracking-[0.14em]"
-              style={{ color: "#5A6272" }}
-            >
-              All Corporate Events
-            </span>
-            <motion.span
-              className="landing-gradient-text text-6xl font-bold tabular-nums md:text-7xl"
-              initial={false}
-              animate={{ opacity: active ? 1 : 0.3, scale: active ? 1 : 0.96 }}
-              transition={{ duration: 0.5, ease: EASE }}
-            >
-              {totalCount.toLocaleString()}
-            </motion.span>
-          </div>
-
-          <motion.div
-            className="mb-6 h-px w-full origin-center"
-            style={{ background: "rgba(0,11,41,0.08)" }}
-            initial={false}
-            animate={{ scaleX: active ? 1 : 0 }}
-            transition={{ duration: 0.6, delay: 0.85, ease: EASE }}
-          />
-
-          <div className="flex flex-col gap-3">
-            {CATEGORY_ROWS.map(({ key, label }, index) => (
-              <CategoryRow
-                key={key}
-                label={label}
-                value={values[key]}
-                maxValue={maxValue}
-                isAll={key === "all"}
-                index={index}
-                active={active}
-              />
-            ))}
-          </div>
-        </>
-      )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

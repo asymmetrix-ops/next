@@ -31,7 +31,7 @@ export function Footer1() {
       <div className="container">
         <div className="grid grid-cols-1 gap-x-[8vw] gap-y-12 pb-12 md:gap-y-16 md:pb-18 lg:grid-cols-[0.75fr_1fr] lg:gap-y-4 lg:pb-20">
           <div className="flex flex-col">
-            <a href="#" className="mb-5 md:mb-6">
+            <a href="/landing-test-version1" className="mb-5 md:mb-6">
               <img
                 src="/icons/logo.svg"
                 alt="Logo image"
@@ -95,7 +95,7 @@ export function Footer1() {
               <ul>
                 <li className="py-2 text-sm">
                   <a
-                    href="#"
+                    href="/about-us"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>About Us</span>
@@ -111,23 +111,7 @@ export function Footer1() {
                 </li>
                 <li className="py-2 text-sm">
                   <a
-                    href="#"
-                    className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
-                  >
-                    <span>People</span>
-                  </a>
-                </li>
-                <li className="py-2 text-sm">
-                  <a
-                    href="#"
-                    className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
-                  >
-                    <span>Careers</span>
-                  </a>
-                </li>
-                <li className="py-2 text-sm">
-                  <a
-                    href="#"
+                    href="/landing-test-version1/press-releases"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>Press Releases</span>
@@ -135,7 +119,9 @@ export function Footer1() {
                 </li>
                 <li className="py-2 text-sm">
                   <a
-                    href="#"
+                    href="https://asymmetrixintelligence.substack.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>Follow us</span>

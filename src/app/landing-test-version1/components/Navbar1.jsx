@@ -46,7 +46,7 @@ export function Navbar1() {
     >
       <div className="size-full lg:flex lg:items-center lg:justify-between">
         <div className="flex min-h-16 items-center justify-between px-[5%] md:min-h-18 lg:min-h-full lg:px-0">
-          <a href="#">
+          <a href="/landing-test-version1">
             <img src="/icons/logo.svg" alt="Asymmetrix" className="h-8 md:h-9" />
           </a>
           <button
@@ -104,13 +104,13 @@ export function Navbar1() {
           className="overflow-hidden px-[5%] lg:flex lg:items-center lg:overflow-visible lg:px-0 lg:[--height-closed:auto] lg:[--height-open:auto]"
         >
           <a
-            href="#"
+            href="/about-us"
             className="landing-text-secondary block py-3 text-md transition-colors first:pt-7 hover:text-text-alternative lg:px-4 lg:py-2 lg:text-base first:lg:pt-2"
           >
             About Us
           </a>
           <a
-            href="#"
+            href="/landing-test-version1/press-releases"
             className="landing-text-secondary block py-3 text-md transition-colors first:pt-7 hover:text-text-alternative lg:px-4 lg:py-2 lg:text-base first:lg:pt-2"
           >
             Press Releases
