@@ -1,6 +1,6 @@
   "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
@@ -22,6 +22,14 @@ import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
 import type { ArticleSeries } from "@/types/insightsAnalysis";
+import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
+import {
+  fetchCompanyFinancialMetricsCard,
+  resolveLatestFinancialMetricsRow,
+  type CompanyFinancialMetricsCardRow,
+} from "@/lib/companyFinancialMetricsCard";
+import { currencyCodeToToggleSymbol } from "@/lib/financialsCurrencyToggle";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
@@ -123,25 +131,6 @@ interface CompanyOfFocusOverview {
   }>;
 }
 
-interface CompanyOfFocusFinancialOverview {
-  ebitda_m?: number | string | null;
-  revenue_m?: number | string | null;
-  enterprise_value_m?: number | string | null;
-  revenue_multiple?: number | string | null;
-  revenue_growth_pc?: number | string | null;
-  rule_of_40?: number | string | null;
-  ev_currency?: string | null;
-  ebitda_currency?: string | null;
-  revenue_currency?: string | null;
-  // Source fields for financial metrics (e.g., "Estimate")
-  revenue_source?: string | null;
-  ebitda_source?: string | null;
-  ev_source?: string | null;
-  revenue_multiple_source?: string | null;
-  revenue_growth_source?: string | null;
-  rule_of_40_source?: string | null;
-}
-
 interface CompanyOfFocusApiItem {
   id: number;
   name: string;
@@ -152,7 +141,6 @@ interface CompanyOfFocusApiItem {
   new_company_id?: number;
   company_id?: number;
   company_overview?: CompanyOfFocusOverview;
-  financial_overview?: CompanyOfFocusFinancialOverview;
 }
 
 interface TableCompanyRow {
@@ -473,10 +461,96 @@ const isCompanyOfFocusSnapshotEligibleContentType = (contentType: string) =>
     (contentType || "").trim()
   );
 
+const finGetNumeric = (value?: number | string | null): number | undefined => {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) return undefined;
+  const n = Number(trimmed.replace(/,/g, ""));
+  return Number.isFinite(n) ? n : undefined;
+};
+
+const finFormatWholeNumber = (value?: number | string | null): string => {
+  const n = finGetNumeric(value);
+  if (n === undefined) return "-";
+  return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+};
+
+const finFormatPercent = (value?: number | string | null): string => {
+  const n = finGetNumeric(value);
+  if (n === undefined) return "-";
+  return `${Math.round(n)}%`;
+};
+
+const finFormatMultiple = (value?: number | string | null): string => {
+  const n = finGetNumeric(value);
+  if (n === undefined) return "-";
+  const rounded = Math.round(n * 10) / 10;
+  return `${rounded.toLocaleString()}x`;
+};
+
+const getFinancialMetricSourceText = (
+  label?: string | null,
+  code?: number | string | null
+): string => {
+  if (typeof label === "string" && label.trim()) return label.trim();
+  if (code != null && String(code).trim()) return String(code).trim();
+  return "-";
+};
+
+const normalizeArticleFinancialCurrency = (
+  candidate: unknown
+): string | undefined => {
+  if (!candidate) return undefined;
+  if (typeof candidate === "string") {
+    const trimmed = candidate.trim();
+    if (/^\d+$/.test(trimmed)) return undefined;
+    const compact = trimmed.replace(/\s/g, "").toUpperCase();
+    if (compact === "US$" || compact === "US") return "USD";
+    return trimmed;
+  }
+  if (
+    typeof candidate === "object" &&
+    candidate &&
+    typeof (candidate as { Currency?: unknown }).Currency === "string"
+  ) {
+    return (candidate as { Currency: string }).Currency;
+  }
+  return undefined;
+};
+
+const resolveArticleFinancialMetricsCurrency = (
+  metrics: CompanyFinancialMetricsCardRow | null,
+  fallbackCurrency: string
+): string => {
+  if (!metrics) return fallbackCurrency;
+  return (
+    normalizeArticleFinancialCurrency(metrics.Income_statement_currency) ||
+    normalizeArticleFinancialCurrency(metrics.Revenue_currency_display) ||
+    normalizeArticleFinancialCurrency(metrics.EBITDA_currency_display) ||
+    normalizeArticleFinancialCurrency(metrics.EV_currency_display) ||
+    normalizeArticleFinancialCurrency(metrics.EBIT_currency_display) ||
+    fallbackCurrency
+  );
+};
+
+const formatArticleFinancialMetricLabel = (label: string): string =>
+  label.replace(/:$/, "").trim();
+
+const formatArticleFinancialMetricValue = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "-") return "Not available";
+  return trimmed;
+};
+
 const ArticleDetailPage = () => {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { currency: platformCurrency, currencyId: preferredCurrencyId } =
+    usePlatformCurrency();
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -488,6 +562,10 @@ const ArticleDetailPage = () => {
   const [companyOfFocusCompanyId, setCompanyOfFocusCompanyId] = useState<
     number | null
   >(null);
+  const [companyFinancialMetrics, setCompanyFinancialMetrics] =
+    useState<CompanyFinancialMetricsCardRow | null>(null);
+  const [companyFinancialMetricsLoading, setCompanyFinancialMetricsLoading] =
+    useState(false);
   const [showGenerateTableModal, setShowGenerateTableModal] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
   const [tableRows, setTableRows] = useState<TableCompanyRow[]>([]);
@@ -685,10 +763,11 @@ const ArticleDetailPage = () => {
           return;
         }
 
+        const companyOfFocusParams = new URLSearchParams();
+        companyOfFocusParams.set("content_id", String(articleId));
+
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/aritcle_company_of_focus?content_id=${encodeURIComponent(
-            articleId
-          )}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/aritcle_company_of_focus?${companyOfFocusParams.toString()}`,
           {
             method: "GET",
             headers: {
@@ -713,7 +792,6 @@ const ArticleDetailPage = () => {
               logo?: string;
               linkedin_url?: string;
               company_overview?: unknown;
-              financial_overview?: unknown;
             }
           | null;
 
@@ -727,15 +805,6 @@ const ArticleDetailPage = () => {
           typeof rawItem.company_overview === "string"
             ? tryParse<CompanyOfFocusOverview>(rawItem.company_overview)
             : (rawItem.company_overview as CompanyOfFocusOverview | undefined);
-
-        const financial =
-          typeof rawItem.financial_overview === "string"
-            ? tryParse<CompanyOfFocusFinancialOverview>(
-                rawItem.financial_overview
-              )
-            : (rawItem.financial_overview as
-                | CompanyOfFocusFinancialOverview
-                | undefined);
 
         const coFocusCompanyIdCandidate =
           (rawItem as { new_company_id?: unknown }).new_company_id ??
@@ -766,7 +835,6 @@ const ArticleDetailPage = () => {
               ? (rawItem as { company_id: number }).company_id
               : undefined,
           company_overview: overview,
-          financial_overview: financial,
         });
       } catch (err) {
         console.error("Error fetching company of focus:", err);
@@ -777,6 +845,67 @@ const ArticleDetailPage = () => {
 
     fetchCompanyOfFocus();
   }, [article, articleId]);
+
+  useEffect(() => {
+    const fetchFinancialMetrics = async () => {
+      if (!companyOfFocusCompanyId) {
+        setCompanyFinancialMetrics(null);
+        return;
+      }
+
+      try {
+        setCompanyFinancialMetricsLoading(true);
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          setCompanyFinancialMetrics(null);
+          return;
+        }
+
+        const { metricsRows } = await fetchCompanyFinancialMetricsCard(
+          companyOfFocusCompanyId,
+          preferredCurrencyId
+        );
+        setCompanyFinancialMetrics(resolveLatestFinancialMetricsRow(metricsRows));
+      } catch (err) {
+        console.error("Error fetching company financial metrics:", err);
+        setCompanyFinancialMetrics(null);
+      } finally {
+        setCompanyFinancialMetricsLoading(false);
+      }
+    };
+
+    void fetchFinancialMetrics();
+  }, [companyOfFocusCompanyId, preferredCurrencyId]);
+
+  const articleFinancialMetricsCurrency = useMemo(
+    () =>
+      resolveArticleFinancialMetricsCurrency(
+        companyFinancialMetrics,
+        platformCurrency
+      ),
+    [companyFinancialMetrics, platformCurrency]
+  );
+
+  const articleFinancialSnapshotRows = useMemo(() => {
+    if (!companyFinancialMetrics) return [];
+
+    const finMetricsData = buildFinancialMetricsSections({
+      financialMetrics:
+        companyFinancialMetrics as Parameters<
+          typeof buildFinancialMetricsSections
+        >[0]["financialMetrics"],
+      currencyCode: articleFinancialMetricsCurrency,
+      getSourceText: getFinancialMetricSourceText,
+      formatPercent: finFormatPercent,
+      formatMultiple: finFormatMultiple,
+      formatWholeNumber: finFormatWholeNumber,
+      getNumeric: finGetNumeric,
+      periodDisplay:
+        companyFinancialMetrics.period_display?.trim() || undefined,
+    });
+
+    return [...finMetricsData.primary.rows, ...finMetricsData.other.rows];
+  }, [companyFinancialMetrics, articleFinancialMetricsCurrency]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not available";
@@ -1369,15 +1498,6 @@ const ArticleDetailPage = () => {
     const num = Number(value);
     if (!Number.isFinite(num)) return "Not available";
     return `${Math.round(num)}%`;
-  };
-
-  const getFinancialSourceTooltip = (
-    source?: string | null
-  ): string | undefined => {
-    if (!source) return undefined;
-    const trimmed = source.toString().trim();
-    if (!trimmed) return undefined;
-    return `Source: ${trimmed}`;
   };
 
   const toDisplayString = (value: unknown): string => {
@@ -2112,9 +2232,14 @@ const ArticleDetailPage = () => {
               if (!isCompanyOfFocusSnapshotEligibleContentType(ct)) return null;
 
               const overview = companyOfFocus.company_overview;
-              const financial = companyOfFocus.financial_overview;
 
-              if (!overview && !financial) return null;
+              if (
+                !overview &&
+                !companyFinancialMetrics &&
+                !companyFinancialMetricsLoading
+              ) {
+                return null;
+              }
 
               const hqLocation = overview?.hq_location
                 ? [
@@ -2169,39 +2294,12 @@ const ArticleDetailPage = () => {
                   ? overview.employee_count.toLocaleString("en-US")
                   : "Not available";
 
-              const currencyForHeader =
-                (financial?.ev_currency ||
-                  financial?.revenue_currency ||
-                  financial?.ebitda_currency ||
-                  "") || "";
-
-              const financialHeader = currencyForHeader
-                ? `Financial Snapshot (${currencyForHeader})`
+              const financialHeaderCurrencySymbol = articleFinancialMetricsCurrency
+                ? currencyCodeToToggleSymbol(articleFinancialMetricsCurrency)
+                : "";
+              const financialHeader = financialHeaderCurrencySymbol
+                ? `Financial Snapshot (${financialHeaderCurrencySymbol})`
                 : "Financial Snapshot";
-
-              const revenueDisplay = financial
-                ? formatPlainNumber(financial.revenue_m)
-                : "Not available";
-
-              const ebitdaDisplay = financial
-                ? formatPlainNumber(financial.ebitda_m)
-                : "Not available";
-
-              const evDisplay = financial
-                ? formatPlainNumber(financial.enterprise_value_m)
-                : "Not available";
-
-              const revenueMultipleDisplay = financial
-                ? formatMultiple(financial.revenue_multiple)
-                : "Not available";
-
-              const revenueGrowthDisplay = financial
-                ? formatPercent(financial.revenue_growth_pc)
-                : "Not available";
-
-              const ruleOf40Display = financial
-                ? formatPercent(financial.rule_of_40)
-                : "Not available";
 
               return (
                 <>
@@ -2418,7 +2516,7 @@ const ArticleDetailPage = () => {
                       </div>
                     </div>
                   )}
-                  {financial && (
+                  {companyFinancialMetrics && articleFinancialSnapshotRows.length > 0 && (
                     <div
                       className="article-financial-metrics"
                       style={{
@@ -2438,72 +2536,34 @@ const ArticleDetailPage = () => {
                         {financialHeader}
                       </h2>
                       <div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.revenue_source
-                            )}
-                          >
-                            {revenueDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>EBITDA (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.ebitda_source
-                            )}
-                          >
-                            {ebitdaDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Enterprise Value (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.ev_source
-                            )}
-                          >
-                            {evDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue Multiple (x)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.revenue_multiple_source
-                            )}
-                          >
-                            {revenueMultipleDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue Growth (%)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.revenue_growth_source
-                            )}
-                          >
-                            {revenueGrowthDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Rule of 40 (%)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.rule_of_40_source
-                            )}
-                          >
-                            {ruleOf40Display}
-                          </span>
-                        </div>
+                        {articleFinancialSnapshotRows.map((metricRow) => {
+                          const sourceTooltip =
+                            metricRow.source &&
+                            metricRow.source !== "-"
+                              ? `Source: ${metricRow.source}`
+                              : undefined;
+
+                          return (
+                            <div
+                              key={metricRow.label}
+                              style={styles.infoRow}
+                            >
+                              <span style={styles.label}>
+                                {formatArticleFinancialMetricLabel(
+                                  metricRow.label
+                                )}
+                              </span>
+                              <span
+                                style={styles.value}
+                                title={sourceTooltip}
+                              >
+                                {formatArticleFinancialMetricValue(
+                                  metricRow.value
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
