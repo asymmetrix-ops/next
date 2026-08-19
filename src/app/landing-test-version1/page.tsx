@@ -62,6 +62,7 @@ export default async function LandingTestVersion1Page() {
       <Layout184 />
       <Coverage topViewedArticles={topViewedArticles} />
       <Testimonial1 />
+      <Logo3 id="clients-2" showHeading={false} />
       <Blog16Section />
       <Cta15 />
       <Footer1 />

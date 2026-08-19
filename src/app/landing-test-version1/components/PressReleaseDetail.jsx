@@ -13,9 +13,9 @@ export function PressReleaseDetail({ release }) {
   const formattedDate = formatPressReleaseDate(release.date);
 
   return (
-    <section className="landing-navy-bg px-[5%] pb-16 md:pb-24 lg:pb-28">
+    <section className="landing-navy-bg px-[5%] pb-16 pt-16 md:pb-24 md:pt-24 lg:pb-28 lg:pt-28">
       <div className="container">
-        <Reveal className="mx-auto w-full max-w-3xl">
+        <Reveal className="mx-auto w-full max-w-5xl">
           <Link
             href="/landing-test-version1/press-releases"
             className="landing-text-secondary mb-8 inline-flex items-center gap-2 text-sm font-medium transition-colors hover:text-text-alternative md:mb-10 md:text-base"
@@ -40,7 +40,7 @@ export function PressReleaseDetail({ release }) {
               <h1 className="text-3xl font-bold leading-tight text-text-alternative md:text-4xl lg:text-5xl">
                 {release.title}
               </h1>
-              <p className="landing-text-secondary mt-4 text-base leading-relaxed md:text-lg">
+              <p className="mt-4 text-base leading-relaxed text-text-alternative md:text-lg">
                 {release.strapline}
               </p>
             </header>
@@ -51,7 +51,7 @@ export function PressReleaseDetail({ release }) {
                   return (
                     <p
                       key={index}
-                      className="landing-text-secondary mb-5 text-base leading-relaxed last:mb-0 md:text-md"
+                      className="mb-5 text-base leading-relaxed text-text-alternative last:mb-0 md:text-md"
                     >
                       {section.text}
                     </p>
@@ -79,7 +79,7 @@ export function PressReleaseDetail({ release }) {
                         &ldquo;{section.text}&rdquo;
                       </p>
                       {section.attribution ? (
-                        <footer className="landing-text-secondary mt-3 text-sm md:text-base">
+                        <footer className="mt-3 text-sm text-text-alternative md:text-base">
                           — {section.attribution}
                         </footer>
                       ) : null}
@@ -96,7 +96,7 @@ export function PressReleaseDetail({ release }) {
                       <p className="text-sm font-semibold uppercase tracking-wide text-text-alternative">
                         Media contact
                       </p>
-                      <p className="landing-text-secondary mt-2 text-base">
+                      <p className="mt-2 text-base text-text-alternative">
                         {section.name}
                       </p>
                       <a

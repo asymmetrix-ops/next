@@ -41,17 +41,23 @@ const LogoRow = ({ ariaHidden = false }) => (
   </div>
 );
 
-export function Logo3() {
+export function Logo3({
+  id = "clients",
+  showHeading = true,
+  heading = "Trusted by leading firms across the data and analytics industry",
+}) {
   return (
     <section
-      id="clients"
+      id={id}
       className="landing-near-black-bg overflow-hidden py-12 md:py-16 lg:py-20"
     >
-      <Reveal className="container mb-8 w-full max-w-lg px-[5%] md:mb-10 lg:mb-12">
-        <h1 className="text-center text-base font-bold leading-[1.2] text-text-alternative md:text-md md:leading-[1.2]">
-          Trusted by leading firms across the data and analytics industry
-        </h1>
-      </Reveal>
+      {showHeading ? (
+        <Reveal className="container mb-8 w-full max-w-lg px-[5%] md:mb-10 lg:mb-12">
+          <h1 className="text-center text-base font-bold leading-[1.2] text-text-alternative md:text-md md:leading-[1.2]">
+            {heading}
+          </h1>
+        </Reveal>
+      ) : null}
       <div className="overflow-hidden pt-7 md:pt-0">
         <div className="landing-logo-strip-track flex w-max items-center">
           <LogoRow />
