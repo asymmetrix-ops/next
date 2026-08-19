@@ -51,23 +51,35 @@ export function PlatformHero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="relative"
           >
-            <h1 className="text-5xl font-bold leading-[1.05] text-text-alternative md:text-7xl lg:text-8xl">
-              Intelligence on the
-              <br />
-              <span className="landing-gradient-text whitespace-nowrap">
+            <div className="relative mb-4 md:mb-5">
+              <p className="landing-gradient-text text-3xl font-bold tracking-tight md:text-4xl lg:text-5xl">
+                Asymmetrix
+              </p>
+              <p
+                aria-hidden="true"
+                className="landing-shine-overlay pointer-events-none absolute inset-0 select-none text-3xl font-bold tracking-tight md:text-4xl lg:text-5xl"
+              >
+                Asymmetrix
+              </p>
+            </div>
+            <div className="relative">
+              <h1 className="text-5xl font-bold leading-[1.05] text-text-alternative md:text-7xl lg:text-8xl">
+                Intelligence on the
+                <br />
+                <span className="landing-gradient-text whitespace-nowrap">
+                  Data & Analytics Market
+                </span>
+              </h1>
+              <h1
+                aria-hidden="true"
+                className="landing-shine-overlay pointer-events-none absolute inset-0 select-none text-5xl font-bold leading-[1.05] md:text-7xl lg:text-8xl"
+              >
+                Intelligence on the
+                <br />
                 Data & Analytics Market
-              </span>
-            </h1>
-            <h1
-              aria-hidden="true"
-              className="landing-shine-overlay pointer-events-none absolute inset-0 select-none text-5xl font-bold leading-[1.05] md:text-7xl lg:text-8xl"
-            >
-              Intelligence on the
-              <br />
-              Data & Analytics Market
-            </h1>
+              </h1>
+            </div>
           </motion.div>
 
           <motion.div
@@ -93,7 +105,19 @@ export function PlatformHero() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="mx-auto mt-16 max-w-[80rem]"
+          className="mx-auto mt-12 max-w-[42rem] text-center md:mt-14"
+        >
+          <p className="text-base leading-relaxed text-text-alternative md:text-lg">
+            Track companies, investors, deal activity, and AI impact in one
+            place for the Data &amp; Analytics market. Pick a starting point:
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.38, ease: [0.16, 1, 0.3, 1] }}
+          className="mx-auto mt-8 max-w-[80rem] md:mt-10"
         >
           <div className="flex justify-center">
             <div className="landing-tab-pill-track inline-flex">
