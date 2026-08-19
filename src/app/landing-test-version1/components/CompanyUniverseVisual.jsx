@@ -2,18 +2,9 @@
 
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import React, { useEffect, useRef, useState } from "react";
+import { DEFAULT_COMPANY_UNIVERSE_COUNTS } from "@/lib/landingCompanyUniverseCounts";
 
-// Live company universe totals (companies_counts).
-const DEFAULT_DATA = {
-  all: 6550,
-  public: 225,
-  peOwned: 671,
-  vcBacked: 1881,
-  private: 1671,
-  subsidiary: 385,
-  acquired: 1313,
-  other: 404,
-};
+const DEFAULT_DATA = DEFAULT_COMPANY_UNIVERSE_COUNTS;
 
 const CATEGORY_ROWS = [
   { key: "all", label: "All" },
@@ -112,12 +103,40 @@ function CategoryRow({ label, value, maxValue, isAll, index, active }) {
   );
 }
 
-export function CompanyUniverseVisual({ data }) {
-  const values = { ...DEFAULT_DATA, ...data };
+export function CompanyUniverseVisual({ data: initialData }) {
+  const [data, setData] = useState(initialData ?? null);
+  const [loaded, setLoaded] = useState(Boolean(initialData));
+
+  useEffect(() => {
+    if (initialData) {
+      setData(initialData);
+      setLoaded(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetch("/api/landing/company-universe-counts")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((json) => {
+        if (cancelled || !json) return;
+        setData(json);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialData]);
+
+  const values = { ...DEFAULT_DATA, ...(data ?? {}) };
   const reduceMotion = useReducedMotion();
   const containerRef = useRef(null);
   const inView = useInView(containerRef, { amount: 0.4, once: true });
-  const active = inView && !reduceMotion;
+  const active = loaded && inView && !reduceMotion;
 
   const maxValue = Math.max(
     ...CATEGORY_ROWS.filter((r) => r.key !== "all").map((r) => values[r.key]),
