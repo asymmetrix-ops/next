@@ -14,6 +14,11 @@ export interface ArticleSeries {
   parts: ArticleSeriesPart[];
 }
 
+export interface ContentCorrection {
+  note: string;
+  updated_at: string;
+}
+
 export interface ContentArticle {
   id: number;
   created_at: number;
@@ -72,6 +77,12 @@ export interface ContentArticle {
   }>;
   is_series?: boolean;
   series?: ArticleSeries;
+  /** News byline — plain string, list of names, or nested arrays from API */
+  byline?: string | string[] | Array<string | string[]> | null;
+  right_to_reply?: boolean;
+  corrections?: ContentCorrection[] | null;
+  is_corrected?: boolean;
+  last_corrected_at?: string | null;
 }
 
 export interface InsightsAnalysisResponse {

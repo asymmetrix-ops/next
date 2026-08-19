@@ -23,6 +23,11 @@ import {
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "@/types/insightsAnalysis";
+import {
+  getArticleByline,
+  isNewsArticle,
+  normalizeContentArticles,
+} from "@/lib/contentArticleDisplay";
 import type { CompaniesFilters } from "@/app/companies/actions";
 import {
   CompaniesSearchDashboard,
@@ -5897,7 +5902,7 @@ const SectorDetailPage = ({
 
         const data: InsightsAnalysisResponse = await response.json();
 
-        setArticles(data.items);
+        setArticles(normalizeContentArticles(data.items || []));
         setPagination({
           itemsReceived: data.itemsReceived,
           curPage: data.curPage,
@@ -6007,6 +6012,7 @@ const SectorDetailPage = ({
       if (t === "sector analysis") return "badge badge-sector-analysis";
       if (t === "hot take") return "badge badge-hot-take";
       if (t === "executive interview") return "badge badge-executive-interview";
+      if (t === "news") return "badge badge-news";
       return "badge";
     };
 
@@ -6078,6 +6084,10 @@ const SectorDetailPage = ({
           <div className="insights-analysis-cards">
             {articles.map((article: ContentArticle, index: number) => {
               const effectiveContentType = getEffectiveContentType(article);
+              const isNews = isNewsArticle({
+                Content_Type: effectiveContentType,
+              });
+              const byline = isNews ? getArticleByline(article) : "";
 
               return (
                 <a
@@ -6118,6 +6128,9 @@ const SectorDetailPage = ({
                       </span>
                     </div>
                   )}
+                  {byline ? (
+                    <p className="article-byline">{byline}</p>
+                  ) : null}
                   <p className="article-summary">
                     {article.Strapline || "No summary available"}
                   </p>
@@ -6256,6 +6269,17 @@ const SectorDetailPage = ({
             background: #f0fdf4;
             color: #166534;
             border-color: #bbf7d0;
+          }
+          .badge-news {
+            background: #fff1f2;
+            color: #9f1239;
+            border-color: #fecdd3;
+          }
+          .article-byline {
+            font-size: 13px;
+            color: #6b7280;
+            margin: -12px 0 16px 0;
+            font-style: italic;
           }
           .article-summary {
             font-size: 14px;

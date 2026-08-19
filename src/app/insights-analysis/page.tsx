@@ -23,6 +23,11 @@ import {
 } from "@/lib/sectorInsightsArticles";
 import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 import SeriesArticleCard from "@/components/SeriesArticleCard";
+import NewsArticleCard from "@/components/NewsArticleCard";
+import {
+  isNewsArticle,
+  normalizeContentArticles,
+} from "@/lib/contentArticleDisplay";
 
 // Shared styles object
 const styles = {
@@ -199,6 +204,7 @@ const InsightsAnalysisCards = ({
     if (t === "sector analysis") return "badge badge-sector-analysis";
     if (t === "hot take") return "badge badge-hot-take";
     if (t === "executive interview") return "badge badge-executive-interview";
+    if (t === "news") return "badge badge-news";
     return "badge";
   };
 
@@ -214,6 +220,8 @@ const InsightsAnalysisCards = ({
             formatCompanies={formatCompanies}
             badgeClassFor={badgeClassFor}
           />
+        ) : isNewsArticle(article) ? (
+          <NewsArticleCard key={article.id || index} article={article} />
         ) : (
           <InsightsAnalysisCard
             key={article.id}
@@ -355,7 +363,7 @@ const InsightsAnalysisPageContent = () => {
           byDateDesc
         );
 
-        setArticles(combined);
+        setArticles(normalizeContentArticles(combined));
         setPagination({
           itemsReceived: combined.length,
           curPage: 1,
@@ -376,7 +384,7 @@ const InsightsAnalysisPageContent = () => {
             token,
           });
 
-          setArticles(result.articles);
+          setArticles(normalizeContentArticles(result.articles));
           setPagination({
             itemsReceived: result.total,
             curPage: result.page,
@@ -395,7 +403,7 @@ const InsightsAnalysisPageContent = () => {
           searchParams
         );
 
-        setArticles(data.items);
+        setArticles(normalizeContentArticles(data.items || []));
         setPagination({
           itemsReceived: data.itemsReceived,
           curPage: data.curPage,
@@ -679,6 +687,7 @@ const InsightsAnalysisPageContent = () => {
     .badge-sector-analysis { background: #ede9fe; color: #5b21b6; }
     .badge-hot-take { background: #fee2e2; color: #991b1b; }
     .badge-executive-interview { background: #d1fae5; color: #065f46; }
+    .badge-news { background: #fff1f2; color: #9f1239; border: 1px solid #fecdd3; }
 
     /*
       Card Layout Rules (scoped to Insights & Analysis only).

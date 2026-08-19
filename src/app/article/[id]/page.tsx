@@ -21,7 +21,8 @@ import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPart
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
-import type { ArticleSeries } from "@/types/insightsAnalysis";
+import type { ArticleSeries, ContentArticle } from "@/types/insightsAnalysis";
+import { getArticleByline, isNewsArticle } from "@/lib/contentArticleDisplay";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
 import {
   fetchCompanyFinancialMetricsCard,
@@ -102,6 +103,7 @@ interface ArticleDetail {
   }>;
   is_series?: boolean;
   series?: ArticleSeries;
+  byline?: string | string[] | Array<string | string[]> | null;
 }
 
 interface CompanyOfFocusOverview {
@@ -687,6 +689,9 @@ const ArticleDetailPage = () => {
               url: string;
             }>
           >(raw.Related_Documents) || [],
+        byline:
+          tryParse<string | string[] | Array<string | string[]>>(raw.byline) ??
+          raw.byline,
       } as ArticleDetail;
 
       const visibilityRaw =
@@ -1882,6 +1887,8 @@ const ArticleDetailPage = () => {
       (companyOfFocusCompanyId != null && companyOfFocusCompanyId > 0)
   );
   const hqCountryIso2 = getInsightHqCountryIso2(article);
+  const isNews = isNewsArticle(article as unknown as ContentArticle);
+  const byline = getArticleByline(article);
 
   return (
     <div style={{ ...styles.container, maxWidth: "100vw", overflowX: "hidden" }}>
@@ -1937,6 +1944,19 @@ const ArticleDetailPage = () => {
                 </div>
               ) : null;
             })()}
+            {isNews && byline ? (
+              <p
+                style={{
+                  fontSize: 16,
+                  color: "#6b7280",
+                  marginTop: -16,
+                  marginBottom: 24,
+                  fontStyle: "italic",
+                }}
+              >
+                {byline}
+              </p>
+            ) : null}
 
             {/* Theatre-mode video(s) – always under content type badge */}
             {article.Related_Documents &&

@@ -6,6 +6,8 @@ import type { ContentArticle } from "@/types/insightsAnalysis";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
+import { isNewsArticle } from "@/lib/contentArticleDisplay";
+import NewsArticleCard from "@/components/NewsArticleCard";
 
 const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
@@ -482,6 +484,10 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
           role: "group",
           tabIndex: -1,
         } satisfies React.HTMLAttributes<HTMLDivElement>);
+
+  if (isNewsArticle(article)) {
+    return <NewsArticleCard article={article} />;
+  }
 
   return React.createElement(
     isClickable ? "a" : "div",
