@@ -58,8 +58,8 @@ export function ContactFormSection() {
             <ul className="flex flex-col gap-5">
               <li className="flex items-center gap-3">
                 <BiEnvelope className="size-5 shrink-0 text-background-alternative" />
-                <a href="mailto:hello@asymmetrixintelligence.com" className="hover:underline">
-                  hello@asymmetrixintelligence.com
+                <a href="mailto:h.crean@asymmetrixintelligence.com" className="hover:underline">
+                  h.crean@asymmetrixintelligence.com
                 </a>
               </li>
               <li className="flex items-center gap-3">

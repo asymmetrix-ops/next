@@ -80,7 +80,7 @@ function initialsOf(name) {
 
 function TeamCard({ member }) {
   return (
-    <div className="flex flex-col items-center text-center">
+    <div className="flex h-full flex-col items-center text-center">
       <div className="bg-background-alternative mb-4 flex size-20 items-center justify-center overflow-hidden rounded-full">
         {member.image ? (
           <Image
@@ -96,10 +96,10 @@ function TeamCard({ member }) {
       </div>
       <p className="text-base font-bold text-text-alternative">{member.name}</p>
       <p className="landing-text-secondary mb-3 text-base">{member.title}</p>
-      <p className="landing-text-secondary mb-4 max-w-[15rem] text-xs leading-relaxed">
+      <p className="landing-text-secondary mb-4 max-w-[15rem] flex-1 text-xs leading-relaxed">
         {member.blurb}
       </p>
-      <div className="flex items-center gap-3">
+      <div className="flex h-6 items-center gap-3">
         {member.linkedin ? (
           <a
             href={member.linkedin}
@@ -132,7 +132,7 @@ export function AboutTeam() {
           </p>
         </Reveal>
 
-        <Reveal className="grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-4 md:gap-x-8 md:gap-y-14">
+        <Reveal className="grid grid-cols-2 items-stretch gap-x-6 gap-y-12 md:grid-cols-4 md:gap-x-8 md:gap-y-14">
           {TEAM.map((member) => (
             <TeamCard key={member.name} member={member} />
           ))}

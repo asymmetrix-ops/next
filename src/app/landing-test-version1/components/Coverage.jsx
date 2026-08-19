@@ -92,9 +92,10 @@ const TABS = [
 /**
  * @param {{
  *   topViewedArticles?: import("@/lib/fetchTopViewedLandingArticles").TopViewedLandingArticle[];
+ *   companyUniverseCounts?: import("@/lib/landingCompanyUniverseCounts").CompanyUniverseCounts;
  * }} props
  */
-export function Coverage({ topViewedArticles = [] }) {
+export function Coverage({ topViewedArticles = [], companyUniverseCounts }) {
   return (
     <section
       id="coverage"
@@ -148,7 +149,7 @@ export function Coverage({ topViewedArticles = [] }) {
                   </p>
                 </div>
                 {tab.value === "company-profiles" ? (
-                  <CompanyUniverseVisual />
+                  <CompanyUniverseVisual data={companyUniverseCounts} />
                 ) : tab.value === "deal-radar" ? (
                   <DealRadarVisual />
                 ) : tab.value === "deal-tracking" ? (
