@@ -39,6 +39,8 @@ import {
   resolveCorporateEventDetailInvestmentAmount,
   resolveCorporateEventDetailInvestmentCurrency,
 } from "@/lib/corporateEventAmountDisplay";
+import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 
 // Type-safe check for Data & Analytics company flag
@@ -214,10 +216,9 @@ const CorporateEventDetail = ({
 
   // Formats a "millions" number (already in millions) WITHOUT currency and WITHOUT the "m" suffix.
   const formatMillionsValue = (amount: string | number): string | undefined => {
-    const raw = typeof amount === "number" ? String(amount) : amount;
-    const n = Number(String(raw).replace(/,/g, "").trim());
-    if (!Number.isFinite(n) || n === 0) return undefined;
-    return n.toLocaleString(undefined, { maximumFractionDigits: 3 });
+    const formatted = formatMetricMillionsPlain(amount);
+    if (formatted === EMPTY_DISPLAY) return undefined;
+    return formatted;
   };
 
   const getInvestmentCurrency = (): string | undefined =>
