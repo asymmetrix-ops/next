@@ -23,6 +23,7 @@ import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
 import type { ArticleSeries, ContentArticle } from "@/types/insightsAnalysis";
 import { getArticleByline, isNewsArticle } from "@/lib/contentArticleDisplay";
+import { getContentTypeBadgeStyle } from "@/lib/contentTypeBadge";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
 import {
   fetchCompanyFinancialMetricsCard,
@@ -1935,7 +1936,7 @@ const ArticleDetailPage = () => {
               ).trim();
               return ct ? (
                 <div style={styles.contentTypeRow}>
-                  <span style={styles.contentTypeBadge}>{ct}</span>
+                  <span style={getContentTypeBadgeStyle(ct)}>{ct}</span>
                   {article.Transaction_status && (
                     <span style={styles.transactionStatusBadge}>
                       {article.Transaction_status}
