@@ -95,7 +95,7 @@ export function Footer1() {
               <ul>
                 <li className="py-2 text-sm">
                   <a
-                    href="/about-us"
+                    href="/landing-test-version1/about-us"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>About Us</span>
@@ -103,7 +103,7 @@ export function Footer1() {
                 </li>
                 <li className="py-2 text-sm">
                   <a
-                    href="#"
+                    href="/landing-test-version1/contact-us"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>Contact us</span>

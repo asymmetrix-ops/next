@@ -6,8 +6,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 const EASE = [0.16, 1, 0.3, 1];
 const MAX_SCORE = 3;
 const SIZE = 300;
-const PAD_H = 118;
-const PAD_V = 46;
+const PAD_H = 140;
+const PAD_V = 54;
 const AUTO_CYCLE_MS = 2600;
 
 // Illustrative only — a fabricated defensibility shape, not a real company's
@@ -80,7 +80,7 @@ function tierForScore(score) {
 
 function wrapLabel(label) {
   if (label.includes(" · ")) return label.split(" · ").map((part) => part.trim());
-  const maxChars = 16;
+  const maxChars = 13;
   const words = label.split(/\s+/);
   const lines = [];
   let current = "";
@@ -151,13 +151,13 @@ function RadarChart({ axes, active, entered, reduceMotion, onPick }) {
 
   const labels = axes.map((ax, i) => {
     const a = angleFor(i);
-    const lr = R + 34;
+    const lr = R + 42;
     const lx = cx + Math.cos(a) * lr;
     const ly = cy + Math.sin(a) * lr;
     const anchor = Math.abs(Math.cos(a)) < 0.2 ? "middle" : Math.cos(a) > 0 ? "start" : "end";
     const isActive = active === ax.key;
     const lines = wrapLabel(ax.label);
-    const lineHeight = 13;
+    const lineHeight = 16;
     const totalH = lines.length * lineHeight;
     const startDy = -(totalH / 2) + lineHeight / 2;
 
@@ -167,7 +167,7 @@ function RadarChart({ axes, active, entered, reduceMotion, onPick }) {
           x={lx}
           y={ly}
           textAnchor={anchor}
-          fontSize={9.5}
+          fontSize={13}
           fontWeight={isActive ? 700 : 600}
           fill={isActive ? "#000B29" : "#5A6272"}
           style={{ transition: "fill 0.2s ease" }}

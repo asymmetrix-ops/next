@@ -104,7 +104,7 @@ export function Navbar1() {
           className="overflow-hidden px-[5%] lg:flex lg:items-center lg:overflow-visible lg:px-0 lg:[--height-closed:auto] lg:[--height-open:auto]"
         >
           <a
-            href="/about-us"
+            href="/landing-test-version1/about-us"
             className="landing-text-secondary block py-3 text-md transition-colors first:pt-7 hover:text-text-alternative lg:px-4 lg:py-2 lg:text-base first:lg:pt-2"
           >
             About Us
@@ -116,7 +116,7 @@ export function Navbar1() {
             Press Releases
           </a>
           <a
-            href="#"
+            href="/landing-test-version1/contact-us"
             className="landing-text-secondary block py-3 text-md transition-colors first:pt-7 hover:text-text-alternative lg:px-4 lg:py-2 lg:text-base first:lg:pt-2"
           >
             Contact Us
