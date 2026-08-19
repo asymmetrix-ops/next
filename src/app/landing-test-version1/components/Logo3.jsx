@@ -44,7 +44,7 @@ const LogoRow = ({ ariaHidden = false }) => (
 export function Logo3() {
   return (
     <section
-      id="relume"
+      id="clients"
       className="landing-near-black-bg overflow-hidden py-12 md:py-16 lg:py-20"
     >
       <Reveal className="container mb-8 w-full max-w-lg px-[5%] md:mb-10 lg:mb-12">

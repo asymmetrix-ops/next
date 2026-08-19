@@ -74,7 +74,7 @@ export function Footer1() {
               <ul>
                 <li className="py-2 text-sm">
                   <a
-                    href="#"
+                    href="#coverage"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>What we cover</span>
@@ -82,7 +82,7 @@ export function Footer1() {
                 </li>
                 <li className="py-2 text-sm">
                   <a
-                    href="#"
+                    href="#clients"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>Clients</span>
@@ -163,7 +163,7 @@ export function Footer1() {
           <p className="mt-6 md:mt-0">© 2026 Asymmetrix. All rights reserved.</p>
           <ul className="grid grid-flow-row grid-cols-[max-content] justify-center gap-y-4 text-sm md:grid-flow-col md:gap-x-6 md:gap-y-0">
             <li className="underline hover:text-text-alternative">
-              <a href="#">Privacy policy</a>
+              <a href="https://www.asymmetrixintelligence.com/privacy">Privacy policy</a>
             </li>
             <li className="underline hover:text-text-alternative">
               <a href="#">Terms of service</a>

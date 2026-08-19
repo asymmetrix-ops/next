@@ -17,7 +17,6 @@ const DEFAULT_THUMBNAIL = "/images/asymmetrix-video-thumbnail.png";
 const EMPTY_SUBSTACK_TABS = {
   latest: [],
   top: [],
-  discussion: [],
 };
 
 function formatPublicationDate(value) {
@@ -166,12 +165,6 @@ export function Blog16({ substackTabs = EMPTY_SUBSTACK_TABS }) {
             >
               Top
             </TabsTrigger>
-            <TabsTrigger
-              value="discussion"
-              className="landing-tab-trigger whitespace-nowrap px-4"
-            >
-              Discussion
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="latest" className="data-[state=active]:animate-tabs">
@@ -185,16 +178,6 @@ export function Blog16({ substackTabs = EMPTY_SUBSTACK_TABS }) {
             <ArticleGrid
               articles={substackTabs.top}
               emptyMessage="No top Substack posts available."
-            />
-          </TabsContent>
-
-          <TabsContent
-            value="discussion"
-            className="data-[state=active]:animate-tabs"
-          >
-            <ArticleGrid
-              articles={substackTabs.discussion}
-              emptyMessage="No discussion posts available."
             />
           </TabsContent>
         </Tabs>
