@@ -3,7 +3,7 @@ const SUBSTACK_ARCHIVE_BASE =
 
 const DEFAULT_THUMBNAIL = "/images/asymmetrix-video-thumbnail.png";
 
-export type SubstackSort = "new" | "top" | "discussed";
+export type SubstackSort = "new" | "top";
 
 export type SubstackPost = {
   id: number;
@@ -19,7 +19,6 @@ export type SubstackPost = {
 export type SubstackArchiveTabs = {
   latest: SubstackPost[];
   top: SubstackPost[];
-  discussion: SubstackPost[];
 };
 
 type RawSubstackPost = {
@@ -86,11 +85,10 @@ export async function fetchSubstackArchive(
 export async function fetchSubstackArchiveTabs(
   limit = 4
 ): Promise<SubstackArchiveTabs> {
-  const [latest, top, discussion] = await Promise.all([
+  const [latest, top] = await Promise.all([
     fetchSubstackArchive("new", limit),
     fetchSubstackArchive("top", limit),
-    fetchSubstackArchive("discussed", limit),
   ]);
 
-  return { latest, top, discussion };
+  return { latest, top };
 }
