@@ -1,4 +1,3 @@
-import { contributorFetch } from "@/lib/contributorCrm/contributorFetch";
 import type { OutreachImportRow } from "@/lib/contributorCrm/outreachImport";
 
 const API_BASE =
@@ -129,25 +128,31 @@ const LOOKUP_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
 
 export type SectorOption = { id: number; sector_name: string };
 
-export async function getPrimarySectors(): Promise<SectorOption[]> {
-  const res = await contributorFetch(`${LOOKUP_BASE}/all__primary_sector`, {
-    headers: { Accept: "application/json" },
+function buildHeaders(token?: string): Record<string, string> {
+  const h: Record<string, string> = { Accept: "application/json" };
+  if (token) h.Authorization = `Bearer ${token}`;
+  return h;
+}
+
+export async function getPrimarySectors(token?: string): Promise<SectorOption[]> {
+  const res = await fetch(`${LOOKUP_BASE}/all__primary_sector`, {
+    headers: buildHeaders(token),
   });
   if (!res.ok) throw new Error(`Failed to load primary sectors (${res.status})`);
   return (await res.json()) as SectorOption[];
 }
 
-export async function getSecondarySectors(): Promise<SectorOption[]> {
-  const res = await contributorFetch(`${LOOKUP_BASE}/fetch_all_secondary_sectors`, {
-    headers: { Accept: "application/json" },
+export async function getSecondarySectors(token?: string): Promise<SectorOption[]> {
+  const res = await fetch(`${LOOKUP_BASE}/fetch_all_secondary_sectors`, {
+    headers: buildHeaders(token),
   });
   if (!res.ok) throw new Error(`Failed to load secondary sectors (${res.status})`);
   return (await res.json()) as SectorOption[];
 }
 
-export async function getOwnershipTypes(): Promise<{ id: number; ownership: string }[]> {
-  const res = await contributorFetch(`${LOOKUP_BASE}/Get_Ownership_Types`, {
-    headers: { Accept: "application/json" },
+export async function getOwnershipTypes(token?: string): Promise<{ id: number; ownership: string }[]> {
+  const res = await fetch(`${LOOKUP_BASE}/Get_Ownership_Types`, {
+    headers: buildHeaders(token),
   });
   if (!res.ok) throw new Error(`Failed to load ownership types (${res.status})`);
   return (await res.json()) as { id: number; ownership: string }[];
@@ -694,10 +699,10 @@ export async function saveCompanyContactEmail(
   });
 }
 
-export async function getContributorYears(): Promise<ContributorYearItem[]> {
-  const res = await contributorFetch(`${CONTRIBUTOR_METRICS_BASE}/years`, {
+export async function getContributorYears(token?: string): Promise<ContributorYearItem[]> {
+  const res = await fetch(`${CONTRIBUTOR_METRICS_BASE}/years`, {
     method: "GET",
-    headers: { Accept: "application/json" },
+    headers: buildHeaders(token),
   });
 
   if (!res.ok) {
@@ -728,14 +733,11 @@ export async function getContributorMetricsByCompany(
     new_record: String(newRecord),
   });
 
-  const res = await contributorFetch(
+  const res = await fetch(
     `${CONTRIBUTOR_METRICS_BASE}/metrics/by_company?${params.toString()}`,
     {
       method: "GET",
-      headers: {
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: buildHeaders(token ?? undefined),
     }
   );
 
@@ -1372,7 +1374,7 @@ export async function getCompanyTransactionStatusLabel(
     Accept: "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
-  const res = await contributorFetch(url, {
+  const res = await fetch(url, {
     method: "POST",
     headers,
     body: JSON.stringify({ new_company_id: newCompanyId }),

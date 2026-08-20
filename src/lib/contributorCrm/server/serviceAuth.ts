@@ -38,11 +38,12 @@ export async function getContributorServiceToken(
     return cachedToken;
   }
 
-  const email = process.env.CRON_AUTH_EMAIL?.trim();
-  const password = process.env.CRON_AUTH_PASSWORD;
+  const email =
+    process.env.DCP_EMAIL?.trim() || process.env.CRON_AUTH_EMAIL?.trim();
+  const password = process.env.DCP_PW || process.env.CRON_AUTH_PASSWORD;
   if (!email || !password) {
     throw new Error(
-      "Contributor service credentials are not configured. Set CRON_AUTH_EMAIL and CRON_AUTH_PASSWORD."
+      "Contributor service credentials are not configured. Set DCP_EMAIL and DCP_PW (or CRON_AUTH_EMAIL and CRON_AUTH_PASSWORD)."
     );
   }
 

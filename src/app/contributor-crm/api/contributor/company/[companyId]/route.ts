@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rejectUnlessContributorCrmPage } from "@/lib/contributorCrm/server/contributorCrmRequestGuard";
 import { fetchServiceCompany } from "@/lib/contributorCrm/server/contributorApi";
 
 export const dynamic = "force-dynamic";
@@ -7,7 +8,10 @@ type RouteContext = {
   params: Promise<{ companyId: string }>;
 };
 
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  const blocked = rejectUnlessContributorCrmPage(request);
+  if (blocked) return blocked;
+
   try {
     const { companyId } = await context.params;
     if (!companyId?.trim()) {

@@ -19,18 +19,17 @@ import {
   createChangeRequest,
   fetchPublicContributorCompany,
   notifyDataContribution,
-  getCompanyTransactionStatusLabel,
-  getContributorMetricsByCompany,
-  getContributorYears,
-  getPrimarySectors,
-  getSecondarySectors,
   type ContributorYearItem,
   uploadFileToXano,
 } from "@/lib/contributorCrm/api";
+import { contributorFetch } from "@/lib/contributorCrm/contributorFetch";
 import {
-  contributorFetch,
-  getValidContributorAuthToken,
-} from "@/lib/contributorCrm/contributorFetch";
+  fetchContributorMetricsByCompany,
+  fetchContributorPrimarySectors,
+  fetchContributorSecondarySectors,
+  fetchContributorTransactionStatusLabel,
+  fetchContributorYears as fetchContributorYearsFromService,
+} from "@/lib/contributorCrm/contributorServiceApi";
 import {
   authService,
   buildContributorLoginPath,
@@ -6512,8 +6511,8 @@ function SuggestBasicCompanyChangeForm({
           currenciesResult,
         ] = await Promise.allSettled([
           fetchJson<unknown[]>(OWNERSHIP_LOOKUP_URL, { method: "GET", headers }),
-          getPrimarySectors(),
-          getSecondarySectors(),
+          fetchContributorPrimarySectors(),
+          fetchContributorSecondarySectors(),
           fetchJson<unknown[]>(`${COMPANY_LOOKUP_BASE}/job_titles_list`, {
             method: "GET",
             headers: { Accept: "application/json" },
@@ -11074,76 +11073,9 @@ const CompanyDetail = () => {
   };
 
   // Fetch company with intelligent fallbacks (GET first, then POST with common payload keys)
-  const requestCompany = useCallback(
-    async (id: string): Promise<CompanyResponse> => {
-      const token = getValidContributorAuthToken();
-      if (!token) {
-        return (await fetchPublicContributorCompany(id)) as CompanyResponse;
-      }
-
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${id}`;
-
-      // Attempt 1: Standard GET
-      const getResponse = await fetch(endpoint, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      });
-      if (getResponse.status === 401) {
-        return (await fetchPublicContributorCompany(id)) as CompanyResponse;
-      }
-      if (getResponse.ok) {
-        return (await Promise.race([
-          getResponse.json(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Request timed out")), 20000)
-          ),
-        ])) as CompanyResponse;
-      }
-
-      // Attempt 2..N: POST with typical id keys, in case backend expects a body
-      const candidateBodies = [
-        { new_company_id: Number(id) },
-        { company_id: Number(id) },
-        { id: Number(id) },
-      ];
-      for (const body of candidateBodies) {
-        const postResponse = await fetch(endpoint, {
-          method: "POST",
-          headers,
-          credentials: "include",
-          body: JSON.stringify(body),
-        });
-        if (postResponse.status === 401) {
-          return (await fetchPublicContributorCompany(id)) as CompanyResponse;
-        }
-        if (postResponse.ok) {
-          return (await Promise.race([
-            postResponse.json(),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("Request timed out")), 20000)
-            ),
-          ])) as CompanyResponse;
-        }
-      }
-
-      try {
-        return (await fetchPublicContributorCompany(id)) as CompanyResponse;
-      } catch {
-        const errorText = await getResponse.text().catch(() => "");
-        throw new Error(
-          `API request failed: ${getResponse.status} ${getResponse.statusText} ${errorText}`
-        );
-      }
-    },
-    []
-  );
+  const requestCompany = useCallback(async (id: string): Promise<CompanyResponse> => {
+    return (await fetchPublicContributorCompany(id)) as CompanyResponse;
+  }, []);
 
 
   // Fetch Asymmetrix content articles via public companies_articles endpoint
@@ -11365,7 +11297,7 @@ const CompanyDetail = () => {
   const fetchContributorYears = useCallback(async () => {
     try {
       const maxSelectableYear = new Date().getFullYear() + 1;
-      const years = await getContributorYears();
+      const years = await fetchContributorYearsFromService();
       const filtered = years
         .filter((year) => {
           const numericYear = extractValidYear(year.Year);
@@ -11398,10 +11330,9 @@ const CompanyDetail = () => {
       if (!Number.isFinite(newCompanyId)) return;
       setLoadingContributionYearId(yearId);
       try {
-        const payload = await getContributorMetricsByCompany(
+        const payload = await fetchContributorMetricsByCompany(
           newCompanyId,
           yearId,
-          getValidContributorAuthToken(),
           newRecord
         );
         if (payload && typeof payload === "object") {
@@ -11625,7 +11556,7 @@ const CompanyDetail = () => {
           fetchCompanyArticles(enrichedCompany.id);
           const tid = Number(enrichedCompany.id);
           if (Number.isFinite(tid)) {
-            void getCompanyTransactionStatusLabel(tid, getValidContributorAuthToken())
+            void fetchContributorTransactionStatusLabel(tid)
               .then(setTransactionStatusApiLabel)
               .catch(() => setTransactionStatusApiLabel(""));
           }

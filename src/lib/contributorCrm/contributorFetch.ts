@@ -1,31 +1,37 @@
-import { authService, isTokenExpired } from "@/lib/contributorCrm/auth";
+import { isContributorCrmPath } from "@/lib/userStatus";
 
 const PROXY_PATH = "/contributor-crm/api/xano-proxy";
+const XANO_ORIGIN = "https://xdil-abvj-o7rq.e2.xano.io";
 
-export function getValidContributorAuthToken(): string | null {
-  if (typeof window === "undefined") return null;
-  const token = authService.getAuthToken();
-  if (!token || isTokenExpired(token)) return null;
-  return token;
+function assertContributorPageContext(): void {
+  if (typeof window === "undefined") return;
+  if (!isContributorCrmPath(window.location.pathname)) {
+    throw new Error(
+      "Contributor service auth is only available on contributor CRM pages."
+    );
+  }
 }
 
+function isXanoUrl(url: string): boolean {
+  try {
+    return new URL(url).origin === XANO_ORIGIN;
+  } catch {
+    return url.startsWith(XANO_ORIGIN);
+  }
+}
+
+/**
+ * Fetch Xano data for public contributor CRM pages via server-side cron auth.
+ * Never calls Xano directly from the browser, so 401s cannot log the main app out.
+ */
 export async function contributorFetch(
   url: string,
   init: RequestInit = {}
 ): Promise<Response> {
-  const token = getValidContributorAuthToken();
-  const headers = new Headers(init.headers);
-  headers.delete("Authorization");
-  if (!headers.has("Accept")) {
-    headers.set("Accept", "application/json");
-  }
+  assertContributorPageContext();
 
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-    const response = await fetch(url, { ...init, headers });
-    if (response.status !== 401) {
-      return response;
-    }
+  if (!isXanoUrl(url)) {
+    return fetch(url, init);
   }
 
   const method = String(init.method || "GET").toUpperCase();
@@ -40,6 +46,8 @@ export async function contributorFetch(
     }
   }
 
+  const headers = new Headers(init.headers);
+
   return fetch(PROXY_PATH, {
     method: "POST",
     headers: {
@@ -53,4 +61,16 @@ export async function contributorFetch(
       contentType: headers.get("Content-Type"),
     }),
   });
+}
+
+export async function contributorFetchJson<T>(
+  url: string,
+  init?: RequestInit
+): Promise<T> {
+  const res = await contributorFetch(url, init);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Request failed (${res.status})`);
+  }
+  return (await res.json()) as T;
 }

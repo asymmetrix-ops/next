@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rejectUnlessContributorCrmPage } from "@/lib/contributorCrm/server/contributorCrmRequestGuard";
 import { postServiceDataContributionNotification } from "@/lib/contributorCrm/server/contributorApi";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: NextRequest) {
+  const blocked = rejectUnlessContributorCrmPage(request);
+  if (blocked) return blocked;
+
   try {
     const payload = (await request.json()) as Record<string, unknown>;
     if (!payload?.contributor_email || !String(payload.contributor_email).trim()) {

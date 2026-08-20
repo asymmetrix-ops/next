@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rejectUnlessContributorCrmPage } from "@/lib/contributorCrm/server/contributorCrmRequestGuard";
 import { getContributorServiceToken } from "@/lib/contributorCrm/server/serviceAuth";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,9 @@ type LocationParts = {
 };
 
 export async function POST(request: NextRequest) {
+  const blocked = rejectUnlessContributorCrmPage(request);
+  if (blocked) return blocked;
+
   try {
     const body = (await request.json().catch(() => ({}))) as Partial<LocationParts> & {
       company?: string;

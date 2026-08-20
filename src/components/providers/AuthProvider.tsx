@@ -183,11 +183,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const onContributorCrm = usesContributorCrmAuthContext(
         window.location.pathname
       );
+      const isContributorProxy = url.includes("/contributor-crm/api/");
 
       if (
         isXano &&
         !isAuthEndpoint &&
         !onContributorCrm &&
+        !isContributorProxy &&
         response.status === 401
       ) {
         response

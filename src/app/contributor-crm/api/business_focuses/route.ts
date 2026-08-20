@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  isContributorCrmReferer,
+} from "@/lib/contributorCrm/server/contributorCrmRequestGuard";
 import { getContributorServiceToken } from "@/lib/contributorCrm/server/serviceAuth";
 
 export const dynamic = "force-dynamic";
@@ -10,9 +13,18 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
 
   try {
-    const authorization =
-      authHeader ||
-      `Bearer ${await getContributorServiceToken()}`;
+    const authorization = authHeader
+      ? authHeader
+      : isContributorCrmReferer(request)
+        ? `Bearer ${await getContributorServiceToken()}`
+        : null;
+
+    if (!authorization) {
+      return NextResponse.json(
+        { error: "Authentication required." },
+        { status: 401 }
+      );
+    }
 
     const response = await fetch(BUSINESS_FOCUSES_URL, {
       method: "GET",
