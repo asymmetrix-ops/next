@@ -1,4 +1,4 @@
-import { getContributorServiceToken } from "@/lib/contributorCrm/server/serviceAuth";
+import { getContributorServiceToken, clearContributorServiceToken } from "@/lib/contributorCrm/server/serviceAuth";
 
 const FIN_METRICS_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:tDNMS_i0";
@@ -8,9 +8,10 @@ const XANO_NEW_FILE_ENDPOINT =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_file";
 
 export async function serviceAuthorizedHeaders(
-  extra: Record<string, string> = {}
+  extra: Record<string, string> = {},
+  forceRefresh = false
 ): Promise<Record<string, string>> {
-  const token = await getContributorServiceToken();
+  const token = await getContributorServiceToken(forceRefresh);
   return {
     Authorization: `Bearer ${token}`,
     ...extra,
@@ -28,6 +29,24 @@ export async function postServiceChangeRequest(
     body: JSON.stringify(payload),
     cache: "no-store",
   });
+
+  if (res.status === 401) {
+    clearContributorServiceToken();
+    const retry = await fetch(`${FIN_METRICS_BASE}/change_request`, {
+      method: "POST",
+      headers: await serviceAuthorizedHeaders(
+        {
+          "Content-Type": "application/json",
+        },
+        true
+      ),
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
+    if (retry.ok) return;
+    const text = await retry.text().catch(() => "");
+    throw new Error(text || `Failed to submit change request (${retry.status})`);
+  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");

@@ -792,36 +792,18 @@ export async function acceptNewEntityProfile(
 }
 
 export async function createChangeRequest(
-  token: string | null | undefined,
   payload: ChangeRequestPayload
 ): Promise<void> {
-  if (!token) {
-    const res = await fetch(contributorApiPath("/change-request"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      throw new Error(
-        await readContributorApiError(res, `Failed to submit change request (${res.status})`)
-      );
-    }
-    return;
-  }
-
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  headers.Authorization = `Bearer ${token}`;
-
-  const res = await fetch(`${FIN_METRICS_BASE}/change_request`, {
+  const res = await fetch(contributorApiPath("/change-request"), {
     method: "POST",
-    headers,
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Failed to submit change request (${res.status})`);
+    throw new Error(
+      await readContributorApiError(res, `Failed to submit change request (${res.status})`)
+    );
   }
 }
 

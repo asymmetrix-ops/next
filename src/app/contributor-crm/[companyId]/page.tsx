@@ -7038,7 +7038,7 @@ function SuggestBasicCompanyChangeForm({
         localStorage.getItem("outreach_crm_login_email") ||
         "";
 
-      await createChangeRequest(token, {
+      await createChangeRequest({
         entity_type: "company",
         new_company_id: Number(companyId),
         submitted_by: submittedBy,
@@ -9091,7 +9091,7 @@ function ContributeFinancialMetricsTab({
         localStorage.getItem("outreach_crm_login_email") ||
         normalizedContributorEmail;
 
-      await createChangeRequest(token, {
+      await createChangeRequest({
         entity_type: "financial_metrics",
         new_company_id: Number(companyId),
         submitted_by: submittedBy,
