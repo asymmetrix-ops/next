@@ -12,10 +12,11 @@ import {
   InsightsAnalysisFilters,
 } from "../../types/insightsAnalysis";
 import { locationsService } from "@/lib/locationsService";
+import { parseCompanyIdFromSearch } from "@/lib/fetchAllContentArticles";
 import {
-  fetchAllContentArticles,
-  parseCompanyIdFromSearch,
-} from "@/lib/fetchAllContentArticles";
+  fetchInsightsAnalysisDisplayPage,
+  INSIGHTS_DISPLAY_PAGE_SIZE,
+} from "@/lib/insightsAnalysisPagination";
 import {
   fetchSectorInsightsArticles,
   parseCorporateEventIdFromSearch,
@@ -245,7 +246,7 @@ const DEFAULT_INSIGHTS_FILTERS: InsightsAnalysisFilters = {
   Provinces: [],
   Cities: [],
   Offset: 1,
-  Per_page: 12,
+  Per_page: INSIGHTS_DISPLAY_PAGE_SIZE,
 };
 
 // Main Insights Analysis Page Component
@@ -305,7 +306,7 @@ const InsightsAnalysisPageContent = () => {
     nextPage: null as number | null,
     prevPage: null as number | null,
     offset: 0,
-    perPage: 10,
+    perPage: INSIGHTS_DISPLAY_PAGE_SIZE,
     pageTotal: 0,
   });
   const [loading, setLoading] = useState(false);
@@ -397,7 +398,7 @@ const InsightsAnalysisPageContent = () => {
           return;
         }
 
-        const data = await fetchAllContentArticles(
+        const data = await fetchInsightsAnalysisDisplayPage(
           activeFilters,
           token,
           searchParams
@@ -410,7 +411,7 @@ const InsightsAnalysisPageContent = () => {
           nextPage: data.nextPage,
           prevPage: data.prevPage,
           offset: data.offset,
-          perPage: activeFilters.Per_page,
+          perPage: INSIGHTS_DISPLAY_PAGE_SIZE,
           pageTotal: data.pageTotal,
         });
       } catch (error) {
@@ -531,15 +532,25 @@ const InsightsAnalysisPageContent = () => {
       color: #000;
       font-weight: 700;
     }
-    /* Grid System (Container Level) */
+    /* Grid System (Container Level) — fixed columns so 12 cards fill rows evenly */
     .cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 24px;
       padding: 0;
       margin-bottom: 24px;
       width: 100%;
       max-width: 100%;
+    }
+    @media (max-width: 1400px) {
+      .cards-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 1024px) {
+      .cards-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     .article-card {
