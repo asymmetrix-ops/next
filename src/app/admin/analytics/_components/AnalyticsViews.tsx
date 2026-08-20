@@ -2374,3 +2374,6 @@ export function PageInsightsTab() {
 
 export { EmailAnalyticsTab } from "./EmailAnalyticsTab";
 export { CompaniesEntitiesTab } from "./CompaniesEntitiesTab";
+export { InsightsAnalysisTab } from "./InsightsAnalysisTab";
+export { CorporateEventsTab } from "./CorporateEventsTab";
+export { PlatformAnalyticsTab } from "./PlatformAnalyticsTab";

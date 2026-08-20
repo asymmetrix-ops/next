@@ -20,21 +20,21 @@ import {
 const ANALYTICS_BASE_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/admin/analytics";
 
-const SECTORS_URL = `${ANALYTICS_BASE_URL}/sectors`;
-const SUMMARY_URL = `${ANALYTICS_BASE_URL}/companies/summary`;
-const TABLE_URL = `${ANALYTICS_BASE_URL}/companies/table`;
+const FILTERS_URL = `${ANALYTICS_BASE_URL}/content/filters`;
+const SUMMARY_URL = `${ANALYTICS_BASE_URL}/content/summary`;
+const TABLE_URL = `${ANALYTICS_BASE_URL}/content/table`;
 
 const TABLE_PER_PAGE = 25;
 const DEBOUNCE_MS = 300;
 
-type EntityTypeFilter = "all" | "companies" | "investors" | "advisors";
-type TableSortBy = "date" | "entity_type" | "sector";
+type TableSortBy = "date" | "content_type" | "sector";
 type SortDirection = "asc" | "desc";
 
 type SectorOption = { sector_id: number; sector_name: string };
+type ContentTypeOption = { content_type: string };
 
-type EntityBreakdown = {
-  entity_type: string;
+type ContentTypeBreakdown = {
+  content_type: string;
   count: number;
   pct: number;
 };
@@ -46,28 +46,25 @@ type SectorBreakdown = {
   pct: number;
 };
 
-type AdditionOverTime = {
+type OutputOverTime = {
   month: string;
-  entity_type: string;
+  content_type: string;
   count: number;
 };
 
 type SummaryResponse = {
-  total_entities: number;
-  new_entities_count: number;
-  breakdown_by_entity_type: EntityBreakdown[];
-  breakdown_by_primary_sector: SectorBreakdown[];
-  breakdown_by_sub_sector: SectorBreakdown[];
-  additions_over_time: AdditionOverTime[];
+  total_published: number;
+  breakdown_by_content_type: ContentTypeBreakdown[];
+  breakdown_by_sector: SectorBreakdown[];
+  output_over_time: OutputOverTime[];
 };
 
 type TableRow = {
   id: number;
-  name: string;
-  entity_type: string;
-  primary_sectors: string;
-  sub_sectors: string;
-  date_added_ms: number;
+  title: string;
+  content_type: string;
+  sector: string;
+  date_published: string;
 };
 
 type TableResponse = {
@@ -78,20 +75,21 @@ type TableResponse = {
   total_pages: number;
 };
 
-type CompaniesFilters = PeriodFilterState & {
-  entityType: EntityTypeFilter;
-  primarySectorIds: number[];
-  subSectorIds: number[];
+type ContentFilters = PeriodFilterState & {
+  contentType: string;
+  sectorIds: number[];
 };
 
-const ENTITY_CHART_COLORS: Record<string, string> = {
-  Company: "#2563eb",
-  Investor: "#16a34a",
-  Advisor: "#9333ea",
-  Companies: "#2563eb",
-  Investors: "#16a34a",
-  Advisors: "#9333ea",
-};
+const CHART_PALETTE = [
+  "#2563eb",
+  "#16a34a",
+  "#9333ea",
+  "#ea580c",
+  "#0891b2",
+  "#be185d",
+  "#ca8a04",
+  "#4f46e5",
+];
 
 function authHeaders(): Record<string, string> {
   const token =
@@ -108,18 +106,14 @@ function appendIntArray(params: URLSearchParams, key: string, values: number[]) 
   values.forEach((id) => params.append(`${key}[]`, String(id)));
 }
 
-function buildFilterParams(filters: CompaniesFilters): URLSearchParams {
+function buildFilterParams(filters: ContentFilters): URLSearchParams {
   const params = new URLSearchParams();
   appendPeriodToParams(params, filters);
   appendTimeGranularity(params, filters);
-  params.set("entity_type", filters.entityType);
+  params.set("content_type", filters.contentType || "all");
 
-  if (filters.primarySectorIds.length > 0) {
-    appendIntArray(params, "primary_sector_ids", filters.primarySectorIds);
-  }
-
-  if (filters.subSectorIds.length > 0) {
-    appendIntArray(params, "sub_sector_ids", filters.subSectorIds);
+  if (filters.sectorIds.length > 0) {
+    appendIntArray(params, "sector_ids", filters.sectorIds);
   }
 
   return params;
@@ -129,11 +123,13 @@ function formatMetric(v: unknown): string {
   return typeof v === "number" && Number.isFinite(v) ? String(v) : "—";
 }
 
-function formatTimestampMs(ts: number | null | undefined): string {
-  if (!ts) return "—";
+function formatDatePublished(value: string | null | undefined): string {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return "—";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
   try {
-    const d = new Date(ts);
-    if (Number.isNaN(d.getTime())) return String(ts);
+    const d = new Date(trimmed);
+    if (Number.isNaN(d.getTime())) return trimmed;
     return (
       d.getFullYear() +
       "-" +
@@ -142,44 +138,32 @@ function formatTimestampMs(ts: number | null | undefined): string {
       String(d.getDate()).padStart(2, "0")
     );
   } catch {
-    return String(ts);
+    return trimmed;
   }
 }
 
-function entityProfileHref(row: TableRow): string | null {
-  const type = row.entity_type.toLowerCase();
-  if (type.includes("investor")) return `/investors/${row.id}`;
-  if (type.includes("advisor")) return `/advisor/${row.id}`;
-  if (type.includes("company")) return `/company/${row.id}`;
-  return null;
+function chartColorForType(type: string, index: number): string {
+  return CHART_PALETTE[index % CHART_PALETTE.length] ?? "#64748b";
 }
 
-function defaultFilters(): CompaniesFilters {
+function defaultFilters(): ContentFilters {
   return {
     ...defaultPeriodFilter(),
-    entityType: "all",
-    primarySectorIds: [],
-    subSectorIds: [],
+    contentType: "all",
+    sectorIds: [],
   };
 }
 
-function entityColor(label: string, index: number): string {
-  return (
-    ENTITY_CHART_COLORS[label] ??
-    ["#2563eb", "#16a34a", "#9333ea", "#ea580c", "#0891b2"][index % 5]
-  );
-}
-
-export function CompaniesEntitiesTab() {
-  const [filters, setFilters] = useState<CompaniesFilters>(() => defaultFilters());
-  const [debouncedFilters, setDebouncedFilters] = useState<CompaniesFilters>(() =>
+export function InsightsAnalysisTab() {
+  const [filters, setFilters] = useState<ContentFilters>(() => defaultFilters());
+  const [debouncedFilters, setDebouncedFilters] = useState<ContentFilters>(() =>
     defaultFilters()
   );
 
-  const [primarySectorOptions, setPrimarySectorOptions] = useState<SectorOption[]>([]);
-  const [subSectorOptions, setSubSectorOptions] = useState<SectorOption[]>([]);
-  const [sectorsLoading, setSectorsLoading] = useState(false);
-  const [sectorsError, setSectorsError] = useState<string | null>(null);
+  const [sectorOptions, setSectorOptions] = useState<SectorOption[]>([]);
+  const [contentTypeOptions, setContentTypeOptions] = useState<string[]>([]);
+  const [filtersLoading, setFiltersLoading] = useState(false);
+  const [filtersError, setFiltersError] = useState<string | null>(null);
 
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -192,17 +176,10 @@ export function CompaniesEntitiesTab() {
   const [tableSortBy, setTableSortBy] = useState<TableSortBy>("date");
   const [tableSortDir, setTableSortDir] = useState<SortDirection>("desc");
 
-  const primaryLoadedRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const updateFilters = useCallback((patch: Partial<CompaniesFilters>) => {
-    setFilters((prev) => {
-      const next = { ...prev, ...patch };
-      if ("primarySectorIds" in patch && patch.primarySectorIds !== prev.primarySectorIds) {
-        next.subSectorIds = [];
-      }
-      return next;
-    });
+  const updateFilters = useCallback((patch: Partial<ContentFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
     setTablePage(1);
   }, []);
 
@@ -219,11 +196,11 @@ export function CompaniesEntitiesTab() {
   useEffect(() => {
     let aborted = false;
 
-    async function loadPrimarySectors() {
-      setSectorsLoading(true);
-      setSectorsError(null);
+    async function loadFilters() {
+      setFiltersLoading(true);
+      setFiltersError(null);
       try {
-        const resp = await fetch(SECTORS_URL, {
+        const resp = await fetch(FILTERS_URL, {
           method: "GET",
           headers: authHeaders(),
         });
@@ -232,79 +209,37 @@ export function CompaniesEntitiesTab() {
           throw new Error(`${resp.status} ${resp.statusText} ${text}`);
         }
         const json = (await resp.json()) as {
-          primary_sectors?: SectorOption[];
-          sub_sectors?: SectorOption[];
+          sectors?: SectorOption[];
+          content_types?: ContentTypeOption[] | string[];
         };
         if (!aborted) {
-          setPrimarySectorOptions(Array.isArray(json.primary_sectors) ? json.primary_sectors : []);
-          setSubSectorOptions([]);
-          primaryLoadedRef.current = true;
+          setSectorOptions(Array.isArray(json.sectors) ? json.sectors : []);
+          const rawTypes = json.content_types ?? [];
+          const types = rawTypes
+            .map((item) =>
+              typeof item === "string"
+                ? item
+                : typeof item === "object" && item && "content_type" in item
+                  ? String((item as ContentTypeOption).content_type)
+                  : ""
+            )
+            .filter(Boolean);
+          setContentTypeOptions(types);
         }
       } catch (e) {
         if (!aborted) {
-          setSectorsError(e instanceof Error ? e.message : "Failed to load sectors");
+          setFiltersError(e instanceof Error ? e.message : "Failed to load filters");
         }
       } finally {
-        if (!aborted) setSectorsLoading(false);
+        if (!aborted) setFiltersLoading(false);
       }
     }
 
-    loadPrimarySectors();
+    loadFilters();
     return () => {
       aborted = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (!primaryLoadedRef.current) return;
-
-    if (debouncedFilters.primarySectorIds.length === 0) {
-      setSubSectorOptions([]);
-      return;
-    }
-
-    let aborted = false;
-
-    async function loadSubSectors() {
-      setSectorsLoading(true);
-      setSectorsError(null);
-      try {
-        const params = new URLSearchParams();
-        appendIntArray(
-          params,
-          "primary_sector_ids",
-          debouncedFilters.primarySectorIds
-        );
-
-        const resp = await fetch(`${SECTORS_URL}?${params.toString()}`, {
-          method: "GET",
-          headers: authHeaders(),
-        });
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => "");
-          throw new Error(`${resp.status} ${resp.statusText} ${text}`);
-        }
-        const json = (await resp.json()) as {
-          primary_sectors?: SectorOption[];
-          sub_sectors?: SectorOption[];
-        };
-        if (!aborted) {
-          setSubSectorOptions(Array.isArray(json.sub_sectors) ? json.sub_sectors : []);
-        }
-      } catch (e) {
-        if (!aborted) {
-          setSectorsError(e instanceof Error ? e.message : "Failed to load sub-sectors");
-        }
-      } finally {
-        if (!aborted) setSectorsLoading(false);
-      }
-    }
-
-    loadSubSectors();
-    return () => {
-      aborted = true;
-    };
-  }, [debouncedFilters.primarySectorIds]);
 
   useEffect(() => {
     let aborted = false;
@@ -325,19 +260,15 @@ export function CompaniesEntitiesTab() {
         const json = (await resp.json()) as SummaryResponse;
         if (!aborted) {
           setSummary({
-            total_entities: Number(json.total_entities) || 0,
-            new_entities_count: Number(json.new_entities_count) || 0,
-            breakdown_by_entity_type: Array.isArray(json.breakdown_by_entity_type)
-              ? json.breakdown_by_entity_type
+            total_published: Number(json.total_published) || 0,
+            breakdown_by_content_type: Array.isArray(json.breakdown_by_content_type)
+              ? json.breakdown_by_content_type
               : [],
-            breakdown_by_primary_sector: Array.isArray(json.breakdown_by_primary_sector)
-              ? json.breakdown_by_primary_sector
+            breakdown_by_sector: Array.isArray(json.breakdown_by_sector)
+              ? json.breakdown_by_sector
               : [],
-            breakdown_by_sub_sector: Array.isArray(json.breakdown_by_sub_sector)
-              ? json.breakdown_by_sub_sector
-              : [],
-            additions_over_time: Array.isArray(json.additions_over_time)
-              ? json.additions_over_time
+            output_over_time: Array.isArray(json.output_over_time)
+              ? json.output_over_time
               : [],
           });
         }
@@ -404,70 +335,49 @@ export function CompaniesEntitiesTab() {
     };
   }, [debouncedFilters, tablePage, tableSortBy, tableSortDir]);
 
-  const primarySelectOptions = useMemo(
+  const sectorSelectOptions = useMemo(
     () =>
-      primarySectorOptions.map((s) => ({
+      sectorOptions.map((s) => ({
         value: s.sector_id,
         label: s.sector_name,
       })),
-    [primarySectorOptions]
+    [sectorOptions]
   );
 
-  const subSelectOptions = useMemo(
+  const contentTypeBreakdownItems = useMemo(
     () =>
-      subSectorOptions.map((s) => ({
-        value: s.sector_id,
-        label: s.sector_name,
-      })),
-    [subSectorOptions]
-  );
-
-  const showSubSectorControl =
-    debouncedFilters.primarySectorIds.length > 0 && subSectorOptions.length > 0;
-
-  const entityBreakdownItems = useMemo(
-    () =>
-      (summary?.breakdown_by_entity_type ?? []).map((row) => ({
-        key: row.entity_type,
-        label: row.entity_type,
+      (summary?.breakdown_by_content_type ?? []).map((row) => ({
+        key: row.content_type,
+        label: row.content_type,
         count: row.count,
         pct: row.pct,
       })),
-    [summary?.breakdown_by_entity_type]
+    [summary?.breakdown_by_content_type]
   );
 
-  const primaryBreakdownItems = useMemo(
+  const sectorBreakdownItems = useMemo(
     () =>
-      (summary?.breakdown_by_primary_sector ?? []).map((row) => ({
+      (summary?.breakdown_by_sector ?? []).map((row) => ({
         key: row.sector_id,
         label: row.sector_name,
         count: row.count,
         pct: row.pct,
       })),
-    [summary?.breakdown_by_primary_sector]
+    [summary?.breakdown_by_sector]
   );
 
-  const subBreakdownItems = useMemo(
-    () =>
-      (summary?.breakdown_by_sub_sector ?? []).map((row) => ({
-        key: row.sector_id,
-        label: row.sector_name,
-        count: row.count,
-        pct: row.pct,
-      })),
-    [summary?.breakdown_by_sub_sector]
-  );
-
-  const additionsChartData = useMemo(() => {
-    const rows = summary?.additions_over_time ?? [];
+  const outputChartData = useMemo(() => {
+    const rows = summary?.output_over_time ?? [];
     return buildTimeSeriesData({
       rows: rows.map((row) => ({
         bucket: row.month,
-        stackKey: row.entity_type,
+        stackKey: row.content_type,
         count: row.count,
       })),
     });
-  }, [summary?.additions_over_time]);
+  }, [summary?.output_over_time]);
+
+  const useContentTypeDonut = contentTypeBreakdownItems.length <= 6;
 
   function onTableSort(col: TableSortBy) {
     if (tableSortBy === col) {
@@ -491,77 +401,53 @@ export function CompaniesEntitiesTab() {
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-gray-700">Entity type</span>
+            <span className="text-sm font-medium text-gray-700">Content type</span>
             <select
-              value={filters.entityType}
-              onChange={(e) =>
-                updateFilters({ entityType: e.target.value as EntityTypeFilter })
-              }
-              className="rounded border px-3 py-2 text-sm"
+              value={filters.contentType}
+              onChange={(e) => updateFilters({ contentType: e.target.value })}
+              disabled={filtersLoading}
+              className="rounded border px-3 py-2 text-sm disabled:opacity-50"
             >
               <option value="all">All</option>
-              <option value="companies">Companies</option>
-              <option value="investors">Investors</option>
-              <option value="advisors">Advisors</option>
+              {contentTypeOptions.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
             </select>
           </label>
 
           <div className="md:col-span-2 xl:col-span-1">
-            <span className="mb-1 block text-sm font-medium text-gray-700">
-              Primary sector
-            </span>
+            <span className="mb-1 block text-sm font-medium text-gray-700">Sector</span>
             <SearchableMultiSelect
-              options={primarySelectOptions}
-              selectedValues={filters.primarySectorIds}
+              options={sectorSelectOptions}
+              selectedValues={filters.sectorIds}
               onSelectionChange={(values) =>
-                updateFilters({ primarySectorIds: values as number[] })
+                updateFilters({ sectorIds: values as number[] })
               }
               placeholder={
-                sectorsLoading && primarySectorOptions.length === 0
+                filtersLoading && sectorOptions.length === 0
                   ? "Loading sectors..."
-                  : "Select primary sectors"
+                  : "Select sectors"
               }
-              disabled={sectorsLoading && primarySectorOptions.length === 0}
+              disabled={filtersLoading && sectorOptions.length === 0}
             />
           </div>
-
-          {showSubSectorControl && (
-            <div className="md:col-span-2 xl:col-span-1">
-              <span className="mb-1 block text-sm font-medium text-gray-700">
-                Sub-sector
-              </span>
-              <SearchableMultiSelect
-                options={subSelectOptions}
-                selectedValues={filters.subSectorIds}
-                onSelectionChange={(values) =>
-                  updateFilters({ subSectorIds: values as number[] })
-                }
-                placeholder="Select sub-sectors"
-                disabled={sectorsLoading}
-              />
-            </div>
-          )}
         </div>
 
-        {sectorsError && (
-          <p className="mt-3 text-sm text-red-700">{sectorsError}</p>
+        {filtersError && (
+          <p className="mt-3 text-sm text-red-700">{filtersError}</p>
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded border bg-white p-4">
-          <p className="text-sm text-gray-600">Total entities</p>
-          <p className="mt-1 text-3xl font-semibold">
-            {summaryLoading ? "…" : formatMetric(summary?.total_entities)}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">All time — not affected by filters</p>
-        </div>
-        <div className="rounded border bg-white p-4">
-          <p className="text-sm text-gray-600">New entities (selected period)</p>
-          <p className="mt-1 text-3xl font-semibold">
-            {summaryLoading ? "…" : formatMetric(summary?.new_entities_count)}
-          </p>
-        </div>
+      <div className="rounded border bg-white p-4">
+        <p className="text-sm text-gray-600">Published (selected period)</p>
+        <p className="mt-1 text-3xl font-semibold">
+          {summaryLoading ? "…" : formatMetric(summary?.total_published)}
+        </p>
+        <p className="mt-1 text-xs text-gray-500">
+          Excludes QA/test content · keyed on publication date
+        </p>
       </div>
 
       {summaryError && (
@@ -572,53 +458,53 @@ export function CompaniesEntitiesTab() {
 
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <BreakdownDonutChart
-            title="Breakdown by entity type"
-            items={entityBreakdownItems}
-            colorForLabel={entityColor}
-            loading={summaryLoading}
-          />
+          {useContentTypeDonut ? (
+            <BreakdownDonutChart
+              title="Breakdown by content type"
+              items={contentTypeBreakdownItems}
+              colorForLabel={chartColorForType}
+              loading={summaryLoading}
+            />
+          ) : (
+            <TopNHorizontalBarChart
+              title="Top content types"
+              items={contentTypeBreakdownItems}
+              loading={summaryLoading}
+            />
+          )}
           <TopNHorizontalBarChart
-            title="Top primary sectors"
-            items={primaryBreakdownItems}
+            title="Top sectors"
+            items={sectorBreakdownItems}
+            barColor="#0891b2"
             loading={summaryLoading}
           />
         </div>
 
-        {debouncedFilters.primarySectorIds.length > 0 && (
-          <TopNHorizontalBarChart
-            title="Top sub-sectors"
-            items={subBreakdownItems}
-            barColor="#7c3aed"
-            loading={summaryLoading}
-          />
-        )}
-
         <StackedTimeSeriesChart
-          title="Additions over time"
-          data={additionsChartData.data}
-          stackKeys={additionsChartData.stackKeys}
-          colorForKey={entityColor}
+          title="Output over time"
+          data={outputChartData.data}
+          stackKeys={outputChartData.stackKeys}
+          colorForKey={chartColorForType}
           loading={summaryLoading}
         />
       </div>
 
       <div className="rounded border bg-white">
         <div className="border-b px-4 py-3">
-          <h3 className="text-sm font-semibold text-gray-900">Entities added</h3>
+          <h3 className="text-sm font-semibold text-gray-900">Published content</h3>
         </div>
         <div className="overflow-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-gray-700">
               <tr>
-                <th className="px-3 py-2 text-left">Name</th>
+                <th className="px-3 py-2 text-left">Title</th>
                 <th className="px-3 py-2 text-left">
                   <button
-                    onClick={() => onTableSort("entity_type")}
+                    onClick={() => onTableSort("content_type")}
                     className="inline-flex items-center gap-1 hover:underline"
                   >
-                    Entity type
-                    {tableSortBy === "entity_type" && (
+                    Content type
+                    {tableSortBy === "content_type" && (
                       <span className="text-xs text-gray-500">
                         {tableSortDir === "asc" ? "▲" : "▼"}
                       </span>
@@ -630,7 +516,7 @@ export function CompaniesEntitiesTab() {
                     onClick={() => onTableSort("sector")}
                     className="inline-flex items-center gap-1 hover:underline"
                   >
-                    Primary sectors
+                    Sector
                     {tableSortBy === "sector" && (
                       <span className="text-xs text-gray-500">
                         {tableSortDir === "asc" ? "▲" : "▼"}
@@ -638,13 +524,12 @@ export function CompaniesEntitiesTab() {
                     )}
                   </button>
                 </th>
-                <th className="px-3 py-2 text-left">Sub-sectors</th>
                 <th className="px-3 py-2 text-left">
                   <button
                     onClick={() => onTableSort("date")}
                     className="inline-flex items-center gap-1 hover:underline"
                   >
-                    Date added
+                    Date published
                     {tableSortBy === "date" && (
                       <span className="text-xs text-gray-500">
                         {tableSortDir === "asc" ? "▲" : "▼"}
@@ -657,49 +542,44 @@ export function CompaniesEntitiesTab() {
             <tbody>
               {tableLoading && (
                 <tr>
-                  <td className="px-3 py-3 text-center" colSpan={5}>
+                  <td className="px-3 py-3 text-center" colSpan={4}>
                     Loading…
                   </td>
                 </tr>
               )}
               {tableError && !tableLoading && (
                 <tr>
-                  <td className="px-3 py-3 text-red-700 bg-red-50" colSpan={5}>
+                  <td className="px-3 py-3 text-red-700 bg-red-50" colSpan={4}>
                     {tableError}
                   </td>
                 </tr>
               )}
               {!tableLoading && !tableError && (tableData?.items.length ?? 0) === 0 && (
                 <tr>
-                  <td className="px-3 py-3 text-center text-gray-500" colSpan={5}>
+                  <td className="px-3 py-3 text-center text-gray-500" colSpan={4}>
                     No results
                   </td>
                 </tr>
               )}
               {!tableLoading &&
                 !tableError &&
-                (tableData?.items ?? []).map((row) => {
-                  const href = entityProfileHref(row);
-                  return (
-                    <tr key={row.id} className="border-t">
-                      <td className="px-3 py-2">
-                        {href ? (
-                          <Link href={href} className="text-blue-600 hover:underline">
-                            {row.name || "—"}
-                          </Link>
-                        ) : (
-                          row.name || "—"
-                        )}
-                      </td>
-                      <td className="px-3 py-2">{row.entity_type || "—"}</td>
-                      <td className="px-3 py-2">{row.primary_sectors || "—"}</td>
-                      <td className="px-3 py-2">{row.sub_sectors || "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {formatTimestampMs(row.date_added_ms)}
-                      </td>
-                    </tr>
-                  );
-                })}
+                (tableData?.items ?? []).map((row) => (
+                  <tr key={row.id} className="border-t">
+                    <td className="px-3 py-2">
+                      <Link
+                        href={`/article/${row.id}`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {row.title || "—"}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2">{row.content_type || "—"}</td>
+                    <td className="px-3 py-2">{row.sector || "—"}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {formatDatePublished(row.date_published)}
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

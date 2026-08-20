@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
-  CompaniesEntitiesTab,
   CompanySearchTab,
   ContentInsightsTab,
   EmailAnalyticsTab,
@@ -14,11 +13,12 @@ import {
   PlatformWideSearchTab,
   UserActivityTab,
 } from "./_components/AnalyticsViews";
+import { PlatformAnalyticsTab } from "./_components/PlatformAnalyticsTab";
 import { UnifiedActivityTab } from "./_components/UnifiedActivityTab";
 import { McpAuditTab } from "./_components/McpAuditTab";
 
 type AnalyticsTab =
-  | "companies-entities"
+  | "platform-analytics"
   | "unified-activity"
   | "user-activity"
   | "content-insights"
@@ -42,7 +42,7 @@ export default function AdminAnalyticsPage() {
   const router = useRouter();
   const { user, isAuthenticated, loading } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<AnalyticsTab>("companies-entities");
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>("platform-analytics");
 
   const isAdmin = useMemo(() => {
     if (!user) return false;
@@ -96,14 +96,14 @@ export default function AdminAnalyticsPage() {
 
       <div className="flex gap-4 mb-6 border-b">
         <button
-          onClick={() => setActiveTab("companies-entities")}
+          onClick={() => setActiveTab("platform-analytics")}
           className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "companies-entities"
+            activeTab === "platform-analytics"
               ? "border-black font-medium"
               : "border-transparent text-gray-500"
           }`}
         >
-          Companies &amp; Entities
+          Platform Analytics
         </button>
         <button
           onClick={() => setActiveTab("unified-activity")}
@@ -197,7 +197,7 @@ export default function AdminAnalyticsPage() {
         </button>
       </div>
 
-      {activeTab === "companies-entities" && <CompaniesEntitiesTab />}
+      {activeTab === "platform-analytics" && <PlatformAnalyticsTab />}
       {activeTab === "unified-activity" && <UnifiedActivityTab />}
       {activeTab === "user-activity" && <UserActivityTab />}
       {activeTab === "content-insights" && <ContentInsightsTab />}
