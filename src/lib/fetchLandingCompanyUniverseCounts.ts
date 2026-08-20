@@ -1,20 +1,23 @@
-import { cookies } from "next/headers";
+import { fetchCompaniesCountsServer } from "@/app/companies/actions";
+import { getServiceAuthToken } from "@/lib/landingCountsAuth";
+import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 import {
-  DEFAULT_COMPANY_UNIVERSE_COUNTS,
-  fetchCompanyUniverseCounts,
-  resolveLandingCountsAuthToken,
+  DEFAULT_COMPANIES_COUNTS_FILTERS,
+  fetchCompanyUniverseCountsFromApi,
+  mapCompaniesCountsResponse,
   type CompanyUniverseCounts,
 } from "@/lib/landingCompanyUniverseCounts";
-import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 
-export async function fetchLandingCompanyUniverseCounts(): Promise<CompanyUniverseCounts> {
-  const cookieStore = await cookies();
-  const token = resolveLandingCountsAuthToken(
-    cookieStore.get("asymmetrix_auth_token")?.value
-  );
+export async function fetchLandingCompanyUniverseCounts(): Promise<CompanyUniverseCounts | null> {
   const preferredCurrencyId = await readPlatformCurrencyIdServer();
-  const counts = await fetchCompanyUniverseCounts(token, preferredCurrencyId);
-  return counts ?? DEFAULT_COMPANY_UNIVERSE_COUNTS;
+
+  const counts = await fetchCompaniesCountsServer(DEFAULT_COMPANIES_COUNTS_FILTERS);
+  if (counts) return mapCompaniesCountsResponse(counts);
+
+  const serviceToken = await getServiceAuthToken();
+  if (!serviceToken) return null;
+
+  return fetchCompanyUniverseCountsFromApi(serviceToken, preferredCurrencyId);
 }
 
 export type { CompanyUniverseCounts };

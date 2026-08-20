@@ -5,9 +5,6 @@ import {
 } from "@/lib/companiesFilterPayload";
 import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
 
-const COMPANIES_COUNTS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/companies_counts";
-
 export type CompanyUniverseCounts = {
   all: number;
   public: number;
@@ -30,7 +27,18 @@ export const DEFAULT_COMPANY_UNIVERSE_COUNTS: CompanyUniverseCounts = {
   other: 404,
 };
 
-function mapCompaniesCountsResponse(
+const COMPANIES_COUNTS_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/companies_counts";
+
+export const DEFAULT_COMPANIES_COUNTS_FILTERS = {
+  filters_sql: null,
+  has_financial_filters: false,
+  has_year_filter: false,
+  query: null,
+  columns: [] as string[],
+};
+
+export function mapCompaniesCountsResponse(
   data: CompaniesCountsResponse
 ): CompanyUniverseCounts {
   return {
@@ -45,41 +53,29 @@ function mapCompaniesCountsResponse(
   };
 }
 
-export function resolveLandingCountsAuthToken(
-  cookieToken?: string | null
-): string | null {
-  return (
-    cookieToken?.trim() ||
-    process.env.ASYMMETRIX_LANDING_TOKEN?.trim() ||
-    process.env.ASYMMETRIX_TOKEN?.trim() ||
-    null
-  );
+function buildCompaniesCountsUrl(
+  preferredCurrencyId: number = DEFAULT_PLATFORM_CURRENCY_ID
+): string {
+  const payload = normalizeCompanySearchPayload({
+    ...DEFAULT_COMPANIES_COUNTS_FILTERS,
+    preferred_currency_id: preferredCurrencyId,
+  });
+  const params = companyCountsPayloadToSearchParams(payload);
+  return `${COMPANIES_COUNTS_URL}?${params.toString()}`;
 }
 
-export async function fetchCompanyUniverseCounts(
-  token: string | null,
+export async function fetchCompanyUniverseCountsFromApi(
+  token: string,
   preferredCurrencyId: number = DEFAULT_PLATFORM_CURRENCY_ID
 ): Promise<CompanyUniverseCounts | null> {
-  if (!token) return null;
-
   try {
-    const payload = normalizeCompanySearchPayload({
-      filters_sql: null,
-      has_financial_filters: false,
-      has_year_filter: false,
-      query: null,
-      columns: [],
-      preferred_currency_id: preferredCurrencyId,
-    });
-    const params = companyCountsPayloadToSearchParams(payload);
-    const url = `${COMPANIES_COUNTS_URL}?${params.toString()}`;
-
+    const url = buildCompaniesCountsUrl(preferredCurrencyId);
     const response = await fetch(url, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
       },
-      next: { revalidate: 300 },
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -96,4 +92,15 @@ export async function fetchCompanyUniverseCounts(
     console.error("Error fetching landing company universe counts:", error);
     return null;
   }
+}
+
+export function isDefaultCompanyUniverseCounts(
+  counts: CompanyUniverseCounts
+): boolean {
+  return (
+    counts.all === DEFAULT_COMPANY_UNIVERSE_COUNTS.all &&
+    counts.public === DEFAULT_COMPANY_UNIVERSE_COUNTS.public &&
+    counts.peOwned === DEFAULT_COMPANY_UNIVERSE_COUNTS.peOwned &&
+    counts.vcBacked === DEFAULT_COMPANY_UNIVERSE_COUNTS.vcBacked
+  );
 }

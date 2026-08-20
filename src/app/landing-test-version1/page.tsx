@@ -66,7 +66,7 @@ export default async function LandingTestVersion1Page() {
       <Layout184 />
       <Coverage
         topViewedArticles={topViewedArticles}
-        companyUniverseCounts={companyUniverseCounts}
+        companyUniverseCounts={companyUniverseCounts ?? undefined}
       />
       <Testimonial1 />
       <Logo3 id="clients-2" showHeading={false} />

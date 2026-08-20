@@ -1,23 +1,32 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { fetchLandingCompanyUniverseCounts } from "@/lib/fetchLandingCompanyUniverseCounts";
 import {
   DEFAULT_COMPANY_UNIVERSE_COUNTS,
-  fetchCompanyUniverseCounts,
-  resolveLandingCountsAuthToken,
 } from "@/lib/landingCompanyUniverseCounts";
-import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const token = resolveLandingCountsAuthToken(
-    cookieStore.get("asymmetrix_auth_token")?.value
-  );
-  const preferredCurrencyId = await readPlatformCurrencyIdServer();
-  const counts = await fetchCompanyUniverseCounts(token, preferredCurrencyId);
+  const counts = await fetchLandingCompanyUniverseCounts();
 
-  return NextResponse.json(counts ?? DEFAULT_COMPANY_UNIVERSE_COUNTS, {
-    headers: {
-      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
-    },
-  });
+  if (!counts) {
+    console.warn(
+      "landing/company-universe-counts: no auth token — returning fallback counts. Set ASYMMETRIX_TOKEN or ASYMMETRIX_LANDING_TOKEN in env for live counts on public landing."
+    );
+    return NextResponse.json(
+      { ...DEFAULT_COMPANY_UNIVERSE_COUNTS, live: false },
+      {
+        headers: {
+          "Cache-Control": "private, no-store",
+        },
+      }
+    );
+  }
+
+  return NextResponse.json(
+    { ...counts, live: true },
+    {
+      headers: {
+        "Cache-Control": "private, no-store",
+      },
+    }
+  );
 }
