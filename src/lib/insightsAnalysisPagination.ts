@@ -9,15 +9,31 @@ export const INSIGHTS_DISPLAY_PAGE_SIZE = 12;
 
 function inferApiPageSize(data: InsightsAnalysisResponse): number {
   const items = data.items ?? [];
-  const totalItems = data.itemsReceived ?? 0;
   const apiPageTotal = data.pageTotal ?? 0;
 
-  if (items.length > 0 && apiPageTotal > 1 && totalItems > 0) {
-    const fromTotals = Math.ceil(totalItems / apiPageTotal);
-    if (fromTotals > 0) return fromTotals;
+  if (items.length > 0 && apiPageTotal > 1) {
+    return items.length;
   }
 
   return items.length > 0 ? items.length : INSIGHTS_DISPLAY_PAGE_SIZE;
+}
+
+/** Resolve catalog total — itemsReceived is often the current page count, not the full total. */
+function inferTotalItems(
+  data: InsightsAnalysisResponse,
+  apiPageSize: number
+): number {
+  const pageTotal = data.pageTotal ?? 0;
+  const itemsReceived = data.itemsReceived ?? 0;
+  const pageItemCount = data.items?.length ?? 0;
+
+  if (pageTotal > 1 && apiPageSize > 0) {
+    // itemsReceived is the catalog total only when it exceeds one API page.
+    if (itemsReceived > apiPageSize) return itemsReceived;
+    return (pageTotal - 1) * apiPageSize + pageItemCount;
+  }
+
+  return itemsReceived || pageItemCount;
 }
 
 /**
@@ -38,8 +54,8 @@ export async function fetchInsightsAnalysisDisplayPage(
     search
   );
 
-  const totalItems = probe.itemsReceived ?? 0;
   const apiPageSize = inferApiPageSize(probe);
+  const totalItems = inferTotalItems(probe, apiPageSize);
   const displayPageTotal =
     totalItems > 0 ? Math.ceil(totalItems / displayPageSize) : 0;
 
