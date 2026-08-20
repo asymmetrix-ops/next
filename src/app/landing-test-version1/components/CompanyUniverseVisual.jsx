@@ -6,6 +6,22 @@ import { DEFAULT_COMPANY_UNIVERSE_COUNTS } from "@/lib/landingCompanyUniverseCou
 
 const DEFAULT_DATA = DEFAULT_COMPANY_UNIVERSE_COUNTS;
 
+function normalizeCountsPayload(json) {
+  if (!json || typeof json !== "object") return null;
+  const { all, public: publicCount, peOwned, vcBacked, private: privateCount, subsidiary, acquired, other } = json;
+  if (typeof all !== "number") return null;
+  return {
+    all,
+    public: publicCount ?? 0,
+    peOwned: peOwned ?? 0,
+    vcBacked: vcBacked ?? 0,
+    private: privateCount ?? 0,
+    subsidiary: subsidiary ?? 0,
+    acquired: acquired ?? 0,
+    other: other ?? 0,
+  };
+}
+
 const CATEGORY_ROWS = [
   { key: "all", label: "All" },
   { key: "public", label: "Public" },
@@ -105,22 +121,17 @@ function CategoryRow({ label, value, maxValue, isAll, index, active }) {
 
 export function CompanyUniverseVisual({ data: initialData }) {
   const [data, setData] = useState(initialData ?? null);
-  const [loaded, setLoaded] = useState(Boolean(initialData));
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (initialData) {
-      setData(initialData);
-      setLoaded(true);
-      return;
-    }
-
     let cancelled = false;
 
-    void fetch("/api/landing/company-universe-counts")
+    void fetch("/api/landing/company-universe-counts", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((json) => {
-        if (cancelled || !json) return;
-        setData(json);
+        if (cancelled || json?.live !== true) return;
+        const counts = normalizeCountsPayload(json);
+        if (counts) setData(counts);
       })
       .catch(() => {})
       .finally(() => {
@@ -130,9 +141,9 @@ export function CompanyUniverseVisual({ data: initialData }) {
     return () => {
       cancelled = true;
     };
-  }, [initialData]);
+  }, []);
 
-  const values = { ...DEFAULT_DATA, ...(data ?? {}) };
+  const values = data ?? initialData ?? DEFAULT_DATA;
   const reduceMotion = useReducedMotion();
   const containerRef = useRef(null);
   const inView = useInView(containerRef, { amount: 0.4, once: true });
