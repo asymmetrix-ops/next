@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getContributorServiceToken } from "@/lib/contributorCrm/server/serviceAuth";
+
+export const dynamic = "force-dynamic";
 
 const BUSINESS_FOCUSES_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/business_focuses";
@@ -7,11 +10,15 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
 
   try {
+    const authorization =
+      authHeader ||
+      `Bearer ${await getContributorServiceToken()}`;
+
     const response = await fetch(BUSINESS_FOCUSES_URL, {
       method: "GET",
       headers: {
         Accept: "application/json",
-        ...(authHeader ? { Authorization: authHeader } : {}),
+        Authorization: authorization,
       },
       cache: "no-store",
     });

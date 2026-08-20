@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getContributorServiceToken } from "@/lib/contributorCrm/server/serviceAuth";
+
+export const dynamic = "force-dynamic";
 
 const GET_LOCATION_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I/get_location";
 
@@ -26,7 +29,10 @@ export async function POST(request: NextRequest) {
 
     const r = await fetch(`${GET_LOCATION_URL}?${params.toString()}`, {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${await getContributorServiceToken()}`,
+      },
       cache: "no-store",
     });
 

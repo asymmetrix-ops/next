@@ -26,8 +26,15 @@ function isCachedTokenValid(): boolean {
   return Date.now() < cachedTokenExpiryMs - 30_000;
 }
 
-export async function getContributorServiceToken(): Promise<string> {
-  if (cachedToken && isCachedTokenValid()) {
+export function clearContributorServiceToken(): void {
+  cachedToken = null;
+  cachedTokenExpiryMs = null;
+}
+
+export async function getContributorServiceToken(
+  forceRefresh = false
+): Promise<string> {
+  if (!forceRefresh && cachedToken && isCachedTokenValid()) {
     return cachedToken;
   }
 

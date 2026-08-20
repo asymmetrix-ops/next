@@ -4370,10 +4370,10 @@ export function ChangeReviewModal({ row, onClose, readOnly = false, onApplied }:
 
     Promise.all([
       getCompanyChangeRequestSummaries(token, row.company_id),
-      getPrimarySectors(token).catch(() => []),
-      getSecondarySectors(token).catch(() => []),
+      getPrimarySectors().catch(() => []),
+      getSecondarySectors().catch(() => []),
       getBusinessFocuses(token).catch(() => []),
-      getOwnershipTypes(token).catch(() => []),
+      getOwnershipTypes().catch(() => []),
       fetch(`${COUNTERPARTY_ROLE_URL}?query=`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } })
         .then((r) => r.ok ? r.json() : []).catch(() => []),
       fetch(CURRENCY_URL, { headers: { Accept: "application/json" } })

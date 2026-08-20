@@ -28,6 +28,10 @@ import {
   uploadFileToXano,
 } from "@/lib/contributorCrm/api";
 import {
+  contributorFetch,
+  getValidContributorAuthToken,
+} from "@/lib/contributorCrm/contributorFetch";
+import {
   authService,
   buildContributorLoginPath,
   buildInternalReviewUrl,
@@ -1613,7 +1617,7 @@ async function fetchJson<T>(
   url: string,
   init?: RequestInit
 ): Promise<T> {
-  const response = await fetch(url, init);
+  const response = await contributorFetch(url, init);
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new Error(text || `Request failed (${response.status})`);
@@ -3365,7 +3369,7 @@ function LocationSearchInput({
       setLoading(true);
       try {
         const url = `${LOCATIONS_API}?search=${encodeURIComponent(query)}&limit=${limitRef.current}`;
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        const res = await contributorFetch(url, { headers: { Accept: "application/json" } });
         const data: LocationOption[] = await res.json();
         if (!cancelled) {
           setOptions(data);
@@ -3392,7 +3396,7 @@ function LocationSearchInput({
     setLoading(true);
     try {
       const url = `${LOCATIONS_API}?search=${encodeURIComponent(query)}&limit=${nextLimit}`;
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      const res = await contributorFetch(url, { headers: { Accept: "application/json" } });
       const data: LocationOption[] = await res.json();
       setOptions(data);
       setHasMore(data.length === nextLimit);
@@ -6494,7 +6498,6 @@ function SuggestBasicCompanyChangeForm({
     const loadLookups = async () => {
       try {
         const token = authService.getAuthToken();
-        const authToken = token ?? undefined;
         const headers: Record<string, string> = { Accept: "application/json" };
         if (token) {
           headers.Authorization = `Bearer ${token}`;
@@ -6509,8 +6512,8 @@ function SuggestBasicCompanyChangeForm({
           currenciesResult,
         ] = await Promise.allSettled([
           fetchJson<unknown[]>(OWNERSHIP_LOOKUP_URL, { method: "GET", headers }),
-          getPrimarySectors(authToken),
-          getSecondarySectors(authToken),
+          getPrimarySectors(),
+          getSecondarySectors(),
           fetchJson<unknown[]>(`${COMPANY_LOOKUP_BASE}/job_titles_list`, {
             method: "GET",
             headers: { Accept: "application/json" },
@@ -6767,18 +6770,12 @@ function SuggestBasicCompanyChangeForm({
     params.set("Per_page", "25");
     params.set("Offset", "1");
 
-    const token = authService.getAuthToken();
-    if (!token) {
-      throw new Error("Authentication required");
-    }
-
     const payload = await fetchJson<SearchCompaniesResponse>(
       `${SEARCH_COMPANIES_URL}?${params.toString()}`,
       {
         method: "GET",
         headers: {
           Accept: "application/json",
-          Authorization: `Bearer ${token}`,
         },
       }
     );
@@ -8964,7 +8961,7 @@ function ContributeFinancialMetricsTab({
   const isPublicContributor = !authService.getAuthToken();
 
   useEffect(() => {
-    fetch("https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I/get_currency")
+    contributorFetch("https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I/get_currency")
       .then((r) => r.json())
       .then((data: Array<{ id: number; Currency: string }>) => {
         setCurrencies(data);
@@ -10005,11 +10002,9 @@ function SectorIntelligenceTab({
     if (!email) { setSubmissionCount(0); return; }
 
     const params = new URLSearchParams({ user_email: email });
-    const token = authService.getAuthToken();
-    const headers: Record<string, string> = { Accept: "application/json" };
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    fetch(`${SUBMISSIONS_API}?${params}`, { headers })
+    contributorFetch(`${SUBMISSIONS_API}?${params}`, {
+      headers: { Accept: "application/json" },
+    })
       .then((r) => r.json())
       .then((data: unknown) => {
         if (cancelled) return;
@@ -10060,7 +10055,7 @@ function SectorIntelligenceTab({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(SECTOR_INTEL_API, { method: "GET", headers: { Accept: "application/json" } })
+    contributorFetch(SECTOR_INTEL_API, { method: "GET", headers: { Accept: "application/json" } })
       .then(async (r) => {
         if (!r.ok) throw new Error(`Failed to load data (${r.status})`);
         return r.json();
@@ -10098,11 +10093,9 @@ function SectorIntelligenceTab({
     primarySectorIds.forEach((id) => params.append("primary_sector_ids[]", String(id)));
     secondarySectorIds.forEach((id) => params.append("secondary_sector_ids[]", String(id)));
 
-    const token = authService.getAuthToken();
-    fetch(`${CE_API}?${params.toString()}`, {
+    contributorFetch(`${CE_API}?${params.toString()}`, {
       headers: {
         Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
       .then((r) => {
@@ -11083,7 +11076,7 @@ const CompanyDetail = () => {
   // Fetch company with intelligent fallbacks (GET first, then POST with common payload keys)
   const requestCompany = useCallback(
     async (id: string): Promise<CompanyResponse> => {
-      const token = localStorage.getItem("outreach_crm_auth_token");
+      const token = getValidContributorAuthToken();
       if (!token) {
         return (await fetchPublicContributorCompany(id)) as CompanyResponse;
       }
@@ -11103,7 +11096,7 @@ const CompanyDetail = () => {
         credentials: "include",
       });
       if (getResponse.status === 401) {
-        throw new Error("Authentication required");
+        return (await fetchPublicContributorCompany(id)) as CompanyResponse;
       }
       if (getResponse.ok) {
         return (await Promise.race([
@@ -11128,7 +11121,7 @@ const CompanyDetail = () => {
           body: JSON.stringify(body),
         });
         if (postResponse.status === 401) {
-          throw new Error("Authentication required");
+          return (await fetchPublicContributorCompany(id)) as CompanyResponse;
         }
         if (postResponse.ok) {
           return (await Promise.race([
@@ -11140,11 +11133,14 @@ const CompanyDetail = () => {
         }
       }
 
-      // If we reached here, throw a detailed error
-      const errorText = await getResponse.text().catch(() => "");
-      throw new Error(
-        `API request failed: ${getResponse.status} ${getResponse.statusText} ${errorText}`
-      );
+      try {
+        return (await fetchPublicContributorCompany(id)) as CompanyResponse;
+      } catch {
+        const errorText = await getResponse.text().catch(() => "");
+        throw new Error(
+          `API request failed: ${getResponse.status} ${getResponse.statusText} ${errorText}`
+        );
+      }
     },
     []
   );
@@ -11160,7 +11156,7 @@ const CompanyDetail = () => {
         const params = new URLSearchParams();
         params.append("new_company_id", String(companyIdForContent));
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/companies_articles?${params.toString()}`;
-        const response = await fetch(url, { method: "GET" });
+        const response = await contributorFetch(url, { method: "GET" });
         if (!response.ok) {
           setCompanyArticles([]);
         } else {
@@ -11281,13 +11277,7 @@ const CompanyDetail = () => {
   // Fetch financial metrics (auth required) with GET + POST fallbacks
   const fetchFinancialMetrics = useCallback(async (id: string | number) => {
     try {
-      const token = localStorage.getItem("outreach_crm_auth_token");
-      if (!token) {
-        // Keep silent failure; UI will show existing values
-        return;
-      }
       const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         Accept: "application/json",
       };
@@ -11296,10 +11286,9 @@ const CompanyDetail = () => {
       // Attempt GET with query param
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
-      let res = await fetch(`${base}?${params.toString()}`, {
+      let res = await contributorFetch(`${base}?${params.toString()}`, {
         method: "GET",
         headers,
-        credentials: "include",
       });
 
       if (!res.ok) {
@@ -11310,10 +11299,9 @@ const CompanyDetail = () => {
           { id: Number(id) },
         ];
         for (const body of candidateBodies) {
-          const attempt = await fetch(base, {
+          const attempt = await contributorFetch(base, {
             method: "POST",
             headers,
-            credentials: "include",
             body: JSON.stringify(body),
           });
           if (attempt.ok) {
@@ -11341,10 +11329,8 @@ const CompanyDetail = () => {
   const fetchCompanyInvestors = useCallback(async (id: string | number) => {
     setApiInvestorsLoading(true);
     try {
-      const token = localStorage.getItem("outreach_crm_auth_token");
       const headers: Record<string, string> = {
         Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
       const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_investors`;
@@ -11352,10 +11338,9 @@ const CompanyDetail = () => {
       // GET with query param (required by backend)
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
-      const res = await fetch(`${endpoint}?${params.toString()}`, {
+      const res = await contributorFetch(`${endpoint}?${params.toString()}`, {
         method: "GET",
         headers,
-        credentials: "include",
       });
 
       if (!res.ok) {
@@ -11413,11 +11398,10 @@ const CompanyDetail = () => {
       if (!Number.isFinite(newCompanyId)) return;
       setLoadingContributionYearId(yearId);
       try {
-        const token = localStorage.getItem("outreach_crm_auth_token");
         const payload = await getContributorMetricsByCompany(
           newCompanyId,
           yearId,
-          token,
+          getValidContributorAuthToken(),
           newRecord
         );
         if (payload && typeof payload === "object") {
@@ -11641,8 +11625,7 @@ const CompanyDetail = () => {
           fetchCompanyArticles(enrichedCompany.id);
           const tid = Number(enrichedCompany.id);
           if (Number.isFinite(tid)) {
-            const token = localStorage.getItem("outreach_crm_auth_token");
-            void getCompanyTransactionStatusLabel(tid, token)
+            void getCompanyTransactionStatusLabel(tid, getValidContributorAuthToken())
               .then(setTransactionStatusApiLabel)
               .catch(() => setTransactionStatusApiLabel(""));
           }
@@ -11698,18 +11681,15 @@ const CompanyDetail = () => {
 
     const run = async () => {
       try {
-        const token = localStorage.getItem("outreach_crm_auth_token");
         const headers: Record<string, string> = {
           Accept: "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         };
         const params = new URLSearchParams();
         params.set("new_company_id", String(companyId));
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_competitors?${params.toString()}`;
-        const res = await fetch(url, {
+        const res = await contributorFetch(url, {
           method: "GET",
           headers,
-          credentials: "include",
         });
         if (cancelled) return;
         if (!res.ok) {

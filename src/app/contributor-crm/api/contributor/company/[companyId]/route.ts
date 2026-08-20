@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchServiceCompany } from "@/lib/contributorCrm/server/contributorApi";
 
+export const dynamic = "force-dynamic";
+
 type RouteContext = {
   params: Promise<{ companyId: string }>;
 };
