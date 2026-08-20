@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
+  CompaniesEntitiesTab,
   CompanySearchTab,
   ContentInsightsTab,
   EmailAnalyticsTab,
@@ -17,6 +18,7 @@ import { UnifiedActivityTab } from "./_components/UnifiedActivityTab";
 import { McpAuditTab } from "./_components/McpAuditTab";
 
 type AnalyticsTab =
+  | "companies-entities"
   | "unified-activity"
   | "user-activity"
   | "content-insights"
@@ -40,7 +42,7 @@ export default function AdminAnalyticsPage() {
   const router = useRouter();
   const { user, isAuthenticated, loading } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<AnalyticsTab>("unified-activity");
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>("companies-entities");
 
   const isAdmin = useMemo(() => {
     if (!user) return false;
@@ -93,6 +95,16 @@ export default function AdminAnalyticsPage() {
       </div>
 
       <div className="flex gap-4 mb-6 border-b">
+        <button
+          onClick={() => setActiveTab("companies-entities")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "companies-entities"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Companies &amp; Entities
+        </button>
         <button
           onClick={() => setActiveTab("unified-activity")}
           className={`px-3 py-2 -mb-px border-b-2 ${
@@ -185,6 +197,7 @@ export default function AdminAnalyticsPage() {
         </button>
       </div>
 
+      {activeTab === "companies-entities" && <CompaniesEntitiesTab />}
       {activeTab === "unified-activity" && <UnifiedActivityTab />}
       {activeTab === "user-activity" && <UserActivityTab />}
       {activeTab === "content-insights" && <ContentInsightsTab />}
