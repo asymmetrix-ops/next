@@ -109,7 +109,9 @@ export function PlatformHero() {
         >
           <p className="text-base leading-relaxed text-text-alternative md:text-lg">
             Track companies, investors, deal activity, and AI impact in one
-            place for the Data &amp; Analytics market. Pick a starting point:
+            place for the Data &amp; Analytics market.
+            <br />
+            Pick a starting point:
           </p>
         </motion.div>
 
