@@ -191,6 +191,7 @@ class DashboardApiService {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
       headers,
+      cache: "no-store",
     });
 
     if (!response.ok) {

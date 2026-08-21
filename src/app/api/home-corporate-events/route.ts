@@ -3,6 +3,11 @@ import { cookies } from "next/headers";
 import { fetchHomeCorporateEventsRaw } from "@/lib/homeCorporateEventsServer";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+};
 
 function getToken(request: NextRequest): string | null {
   const cookieToken = cookies().get("asymmetrix_auth_token")?.value;
@@ -23,47 +28,30 @@ export async function GET(request: NextRequest) {
     if (!token) {
       return NextResponse.json(
         { error: "Authentication required" },
-        { status: 401 }
+        { status: 401, headers: NO_CACHE_HEADERS }
       );
     }
 
     const showFollowed =
       request.nextUrl.searchParams.get("show_followed") === "true";
-    if (showFollowed) {
-      const url = new URL(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/corporate_events"
-      );
-      url.searchParams.set("show_followed", "true");
-      const userId = request.nextUrl.searchParams.get("user_id");
-      if (userId) url.searchParams.set("user_id", userId);
+    const userIdParam = request.nextUrl.searchParams.get("user_id");
+    const userId =
+      userIdParam != null && userIdParam !== ""
+        ? Number(userIdParam)
+        : undefined;
 
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Data-Source": "live",
-          Authorization: `Bearer ${token}`,
-        },
-        cache: "no-store",
-      });
+    const data = await fetchHomeCorporateEventsRaw({
+      token,
+      showFollowed,
+      userId: Number.isFinite(userId) ? userId : undefined,
+    });
 
-      if (!response.ok) {
-        return NextResponse.json(
-          { error: `API error: ${response.status}` },
-          { status: response.status }
-        );
-      }
-
-      return NextResponse.json(await response.json());
-    }
-
-    const data = await fetchHomeCorporateEventsRaw({ token });
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: NO_CACHE_HEADERS });
   } catch (error) {
     console.error("Error fetching home corporate events:", error);
     return NextResponse.json(
       { error: "Failed to fetch corporate events" },
-      { status: 500 }
+      { status: 500, headers: NO_CACHE_HEADERS }
     );
   }
 }
