@@ -42,10 +42,10 @@ import {
 import { CompaniesEditContext } from "./CompaniesEditContext";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
 import type { ListExportRequest } from "@/lib/listExport/types";
+import { authService } from "@/lib/auth";
 
 const useCompaniesAPI = (
   isMcpGuest: boolean,
-  authLoading: boolean,
   preferredCurrencyId: number
 ) => {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -111,6 +111,8 @@ const useCompaniesAPI = (
       countsFilters?: Filters,
       refreshCounts: boolean = true
     ) => {
+      authService.ensureAuthCookie();
+
       const requestId = ++lastRequestIdRef.current;
       setLoading(true);
       setError(null);
@@ -195,8 +197,15 @@ const useCompaniesAPI = (
     [scheduleCountsFetch, isMcpGuest, preferredCurrencyId]
   );
 
+  const skipInitialListFetchRef = useRef(true);
+
+  // Initial list load is triggered by CompanySection once column prefs are ready.
+  // Refetch here only when guest mode or currency changes after mount.
   useEffect(() => {
-    if (authLoading) return;
+    if (skipInitialListFetchRef.current) {
+      skipInitialListFetchRef.current = false;
+      return;
+    }
     const initialFilters = isMcpGuest
       ? buildMcpGuestCompaniesFilters()
       : createDefaultFilters();
@@ -205,7 +214,7 @@ const useCompaniesAPI = (
       : initialFilters;
     fetchCompanies(1, initialFilters, initialCountsFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMcpGuest, authLoading, preferredCurrencyId]);
+  }, [isMcpGuest, preferredCurrencyId]);
 
   return {
     companies,
@@ -232,7 +241,7 @@ function CompaniesPageInner() {
     fetchCompanies,
     setRequestColumns,
     currentFilters,
-  } = useCompaniesAPI(isMcpGuest, authLoading, preferredCurrencyId);
+  } = useCompaniesAPI(isMcpGuest, preferredCurrencyId);
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
 

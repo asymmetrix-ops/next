@@ -1123,7 +1123,7 @@ export const CompanySection = ({
       pendingScrollLeftRef.current = table.scrollLeft;
     }
 
-    void fetchCompanies(1, currentFilters, undefined, false);
+    void fetchCompanies(1, currentFilters, undefined, isInitialColumnFetch);
     // Re-fetch only when the set of requested API columns changes (add/remove), not reorder.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedColumnKeys, columnPrefsLoaded]);

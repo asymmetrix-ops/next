@@ -70,9 +70,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isProspect, setIsProspect] = useState(false);
   const [prospectEmail, setProspectEmail] = useState<string | null>(null);
 
+  // Sync localStorage token to cookie before child effects fire server actions.
+  useLayoutEffect(() => {
+    authService.ensureAuthCookie();
+  }, []);
+
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        authService.ensureAuthCookie();
+
         const prospectResp = await fetch("/api/prospect-session", {
           credentials: "include",
           cache: "no-store",
