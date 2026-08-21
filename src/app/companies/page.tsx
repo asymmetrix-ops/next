@@ -71,6 +71,7 @@ const useCompaniesAPI = (
   });
   const [ownershipCounts, setOwnershipCounts] =
     useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
+  const [ownershipCountsLoaded, setOwnershipCountsLoaded] = useState(false);
 
   const setRequestColumns = useCallback((columns: string[]) => {
     requestColumnsRef.current = columns;
@@ -82,7 +83,11 @@ const useCompaniesAPI = (
       const countsRequestId = ++lastCountsRequestIdRef.current;
       void fetchCompaniesCountsServer(countsFilters)
         .then((countsData) => {
-          if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
+          if (countsRequestId !== lastCountsRequestIdRef.current) {
+            return;
+          }
+          if (!countsData) {
+            setOwnershipCountsLoaded(true);
             return;
           }
           setOwnershipCounts({
@@ -95,9 +100,11 @@ const useCompaniesAPI = (
             acquiredCompanies: countsData.acquiredCompanies || 0,
             otherCompanies: countsData.otherCompanies || 0,
           });
+          setOwnershipCountsLoaded(true);
         })
         .catch((countsError) => {
           console.error("Error fetching companies counts:", countsError);
+          setOwnershipCountsLoaded(true);
         });
     }, 400);
   }, []);
@@ -179,6 +186,7 @@ const useCompaniesAPI = (
               ...prev,
               totalCount,
             }));
+            setOwnershipCountsLoaded(true);
           }
         }
       } catch (err) {
@@ -222,6 +230,7 @@ const useCompaniesAPI = (
     error,
     pagination,
     ownershipCounts,
+    ownershipCountsLoaded,
     fetchCompanies,
     setRequestColumns,
     currentFilters,
@@ -238,6 +247,7 @@ function CompaniesPageInner() {
     error,
     pagination,
     ownershipCounts,
+    ownershipCountsLoaded,
     fetchCompanies,
     setRequestColumns,
     currentFilters,
@@ -329,6 +339,7 @@ function CompaniesPageInner() {
         onFilterColumnsChange={handleFilterColumnsChange}
         initialSearch={isMcpGuest ? undefined : initialSearch}
         ownershipCounts={ownershipCounts}
+        countsLoading={!ownershipCountsLoaded}
         onColumnsClick={
           isMcpGuest ? undefined : () => setShowColumnsModal((v) => !v)
         }

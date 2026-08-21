@@ -213,6 +213,7 @@ export const SEARCH_TABLE_STYLES = `
       width: 100%;
       max-width: 100%;
       max-height: min(72vh, calc(100vh - 240px));
+      min-height: min(56vh, calc(100vh - 280px));
       border-radius: 8px;
       box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
       background: #fff;

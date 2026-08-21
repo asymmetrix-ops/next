@@ -691,6 +691,52 @@ const getValidColumnKeys = (
   );
 };
 
+function readStoredCompanyColumnKeys(): string[] {
+  if (typeof window === "undefined") return DEFAULT_COMPANY_COLUMN_KEYS;
+  try {
+    const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return getValidColumnKeys(
+          parsed.filter((key): key is string => typeof key === "string")
+        );
+      }
+    }
+  } catch (error) {
+    console.warn("Unable to load company column preferences:", error);
+  }
+  return DEFAULT_COMPANY_COLUMN_KEYS;
+}
+
+const INITIAL_SKELETON_ROW_COUNT = 10;
+const INITIAL_SKELETON_CARD_COUNT = 6;
+
+function createSkeletonCards(): React.ReactElement[] {
+  return Array.from({ length: INITIAL_SKELETON_CARD_COUNT }, (_, index) =>
+    React.createElement(
+      "div",
+      { className: "company-card", key: `skeleton-card-${index}` },
+      React.createElement(
+        "div",
+        { className: "company-card-header" },
+        React.createElement("div", {
+          className: "loading-skeleton",
+          style: { width: "50px", height: "35px" },
+        }),
+        React.createElement("div", {
+          className: "loading-skeleton",
+          style: { width: "65%", height: "18px" },
+        })
+      ),
+      React.createElement("div", {
+        className: "loading-skeleton",
+        style: { width: "100%", height: "72px" },
+      })
+    )
+  );
+}
+
 // Company Card Component for Mobile - Optimized with React state
 const CompanyCardBase = ({
   company,
@@ -977,9 +1023,11 @@ export const CompanySection = ({
     key: string;
     dir: "asc" | "desc";
   } | null>(null);
-  const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
+  const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(
+    () => typeof window !== "undefined"
+  );
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
-    DEFAULT_COMPANY_COLUMN_KEYS
+    readStoredCompanyColumnKeys
   );
 
   useEffect(() => {
@@ -1063,24 +1111,8 @@ export const CompanySection = ({
   useEffect(() => {
     if (readOnlyGuestMode) {
       setSelectedColumnKeys([...PROD_DEFAULT_COMPANY_COLUMN_KEYS]);
-      setColumnPrefsLoaded(true);
-      return;
     }
-    try {
-      const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSelectedColumnKeys(
-            getValidColumnKeys(parsed.filter((key): key is string => typeof key === "string"))
-          );
-        }
-      }
-    } catch (error) {
-      console.warn("Unable to load company column preferences:", error);
-    } finally {
-      setColumnPrefsLoaded(true);
-    }
+    setColumnPrefsLoaded(true);
   }, [readOnlyGuestMode]);
 
   useEffect(() => {
@@ -1603,149 +1635,49 @@ export const CompanySection = ({
 
   const showInitialLoadingSkeleton = loading && companies.length === 0;
 
-  if (showInitialLoadingSkeleton) {
-    const skeletonRow = (i: number) =>
-      React.createElement(
-        "tr",
-        { key: i },
-        React.createElement(
-          "td",
-          null,
-          React.createElement(
-            "div",
-            { style: { display: "flex", alignItems: "center", gap: 10 } },
-            React.createElement("div", {
-              className: "loading-skeleton",
-              style: { width: "40px", height: "40px", borderRadius: 4, flexShrink: 0 },
-            }),
-            React.createElement("div", {
-              className: "loading-skeleton",
-              style: { width: "70%", height: "14px" },
-            })
-          )
-        ),
-        React.createElement(
-          "td",
-          null,
-          React.createElement("div", {
-            className: "loading-skeleton",
-            style: { width: "100%", height: "40px" },
-          })
-        ),
-        React.createElement(
-          "td",
-          null,
-          React.createElement("div", {
-            className: "loading-skeleton",
-            style: { width: "80%", height: "18px" },
-          })
-        ),
-        React.createElement(
-          "td",
-          null,
-          React.createElement("div", {
-            className: "loading-skeleton",
-            style: { width: "80%", height: "18px" },
-          })
-        ),
-        React.createElement(
-          "td",
-          null,
-          React.createElement("div", {
-            className: "loading-skeleton",
-            style: { width: "60%", height: "18px" },
-          })
-        ),
-        React.createElement(
-          "td",
-          null,
-          React.createElement("div", {
-            className: "loading-skeleton",
-            style: { width: "50px", height: "18px" },
-          })
-        ),
-        React.createElement(
-          "td",
-          null,
-          React.createElement("div", {
-            className: "loading-skeleton",
-            style: { width: "70%", height: "18px" },
-          })
-        ),
-        ...(onEditCompany
-          ? [
-              React.createElement("td", { key: "edit" }, null),
-            ]
-          : [])
-      );
-
-    const skeletonCard = (i: number) =>
-      React.createElement(
-        "div",
-        { className: "company-card", key: i },
-        React.createElement(
-          "div",
-          { className: "company-card-header" },
-          React.createElement("div", {
-            className: "loading-skeleton",
-            style: { width: "50px", height: "35px" },
-          }),
-          React.createElement("div", {
-            className: "loading-skeleton",
-            style: { width: "65%", height: "18px" },
-          })
-        ),
-        React.createElement("div", {
-          className: "loading-skeleton",
-          style: { width: "100%", height: "72px" },
-        })
-      );
-
-    return React.createElement(
-      "div",
-      { className: sectionClassName, ref: sectionRef },
-      React.createElement(
-        "div",
-        { className: "company-cards" },
-        ...[...Array(6)].map((_, i) => skeletonCard(i))
-      ),
-      React.createElement(
-        "div",
-        { className: "company-table-scroll" },
-        React.createElement(
-          "table",
-          { className: "company-table" },
-          React.createElement(
-            "thead",
-            null,
-            React.createElement(
-              "tr",
-              null,
-              React.createElement("th", null, "Name"),
-              React.createElement("th", null, "Description"),
-              React.createElement("th", null, "Primary Sectors"),
-              React.createElement("th", null, "Secondary Sectors"),
-              React.createElement("th", null, "Ownership"),
-              React.createElement("th", null, "LinkedIn"),
-              React.createElement("th", null, "HQ"),
-              ...(onEditCompany
-                ? [React.createElement("th", { key: "edit" }, "")]
-                : [])
-            )
-          ),
-          React.createElement(
-            "tbody",
-            null,
-            ...[...Array(10)].map((_, i) => skeletonRow(i))
-          )
-        )
-      ),
-      ...columnsModalLayer,
-      React.createElement("style", {
-        dangerouslySetInnerHTML: { __html: style },
-      })
-    );
-  }
+  const skeletonTableRows = useMemo(() => {
+    if (!showInitialLoadingSkeleton) return null;
+    return Array.from({ length: INITIAL_SKELETON_ROW_COUNT }, (_, rowIndex) => (
+      <tr key={`skeleton-row-${rowIndex}`}>
+        <td
+          className="company-table-select-cell"
+          style={{ minWidth: 44, width: 44, textAlign: "center" }}
+        >
+          {!readOnlyGuestMode ? (
+            <div
+              className="loading-skeleton"
+              style={{ width: 16, height: 16, margin: "0 auto", borderRadius: 3 }}
+              aria-hidden
+            />
+          ) : null}
+        </td>
+        {selectedColumns.map((column) => (
+          <td
+            key={column.key}
+            className={getTableColumnClassName(column)}
+            style={{ minWidth: column.minWidth }}
+          >
+            <div
+              className="loading-skeleton"
+              style={{
+                width: column.key === "name" ? "70%" : "80%",
+                height: column.key === "name" ? 14 : 18,
+                minWidth: 48,
+              }}
+              aria-hidden
+            />
+          </td>
+        ))}
+        {onEditCompany ? <td key="edit" /> : null}
+      </tr>
+    ));
+  }, [
+    showInitialLoadingSkeleton,
+    selectedColumns,
+    getTableColumnClassName,
+    onEditCompany,
+    readOnlyGuestMode,
+  ]);
 
   if (error) {
     return React.createElement(
@@ -1966,16 +1898,18 @@ export const CompanySection = ({
     React.createElement(
       "div",
       { className: "company-cards" },
-      sortedCompanies.map((company, index) =>
-        React.createElement(CompanyCard, {
-          key: company.id || index,
-          company: company,
-          index: index,
-          readOnlyGuestMode,
-          sectorMaps,
-          onGuestConversionClick: openSalesConversion,
-        })
-      )
+      showInitialLoadingSkeleton
+        ? createSkeletonCards()
+        : sortedCompanies.map((company, index) =>
+            React.createElement(CompanyCard, {
+              key: company.id || index,
+              company: company,
+              index: index,
+              readOnlyGuestMode,
+              sectorMaps,
+              onGuestConversionClick: openSalesConversion,
+            })
+          )
     ),
     React.createElement(
       "div",
@@ -2152,7 +2086,7 @@ export const CompanySection = ({
               : [])
           )
         ),
-        React.createElement("tbody", null, tableRows)
+        React.createElement("tbody", null, skeletonTableRows ?? tableRows)
       )
     ),
     showPhantomScroll &&

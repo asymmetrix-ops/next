@@ -46,6 +46,18 @@ export const SEARCH_DASHBOARD_MATCH_COUNT: CSSProperties = {
   fontSize: 16,
   fontWeight: 400,
   color: "#94a3b8",
+  display: "inline-block",
+  minWidth: "9ch",
+  fontVariantNumeric: "tabular-nums",
+};
+
+export const SEARCH_TAB_COUNT: CSSProperties = {
+  fontSize: 12,
+  opacity: 0.75,
+  display: "inline-block",
+  minWidth: "5.5ch",
+  fontVariantNumeric: "tabular-nums",
+  textAlign: "right",
 };
 
 export const SEARCH_DASHBOARD_ACTIONS: CSSProperties = {
@@ -53,12 +65,14 @@ export const SEARCH_DASHBOARD_ACTIONS: CSSProperties = {
   gap: 8,
   alignItems: "center",
   paddingTop: 6,
+  flexShrink: 0,
 };
 
 export const SEARCH_DASHBOARD_TABS_ROW: CSSProperties = {
   display: "flex",
   gap: 4,
   flexWrap: "wrap",
+  minHeight: 34,
 };
 
 export const SEARCH_DASHBOARD_FILTER_SHELL: CSSProperties = {
@@ -105,6 +119,7 @@ type SearchListTabsProps = {
   activeTabId: string;
   onTabClick: (tabId: string) => void;
   renderTabWrapper?: (tab: SearchListTabItem, button: ReactNode) => ReactNode;
+  countsLoading?: boolean;
 };
 
 export function SearchListTabs({
@@ -112,6 +127,7 @@ export function SearchListTabs({
   activeTabId,
   onTabClick,
   renderTabWrapper,
+  countsLoading = false,
 }: SearchListTabsProps) {
   return (
     <div style={SEARCH_DASHBOARD_TABS_ROW}>
@@ -133,8 +149,8 @@ export function SearchListTabs({
               }}
             />
             {tab.label}
-            <span style={{ fontSize: 12, opacity: 0.75 }}>
-              {tab.count.toLocaleString()}
+            <span style={SEARCH_TAB_COUNT}>
+              {countsLoading ? "…" : tab.count.toLocaleString()}
             </span>
           </button>
         );

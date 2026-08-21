@@ -66,6 +66,7 @@ export type CompanyDashboardProps = {
   hideOwnershipTabs?: boolean;
   excludeFilterIds?: string[];
   matchCountOverride?: number;
+  countsLoading?: boolean;
   scopedPrimarySectorIds?: number[];
   scopedSecondarySectorIds?: number[];
   fixedOwnershipTypeIds?: number[];
@@ -89,6 +90,7 @@ export const CompanyDashboard = ({
   hideOwnershipTabs = false,
   excludeFilterIds = [],
   matchCountOverride,
+  countsLoading = false,
   scopedPrimarySectorIds = [],
   scopedSecondarySectorIds = [],
   fixedOwnershipTypeIds,
@@ -402,7 +404,9 @@ export const CompanyDashboard = ({
             <h1 style={SEARCH_DASHBOARD_TITLE}>
               {guestMode ? MCP_GUEST_TRACKER_TITLE : "Company search"}
               <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
-                {matchCount.toLocaleString()} matches
+                {countsLoading && matchCountOverride == null
+                  ? "… matches"
+                  : `${matchCount.toLocaleString()} matches`}
               </span>
             </h1>
             {guestMode ? (
@@ -487,6 +491,7 @@ export const CompanyDashboard = ({
           tabs={ownershipTabs}
           activeTabId={activeOwnershipTab}
           onTabClick={(tabId) => setActiveOwnershipTab(tabId as OwnershipTab)}
+          countsLoading={countsLoading}
           renderTabWrapper={(tab, button) => {
             if (tab.id !== "other") return button;
             return (
@@ -524,7 +529,7 @@ export const CompanyDashboard = ({
             filterCategories={FILTER_CATEGORIES}
             state={filterBarState}
             onStateChange={setFilterBarState}
-            totalCount={matchCount}
+            totalCount={countsLoading ? undefined : matchCount}
           />
         </div>
       </div>
