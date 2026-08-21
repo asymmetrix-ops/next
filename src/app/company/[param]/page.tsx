@@ -33,6 +33,8 @@ import {
   type CompanyLinkedInResponse,
 } from "@/lib/companyLinkedIn";
 import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
+import { fetchCompanyHoldingPeriodServer } from "@/app/company/[param]/holdingPeriodActions";
+import type { CompanyHoldingPeriodResponse } from "@/lib/holdingPeriod";
 import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
@@ -1317,6 +1319,8 @@ const CompanyDetail = () => {
     CompanyInvestorFromAPI[]
   >([]);
   const [apiInvestorsLoading, setApiInvestorsLoading] = useState(false);
+  const [holdingPeriodData, setHoldingPeriodData] =
+    useState<CompanyHoldingPeriodResponse | null>(null);
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
   const [exportingPdf, setExportingPdf] = useState(false);
   const [activeProfileTab, setActiveProfileTab] = useState<"Summary" | "Financials">(
@@ -1848,6 +1852,16 @@ const CompanyDetail = () => {
     }
   }, []);
 
+  const fetchCompanyHoldingPeriod = useCallback(async (id: string | number) => {
+    try {
+      const data = await fetchCompanyHoldingPeriodServer(id);
+      setHoldingPeriodData(data);
+    } catch (err) {
+      console.error("Error fetching company holding period:", err);
+      setHoldingPeriodData(null);
+    }
+  }, []);
+
   const fetchCompanyTransactionStatus = useCallback(async (id: string | number) => {
     try {
       const params = new URLSearchParams();
@@ -2104,6 +2118,7 @@ const CompanyDetail = () => {
       setIncomeStatementHistoryRows([]);
       fetchCompanyData();
       fetchCompanyInvestors(companyId);
+      fetchCompanyHoldingPeriod(companyId);
       fetchCompanyTransactionStatus(companyId);
       fetchCompanyAiRisksData(companyId);
       fetchCompanyProductUsersData(companyId);
@@ -2125,6 +2140,7 @@ const CompanyDetail = () => {
     requestCompany,
     fetchFinancialMetricsCard,
     fetchCompanyInvestors,
+    fetchCompanyHoldingPeriod,
     fetchCompanyTransactionStatus,
     fetchCompanyAiRisksData,
     fetchCompanyProductUsersData,
@@ -3986,6 +4002,17 @@ const CompanyDetail = () => {
                 employees={overviewHeadcount}
                 employeesYoY={overviewEmployeesYoY ?? undefined}
                 ticker={tickerDisplay ?? undefined}
+                hasHoldingPeriod={Boolean(holdingPeriodData?.has_holding_period)}
+                holdingPeriod={
+                  holdingPeriodData?.primary
+                    ? {
+                        investorName:
+                          holdingPeriodData.primary.investor_name?.trim() || "—",
+                        investorId: holdingPeriodData.primary.investor_id,
+                        display: holdingPeriodData.primary.display,
+                      }
+                    : null
+                }
                 parentCompany={
                   haveParentCompany && company.have_parent_company?.Parant_companies?.[0]
                     ? {

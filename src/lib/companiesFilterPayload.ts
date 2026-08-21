@@ -101,6 +101,9 @@ export function normalizeCompanySearchPayload(
     company_ids: filters.company_ids ?? [],
     portfolio_mode: Boolean(filters.portfolio_mode),
     current_portfolio_ids: filters.current_portfolio_ids ?? [],
+    investor_id: filters.investor_id ?? null,
+    holding_period_from: filters.holding_period_from ?? null,
+    holding_period_to: filters.holding_period_to ?? null,
     sort_column: filters.sort_column ?? null,
     sort_direction: filters.sort_direction ?? null,
     preferred_currency_id:
@@ -646,6 +649,15 @@ function appendSharedCompanyFilterParams(
       "current_portfolio_ids",
       JSON.stringify(payload.current_portfolio_ids ?? [])
     );
+    if (payload.investor_id != null) {
+      params.append("investor_id", String(payload.investor_id));
+    }
+    if (payload.holding_period_from?.trim()) {
+      params.append("holding_period_from", payload.holding_period_from.trim());
+    }
+    if (payload.holding_period_to?.trim()) {
+      params.append("holding_period_to", payload.holding_period_to.trim());
+    }
   }
 
   if (payload.sort_column) {

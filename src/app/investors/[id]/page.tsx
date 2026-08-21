@@ -26,6 +26,8 @@ import {
 } from "@/components/investors/InvestorFocusMixCard";
 import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
 import { InvestorPortfolioTab } from "@/components/investors/InvestorPortfolioTab";
+import { fetchInvestorHoldingPeriodAverageServer } from "@/app/investors/[id]/holdingPeriodActions";
+import type { InvestorHoldingPeriodAverageResponse } from "@/lib/holdingPeriod";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import { readEntityLogo } from "@/lib/companyLogo";
@@ -393,6 +395,19 @@ const InvestorDetailPage = () => {
   const [portfolioMix, setPortfolioMix] = useState<PortfolioMixResponse | null>(null);
   const [portfolioMixLoading, setPortfolioMixLoading] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [avgHoldingPeriod, setAvgHoldingPeriod] =
+    useState<InvestorHoldingPeriodAverageResponse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!investorId) return;
+    void fetchInvestorHoldingPeriodAverageServer(investorId).then((data) => {
+      if (!cancelled) setAvgHoldingPeriod(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [investorId]);
   const [resolvedIndividualIds, setResolvedIndividualIds] = useState<
     Map<string, number>
   >(new Map());
@@ -1489,6 +1504,9 @@ const InvestorDetailPage = () => {
                 status={investorStatus}
                 employees={currentHeadcount > 0 ? currentHeadcount : null}
                 employeesYoY={headcountYoY || undefined}
+                avgHoldingPeriodDisplay={avgHoldingPeriod?.display ?? null}
+                avgHoldingPeriodCompletedExits={avgHoldingPeriod?.completed_exits ?? null}
+                avgHoldingPeriodLowSampleSize={avgHoldingPeriod?.low_sample_size ?? false}
               />
             </div>
 

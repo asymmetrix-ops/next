@@ -8,6 +8,7 @@ import React from "react";
 import Link from "next/link";
 import { LinkPanel, LinkedH, KV, Delta, Pill, T } from "./primitives";
 import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+import { normalizeHoldingPeriodDisplay } from "@/lib/holdingPeriod";
 
 export type OverviewSector = {
   name: string;
@@ -18,6 +19,13 @@ export type OverviewSector = {
 export type OverviewInvestor = {
   id: number;
   name: string;
+};
+
+export type OverviewHoldingPeriod = {
+  investorName: string;
+  investorId?: number | null;
+  /** Pre-formatted "X years Y months" (or "X months") — render directly. */
+  display: string;
 };
 
 export type OverviewCardProps = {
@@ -40,6 +48,12 @@ export type OverviewCardProps = {
   /** e.g. "3 years" or "< 1 year" — pass pre-formatted string */
   lastInvestment?: string | null;
   ticker?: string | null;
+  /**
+   * Gate on `hasHoldingPeriod` first — when there is no acquisition Corporate
+   * Event at all for this company, the row should not render, not show `—`.
+   */
+  hasHoldingPeriod?: boolean;
+  holdingPeriod?: OverviewHoldingPeriod | null;
   fillGridCell?: boolean;
 };
 
@@ -157,9 +171,14 @@ export function OverviewCard({
   investorsLoading,
   lastInvestment,
   ticker,
+  hasHoldingPeriod = false,
+  holdingPeriod,
   fillGridCell = false,
 }: OverviewCardProps) {
   const hasParent = Boolean(parentCompany?.name);
+  const normalizedHoldingPeriodDisplay = normalizeHoldingPeriodDisplay(
+    holdingPeriod?.display
+  );
 
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
     {
@@ -210,6 +229,30 @@ export function OverviewCard({
         ) : (
           faintDash()
         ),
+    },
+    {
+      k: "Holding period",
+      show:
+        hasHoldingPeriod &&
+        Boolean(holdingPeriod) &&
+        Boolean(normalizedHoldingPeriodDisplay),
+      v: holdingPeriod ? (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {holdingPeriod.investorId ? (
+            <Link
+              href={`/investors/${holdingPeriod.investorId}`}
+              prefetch={false}
+              style={{ textDecoration: "none" }}
+            >
+              <Pill tone="azure">{holdingPeriod.investorName}</Pill>
+            </Link>
+          ) : (
+            <Pill tone="azure">{holdingPeriod.investorName}</Pill>
+          )}
+          <span>·</span>
+          <span>{normalizedHoldingPeriodDisplay}</span>
+        </span>
+      ) : null,
     },
     {
       k: "Employees",

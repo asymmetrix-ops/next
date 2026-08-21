@@ -66,6 +66,13 @@ export interface CompanyItem {
   financial_year?: number | string | null;
   has_mcp?: boolean | null;
   investment_status?: "Current" | "Past" | string | null;
+  /** Portfolio tab only — hydrated when `portfolio_mode` + `investor_id` are sent. */
+  holding_period_display?: string | null;
+  holding_period_status?: "current" | "past" | string | null;
+  holding_days?: number | null;
+  acquisition_date?: string | null;
+  headcount_growth_pct?: number | null;
+  revenue_growth_pct?: number | null;
   last_investment?: {
     display?: string | null;
     date?: string | null;

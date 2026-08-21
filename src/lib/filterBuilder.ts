@@ -290,6 +290,11 @@ export interface CompanySearchPayload {
   portfolio_mode?: boolean;
   /** Current portfolio company IDs — used with portfolio_mode for investment_status column. */
   current_portfolio_ids?: number[];
+  /** Investor id — used with portfolio_mode to hydrate holding_period_* columns per row. */
+  investor_id?: number | null;
+  /** Filters rows by acquisition_date range (holding period). Format "YYYY-MM-DD" or "YYYY Mon". */
+  holding_period_from?: string | null;
+  holding_period_to?: string | null;
   sort_column?: string | null;
   sort_direction?: "asc" | "desc" | null;
   /** Platform display currency — Xano converts financial columns server-side. */
