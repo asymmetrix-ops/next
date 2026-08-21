@@ -27,10 +27,6 @@
       "schedule": "0 5,6 * * 1-5"
     },
     {
-      "path": "/api/cron/warm-deal-radar",
-      "schedule": "0 5,6 * * 1-5"
-    },
-    {
       "path": "/api/cron/warm-home-corporate-events",
       "schedule": "0 5,6 * * 1-5"
     }
