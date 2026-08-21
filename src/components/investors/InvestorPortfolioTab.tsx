@@ -52,7 +52,8 @@ export type InvestorPortfolioTabProps = {
 function useInvestorPortfolioSearch(
   portfolioIds: InvestorPortfolioIdsResponse | null,
   investmentStatusFilter: InvestmentStatusFilter,
-  preferredCurrencyId: number
+  preferredCurrencyId: number,
+  investorId: string
 ) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,10 +99,11 @@ function useInvestorPortfolioSearch(
           columns: requestColumnsRef.current,
         },
         scopedIds,
-        portfolioIds.current_ids
+        portfolioIds.current_ids,
+        investorId
       );
     },
-    [portfolioIds, investmentStatusFilter]
+    [portfolioIds, investmentStatusFilter, investorId]
   );
 
   const scheduleCountsFetch = useCallback(
@@ -311,7 +313,8 @@ export function InvestorPortfolioTab({
   } = useInvestorPortfolioSearch(
     portfolioIds,
     investmentStatusFilter,
-    preferredCurrencyId
+    preferredCurrencyId,
+    investorId
   );
 
   const initialFetchDoneRef = useRef(false);

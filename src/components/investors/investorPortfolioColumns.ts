@@ -39,10 +39,12 @@ export function parseInvestmentStatusFromFilterBar(
 }
 
 export const INVESTMENT_STATUS_COLUMN_KEY = "investment_status";
+export const HOLDING_PERIOD_COLUMN_KEY = "holding_period_display";
 
 export const PORTFOLIO_DEFAULT_VISIBLE_COLUMN_KEYS = [
   "name",
   INVESTMENT_STATUS_COLUMN_KEY,
+  HOLDING_PERIOD_COLUMN_KEY,
   "description",
   "primary_sectors",
   "secondary_sectors",
@@ -60,6 +62,13 @@ export const PORTFOLIO_INVESTMENT_STATUS_CATEGORY: CompanyColumnCategory = {
       id: INVESTMENT_STATUS_COLUMN_KEY,
       columnKey: INVESTMENT_STATUS_COLUMN_KEY,
       label: "Investment status",
+      type: "text",
+      defaultVisible: true,
+    },
+    {
+      id: HOLDING_PERIOD_COLUMN_KEY,
+      columnKey: HOLDING_PERIOD_COLUMN_KEY,
+      label: "Holding period",
       type: "text",
       defaultVisible: true,
     },
@@ -85,10 +94,13 @@ export const PORTFOLIO_TABLE_COLUMN = {
   },
 };
 
-export const PORTFOLIO_EXTRA_COLUMN_KEYS = [INVESTMENT_STATUS_COLUMN_KEY] as const;
+export const PORTFOLIO_EXTRA_COLUMN_KEYS = [
+  INVESTMENT_STATUS_COLUMN_KEY,
+  HOLDING_PERIOD_COLUMN_KEY,
+] as const;
 
 export function isPortfolioOnlyColumnKey(key: string): boolean {
-  return key === INVESTMENT_STATUS_COLUMN_KEY;
+  return key === INVESTMENT_STATUS_COLUMN_KEY || key === HOLDING_PERIOD_COLUMN_KEY;
 }
 
 export function getPortfolioDefaultColumnKeys(): readonly string[] {
@@ -99,6 +111,7 @@ export function getPortfolioProdDefaultColumnKeys(): readonly string[] {
   return [
     ...PROD_DEFAULT_COMPANY_COLUMN_KEYS.slice(0, 1),
     INVESTMENT_STATUS_COLUMN_KEY,
+    HOLDING_PERIOD_COLUMN_KEY,
     ...PROD_DEFAULT_COMPANY_COLUMN_KEYS.slice(1),
   ];
 }

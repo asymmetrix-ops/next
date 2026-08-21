@@ -59,7 +59,15 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   financial_year: "number",
   has_mcp: "number",
   investment_status: NOT_SORTABLE,
+  // Sortable server-side only (Portfolio tab) — see HOLDING_PERIOD_SERVER_SORT_COLUMN below.
+  holding_period_display: "number",
 };
+
+/**
+ * The Holding period UI column sorts by the underlying `holding_days` field
+ * server-side (Get_new_companies), not the pre-formatted display string.
+ */
+const HOLDING_PERIOD_SERVER_SORT_COLUMN = "holding_days";
 
 export function getColumnSortKind(columnKey: string): ColumnSortKind | null {
   return COLUMN_SORT_KIND[columnKey] ?? null;
@@ -73,12 +81,18 @@ export const COMPANY_SERVER_SORT_COLUMNS = new Set<string>(
 );
 
 export function getCompanyServerSortColumn(columnKey: string): string | null {
+  if (columnKey === "holding_period_display") {
+    return HOLDING_PERIOD_SERVER_SORT_COLUMN;
+  }
   return COMPANY_SERVER_SORT_COLUMNS.has(columnKey) ? columnKey : null;
 }
 
 export function getCompanyUiColumnForServerSortColumn(
   apiColumn: string
 ): string | null {
+  if (apiColumn === HOLDING_PERIOD_SERVER_SORT_COLUMN) {
+    return "holding_period_display";
+  }
   return COMPANY_SERVER_SORT_COLUMNS.has(apiColumn) ? apiColumn : null;
 }
 

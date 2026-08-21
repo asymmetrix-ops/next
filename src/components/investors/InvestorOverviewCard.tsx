@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { LinkPanel, LinkedH, KV, T, Pill, Delta } from "@/components/redesign/primitives";
 import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+import { normalizeHoldingPeriodDisplay } from "@/lib/holdingPeriod";
 
 export type InvestorFocusSector = {
   id?: number;
@@ -23,6 +24,10 @@ export type InvestorOverviewCardProps = {
   status?: string | null;
   employees?: number | null;
   employeesYoY?: string | null;
+  /** `null` when the investor has zero completed exits — hide the stat entirely in that case. */
+  avgHoldingPeriodDisplay?: string | null;
+  avgHoldingPeriodCompletedExits?: number | null;
+  avgHoldingPeriodLowSampleSize?: boolean;
   fillGridCell?: boolean;
 };
 
@@ -84,6 +89,9 @@ export function InvestorOverviewCard({
   status,
   employees,
   employeesYoY,
+  avgHoldingPeriodDisplay,
+  avgHoldingPeriodCompletedExits,
+  avgHoldingPeriodLowSampleSize,
   fillGridCell = false,
 }: InvestorOverviewCardProps) {
   const rows: { k: string; v: React.ReactNode }[] = [
@@ -142,6 +150,27 @@ export function InvestorOverviewCard({
       ),
     },
   ];
+
+  const holdingPeriodDisplay = normalizeHoldingPeriodDisplay(avgHoldingPeriodDisplay);
+  if (holdingPeriodDisplay) {
+    rows.push({
+      k: "Avg. holding period",
+      v: (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span>{holdingPeriodDisplay}</span>
+          {avgHoldingPeriodCompletedExits != null ? (
+            <span style={{ color: T.muted, fontSize: 12 }}>
+              Based on {avgHoldingPeriodCompletedExits} exit
+              {avgHoldingPeriodCompletedExits === 1 ? "" : "s"}
+            </span>
+          ) : null}
+          {avgHoldingPeriodLowSampleSize ? (
+            <Pill tone="neutral">Low sample size</Pill>
+          ) : null}
+        </span>
+      ),
+    });
+  }
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>

@@ -73,8 +73,13 @@ import CompactPagination from "@/components/ui/CompactPagination";
 import type { CompanyColumnCategory } from "@/components/companies/companiesColumnCategories";
 import {
   INVESTMENT_STATUS_COLUMN_KEY,
+  HOLDING_PERIOD_COLUMN_KEY,
   portfolioVisibilityToColumnKeys,
 } from "@/components/investors/investorPortfolioColumns";
+import {
+  HOLDING_PERIOD_EMPTY_DISPLAY,
+  normalizeHoldingPeriodDisplay,
+} from "@/lib/holdingPeriod";
 
 export type SectorRef =
   | string
@@ -709,12 +714,30 @@ function buildAllTableColumns(portfolioMode: boolean) {
       return "—";
     },
   });
+  const holdingPeriodInsertAt = insertAt + 1;
+  cols.splice(holdingPeriodInsertAt, 0, {
+    key: HOLDING_PERIOD_COLUMN_KEY,
+    label: "Holding period",
+    group: "Portfolio",
+    minWidth: 160,
+    render: (company) => {
+      const display = company[HOLDING_PERIOD_COLUMN_KEY];
+      const normalized = normalizeHoldingPeriodDisplay(
+        typeof display === "string" ? display : null
+      );
+      return normalized ?? HOLDING_PERIOD_EMPTY_DISPLAY;
+    },
+  });
   return cols;
 }
 
 function buildAllowedColumnKeys(portfolioMode: boolean): string[] {
   if (!portfolioMode) return [...CANONICAL_COMPANY_COLUMN_KEYS];
-  return [...CANONICAL_COMPANY_COLUMN_KEYS, INVESTMENT_STATUS_COLUMN_KEY];
+  return [
+    ...CANONICAL_COMPANY_COLUMN_KEYS,
+    INVESTMENT_STATUS_COLUMN_KEY,
+    HOLDING_PERIOD_COLUMN_KEY,
+  ];
 }
 
 const ALL_COMPANY_COLUMN_KEYS = CANONICAL_COMPANY_COLUMN_KEYS;
@@ -754,8 +777,21 @@ const getValidColumnKeys = (
     }
   }
 
+  if (extraValid.includes(HOLDING_PERIOD_COLUMN_KEY)) {
+    const statusIdx = ordered.indexOf(INVESTMENT_STATUS_COLUMN_KEY);
+    const nameIdx = ordered.indexOf("name");
+    const insertAt = statusIdx >= 0 ? statusIdx + 1 : nameIdx >= 0 ? nameIdx + 1 : 0;
+    if (!ordered.includes(HOLDING_PERIOD_COLUMN_KEY)) {
+      ordered.splice(insertAt, 0, HOLDING_PERIOD_COLUMN_KEY);
+    }
+  }
+
   for (const extraKey of extraValid) {
-    if (extraKey !== INVESTMENT_STATUS_COLUMN_KEY && !ordered.includes(extraKey)) {
+    if (
+      extraKey !== INVESTMENT_STATUS_COLUMN_KEY &&
+      extraKey !== HOLDING_PERIOD_COLUMN_KEY &&
+      !ordered.includes(extraKey)
+    ) {
       ordered.push(extraKey);
     }
   }
@@ -1051,7 +1087,7 @@ export const CompanySection = ({
     (keys: string[]) => {
       if (!portfolioMode) return validateColumnKeys(keys);
       const withInvestmentStatus = Array.from(
-        new Set([...keys, INVESTMENT_STATUS_COLUMN_KEY])
+        new Set([...keys, INVESTMENT_STATUS_COLUMN_KEY, HOLDING_PERIOD_COLUMN_KEY])
       );
       return validateColumnKeys(withInvestmentStatus);
     },

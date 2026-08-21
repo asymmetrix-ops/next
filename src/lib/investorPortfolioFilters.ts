@@ -42,20 +42,50 @@ export function buildPortfolioBaseFiltersSql(allIds: number[]): string {
   return idsToSqlFragment(allIds);
 }
 
-export function enrichPortfolioListFilters<T extends { filters_sql?: string | null }>(
+/** Extra columns requested on Get_new_companies for the Portfolio tab's holding-period fields. */
+export const HOLDING_PERIOD_REQUEST_COLUMNS = [
+  "holding_period_display",
+  "holding_period_status",
+  "holding_days",
+  "acquisition_date",
+  "headcount_growth_pct",
+  "revenue_growth_pct",
+] as const;
+
+export function enrichPortfolioListFilters<
+  T extends { filters_sql?: string | null; columns?: string[] },
+>(
   userFilters: T,
   scopedIds: number[],
-  currentIds: number[]
+  currentIds: number[],
+  investorId?: number | string | null
 ): T & {
   filters_sql: string | null;
   portfolio_mode: true;
   current_portfolio_ids: number[];
+  investor_id?: number | null;
+  columns: string[];
 } {
+  const numericInvestorId =
+    investorId != null && investorId !== "" ? Number(investorId) : null;
+  const withHoldingPeriodColumns = Array.from(
+    new Set([...(userFilters.columns ?? []), ...HOLDING_PERIOD_REQUEST_COLUMNS])
+  );
+
   if ((userFilters as { portfolio_mode?: boolean }).portfolio_mode) {
-    return userFilters as T & {
+    return {
+      ...userFilters,
+      columns: withHoldingPeriodColumns,
+      investor_id:
+        Number.isFinite(numericInvestorId) && numericInvestorId
+          ? numericInvestorId
+          : (userFilters as { investor_id?: number | null }).investor_id ?? null,
+    } as T & {
       filters_sql: string | null;
       portfolio_mode: true;
       current_portfolio_ids: number[];
+      investor_id?: number | null;
+      columns: string[];
     };
   }
 
@@ -67,5 +97,10 @@ export function enrichPortfolioListFilters<T extends { filters_sql?: string | nu
     ),
     portfolio_mode: true,
     current_portfolio_ids: currentIds,
+    investor_id:
+      Number.isFinite(numericInvestorId) && numericInvestorId
+        ? numericInvestorId
+        : null,
+    columns: withHoldingPeriodColumns,
   };
 }
