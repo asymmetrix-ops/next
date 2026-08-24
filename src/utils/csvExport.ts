@@ -33,6 +33,27 @@ export interface CorporateEventCSVRow {
   "Corporate Event Link": string;
 }
 
+type CorporateEventExportApiRow = {
+  description: string;
+  date: string;
+  target_name: string;
+  target_hq: string;
+  primary_sector: string;
+  secondary_sectors: string;
+  deal_type: string;
+  funding_stage: string;
+  amount_m: number | null;
+  ev_m: number | null;
+  buyers_investors: string;
+  sellers: string;
+  advisors: string;
+  corporate_event_link: string;
+};
+
+type CorporateEventExportApiResponse =
+  | CorporateEventExportApiRow[]
+  | { items?: CorporateEventExportApiRow[] };
+
 export class CSVExporter {
   static formatDate(dateString: string): string {
     if (!dateString) return "Not available";
@@ -273,24 +294,20 @@ export class CSVExporter {
     this.downloadCSV(csvContent, filename);
   }
 
+  private static normalizeExportApiResponse(
+    apiResponse: CorporateEventExportApiResponse
+  ): CorporateEventExportApiRow[] {
+    if (Array.isArray(apiResponse)) {
+      return apiResponse;
+    }
+
+    const items = apiResponse.items;
+    return Array.isArray(items) ? items : [];
+  }
+
   // Convert export API response format to CSV format
   static convertExportApiResponseToCSVData(
-    apiResponse: Array<{
-      description: string;
-      date: string;
-      target_name: string;
-      target_hq: string;
-      primary_sector: string;
-      secondary_sectors: string;
-      deal_type: string;
-      funding_stage: string;
-      amount_m: number | null;
-      ev_m: number | null;
-      buyers_investors: string;
-      sellers: string;
-      advisors: string;
-      corporate_event_link: string;
-    }>
+    apiResponse: CorporateEventExportApiRow[]
   ): CorporateEventCSVRow[] {
     return apiResponse.map((item) => {
       // Format date
@@ -346,27 +363,17 @@ export class CSVExporter {
     });
   }
 
-  // Export from API response format
+  // Export from API response format (array or paginated { items: [...] } wrapper)
   static exportCorporateEventsFromApiResponse(
-    apiResponse: Array<{
-      description: string;
-      date: string;
-      target_name: string;
-      target_hq: string;
-      primary_sector: string;
-      secondary_sectors: string;
-      deal_type: string;
-      funding_stage: string;
-      amount_m: number | null;
-      ev_m: number | null;
-      buyers_investors: string;
-      sellers: string;
-      advisors: string;
-      corporate_event_link: string;
-    }>,
+    apiResponse: CorporateEventExportApiResponse,
     filename?: string
   ): void {
-    const csvData = this.convertExportApiResponseToCSVData(apiResponse);
+    const rows = this.normalizeExportApiResponse(apiResponse);
+    if (rows.length === 0) {
+      throw new Error("No export data returned");
+    }
+
+    const csvData = this.convertExportApiResponseToCSVData(rows);
     const csvContent = this.convertToCSV(csvData);
     this.downloadCSV(csvContent, filename);
   }
