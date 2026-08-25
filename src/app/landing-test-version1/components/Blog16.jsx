@@ -147,7 +147,7 @@ export function Blog16({ substackTabs = EMPTY_SUBSTACK_TABS }) {
               What&apos;s worth reading
             </h1>
             <p className="landing-text-secondary md:text-md">
-              Our substack is updated weekly
+              Our Substack is updated weekly
             </p>
           </div>
         </Reveal>

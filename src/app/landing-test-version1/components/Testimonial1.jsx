@@ -21,7 +21,7 @@ const TESTIMONIALS = [
   {
     id: "raymond-james",
     quote:
-      "Asymmetrix provides proprietary data on proprietary data businesses and is the go to source for actionable intelligence.",
+      "Asymmetrix provides proprietary data on proprietary data businesses and is the go-to source for actionable intelligence.",
     initials: "GW",
     name: "George Watson",
     title: "Raymond James",
@@ -32,7 +32,7 @@ const TESTIMONIALS = [
       "The team at Asymmetrix do a fantastic job covering the data and information services world. Their subject matter expertise, strong network, and importantly, understanding of the nuances in this sector, shine through in the content, including accurate and detailed company classifications, market maps and overviews, and deal briefs and rumor coverage. Asymmetrix has quickly become a go-to resource for our team at Endicott.",
     initials: "MC",
     name: "Mike Chinn",
-    title: "Endicott",
+    title: "Endicott Capital",
   },
 ];
 

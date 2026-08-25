@@ -9,7 +9,6 @@ import { Cta15 } from "./components/Cta15";
 import { Footer1 } from "./components/Footer1";
 import { FloatingCta } from "./components/FloatingCta";
 import { fetchTopViewedLandingArticles } from "@/lib/fetchTopViewedLandingArticles";
-import { fetchLandingCompanyUniverseCounts } from "@/lib/fetchLandingCompanyUniverseCounts";
 
 export const metadata = {
   title: "Asymmetrix | Data & Analytics Market Intelligence",
@@ -45,10 +44,7 @@ const WEBSITE_JSON_LD = {
 };
 
 export default async function LandingTestVersion1Page() {
-  const [topViewedArticles, companyUniverseCounts] = await Promise.all([
-    fetchTopViewedLandingArticles(),
-    fetchLandingCompanyUniverseCounts(),
-  ]);
+  const topViewedArticles = await fetchTopViewedLandingArticles();
 
   return (
     <div>
@@ -61,13 +57,10 @@ export default async function LandingTestVersion1Page() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSON_LD) }}
       />
       <Navbar1 />
-      <PlatformHero />
+      <PlatformHero topViewedArticles={topViewedArticles} />
       <Logo3 />
       <Layout184 />
-      <Coverage
-        topViewedArticles={topViewedArticles}
-        companyUniverseCounts={companyUniverseCounts ?? undefined}
-      />
+      <Coverage />
       <Testimonial1 />
       <Logo3 id="clients-2" showHeading={false} />
       <Blog16Section />

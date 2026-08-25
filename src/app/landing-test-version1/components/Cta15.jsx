@@ -18,7 +18,7 @@ export function Cta15() {
             </div>
             <div>
               <p className="text-text-alternative md:text-md">
-                Start with a demo or explore
+                Start with a demo or get in touch with our team
               </p>
               <div className="mt-6 flex flex-wrap gap-4 md:mt-8">
                 <Button
