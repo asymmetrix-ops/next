@@ -150,7 +150,7 @@ export function Footer1() {
                     rel="noopener noreferrer"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
-                    <BiLogoLinkedinSquare className="size-6" />
+                    <BiLogoLinkedinSquare className="size-6 text-[#0A66C2]" />
                     <span>LinkedIn</span>
                   </a>
                 </li>

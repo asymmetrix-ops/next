@@ -5,13 +5,21 @@ import Image from "next/image";
 import { BiLogoLinkedinSquare } from "react-icons/bi";
 import { Reveal } from "./Reveal";
 
+// Ordered alphabetically by surname.
 const TEAM = [
   {
-    name: "Alex Boden",
-    title: "CEO",
-    blurb: "Spent 15+ years in corporate finance at Houlihan Lokey and Quayle Munro",
-    image: "/images/a_boden.jpg",
-    linkedin: "https://www.linkedin.com/in/alexanderboden/",
+    name: "Piero Azzano",
+    title: "Product Manager",
+    blurb: "Previously at Gain.AI and Landytech",
+    image: "/icons/pierro.jpeg",
+    linkedin: "https://www.linkedin.com/in/piero-azzano-18708a138/",
+  },
+  {
+    name: "Jordan Bintcliffe",
+    title: "Head of News",
+    blurb: "Previously at LSEG and Octus Media",
+    image: "/images/jordan_b_image.png",
+    linkedin: "https://www.linkedin.com/in/jordan-bintcliffe/",
   },
   {
     name: "Jared Bochner",
@@ -21,18 +29,19 @@ const TEAM = [
     linkedin: "https://www.linkedin.com/in/jaredbochner/",
   },
   {
-    name: "Piero Azzano",
-    title: "Product Manager",
-    blurb: "Previously at Gain.AI and Landytech",
-    image: "/icons/pierro.jpeg",
-    linkedin: "https://www.linkedin.com/in/piero-azzano-18708a138/",
+    name: "Alex Boden",
+    title: "CEO",
+    blurb: "Spent 15+ years in corporate finance at Houlihan Lokey and Quayle Munro",
+    image: "/images/a_boden.jpg",
+    linkedin: "https://www.linkedin.com/in/alexanderboden/",
   },
   {
-    name: "Alex Grishko",
-    title: "Research Associate",
-    blurb: "Previously at Dukascopy Bank",
-    image: "/images/alex_g.jpg",
-    linkedin: "https://www.linkedin.com/in/alex-g-283206268/",
+    name: "Honor Crean",
+    title: "Founders' Associate",
+    blurb: "Operations Queen",
+    image: "/images/honor.jpg",
+    imageClassName: "object-[center_30%]",
+    linkedin: "https://www.linkedin.com/in/honor-crean-944437189/",
   },
   {
     name: "Dawnn Dinsey",
@@ -42,11 +51,11 @@ const TEAM = [
     linkedin: "https://www.linkedin.com/in/dawnn-dinsey/",
   },
   {
-    name: "Ivan Tucha",
-    title: "Full Stack Developer",
-    blurb: "5+ years of experience architecting full-stack platforms",
-    image: "/images/ivan.jpeg",
-    linkedin: "https://www.linkedin.com/in/ivan-tucha/",
+    name: "Alex Grishko",
+    title: "Research Associate",
+    blurb: "Previously at Dukascopy Bank",
+    image: "/images/alex_g.jpg",
+    linkedin: "https://www.linkedin.com/in/alex-g-283206268/",
   },
   {
     name: "Sam Hicks",
@@ -57,12 +66,11 @@ const TEAM = [
     linkedin: "https://www.linkedin.com/in/samhicks/",
   },
   {
-    name: "Honor Crean",
-    title: "Founders' Associate",
-    blurb: "Operations Queen",
-    image: "/images/honor.jpg",
-    imageClassName: "object-[center_30%]",
-    linkedin: "https://www.linkedin.com/in/honor-crean-944437189/",
+    name: "Ivan Tucha",
+    title: "Full Stack Developer",
+    blurb: "5+ years of experience architecting full-stack platforms",
+    image: "/images/ivan.jpeg",
+    linkedin: "https://www.linkedin.com/in/ivan-tucha/",
   },
 ];
 
@@ -81,34 +89,34 @@ function initialsOf(name) {
 function TeamCard({ member }) {
   return (
     <div className="flex h-full flex-col items-center text-center">
-      <div className="bg-background-alternative mb-4 flex size-20 items-center justify-center overflow-hidden rounded-full">
+      <div className="bg-background-alternative mb-5 flex size-32 items-center justify-center overflow-hidden rounded-full md:size-40">
         {member.image ? (
           <Image
             src={member.image}
             alt={member.name}
-            width={80}
-            height={80}
-            className={`size-20 object-cover ${member.imageClassName ?? ""}`}
+            width={160}
+            height={160}
+            className={`size-32 object-cover md:size-40 ${member.imageClassName ?? ""}`}
           />
         ) : (
-          <span className="text-lg font-semibold">{initialsOf(member.name)}</span>
+          <span className="text-3xl font-semibold">{initialsOf(member.name)}</span>
         )}
       </div>
-      <p className="text-base font-bold text-text-alternative">{member.name}</p>
-      <p className="landing-text-secondary mb-3 text-base">{member.title}</p>
-      <p className="landing-text-secondary mb-4 max-w-[15rem] flex-1 text-xs leading-relaxed">
+      <p className="text-xl font-bold text-text-alternative md:text-2xl">{member.name}</p>
+      <p className="landing-text-secondary mb-4 text-base md:text-lg">{member.title}</p>
+      <p className="landing-text-secondary mb-5 max-w-xs flex-1 text-sm leading-relaxed md:text-base">
         {member.blurb}
       </p>
-      <div className="flex h-6 items-center gap-3">
+      <div className="flex h-7 items-center gap-3">
         {member.linkedin ? (
           <a
             href={member.linkedin}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`${member.name}'s LinkedIn profile`}
-            className="landing-text-secondary hover:text-text-alternative"
+            className="text-[#0A66C2] transition-opacity hover:opacity-75"
           >
-            <BiLogoLinkedinSquare className="size-6" />
+            <BiLogoLinkedinSquare className="size-7" />
           </a>
         ) : null}
       </div>
@@ -132,7 +140,7 @@ export function AboutTeam() {
           </p>
         </Reveal>
 
-        <Reveal className="grid grid-cols-2 items-stretch gap-x-6 gap-y-12 md:grid-cols-4 md:gap-x-8 md:gap-y-14">
+        <Reveal className="grid grid-cols-1 items-stretch gap-x-10 gap-y-16 sm:grid-cols-2 md:grid-cols-3 md:gap-x-12 md:gap-y-20">
           {TEAM.map((member) => (
             <TeamCard key={member.name} member={member} />
           ))}
