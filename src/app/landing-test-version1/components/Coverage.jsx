@@ -8,13 +8,12 @@ import {
 } from "@relume_io/relume-ui";
 import React from "react";
 import { AIDefensibilityVisual } from "./AIDefensibilityVisual";
-import { CompanyUniverseVisual } from "./CompanyUniverseVisual";
+import { CompanyProfileVisual } from "./CompanyProfileVisual";
 import { DashboardMockup } from "./DashboardMockup";
 import { DealRadarVisual } from "./DealRadarVisual";
 import { DealTrackingVisual } from "./DealTrackingVisual";
 import { FinancialBenchmarkVisual } from "./FinancialBenchmarkVisual";
 import { InvestorPortfolioVisual } from "./InvestorPortfolioVisual";
-import { MarketAnalysisVisual } from "./MarketAnalysisVisual";
 import { Reveal } from "./Reveal";
 import { SectorTaxonomyVisual } from "./SectorTaxonomyVisual";
 
@@ -79,23 +78,9 @@ const TABS = [
       "See in-market companies and live processes surfaced through proprietary deal signals, long before a transaction is formally announced.",
     stat: { value: "5,708", caption: "Corporate events tracked" },
   },
-  {
-    value: "market-analysis",
-    trigger: "Market analysis",
-    label: "Analyse",
-    heading: "Market analysis",
-    description:
-      "Go beyond the data with research reports and market commentary that explain what's driving valuations, consolidation and disruption across the Data & Analytics sector.",
-  },
 ];
 
-/**
- * @param {{
- *   topViewedArticles?: import("@/lib/fetchTopViewedLandingArticles").TopViewedLandingArticle[];
- *   companyUniverseCounts?: import("@/lib/landingCompanyUniverseCounts").CompanyUniverseCounts;
- * }} props
- */
-export function Coverage({ topViewedArticles = [], companyUniverseCounts }) {
+export function Coverage() {
   return (
     <section
       id="coverage"
@@ -110,9 +95,9 @@ export function Coverage({ topViewedArticles = [], companyUniverseCounts }) {
             All of the data tracked in one place
           </h2>
           <p className="landing-text-secondary md:text-md">
-            Asymmetrix monitors the full spectrum of the data and analytics
-            market, from early-stage startups to public companies. These are
-            features in our platform exclusive to our clients.
+            Asymmetrix monitors the full spectrum of the Data &amp; Analytics
+            market, from early-stage startups to public companies. These
+            features are exclusive to our clients.
           </p>
         </Reveal>
         <Tabs
@@ -149,7 +134,7 @@ export function Coverage({ topViewedArticles = [], companyUniverseCounts }) {
                   </p>
                 </div>
                 {tab.value === "company-profiles" ? (
-                  <CompanyUniverseVisual data={companyUniverseCounts} />
+                  <CompanyProfileVisual />
                 ) : tab.value === "deal-radar" ? (
                   <DealRadarVisual />
                 ) : tab.value === "deal-tracking" ? (
@@ -162,8 +147,6 @@ export function Coverage({ topViewedArticles = [], companyUniverseCounts }) {
                   <AIDefensibilityVisual />
                 ) : tab.value === "investors-advisors" ? (
                   <InvestorPortfolioVisual />
-                ) : tab.value === "market-analysis" ? (
-                  <MarketAnalysisVisual articles={topViewedArticles} />
                 ) : (
                   <DashboardMockup
                     label={tab.heading}

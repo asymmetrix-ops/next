@@ -137,7 +137,7 @@ export function ContactFormSection() {
 
                 <fieldset className="flex flex-col gap-3 sm:col-span-2">
                   <legend className="mb-1 text-sm font-medium">
-                    How would you describe yourself
+                    How would you describe yourself?
                   </legend>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {ABOUT_OPTIONS.map((option) => {

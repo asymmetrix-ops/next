@@ -5,17 +5,21 @@ import { Reveal } from "./Reveal";
 
 const CLIENT_LOGOS = [
   { src: "/client_logos/collingwood-trim.png", alt: "Collingwood" },
-  { src: "/client_logos/plural.png", alt: "PLURAL" },
+  { src: "/client_logos/plural.png", alt: "PLURAL", large: true },
   { src: "/client_logos/eci.png", alt: "ECI" },
   { src: "/client_logos/Bridgepoint_Logo_185C.png", alt: "Bridgepoint" },
   { src: "/client_logos/endicott.svg", alt: "Endicott" },
-  { src: "/client_logos/motive-trim.png", alt: "Motive" },
+  { src: "/client_logos/motive-trim.png", alt: "Motive", large: true },
   { src: "/client_logos/mayfair.png", alt: "Mayfair" },
   { src: "/client_logos/burghclere.png", alt: "Burghclere" },
   { src: "/client_logos/FPE-Logo.png", alt: "FPE" },
   { src: "/client_logos/Perwyn logo.png", alt: "Perwyn" },
   { src: "/client_logos/raymond-james-trim.png", alt: "Raymond James" },
-  { src: "/client_logos/Cardean_Bell_Assets-Primary-Positive-300x300.png", alt: "Cardean Bell" },
+  {
+    src: "/client_logos/Cardean_Bell_Assets-Primary-Positive-300x300.png",
+    alt: "Cardean Bell",
+    large: true,
+  },
   { src: "/client_logos/Financial_Times_idRlWoph_N_0.png", alt: "Financial Times" },
 ];
 
@@ -32,7 +36,10 @@ const LogoRow = ({ ariaHidden = false }) => (
         <img
           src={logo.src}
           alt={ariaHidden ? "" : logo.alt}
-          className="landing-logo-strip-image"
+          className={
+            "landing-logo-strip-image" +
+            (logo.large ? " landing-logo-strip-image-lg" : "")
+          }
           loading="lazy"
           decoding="async"
         />
@@ -44,7 +51,7 @@ const LogoRow = ({ ariaHidden = false }) => (
 export function Logo3({
   id = "clients",
   showHeading = true,
-  heading = "Trusted by leading firms across the data and analytics industry",
+  heading = "Trusted by leading firms across the Data & Analytics industry",
 }) {
   return (
     <section

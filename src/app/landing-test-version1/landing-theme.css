@@ -632,6 +632,18 @@
   }
 }
 
+.landing-rebrand .landing-logo-strip-image-lg {
+  height: 3rem;
+  max-width: 11rem;
+}
+
+@media (min-width: 768px) {
+  .landing-rebrand .landing-logo-strip-image-lg {
+    height: 3.75rem;
+    max-width: 13rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-rebrand .landing-logo-strip-track {
     animation: none;

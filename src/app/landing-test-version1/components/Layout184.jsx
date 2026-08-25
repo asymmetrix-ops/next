@@ -24,7 +24,7 @@ export function Layout184() {
             providers of every shape, size and business model – uniting the
             sector under one taxonomy and giving stakeholders critical
             proprietary data on the companies, deals and people shaping the
-            industry
+            industry.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-4 md:mt-8">
             <Button

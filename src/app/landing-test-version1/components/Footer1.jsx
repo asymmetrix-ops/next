@@ -39,7 +39,7 @@ export function Footer1() {
               />
             </a>
             <p className="landing-text-secondary mb-5 md:mb-6">
-              Get the latest on data and analytics intelligence.
+              Get the latest on Data &amp; Analytics intelligence.
             </p>
             <div className="w-full max-w-md">
               <form
@@ -106,7 +106,7 @@ export function Footer1() {
                     href="/landing-test-version1/contact-us"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
-                    <span>Contact us</span>
+                    <span>Contact Us</span>
                   </a>
                 </li>
                 <li className="py-2 text-sm">

@@ -6,6 +6,7 @@ import { AIDefensibilityVisual } from "./AIDefensibilityVisual";
 import { CompanyGraphVisual } from "./CompanyGraphVisual";
 import { DashboardMockup } from "./DashboardMockup";
 import { DealRadarVisual } from "./DealRadarVisual";
+import { MarketAnalysisVisual } from "./MarketAnalysisVisual";
 import { openCalendlyPopup } from "@/lib/calendlyWidget";
 
 const TABS = [
@@ -37,9 +38,17 @@ const TABS = [
     stat: { value: "89", caption: "Companies scored" },
     bars: [40, 65, 50, 85, 55],
   },
+  {
+    id: "market-analysis",
+    label: "Market Analysis",
+    eyebrow: "Market Analysis",
+    title: "Go beyond the data with research reports and market commentary",
+    description:
+      "Understand what's driving valuations, consolidation and disruption across the Data & Analytics sector — straight from our research desk.",
+  },
 ];
 
-export function PlatformHero() {
+export function PlatformHero({ topViewedArticles = [] }) {
   const [activeTab, setActiveTab] = useState(TABS[0].id);
   const content = TABS.find((tab) => tab.id === activeTab);
 
@@ -65,8 +74,9 @@ export function PlatformHero() {
             </div>
             <div className="relative">
               <h1 className="text-5xl font-bold leading-[1.05] text-text-alternative md:text-7xl lg:text-8xl">
-                Intelligence on the
+                Intelligence
                 <br />
+                on the{" "}
                 <span className="landing-gradient-text whitespace-nowrap">
                   Data & Analytics Market
                 </span>
@@ -75,9 +85,9 @@ export function PlatformHero() {
                 aria-hidden="true"
                 className="landing-shine-overlay pointer-events-none absolute inset-0 select-none text-5xl font-bold leading-[1.05] md:text-7xl lg:text-8xl"
               >
-                Intelligence on the
+                Intelligence
                 <br />
-                Data & Analytics Market
+                on the Data & Analytics Market
               </h1>
             </div>
           </motion.div>
@@ -110,7 +120,8 @@ export function PlatformHero() {
           <p className="text-base leading-relaxed text-text-alternative md:text-lg">
             Track companies, investors, deal activity, and AI impact in one
             place for the Data &amp; Analytics market.
-            <br />
+          </p>
+          <p className="mt-3 text-base leading-relaxed text-text-alternative md:text-lg">
             Pick a starting point:
           </p>
         </motion.div>
@@ -158,7 +169,9 @@ export function PlatformHero() {
                   "grid items-center gap-8 lg:gap-10 " +
                   (content.id === "company-data"
                     ? "lg:grid-cols-[0.85fr_1.35fr]"
-                    : "lg:grid-cols-[1fr_1.1fr]")
+                    : content.id === "market-analysis"
+                      ? "lg:grid-cols-[0.9fr_1.3fr]"
+                      : "lg:grid-cols-[1fr_1.1fr]")
                 }
               >
                 <div className="text-left text-text-alternative">
@@ -179,6 +192,8 @@ export function PlatformHero() {
                   <DealRadarVisual />
                 ) : content.id === "ai-index" ? (
                   <AIDefensibilityVisual />
+                ) : content.id === "market-analysis" ? (
+                  <MarketAnalysisVisual articles={topViewedArticles} />
                 ) : (
                   <DashboardMockup
                     label={content.eyebrow}
