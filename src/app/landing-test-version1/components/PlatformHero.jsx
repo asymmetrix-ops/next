@@ -48,6 +48,11 @@ const TABS = [
   },
 ];
 
+/**
+ * @param {{
+ *   topViewedArticles?: import("@/lib/fetchTopViewedLandingArticles").TopViewedLandingArticle[];
+ * }} props
+ */
 export function PlatformHero({ topViewedArticles = [] }) {
   const [activeTab, setActiveTab] = useState(TABS[0].id);
   const content = TABS.find((tab) => tab.id === activeTab);
