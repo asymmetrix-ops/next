@@ -14,7 +14,7 @@ const VALUES = [
 export function AboutValues() {
   return (
     <section className="landing-near-black-bg px-[5%] py-16 md:py-24 lg:py-28">
-      <div className="container">
+      <div className="container grid grid-cols-1 items-center gap-x-12 gap-y-14 md:grid-cols-2 md:gap-x-20">
         <Reveal>
           <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold">
             Values
@@ -30,6 +30,22 @@ export function AboutValues() {
               </li>
             ))}
           </ul>
+        </Reveal>
+
+        <Reveal delay={0.1} className="flex justify-center md:justify-end">
+          <div
+            className="relative flex size-56 items-center justify-center rounded-full md:size-72"
+            style={{
+              background: "linear-gradient(160deg, rgba(83,111,240,0.12) 0%, rgba(83,111,240,0) 70%)",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <img
+              src="/icons/logo.svg"
+              alt="Asymmetrix"
+              className="size-28 md:size-36"
+            />
+          </div>
         </Reveal>
       </div>
     </section>
