@@ -13,7 +13,8 @@ export type InvestorFocusSector = {
 
 export type InvestorOverviewCardProps = {
   focusSectors?: InvestorFocusSector[];
-  type?: string | null;
+  /** Primary business focus labels (e.g. Data & Analytics, Software). */
+  typeLabels?: string[];
   yearFounded?: string | number | null;
   website?: string | null;
   websiteLabel?: string | null;
@@ -57,6 +58,20 @@ function FocusTags({ sectors }: { sectors: InvestorFocusSector[] }) {
   );
 }
 
+function TypeTags({ labels }: { labels: string[] }) {
+  if (labels.length === 0) return faintDash();
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+      {labels.map((label) => (
+        <Pill key={label} tone="coral">
+          {label}
+        </Pill>
+      ))}
+    </div>
+  );
+}
+
 function StatusTag({ label }: { label: string }) {
   const normalized = label.trim();
   if (!normalized || normalized === EM) return faintDash();
@@ -74,7 +89,7 @@ function StatusTag({ label }: { label: string }) {
 
 export function InvestorOverviewCard({
   focusSectors = [],
-  type,
+  typeLabels = [],
   yearFounded,
   website,
   websiteLabel,
@@ -88,7 +103,7 @@ export function InvestorOverviewCard({
 }: InvestorOverviewCardProps) {
   const rows: { k: string; v: React.ReactNode }[] = [
     { k: "Focus", v: <FocusTags sectors={focusSectors} /> },
-    { k: "Type", v: displayText(type) },
+    { k: "Type", v: <TypeTags labels={typeLabels} /> },
     { k: "Year Founded", v: displayText(yearFounded) },
     { k: "HQ", v: displayText(hq) },
     {

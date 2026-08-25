@@ -31,6 +31,7 @@ import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
 import { extractInvestorCorporateEvents } from "@/lib/normalizeCounterpartyCorporateEvents";
+import { parseLinkedInGrowthPctValue } from "@/components/subsidiaries/SubsidiariesProfilePanel";
 
 const CE_PREVIEW_COUNT = 2;
 
@@ -58,6 +59,23 @@ interface LinkedInHistory {
   employees_count: number;
 }
 
+interface InvestorYearsFounded {
+  id?: number | null;
+  Year?: string | number | null;
+}
+
+interface PrimaryBusinessFocus {
+  id: number;
+  business_focus: string;
+}
+
+interface InvestorLinkedInData {
+  LinkedIn_URL?: string;
+  LinkedIn_Employee?: number;
+  LinkedIn_Emp__Date?: string;
+  linkedin_logo?: string;
+}
+
 interface Investor {
   id: number;
   name: string;
@@ -65,7 +83,9 @@ interface Investor {
   url: string;
   street_address: string;
   year_founded: number;
-  _years: InvestorYears;
+  linkedin_growth_1y_pct?: number | string | null;
+  linkedin_data?: InvestorLinkedInData;
+  _years?: InvestorYears;
   _locations: InvestorLocation;
   _linkedin_data_of_new_company: LinkedInData;
 }
@@ -236,6 +256,8 @@ interface CorporateEventsResponse {
 interface InvestorData {
   Investor: Investor;
   Focus: FocusSector[];
+  Primary_Business_Focus?: PrimaryBusinessFocus[];
+  Years_founded?: InvestorYearsFounded;
   Invested_DA_sectors: FocusSector[];
   Investment_Team_Roles_current: TeamMember[];
   Investment_Team_Roles_past: TeamMember[];
@@ -331,6 +353,59 @@ function mapPortfolioMixRows(rows: PortfolioMixApiRow[] | undefined): InvestorMi
         pct: Number.isFinite(pct) ? pct : 0,
       };
     });
+}
+
+function extractValidYear(candidate: unknown): number | null {
+  if (candidate === null || candidate === undefined) return null;
+  const currentYear = new Date().getFullYear();
+  if (typeof candidate === "number") {
+    const y = candidate;
+    return y >= 1800 && y <= currentYear ? y : null;
+  }
+  const s = String(candidate).trim();
+  if (s === "" || s.toLowerCase() === "nan") return null;
+  const n = parseInt(s, 10);
+  if (Number.isFinite(n) && n >= 1800 && n <= currentYear) return n;
+  const m = s.match(/\b(18\d{2}|19\d{2}|20\d{2})\b/);
+  if (m) {
+    const mNum = parseInt(m[0], 10);
+    if (mNum >= 1800 && mNum <= currentYear) return mNum;
+  }
+  return null;
+}
+
+function getInvestorYearFoundedDisplay(
+  yearsFounded?: InvestorYearsFounded | null
+): string | null {
+  const year = extractValidYear(yearsFounded?.Year);
+  return year !== null ? String(year) : null;
+}
+
+function formatInvestorLocation(location?: InvestorLocation | null): string | undefined {
+  if (!location) return undefined;
+  const parts = [location.City, location.State__Province__County, location.Country]
+    .map((part) => (typeof part === "string" ? part.trim() : ""))
+    .filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : undefined;
+}
+
+function formatLinkedInGrowthYoY(raw: unknown): string | undefined {
+  const liGrowth = parseLinkedInGrowthPctValue(raw);
+  if (liGrowth === null) return undefined;
+  const rounded = Math.round(liGrowth * 10) / 10;
+  return `${rounded >= 0 ? "+" : ""}${rounded}% YoY`;
+}
+
+function formatLinkedInAsOfDate(raw: string | null | undefined): string | undefined {
+  if (!raw?.trim()) return undefined;
+  try {
+    return new Date(raw.trim()).toLocaleDateString("en-US", {
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return undefined;
+  }
 }
 
 function extractOptionalString(raw: unknown, keys: string[]): string | null {
@@ -1325,14 +1400,16 @@ const InvestorDetailPage = () => {
   const {
     Investor,
     Focus,
+    Primary_Business_Focus,
+    Years_founded,
     Investment_Team_Roles_current,
     Investment_Team_Roles_past,
   } = investorData;
 
   const investorRaw = Investor as Investor & Record<string, unknown>;
-  const investorType =
-    extractOptionalString(investorRaw, ["investor_type", "type"]) ||
-    extractOptionalString(investorData as unknown, ["investor_type"]);
+  const businessFocusLabels = (Primary_Business_Focus ?? [])
+    .map((item) => item?.business_focus?.trim())
+    .filter((label): label is string => Boolean(label));
   const investorOwnership =
     extractOptionalString(investorRaw, ["ownership", "ownership_type"]) ||
     (investorRaw._ownership_type && typeof investorRaw._ownership_type === "object"
@@ -1341,11 +1418,14 @@ const InvestorDetailPage = () => {
   const investorStatus =
     extractOptionalString(investorRaw, ["status", "investor_status"]) || "Active";
 
-  const hq = `${Investor._locations?.City || ""}, ${
-    Investor._locations?.State__Province__County || ""
-  }, ${Investor._locations?.Country || ""}`
-    .replace(/^,\s*/, "")
-    .replace(/,\s*$/, "");
+  const hq = formatInvestorLocation(Investor._locations);
+  const yearFoundedDisplay = getInvestorYearFoundedDisplay(Years_founded);
+  const linkedinProfileUrl =
+    Investor.linkedin_data?.LinkedIn_URL?.trim() ||
+    linkedinUrl?.trim() ||
+    Investor._linkedin_data_of_new_company?.LinkedIn_URL?.trim() ||
+    undefined;
+  const linkedinSnapshot = Investor._linkedin_data_of_new_company;
 
   const resolveTeamMemberIndividualId = (member: TeamMember): number | undefined => {
     if (typeof member.individuals_id === "number" && member.individuals_id > 0) {
@@ -1391,6 +1471,28 @@ const InvestorDetailPage = () => {
   const currentHeadcount = resolveChartEmployeeCount(linkedInHistory);
   const headcountYoY = computeEmployeeYoYFromMonthly(linkedInHistory);
   const headcountHistoryMonths = linkedInHistory.filter((e) => e.employees_count > 0).length;
+  const overviewHeadcount =
+    typeof linkedinSnapshot?.linkedin_employee === "number" &&
+    linkedinSnapshot.linkedin_employee > 0
+      ? linkedinSnapshot.linkedin_employee
+      : currentHeadcount > 0
+        ? currentHeadcount
+        : null;
+  const overviewEmployeesYoY =
+    formatLinkedInGrowthYoY(Investor.linkedin_growth_1y_pct) ||
+    headcountYoY ||
+    undefined;
+  const headcountAsOf =
+    formatLinkedInAsOfDate(linkedinSnapshot?.linkedin_emp_date) ||
+    (() => {
+      const nonZero = linkedInHistory.filter((e) => e.employees_count > 0);
+      const ref =
+        nonZero.length > 0
+          ? nonZero[nonZero.length - 1]
+          : linkedInHistory[linkedInHistory.length - 1];
+      if (!ref?.date) return undefined;
+      return formatLinkedInAsOfDate(ref.date);
+    })();
 
   const sectorMix = mapPortfolioMixRows(portfolioMix?.sector_mix);
   const stageFocus = mapPortfolioMixRows(portfolioMix?.stage_focus);
@@ -1583,22 +1685,18 @@ const InvestorDetailPage = () => {
                   name: f.sector_name,
                   href: f.id ? `/sector/${f.id}` : undefined,
                 }))}
-                type={investorType}
-                yearFounded={Investor._years?.Year || Investor.year_founded || null}
+                typeLabels={businessFocusLabels}
+                yearFounded={yearFoundedDisplay}
                 website={Investor.url}
                 websiteLabel={
                   Investor.url?.trim() ? formatWebsiteDisplayLabel(Investor.url) : undefined
                 }
-                hq={hq || undefined}
-                linkedinUrl={
-                  linkedinUrl ||
-                  Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
-                  undefined
-                }
+                hq={hq}
+                linkedinUrl={linkedinProfileUrl}
                 ownership={investorOwnership}
                 status={investorStatus}
-                employees={currentHeadcount > 0 ? currentHeadcount : null}
-                employeesYoY={headcountYoY || undefined}
+                employees={overviewHeadcount}
+                employeesYoY={overviewEmployeesYoY}
               />
             </div>
 
@@ -1719,34 +1817,15 @@ const InvestorDetailPage = () => {
                 fillGridCell
                 data={linkedInHistory.map((e) => e.employees_count)}
                 dates={linkedInHistory.map((e) => e.date)}
-                count={currentHeadcount}
-                yoyLabel={headcountYoY || undefined}
-                asOf={(() => {
-                  const nonZero = linkedInHistory.filter((e) => e.employees_count > 0);
-                  const ref =
-                    nonZero.length > 0
-                      ? nonZero[nonZero.length - 1]
-                      : linkedInHistory[linkedInHistory.length - 1];
-                  if (!ref?.date) return undefined;
-                  try {
-                    return new Date(ref.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      year: "numeric",
-                    });
-                  } catch {
-                    return undefined;
-                  }
-                })()}
+                count={overviewHeadcount ?? currentHeadcount}
+                yoyLabel={overviewEmployeesYoY}
+                asOf={headcountAsOf}
                 historyLabel={
                   headcountHistoryMonths > 0
                     ? `${headcountHistoryMonths}-month history`
                     : undefined
                 }
-                linkedinUrl={
-                  linkedinUrl ||
-                  Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
-                  undefined
-                }
+                linkedinUrl={linkedinProfileUrl}
               />
             </div>
           </div>
