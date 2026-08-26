@@ -79,9 +79,8 @@ export function PlatformHero({ topViewedArticles = [] }) {
             </div>
             <div className="relative">
               <h1 className="text-5xl font-bold leading-[1.05] text-text-alternative md:text-7xl lg:text-8xl">
-                Intelligence
+                Intelligence on the
                 <br />
-                on the{" "}
                 <span className="landing-gradient-text whitespace-nowrap">
                   Data & Analytics Market
                 </span>
@@ -90,9 +89,9 @@ export function PlatformHero({ topViewedArticles = [] }) {
                 aria-hidden="true"
                 className="landing-shine-overlay pointer-events-none absolute inset-0 select-none text-5xl font-bold leading-[1.05] md:text-7xl lg:text-8xl"
               >
-                Intelligence
+                Intelligence on the
                 <br />
-                on the Data & Analytics Market
+                Data & Analytics Market
               </h1>
             </div>
           </motion.div>

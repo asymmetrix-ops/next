@@ -10,9 +10,9 @@ const ADVANCE_MS = 4200;
 // (rumoured/reported/anticipated → in-market → exclusivity → closed) without
 // naming any actual company or live process.
 const COLUMNS = [
+  { id: "strategic-review", title: "Strategic review", status: "Board mandate" },
   { id: "not-launched", title: "Not yet launched", status: "Signal detected" },
   { id: "deal-prep", title: "Deal prep", status: "Advisor engaged" },
-  { id: "strategic-review", title: "Strategic review", status: "Board mandate" },
   { id: "in-market", title: "In market", status: "Teaser out", accent: true },
   { id: "in-exclusivity", title: "In exclusivity", status: "Due diligence" },
   { id: "completed", title: "Completed", status: "Deal closed", success: true },
