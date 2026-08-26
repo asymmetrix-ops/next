@@ -18,6 +18,7 @@ import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/c
 import { IndividualOverviewCard } from "@/components/individuals/IndividualOverviewCard";
 import { IndividualRolesProfilePanel } from "@/components/individuals/IndividualRolesProfilePanel";
 import { IndividualRelatedProfilePanel } from "@/components/individuals/IndividualRelatedProfilePanel";
+import { buildCorporateEventsBrowseAllHref } from "@/lib/corporateEventsFilterPayload";
 import type { CorporateEvent as IndividualCorporateEvent } from "@/types/individual";
 
 const CE_PREVIEW_COUNT = 2;
@@ -466,7 +467,9 @@ export default function IndividualProfilePage() {
                   onNext={() => {
                     if (cePage < ceTotalPages) setCePage(cePage + 1);
                   }}
-                  browseAllHref={`/corporate-events?individual_id=${individualId}`}
+                  browseAllHref={buildCorporateEventsBrowseAllHref({
+                    individualId,
+                  })}
                   fillGridCell
                 />
               </LinkPanel>

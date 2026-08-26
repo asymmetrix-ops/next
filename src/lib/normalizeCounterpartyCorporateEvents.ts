@@ -474,6 +474,29 @@ export function buildInvestorCorporateEventsFromCounterpartyPayload(
   });
 }
 
+/** Map individuals_id → display name from Events_Table["Other Individuals"]. */
+export function buildOtherIndividualIdToNameMap(
+  parsed: Record<string, unknown>
+): Map<number, string> {
+  const map = new Map<number, string>();
+  const eventsTable = Array.isArray(parsed.Events_Table)
+    ? (parsed.Events_Table as Record<string, unknown>[])
+    : [];
+
+  for (const evt of eventsTable) {
+    const arr = Array.isArray(evt?.["Other Individuals"])
+      ? (evt["Other Individuals"] as Array<Record<string, unknown>>)
+      : [];
+    for (const oi of arr) {
+      const id = Number(oi?.individuals_id ?? 0);
+      const name = cleanEventName(oi?.name);
+      if (id > 0 && name) map.set(id, name);
+    }
+  }
+
+  return map;
+}
+
 /** Build individual-profile events from counterparty payload. */
 export function buildIndividualCorporateEventsFromCounterpartyPayload(
   parsed: Record<string, unknown>,
@@ -485,18 +508,6 @@ export function buildIndividualCorporateEventsFromCounterpartyPayload(
   if (eventsTable.length === 0) return [];
 
   const corporateEventsById = indexCorporateEventsById(parsed);
-
-  const otherIndividualIdToName = new Map<number, string>();
-  for (const evt of eventsTable) {
-    const arr = Array.isArray(evt?.["Other Individuals"])
-      ? (evt["Other Individuals"] as Array<Record<string, unknown>>)
-      : [];
-    for (const oi of arr) {
-      const id = Number(oi?.individuals_id ?? 0);
-      const name = String(oi?.name ?? "").trim();
-      if (id > 0 && name) otherIndividualIdToName.set(id, name);
-    }
-  }
 
   return eventsTable.map((evt) => {
     const eventId = Number(evt?.id ?? 0);

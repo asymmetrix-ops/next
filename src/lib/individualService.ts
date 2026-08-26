@@ -11,11 +11,46 @@ import {
 import {
   parseCounterpartyRelatedEvents,
   buildIndividualCorporateEventsFromCounterpartyPayload,
+  buildOtherIndividualIdToNameMap,
   applyFlatCorporateEventCurrencyConversion,
 } from "./normalizeCounterpartyCorporateEvents";
 import { readPlatformCurrencyIdClient } from "./platformCurrency";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
+
+const PLACEHOLDER_INDIVIDUAL_NAME = /^Individual \d+$/;
+
+function parseIndividualNameResponse(data: unknown): string {
+  if (typeof data === "string") {
+    return data.replace(/\s+/g, " ").trim();
+  }
+  if (data && typeof data === "object" && "advisor_individuals" in data) {
+    return String(
+      (data as { advisor_individuals?: unknown }).advisor_individuals ?? ""
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  return "";
+}
+
+function resolveRelatedIndividualDisplayName(
+  indId: number,
+  ind: Record<string, unknown>,
+  nameById: Map<number, string>
+): string {
+  const fromItem = String(
+    ind.name ?? ind.advisor_individuals ?? ind.Individual_text ?? ""
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+  if (fromItem) return fromItem;
+
+  const fromEventsTable = nameById.get(indId);
+  if (fromEventsTable) return fromEventsTable;
+
+  return indId > 0 ? `Individual ${indId}` : "";
+}
 
 function buildIndividualEventsFromCounterpartyPayload(
   parsed: Record<string, unknown>,
@@ -26,12 +61,18 @@ function buildIndividualEventsFromCounterpartyPayload(
     preferredCurrencyId
   );
 
+  const nameById = buildOtherIndividualIdToNameMap(parsed);
   const otherIndividuals = Array.isArray(parsed.Other_individuals)
     ? (parsed.Other_individuals as Array<Record<string, unknown>>)
     : [];
 
   const all_related_individuals = otherIndividuals.flatMap((ind) => {
     const indId = Number(ind?.individuals_id ?? 0);
+    const displayName = resolveRelatedIndividualDisplayName(
+      indId,
+      ind,
+      nameById
+    );
     const roles = Array.isArray(ind?.roles)
       ? (ind.roles as Array<{
           role_id?: number;
@@ -52,7 +93,7 @@ function buildIndividualEventsFromCounterpartyPayload(
       ),
       _individuals: {
         id: indId,
-        advisor_individuals: `Individual ${indId}`,
+        advisor_individuals: displayName,
       },
       _new_company: {
         id: Number(r?.company_id ?? 0),
@@ -78,6 +119,54 @@ class IndividualService {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     };
+  }
+
+  private async enrichRelatedIndividualNames(
+    related: RelatedIndividual[]
+  ): Promise<RelatedIndividual[]> {
+    const missingIds = Array.from(
+      new Set(
+        related
+          .map((item) => item._individuals?.id ?? item.individuals_id)
+          .filter((id) => id > 0)
+          .filter((id) => {
+            const name = itemNameForId(related, id);
+            return !name || PLACEHOLDER_INDIVIDUAL_NAME.test(name);
+          })
+      )
+    );
+
+    if (missingIds.length === 0) return related;
+
+    const fetchedNames = await Promise.all(
+      missingIds.map(async (id) => {
+        try {
+          const response = await this.getIndividualName(id);
+          return [id, parseIndividualNameResponse(response)] as const;
+        } catch {
+          return [id, ""] as const;
+        }
+      })
+    );
+
+    const nameById = new Map(
+      fetchedNames.filter(([, name]) => Boolean(name))
+    );
+    if (nameById.size === 0) return related;
+
+    return related.map((item) => {
+      const id = item._individuals?.id ?? item.individuals_id;
+      const resolvedName = nameById.get(id);
+      if (!resolvedName) return item;
+
+      return {
+        ...item,
+        _individuals: {
+          ...item._individuals,
+          advisor_individuals: resolvedName,
+        },
+      };
+    });
   }
 
   /**
@@ -143,12 +232,16 @@ class IndividualService {
 
       if (parsed && Array.isArray(parsed.Events_Table)) {
         const responsePreferredCurrencyId = Number(raw?.preferred_currency_id ?? 0);
-        return buildIndividualEventsFromCounterpartyPayload(
+        const result = buildIndividualEventsFromCounterpartyPayload(
           parsed,
           responsePreferredCurrencyId > 0
             ? responsePreferredCurrencyId
             : preferredCurrencyId
         );
+        result.all_related_individuals = await this.enrichRelatedIndividualNames(
+          result.all_related_individuals
+        );
+        return result;
       }
 
       const extracted = extractIndividualCorporateEvents(raw);
@@ -271,6 +364,13 @@ class IndividualService {
       throw error;
     }
   }
+}
+
+function itemNameForId(related: RelatedIndividual[], id: number): string {
+  const match = related.find(
+    (item) => (item._individuals?.id ?? item.individuals_id) === id
+  );
+  return match?._individuals?.advisor_individuals?.trim() ?? "";
 }
 
 export const individualService = new IndividualService();

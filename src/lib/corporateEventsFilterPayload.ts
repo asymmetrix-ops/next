@@ -435,6 +435,29 @@ function parsePositiveIntParam(raw: string | null): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
+function parseIdListToken(raw: string): number[] {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((value) => Number(value))
+          .filter((id) => Number.isFinite(id) && id > 0);
+      }
+    } catch {
+      // Fall through to comma-separated parsing.
+    }
+  }
+
+  return trimmed
+    .split(",")
+    .map((value) => Number.parseInt(value.trim(), 10))
+    .filter((id) => Number.isFinite(id) && id > 0);
+}
+
 function parseEntityIdListParam(
   params: URLSearchParams,
   key: string
@@ -446,12 +469,7 @@ function parseEntityIdListParam(
   if (values.length === 0) return [];
 
   return Array.from(
-    new Set(
-      values
-        .flatMap((value) => value.split(","))
-        .map((value) => Number.parseInt(value.trim(), 10))
-        .filter((id) => Number.isFinite(id) && id > 0)
-    )
+    new Set(values.flatMap((value) => parseIdListToken(value)))
   );
 }
 
@@ -479,6 +497,14 @@ export function parseCorporateEventsUrlFilters(
     filterCompanyIds = [targetCompanyId];
   }
 
+  let filterIndividualIds = parseEntityIdListParam(
+    params,
+    "filter_individual_ids"
+  );
+  if (filterIndividualIds.length === 0 && individualId > 0) {
+    filterIndividualIds = [individualId];
+  }
+
   return {
     search_query: params.get("search")?.trim() || "",
     target_company_id: targetCompanyId,
@@ -487,6 +513,7 @@ export function parseCorporateEventsUrlFilters(
     investor_id: investorId,
     filter_advisor_ids: parseEntityIdListParam(params, "filter_advisor_ids"),
     filter_company_ids: filterCompanyIds,
+    filter_individual_ids: filterIndividualIds,
   };
 }
 
@@ -504,6 +531,8 @@ export function mergeCorporateEventsUrlFilters(
       urlFilters.filter_advisor_ids ?? filters.filter_advisor_ids ?? [],
     filter_company_ids:
       urlFilters.filter_company_ids ?? filters.filter_company_ids ?? [],
+    filter_individual_ids:
+      urlFilters.filter_individual_ids ?? filters.filter_individual_ids ?? [],
   };
 }
 
@@ -522,7 +551,7 @@ export function buildCorporateEventsBrowseAllHref(args: {
     params.set("filter_advisor_ids", String(args.advisorId));
   }
   if (args.individualId != null && args.individualId > 0) {
-    params.set("individual_id", String(args.individualId));
+    params.set("filter_individual_ids", `[${args.individualId}]`);
   }
   if (args.investorId != null && args.investorId > 0) {
     params.set("investor_id", String(args.investorId));
