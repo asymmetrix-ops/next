@@ -17,7 +17,7 @@ import {
   buildCompaniesCountsSearchPayload,
   buildCompaniesSearchPayload,
 } from "@/lib/companiesFilterPayload";
-import { locationsService } from "@/lib/locationsService";
+import { locationsService, type TransactionStatusOption } from "@/lib/locationsService";
 import { usePortfolioStore } from "@/store/portfolioStore";
 import {
   buildCompaniesFilterDefs,
@@ -103,6 +103,7 @@ export function CompaniesSearchDashboard({
     []
   );
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
+  const [transactionStatuses, setTransactionStatuses] = useState<TransactionStatusOption[]>([]);
   const { countries, provinces, cities } = useLocationFilterOptions(filterBarState);
   const storeUserPortfolio = usePortfolioStore((s) => s.userPortfolio);
   const portfolioCompanyIds = useMemo(
@@ -136,6 +137,10 @@ export function CompaniesSearchDashboard({
     locationsService
       .getOwnershipTypes()
       .then(setOwnershipTypes)
+      .catch(console.error);
+    locationsService
+      .getTransactionStatuses()
+      .then(setTransactionStatuses)
       .catch(console.error);
     locationsService
       .getHybridBusinessFocuses()
@@ -184,6 +189,7 @@ export function CompaniesSearchDashboard({
         primarySectors,
         secondarySectors,
         ownershipTypes,
+        transactionStatuses,
         excludeFilterIds:
           lockedSectorIds.length > 0 ? ["primary_sector"] : undefined,
       }),
@@ -196,6 +202,7 @@ export function CompaniesSearchDashboard({
       primarySectors,
       secondarySectors,
       ownershipTypes,
+      transactionStatuses,
       lockedSectorIds.length,
     ]
   );

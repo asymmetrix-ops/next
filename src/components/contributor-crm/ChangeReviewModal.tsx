@@ -16,6 +16,10 @@ import {
   type ChangeRequestItem,
   type FinMetricsCompanyItem,
 } from "@/lib/contributorCrm/api";
+import {
+  fetchTransactionStatuses,
+  transactionStatusLookupOptions,
+} from "@/lib/transactionStatuses";
 
 type LookupOption = { value: string; label: string; id?: number };
 
@@ -89,12 +93,6 @@ const INDIVIDUAL_STATUS_OPTIONS: LookupOption[] = [
   { value: "Past", label: "Past" },
 ];
 
-const TRANSACTION_STATUS_OPTIONS: LookupOption[] = [
-  "Rumoured in Market",
-  "Transaction anticipated within 18 months",
-  "Reported in Market",
-].map((v) => ({ value: v, label: v }));
-
 const LookupContext = createContext<LookupData>({
   primarySectorOptions: [],
   secondarySectorOptions: [],
@@ -106,7 +104,7 @@ const LookupContext = createContext<LookupData>({
   jobTitleOptions: [],
   locationOptions: [],
   companyIndividuals: [],
-  transactionStatusOptions: TRANSACTION_STATUS_OPTIONS,
+  transactionStatusOptions: [],
 });
 
 function useLookup() {
@@ -4260,7 +4258,7 @@ export function ChangeReviewModal({ row, onClose, readOnly = false, onApplied }:
     jobTitleOptions: [],
     locationOptions: [],
     companyIndividuals: [],
-    transactionStatusOptions: TRANSACTION_STATUS_OPTIONS,
+    transactionStatusOptions: [],
   });
 
   const selectedRequestDecisionSummary = useMemo(() => {
@@ -4374,6 +4372,9 @@ export function ChangeReviewModal({ row, onClose, readOnly = false, onApplied }:
       getSecondarySectors(token).catch(() => []),
       getBusinessFocuses(token).catch(() => []),
       getOwnershipTypes(token).catch(() => []),
+      fetchTransactionStatuses({
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      }).catch(() => []),
       fetch(`${COUNTERPARTY_ROLE_URL}?query=`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } })
         .then((r) => r.ok ? r.json() : []).catch(() => []),
       fetch(CURRENCY_URL, { headers: { Accept: "application/json" } })
@@ -4386,7 +4387,7 @@ export function ChangeReviewModal({ row, onClose, readOnly = false, onApplied }:
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null),
     ])
-      .then(([companyRequests, primarySectors, secondarySectors, businessFocuses, ownershipTypes, cpRoles, currencies, jobTitles, companyProfile]) => {
+      .then(([companyRequests, primarySectors, secondarySectors, businessFocuses, ownershipTypes, transactionStatuses, cpRoles, currencies, jobTitles, companyProfile]) => {
         const filtered = (companyRequests as CompanyChangeRequestSummary[])
           .filter((request) => readOnly || isReviewableRequestStatus(request.status))
           .sort((left, right) =>
@@ -4429,7 +4430,9 @@ export function ChangeReviewModal({ row, onClose, readOnly = false, onApplied }:
           jobTitleOptions: toOptsWithId(jobTitles as unknown[], "id", "job_title", "job_title"),
           locationOptions: [],
           companyIndividuals: getCompanyIndividualOptions(companyProfile),
-          transactionStatusOptions: TRANSACTION_STATUS_OPTIONS,
+          transactionStatusOptions: transactionStatusLookupOptions(
+            Array.isArray(transactionStatuses) ? transactionStatuses : []
+          ),
         });
       })
       .catch((err) => {

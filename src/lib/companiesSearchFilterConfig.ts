@@ -6,6 +6,10 @@ import {
   buildColumnLinkedFilterDefs,
   EXTRA_FILTER_DEFS,
 } from "@/components/companies/companiesColumnFilterMap";
+import {
+  transactionStatusFilterLabels,
+  type TransactionStatusOption,
+} from "@/lib/transactionStatuses";
 export type CompaniesOwnershipCounts = {
   totalCount: number;
   publicCompanies: number;
@@ -54,6 +58,7 @@ export function buildCompaniesFilterDefs({
   primarySectors,
   secondarySectors,
   ownershipTypes,
+  transactionStatuses = [],
   excludeFilterIds = [],
 }: {
   continentalRegions: string[];
@@ -64,6 +69,7 @@ export function buildCompaniesFilterDefs({
   primarySectors: PrimarySector[];
   secondarySectors: SecondarySector[];
   ownershipTypes: OwnershipType[];
+  transactionStatuses?: TransactionStatusOption[];
   excludeFilterIds?: string[];
 }): FilterDef[] {
   const overrides: Record<string, Partial<FilterDef>> = {
@@ -76,12 +82,7 @@ export function buildCompaniesFilterDefs({
     secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
     ownership: { options: ownershipTypes.map((o) => o.ownership) },
     transaction: {
-      options: [
-        "Rumoured in Market",
-        "Transaction anticipated within 18 months",
-        "Reported in Market",
-        "Process on Hold",
-      ],
+      options: transactionStatusFilterLabels(transactionStatuses),
     },
     year_founded: {
       min: 1800,

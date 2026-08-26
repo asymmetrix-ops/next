@@ -1,4 +1,10 @@
 import { authService } from "./auth";
+import {
+  TRANSACTION_STATUSES_URL,
+  type TransactionStatusOption,
+} from "./transactionStatuses";
+
+export type { TransactionStatusOption };
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/";
 const REFERENCE_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I";
@@ -62,11 +68,6 @@ interface HybridBusinessFocus {
 interface OwnershipType {
   id: number;
   ownership: string;
-}
-
-interface TransactionStatusOption {
-  id: number;
-  label: string;
 }
 
 interface CurrencyOption {
@@ -592,11 +593,10 @@ class LocationsService {
   }
 
   async getTransactionStatuses(): Promise<TransactionStatusOption[]> {
-    const url = `${BASE_URL}transaction_statuses`;
-
-    const response = await fetch(url, {
+    const response = await fetch(TRANSACTION_STATUSES_URL, {
       method: "GET",
       headers: {
+        Accept: "application/json",
         ...this.getAuthHeaders(),
       },
     });

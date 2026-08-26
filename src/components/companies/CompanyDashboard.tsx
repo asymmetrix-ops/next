@@ -7,7 +7,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { locationsService } from "@/lib/locationsService";
+import { locationsService, type TransactionStatusOption } from "@/lib/locationsService";
 import {
   buildCompaniesCountsSearchPayload,
   buildCompaniesSearchPayload,
@@ -114,6 +114,7 @@ export const CompanyDashboard = ({
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
+  const [transactionStatuses, setTransactionStatuses] = useState<TransactionStatusOption[]>([]);
   const [portfolioCompanyIds, setPortfolioCompanyIds] = useState<number[]>([]);
   const [hybridBusinessFocusIds, setHybridBusinessFocusIds] = useState<number[]>([]);
 
@@ -130,6 +131,7 @@ export const CompanyDashboard = ({
     locationsService.getSubRegions().then(setSubRegions).catch(console.error);
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
     locationsService.getOwnershipTypes().then(setOwnershipTypes).catch(console.error);
+    locationsService.getTransactionStatuses().then(setTransactionStatuses).catch(console.error);
     // Load all secondary sectors up front so the Sectors filter always has options.
     locationsService
       .getAllSecondarySectorsWithPrimary()
@@ -173,6 +175,7 @@ export const CompanyDashboard = ({
       primarySectors,
       secondarySectors,
       ownershipTypes,
+      transactionStatuses,
     });
     if (excludeFilterIds.length === 0) return defs;
     const excluded = new Set(excludeFilterIds);
@@ -186,6 +189,7 @@ export const CompanyDashboard = ({
     primarySectors,
     secondarySectors,
     ownershipTypes,
+    transactionStatuses,
     excludeFilterIds,
   ]);
 

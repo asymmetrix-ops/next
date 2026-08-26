@@ -24,6 +24,10 @@ import {
 } from "@/lib/contributorCrm/api";
 import { contributorFetch } from "@/lib/contributorCrm/contributorFetch";
 import {
+  fetchTransactionStatuses,
+  transactionStatusLookupOptions,
+} from "@/lib/transactionStatuses";
+import {
   fetchContributorMetricsByCompany,
   fetchContributorPrimarySectors,
   fetchContributorSecondarySectors,
@@ -2445,12 +2449,6 @@ const PREDOMINANCE_OPTIONS: LookupOption[] = [
   { value: "Minor", label: "Minor" },
 ];
 
-
-const TRANSACTION_STATUS_OPTIONS: LookupOption[] = [
-  "Rumoured in Market",
-  "Transaction anticipated within 18 months",
-  "Reported in Market",
-].map((v) => ({ value: v, label: v }));
 
 function normalizeSuggestDisplayValue(value: string): string {
   const trimmed = value.trim();
@@ -6377,6 +6375,7 @@ function SuggestBasicCompanyChangeForm({
     LookupOption[]
   >([]);
   const [currencyOptions, setCurrencyOptions] = useState<LookupOption[]>([]);
+  const [transactionStatusOptions, setTransactionStatusOptions] = useState<LookupOption[]>([]);
   const [parentCompanySelection, setParentCompanySelection] = useState<SuggestCompanySelection>({
     localId: "parent-company",
     companyId: currentValues.parentCompanyId || "",
@@ -6509,6 +6508,7 @@ function SuggestBasicCompanyChangeForm({
           jobTitlesResult,
           counterpartyRolesResult,
           currenciesResult,
+          transactionStatusesResult,
         ] = await Promise.allSettled([
           fetchJson<unknown[]>(OWNERSHIP_LOOKUP_URL, { method: "GET", headers }),
           fetchContributorPrimarySectors(),
@@ -6528,6 +6528,7 @@ function SuggestBasicCompanyChangeForm({
             method: "GET",
             headers: { Accept: "application/json" },
           }),
+          fetchTransactionStatuses({ headers }).catch(() => []),
         ]);
 
         if (cancelled) return;
@@ -6583,6 +6584,15 @@ function SuggestBasicCompanyChangeForm({
             )
           );
         }
+        if (transactionStatusesResult.status === "fulfilled") {
+          setTransactionStatusOptions(
+            transactionStatusLookupOptions(
+              Array.isArray(transactionStatusesResult.value)
+                ? transactionStatusesResult.value
+                : []
+            )
+          );
+        }
 
         const failures = [
           ownershipResult,
@@ -6591,6 +6601,7 @@ function SuggestBasicCompanyChangeForm({
           jobTitlesResult,
           counterpartyRolesResult,
           currenciesResult,
+          transactionStatusesResult,
         ].filter((result) => result.status === "rejected");
 
         if (failures.length > 0) {
@@ -7485,7 +7496,7 @@ function SuggestBasicCompanyChangeForm({
             value={formData.transactionStatus}
             onChange={(value) => updateField("transactionStatus", value)}
             placeholder="Choose transaction status"
-            options={TRANSACTION_STATUS_OPTIONS}
+            options={transactionStatusOptions}
           />
         </SuggestChangeFieldRow>
 
