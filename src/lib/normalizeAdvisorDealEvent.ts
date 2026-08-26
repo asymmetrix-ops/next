@@ -289,19 +289,7 @@ export function flattenAdvisorTransactionEngagementResults(
     const engagements = coerceUnknownToArray(ev.engagements);
 
     if (engagements.length === 0) {
-      return [
-        {
-          event_id: ev.id,
-          event_description: ev.event_description,
-          announcement_date: ev.event_announcement_date,
-          deal_type: ev.event_deal_type,
-          deal_status: ev.event_deal_status,
-          counterparty: null,
-          side_advised: null,
-          individuals: [],
-          source: null,
-        },
-      ];
+      return [];
     }
 
     return engagements.map((engagement) => {
