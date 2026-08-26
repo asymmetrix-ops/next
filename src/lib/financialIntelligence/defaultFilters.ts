@@ -1,5 +1,5 @@
 import type { FilterState } from "@/app/financials-tsx/types";
-import { pickDefaultSectorFilter } from "./sectorFilters";
+import { pickDefaultSectorFilter, pickDefaultSectorFilterFromEntries } from "./sectorFilters";
 import type { FiCompanyRow, FiSecondarySectorLookup, FiSectorLookup } from "./types";
 
 export interface FiDefaultFilterLookups {
@@ -18,7 +18,7 @@ export function revenueBracket(rev: number): { min: number; max: number } {
 }
 
 /**
- * Default peer-set filters: Region, Primary sector (preferred), Revenue bucket.
+ * Default peer-set filters: Region, Sector, Revenue bucket.
  * Derived from the target row (pure FE).
  */
 export function buildDefaultFilters(
@@ -32,9 +32,21 @@ export function buildDefaultFilters(
     filters.push({ id: "region", value: [region] });
   }
 
-  const sectorFilter = pickDefaultSectorFilter(target.sectors_id, args);
-  if (sectorFilter) {
-    filters.push(sectorFilter);
+  const primaryNames =
+    target.primary_sector_names?.filter((name) => name.trim()) ??
+    (target.primary_sector_name?.trim() ? [target.primary_sector_name.trim()] : []);
+  const secondaryName = target.secondary_sector_name?.trim();
+  if (primaryNames.length > 0) {
+    filters.push({ id: "primary_sector", value: primaryNames });
+  } else if (secondaryName) {
+    const fromSecondary = pickDefaultSectorFilterFromEntries(
+      [{ sector_name: secondaryName, Sector_importance: "Secondary" }],
+      args
+    );
+    if (fromSecondary) filters.push(fromSecondary);
+  } else {
+    const sectorFilter = pickDefaultSectorFilter(target.sectors_id, args);
+    if (sectorFilter) filters.push(sectorFilter);
   }
 
   const rev = target.revenue_m_usd;
