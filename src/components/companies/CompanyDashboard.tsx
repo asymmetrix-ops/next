@@ -47,6 +47,7 @@ import {
   SEARCH_DASHBOARD_MATCH_COUNT,
   SEARCH_DASHBOARD_TITLE,
   SearchListTabs,
+  type SearchListTabItem,
 } from "@/components/search/searchDashboardLayout";
 import { McpGuestTrackerToolbarActions } from "@/components/mcp-guest/McpGuestTrackerToolbarActions";
 import { MCP_GUEST_TRACKER_TITLE } from "@/lib/mcpGuest";
@@ -87,6 +88,12 @@ export type CompanyDashboardProps = {
   /** Extra filter categories prepended to the default set. */
   extraFilterCategories?: FilterCategory[];
   onFilterBarStateChange?: (state: FilterBarState) => void;
+  /** Primary tabs rendered above ownership chips (e.g. Active / Inactive on investor portfolio). */
+  listTabs?: SearchListTabItem[];
+  activeListTabId?: string;
+  onListTabChange?: (tabId: string) => void;
+  /** When set, ownership chips only render while this list tab is active. */
+  showOwnershipTabsWhenListTabId?: string;
 };
 
 export const CompanyDashboard = ({
@@ -116,6 +123,10 @@ export const CompanyDashboard = ({
   extraFilterDefs = [],
   extraFilterCategories = [],
   onFilterBarStateChange,
+  listTabs,
+  activeListTabId,
+  onListTabChange,
+  showOwnershipTabsWhenListTabId,
 }: CompanyDashboardProps) => {
   // Unified filter bar state — replaces all the individual selected-* state vars
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
@@ -321,11 +332,11 @@ export const CompanyDashboard = ({
     hybridBusinessFocusIds,
   ]);
 
-  const buildSearchFilters = useCallback((): Filters => {
+  const buildSearchFilters = useCallback((opts?: { ignoreOwnership?: boolean }): Filters => {
     const tabOwnershipTypeIds =
-      activeOwnershipTab !== "all"
-        ? [...OWNERSHIP_TAB_CONFIG[activeOwnershipTab].ownershipTypeIds]
-        : undefined;
+      opts?.ignoreOwnership || activeOwnershipTab === "all"
+        ? undefined
+        : [...OWNERSHIP_TAB_CONFIG[activeOwnershipTab].ownershipTypeIds];
     return buildCompaniesSearchPayload({
       state: filterBarState,
       primarySectors,
@@ -439,6 +450,12 @@ export const CompanyDashboard = ({
     );
   }, [activeOwnershipTab]);
 
+  useEffect(() => {
+    if (!hideOwnershipTabs || activeOwnershipTab === "all") return;
+    skipInitialOwnershipTabRef.current = true;
+    setActiveOwnershipTab("all");
+  }, [hideOwnershipTabs, activeOwnershipTab]);
+
   // ── Ownership tabs data ────────────────────────────────────────────────
   const ownershipTabOrder: Exclude<OwnershipTab, "all">[] = [
     "public",
@@ -469,6 +486,18 @@ export const CompanyDashboard = ({
 
   const horizontalPad = embedded ? "0" : "28px";
   const topPad = embedded ? "16px" : "20px";
+  const showListTabs = Boolean(listTabs && listTabs.length > 0);
+  const resolvedListTabId =
+    activeListTabId ?? (listTabs && listTabs.length > 0 ? listTabs[0].id : "");
+  // When primary list tabs exist (investor portfolio), ownership chips are nested
+  // sub-filters — never the default top row.
+  const showOwnershipTabs =
+    !guestMode &&
+    !fixedOwnershipTypeIds &&
+    (showListTabs
+      ? Boolean(showOwnershipTabsWhenListTabId) &&
+        resolvedListTabId === showOwnershipTabsWhenListTabId
+      : !hideOwnershipTabs);
 
   return (
     <div
@@ -563,28 +592,76 @@ export const CompanyDashboard = ({
           )}
         </div>
 
-        {/* ── Ownership quick-filter tabs ── */}
-        {!guestMode && !hideOwnershipTabs && !fixedOwnershipTypeIds && (
-        <SearchListTabs
-          tabs={ownershipTabs}
-          activeTabId={activeOwnershipTab}
-          onTabClick={(tabId) => setActiveOwnershipTab(tabId as OwnershipTab)}
-          renderTabWrapper={(tab, button) => {
-            if (tab.id !== "other") return button;
-            return (
-              <div className="ownership-tab-other-tooltip-wrap">
-                {button}
-                <div className="ownership-tab-other-tooltip" role="tooltip">
-                  <ul>
-                    {OTHER_OWNERSHIP_TOOLTIP_LABELS.map((label) => (
-                      <li key={label}>{label}</li>
-                    ))}
-                  </ul>
+        {/* ── Primary list tabs + optional ownership chips ── */}
+        {(showListTabs || showOwnershipTabs) && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: showListTabs && showOwnershipTabs ? 6 : 0,
+            }}
+          >
+            {showListTabs && listTabs && (
+              <SearchListTabs
+                tabs={listTabs}
+                activeTabId={resolvedListTabId}
+                onTabClick={(tabId) => {
+                  if (tabId === resolvedListTabId) return;
+                  onListTabChange?.(tabId);
+                  const nextShowsOwnership =
+                    !showOwnershipTabsWhenListTabId ||
+                    tabId === showOwnershipTabsWhenListTabId;
+                  if (!nextShowsOwnership && activeOwnershipTab !== "all") {
+                    skipInitialOwnershipTabRef.current = true;
+                    setActiveOwnershipTab("all");
+                  }
+                  onSearchRef.current?.(
+                    buildSearchFiltersRef.current({
+                      ignoreOwnership: !nextShowsOwnership,
+                    }),
+                    buildGlobalSearchFiltersRef.current(),
+                    isPortfolioFilterActiveRef.current
+                  );
+                }}
+              />
+            )}
+            {showOwnershipTabs && (
+              <>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "#94a3b8",
+                    paddingLeft: 2,
+                  }}
+                >
+                  Filter by current ownership
                 </div>
-              </div>
-            );
-          }}
-        />
+                <SearchListTabs
+                  tabs={ownershipTabs}
+                  activeTabId={activeOwnershipTab}
+                  onTabClick={(tabId) => setActiveOwnershipTab(tabId as OwnershipTab)}
+                  renderTabWrapper={(tab, button) => {
+                    if (tab.id !== "other") return button;
+                    return (
+                      <div className="ownership-tab-other-tooltip-wrap">
+                        {button}
+                        <div className="ownership-tab-other-tooltip" role="tooltip">
+                          <ul>
+                            {OTHER_OWNERSHIP_TOOLTIP_LABELS.map((label) => (
+                              <li key={label}>{label}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    );
+                  }}
+                />
+              </>
+            )}
+          </div>
         )}
       </div>
 

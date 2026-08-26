@@ -78,6 +78,7 @@ import {
 } from "@/components/investors/investorPortfolioColumns";
 import {
   HOLDING_PERIOD_EMPTY_DISPLAY,
+  formatHoldingPeriodStatusLabel,
   normalizeHoldingPeriodDisplay,
 } from "@/lib/holdingPeriod";
 
@@ -707,12 +708,10 @@ function buildAllTableColumns(portfolioMode: boolean) {
     label: "Investment status",
     group: "Portfolio",
     minWidth: 140,
-    render: (company) => {
-      const raw = company.investment_status;
-      if (raw === "Current" || raw === "Past") return raw;
-      if (typeof raw === "string" && raw.trim()) return raw.trim();
-      return "—";
-    },
+    render: (company) =>
+      formatHoldingPeriodStatusLabel(
+        company.holding_period_status ?? company.investment_status
+      ),
   });
   const holdingPeriodInsertAt = insertAt + 1;
   cols.splice(holdingPeriodInsertAt, 0, {

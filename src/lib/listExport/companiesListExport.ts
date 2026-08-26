@@ -19,6 +19,7 @@ import { formatCompanyColumnDisplay } from "@/lib/companyTableData";
 import { mapCompanyTableApiRow } from "@/lib/companyTableData";
 import { normalizeCompaniesResponse } from "@/app/companies/normalizeCompaniesResponse";
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
+import { formatHoldingPeriodStatusLabel } from "@/lib/holdingPeriod";
 import { readFieldValue } from "./readFieldValue";
 import {
   coerceExportCellValue,
@@ -67,7 +68,7 @@ function getAllExportApiColumns(filters?: CompanySearchPayload): string[] {
   );
   const keys =
     filters?.portfolio_mode && !baseKeys.includes("investment_status")
-      ? [...baseKeys, "investment_status"]
+      ? [...baseKeys, "investment_status", "holding_period_display"]
       : baseKeys;
   return getApiColumnsForSelectedKeys(keys);
 }
@@ -205,7 +206,9 @@ export function getCompanyCellValue(
   }
 
   if (column.key === "investment_status") {
-    return toPlainText(row.investment_status);
+    return formatHoldingPeriodStatusLabel(
+      row.holding_period_status ?? row.investment_status
+    );
   }
 
   const raw = readFieldValue(row, [...getFieldAliasesForColumn(column.key)]);

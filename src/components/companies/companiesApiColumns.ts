@@ -55,7 +55,8 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   rev_per_employee: "rev_per_employee",
   financial_year: "financial_year",
   has_mcp: "has_mcp",
-  investment_status: "investment_status",
+  investment_status: "holding_period_status",
+  holding_period_display: "holding_period_display",
 };
 
 /** Frozen identity columns — API always returns these; omit from `columns[]`. */

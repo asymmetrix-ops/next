@@ -15,7 +15,14 @@ function readNullableNumber(value: unknown): number | null {
 
 function normalizeCompanyItem(item: CompanyItem): CompanyItem {
   const logo = readLogoFromRecord(item, getFieldAliasesForColumn("logo"));
-  return logo ? { ...item, linkedin_logo: logo } : item;
+  const withLogo = logo ? { ...item, linkedin_logo: logo } : item;
+  if (withLogo.holding_period_status && !withLogo.investment_status) {
+    return {
+      ...withLogo,
+      investment_status: withLogo.holding_period_status,
+    };
+  }
+  return withLogo;
 }
 
 /** Normalize Get_new_companies payloads (result1 wrapper, flat body, or alternate keys). */
