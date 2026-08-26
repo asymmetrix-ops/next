@@ -31,6 +31,15 @@ function coerceDateString(value: unknown): string | undefined {
   return undefined;
 }
 
+/** Strip parenthetical URLs/metadata (e.g. Notion links) from display names. */
+function cleanDisplayName(name: unknown): string | null {
+  const cleaned = String(name ?? "")
+    .replace(/\s*\([^)]*\)\s*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || null;
+}
+
 /** Parse `primary_sectors` from the flat `advisors_ce` payload. */
 function parseAdvisorsCePrimarySectors(
   raw: unknown
@@ -198,19 +207,35 @@ function normalizeAdvisorIndividuals(
     .map((item) => {
       const rec = item as Record<string, unknown>;
       const nested = rec._individuals as
-        | { id?: number; advisor_individuals?: string }
+        | { id?: number; advisor_individuals?: string; linkedin_URL?: string }
         | undefined;
       const id =
         (typeof rec.id === "number" ? rec.id : undefined) ??
+        (typeof rec.individual_id === "number" ? rec.individual_id : undefined) ??
         (typeof rec.individuals_id === "number" ? rec.individuals_id : undefined) ??
         (typeof nested?.id === "number" ? nested.id : undefined);
       const name = String(
-        rec.name ?? rec.advisor_individuals ?? nested?.advisor_individuals ?? ""
+        rec.name ??
+          rec.individual_name ??
+          rec.advisor_individuals ??
+          nested?.advisor_individuals ??
+          ""
       ).trim();
-      if (!id || !name) return null;
-      return { id, name };
+      if (!name) return null;
+      const linkedinRaw =
+        rec.linkedin_url ?? rec.linkedin_URL ?? nested?.linkedin_URL ?? null;
+      const linkedin_url =
+        typeof linkedinRaw === "string" && linkedinRaw.trim()
+          ? linkedinRaw.trim()
+          : null;
+      return {
+        ...(typeof id === "number" ? { id } : {}),
+        name,
+        linkedin_url,
+        job_titles_id: rec.job_titles_id,
+      };
     })
-    .filter((item): item is { id: number; name: string } => item !== null);
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 }
 
 function normalizeOtherAdvisors(
@@ -242,11 +267,132 @@ function normalizeOtherAdvisors(
 export function getAdvisorDealRowKey(
   event: Pick<
     AdvisorDealEvent,
-    "id" | "company_advised_id" | "company_advised_role"
+    "id" | "engagement_id" | "company_advised_id" | "company_advised_role"
   >,
   index: number
 ): string {
+  if (typeof event.engagement_id === "number") {
+    return `engagement-${event.engagement_id}`;
+  }
   return `${event.id}-${event.company_advised_id ?? "na"}-${event.company_advised_role ?? "na"}-${index}`;
+}
+
+/** Flatten nested event → engagements payload into table rows. */
+export function flattenAdvisorTransactionEngagementResults(
+  results: unknown
+): Record<string, unknown>[] {
+  if (!Array.isArray(results)) return [];
+
+  return results.flatMap((event) => {
+    if (!event || typeof event !== "object") return [];
+    const ev = event as Record<string, unknown>;
+    const engagements = coerceUnknownToArray(ev.engagements);
+
+    if (engagements.length === 0) {
+      return [
+        {
+          event_id: ev.id,
+          event_description: ev.event_description,
+          announcement_date: ev.event_announcement_date,
+          deal_type: ev.event_deal_type,
+          deal_status: ev.event_deal_status,
+          counterparty: null,
+          side_advised: null,
+          individuals: [],
+          source: null,
+        },
+      ];
+    }
+
+    return engagements.map((engagement) => {
+      const eng = (engagement && typeof engagement === "object"
+        ? engagement
+        : {}) as Record<string, unknown>;
+
+      return {
+        event_id: ev.id,
+        event_description: ev.event_description,
+        announcement_date: ev.event_announcement_date,
+        deal_type: ev.event_deal_type,
+        deal_status: ev.event_deal_status,
+        counterparty: eng.counterparty_name,
+        counterparty_company_id: eng.counterparty_company_id,
+        side_advised: eng.advisor_role_label,
+        individuals: eng.advised_individuals,
+        source: eng.announcement_url,
+        engagement_id: eng.advisor_row_id ?? eng.id,
+      };
+    });
+  });
+}
+
+/** Map flattened engagement rows into `AdvisorDealEvent`. */
+export function normalizeAdvisorTransactionEngagement(
+  row: unknown
+): AdvisorDealEvent {
+  const raw = (row && typeof row === "object" ? row : {}) as Record<
+    string,
+    unknown
+  >;
+
+  const corporateEventId =
+    typeof raw.event_id === "number"
+      ? raw.event_id
+      : typeof raw.corporate_events_id === "number"
+      ? raw.corporate_events_id
+      : 0;
+  const engagementId =
+    typeof raw.engagement_id === "number"
+      ? raw.engagement_id
+      : typeof raw.advisor_row_id === "number"
+      ? raw.advisor_row_id
+      : typeof raw.id === "number"
+      ? raw.id
+      : undefined;
+  const counterpartyCompanyId =
+    typeof raw.counterparty_company_id === "number"
+      ? raw.counterparty_company_id
+      : null;
+
+  return {
+    id: corporateEventId,
+    engagement_id: engagementId,
+    description:
+      typeof raw.event_description === "string" ? raw.event_description : undefined,
+    announcement_date: coerceDateString(
+      raw.announcement_date ?? raw.event_announcement_date
+    ),
+    deal_type:
+      typeof raw.deal_type === "string"
+        ? raw.deal_type
+        : typeof raw.event_deal_type === "string"
+        ? raw.event_deal_type
+        : undefined,
+    deal_status:
+      typeof raw.deal_status === "string"
+        ? raw.deal_status.trim() || null
+        : typeof raw.event_deal_status === "string"
+        ? raw.event_deal_status.trim() || null
+        : null,
+    announcement_url:
+      typeof raw.source === "string"
+        ? raw.source.trim() || null
+        : typeof raw.announcement_url === "string"
+        ? raw.announcement_url.trim() || null
+        : null,
+    company_advised_id: counterpartyCompanyId,
+    company_advised_name: cleanDisplayName(raw.counterparty ?? raw.counterparty_name),
+    company_advised_role:
+      typeof raw.side_advised === "string"
+        ? raw.side_advised.trim() || null
+        : typeof raw.advisor_role_label === "string"
+        ? raw.advisor_role_label.trim() || null
+        : null,
+    advisor_individuals: normalizeAdvisorIndividuals(
+      raw.individuals ?? raw.advised_individuals
+    ),
+    primary_sectors: [],
+  };
 }
 
 /** Map flat `advisors_ce` rows (and legacy shapes) into `AdvisorDealEvent`. */
@@ -313,6 +459,7 @@ export function normalizeAdvisorDealEvent(event: unknown): AdvisorDealEvent {
         : null,
     advisor_individuals: normalizeAdvisorIndividuals(
       raw.advisor_individuals ??
+        raw.advised_individuals ??
         raw.__related_to_corporate_event_advisors_individuals ??
         raw._related_to_corporate_event_individuals
     ),

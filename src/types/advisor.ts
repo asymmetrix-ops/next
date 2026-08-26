@@ -141,6 +141,58 @@ export interface CorporateEventsResponse {
   preferred_currency_id?: number;
 }
 
+export interface AdvisorTransactionEngagementItem {
+  advisor_row_id?: number;
+  id?: number;
+  counterparty_advised?: number;
+  advisor_role_id?: number;
+  announcement_url?: string;
+  counterparty_id?: number;
+  counterparty_company_id?: number;
+  counterparty_type_id?: number;
+  counterparty_name?: string;
+  counterparty_announcement_url?: string;
+  advisor_role_label?: string;
+  advised_individuals?: unknown;
+}
+
+export interface AdvisorTransactionEngagementEventRow {
+  id: number;
+  event_description?: string;
+  event_announcement_date?: string;
+  event_deal_type?: string;
+  event_deal_status?: string;
+  engagements?: AdvisorTransactionEngagementItem[];
+}
+
+/** @deprecated Flat row shape — kept for backwards compatibility. */
+export interface AdvisorTransactionEngagementRow {
+  id: number;
+  corporate_events_id: number;
+  counterparty_advised?: number;
+  advisor_role_id?: number;
+  announcement_url?: string;
+  event_description?: string;
+  event_announcement_date?: string;
+  event_deal_type?: string;
+  event_deal_status?: string;
+  counterparty_id?: number;
+  counterparty_company_id?: number;
+  counterparty_type_id?: number;
+  counterparty_name?: string;
+  counterparty_announcement_url?: string;
+  advisor_role_label?: string;
+  advised_individuals?: unknown;
+}
+
+export interface AdvisorTransactionEngagementsResponse {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+  results: AdvisorTransactionEngagementEventRow[];
+}
+
 // Corporate Event
 export interface CorporateEvent {
   id: number;

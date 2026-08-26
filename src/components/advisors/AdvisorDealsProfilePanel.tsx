@@ -2,7 +2,11 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
+import { dealStatusBadgeStyle } from "@/lib/corporateEventDealTypeBadge";
+import { normalizeExternalProfileUrl } from "@/lib/linkedinUrl";
+import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import {
   profileTableColAlign,
   profileTableCellStyle,
@@ -25,11 +29,21 @@ import {
 } from "@/lib/sectorLinks";
 import { getAdvisorDealRowKey } from "@/lib/normalizeAdvisorDealEvent";
 
+export type AdvisorDealIndividual = {
+  id?: number;
+  name?: string;
+  linkedin_url?: string | null;
+  job_titles_id?: unknown;
+};
+
 export type AdvisorDealEvent = {
   id: number;
+  engagement_id?: number;
   description?: string | null;
   announcement_date?: string | null;
   deal_type?: string | null;
+  deal_status?: string | null;
+  announcement_url?: string | null;
   company_advised_id?: number | null;
   company_advised_name?: string | null;
   company_advised_role?: string | null;
@@ -38,7 +52,7 @@ export type AdvisorDealEvent = {
   currency_name?: string | null;
   ev_display?: string | null;
   ev_source?: string | null;
-  advisor_individuals?: Array<{ id?: number; name?: string }> | null;
+  advisor_individuals?: AdvisorDealIndividual[] | null;
   other_advisors?: Array<{
     id?: number;
     individuals_id?: number[];
@@ -86,7 +100,7 @@ type Props = {
 };
 
 const SUMMARY_ROW_GRID =
-  "minmax(0, 1.35fr) minmax(88px, auto) minmax(108px, auto) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)";
+  "minmax(88px, auto) minmax(0, 1.15fr) minmax(96px, auto) minmax(88px, auto) minmax(0, 0.9fr) minmax(0, 0.85fr) minmax(0, 1fr) minmax(32px, auto)";
 
 const FULL_ROW_GRID =
   "minmax(0, 1.1fr) minmax(80px, auto) minmax(92px, auto) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(80px, auto) minmax(0, 0.9fr)";
@@ -94,12 +108,14 @@ const FULL_ROW_GRID =
 const COL_GAP = PROFILE_EVENTS_ROW_GAP;
 
 const SUMMARY_HEADERS = [
-  "Name",
   "Date",
-  "Type",
+  "Deal",
+  "Deal Type",
+  "Status",
+  "Counterparty",
   "Side Advised",
-  "Client",
-  "Sector",
+  "Individuals",
+  "Source",
 ] as const;
 
 const FULL_HEADERS = [
@@ -147,6 +163,77 @@ function formatSideAdvised(role: string): string {
   if (!trimmed) return "-";
   if (/^investor\s*\(unknown size\)/i.test(trimmed)) return "Investor";
   return trimmed;
+}
+
+function renderAdvisorIndividuals(individuals: AdvisorDealIndividual[]) {
+  const visible = individuals
+    .map((person) => ({
+      ...person,
+      name: String(person.name || "").trim(),
+    }))
+    .filter((person) => person.name.length > 0);
+
+  if (visible.length === 0) return <>-</>;
+
+  return (
+    <>
+      {visible.map((person, i) => {
+        const jobTitle = formatJobTitlesFromId(person.job_titles_id);
+        const linkStyle = {
+          fontSize: 13,
+          fontWeight: 500,
+          color: T.azure,
+          textDecoration: "underline",
+        } as const;
+
+        return (
+          <span key={`${person.id ?? person.name}-${i}`}>
+            {typeof person.id === "number" ? (
+              <Link
+                href={`/individual/${person.id}`}
+                prefetch={false}
+                title={jobTitle ? `${person.name} — ${jobTitle}` : person.name}
+                style={linkStyle}
+              >
+                {person.name}
+              </Link>
+            ) : (
+              <span
+                title={jobTitle ? `${person.name} — ${jobTitle}` : person.name}
+                style={{ color: T.body }}
+              >
+                {person.name}
+              </span>
+            )}
+            {i < visible.length - 1 ? ", " : ""}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+function renderSourceLink(url?: string | null) {
+  const href = normalizeExternalProfileUrl(url);
+  if (!href) return <>-</>;
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Open source"
+      aria-label="Open source"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: T.azure,
+      }}
+    >
+      <ArrowTopRightOnSquareIcon width={15} height={15} strokeWidth={2} aria-hidden />
+    </a>
+  );
 }
 
 function parseEventSectors(
@@ -320,13 +407,7 @@ function sortEventsByDateDesc(events: AdvisorDealEvent[]): AdvisorDealEvent[] {
   });
 }
 
-function SummaryDealsTable({
-  events,
-  sectorNameToId,
-}: {
-  events: AdvisorDealEvent[];
-  sectorNameToId?: SectorNameLookup;
-}) {
+function SummaryDealsTable({ events }: { events: AdvisorDealEvent[] }) {
   if (events.length === 0) {
     return (
       <div
@@ -370,20 +451,20 @@ function SummaryDealsTable({
 
       {events.map((event, rowIndex) => {
         const isLastRow = rowIndex === events.length - 1;
-        const companyAdvisedId = event.company_advised_id ?? null;
-        const companyAdvisedName = (event.company_advised_name || "").trim() || "-";
-        const companyAdvisedRoleRaw = String(event.company_advised_role || "").trim();
-        const companyAdvisedRole = companyAdvisedRoleRaw.toLowerCase();
-        const companyAdvisedHref =
-          companyAdvisedId && companyAdvisedName !== "-"
-            ? companyAdvisedRole.includes("investor")
-              ? `/investors/${companyAdvisedId}`
-              : `/company/${companyAdvisedId}`
+        const counterpartyId = event.company_advised_id ?? null;
+        const counterpartyName = (event.company_advised_name || "").trim() || "-";
+        const counterpartyHref =
+          counterpartyId && counterpartyName !== "-"
+            ? `/company/${counterpartyId}`
             : undefined;
-
-        const sectors = parseEventSectors(event.primary_sectors);
-
+        const sideAdvised = String(event.company_advised_role || "").trim();
         const dealType = event.deal_type || "-";
+        const dealStatus = String(event.deal_status || "").trim();
+        const individuals = coerceArray<AdvisorDealIndividual>(
+          event.advisor_individuals
+        ).filter(
+          (p) => p && String(p.name || "").trim().length > 0
+        );
 
         return (
           <div
@@ -397,7 +478,16 @@ function SummaryDealsTable({
               borderBottom: isLastRow ? "none" : `1px solid ${T.hair}`,
             }}
           >
-            <div style={{ textAlign: colAlign(0), minWidth: 0 }}>
+            <div
+              style={{
+                textAlign: colAlign(0),
+                color: T.body,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {formatMonthYear(event.announcement_date)}
+            </div>
+            <div style={{ textAlign: colAlign(1), minWidth: 0 }}>
               {event.id > 0 ? (
                 <Link
                   href={`/corporate-event/${event.id}`}
@@ -422,31 +512,20 @@ function SummaryDealsTable({
                 </span>
               )}
             </div>
-            <div
-              style={{
-                textAlign: colAlign(1),
-                color: T.body,
-                whiteSpace: "nowrap",
-              }}
-            >
-              {formatMonthYear(event.announcement_date)}
-            </div>
             <div style={{ textAlign: colAlign(2) }}>
               <DealTypeBadge dealType={dealType} />
             </div>
-            <div
-              style={{
-                textAlign: colAlign(3),
-                color: T.body,
-                minWidth: 0,
-              }}
-            >
-              {formatSideAdvised(companyAdvisedRoleRaw)}
+            <div style={{ textAlign: colAlign(3) }}>
+              {dealStatus ? (
+                <span style={dealStatusBadgeStyle(dealStatus)}>{dealStatus}</span>
+              ) : (
+                "-"
+              )}
             </div>
             <div style={{ textAlign: colAlign(4), minWidth: 0 }}>
-              {companyAdvisedHref ? (
+              {counterpartyHref ? (
                 <Link
-                  href={companyAdvisedHref}
+                  href={counterpartyHref}
                   prefetch={false}
                   style={{
                     color: T.azure,
@@ -454,22 +533,32 @@ function SummaryDealsTable({
                     fontWeight: 500,
                   }}
                 >
-                  {companyAdvisedName}
+                  {counterpartyName}
                 </Link>
               ) : (
-                companyAdvisedName
+                counterpartyName
               )}
             </div>
             <div
               style={{
                 textAlign: colAlign(5),
+                color: T.body,
                 minWidth: 0,
               }}
             >
-              <DealSectorLinks
-                sectors={sectors}
-                sectorNameToId={sectorNameToId}
-              />
+              {formatSideAdvised(sideAdvised)}
+            </div>
+            <div
+              style={{
+                textAlign: colAlign(6),
+                color: T.muted,
+                minWidth: 0,
+              }}
+            >
+              {renderAdvisorIndividuals(individuals)}
+            </div>
+            <div style={{ textAlign: colAlign(7) }}>
+              {renderSourceLink(event.announcement_url)}
             </div>
           </div>
         );
@@ -780,10 +869,7 @@ export function AdvisorDealsProfilePanel({
         }}
       >
         {isSummary ? (
-          <SummaryDealsTable
-            events={displayed}
-            sectorNameToId={sectorNameToId}
-          />
+          <SummaryDealsTable events={displayed} />
         ) : (
         <div
           style={{
@@ -916,20 +1002,7 @@ export function AdvisorDealsProfilePanel({
                     {formatEnterpriseValue(event)}
                   </div>
                   <div style={{ textAlign: colAlign(7), color: T.muted, minWidth: 0 }}>
-                    {individuals.length > 0
-                      ? individuals.map((p, i) => (
-                          <span key={`${p.id}-${i}`}>
-                            <Link
-                              href={`/individual/${p.id}`}
-                              prefetch={false}
-                              style={{ color: T.azure, textDecoration: "underline" }}
-                            >
-                              {String(p.name)}
-                            </Link>
-                            {i < individuals.length - 1 ? ", " : ""}
-                          </span>
-                        ))
-                      : "-"}
+                    {renderAdvisorIndividuals(individuals)}
                   </div>
                 </div>
               );

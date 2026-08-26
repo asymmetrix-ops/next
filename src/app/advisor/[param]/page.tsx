@@ -11,8 +11,11 @@ import {
   ArrowUpTrayIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
-import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
-import { normalizeAdvisorDealEvent } from "@/lib/normalizeAdvisorDealEvent";
+import {
+  DEFAULT_ADVISOR_DEALS_PAGE_SIZE,
+  useAdvisorProfile,
+} from "../../../hooks/useAdvisorProfile";
+import { normalizeAdvisorTransactionEngagement } from "@/lib/normalizeAdvisorDealEvent";
 import { buildCorporateEventsBrowseAllHref } from "@/lib/corporateEventsFilterPayload";
 import {
   formatDate,
@@ -113,7 +116,7 @@ function resolveChartEmployeeCount(data: EmployeeTimeSeriesPoint[]): number {
   return last > 0 ? last : lastNonZero;
 }
 
-const DEALS_PREVIEW_COUNT = 3;
+const DEALS_PREVIEW_COUNT = DEFAULT_ADVISOR_DEALS_PAGE_SIZE;
 
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   if (logo) {
@@ -290,9 +293,12 @@ export default function AdvisorProfilePage() {
   const [dealsPage, setDealsPage] = useState(1);
   const { currencyId: preferredCurrencyId } = usePlatformCurrency();
 
-  const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
-    advisorId,
-  });
+  const { advisorData, corporateEvents, dealsTotal, dealsTotalPages, dealsLoading, loading, error } =
+    useAdvisorProfile({
+      advisorId,
+      dealsPage,
+      dealsPageSize: DEALS_PREVIEW_COUNT,
+    });
 
   // Removed: handleAdvisorClick (replaced with createClickableElement in list)
 
@@ -317,7 +323,7 @@ export default function AdvisorProfilePage() {
 
   const buildAdvisorPageSnapshot = () => {
     const safeEvents: AdvisorDealEvent[] = Array.isArray(corporateEvents)
-      ? corporateEvents.map((event) => normalizeAdvisorDealEvent(event))
+      ? corporateEvents.map((event) => normalizeAdvisorTransactionEngagement(event))
       : [];
 
     const baseUrl =
@@ -652,38 +658,18 @@ export default function AdvisorProfilePage() {
   const safeEvents: AdvisorDealEvent[] = useMemo(
     () =>
       Array.isArray(corporateEvents)
-        ? corporateEvents.map((event) => normalizeAdvisorDealEvent(event))
+        ? corporateEvents.map((event) => normalizeAdvisorTransactionEngagement(event))
         : [],
     [corporateEvents]
   );
 
-  const sortedDeals = useMemo(
-    () =>
-      [...safeEvents].sort((a, b) => {
-        const ta = a.announcement_date
-          ? new Date(a.announcement_date).getTime()
-          : 0;
-        const tb = b.announcement_date
-          ? new Date(b.announcement_date).getTime()
-          : 0;
-        return tb - ta;
-      }),
-    [safeEvents]
-  );
-
-  const dealsTotal = sortedDeals.length;
-  const dealsTotalPages =
-    dealsTotal > 0 ? Math.ceil(dealsTotal / DEALS_PREVIEW_COUNT) : 0;
+  const displayedDeals = safeEvents;
   const dealsShowingFrom =
     dealsTotal > 0 ? (dealsPage - 1) * DEALS_PREVIEW_COUNT + 1 : 0;
   const dealsShowingTo =
     dealsTotal > 0
       ? Math.min(dealsPage * DEALS_PREVIEW_COUNT, dealsTotal)
       : 0;
-  const displayedDeals = useMemo(() => {
-    const start = (dealsPage - 1) * DEALS_PREVIEW_COUNT;
-    return sortedDeals.slice(start, start + DEALS_PREVIEW_COUNT);
-  }, [sortedDeals, dealsPage]);
   const canDealsPrev = dealsTotal > 0 && dealsPage > 1;
   const canDealsNext = dealsTotal > 0 && dealsPage < dealsTotalPages;
 
@@ -1040,6 +1026,7 @@ export default function AdvisorProfilePage() {
                 <AdvisorDealsProfilePanel
                   variant="summary"
                   events={displayedDeals}
+                  loading={dealsLoading}
                   totalCount={dealsTotal}
                   rangeStart={dealsShowingFrom}
                   rangeEnd={dealsShowingTo}
