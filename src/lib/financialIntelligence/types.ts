@@ -13,6 +13,11 @@ export interface FiCompanyRow {
   company_name: string;
   company_logo: string | null;
   sectors_id: string;
+  /** Resolved from API sector objects when available — used for suggested filters. */
+  primary_sector_name?: string;
+  primary_sector_names?: string[];
+  primary_sector_ids?: number[];
+  secondary_sector_name?: string;
   location_country: string;
   location_region: string;
   financial_year: number;

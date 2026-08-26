@@ -1,6 +1,7 @@
   "use client";
 
-  import React, { useState } from "react";
+  import React, { useCallback, useEffect, useRef, useState } from "react";
+  import { createPortal } from "react-dom";
   import type {
     FiBenchmarkMetricRow,
     FiCompanyRow,
@@ -371,16 +372,162 @@
     peerCount?: number;
   }
 
+  function CompositePercentileInfoTooltip() {
+    const [open, setOpen] = useState(false);
+    const anchorRef = useRef<HTMLButtonElement>(null);
+    const popoverRef = useRef<HTMLDivElement>(null);
+    const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
+
+    const updatePosition = useCallback(() => {
+      const anchor = anchorRef.current;
+      const popover = popoverRef.current;
+      if (!anchor) return;
+
+      const rect = anchor.getBoundingClientRect();
+      const padding = 12;
+      const gap = 8;
+      const popoverW = popover?.offsetWidth ?? 300;
+      const popoverH = popover?.offsetHeight ?? 180;
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+
+      let left = rect.left + rect.width / 2 - popoverW / 2;
+      left = Math.max(padding, Math.min(left, viewportW - popoverW - padding));
+
+      let top = rect.bottom + gap;
+      if (top + popoverH > viewportH - padding) {
+        top = rect.top - gap - popoverH;
+      }
+      top = Math.max(padding, top);
+
+      setPopoverStyle({ left, top });
+    }, []);
+
+    const show = useCallback(() => {
+      updatePosition();
+      setOpen(true);
+    }, [updatePosition]);
+
+    const hide = useCallback(() => setOpen(false), []);
+
+    useEffect(() => {
+      if (!open) return;
+      updatePosition();
+      const frame = requestAnimationFrame(updatePosition);
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+      return () => {
+        cancelAnimationFrame(frame);
+        window.removeEventListener("scroll", updatePosition, true);
+        window.removeEventListener("resize", updatePosition);
+      };
+    }, [open, updatePosition]);
+
+    useEffect(() => {
+      if (!open) return;
+      const onPointerDown = (event: PointerEvent) => {
+        if (!(event.target instanceof Node)) return;
+        if (anchorRef.current?.contains(event.target)) return;
+        if (popoverRef.current?.contains(event.target)) return;
+        hide();
+      };
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key === "Escape") hide();
+      };
+      document.addEventListener("pointerdown", onPointerDown);
+      document.addEventListener("keydown", onKeyDown);
+      return () => {
+        document.removeEventListener("pointerdown", onPointerDown);
+        document.removeEventListener("keydown", onKeyDown);
+      };
+    }, [open, hide]);
+
+    return (
+      <>
+        <button
+          ref={anchorRef}
+          type="button"
+          aria-label="What is composite percentile?"
+          aria-expanded={open}
+          onMouseEnter={show}
+          onMouseLeave={hide}
+          onClick={() => {
+            updatePosition();
+            setOpen((prev) => !prev);
+          }}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 16,
+            height: 16,
+            borderRadius: "50%",
+            border: "1px solid rgba(255,255,255,0.35)",
+            background: "transparent",
+            color: "rgba(255,255,255,0.85)",
+            fontSize: 10,
+            fontWeight: 700,
+            cursor: "help",
+            flexShrink: 0,
+            padding: 0,
+            fontFamily: FONT,
+          }}
+        >
+          i
+        </button>
+        {open &&
+          createPortal(
+            <div
+              ref={popoverRef}
+              role="tooltip"
+              onMouseEnter={show}
+              onMouseLeave={hide}
+              style={{
+                ...popoverStyle,
+                position: "fixed",
+                zIndex: 9999,
+                width: "min(20rem, calc(100vw - 1.5rem))",
+                borderRadius: "var(--r-md)",
+                border: "1px solid var(--border-1)",
+                background: "white",
+                boxShadow: "var(--shadow-lg)",
+                padding: "12px 14px",
+                fontFamily: FONT,
+                color: "var(--fg-2)",
+                fontSize: 12,
+                lineHeight: 1.55,
+              }}
+            >
+              <div style={{ fontWeight: 700, color: "var(--fg-1)", marginBottom: 6 }}>
+                Composite percentile
+              </div>
+              <p style={{ margin: "0 0 8px" }}>
+                An overall score from 0–100 showing how the target ranks against its peer set
+                across financial metrics.
+              </p>
+              <p style={{ margin: "0 0 8px" }}>
+                For each metric with data, we convert the target&apos;s rank vs peers into a
+                percentile, then average those percentiles. A score of 69 means the company
+                typically sits around the 69th percentile — higher is better.
+              </p>
+              <p style={{ margin: 0, color: "var(--fg-3)", fontSize: 11.5 }}>
+                Example: 70th on revenue growth and 50th on EBITDA margin each count equally with
+                other ranked metrics. The Mean/Median toggle only changes peer aggregate columns,
+                not this score.
+              </p>
+            </div>,
+            document.body
+          )}
+      </>
+    );
+  }
+
   export function CompositeHero({
     compositePercentile,
     targetName,
     peerCount,
   }: CompositeHeroProps) {
     const score = compositePercentile ?? 0;
-    const tooltip =
-      "Rank-based score: equal-weight average of metric percentiles (where the target has a value). " +
-      "This does not change when you switch Mean/Median — only the peer aggregate column and deltas do. " +
-      "Example: Revenue Growth at the 70th percentile and EBITDA margin at the 50th are averaged with every other ranked metric.";
 
     return (
       <div
@@ -415,26 +562,7 @@
             >
               Composite percentile
             </div>
-            <span
-              title={tooltip}
-              aria-label={tooltip}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 16,
-                height: 16,
-                borderRadius: "50%",
-                border: "1px solid rgba(255,255,255,0.35)",
-                color: "rgba(255,255,255,0.85)",
-                fontSize: 10,
-                fontWeight: 700,
-                cursor: "help",
-                flexShrink: 0,
-              }}
-            >
-              i
-            </span>
+            <CompositePercentileInfoTooltip />
           </div>
           {targetName != null && peerCount != null && (
             <div style={{ fontSize: "var(--fs-12)", color: "rgba(255,255,255,0.7)", marginTop: 2 }}>
@@ -753,7 +881,7 @@
                 </div>
               )}
             </div>
-            <div style={{ paddingLeft: 16, paddingRight: 8 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ paddingLeft: 8, paddingRight: 8 }} onClick={(e) => e.stopPropagation()}>
               <PercentileBar
                 pct={row.percentile}
                 height={14}
@@ -841,7 +969,7 @@
               ) : null}
             </div>
             <div style={{ ...th, textAlign: "right" }}>{aggregateLabels.peerColumn}</div>
-            <div style={{ ...th, paddingLeft: 16 }}>Ranking</div>
+            <div style={{ ...th, textAlign: "center" }}>Ranking</div>
             <div style={{ ...th, textAlign: "center" }}>Percentile</div>
             <div style={{ ...th, textAlign: "center" }}>Rank</div>
           </div>

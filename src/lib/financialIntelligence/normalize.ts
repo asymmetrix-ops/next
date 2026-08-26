@@ -1,3 +1,11 @@
+import {
+  extractAllSectorNamesByImportance,
+  extractDefaultSectorNames,
+  extractPrimarySectorIdsFromRaw,
+  extractPrimarySectorsFromList,
+  extractSectorIdsFromRaw,
+  serializeSectorsId,
+} from "./mappers";
 import type { FiCompanyRow, FiPeersResponse } from "./types";
 import { resolveFinancialMetricSourceType } from "./sourceTypes";
 import { readEntityLogo, resolveCompanyLogoSrc } from "@/lib/companyLogo";
@@ -316,7 +324,28 @@ export function normalizeCompanyRow(
     company_logo:
       readEntityLogo(raw) ??
       normalizeLogo(raw.company_logo ?? raw.linkedin_logo),
-    sectors_id: String(raw.sectors_id ?? ""),
+    sectors_id: serializeSectorsId(extractSectorIdsFromRaw(raw)),
+    ...(() => {
+      const fromTargetApi = extractPrimarySectorsFromList(raw.primary_sectors);
+      const sectorNames = extractDefaultSectorNames(raw);
+      if (fromTargetApi.ids.length > 0) {
+        return {
+          primary_sector_name: fromTargetApi.names[0],
+          primary_sector_names: fromTargetApi.names,
+          primary_sector_ids: fromTargetApi.ids,
+          ...(sectorNames.secondary ? { secondary_sector_name: sectorNames.secondary } : {}),
+        };
+      }
+
+      const primarySectorIds = extractPrimarySectorIdsFromRaw(raw);
+      const allSectorNames = extractAllSectorNamesByImportance(raw);
+      return {
+        ...(sectorNames.primary ? { primary_sector_name: sectorNames.primary } : {}),
+        ...(allSectorNames.primary.length > 0 ? { primary_sector_names: allSectorNames.primary } : {}),
+        ...(primarySectorIds.length > 0 ? { primary_sector_ids: primarySectorIds } : {}),
+        ...(sectorNames.secondary ? { secondary_sector_name: sectorNames.secondary } : {}),
+      };
+    })(),
     location_country: String(raw.location_country ?? ""),
     location_region: String(raw.location_region ?? ""),
     financial_year: normalizeFinancialYear(raw.financial_year ?? raw.Financial_Year),
@@ -517,6 +546,20 @@ export function unwrapApiPayload(payload: unknown): Record<string, unknown> {
   return obj;
 }
 
+function mergeTargetEnvelopeFields(
+  row: Record<string, unknown>,
+  envelope: Record<string, unknown>
+): Record<string, unknown> {
+  const merged = { ...row };
+  if (!Array.isArray(merged.primary_sectors) && Array.isArray(envelope.primary_sectors)) {
+    merged.primary_sectors = envelope.primary_sectors;
+  }
+  if (!Array.isArray(merged.secondary_sectors) && Array.isArray(envelope.secondary_sectors)) {
+    merged.secondary_sectors = envelope.secondary_sectors;
+  }
+  return merged;
+}
+
 /** Resolve target row from varying Xano response shapes. */
 export function extractTargetRow(
   payload: unknown,
@@ -529,13 +572,13 @@ export function extractTargetRow(
   const obj = unwrapApiPayload(payload);
 
   if (obj.found === false) {
-    return { company_id: requestedCompanyId };
+    return mergeTargetEnvelopeFields({ company_id: requestedCompanyId }, obj);
   }
 
   for (const key of ["target", "company", "result", "item", "record"] as const) {
     const nested = obj[key];
     if (nested && typeof nested === "object" && !Array.isArray(nested)) {
-      return nested as Record<string, unknown>;
+      return mergeTargetEnvelopeFields(nested as Record<string, unknown>, obj);
     }
   }
 
@@ -546,7 +589,7 @@ export function extractTargetRow(
       (peer) =>
         safeInt(peer.company_id ?? peer.id ?? peer.new_company_id, 0) === requestedCompanyId
     );
-    return match ?? peers[0];
+    return mergeTargetEnvelopeFields(match ?? peers[0], obj);
   }
 
   if (
@@ -559,7 +602,7 @@ export function extractTargetRow(
     return obj;
   }
 
-  return { company_id: requestedCompanyId };
+  return mergeTargetEnvelopeFields({ company_id: requestedCompanyId }, obj);
 }
 
 export function normalizePeersResponse(

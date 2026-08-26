@@ -1,6 +1,7 @@
 import type { FilterState } from "@/app/financials-tsx/types";
 import { parseSectorsId } from "./mappers";
 import type {
+  FiCompanyRow,
   FiSecondarySectorLookup,
   FiSectorLookup,
 } from "./types";
@@ -77,7 +78,7 @@ function resolveDerivedPrimary(
  * Default sector filter: prefer direct Primary on the target, then Primary derived
  * from a Secondary, then Secondary as last resort.
  */
-export function pickDefaultSectorFilter(
+function pickDefaultSectorFilterFromIds(
   sectorsId: string | null | undefined,
   lookups: FiSectorFilterLookups
 ): FilterState | null {
@@ -98,7 +99,10 @@ export function pickDefaultSectorFilter(
   }
 
   if (directPrimaries.length > 0) {
-    return { id: "primary_sector", value: [directPrimaries[0].sector_name] };
+    return {
+      id: "primary_sector",
+      value: directPrimaries.map((sector) => sector.sector_name),
+    };
   }
 
   for (const secondary of secondaries) {
@@ -113,4 +117,90 @@ export function pickDefaultSectorFilter(
   }
 
   return null;
+}
+
+/** Fallback when sector ids are unavailable but sector objects include names. */
+export function pickDefaultSectorFilterFromEntries(
+  entries: unknown,
+  lookups: FiSectorFilterLookups
+): FilterState | null {
+  if (!Array.isArray(entries)) return null;
+
+  const primaryNames: string[] = [];
+  const secondaryNames: string[] = [];
+
+  for (const item of entries) {
+    if (!item || typeof item !== "object") continue;
+    const obj = item as Record<string, unknown>;
+    const name = String(obj.sector_name ?? obj.name ?? "").trim();
+    if (!name) continue;
+    const importance = String(obj.Sector_importance ?? obj.sector_importance ?? "Primary").trim();
+    if (importance === "Primary") primaryNames.push(name);
+    else secondaryNames.push(name);
+  }
+
+  if (primaryNames.length > 0) {
+    return { id: "primary_sector", value: primaryNames };
+  }
+
+  for (const name of secondaryNames) {
+    const secondary = findSecondaryByName(name, lookups.secondarySectors);
+    if (secondary) {
+      const derivedPrimary = resolveDerivedPrimary(secondary, lookups.primarySectors);
+      if (derivedPrimary?.sector_name) {
+        return { id: "primary_sector", value: [derivedPrimary.sector_name] };
+      }
+    }
+    return { id: "secondary_sector", value: [name] };
+  }
+
+  return null;
+}
+
+export function pickDefaultSectorFilter(
+  sectorsId: string | null | undefined,
+  lookups: FiSectorFilterLookups,
+  sectorEntries?: unknown
+): FilterState | null {
+  const fromIds = pickDefaultSectorFilterFromIds(sectorsId, lookups);
+  if (fromIds) return fromIds;
+  if (sectorEntries != null) {
+    return pickDefaultSectorFilterFromEntries(sectorEntries, lookups);
+  }
+  return null;
+}
+
+/** All primary sector IDs for the target — sent to the peers API as sectors_id[]. */
+export function resolveTargetPrimarySectorIds(
+  target: Pick<FiCompanyRow, "sectors_id" | "primary_sector_ids" | "primary_sector_names">,
+  primarySectors: FiSectorLookup[],
+  secondarySectors: FiSecondarySectorLookup[]
+): number[] {
+  if (target.primary_sector_ids?.length) {
+    return Array.from(new Set(target.primary_sector_ids.filter((id) => id > 0)));
+  }
+
+  const ids = new Set<number>();
+  for (const id of parseSectorsId(target.sectors_id)) {
+    if (primarySectors.some((sector) => sector.id === id)) {
+      ids.add(id);
+    }
+  }
+  if (ids.size > 0) return Array.from(ids);
+
+  const names = (target.primary_sector_names ?? []).filter((name) => name.trim());
+  for (const name of names) {
+    const match = findPrimaryByName(name, primarySectors);
+    if (match) ids.add(match.id);
+  }
+  if (ids.size > 0) return Array.from(ids);
+
+  for (const id of parseSectorsId(target.sectors_id)) {
+    const secondary = secondarySectors.find((sector) => sector.id === id);
+    if (secondary?.related_primary_id && secondary.related_primary_id > 0) {
+      ids.add(secondary.related_primary_id);
+    }
+  }
+
+  return Array.from(ids);
 }

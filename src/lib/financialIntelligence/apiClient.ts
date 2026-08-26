@@ -9,6 +9,14 @@ import {
   readPlatformCurrencyIdClient,
   resolvePreferredCurrencyId,
 } from "@/lib/platformCurrency";
+import {
+  extractAllSectorNamesByImportance,
+  extractDefaultSectorNames,
+  extractPrimarySectorIdsFromRaw,
+  extractSectorIdsFromRaw,
+  parseSectorsId,
+  serializeSectorsId,
+} from "./mappers";
 import { peersRequestToSearchParams, appendExcludedSourceLabels } from "./filterPayload";
 import {
   applyExcludedSourceLabelsToRow,
@@ -137,6 +145,52 @@ async function enrichTargetFromCompanyProfile(
   return mergeFiCompanyRows(row, profileRow);
 }
 
+async function enrichTargetSectorsFromCompany(
+  row: FiCompanyRow,
+  headers: Record<string, string>
+): Promise<FiCompanyRow> {
+  if ((row.primary_sector_ids?.length ?? 0) > 0) return row;
+  if (parseSectorsId(row.sectors_id).length > 0 && row.primary_sector_name?.trim()) return row;
+
+  try {
+    const response = await fetch(
+      `${COMPANIES_API_BASE}/Get_new_company/${row.company_id}`,
+      { method: "GET", headers, cache: "no-store" }
+    );
+    if (!response.ok) return row;
+
+    const payload = await response.json();
+    const record =
+      payload && typeof payload === "object" && "Company" in (payload as object)
+        ? ((payload as Record<string, unknown>).Company as Record<string, unknown>)
+        : (payload as Record<string, unknown>);
+
+    const ids = extractSectorIdsFromRaw(record);
+    const sectorNames = extractDefaultSectorNames(record);
+    const primarySectorIds = extractPrimarySectorIdsFromRaw(record);
+    const allSectorNames = extractAllSectorNamesByImportance(record);
+    if (
+      ids.length === 0 &&
+      !sectorNames.primary &&
+      !sectorNames.secondary &&
+      primarySectorIds.length === 0
+    ) {
+      return row;
+    }
+
+    return {
+      ...row,
+      ...(ids.length > 0 ? { sectors_id: serializeSectorsId(ids) } : {}),
+      ...(sectorNames.primary ? { primary_sector_name: sectorNames.primary } : {}),
+      ...(allSectorNames.primary.length > 0 ? { primary_sector_names: allSectorNames.primary } : {}),
+      ...(primarySectorIds.length > 0 ? { primary_sector_ids: primarySectorIds } : {}),
+      ...(sectorNames.secondary ? { secondary_sector_name: sectorNames.secondary } : {}),
+    };
+  } catch {
+    return row;
+  }
+}
+
 export async function fetchFiTarget(
   companyId: number,
   preferredCurrencyId?: number,
@@ -181,6 +235,8 @@ export async function fetchFiTarget(
       currencyId,
       excludedSourceLabels
     );
+
+    row = await enrichTargetSectorsFromCompany(row, headers);
 
     row = applyExcludedSourceLabelsToRow(row, excludedSourceLabels);
 

@@ -40,9 +40,288 @@ const BRAND_COLORS = [
   "#7B5CD9",
 ];
 
+function readSectorIdFromEntry(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.trunc(value);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const n = Number(trimmed);
+    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+  }
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    for (const key of ["sector_id", "Sector_id", "id", "sectors_id"]) {
+      const n = readSectorIdFromEntry(obj[key]);
+      if (n) return n;
+    }
+  }
+  return null;
+}
+
+function tryParseJsonArray(value: string): unknown | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("[") && !trimmed.startsWith("{")) return null;
+  try {
+    return JSON.parse(trimmed.replace(/\\u0022/g, '"'));
+  } catch {
+    return null;
+  }
+}
+
+function extractSectorIdsFromNewSectorsData(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const payload = (entry as Record<string, unknown>).sectors_payload;
+    if (payload == null) continue;
+
+    let parsed: Record<string, unknown> | null = null;
+    if (typeof payload === "object" && !Array.isArray(payload)) {
+      parsed = payload as Record<string, unknown>;
+    } else if (typeof payload === "string") {
+      const first = tryParseJsonArray(payload);
+      if (first && typeof first === "object" && !Array.isArray(first)) {
+        parsed = first as Record<string, unknown>;
+      } else if (typeof first === "string") {
+        const second = tryParseJsonArray(first);
+        if (second && typeof second === "object" && !Array.isArray(second)) {
+          parsed = second as Record<string, unknown>;
+        }
+      }
+    }
+    if (!parsed) continue;
+
+    const ids: number[] = [];
+    for (const bucket of ["primary_sectors", "secondary_sectors"] as const) {
+      const list = parsed[bucket];
+      if (!Array.isArray(list)) continue;
+      for (const item of list) {
+        const id = readSectorIdFromEntry(item);
+        if (id) ids.push(id);
+      }
+    }
+    if (ids.length > 0) return ids;
+  }
+
+  return [];
+}
+
+export function extractSectorIdsFromValue(value: unknown): number[] {
+  if (value == null) return [];
+
+  if (typeof value === "number") {
+    const id = readSectorIdFromEntry(value);
+    return id ? [id] : [];
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === "[object Object]") return [];
+    const parsed = tryParseJsonArray(trimmed);
+    if (parsed != null) return extractSectorIdsFromValue(parsed);
+    return parseSectorsId(trimmed);
+  }
+
+  if (Array.isArray(value)) {
+    const ids: number[] = [];
+    for (const item of value) {
+      const id = readSectorIdFromEntry(item);
+      if (id) ids.push(id);
+    }
+    return ids;
+  }
+
+  return [];
+}
+
+export function extractSectorIdsFromRaw(raw: Record<string, unknown>): number[] {
+  const candidates = [
+    raw.sectors_id,
+    raw.Sectors_id,
+    (raw.Company as Record<string, unknown> | undefined)?.sectors_id,
+    (raw.Company as Record<string, unknown> | undefined)?.Sectors_id,
+  ];
+
+  for (const candidate of candidates) {
+    const ids = extractSectorIdsFromValue(candidate);
+    if (ids.length > 0) return ids;
+  }
+
+  return extractSectorIdsFromNewSectorsData(raw.new_sectors_data);
+}
+
+/** Target API returns primary_sectors as [{ id, name }, ...]. */
+export function extractPrimarySectorsFromList(list: unknown): {
+  ids: number[];
+  names: string[];
+} {
+  const ids: number[] = [];
+  const names: string[] = [];
+  if (!Array.isArray(list)) return { ids, names };
+
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const obj = item as Record<string, unknown>;
+    const id = readSectorIdFromEntry(obj.id ?? obj.sector_id ?? obj.Sector_id);
+    const name = String(obj.name ?? obj.sector_name ?? "").trim();
+    if (id) ids.push(id);
+    if (name) names.push(name);
+  }
+
+  const uniqueIds = Array.from(new Set(ids.filter((id) => id > 0)));
+  const uniqueNames = Array.from(new Set(names.filter(Boolean)));
+  return { ids: uniqueIds, names: uniqueNames };
+}
+
+export function extractAllSectorNamesByImportance(raw: Record<string, unknown>): {
+  primary: string[];
+  secondary: string[];
+} {
+  const fromEntries = (entries: unknown): { primary: string[]; secondary: string[] } => {
+    const primary: string[] = [];
+    const secondary: string[] = [];
+    if (!Array.isArray(entries)) return { primary, secondary };
+    for (const item of entries) {
+      if (!item || typeof item !== "object") continue;
+      const obj = item as Record<string, unknown>;
+      const name = String(obj.sector_name ?? obj.name ?? "").trim();
+      if (!name) continue;
+      const importance = String(obj.Sector_importance ?? obj.sector_importance ?? "Primary").trim();
+      if (importance === "Primary") primary.push(name);
+      else secondary.push(name);
+    }
+    return { primary, secondary };
+  };
+
+  const direct = fromEntries(raw.sectors_id ?? raw.Sectors_id);
+  if (direct.primary.length > 0 || direct.secondary.length > 0) return direct;
+
+  const company = raw.Company as Record<string, unknown> | undefined;
+  if (company) {
+    const nested = fromEntries(company.sectors_id ?? company.Sectors_id);
+    if (nested.primary.length > 0 || nested.secondary.length > 0) return nested;
+  }
+
+  const newSectors = raw.new_sectors_data;
+  if (Array.isArray(newSectors)) {
+    for (const entry of newSectors) {
+      if (!entry || typeof entry !== "object") continue;
+      const payload = (entry as Record<string, unknown>).sectors_payload;
+      if (payload == null) continue;
+
+      let parsed: Record<string, unknown> | null = null;
+      if (typeof payload === "object" && !Array.isArray(payload)) {
+        parsed = payload as Record<string, unknown>;
+      } else if (typeof payload === "string") {
+        try {
+          const first = JSON.parse(payload.replace(/\\u0022/g, '"'));
+          parsed =
+            typeof first === "object" && first != null && !Array.isArray(first)
+              ? (first as Record<string, unknown>)
+              : null;
+        } catch {
+          parsed = null;
+        }
+      }
+      if (!parsed) continue;
+
+      const readNames = (list: unknown): string[] => {
+        if (!Array.isArray(list)) return [];
+        return list
+          .map((item) => {
+            if (!item || typeof item !== "object") return "";
+            return String((item as Record<string, unknown>).sector_name ?? "").trim();
+          })
+          .filter(Boolean);
+      };
+
+      const primary = readNames(parsed.primary_sectors);
+      const secondary = readNames(parsed.secondary_sectors);
+      if (primary.length > 0 || secondary.length > 0) return { primary, secondary };
+    }
+  }
+
+  return { primary: [], secondary: [] };
+}
+
+export function extractPrimarySectorIdsFromRaw(raw: Record<string, unknown>): number[] {
+  const ids = new Set<number>();
+
+  const fromEntries = (entries: unknown) => {
+    if (!Array.isArray(entries)) return;
+    for (const item of entries) {
+      if (!item || typeof item !== "object") continue;
+      const obj = item as Record<string, unknown>;
+      const importance = String(obj.Sector_importance ?? obj.sector_importance ?? "Primary").trim();
+      if (importance !== "Primary") continue;
+      const id = readSectorIdFromEntry(obj);
+      if (id) ids.add(id);
+    }
+  };
+
+  fromEntries(raw.sectors_id ?? raw.Sectors_id);
+
+  const company = raw.Company as Record<string, unknown> | undefined;
+  if (company) fromEntries(company.sectors_id ?? company.Sectors_id);
+
+  const newSectors = raw.new_sectors_data;
+  if (Array.isArray(newSectors)) {
+    for (const entry of newSectors) {
+      if (!entry || typeof entry !== "object") continue;
+      const payload = (entry as Record<string, unknown>).sectors_payload;
+      if (payload == null) continue;
+
+      let parsed: Record<string, unknown> | null = null;
+      if (typeof payload === "object" && !Array.isArray(payload)) {
+        parsed = payload as Record<string, unknown>;
+      } else if (typeof payload === "string") {
+        try {
+          const first = JSON.parse(payload.replace(/\\u0022/g, '"'));
+          parsed =
+            typeof first === "object" && first != null && !Array.isArray(first)
+              ? (first as Record<string, unknown>)
+              : null;
+        } catch {
+          parsed = null;
+        }
+      }
+      if (!parsed || !Array.isArray(parsed.primary_sectors)) continue;
+      for (const item of parsed.primary_sectors) {
+        const id = readSectorIdFromEntry(item);
+        if (id) ids.add(id);
+      }
+    }
+  }
+
+  return Array.from(ids);
+}
+
+export function extractDefaultSectorNames(raw: Record<string, unknown>): {
+  primary?: string;
+  secondary?: string;
+} {
+  const all = extractAllSectorNamesByImportance(raw);
+  return {
+    primary: all.primary[0],
+    secondary: all.secondary[0],
+  };
+}
+
+export function serializeSectorsId(ids: number[]): string {
+  return Array.from(new Set(ids.filter((id) => Number.isFinite(id) && id > 0))).join(",");
+}
+
 export function parseSectorsId(raw: string | null | undefined): number[] {
   if (!raw) return [];
-  return raw
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed === "[object Object]") return [];
+  const parsed = tryParseJsonArray(trimmed);
+  if (parsed != null) return extractSectorIdsFromValue(parsed);
+  return trimmed
+    .replace(/^[\\[{]+|[\\]}]+$/g, "")
     .replace(/[{}]/g, "")
     .split(",")
     .map((part) => Number(part.trim()))

@@ -107,11 +107,28 @@ export function appendExcludedSourceLabels(
   params: URLSearchParams,
   labels: string[] | undefined
 ): void {
-  for (const label of labels ?? []) {
-    if (label.trim()) {
-      params.append("excluded_source_labels[]", label.trim());
-    }
+  const active = (labels ?? []).map((label) => label.trim()).filter(Boolean);
+  if (active.length === 0) {
+    params.set("excluded_source_labels", "null");
+    return;
   }
+
+  for (const label of active) {
+    params.append("excluded_source_labels[]", label);
+  }
+}
+
+export function resolvePeersApiSectorIds(args: {
+  filters: FilterState[];
+  targetPrimarySectorIds?: number[];
+  primarySectors: FiSectorLookup[];
+  secondarySectors: FiSecondarySectorLookup[];
+}): number[] {
+  if (args.targetPrimarySectorIds?.length) {
+    return args.targetPrimarySectorIds;
+  }
+
+  return resolveSectorIds(args.filters, args.primarySectors, args.secondarySectors);
 }
 
 export function buildPeersRequest(args: {
@@ -124,6 +141,7 @@ export function buildPeersRequest(args: {
   regionOptions?: Array<{ id: number; name: string }>;
   preferredCurrencyId?: number;
   excludedSourceLabels?: string[];
+  targetPrimarySectorIds?: number[];
 }): FiPeersRequest {
   const revenue = rangeValue(args.filters.find((f) => f.id === "revenue"));
   const ev = rangeValue(args.filters.find((f) => f.id === "ev"));
@@ -131,7 +149,12 @@ export function buildPeersRequest(args: {
 
   return {
     target_company_id: args.targetCompanyId,
-    sectors_id: resolveSectorIds(args.filters, args.primarySectors, args.secondarySectors),
+    sectors_id: resolvePeersApiSectorIds({
+      filters: args.filters,
+      targetPrimarySectorIds: args.targetPrimarySectorIds,
+      primarySectors: args.primarySectors,
+      secondarySectors: args.secondarySectors,
+    }),
     regions: resolveRegions(args.filters, args.regionOptions ?? []),
     location_ids: resolveLocationIds(args.filters),
     revenue_min_usd_m: toSentinel(revenue.min),

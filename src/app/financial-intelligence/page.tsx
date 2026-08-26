@@ -42,6 +42,7 @@ import {
   type FiFilterLookups,
 } from "@/lib/financialIntelligence/filterPayload";
 import { buildDefaultFilters } from "@/lib/financialIntelligence/defaultFilters";
+import { resolveTargetPrimarySectorIds } from "@/lib/financialIntelligence/sectorFilters";
 import {
   computeCompositePercentile,
 } from "@/lib/financialIntelligence/calculations";
@@ -283,6 +284,11 @@ export default function FinancialIntelligencePage() {
           regionOptions,
           preferredCurrencyId,
           excludedSourceLabels: nextExcludedSourceLabels,
+          targetPrimarySectorIds: resolveTargetPrimarySectorIds(
+            targetResult.data,
+            primarySectors,
+            secondarySectors
+          ),
         });
 
         const peersResult = await fetchFiPeers(request);
