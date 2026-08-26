@@ -3,6 +3,8 @@ import {
   COMPANIES_COLUMN_CATEGORIES,
   PROD_DEFAULT_COMPANY_COLUMN_KEYS,
 } from "@/components/companies/companiesColumnCategories";
+import type { FilterDef } from "@/components/companies/CompaniesFilterBar";
+import { formatHoldingPeriodStatusLabel } from "@/lib/holdingPeriod";
 
 export const PORTFOLIO_INVESTMENT_STATUS_FILTER_ID = "portfolio_investment_status";
 
@@ -10,8 +12,6 @@ export const PORTFOLIO_FILTER_CATEGORY = {
   id: "portfolio",
   name: "Portfolio",
 } as const;
-
-import type { FilterDef } from "@/components/companies/CompaniesFilterBar";
 
 export const PORTFOLIO_INVESTMENT_STATUS_FILTER_DEF: FilterDef = {
   id: PORTFOLIO_INVESTMENT_STATUS_FILTER_ID,
@@ -86,12 +86,13 @@ export const PORTFOLIO_TABLE_COLUMN = {
   label: "Investment status",
   group: "Portfolio",
   minWidth: 140,
-  render: (company: { investment_status?: unknown }) => {
-    const raw = company.investment_status;
-    if (raw === "Current" || raw === "Past") return raw;
-    if (typeof raw === "string" && raw.trim()) return raw.trim();
-    return "—";
-  },
+  render: (company: {
+    holding_period_status?: unknown;
+    investment_status?: unknown;
+  }) =>
+    formatHoldingPeriodStatusLabel(
+      company.holding_period_status ?? company.investment_status
+    ),
 };
 
 export const PORTFOLIO_EXTRA_COLUMN_KEYS = [

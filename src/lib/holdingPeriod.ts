@@ -90,3 +90,21 @@ export function normalizeHoldingPeriodDisplay(
   if (isZeroHoldingPeriodDisplay(trimmed)) return null;
   return trimmed;
 }
+
+/**
+ * Get_new_companies `hp2.status` is `"current" | "past"`.
+ * Portfolio Investment status column labels match the Active / Inactive tabs.
+ */
+export function formatHoldingPeriodStatusLabel(raw: unknown): string {
+  if (raw == null || raw === "") return HOLDING_PERIOD_EMPTY_DISPLAY;
+  const normalized = String(raw).trim().toLowerCase();
+  if (normalized === "current" || normalized === "active") return "Active";
+  if (normalized === "past" ||
+    normalized === "inactive" ||
+    normalized === "inactive/exited" ||
+    normalized === "inactive / exited"
+  ) {
+    return "Inactive / Exited";
+  }
+  return HOLDING_PERIOD_EMPTY_DISPLAY;
+}

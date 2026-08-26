@@ -286,9 +286,9 @@ export interface CompanySearchPayload {
   created_at_to?: string;
   /** Restrict results to specific company IDs (e.g. exporting a row selection). AND'd with filters_sql. */
   company_ids?: number[];
-  /** Investor profile portfolio tab — enables default Current/Past sort and investment_status hydration. */
+  /** Investor profile portfolio tab — enables default Current/Past sort and holding_period_* hydration. */
   portfolio_mode?: boolean;
-  /** Current portfolio company IDs — used with portfolio_mode for investment_status column. */
+  /** Current portfolio company IDs — used with portfolio_mode for holding_period_status. */
   current_portfolio_ids?: number[];
   /** Investor id — used with portfolio_mode to hydrate holding_period_* columns per row. */
   investor_id?: number | null;

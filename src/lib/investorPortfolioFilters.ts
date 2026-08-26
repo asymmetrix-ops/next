@@ -52,6 +52,14 @@ export const HOLDING_PERIOD_REQUEST_COLUMNS = [
   "revenue_growth_pct",
 ] as const;
 
+/** UI column `investment_status` is not a Get_new_companies `columns[]` key. */
+function remapPortfolioApiColumns(columns: string[] | undefined): string[] {
+  const remapped = (columns ?? []).map((column) =>
+    column === "investment_status" ? "holding_period_status" : column
+  );
+  return Array.from(new Set([...remapped, ...HOLDING_PERIOD_REQUEST_COLUMNS]));
+}
+
 export function enrichPortfolioListFilters<
   T extends { filters_sql?: string | null; columns?: string[] },
 >(
@@ -68,9 +76,7 @@ export function enrichPortfolioListFilters<
 } {
   const numericInvestorId =
     investorId != null && investorId !== "" ? Number(investorId) : null;
-  const withHoldingPeriodColumns = Array.from(
-    new Set([...(userFilters.columns ?? []), ...HOLDING_PERIOD_REQUEST_COLUMNS])
-  );
+  const withHoldingPeriodColumns = remapPortfolioApiColumns(userFilters.columns);
 
   if ((userFilters as { portfolio_mode?: boolean }).portfolio_mode) {
     return {
