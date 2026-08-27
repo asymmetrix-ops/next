@@ -19,6 +19,10 @@ import {
   isNewsArticle,
 } from "@/lib/contentArticleDisplay";
 import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
+import {
+  COMPANY_TABLE_DATA_URL,
+  extractCompanyTableItems,
+} from "@/lib/companyTableData";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
@@ -1310,7 +1314,7 @@ const ArticleDetailPage = () => {
       const params = new URLSearchParams();
       params.append("company_ids", JSON.stringify(idList));
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data?${params.toString()}`,
+        `${COMPANY_TABLE_DATA_URL}?${params.toString()}`,
         {
           method: "GET",
           headers: {
@@ -1325,14 +1329,16 @@ const ArticleDetailPage = () => {
       }
 
       const payload = (await response.json()) as unknown;
-      const items = Array.isArray(payload) ? payload : [];
-      const rows = items
-        .filter((item) => item && typeof item === "object")
-        .map((item) => mapCompanyTableApiRow(item as Record<string, unknown>))
+      const rows = extractCompanyTableItems(payload)
+        .map((item) => mapCompanyTableApiRow(item))
         .filter((r) => r.id > 0);
 
       setTableRows(rows);
       setSelectedCompanyIds(new Set(rows.map((r) => r.id)));
+    } catch (err) {
+      console.error("[Custom Company Table] Failed to load table data:", err);
+      setTableRows([]);
+      setSelectedCompanyIds(new Set());
     } finally {
       setTableLoading(false);
     }

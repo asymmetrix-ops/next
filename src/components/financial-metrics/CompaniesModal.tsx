@@ -8,7 +8,10 @@ import {
   CompaniesCSVExporter,
   CompanyCSVRow,
 } from "@/utils/companiesCSVExport";
-import { COMPANY_TABLE_DATA_URL } from "@/lib/companyTableData";
+import {
+  COMPANY_TABLE_DATA_URL,
+  extractCompanyTableItems,
+} from "@/lib/companyTableData";
 
 interface Company {
   id: number;
@@ -337,11 +340,9 @@ export default function CompaniesModal({
 
           if (tableResponse.ok) {
             const payload = (await tableResponse.json()) as unknown;
-            const tableRows = Array.isArray(payload) ? payload : [];
+            const tableRows = extractCompanyTableItems(payload);
             const tableById = new Map<number, Record<string, unknown>>();
-            for (const item of tableRows) {
-              if (!item || typeof item !== "object") continue;
-              const row = item as Record<string, unknown>;
+            for (const row of tableRows) {
               const rid = Number(row.id);
               if (rid > 0) tableById.set(rid, row);
             }
