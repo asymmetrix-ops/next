@@ -14,6 +14,7 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "website",
   "linkedin_url",
   "hq",
+  "country",
   "sub_region",
   "state",
   "city",
