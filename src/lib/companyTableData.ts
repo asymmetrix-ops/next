@@ -10,6 +10,27 @@ import { EMPTY_DISPLAY, normalizeEmptyDisplay, isEmptyDisplayValue } from "@/lib
 export const COMPANY_TABLE_DATA_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data";
 
+/** Unwraps `get_company_table_data` as a bare array or `{ items: [...] }`. */
+export function extractCompanyTableItems(
+  payload: unknown
+): Record<string, unknown>[] {
+  const isRow = (item: unknown): item is Record<string, unknown> =>
+    Boolean(item) && typeof item === "object" && !Array.isArray(item);
+
+  if (Array.isArray(payload)) {
+    return payload.filter(isRow);
+  }
+
+  if (payload && typeof payload === "object") {
+    const items = (payload as { items?: unknown }).items;
+    if (Array.isArray(items)) {
+      return items.filter(isRow);
+    }
+  }
+
+  return [];
+}
+
 /** Columns rendered from Companies Search results only (no table-data fetch). */
 export const SEARCH_ONLY_COLUMN_KEYS = new Set([
   "name",
@@ -384,10 +405,8 @@ export async function fetchCompanyTableDataByIds(
   }
 
   const payload = (await response.json()) as unknown;
-  const items = Array.isArray(payload) ? payload : [];
-  const rows = items
-    .filter((item) => item && typeof item === "object")
-    .map((item) => mapCompanyTableApiRow(item as Record<string, unknown>))
+  const rows = extractCompanyTableItems(payload)
+    .map((item) => mapCompanyTableApiRow(item))
     .filter((row) => Number(row.id) > 0);
 
   return new Map(rows.map((row) => [Number(row.id), row]));
