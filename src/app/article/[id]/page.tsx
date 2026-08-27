@@ -251,7 +251,25 @@ const WRAP_COLS = new Set([
   "investors",
   "url",
 ]);
+const MAX_TABLE_CELL_CHARS = 320;
 const DEFAULT_VIDEO_POSTER = "/images/asymmetrix-video-thumbnail.png";
+
+const isLikelyBase64Image = (value: string): boolean =>
+  value.startsWith("/9j/") ||
+  value.startsWith("data:image") ||
+  (value.length > 500 && /^[A-Za-z0-9+/=]+$/.test(value));
+
+const isRenderableWebsite = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "Not available") return false;
+  if (trimmed.length > 500 || isLikelyBase64Image(trimmed)) return false;
+  return /^https?:\/\//i.test(trimmed);
+};
+
+const truncateTableCell = (value: string): string => {
+  if (value.length <= MAX_TABLE_CELL_CHARS) return value;
+  return `${value.slice(0, MAX_TABLE_CELL_CHARS)}…`;
+};
 
 // Shared styles object
 const styles = {
@@ -1538,7 +1556,7 @@ const ArticleDetailPage = () => {
     const v =
       typeof raw === "string" ? raw.trim() : toDisplayString(raw).trim();
     if (!v || v === "—") return "Not available";
-    return v;
+    return truncateTableCell(v);
   };
 
   const parseMaybeSetLikeList = (value: unknown): string[] => {
@@ -1595,7 +1613,11 @@ const ArticleDetailPage = () => {
       .join(", ");
 
     const na = (s: string) => (s.trim() ? s : "Not available");
-    const urlRaw = normalizeWebsite(toDisplayString(row.url));
+    const urlText = toDisplayString(row.url);
+    const urlRaw =
+      !urlText || isLikelyBase64Image(urlText) || urlText.length > 500
+        ? ""
+        : normalizeWebsite(urlText);
 
       return {
         id,
@@ -1686,9 +1708,15 @@ const ArticleDetailPage = () => {
       }
 
       const payload = (await response.json()) as unknown;
-      const rows = extractCompanyTableItems(payload)
+      const rowById = new Map<number, TableCompanyRow>();
+      for (const row of extractCompanyTableItems(payload)
         .map((item) => mapCompanyTableApiRow(item))
-        .filter((r) => r.id > 0);
+        .filter((r) => r.id > 0)) {
+        rowById.set(row.id, row);
+      }
+      const rows = Array.from(rowById.values()).sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      );
 
       setTableRows(rows);
       setSelectedCompanyIds(new Set(rows.map((r) => r.id)));
@@ -3162,6 +3190,7 @@ const ArticleDetailPage = () => {
                 gridTemplateColumns: "minmax(260px, 320px) minmax(0, 1fr)",
                 minHeight: 0,
                 flex: 1,
+                overflow: "hidden",
               }}
             >
               <div
@@ -3169,6 +3198,7 @@ const ArticleDetailPage = () => {
                   borderRight: "1px solid #e5e7eb",
                   padding: 14,
                   overflow: "auto",
+                  minHeight: 0,
                 }}
               >
                 <div
@@ -3344,6 +3374,7 @@ const ArticleDetailPage = () => {
                   overflow: "auto",
                   WebkitOverflowScrolling: "touch",
                   minWidth: 0,
+                  minHeight: 0,
                 }}
               >
                 {tableLoading ? (
@@ -3365,7 +3396,7 @@ const ArticleDetailPage = () => {
                       ),
                     }}
                   >
-                    <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
+                    <thead>
                       <tr>
                         <th
                           style={{
@@ -3377,6 +3408,9 @@ const ArticleDetailPage = () => {
                             fontWeight: 700,
                             whiteSpace: "nowrap",
                             minWidth: 168,
+                            position: "sticky",
+                            top: 0,
+                            zIndex: 2,
                             boxShadow: "0 1px 0 #e5e7eb",
                           }}
                         >
@@ -3396,6 +3430,9 @@ const ArticleDetailPage = () => {
                               fontWeight: 700,
                               whiteSpace: "nowrap",
                               minWidth: WRAP_COLS.has(column.key) ? 200 : 112,
+                              position: "sticky",
+                              top: 0,
+                              zIndex: 2,
                               boxShadow: "0 1px 0 #e5e7eb",
                             }}
                           >
@@ -3462,10 +3499,7 @@ const ArticleDetailPage = () => {
                                       : "normal",
                                   }}
                                 >
-                                  {isWebsiteColumn &&
-                                  value &&
-                                  value !== "Not available" &&
-                                  /^https?:\/\//i.test(value) ? (
+                                  {isWebsiteColumn && isRenderableWebsite(value) ? (
                                     <a
                                       href={value}
                                       target="_blank"
@@ -3487,7 +3521,16 @@ const ArticleDetailPage = () => {
                                               wordBreak: "break-word",
                                               overflowWrap: "break-word",
                                             }
-                                          : undefined
+                                          : WRAP_COLS.has(column.key)
+                                            ? {
+                                                display: "-webkit-box",
+                                                WebkitLineClamp: 4,
+                                                WebkitBoxOrient: "vertical",
+                                                overflow: "hidden",
+                                                wordBreak: "break-word",
+                                                overflowWrap: "break-word",
+                                              }
+                                            : undefined
                                       }
                                     >
                                       {value}
