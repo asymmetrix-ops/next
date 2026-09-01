@@ -86,6 +86,11 @@ import {
 } from "@/lib/companyAiRisks";
 import { fetchCompanyProductUsers } from "@/lib/companyProductUsers";
 import {
+  fetchCompanyCapitalRadar,
+  type CapitalRadarEntry,
+} from "@/lib/companyCapitalRadar";
+import { CapitalRadarPanel } from "@/components/company/CapitalRadarPanel";
+import {
   isCompanyMcpPopulated,
   readCompanyMcpStatus,
   type CompanyMcpData,
@@ -1373,6 +1378,13 @@ const CompanyDetail = () => {
     CompanyInvestorFromAPI[]
   >([]);
   const [apiInvestorsLoading, setApiInvestorsLoading] = useState(false);
+  const [capitalRadarInvestors, setCapitalRadarInvestors] = useState<
+    CapitalRadarEntry[]
+  >([]);
+  const [capitalRadarBuyers, setCapitalRadarBuyers] = useState<
+    CapitalRadarEntry[]
+  >([]);
+  const [capitalRadarLoading, setCapitalRadarLoading] = useState(false);
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingPdfType, setExportingPdfType] =
@@ -1770,6 +1782,27 @@ const CompanyDetail = () => {
     }
   }, []);
 
+  const fetchCompanyCapitalRadarData = useCallback(async (id: string | number) => {
+    setCapitalRadarLoading(true);
+    setCapitalRadarInvestors([]);
+    setCapitalRadarBuyers([]);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const data = await fetchCompanyCapitalRadar(id, token);
+      if (!data) return;
+      setCapitalRadarInvestors(
+        Array.isArray(data.investors) ? data.investors : []
+      );
+      setCapitalRadarBuyers(
+        Array.isArray(data.strategic_buyers) ? data.strategic_buyers : []
+      );
+    } catch (err) {
+      console.error("Error fetching company capital radar:", err);
+    } finally {
+      setCapitalRadarLoading(false);
+    }
+  }, []);
+
   // Fetch investors from company_investors API endpoint
   const fetchCompanyInvestors = useCallback(async (id: string | number) => {
     setApiInvestorsLoading(true);
@@ -2077,6 +2110,7 @@ const CompanyDetail = () => {
       fetchCompanyTransactionStatus(companyId);
       fetchCompanyAiRisksData(companyId);
       fetchCompanyProductUsersData(companyId);
+      fetchCompanyCapitalRadarData(companyId);
 
       setCompanyLinkedIn(null);
       void (async () => {
@@ -2098,6 +2132,7 @@ const CompanyDetail = () => {
     fetchCompanyTransactionStatus,
     fetchCompanyAiRisksData,
     fetchCompanyProductUsersData,
+    fetchCompanyCapitalRadarData,
   ]);
 
 
@@ -3493,6 +3528,10 @@ const CompanyDetail = () => {
     showCompanyMcp ||
     showRevenueModel ||
     showDataCollection;
+  const showCapitalRadar =
+    capitalRadarLoading ||
+    capitalRadarInvestors.length > 0 ||
+    capitalRadarBuyers.length > 0;
   const showAiRisk = aiRiskData != null && aiRiskData.axes.length > 0;
   const showCorporateEvents =
     corporateEventsLoading || ceTotal > 0 || corporateEvents.length > 0;
@@ -3503,6 +3542,7 @@ const CompanyDetail = () => {
   let coreProductsGridSpan = 1;
   let headcountGridRow = 0;
   let managementGridRow = 0;
+  let capitalRadarGridRow = 0;
   let corporateEventsGridRow = 0;
   let subsidiariesGridRow = 0;
 
@@ -3518,9 +3558,14 @@ const CompanyDetail = () => {
     coreProductsGridSpan = showCoreProducts ? productZoneHeight : 1;
     headcountGridRow = Math.max(wideSectionStartRow, rightRailHeadcountRow);
     managementGridRow = hasManagement ? headcountGridRow + 1 : 0;
-    corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
+    capitalRadarGridRow = showCapitalRadar ? wideSectionStartRow : 0;
+    corporateEventsGridRow = showCorporateEvents
+      ? wideSectionStartRow + (showCapitalRadar ? 1 : 0)
+      : 0;
     subsidiariesGridRow = hasSubsidiaries
-      ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
+      ? wideSectionStartRow +
+        (showCapitalRadar ? 1 : 0) +
+        (showCorporateEvents ? 1 : 0)
       : 0;
   } else {
     const leftTopStack = Math.max(
@@ -3535,9 +3580,14 @@ const CompanyDetail = () => {
     coreProductsGridSpan = 1;
     headcountGridRow = rightRailHeadcountRow;
     managementGridRow = hasManagement ? rightRailHeadcountRow + 1 : 0;
-    corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
+    capitalRadarGridRow = showCapitalRadar ? wideSectionStartRow : 0;
+    corporateEventsGridRow = showCorporateEvents
+      ? wideSectionStartRow + (showCapitalRadar ? 1 : 0)
+      : 0;
     subsidiariesGridRow = hasSubsidiaries
-      ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
+      ? wideSectionStartRow +
+        (showCapitalRadar ? 1 : 0) +
+        (showCorporateEvents ? 1 : 0)
       : 0;
   }
 
@@ -3597,6 +3647,7 @@ const CompanyDetail = () => {
     .company-grid-product-mix { grid-column: 1; grid-row: ${productMixGridRow} / span ${productMixGridSpan}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: flex-start; }
     .company-grid-product-users { grid-column: 2; grid-row: ${coreProductsGridRow} / span ${coreProductsGridSpan}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
     .company-grid-ai-risk { grid-column: 3; grid-row: ${PRODUCT_ROW_START} / span 2; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-capital-radar,
     .company-grid-corporate-events,
     .company-grid-subsidiaries,
     .company-grid-headcount,
@@ -3607,8 +3658,10 @@ const CompanyDetail = () => {
       display: flex;
       flex-direction: column;
     }
+    .company-grid-capital-radar { grid-column: 1 / span 2; grid-row: ${capitalRadarGridRow}; overflow: hidden; max-width: 100%; }
     .company-grid-corporate-events { grid-column: 1 / span 2; grid-row: ${corporateEventsGridRow}; overflow: hidden; max-width: 100%; }
     .company-grid-subsidiaries { grid-column: 1 / span 2; grid-row: ${subsidiariesGridRow}; overflow: hidden; max-width: 100%; }
+    .company-grid-capital-radar > *,
     .company-grid-corporate-events > *,
     .company-grid-subsidiaries > * {
       min-width: 0;
@@ -3865,6 +3918,7 @@ const CompanyDetail = () => {
       .company-grid-product-mix,
       .company-grid-product-users,
       .company-grid-ai-risk,
+      .company-grid-capital-radar,
       .company-grid-corporate-events,
       .company-grid-subsidiaries,
       .company-grid-headcount,
@@ -4536,6 +4590,16 @@ const CompanyDetail = () => {
                   avgDefensibility={aiRiskData.avgDefensibility}
                   tier={aiRiskData.tier}
                   defaultActiveKey="data_moat"
+                />
+              </div>
+            )}
+
+            {showCapitalRadar && (
+              <div className="company-grid-capital-radar">
+                <CapitalRadarPanel
+                  investors={capitalRadarInvestors}
+                  strategicBuyers={capitalRadarBuyers}
+                  loading={capitalRadarLoading}
                 />
               </div>
             )}
