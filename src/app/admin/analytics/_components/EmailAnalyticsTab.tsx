@@ -29,6 +29,37 @@ const PERIOD_LABELS: Record<PeriodKey, string> = {
 
 const PERIOD_KEYS: PeriodKey[] = ["today", "7d", "30d", "90d"];
 
+const PERIOD_THEME: Record<
+  PeriodKey,
+  { groupHeader: string; metricHeader: string; groupStart: string }
+> = {
+  today: {
+    groupHeader: "bg-slate-700 text-white border-slate-600",
+    metricHeader: "bg-slate-100 text-slate-700 border-slate-200",
+    groupStart: "border-l-2 border-slate-300",
+  },
+  "7d": {
+    groupHeader: "bg-indigo-700 text-white border-indigo-600",
+    metricHeader: "bg-indigo-50 text-indigo-800 border-indigo-200",
+    groupStart: "border-l-2 border-indigo-300",
+  },
+  "30d": {
+    groupHeader: "bg-violet-700 text-white border-violet-600",
+    metricHeader: "bg-violet-50 text-violet-800 border-violet-200",
+    groupStart: "border-l-2 border-violet-300",
+  },
+  "90d": {
+    groupHeader: "bg-teal-700 text-white border-teal-600",
+    metricHeader: "bg-teal-50 text-teal-800 border-teal-200",
+    groupStart: "border-l-2 border-teal-300",
+  },
+};
+
+function periodGroupStartClass(period?: PeriodKey): string {
+  if (!period) return "";
+  return PERIOD_THEME[period].groupStart;
+}
+
 type UserColumn = {
   key: keyof UserRow | "email";
   label: string;
@@ -524,60 +555,102 @@ export function EmailAnalyticsTab() {
 
   return (
     <div className="space-y-4">
+      <div className="sticky top-0 z-10 bg-white rounded border px-4 py-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={companyId}
+            onChange={(event) => {
+              setPage(1);
+              setCompanyId(event.target.value);
+            }}
+            disabled={companiesLoading}
+            className="text-sm border rounded px-2 py-1.5 min-w-[200px]"
+            aria-label="Filter by company"
+          >
+            <option value="">All companies</option>
+            {companies.map((company) => (
+              <option key={company.id} value={String(company.id)}>
+                {company.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={itemType}
+            onChange={(event) => {
+              setPage(1);
+              setItemType(event.target.value as ItemTypeFilter);
+            }}
+            className="text-sm border rounded px-2 py-1.5"
+            aria-label="Filter by alert type"
+          >
+            <option value="">All alert types</option>
+            <option value="digest">Digest only</option>
+          </select>
+          <input
+            type="date"
+            value={auditDate}
+            onChange={(event) => {
+              setPage(1);
+              setAuditDate(event.target.value);
+            }}
+            className="text-sm border rounded px-2 py-1.5"
+            aria-label="Anchor date"
+          />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Search by email…"
+            className="text-sm border rounded px-2 py-1.5 min-w-[200px]"
+          />
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={() => {
+                setPage(1);
+                setCompanyId("");
+                setItemType("");
+                setSearchInput("");
+              }}
+              className="text-xs text-gray-500 hover:text-gray-800 underline"
+            >
+              Clear filters
+            </button>
+          ) : null}
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={refreshAll}
+              disabled={dailyLoading || usersLoading}
+              className="text-sm border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {dailyLoading || usersLoading ? "Loading…" : "↻ Refresh"}
+            </button>
+            <button
+              onClick={() => setShowDebug((value) => !value)}
+              className="text-xs border rounded px-2 py-1.5 text-gray-500 hover:bg-gray-50"
+            >
+              {showDebug ? "Hide debug" : "Debug"}
+            </button>
+          </div>
+        </div>
+        {companyId ? (
+          <p className="text-xs text-gray-500 mt-2">
+            Company filter active — scheduled and remaining stats are not
+            per-company.
+          </p>
+        ) : null}
+      </div>
+
       <div className="bg-white rounded border">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-200">
           <div>
             <h2 className="text-sm font-medium">Daily analytics</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Send and engagement stats by period ({DEFAULT_TIMEZONE})
+              Send and engagement stats by period ({DEFAULT_TIMEZONE}) ·{" "}
+              {periodLabel}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={companyId}
-              onChange={(event) => {
-                setPage(1);
-                setCompanyId(event.target.value);
-              }}
-              disabled={companiesLoading}
-              className="text-sm border rounded px-2 py-1.5 min-w-[180px]"
-            >
-              <option value="">All companies</option>
-              {companies.map((company) => (
-                <option key={company.id} value={String(company.id)}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={itemType}
-              onChange={(event) => {
-                setPage(1);
-                setItemType(event.target.value as ItemTypeFilter);
-              }}
-              className="text-sm border rounded px-2 py-1.5"
-            >
-              <option value="">All alert types</option>
-              <option value="digest">Digest only</option>
-            </select>
-            <input
-              type="date"
-              value={auditDate}
-              onChange={(event) => {
-                setPage(1);
-                setAuditDate(event.target.value);
-              }}
-              className="text-sm border rounded px-2 py-1.5"
-            />
-          </div>
         </div>
-
-        {companyId ? (
-          <div className="mx-4 mt-4 text-xs text-gray-600 bg-gray-50 border border-gray-100 rounded px-3 py-2">
-            Filtered to one company — scheduled and remaining counts are not
-            available per company.
-          </div>
-        ) : null}
 
         {dailyError ? (
           <div className="mx-4 mt-4 bg-red-50 text-red-700 rounded border border-red-200 px-3 py-2 text-sm">
@@ -664,63 +737,6 @@ export function EmailAnalyticsTab() {
         )}
       </div>
 
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={refreshAll}
-              disabled={dailyLoading || usersLoading}
-              className="text-sm border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {dailyLoading || usersLoading ? "Loading…" : "↻ Refresh"}
-            </button>
-            <button
-              onClick={() => setShowDebug((value) => !value)}
-              className="text-xs border rounded px-2 py-1.5 text-gray-500 hover:bg-gray-50"
-            >
-              {showDebug ? "Hide debug" : "Debug"}
-            </button>
-          </div>
-          <span className="text-xs text-gray-500">
-            {periodLabel}
-            {periodRangeLabel ? ` · ${periodRangeLabel}` : ""}
-          </span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search by email…"
-            className="text-sm border rounded px-2 py-1.5 min-w-[220px]"
-          />
-          {searchInput ? (
-            <button
-              type="button"
-              onClick={() => setSearchInput("")}
-              className="text-xs text-gray-500 hover:text-gray-800 underline"
-            >
-              Clear search
-            </button>
-          ) : null}
-          {hasActiveFilters ? (
-            <button
-              type="button"
-              onClick={() => {
-                setPage(1);
-                setCompanyId("");
-                setItemType("");
-                setSearchInput("");
-              }}
-              className="text-xs text-gray-500 hover:text-gray-800 underline"
-            >
-              Clear filters
-            </button>
-          ) : null}
-        </div>
-      </div>
-
       {usersError ? (
         <div className="bg-red-50 text-red-700 rounded border border-red-200 px-3 py-2 text-sm">
           Failed to load user analytics: {usersError}
@@ -750,6 +766,7 @@ export function EmailAnalyticsTab() {
           ) : (
             <span className="text-xs text-gray-500">
               {filteredUsers.length.toLocaleString()} users
+              {periodRangeLabel ? ` · ${periodRangeLabel}` : ""}
               {totalPages > 1 ? ` · Page ${currentPage} of ${totalPages}` : ""}
             </span>
           )}
@@ -797,7 +814,7 @@ export function EmailAnalyticsTab() {
               ) : (
                 <table className="w-full text-sm border-collapse min-w-[1200px]">
                   <thead>
-                    <tr className="border-b border-gray-200">
+                    <tr>
                       {(() => {
                         const emailHeader = sortableHeaderProps(
                           { key: "email", label: "Email" },
@@ -810,7 +827,7 @@ export function EmailAnalyticsTab() {
                           <th
                             rowSpan={2}
                             {...emailHeader}
-                            className={`${emailHeader.className} align-bottom border-r border-gray-100`}
+                            className={`${emailHeader.className} align-bottom border-r border-gray-200 bg-gray-50 sticky left-0 z-[1]`}
                           />
                         );
                       })()}
@@ -819,30 +836,42 @@ export function EmailAnalyticsTab() {
                           (col) => col.period === period
                         );
                         if (cols.length === 0) return null;
+                        const theme = PERIOD_THEME[period];
                         return (
                           <th
                             key={period}
                             colSpan={cols.length}
-                            className="text-center font-medium text-xs text-gray-600 px-3 py-2 border-r border-gray-100"
+                            className={`text-center text-sm font-semibold tracking-wide px-3 py-3 border-r ${theme.groupHeader}`}
                           >
                             {PERIOD_LABELS[period]}
                           </th>
                         );
                       })}
                     </tr>
-                    <tr className="border-b border-gray-200">
-                      {USER_TABLE_COLUMNS.filter((col) => col.period).map((col) => (
-                        <th
-                          key={col.key}
-                          {...sortableHeaderProps(
-                            col,
-                            sortBy,
-                            sortOrder,
-                            sortableColumns.includes(col.key),
-                            handleSort
-                          )}
-                        />
-                      ))}
+                    <tr>
+                      {USER_TABLE_COLUMNS.filter((col) => col.period).map((col) => {
+                        const theme = col.period ? PERIOD_THEME[col.period] : null;
+                        const header = sortableHeaderProps(
+                          col,
+                          sortBy,
+                          sortOrder,
+                          sortableColumns.includes(col.key),
+                          handleSort
+                        );
+                        const isFirstInGroup =
+                          col.period &&
+                          USER_TABLE_COLUMNS.filter((c) => c.period === col.period)[0]
+                            ?.key === col.key;
+                        return (
+                          <th
+                            key={col.key}
+                            {...header}
+                            className={`${header.className} ${theme?.metricHeader ?? ""} ${
+                              isFirstInGroup ? periodGroupStartClass(col.period) : ""
+                            } border-r border-gray-200/80`}
+                          />
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
@@ -861,25 +890,33 @@ export function EmailAnalyticsTab() {
                           key={`${user.user_id ?? "none"}-${user.email}`}
                           className="border-b border-gray-100 hover:bg-gray-50"
                         >
-                          {USER_TABLE_COLUMNS.map((col) => (
-                            <td
-                              key={col.key}
-                              className={`px-3 py-2 whitespace-nowrap ${
-                                col.key === "email" ? "font-medium" : "text-gray-700"
-                              }`}
-                            >
-                              {col.key === "email" && user.user_id ? (
-                                <div>
-                                  <div>{formatUserCell(user, col)}</div>
-                                  <div className="text-xs text-gray-400 font-normal">
-                                    User ID {user.user_id}
+                          {USER_TABLE_COLUMNS.map((col) => {
+                            const isFirstInGroup =
+                              col.period &&
+                              USER_TABLE_COLUMNS.filter((c) => c.period === col.period)[0]
+                                ?.key === col.key;
+                            return (
+                              <td
+                                key={col.key}
+                                className={`px-3 py-2 whitespace-nowrap ${
+                                  col.key === "email"
+                                    ? "font-medium bg-white sticky left-0 z-[1] border-r border-gray-200"
+                                    : "text-gray-700"
+                                } ${isFirstInGroup ? periodGroupStartClass(col.period) : ""}`}
+                              >
+                                {col.key === "email" && user.user_id ? (
+                                  <div>
+                                    <div>{formatUserCell(user, col)}</div>
+                                    <div className="text-xs text-gray-400 font-normal">
+                                      User ID {user.user_id}
+                                    </div>
                                   </div>
-                                </div>
-                              ) : (
-                                formatUserCell(user, col)
-                              )}
-                            </td>
-                          ))}
+                                ) : (
+                                  formatUserCell(user, col)
+                                )}
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))
                     )}
