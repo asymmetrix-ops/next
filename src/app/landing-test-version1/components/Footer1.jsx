@@ -3,7 +3,7 @@
 import React from "react";
 import { BiLogoLinkedinSquare } from "react-icons/bi";
 import { SiSubstack } from "react-icons/si";
-import SubstackSubscribeForm from "./SubstackSubscribeForm";
+import SubstackSubscribeWidget from "./SubstackSubscribeWidget";
 
 export function Footer1() {
   return (
@@ -14,18 +14,8 @@ export function Footer1() {
       <div className="container">
         <div className="grid grid-cols-1 gap-x-[8vw] gap-y-12 pb-12 md:gap-y-16 md:pb-18 lg:grid-cols-[0.75fr_1fr] lg:gap-y-4 lg:pb-20">
           <div className="flex flex-col">
-            <a href="/landing-test-version1" className="mb-5 md:mb-6">
-              <img
-                src="/icons/logo.svg"
-                alt="Logo image"
-                className="inline-block"
-              />
-            </a>
-            <p className="landing-text-secondary mb-5 md:mb-6">
-              Get the latest on Data &amp; Analytics intelligence.
-            </p>
             <div className="w-full max-w-md">
-              <SubstackSubscribeForm />
+              <SubstackSubscribeWidget />
               <p className="landing-text-secondary mt-3 text-xs">
                 We respect your inbox and your privacy.
               </p>
