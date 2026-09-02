@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { BiEnvelope, BiPhone, BiMap } from "react-icons/bi";
+import { LANDING_CONTACT_EMAIL } from "@/lib/landingContact";
 import { Reveal } from "./Reveal";
 
 const ABOUT_OPTIONS = [
@@ -26,6 +27,8 @@ const initialState = {
 export function ContactFormSection() {
   const [form, setForm] = useState(initialState);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const update = (field) => (event) => {
     const value =
@@ -33,11 +36,32 @@ export function ContactFormSection() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!form.agreed) return;
-    console.log(form);
-    setSubmitted(true);
+    if (!form.agreed || submitting) return;
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/landing/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to send message");
+      }
+
+      setSubmitted(true);
+    } catch {
+      setError(
+        `Unable to send your message. Please email us at ${LANDING_CONTACT_EMAIL}.`
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -58,8 +82,8 @@ export function ContactFormSection() {
             <ul className="flex flex-col gap-5">
               <li className="flex items-center gap-3">
                 <BiEnvelope className="size-5 shrink-0 text-background-alternative" />
-                <a href="mailto:h.crean@asymmetrixintelligence.com" className="hover:underline">
-                  h.crean@asymmetrixintelligence.com
+                <a href={`mailto:${LANDING_CONTACT_EMAIL}`} className="hover:underline">
+                  {LANDING_CONTACT_EMAIL}
                 </a>
               </li>
               <li className="flex items-center gap-3">
@@ -194,10 +218,14 @@ export function ContactFormSection() {
 
                 <button
                   type="submit"
-                  className="landing-btn-primary h-12 w-full rounded-full text-sm font-semibold text-text-alternative sm:col-span-2 sm:w-auto sm:px-10"
+                  disabled={submitting}
+                  className="landing-btn-primary h-12 w-full rounded-full text-sm font-semibold text-text-alternative disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2 sm:w-auto sm:px-10"
                 >
-                  Send
+                  {submitting ? "Sending..." : "Send"}
                 </button>
+                {error ? (
+                  <p className="text-sm text-red-300 sm:col-span-2">{error}</p>
+                ) : null}
               </form>
             )}
           </div>

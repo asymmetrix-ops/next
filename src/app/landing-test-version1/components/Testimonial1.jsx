@@ -29,7 +29,7 @@ const TESTIMONIALS = [
   {
     id: "endicott",
     quote:
-      "The team at Asymmetrix do a fantastic job covering the data and information services world. Their subject matter expertise, strong network, and importantly, understanding of the nuances in this sector, shine through in the content, including accurate and detailed company classifications, market maps and overviews, and deal briefs and rumor coverage. Asymmetrix has quickly become a go-to resource for our team at Endicott.",
+      "The team at Asymmetrix do a fantastic job covering the Data and Information services world. Their subject matter expertise, strong network, and importantly, understanding of the nuances in this sector, shine through in the content, including accurate and detailed company classifications, market maps and overviews, and deal briefs and rumor coverage. Asymmetrix has quickly become a go-to resource for our team at Endicott.",
     initials: "MC",
     name: "Mike Chinn",
     title: "Endicott Capital",

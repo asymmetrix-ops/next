@@ -1,28 +1,11 @@
 "use client";
 
-import { Button, Input } from "@relume_io/relume-ui";
-import React, { useState } from "react";
+import React from "react";
 import { BiLogoLinkedinSquare } from "react-icons/bi";
 import { SiSubstack } from "react-icons/si";
-
-const useForm = () => {
-  const [email, setEmail] = useState("");
-  const handleSetEmail = (event) => {
-    setEmail(event.target.value);
-  };
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    console.log({ email });
-  };
-  return {
-    email,
-    handleSetEmail,
-    handleSubmit,
-  };
-};
+import SubstackSubscribeWidget from "./SubstackSubscribeWidget";
 
 export function Footer1() {
-  const formState = useForm();
   return (
     <footer
       id="relume"
@@ -42,28 +25,8 @@ export function Footer1() {
               Get the latest on Data &amp; Analytics intelligence.
             </p>
             <div className="w-full max-w-md">
-              <form
-                className="mb-3 grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-[1fr_max-content] md:gap-y-4"
-                onSubmit={formState.handleSubmit}
-              >
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Email"
-                  value={formState.email}
-                  onChange={formState.handleSetEmail}
-                  className="landing-input"
-                />
-                <Button
-                  title="Subscribe"
-                  variant="secondary"
-                  size="sm"
-                  className="landing-btn-primary h-12 rounded-full px-6 text-text-alternative"
-                >
-                  Subscribe
-                </Button>
-              </form>
-              <p className="landing-text-secondary text-xs">
+              <SubstackSubscribeWidget />
+              <p className="landing-text-secondary mt-3 text-xs">
                 We respect your inbox and your privacy.
               </p>
             </div>
@@ -164,12 +127,6 @@ export function Footer1() {
           <ul className="grid grid-flow-row grid-cols-[max-content] justify-center gap-y-4 text-sm md:grid-flow-col md:gap-x-6 md:gap-y-0">
             <li className="underline hover:text-text-alternative">
               <a href="https://www.asymmetrixintelligence.com/privacy">Privacy policy</a>
-            </li>
-            <li className="underline hover:text-text-alternative">
-              <a href="#">Terms of service</a>
-            </li>
-            <li className="underline hover:text-text-alternative">
-              <a href="#">Cookie settings</a>
             </li>
           </ul>
         </div>
