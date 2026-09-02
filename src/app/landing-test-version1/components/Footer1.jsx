@@ -3,7 +3,10 @@
 import React from "react";
 import { BiLogoLinkedinSquare } from "react-icons/bi";
 import { SiSubstack } from "react-icons/si";
+import { LandingAnchorLink } from "./LandingAnchorLink";
 import SubstackSubscribeWidget from "./SubstackSubscribeWidget";
+
+const LANDING_HOME = "/landing-test-version1";
 
 export function Footer1() {
   return (
@@ -26,20 +29,20 @@ export function Footer1() {
               <h2 className="mb-3 font-semibold text-text-alternative md:mb-4">Product</h2>
               <ul>
                 <li className="py-2 text-sm">
-                  <a
-                    href="#coverage"
+                  <LandingAnchorLink
+                    sectionId="coverage"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>What we cover</span>
-                  </a>
+                  </LandingAnchorLink>
                 </li>
                 <li className="py-2 text-sm">
-                  <a
-                    href="#clients"
+                  <LandingAnchorLink
+                    sectionId="clients"
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>Clients</span>
-                  </a>
+                  </LandingAnchorLink>
                 </li>
               </ul>
             </div>
@@ -48,7 +51,15 @@ export function Footer1() {
               <ul>
                 <li className="py-2 text-sm">
                   <a
-                    href="/landing-test-version1/about-us"
+                    href={LANDING_HOME}
+                    className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
+                  >
+                    <span>Home</span>
+                  </a>
+                </li>
+                <li className="py-2 text-sm">
+                  <a
+                    href={`${LANDING_HOME}/about-us`}
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>About Us</span>
@@ -56,7 +67,7 @@ export function Footer1() {
                 </li>
                 <li className="py-2 text-sm">
                   <a
-                    href="/landing-test-version1/contact-us"
+                    href={`${LANDING_HOME}/contact-us`}
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>Contact Us</span>
@@ -64,7 +75,7 @@ export function Footer1() {
                 </li>
                 <li className="py-2 text-sm">
                   <a
-                    href="/landing-test-version1/press-releases"
+                    href={`${LANDING_HOME}/press-releases`}
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
                     <span>Press Releases</span>

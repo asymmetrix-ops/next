@@ -21,7 +21,6 @@ const initialState = {
   phone: "",
   about: "",
   message: "",
-  agreed: false,
 };
 
 export function ContactFormSection() {
@@ -31,14 +30,12 @@ export function ContactFormSection() {
   const [error, setError] = useState("");
 
   const update = (field) => (event) => {
-    const value =
-      event.target.type === "checkbox" ? event.target.checked : event.target.value;
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!form.agreed || submitting) return;
+    if (submitting) return;
 
     setSubmitting(true);
     setError("");
@@ -204,17 +201,6 @@ export function ContactFormSection() {
                     className="landing-input rounded-lg border px-4 py-3 text-sm"
                   />
                 </div>
-
-                <label className="flex items-center gap-3 text-sm sm:col-span-2">
-                  <input
-                    type="checkbox"
-                    required
-                    checked={form.agreed}
-                    onChange={update("agreed")}
-                    className="size-4 rounded"
-                  />
-                  I agree to the terms
-                </label>
 
                 <button
                   type="submit"

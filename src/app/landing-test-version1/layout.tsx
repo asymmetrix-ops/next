@@ -1,6 +1,7 @@
 import "./relume.css";
 import "./landing-theme.css";
 import { LandingCalendlyPrefetch } from "./components/LandingCalendlyInline";
+import { LandingHashScroll } from "./components/LandingHashScroll";
 
 export default function LandingTestVersion1Layout({
   children,
@@ -10,6 +11,7 @@ export default function LandingTestVersion1Layout({
   return (
     <div className="landing-rebrand">
       <LandingCalendlyPrefetch />
+      <LandingHashScroll />
       {children}
     </div>
   );

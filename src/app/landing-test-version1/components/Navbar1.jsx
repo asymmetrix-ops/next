@@ -2,8 +2,14 @@
 
 import { Button, useMediaQuery } from "@relume_io/relume-ui";
 import { motion } from "framer-motion";
+import Link from "next/link";
 import React, { useState } from "react";
 import { openCalendlyPopup } from "@/lib/calendlyWidget";
+
+const LANDING_HOME = "/landing-test-version1";
+
+const NAV_LINK_CLASS =
+  "landing-text-secondary block py-3 text-md transition-colors first:pt-7 hover:text-text-alternative lg:px-4 lg:py-2 lg:text-base first:lg:pt-2";
 
 const useRelume = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -26,6 +32,7 @@ const useRelume = () => {
   const animateDropdownMenu = isDropdownOpen ? "open" : "close";
   const animateDropdownMenuIcon = isDropdownOpen ? "rotated" : "initial";
   return {
+    isMobileMenuOpen,
     toggleMobileMenu,
     openOnDesktopDropdownMenu,
     closeOnDesktopDropdownMenu,
@@ -39,6 +46,12 @@ const useRelume = () => {
 
 export function Navbar1() {
   const useActive = useRelume();
+  const closeMobileMenu = () => {
+    if (useActive.isMobileMenuOpen) {
+      useActive.toggleMobileMenu();
+    }
+  };
+
   return (
     <section
       id="relume"
@@ -46,9 +59,9 @@ export function Navbar1() {
     >
       <div className="size-full lg:flex lg:items-center lg:justify-between">
         <div className="flex min-h-16 items-center justify-between px-[5%] md:min-h-18 lg:min-h-full lg:px-0">
-          <a href="/landing-test-version1">
+          <Link href={LANDING_HOME}>
             <img src="/icons/logo.svg" alt="Asymmetrix" className="h-8 md:h-9" />
-          </a>
+          </Link>
           <button
             type="button"
             aria-label="Toggle menu"
@@ -106,37 +119,43 @@ export function Navbar1() {
           transition={{ duration: 0.4 }}
           className="overflow-hidden px-[5%] lg:flex lg:items-center lg:overflow-visible lg:px-0 lg:[--height-closed:auto] lg:[--height-open:auto]"
         >
-          <a
-            href="/landing-test-version1/about-us"
-            className="landing-text-secondary block py-3 text-md transition-colors first:pt-7 hover:text-text-alternative lg:px-4 lg:py-2 lg:text-base first:lg:pt-2"
+          <Link href={LANDING_HOME} className={NAV_LINK_CLASS} onClick={closeMobileMenu}>
+            Home
+          </Link>
+          <Link
+            href={`${LANDING_HOME}/about-us`}
+            className={NAV_LINK_CLASS}
+            onClick={closeMobileMenu}
           >
             About Us
-          </a>
-          <a
-            href="/landing-test-version1/press-releases"
-            className="landing-text-secondary block py-3 text-md transition-colors first:pt-7 hover:text-text-alternative lg:px-4 lg:py-2 lg:text-base first:lg:pt-2"
+          </Link>
+          <Link
+            href={`${LANDING_HOME}/press-releases`}
+            className={NAV_LINK_CLASS}
+            onClick={closeMobileMenu}
           >
             Press Releases
-          </a>
-          <a
-            href="/landing-test-version1/contact-us"
-            className="landing-text-secondary block py-3 text-md transition-colors first:pt-7 hover:text-text-alternative lg:px-4 lg:py-2 lg:text-base first:lg:pt-2"
+          </Link>
+          <Link
+            href={`${LANDING_HOME}/contact-us`}
+            className={NAV_LINK_CLASS}
+            onClick={closeMobileMenu}
           >
             Contact Us
-          </a>
+          </Link>
           <div className="landing-navbar-actions mt-6 flex flex-col items-center gap-3 py-2 lg:ml-4 lg:mt-0 lg:flex-row lg:gap-4 lg:py-3">
             <a
               href="/login"
-              className="landing-btn-secondary inline-flex h-11 w-full items-center justify-center rounded-full px-6 text-sm font-semibold lg:w-auto"
+              className="landing-btn-login-nav inline-flex h-11 w-full items-center justify-center rounded-full px-8 text-sm font-semibold lg:w-auto"
             >
-              Log in
+              Log In
             </a>
             <Button
               title="Talk to Sales"
               variant="secondary"
               size="sm"
               data-calendly-trigger
-              className="landing-btn-primary landing-btn-primary-nav h-11 w-full rounded-full text-text-alternative lg:w-auto"
+              className="landing-btn-primary landing-btn-primary-nav h-11 w-full rounded-full px-8 text-text-alternative lg:w-auto"
               onClick={() => {
                 void openCalendlyPopup();
               }}

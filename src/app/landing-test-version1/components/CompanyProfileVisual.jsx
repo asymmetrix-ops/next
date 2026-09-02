@@ -192,7 +192,7 @@ export function CompanyProfileVisual() {
           <span className="relative inline-flex size-2 rounded-full" style={{ background: "#536FF0" }} />
         </span>
         <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "#5A6272" }}>
-          Company profiles · live
+          Company Profiles · live
         </span>
       </div>
 
