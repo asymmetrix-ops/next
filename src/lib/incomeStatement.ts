@@ -1,5 +1,10 @@
 import type { FinancialMetricFxInfo } from "@/lib/fxDisplay";
 import { parseFinancialMetricFx, resolveCurrencyCode } from "@/lib/fxDisplay";
+import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import { extractCurrencyField } from "@/lib/currencyField";
+import { FINANCIAL_METRICS_FIELDS } from "@/lib/financialFieldMaps";
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
+import type { CurrencyMode } from "@/types/financials";
 
 export type IncomeStatementApiEntry = {
   id: number;
@@ -62,6 +67,9 @@ export type NormalizedIncomeStatementRow = {
   ebitda_fx?: FinancialMetricFxInfo | null;
   ebit_fx?: FinancialMetricFxInfo | null;
   revenue_per_fte_fx?: FinancialMetricFxInfo | null;
+  /** Filing / reported currency for the period (not platform currency). */
+  reported_currency?: string;
+  cost_of_goods_sold_currency?: string;
 };
 
 function sanitizeCurrencyCode(value?: string | null): string | undefined {
@@ -133,8 +141,13 @@ function normalizeRow(row: IncomeStatementApiEntry): NormalizedIncomeStatementRo
   const revenue = parseNumeric(row.revenue);
   const fteCount = parseNumeric(row.FTE_count);
   const revenuePerFte = parseNumeric(row.Revenue_per_FTE);
+  const filingCurrency =
+    sanitizeCurrencyCode(row.cost_of_goods_sold_currency) ||
+    sanitizeCurrencyCode(row.statement_currency) ||
+    sanitizeCurrencyCode(row.Income_statement_currency) ||
+    sanitizeCurrencyCode(row.currency);
 
-  return {
+  const normalized: NormalizedIncomeStatementRow = {
     id: row.id,
     period_display_end_date: row.period_display_end_date,
     period_end_date: row.period_end_date,
@@ -151,16 +164,16 @@ function normalizeRow(row: IncomeStatementApiEntry): NormalizedIncomeStatementRo
       (revenue != null && fteCount != null && fteCount > 0
         ? revenue / fteCount
         : null),
-    statement_currency:
-      sanitizeCurrencyCode(row.statement_currency) ||
-      sanitizeCurrencyCode(row.Income_statement_currency) ||
-      sanitizeCurrencyCode(row.currency) ||
-      undefined,
+    statement_currency: filingCurrency,
+    reported_currency: filingCurrency,
+    cost_of_goods_sold_currency: filingCurrency,
     revenue_fx: normalizeIncomeStatementFx(row, "revenue"),
     ebitda_fx: normalizeIncomeStatementFx(row, "ebitda"),
     ebit_fx: normalizeIncomeStatementFx(row, "ebit"),
     revenue_per_fte_fx: normalizeIncomeStatementFx(row, "Revenue_per_FTE"),
   };
+
+  return copyIncomeStatementReportedFields(normalized, row);
 }
 
 function parseQuarterYearFromDisplay(display: string): { year: number; quarter: number } | null {
@@ -392,6 +405,272 @@ export function resolveIncomeStatementCurrency(
   return "";
 }
 
+export type IncomeStatementMoneyField = "revenue" | "ebit" | "ebitda";
+
+const INCOME_STATEMENT_MONEY_FIELDS: IncomeStatementMoneyField[] = [
+  "revenue",
+  "ebit",
+  "ebitda",
+];
+
+const FINANCIAL_METRIC_TO_INCOME_FIELD = {
+  Revenue_m: "revenue",
+  EBIT_m: "ebit",
+  EBITDA_m: "ebitda",
+} as const satisfies Record<string, IncomeStatementMoneyField>;
+
+type FinancialMetricAmountField = keyof typeof FINANCIAL_METRIC_TO_INCOME_FIELD;
+
+function asIncomeStatementRecord(
+  row: NormalizedIncomeStatementRow
+): Record<string, unknown> {
+  return row as unknown as Record<string, unknown>;
+}
+
+function copyIncomeStatementReportedFields(
+  normalized: NormalizedIncomeStatementRow,
+  row: IncomeStatementApiEntry
+): NormalizedIncomeStatementRow {
+  const target = asIncomeStatementRecord(normalized);
+  const source = row as unknown as Record<string, unknown>;
+
+  for (const field of INCOME_STATEMENT_MONEY_FIELDS) {
+    for (const suffix of [
+      "_reported_value",
+      "_reported_currency_display",
+      "_converted",
+      "_is_approximate",
+    ] as const) {
+      const key = `${field}${suffix}`;
+      if (source[key] != null) target[key] = source[key];
+    }
+  }
+
+  return normalized;
+}
+
+export function readIncomeStatementReportedValue(
+  row: NormalizedIncomeStatementRow,
+  field: IncomeStatementMoneyField
+): number | null | undefined {
+  const raw = asIncomeStatementRecord(row)[`${field}_reported_value`];
+  if (raw == null) return undefined;
+  const parsed = parseNumeric(raw as number | string | null | undefined);
+  return parsed ?? null;
+}
+
+export function readIncomeStatementReportedCurrency(
+  row: NormalizedIncomeStatementRow,
+  field: IncomeStatementMoneyField
+): string | undefined {
+  const raw = asIncomeStatementRecord(row)[`${field}_reported_currency_display`];
+  return (
+    sanitizeCurrencyCode(typeof raw === "string" ? raw : undefined) ||
+    row.reported_currency ||
+    row.statement_currency
+  );
+}
+
+function buildIncomeStatementFxFromReported(
+  reportedUnits: number | null | undefined,
+  reportedCurrency?: string,
+  isApproximate = false
+): FinancialMetricFxInfo | null {
+  const currency = sanitizeCurrencyCode(reportedCurrency);
+  if (reportedUnits == null || !currency) return null;
+  return {
+    native_value: reportedUnits,
+    native_currency_code: currency,
+    fx_converted: true,
+    fx_is_approximate: isApproximate,
+  };
+}
+
+function metricFxToIncomeStatementFx(
+  fx: FinancialMetricFxInfo | null | undefined
+): FinancialMetricFxInfo | null {
+  if (!fx?.fx_converted || fx.native_value == null || !fx.native_currency_code) {
+    return null;
+  }
+  const nativeUnits =
+    Math.abs(fx.native_value) < 1_000_000
+      ? fx.native_value * 1_000_000
+      : fx.native_value;
+  return {
+    ...fx,
+    native_value: nativeUnits,
+  };
+}
+
+function attachFinancialMetricCurrencyField(
+  incomeRow: NormalizedIncomeStatementRow,
+  metricsRow: FinancialMetricsIncomeRow,
+  metricField: FinancialMetricAmountField
+): NormalizedIncomeStatementRow {
+  const incomeField = FINANCIAL_METRIC_TO_INCOME_FIELD[metricField];
+  const displayField = FINANCIAL_METRICS_FIELDS[metricField];
+  if (!displayField) return incomeRow;
+
+  const rawMetrics = metricsRow as unknown as Record<string, unknown>;
+  const pair = extractCurrencyField(rawMetrics, metricField, displayField);
+  const preferredUnits = millionsToRaw(pair.preferredValue ?? metricsRow[metricField]);
+  const reportedUnits = millionsToRaw(pair.reportedValue);
+  const reportedCurrency =
+    sanitizeCurrencyCode(pair.reportedCurrency ?? undefined) ||
+    sanitizeCurrencyCode(metricsRow.Income_statement_currency);
+
+  const next = { ...incomeRow };
+  const record = asIncomeStatementRecord(next);
+  next[incomeField] = preferredUnits;
+
+  if (reportedUnits != null) {
+    record[`${incomeField}_reported_value`] = reportedUnits;
+  }
+  if (reportedCurrency) {
+    record[`${incomeField}_reported_currency_display`] = reportedCurrency;
+    next.reported_currency = reportedCurrency;
+    next.statement_currency = reportedCurrency;
+    next.cost_of_goods_sold_currency = reportedCurrency;
+  }
+  if (pair.converted) {
+    record[`${incomeField}_converted`] = true;
+  }
+  if (pair.isApproximate) {
+    record[`${incomeField}_is_approximate`] = true;
+  }
+
+  const fxKey =
+    incomeField === "revenue"
+      ? "revenue_fx"
+      : incomeField === "ebit"
+        ? "ebit_fx"
+        : "ebitda_fx";
+  const metricFx = metricFxToIncomeStatementFx(
+    metricsRow.metric_fx?.[incomeField] ?? null
+  );
+  const reportedFx =
+    pair.converted && reportedUnits != null && reportedCurrency
+      ? buildIncomeStatementFxFromReported(
+          reportedUnits,
+          reportedCurrency,
+          pair.isApproximate
+        )
+      : null;
+
+  next[fxKey] = next[fxKey] ?? metricFx ?? reportedFx;
+
+  return next;
+}
+
+function mergeIncomeStatementCurrencyMetadata(
+  primary: NormalizedIncomeStatementRow,
+  supplement: NormalizedIncomeStatementRow
+): NormalizedIncomeStatementRow {
+  const merged: NormalizedIncomeStatementRow = { ...primary };
+  const mergedRecord = asIncomeStatementRecord(merged);
+  const supplementRecord = asIncomeStatementRecord(supplement);
+
+  for (const field of INCOME_STATEMENT_MONEY_FIELDS) {
+    const fxKey =
+      field === "revenue"
+        ? "revenue_fx"
+        : field === "ebit"
+          ? "ebit_fx"
+          : "ebitda_fx";
+
+    if (!merged[fxKey] && supplement[fxKey]) {
+      merged[fxKey] = supplement[fxKey];
+    }
+
+    for (const suffix of [
+      "_reported_value",
+      "_reported_currency_display",
+      "_converted",
+      "_is_approximate",
+    ] as const) {
+      const key = `${field}${suffix}`;
+      if (mergedRecord[key] == null && supplementRecord[key] != null) {
+        mergedRecord[key] = supplementRecord[key];
+      }
+    }
+  }
+
+  merged.reported_currency =
+    merged.reported_currency ||
+    supplement.reported_currency ||
+    merged.statement_currency ||
+    supplement.statement_currency;
+  merged.statement_currency =
+    merged.reported_currency ||
+    merged.statement_currency ||
+    supplement.statement_currency;
+  merged.cost_of_goods_sold_currency =
+    merged.cost_of_goods_sold_currency ||
+    supplement.cost_of_goods_sold_currency ||
+    merged.reported_currency;
+
+  return merged;
+}
+
+function resolveIncomeStatementFx(
+  row: NormalizedIncomeStatementRow,
+  field: IncomeStatementMoneyField
+): FinancialMetricFxInfo | null | undefined {
+  if (field === "revenue") return row.revenue_fx;
+  if (field === "ebit") return row.ebit_fx;
+  return row.ebitda_fx;
+}
+
+function formatIncomeMoneyFromUnits(
+  value: number | null | undefined,
+  currency?: string
+): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "-";
+  return appendMetricCurrency(
+    formatMetricMillionsPlain(value / 1_000_000),
+    currency
+  );
+}
+
+/** Profile + card income statement values respecting platform vs reported currency. */
+export function formatIncomeStatementMoneyDisplay(
+  row: NormalizedIncomeStatementRow,
+  field: IncomeStatementMoneyField,
+  currencyMode: CurrencyMode,
+  preferredCurrency: string
+): string {
+  const preferredValue = row[field];
+  const platformCurrency = preferredCurrency.trim().toUpperCase();
+
+  if (currencyMode === "preferred") {
+    return formatIncomeMoneyFromUnits(preferredValue, platformCurrency);
+  }
+
+  const fx = resolveIncomeStatementFx(row, field);
+  if (fx?.fx_converted && fx.native_value != null) {
+    return formatIncomeMoneyFromUnits(
+      fx.native_value,
+      sanitizeCurrencyCode(fx.native_currency_code) ??
+        readIncomeStatementReportedCurrency(row, field) ??
+        platformCurrency
+    );
+  }
+
+  const reportedValue = readIncomeStatementReportedValue(row, field);
+  const reportedCurrency = readIncomeStatementReportedCurrency(row, field);
+  if (reportedValue != null) {
+    return formatIncomeMoneyFromUnits(
+      reportedValue,
+      reportedCurrency ?? platformCurrency
+    );
+  }
+
+  return formatIncomeMoneyFromUnits(
+    preferredValue,
+    reportedCurrency ?? row.reported_currency ?? row.statement_currency ?? platformCurrency
+  );
+}
+
 type FinancialMetricsIncomeRow = {
   id?: number;
   financial_year_int?: number | null;
@@ -406,6 +685,17 @@ type FinancialMetricsIncomeRow = {
   EBIT_currency_display?: string | null;
   EBIT_source_label?: string | null;
   Income_statement_currency?: string | null;
+  metric_fx?: Partial<
+    Record<
+      IncomeStatementMoneyField,
+      {
+        native_value?: number | null;
+        native_currency_code?: string | null;
+        fx_converted?: boolean;
+        fx_is_approximate?: boolean;
+      }
+    >
+  >;
 };
 
 function isEstimateSourceLabel(label: unknown): boolean {
@@ -468,18 +758,24 @@ export function buildIncomeStatementFromFinancialMetrics(
       (ebitda == null || isEstimateSourceLabel(row.EBITDA_source_label));
     if (allEstimate) return [];
 
-    return [
-      {
-        id: row.id ?? index,
-        period_type: "fiscal_year",
-        period_year: year,
-        period_display_end_date: `FY${year}`,
-        revenue,
-        ebit,
-        ebitda,
-        statement_currency: resolveFinancialMetricsIncomeCurrency(row),
-      },
-    ];
+    let incomeRow: NormalizedIncomeStatementRow = {
+      id: row.id ?? index,
+      period_type: "fiscal_year",
+      period_year: year,
+      period_display_end_date: `FY${year}`,
+      revenue,
+      ebit,
+      ebitda,
+      reported_currency: sanitizeCurrencyCode(row.Income_statement_currency),
+      statement_currency: sanitizeCurrencyCode(row.Income_statement_currency),
+      cost_of_goods_sold_currency: sanitizeCurrencyCode(row.Income_statement_currency),
+    };
+
+    incomeRow = attachFinancialMetricCurrencyField(incomeRow, row, "Revenue_m");
+    incomeRow = attachFinancialMetricCurrencyField(incomeRow, row, "EBIT_m");
+    incomeRow = attachFinancialMetricCurrencyField(incomeRow, row, "EBITDA_m");
+
+    return [incomeRow];
   });
 }
 
@@ -493,7 +789,9 @@ function applyIncomeStatementCurrency(
   return sortIncomeStatementRowsAsc(
     rows.map((row) => ({
       ...row,
-      statement_currency: resolvedFallback,
+      // Preserve filing/reported currency; only fill when missing.
+      statement_currency: row.statement_currency ?? resolvedFallback,
+      reported_currency: row.reported_currency ?? row.statement_currency ?? resolvedFallback,
     }))
   );
 }
@@ -508,22 +806,33 @@ function buildConvertedIncomeStatementBaseRows({
   financialMetricsRows?: FinancialMetricsIncomeRow[];
 }): NormalizedIncomeStatementRow[] {
   const fromMetrics = buildIncomeStatementFromFinancialMetrics(financialMetricsRows);
-  const metricFiscalYears = new Set(
-    fromMetrics
-      .map((row) => row.period_year)
-      .filter((year): year is number => year != null)
-  );
+  const metricsByYear = new Map<number, NormalizedIncomeStatementRow>();
+  for (const row of fromMetrics) {
+    const year = resolvePeriodYear(row);
+    if (year != null) metricsByYear.set(year, row);
+  }
 
+  const enrichedMetrics = fromMetrics.map((row) => {
+    const year = resolvePeriodYear(row);
+    if (year == null) return row;
+    const apiMatch = apiRows.find(
+      (candidate) =>
+        candidate.period_type === "fiscal_year" && resolvePeriodYear(candidate) === year
+    );
+    return apiMatch ? mergeIncomeStatementCurrencyMetadata(row, apiMatch) : row;
+  });
+
+  const metricFiscalYears = new Set(metricsByYear.keys());
   const supplementalApi = apiRows.filter((row) => {
     if (row.period_type !== "fiscal_year") return true;
     const year = resolvePeriodYear(row);
     return year == null || !metricFiscalYears.has(year);
   });
 
-  const hasApiData = fromMetrics.length > 0 || apiRows.length > 0;
+  const hasApiData = enrichedMetrics.length > 0 || apiRows.length > 0;
   if (!hasApiData) return profileRows;
 
-  return dedupeIncomeStatementPeriods([...fromMetrics, ...supplementalApi]);
+  return dedupeIncomeStatementPeriods([...enrichedMetrics, ...supplementalApi]);
 }
 
 /** Merges profile and card income-statement API rows (excludes financial metrics estimates). */

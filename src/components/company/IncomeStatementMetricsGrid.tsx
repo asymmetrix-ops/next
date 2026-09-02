@@ -78,9 +78,6 @@ function ValueCell({
 
   return (
     <span
-      title={
-        currencyMode === "preferred" ? (cell.fxTooltip ?? undefined) : undefined
-      }
       style={{
         fontFamily: T.sans,
         fontSize: 13,

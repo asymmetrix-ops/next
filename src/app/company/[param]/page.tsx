@@ -62,6 +62,8 @@ import {
   FinMetricsSecondaryCard,
 } from "@/components/redesign/FinMetricsIncomeCard";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
+import { useCurrencyMode } from "@/hooks/useCurrencyMode";
+import { resolveFxToggleConfig } from "@/lib/financialsCurrencyToggle";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   dedupeIncomeStatementPeriods,
@@ -1269,6 +1271,10 @@ const CompanyDetail = () => {
   const { currency: platformCurrency, currencyId: preferredCurrencyId } =
     usePlatformCurrency();
   const {
+    mode: finMetricsCurrencyMode,
+    setMode: setFinMetricsCurrencyMode,
+  } = useCurrencyMode("preferred");
+  const {
     display: timeSinceLastInvestment,
     loading: timeSinceLastInvestmentLoading,
   } = useTimeSinceLastInvestment(companyId);
@@ -1331,6 +1337,9 @@ const CompanyDetail = () => {
   >([]);
   const [financialMetricsCardLoading, setFinancialMetricsCardLoading] =
     useState(false);
+  useEffect(() => {
+    setFinMetricsCurrencyMode("preferred");
+  }, [platformCurrency, financialMetricsCardRows, setFinMetricsCurrencyMode]);
   const [incomeStatementApiRows, setIncomeStatementApiRows] = useState<
     NormalizedIncomeStatementRow[]
   >([]);
@@ -2739,11 +2748,20 @@ const CompanyDetail = () => {
     ) as CompanyFinancialMetrics;
   })();
 
+  const finMetricsFxToggleConfig = resolveFxToggleConfig(
+    financialMetricsForDisplay
+      ? [financialMetricsForDisplay as CompanyFinancialMetricsCardRow]
+      : financialMetricsCardRows,
+    normalizedIncomeStatementHistory,
+    platformCurrency
+  );
+
   const finMetricsData = buildFinancialMetricsSections({
     financialMetrics: financialMetricsForDisplay,
     revenuePlain,
     ebitdaPlain,
     currencyCode: platformCurrency,
+    currencyMode: finMetricsCurrencyMode,
     getSourceText,
     formatPercent,
     formatWholeNumber,
@@ -4635,6 +4653,9 @@ const CompanyDetail = () => {
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
                 incomeStatementCurrency={platformCurrency}
+                fxToggleConfig={finMetricsFxToggleConfig}
+                currencyMode={finMetricsCurrencyMode}
+                onCurrencyModeChange={setFinMetricsCurrencyMode}
               />
             </div>
 
@@ -4676,6 +4697,9 @@ const CompanyDetail = () => {
               hasIncomeStatement={hasIncomeStatementData}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementCurrency={platformCurrency}
+              fxToggleConfig={finMetricsFxToggleConfig}
+              currencyMode={finMetricsCurrencyMode}
+              onCurrencyModeChange={setFinMetricsCurrencyMode}
             />
 
             <div style={{ marginTop: 20 }}>

@@ -191,9 +191,6 @@ function MetricValueCell({
 
   return (
     <span
-      title={
-        currencyMode === "preferred" ? (cell.fxTooltip ?? undefined) : undefined
-      }
       style={{
         fontFamily: T.sans,
         fontSize: 13,
@@ -516,7 +513,7 @@ export function CompanyFinancialsSection({
           <div
             style={{
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-end",
               gap: 10,
               flexShrink: 0,
               paddingTop: 24,
