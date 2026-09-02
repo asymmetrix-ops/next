@@ -19,22 +19,6 @@ import { SectorTaxonomyVisual } from "./SectorTaxonomyVisual";
 
 const TABS = [
   {
-    value: "financial-intelligence",
-    trigger: "Financial Intelligence",
-    label: "Benchmark",
-    heading: "Financial Intelligence",
-    description:
-      "Asymmetrix gathers hard-to-find proprietary financial data specific to Data & Analytics companies, moving your understanding beyond generic company data providers, and enabling deal sourcing, benchmarking and market intelligence.",
-  },
-  {
-    value: "deal-radar",
-    trigger: "Deal Radar",
-    label: "Surface",
-    heading: "Deal Radar",
-    description:
-      "Know which Data & Analytics companies will transact before the rest of the market does. Asymmetrix provides proprietary intelligence on in-market companies and surfaces deal signals long before a process formally begins.",
-  },
-  {
     value: "ai-defensibility",
     trigger: "AI defensibility",
     label: "Defend",
@@ -51,14 +35,29 @@ const TABS = [
       "Every company profile encompasses funding history, leadership team composition, product focus, and competitive positioning. Our cutting-edge analysis includes an assessment of each company's defensibility in the AI era.",
   },
   {
-    value: "sector-intelligence",
-    trigger: "Sector intelligence",
-    label: "Classify",
-    heading: "Sector intelligence",
+    value: "deal-radar",
+    trigger: "Deal Radar",
+    label: "Surface",
+    heading: "Deal Radar",
     description:
-      "Every company sits within a single, consistent taxonomy spanning data, research and content sub-sectors — benchmark peers, track sector-level M&A activity, and see how the boundaries are shifting as business models converge.",
-    stat: { value: "40+", caption: "Sub-sectors mapped" },
-    bars: [55, 45, 70, 50, 35],
+      "Know which Data & Analytics companies will transact before the rest of the market does. Asymmetrix provides proprietary intelligence on in-market companies and surfaces deal signals long before a process formally begins.",
+  },
+  {
+    value: "deal-tracking",
+    trigger: "Deal tracking",
+    label: "Source",
+    heading: "Deal tracking",
+    description:
+      "See in-market companies and live processes surfaced through proprietary deal signals, long before a transaction is formally announced.",
+    stat: { value: "5,708", caption: "Corporate events tracked" },
+  },
+  {
+    value: "financial-intelligence",
+    trigger: "Financial Intelligence",
+    label: "Benchmark",
+    heading: "Financial Intelligence",
+    description:
+      "Asymmetrix gathers hard-to-find proprietary financial data specific to Data & Analytics companies, moving your understanding beyond generic company data providers, and enabling deal sourcing, benchmarking and market intelligence.",
   },
   {
     value: "investors-advisors",
@@ -70,13 +69,14 @@ const TABS = [
     stat: { value: "3,636", caption: "Investors covered" },
   },
   {
-    value: "deal-tracking",
-    trigger: "Deal tracking",
-    label: "Source",
-    heading: "Deal tracking",
+    value: "sector-intelligence",
+    trigger: "Sector intelligence",
+    label: "Classify",
+    heading: "Sector intelligence",
     description:
-      "See in-market companies and live processes surfaced through proprietary deal signals, long before a transaction is formally announced.",
-    stat: { value: "5,708", caption: "Corporate events tracked" },
+      "Every company sits within a single, consistent taxonomy spanning data, research and content sub-sectors — benchmark peers, track sector-level M&A activity, and see how the boundaries are shifting as business models converge.",
+    stat: { value: "40+", caption: "Sub-sectors mapped" },
+    bars: [55, 45, 70, 50, 35],
   },
 ];
 

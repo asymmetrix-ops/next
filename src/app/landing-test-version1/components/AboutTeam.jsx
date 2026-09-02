@@ -68,7 +68,7 @@ const TEAM = [
   {
     name: "Ivan Tucha",
     title: "Full Stack Developer",
-    blurb: "5+ years of experience architecting full-stack platforms",
+    blurb: "5+ years of experience; architecting full-stack platforms",
     image: "/images/ivan.jpeg",
     linkedin: "https://www.linkedin.com/in/ivan-tucha/",
   },
