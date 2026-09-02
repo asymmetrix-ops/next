@@ -20,17 +20,17 @@ import { SectorTaxonomyVisual } from "./SectorTaxonomyVisual";
 const TABS = [
   {
     value: "ai-defensibility",
-    trigger: "AI defensibility",
+    trigger: "AI Defensibility",
     label: "Defend",
-    heading: "AI defensibility",
+    heading: "AI Defensibility",
     description:
       "Asymmetrix's AI Exposure Index assesses individual data companies' AI risk exposure and defensibility. Our research reports analyse which business models AI disrupts, which it reinforces, and how this is reshaping valuations across the sector.",
   },
   {
     value: "company-profiles",
-    trigger: "Company profiles",
+    trigger: "Company Profiles",
     label: "Monitor",
-    heading: "Company profiles",
+    heading: "Company Profiles",
     description:
       "Every company profile encompasses funding history, leadership team composition, product focus, and competitive positioning. Our cutting-edge analysis includes an assessment of each company's defensibility in the AI era.",
   },
@@ -44,9 +44,9 @@ const TABS = [
   },
   {
     value: "deal-tracking",
-    trigger: "Deal tracking",
+    trigger: "Deal Tracking",
     label: "Source",
-    heading: "Deal tracking",
+    heading: "Deal Tracking",
     description:
       "See in-market companies and live processes surfaced through proprietary deal signals, long before a transaction is formally announced.",
     stat: { value: "5,708", caption: "Corporate events tracked" },
@@ -70,9 +70,9 @@ const TABS = [
   },
   {
     value: "sector-intelligence",
-    trigger: "Sector intelligence",
+    trigger: "Sector Intelligence",
     label: "Classify",
-    heading: "Sector intelligence",
+    heading: "Sector Intelligence",
     description:
       "Every company sits within a single, consistent taxonomy spanning data, research and content sub-sectors — benchmark peers, track sector-level M&A activity, and see how the boundaries are shifting as business models converge.",
     stat: { value: "40+", caption: "Sub-sectors mapped" },
