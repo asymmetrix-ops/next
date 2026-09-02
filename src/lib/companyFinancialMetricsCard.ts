@@ -1,6 +1,8 @@
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import { resolveLinkedInEmployeeCountForYear } from "@/lib/companyLinkedIn";
+import { extractCurrencyField } from "@/lib/currencyField";
+import { FINANCIAL_METRICS_FIELDS } from "@/lib/financialFieldMaps";
 import {
   buildDualCurrencyDisplay,
   type FinancialMetricFxInfo,
@@ -595,6 +597,16 @@ function resolveMetricFxFormat(
   return null;
 }
 
+function resolveMetricCurrencyPair(
+  row: CompanyFinancialMetricsCardRow,
+  metric: FinancialsMetricDef
+): ReturnType<typeof extractCurrencyField> | null {
+  const valueField = String(metric.valueField);
+  const displayField = FINANCIAL_METRICS_FIELDS[valueField];
+  if (!displayField) return null;
+  return extractCurrencyField(row, valueField, displayField);
+}
+
 function formatMetricValue(
   row: CompanyFinancialMetricsCardRow,
   metric: FinancialsMetricDef,
@@ -608,13 +620,20 @@ function formatMetricValue(
     row[metric.sourceField],
     metric.sourceCodeField ? row[metric.sourceCodeField] : undefined
   );
+  const currencyPair = resolveMetricCurrencyPair(row, metric);
   const currency =
+    currencyPair?.preferredCurrency?.trim() ||
     platformCurrencyCode?.trim() ||
     (metric.currencyField ? resolveRowCurrency(row, metric.currencyField) : null);
   const fx = row.metric_fx?.[metric.key] ?? null;
   const fxFormat = resolveMetricFxFormat(metric.format);
 
-  if (raw == null) {
+  if (raw == null && currencyPair?.preferredValue == null) {
+    return { display: "-", raw: null, sourceType };
+  }
+
+  const preferredRaw = currencyPair?.preferredValue ?? raw;
+  if (preferredRaw == null) {
     return { display: "-", raw: null, sourceType };
   }
 
@@ -622,23 +641,23 @@ function formatMetricValue(
 
   switch (metric.format) {
     case "money_millions":
-      primaryDisplay = formatMillions(raw, currency);
+      primaryDisplay = formatMillions(preferredRaw, currency);
       break;
     case "percent":
       return {
-        display: formatPercentValue(raw),
-        raw,
+        display: formatPercentValue(preferredRaw),
+        raw: preferredRaw,
         sourceType,
       };
     case "count":
       return {
-        display: formatCountValue(raw),
-        raw,
+        display: formatCountValue(preferredRaw),
+        raw: preferredRaw,
         sourceType,
       };
     case "money_whole":
       primaryDisplay = formatMoneyWhole(
-        raw,
+        preferredRaw,
         metric.key === "rev_per_client" || !metric.formattedField
           ? null
           : row[metric.formattedField],
@@ -648,17 +667,19 @@ function formatMetricValue(
     case "plain_number":
       return {
         display:
-          raw % 1 === 0
-            ? Math.round(raw).toLocaleString("en-US")
-            : String(raw),
-        raw,
+          preferredRaw % 1 === 0
+            ? Math.round(preferredRaw).toLocaleString("en-US")
+            : String(preferredRaw),
+        raw: preferredRaw,
         sourceType,
       };
     case "multiple":
       return {
         display:
-          raw % 1 === 0 ? `${Math.round(raw)}x` : `${raw.toFixed(1)}x`,
-        raw,
+          preferredRaw % 1 === 0
+            ? `${Math.round(preferredRaw)}x`
+            : `${preferredRaw.toFixed(1)}x`,
+        raw: preferredRaw,
         sourceType,
       };
     default:
@@ -666,13 +687,41 @@ function formatMetricValue(
   }
 
   if (!fxFormat) {
-    return { display: primaryDisplay, raw, sourceType };
+    return { display: primaryDisplay, raw: preferredRaw, sourceType };
+  }
+
+  if (currencyPair?.converted || currencyPair?.reportedValue != null) {
+    const reportedCurrency =
+      currencyPair.reportedCurrency ?? currencyPair.preferredCurrency;
+    const reportedRaw = currencyPair.reportedValue ?? preferredRaw;
+    const reportedDisplay =
+      metric.format === "money_millions"
+        ? formatMillions(reportedRaw, reportedCurrency)
+        : formatMoneyWhole(
+            reportedRaw,
+            metric.key === "rev_per_client" || !metric.formattedField
+              ? null
+              : row[metric.formattedField],
+            reportedCurrency
+          );
+    const fxTooltip = currencyPair.converted
+      ? "Converted to platform currency"
+      : null;
+
+    return {
+      display: primaryDisplay,
+      raw: preferredRaw,
+      sourceType,
+      nativeDisplay: reportedDisplay,
+      nativeRaw: reportedRaw,
+      fxTooltip,
+    };
   }
 
   const dual = buildDualCurrencyDisplay(primaryDisplay, fx, fxFormat);
   return {
     display: dual.display,
-    raw,
+    raw: preferredRaw,
     sourceType,
     nativeDisplay: dual.nativeDisplay,
     nativeRaw: fx?.native_value ?? null,

@@ -11,48 +11,56 @@ import {
 } from "./primitives";
 import type { NormalizedIncomeStatementRow } from "@/lib/incomeStatement";
 import {
+  formatIncomeStatementMoneyDisplay,
   formatIncomeStatementPeriodLabel,
   resolveIncomeStatementCurrency,
   sortIncomeStatementRowsAsc,
 } from "@/lib/incomeStatement";
-import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
-import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
+import type { CurrencyMode } from "@/types/financials";
 
 export type IncomeStatementRow = NormalizedIncomeStatementRow;
 
 type Props = {
   rows: IncomeStatementRow[];
-  /** ISO currency code, e.g. "USD". Applied to value cells. */
+  /** ISO currency code, e.g. "USD". Applied to value cells in platform mode. */
   currency?: string;
+  currencyMode?: CurrencyMode;
 };
 
-function formatIncomeValue(
-  value: number | null | undefined,
-  currency?: string
-): string {
-  if (typeof value !== "number") return "-";
-  return appendMetricCurrency(
-    formatMetricMillionsPlain(value / 1_000_000),
-    currency
-  );
-}
-
-function incomeMetrics(resolvedCurrency: string) {
+function incomeMetrics(
+  resolvedCurrency: string,
+  currencyMode: CurrencyMode
+) {
   return [
     {
       label: "Revenue (m)",
       getValue: (row: IncomeStatementRow) =>
-        formatIncomeValue(row.revenue, resolvedCurrency),
+        formatIncomeStatementMoneyDisplay(
+          row,
+          "revenue",
+          currencyMode,
+          resolvedCurrency
+        ),
     },
     {
       label: "EBIT (m)",
       getValue: (row: IncomeStatementRow) =>
-        formatIncomeValue(row.ebit, resolvedCurrency),
+        formatIncomeStatementMoneyDisplay(
+          row,
+          "ebit",
+          currencyMode,
+          resolvedCurrency
+        ),
     },
     {
       label: "EBITDA (m)",
       getValue: (row: IncomeStatementRow) =>
-        formatIncomeValue(row.ebitda, resolvedCurrency),
+        formatIncomeStatementMoneyDisplay(
+          row,
+          "ebitda",
+          currencyMode,
+          resolvedCurrency
+        ),
     },
   ];
 }
@@ -84,13 +92,17 @@ const tdValueStyle: React.CSSProperties = {
 };
 
 /** Compact master-style income statement for the profile financial card. */
-export function IncomeStatementTable({ rows, currency = "" }: Props) {
+export function IncomeStatementTable({
+  rows,
+  currency = "",
+  currencyMode = "preferred",
+}: Props) {
   const orderedRows = sortIncomeStatementRowsAsc(rows);
   const resolvedCurrency = resolveIncomeStatementCurrency(
     orderedRows,
     currency.trim()
   );
-  const metrics = incomeMetrics(resolvedCurrency);
+  const metrics = incomeMetrics(resolvedCurrency, currencyMode);
   if (orderedRows.length === 0) return null;
 
   return (
@@ -156,6 +168,7 @@ export function IncomeStatementTable({ rows, currency = "" }: Props) {
 export function IncomeStatementSection({
   rows,
   currency = "",
+  currencyMode = "preferred",
 }: Props) {
   const titleCurrency = currency.trim();
   return (
@@ -170,7 +183,11 @@ export function IncomeStatementSection({
       <LinkedH showArrow={false}>
         Income statement{titleCurrency ? ` (${titleCurrency})` : ""}
       </LinkedH>
-      <IncomeStatementTable rows={rows} currency={currency} />
+      <IncomeStatementTable
+        rows={rows}
+        currency={currency}
+        currencyMode={currencyMode}
+      />
     </div>
   );
 }

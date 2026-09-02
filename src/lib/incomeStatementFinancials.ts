@@ -6,6 +6,8 @@ import { buildDualCurrencyDisplay, type FinancialMetricFxInfo } from "@/lib/fxDi
 import type { CurrencyDisplayMode } from "@/lib/financialsCurrencyToggle";
 import {
   formatIncomeStatementPeriodLabel,
+  readIncomeStatementReportedCurrency,
+  readIncomeStatementReportedValue,
   resolveIncomeStatementCurrency,
   sortIncomeStatementRowsAsc,
   type NormalizedIncomeStatementRow,
@@ -94,7 +96,9 @@ function formatMarginValue(
 function formatMoneyMillions(
   value: number | null | undefined,
   currency: string,
-  fx?: FinancialMetricFxInfo | null
+  fx?: FinancialMetricFxInfo | null,
+  row?: NormalizedIncomeStatementRow,
+  field?: "revenue" | "ebit" | "ebitda"
 ): IncomeStatementCellValue {
   if (value == null || !Number.isFinite(value)) {
     return { display: "-" };
@@ -104,12 +108,49 @@ function formatMoneyMillions(
     currency
   );
   const dual = buildDualCurrencyDisplay(primary, fx, "money_from_units");
-  return {
-    display: dual.display,
-    nativeDisplay: dual.nativeDisplay,
-    nativeRaw: fx?.native_value ?? null,
-    fxTooltip: dual.fxTooltip,
-  };
+  if (dual.nativeDisplay) {
+    return {
+      display: dual.display,
+      nativeDisplay: dual.nativeDisplay,
+      nativeRaw: fx?.native_value ?? null,
+      fxTooltip: dual.fxTooltip,
+    };
+  }
+
+  if (row && field) {
+    const reportedValue = readIncomeStatementReportedValue(row, field);
+    const reportedCurrency = readIncomeStatementReportedCurrency(row, field);
+    if (reportedValue != null && reportedCurrency) {
+      const nativeDisplay = appendMetricCurrency(
+        Math.round(reportedValue / 1_000_000).toLocaleString(),
+        reportedCurrency
+      );
+      return {
+        display: primary,
+        nativeDisplay,
+        nativeRaw: reportedValue,
+      };
+    }
+  }
+
+  const reportedCurrency = row?.reported_currency ?? row?.statement_currency;
+  const platformCurrency = currency.trim().toUpperCase();
+  if (
+    reportedCurrency &&
+    reportedCurrency.trim().toUpperCase() !== platformCurrency
+  ) {
+    const nativeDisplay = appendMetricCurrency(
+      Math.round(value / 1_000_000).toLocaleString(),
+      reportedCurrency
+    );
+    return {
+      display: primary,
+      nativeDisplay,
+      nativeRaw: value,
+    };
+  }
+
+  return { display: primary };
 }
 
 function formatRevenuePerFte(
@@ -250,7 +291,8 @@ export function buildIncomeStatementFinancialsViewModel(
       "revenue",
       "Revenue (m)",
       columns,
-      (row) => formatMoneyMillions(row.revenue, currency, row.revenue_fx),
+      (row) =>
+        formatMoneyMillions(row.revenue, currency, row.revenue_fx, row, "revenue"),
       (row) => row.revenue ?? null,
       "millions_from_units"
     ),
@@ -258,7 +300,8 @@ export function buildIncomeStatementFinancialsViewModel(
       "ebitda",
       "EBITDA (m)",
       columns,
-      (row) => formatMoneyMillions(row.ebitda, currency, row.ebitda_fx),
+      (row) =>
+        formatMoneyMillions(row.ebitda, currency, row.ebitda_fx, row, "ebitda"),
       (row) => row.ebitda ?? null,
       "millions_from_units"
     ),
@@ -274,7 +317,7 @@ export function buildIncomeStatementFinancialsViewModel(
       "ebit",
       "EBIT (m)",
       columns,
-      (row) => formatMoneyMillions(row.ebit, currency, row.ebit_fx),
+      (row) => formatMoneyMillions(row.ebit, currency, row.ebit_fx, row, "ebit"),
       (row) => row.ebit ?? null,
       "millions_from_units"
     ),

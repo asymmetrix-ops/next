@@ -31,6 +31,9 @@ import type {
   FinancialMetricSection,
   FinancialMetricsCardData,
 } from "@/lib/buildFinancialMetricsSections";
+import { FinancialsCurrencyToggle } from "@/components/company/FinancialsCurrencyToggle";
+import type { CurrencyDisplayMode, FxToggleConfig } from "@/lib/financialsCurrencyToggle";
+import type { CurrencyMode } from "@/types/financials";
 export type PrimaryFinTab = "metrics" | "income";
 export type SecondaryFinTab = "subscription" | "other";
 
@@ -183,13 +186,22 @@ function TabHeader<T extends string>({
   onTabChange,
   suffixForTab,
   onViewMore,
+  fxToggleConfig,
+  currencyMode,
+  onCurrencyModeChange,
 }: {
   tabs: { id: T; label: string }[];
   activeTab: T;
   onTabChange: (tab: T) => void;
   suffixForTab?: (tabId: T) => string | undefined;
   onViewMore?: () => void;
+  fxToggleConfig?: FxToggleConfig | null;
+  currencyMode?: CurrencyMode;
+  onCurrencyModeChange?: (mode: CurrencyMode) => void;
 }) {
+  const toggleMode: CurrencyDisplayMode =
+    currencyMode === "reported" ? "native" : "preferred";
+
   return (
     <div role="tablist" style={FIN_METRICS_TAB_BAR_STYLE}>
       <div
@@ -237,10 +249,28 @@ function TabHeader<T extends string>({
           </button>
         ))}
       </div>
-      {onViewMore ? <ViewMoreArrow onClick={onViewMore} /> : null}
+      <div style={{ display: "inline-flex", alignItems: "flex-end", gap: 8 }}>
+        {fxToggleConfig && onCurrencyModeChange ? (
+          <FinancialsCurrencyToggle
+            config={fxToggleConfig}
+            mode={toggleMode}
+            compact
+            onChange={(mode) =>
+              onCurrencyModeChange(mode === "native" ? "reported" : "preferred")
+            }
+          />
+        ) : null}
+        {onViewMore ? <ViewMoreArrow onClick={onViewMore} /> : null}
+      </div>
     </div>
   );
 }
+
+type CurrencyToggleProps = {
+  fxToggleConfig?: FxToggleConfig | null;
+  currencyMode?: CurrencyMode;
+  onCurrencyModeChange?: (mode: CurrencyMode) => void;
+};
 
 function PrimaryFinCard({
   primary,
@@ -249,6 +279,9 @@ function PrimaryFinCard({
   incomeStatementCurrency,
   fillGridCell = false,
   onViewMore,
+  fxToggleConfig,
+  currencyMode,
+  onCurrencyModeChange,
 }: {
   primary: FinancialMetricSection;
   hasIncomeStatement: boolean;
@@ -256,7 +289,7 @@ function PrimaryFinCard({
   incomeStatementCurrency: string;
   fillGridCell?: boolean;
   onViewMore?: () => void;
-}) {
+} & CurrencyToggleProps) {
   const incomeTabLabel = "Income Statement";
 
   const tabs = useMemo(() => {
@@ -286,6 +319,9 @@ function PrimaryFinCard({
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onViewMore={onViewMore}
+        fxToggleConfig={fxToggleConfig}
+        currencyMode={currencyMode}
+        onCurrencyModeChange={onCurrencyModeChange}
       />
       <div
         style={
@@ -301,6 +337,7 @@ function PrimaryFinCard({
           <IncomeStatementTable
             rows={incomeStatementRows}
             currency={incomeStatementCurrency}
+            currencyMode={currencyMode ?? "preferred"}
           />
         </div>
       ) : (
@@ -383,7 +420,10 @@ export function FinMetricsIncomeCard({
   incomeStatementCurrency = "",
   fillGridCell = true,
   onViewMore,
-}: Props & { onViewMore?: () => void }) {
+  fxToggleConfig,
+  currencyMode,
+  onCurrencyModeChange,
+}: Props & { onViewMore?: () => void } & CurrencyToggleProps) {
   return (
     <div
       style={{
@@ -403,6 +443,9 @@ export function FinMetricsIncomeCard({
         incomeStatementRows={incomeStatementRows}
         incomeStatementCurrency={incomeStatementCurrency}
         onViewMore={onViewMore}
+        fxToggleConfig={fxToggleConfig}
+        currencyMode={currencyMode}
+        onCurrencyModeChange={onCurrencyModeChange}
       />
       <SecondaryFinCard
         subscription={data.subscription}
