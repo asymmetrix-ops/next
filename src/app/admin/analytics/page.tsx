@@ -11,7 +11,6 @@ import {
   PageInsightsTab,
   PdfExportTab,
   PlatformWideSearchTab,
-  UserActivityTab,
 } from "./_components/AnalyticsViews";
 import { PlatformAnalyticsTab } from "./_components/PlatformAnalyticsTab";
 import { UnifiedActivityTab } from "./_components/UnifiedActivityTab";
@@ -20,7 +19,6 @@ import { McpAuditTab } from "./_components/McpAuditTab";
 type AnalyticsTab =
   | "platform-analytics"
   | "unified-activity"
-  | "user-activity"
   | "content-insights"
   | "page-insights"
   | "platform-wide-search"
@@ -113,16 +111,6 @@ export default function AdminAnalyticsPage() {
               : "border-transparent text-gray-500"
           }`}
         >
-          User &amp; Email Activity
-        </button>
-        <button
-          onClick={() => setActiveTab("user-activity")}
-          className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "user-activity"
-              ? "border-black font-medium"
-              : "border-transparent text-gray-500"
-          }`}
-        >
           User Activity
         </button>
         <button
@@ -199,7 +187,6 @@ export default function AdminAnalyticsPage() {
 
       {activeTab === "platform-analytics" && <PlatformAnalyticsTab />}
       {activeTab === "unified-activity" && <UnifiedActivityTab />}
-      {activeTab === "user-activity" && <UserActivityTab />}
       {activeTab === "content-insights" && <ContentInsightsTab />}
       {activeTab === "page-insights" && <PageInsightsTab />}
       {activeTab === "platform-wide-search" && <PlatformWideSearchTab />}

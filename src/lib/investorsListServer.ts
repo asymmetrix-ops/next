@@ -25,6 +25,17 @@ export function getInvestorsListCacheKey(page: number, perPage: number): string 
   return `investors:initial:v1:page${page}:per${perPage}`;
 }
 
+function isEmptyParam(searchParams: URLSearchParams, key: string): boolean {
+  const value = searchParams.get(key);
+  return value == null || value.trim() === "";
+}
+
+function isDefaultPortfolioOnly(searchParams: URLSearchParams): boolean {
+  const value = searchParams.get("portfolio_only");
+  return value == null || value === "false" || value === "0";
+}
+
+/** True when this matches the cron-warmed default list (page 1, no filters/sort). */
 export function isInitialInvestorsListParams(searchParams: URLSearchParams): {
   page: number;
   perPage: number;
@@ -32,9 +43,16 @@ export function isInitialInvestorsListParams(searchParams: URLSearchParams): {
 } {
   const page = Number(searchParams.get("page") ?? "1");
   const perPage = Number(searchParams.get("per_page") ?? "50");
-  const keys = Array.from(searchParams.keys());
-  const allowed = new Set(["page", "per_page"]);
-  const ok = page === 1 && keys.every((key) => allowed.has(key));
+  const ok =
+    page === 1 &&
+    perPage === 50 &&
+    isEmptyParam(searchParams, "filters_sql") &&
+    isEmptyParam(searchParams, "geo_filter_sql") &&
+    isEmptyParam(searchParams, "PC_Primary_ids_str") &&
+    isEmptyParam(searchParams, "PC_Secondary_ids_str") &&
+    isDefaultPortfolioOnly(searchParams) &&
+    isEmptyParam(searchParams, "sort_column");
+
   return { page, perPage, ok };
 }
 
