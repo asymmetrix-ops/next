@@ -184,6 +184,7 @@ function RadarChart({ axes, active, entered, reduceMotion, onPick }) {
 
   return (
     <svg
+      aria-hidden="true"
       viewBox={`${-PAD_H} ${-PAD_V} ${SIZE + 2 * PAD_H} ${SIZE + 2 * PAD_V}`}
       width="100%"
       height={SIZE}

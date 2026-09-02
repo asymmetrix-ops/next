@@ -396,7 +396,7 @@ export function CompanyGraphVisual() {
         boxShadow: "0 4px 24px rgba(0,11,41,0.06)",
       }}
     >
-      <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="absolute inset-0 h-full w-full">
+      <svg aria-hidden="true" viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="absolute inset-0 h-full w-full">
         <defs>
           {/* userSpaceOnUse — objectBoundingBox is degenerate for perfectly
               vertical/horizontal lines (zero-width bbox), which silently

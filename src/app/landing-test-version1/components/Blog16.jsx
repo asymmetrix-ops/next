@@ -46,8 +46,10 @@ function ArticleCard({ article }) {
       <a
         href={titleHref}
         className="block w-full shrink-0"
+        aria-hidden="true"
+        tabIndex={-1}
         {...linkProps}
-        {...(article.href ? {} : { "aria-disabled": true, tabIndex: -1 })}
+        {...(article.href ? {} : { "aria-disabled": true })}
       >
         <div
           className={`landing-blog-thumb w-full overflow-hidden ${
@@ -143,9 +145,9 @@ export function Blog16({ substackTabs = EMPTY_SUBSTACK_TABS }) {
             <p className="landing-eyebrow-chip mb-3 rounded-full px-3 py-1 text-sm font-semibold md:mb-4">
               Substack
             </p>
-            <h1 className="mb-5 text-6xl font-bold md:mb-6 md:text-9xl lg:text-10xl">
+            <h2 className="mb-5 text-6xl font-bold md:mb-6 md:text-9xl lg:text-10xl">
               What&apos;s worth reading
-            </h1>
+            </h2>
             <p className="landing-text-secondary md:text-md">
               Our Substack is updated weekly
             </p>

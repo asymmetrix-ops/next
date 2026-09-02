@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const phone = getString(payload.phone);
     const about = getString(payload.about);
     const message = getString(payload.message);
-    const aboutLabel = ABOUT_LABELS[about] ?? about || "Inquiry";
+    const aboutLabel = ABOUT_LABELS[about] ?? (about || "Inquiry");
 
     if (!firstName || !lastName || !email || !message) {
       return NextResponse.json(

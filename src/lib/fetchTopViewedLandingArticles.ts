@@ -1,4 +1,4 @@
-const TOP_VIEWED_LANDING_URL =
+export const TOP_VIEWED_LANDING_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/top-viewed/landing";
 
 type RawTopViewedArticle = {
@@ -18,6 +18,8 @@ export async function fetchTopViewedLandingArticles(): Promise<
 > {
   try {
     const res = await fetch(TOP_VIEWED_LANDING_URL, {
+      method: "GET",
+      headers: { Accept: "application/json" },
       next: { revalidate: 1800 },
     });
     if (!res.ok) return [];

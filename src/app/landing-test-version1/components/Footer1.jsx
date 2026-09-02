@@ -3,7 +3,7 @@
 import React from "react";
 import { BiLogoLinkedinSquare } from "react-icons/bi";
 import { SiSubstack } from "react-icons/si";
-import SubstackSubscribeWidget from "./SubstackSubscribeWidget";
+import SubstackSubscribeForm from "./SubstackSubscribeForm";
 
 export function Footer1() {
   return (
@@ -25,7 +25,7 @@ export function Footer1() {
               Get the latest on Data &amp; Analytics intelligence.
             </p>
             <div className="w-full max-w-md">
-              <SubstackSubscribeWidget />
+              <SubstackSubscribeForm />
               <p className="landing-text-secondary mt-3 text-xs">
                 We respect your inbox and your privacy.
               </p>
