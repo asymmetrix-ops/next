@@ -23,6 +23,7 @@ import {
   buildFinancialsTableGridTemplate,
   formatFiscalYearHeader,
   getVisibleFinancialsCellDisplay,
+  getVisibleFinancialsSourceDisplay,
   getVisibleYoyValue,
   resolveFinancialsTableColumnYears,
   type CompanyFinancialMetricsCardRow,
@@ -234,6 +235,29 @@ function YoyCell({ value }: { value: FinancialsYoyValue | null }) {
   );
 }
 
+function SourceCell({ sourceType }: { sourceType: FiMetricSourceType | null }) {
+  if (!sourceType) {
+    return (
+      <span style={{ fontFamily: T.sans, fontSize: 13, color: T.muted }}>-</span>
+    );
+  }
+
+  return (
+    <span
+      style={{
+        fontFamily: T.sans,
+        fontSize: 13,
+        fontWeight: 600,
+        color: sourceTypeColor(sourceType),
+        textAlign: "center",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {sourceType}
+    </span>
+  );
+}
+
 function FinancialsMetricsCard({
   card,
   years,
@@ -287,6 +311,7 @@ function FinancialsMetricsCard({
           </span>
         ))}
         {showYoy ? <span style={{ textAlign: "center" }}>YoY</span> : null}
+        <span style={{ textAlign: "center" }}>Source</span>
       </div>
       {card.metrics.map((metric, index) => (
         <div
@@ -337,6 +362,9 @@ function FinancialsMetricsCard({
               />
             </div>
           ) : null}
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <SourceCell sourceType={getVisibleFinancialsSourceDisplay(metric, years)} />
+          </div>
         </div>
       ))}
     </LinkPanel>
@@ -410,7 +438,8 @@ export function CompanyFinancialsSection({
 
   const gridTemplate = buildFinancialsTableGridTemplate(
     tableYears.length,
-    showTableYoyColumn
+    showTableYoyColumn,
+    { includeSourceColumn: true }
   );
 
   const incomeStatementUsesHistory =

@@ -1065,17 +1065,32 @@ export function resolveUnifiedFinancialYears(
 export function buildFinancialsTableGridTemplate(
   yearCount: number,
   includeYoyColumn: boolean,
-  options?: { fixedWidth?: boolean }
+  options?: { fixedWidth?: boolean; includeSourceColumn?: boolean }
 ): string {
   const fixedWidth = options?.fixedWidth ?? false;
+  const includeSourceColumn = options?.includeSourceColumn ?? true;
   const labelCol = fixedWidth ? "180px" : "minmax(180px, 1.4fr)";
   const yearColumns = fixedWidth
     ? `repeat(${yearCount}, 88px)`
     : `repeat(${yearCount}, minmax(88px, 1fr))`;
   const yoyCol = fixedWidth ? "72px" : "minmax(72px, 0.7fr)";
-  return includeYoyColumn
-    ? `${labelCol} ${yearColumns} ${yoyCol}`
-    : `${labelCol} ${yearColumns}`;
+  const sourceCol = fixedWidth ? "72px" : "minmax(72px, 0.7fr)";
+
+  const parts = [labelCol, yearColumns];
+  if (includeYoyColumn) parts.push(yoyCol);
+  if (includeSourceColumn) parts.push(sourceCol);
+  return parts.join(" ");
+}
+
+export function getVisibleFinancialsSourceDisplay(
+  metric: FinancialsMetricRow,
+  years: number[]
+): FiMetricSourceType | null {
+  for (let index = years.length - 1; index >= 0; index -= 1) {
+    const cell = metric.cellsByYear[years[index]];
+    if (cell?.sourceType) return cell.sourceType;
+  }
+  return null;
 }
 
 export function isFinancialsCellVisible(
