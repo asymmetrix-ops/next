@@ -316,7 +316,7 @@ export function SectorTaxonomyVisual() {
         boxShadow: "0 4px 24px rgba(0,11,41,0.06)",
       }}
     >
-      <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="absolute inset-0 h-full w-full">
+      <svg aria-hidden="true" viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="absolute inset-0 h-full w-full">
         <defs>
           <linearGradient id="stv-line" gradientUnits="userSpaceOnUse" x1="-320" y1="-320" x2="320" y2="320">
             <stop offset="0%" stopColor="#536FF0" stopOpacity="0.85" />

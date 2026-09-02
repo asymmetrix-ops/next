@@ -85,14 +85,14 @@ export function PlatformHero({ topViewedArticles = [] }) {
                   Data & Analytics Market
                 </span>
               </h1>
-              <h1
+              <div
                 aria-hidden="true"
                 className="landing-shine-overlay pointer-events-none absolute inset-0 select-none text-5xl font-bold leading-[1.05] md:text-7xl lg:text-8xl"
               >
                 Intelligence on the
                 <br />
                 Data & Analytics Market
-              </h1>
+              </div>
             </div>
           </motion.div>
 

@@ -12,9 +12,9 @@ export function Cta15() {
         <Reveal className="relative z-10 flex flex-col gap-y-10 md:gap-y-12">
           <div className="grid grid-rows-1 items-start gap-y-5 md:grid-cols-2 md:gap-x-12 md:gap-y-8 lg:gap-x-20 lg:gap-y-16">
             <div>
-              <h1 className="text-5xl font-bold text-text-alternative md:text-7xl lg:text-8xl">
+              <h2 className="text-5xl font-bold text-text-alternative md:text-7xl lg:text-8xl">
                 Book a demo with us today to see how we can help you
-              </h1>
+              </h2>
             </div>
             <div>
               <p className="text-text-alternative md:text-md">

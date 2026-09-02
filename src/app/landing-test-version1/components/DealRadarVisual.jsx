@@ -355,7 +355,7 @@ export function DealRadarVisual() {
         </span>
       </div>
 
-      <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="absolute inset-0 h-full w-full">
+      <svg aria-hidden="true" viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="absolute inset-0 h-full w-full">
         <defs>
           <linearGradient id="drv-sweep" x1="0" y1="0" x2="1" y2="0" gradientUnits="objectBoundingBox">
             <stop offset="0%" stopColor="#536FF0" stopOpacity="0" />

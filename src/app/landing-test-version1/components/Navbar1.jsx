@@ -50,6 +50,9 @@ export function Navbar1() {
             <img src="/icons/logo.svg" alt="Asymmetrix" className="h-8 md:h-9" />
           </a>
           <button
+            type="button"
+            aria-label="Toggle menu"
+            aria-expanded={useActive.animateMobileMenu === "open"}
             className="-mr-2 flex size-12 flex-col items-center justify-center lg:hidden"
             onClick={useActive.toggleMobileMenu}
           >

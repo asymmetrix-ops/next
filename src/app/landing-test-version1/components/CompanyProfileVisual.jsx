@@ -109,7 +109,7 @@ function HeadcountGrowthChart({ active, reduceMotion }) {
           Employees · {HEADCOUNT_ASOF}
         </span>
       </div>
-      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-10 flex-1">
+      <svg aria-hidden="true" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-10 flex-1">
         <defs>
           <linearGradient id="cpv-headcount-fill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#536FF0" stopOpacity="0.28" />
