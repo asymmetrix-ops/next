@@ -1,9 +1,6 @@
 import { NextRequest } from "next/server";
-import {
-  analyticsUpstream,
-  proxyAlertsResponse,
-  requireAuthUser,
-} from "@/lib/emailAlertsServer";
+import { getUserAnalytics } from "@/lib/email-service";
+import { requireAuthUser } from "@/lib/emailAlertsServer";
 
 export const dynamic = "force-dynamic";
 
@@ -12,25 +9,27 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(req.url);
-  const query = new URLSearchParams();
+  const sortOrder =
+    searchParams.get("sort_order") ?? searchParams.get("sort_dir") ?? "desc";
+  const companyIdRaw = searchParams.get("company_id");
+  const companyId = companyIdRaw ? Number.parseInt(companyIdRaw, 10) : undefined;
 
-  const date = searchParams.get("date");
-  if (date) query.set("date", date);
-
-  const timezone = searchParams.get("timezone") ?? "Europe/London";
-  query.set("timezone", timezone);
-
-  const userId = searchParams.get("user_id");
-  if (userId) query.set("user_id", userId);
-
-  const itemType = searchParams.get("item_type");
-  if (itemType) query.set("item_type", itemType);
-
-  const qs = query.toString();
-  const upstreamResp = await analyticsUpstream(
-    `/analytics/users${qs ? `?${qs}` : ""}`,
-    { method: "GET" }
-  );
-
-  return proxyAlertsResponse(upstreamResp);
+  try {
+    const data = await getUserAnalytics({
+      date: searchParams.get("date") ?? undefined,
+      timezone: searchParams.get("timezone") ?? "Europe/London",
+      sort_by: searchParams.get("sort_by") ?? "sent_7d",
+      sort_order: sortOrder === "asc" ? "asc" : "desc",
+      item_type: searchParams.get("item_type") ?? undefined,
+      user_id: searchParams.get("user_id") ?? undefined,
+      company_id:
+        companyId != null && Number.isFinite(companyId) && companyId > 0
+          ? companyId
+          : undefined,
+    });
+    return Response.json(data);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Upstream error";
+    return Response.json({ error: message }, { status: 502 });
+  }
 }

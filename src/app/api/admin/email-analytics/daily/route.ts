@@ -1,9 +1,6 @@
 import { NextRequest } from "next/server";
-import {
-  analyticsUpstream,
-  proxyAlertsResponse,
-  requireAuthUser,
-} from "@/lib/emailAlertsServer";
+import { getDailyAnalytics } from "@/lib/email-service";
+import { requireAuthUser } from "@/lib/emailAlertsServer";
 
 export const dynamic = "force-dynamic";
 
@@ -12,22 +9,23 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(req.url);
-  const query = new URLSearchParams();
+  const companyIdRaw = searchParams.get("company_id");
+  const companyId = companyIdRaw ? Number.parseInt(companyIdRaw, 10) : undefined;
 
-  const date = searchParams.get("date");
-  if (date) query.set("date", date);
-
-  const timezone = searchParams.get("timezone") ?? "Europe/London";
-  query.set("timezone", timezone);
-
-  const itemType = searchParams.get("item_type");
-  if (itemType) query.set("item_type", itemType);
-
-  const qs = query.toString();
-  const upstreamResp = await analyticsUpstream(
-    `/analytics/daily${qs ? `?${qs}` : ""}`,
-    { method: "GET" }
-  );
-
-  return proxyAlertsResponse(upstreamResp);
+  try {
+    const data = await getDailyAnalytics({
+      date: searchParams.get("date") ?? undefined,
+      timezone: searchParams.get("timezone") ?? "Europe/London",
+      period: searchParams.get("period") ?? undefined,
+      item_type: searchParams.get("item_type") ?? undefined,
+      company_id:
+        companyId != null && Number.isFinite(companyId) && companyId > 0
+          ? companyId
+          : undefined,
+    });
+    return Response.json(data);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Upstream error";
+    return Response.json({ error: message }, { status: 502 });
+  }
 }

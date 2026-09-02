@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ClientCompanyOption } from "@/app/api/admin/client-companies/route";
 import { DcpOutreachTab } from "./DcpOutreachTab";
+import type {
+  DailyAnalyticsResponse,
+  PeriodKey,
+  PeriodSummary,
+  UserAnalyticsResponse,
+  UserRow,
+} from "@/types/email-analytics";
 
 const EMAIL_ANALYTICS_DAILY_URL = "/api/admin/email-analytics/daily";
 const EMAIL_ANALYTICS_USERS_URL = "/api/admin/email-analytics/users";
@@ -9,43 +17,46 @@ const DEFAULT_TIMEZONE = "Europe/London";
 const LIST_PER_PAGE = 25;
 
 type SortDirection = "asc" | "desc";
-
 type EATab = "all" | "dcp";
-
 type ItemTypeFilter = "" | "digest";
 
-type DailyAnalytics = {
-  date: string;
-  timezone: string;
-  is_weekend: boolean;
-  scheduled: number;
-  sent_today: number;
-  send_rate: number;
-  remaining: number;
-  opened: number;
-  open_rate: number;
-  total_clicks: number;
-  failed: number;
-  skipped: number;
+const PERIOD_LABELS: Record<PeriodKey, string> = {
+  today: "Today",
+  "7d": "7 days",
+  "30d": "30 days",
+  "90d": "90 days",
 };
 
-type ClickedUrl = {
-  url: string;
-  clicks: number;
-  last_clicked_at: string;
+const PERIOD_KEYS: PeriodKey[] = ["today", "7d", "30d", "90d"];
+
+type UserColumn = {
+  key: keyof UserRow | "email";
+  label: string;
+  period?: PeriodKey;
+  format?: "number" | "rate";
 };
 
-type UserAnalytics = {
-  user_id: number;
-  email: string;
-  sent: number;
-  opened: number;
-  open_rate: number;
-  total_clicks: number;
-  clicked_urls: ClickedUrl[];
-};
+const USER_TABLE_COLUMNS: UserColumn[] = [
+  { key: "email", label: "Email" },
+  { key: "sent_today", label: "Sent", period: "today", format: "number" },
+  { key: "open_rate_today", label: "Open %", period: "today", format: "rate" },
+  { key: "clicks_today", label: "Clicks", period: "today", format: "number" },
+  { key: "sent_7d", label: "Sent", period: "7d", format: "number" },
+  { key: "open_rate_7d", label: "Open %", period: "7d", format: "rate" },
+  { key: "clicks_7d", label: "Clicks", period: "7d", format: "number" },
+  { key: "sent_30d", label: "Sent", period: "30d", format: "number" },
+  { key: "open_rate_30d", label: "Open %", period: "30d", format: "rate" },
+  { key: "clicks_30d", label: "Clicks", period: "30d", format: "number" },
+  { key: "sent_90d", label: "Sent", period: "90d", format: "number" },
+  { key: "open_rate_90d", label: "Open %", period: "90d", format: "rate" },
+  { key: "clicks_90d", label: "Clicks", period: "90d", format: "number" },
+];
 
-type UserSortCol = "openRate" | "sent" | "clicks" | "email";
+const DEFAULT_SORTABLE_COLUMNS = USER_TABLE_COLUMNS.map((col) => col.key).filter(
+  (key) => key !== "email"
+);
+
+const SORT_ASC_FIRST = new Set<string>(["email"]);
 
 function eaNum(value: unknown): number {
   const n = Number(value);
@@ -55,23 +66,6 @@ function eaNum(value: unknown): number {
 function eaFormatRate(value: number): string {
   if (!Number.isFinite(value)) return "0%";
   return `${value % 1 === 0 ? Math.round(value) : value.toFixed(1)}%`;
-}
-
-function eaFmtDateTime(value: string | null | undefined): string {
-  if (!value) return "—";
-  try {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "—";
-    return d.toLocaleString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "—";
-  }
 }
 
 function authHeaders(): Record<string, string> {
@@ -87,27 +81,56 @@ function authHeaders(): Record<string, string> {
 
 function analyticsQueryParams(
   date: string,
-  itemType: ItemTypeFilter
+  itemType: ItemTypeFilter,
+  companyId: string,
+  sortBy?: string,
+  sortOrder?: SortDirection
 ): URLSearchParams {
   const params = new URLSearchParams({
     date,
     timezone: DEFAULT_TIMEZONE,
   });
   if (itemType) params.set("item_type", itemType);
+  const parsedCompanyId = companyId ? Number.parseInt(companyId, 10) : NaN;
+  if (Number.isFinite(parsedCompanyId) && parsedCompanyId > 0) {
+    params.set("company_id", String(parsedCompanyId));
+  }
+  if (sortBy) params.set("sort_by", sortBy);
+  if (sortOrder) params.set("sort_order", sortOrder);
   return params;
 }
 
-function normalizeDailyAnalytics(raw: unknown): DailyAnalytics | null {
+function emptyPeriodSummary(period: PeriodKey): PeriodSummary {
+  return {
+    period,
+    from_date: "",
+    to_date: "",
+    scheduled: 0,
+    sent: 0,
+    send_rate: 0,
+    remaining: 0,
+    opened: 0,
+    open_rate: 0,
+    total_clicks: 0,
+    failed: 0,
+    skipped: 0,
+  };
+}
+
+function normalizePeriodSummary(
+  raw: unknown,
+  period: PeriodKey
+): PeriodSummary {
   const row =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
-  if (!row) return null;
+  if (!row) return emptyPeriodSummary(period);
 
   return {
-    date: String(row.date ?? ""),
-    timezone: String(row.timezone ?? DEFAULT_TIMEZONE),
-    is_weekend: Boolean(row.is_weekend),
+    period: (row.period as PeriodKey) ?? period,
+    from_date: String(row.from_date ?? ""),
+    to_date: String(row.to_date ?? ""),
     scheduled: eaNum(row.scheduled),
-    sent_today: eaNum(row.sent_today),
+    sent: eaNum(row.sent ?? row.sent_today),
     send_rate: eaNum(row.send_rate ?? row.send_rate_pct),
     remaining: eaNum(row.remaining),
     opened: eaNum(row.opened),
@@ -118,184 +141,190 @@ function normalizeDailyAnalytics(raw: unknown): DailyAnalytics | null {
   };
 }
 
-function normalizeClickedUrls(raw: unknown): ClickedUrl[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
-    .map((item) => ({
-      url: String(item.url ?? ""),
-      clicks: eaNum(item.clicks),
-      last_clicked_at: String(item.last_clicked_at ?? ""),
-    }))
-    .filter((item) => item.url);
-}
+function normalizeDailyAnalytics(raw: unknown): DailyAnalyticsResponse | null {
+  const row =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!row) return null;
 
-function normalizeUserAnalytics(raw: unknown): UserAnalytics | null {
-  if (!raw || typeof raw !== "object") return null;
-  const row = raw as Record<string, unknown>;
-  const userId = eaNum(row.user_id);
-  if (userId <= 0) return null;
+  const periodsRaw =
+    row.periods && typeof row.periods === "object"
+      ? (row.periods as Record<string, unknown>)
+      : null;
 
+  if (periodsRaw) {
+    return {
+      date: String(row.date ?? ""),
+      timezone: String(row.timezone ?? DEFAULT_TIMEZONE),
+      is_weekend: Boolean(row.is_weekend),
+      periods: {
+        today: normalizePeriodSummary(periodsRaw.today, "today"),
+        "7d": normalizePeriodSummary(periodsRaw["7d"], "7d"),
+        "30d": normalizePeriodSummary(periodsRaw["30d"], "30d"),
+        "90d": normalizePeriodSummary(periodsRaw["90d"], "90d"),
+      },
+    };
+  }
+
+  const legacy = normalizePeriodSummary(row, "today");
   return {
-    user_id: userId,
-    email: String(row.email ?? ""),
-    sent: eaNum(row.sent),
-    opened: eaNum(row.opened),
-    open_rate: eaNum(row.open_rate),
-    total_clicks: eaNum(row.total_clicks),
-    clicked_urls: normalizeClickedUrls(row.clicked_urls),
+    date: String(row.date ?? ""),
+    timezone: String(row.timezone ?? DEFAULT_TIMEZONE),
+    is_weekend: Boolean(row.is_weekend),
+    periods: {
+      today: {
+        ...legacy,
+        sent: eaNum(row.sent_today ?? legacy.sent),
+      },
+      "7d": emptyPeriodSummary("7d"),
+      "30d": emptyPeriodSummary("30d"),
+      "90d": emptyPeriodSummary("90d"),
+    },
   };
 }
 
-function normalizeUsersResponse(raw: unknown): UserAnalytics[] {
-  const root =
-    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
-  if (!root) return [];
+function normalizeUserRow(raw: unknown): UserRow | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const email = String(row.email ?? "").trim();
+  if (!email) return null;
 
-  const usersRaw = root.users ?? root.items ?? [];
-  return (Array.isArray(usersRaw) ? usersRaw : [])
-    .map(normalizeUserAnalytics)
-    .filter((user): user is UserAnalytics => user !== null);
+  const userIdRaw = row.user_id;
+  const userId =
+    userIdRaw == null || userIdRaw === ""
+      ? null
+      : eaNum(userIdRaw) || null;
+
+  const sentLegacy = eaNum(row.sent);
+  const openedLegacy = eaNum(row.opened);
+  const openRateLegacy = eaNum(row.open_rate);
+  const clicksLegacy = eaNum(row.total_clicks);
+
+  return {
+    user_id: userId,
+    email,
+    sent_today: eaNum(row.sent_today) || sentLegacy,
+    opened_today: eaNum(row.opened_today) || openedLegacy,
+    open_rate_today: eaNum(row.open_rate_today) || openRateLegacy,
+    clicks_today: eaNum(row.clicks_today) || clicksLegacy,
+    sent_7d: eaNum(row.sent_7d),
+    opened_7d: eaNum(row.opened_7d),
+    open_rate_7d: eaNum(row.open_rate_7d),
+    clicks_7d: eaNum(row.clicks_7d),
+    sent_30d: eaNum(row.sent_30d),
+    opened_30d: eaNum(row.opened_30d),
+    open_rate_30d: eaNum(row.open_rate_30d),
+    clicks_30d: eaNum(row.clicks_30d),
+    sent_90d: eaNum(row.sent_90d),
+    opened_90d: eaNum(row.opened_90d),
+    open_rate_90d: eaNum(row.open_rate_90d),
+    clicks_90d: eaNum(row.clicks_90d),
+  };
 }
 
-function UserDetailPanel({ user }: { user: UserAnalytics }) {
-  return (
-    <div className="px-4 py-3 bg-gray-50 space-y-4 border-t border-gray-100">
-      <div>
-        <h4 className="text-xs font-medium text-gray-700 mb-2">Engagement summary</h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <div className="rounded border bg-white px-3 py-2">
-            <div className="text-xs text-gray-500">Open rate</div>
-            <div className="text-lg font-medium text-green-700">
-              {eaFormatRate(user.open_rate)}
-            </div>
-            <div className="text-xs text-gray-400 mt-0.5">
-              {user.opened}/{user.sent} opened
-            </div>
-          </div>
-          <div className="rounded border bg-white px-3 py-2">
-            <div className="text-xs text-gray-500">Sent</div>
-            <div className="text-lg font-medium text-gray-900">{user.sent}</div>
-          </div>
-          <div className="rounded border bg-white px-3 py-2">
-            <div className="text-xs text-gray-500">Opened</div>
-            <div className="text-lg font-medium text-green-700">{user.opened}</div>
-          </div>
-          <div className="rounded border bg-white px-3 py-2">
-            <div className="text-xs text-gray-500">Clicks</div>
-            <div className="text-lg font-medium text-blue-700">
-              {user.total_clicks}
-            </div>
-          </div>
-        </div>
-      </div>
+function normalizeUsersResponse(raw: unknown): {
+  users: UserRow[];
+  sortBy: string;
+  sortOrder: SortDirection;
+  sortableColumns: string[];
+  periodRanges: UserAnalyticsResponse["period_ranges"] | null;
+} {
+  const root =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!root) {
+    return {
+      users: [],
+      sortBy: "sent_7d",
+      sortOrder: "desc",
+      sortableColumns: DEFAULT_SORTABLE_COLUMNS,
+      periodRanges: null,
+    };
+  }
 
-      {user.clicked_urls.length > 0 ? (
-        <div>
-          <h4 className="text-xs font-medium text-gray-700 mb-2">Clicked URLs</h4>
-          <div className="overflow-x-auto rounded border bg-white">
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  {["URL", "Clicks", "Last clicked"].map((h) => (
-                    <th
-                      key={h}
-                      className="text-left font-normal text-gray-500 px-3 py-2"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[...user.clicked_urls]
-                  .sort((a, b) => b.clicks - a.clicks)
-                  .map((row) => (
-                    <tr
-                      key={row.url}
-                      className="border-b border-gray-100 last:border-0"
-                    >
-                      <td className="px-3 py-2 text-blue-700 break-all">
-                        <a
-                          href={row.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:underline"
-                        >
-                          {row.url}
-                        </a>
-                      </td>
-                      <td className="px-3 py-2 text-gray-900">{row.clicks}</td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-600">
-                        {eaFmtDateTime(row.last_clicked_at)}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <p className="text-xs text-gray-500">No link clicks recorded for this day.</p>
-      )}
+  const usersRaw = root.users ?? root.items ?? [];
+  const sortOrderRaw = String(root.sort_order ?? root.sort_dir ?? "desc");
+
+  return {
+    users: (Array.isArray(usersRaw) ? usersRaw : [])
+      .map(normalizeUserRow)
+      .filter((user): user is UserRow => user !== null),
+    sortBy: String(root.sort_by ?? "sent_7d"),
+    sortOrder: sortOrderRaw === "asc" ? "asc" : "desc",
+    sortableColumns: Array.isArray(root.sortable_columns)
+      ? root.sortable_columns.map(String)
+      : DEFAULT_SORTABLE_COLUMNS,
+    periodRanges:
+      root.period_ranges && typeof root.period_ranges === "object"
+        ? (root.period_ranges as UserAnalyticsResponse["period_ranges"])
+        : null,
+  };
+}
+
+function formatUserCell(user: UserRow, column: UserColumn): string {
+  if (column.key === "email") return user.email || "—";
+  const value = user[column.key as keyof UserRow];
+  if (column.format === "rate") return eaFormatRate(eaNum(value));
+  if (typeof value === "number") return String(value);
+  return "—";
+}
+
+function PeriodStatCard({
+  label,
+  value,
+  sub,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone?: "default" | "green" | "blue" | "red";
+}) {
+  const toneClass =
+    tone === "green"
+      ? "text-green-700"
+      : tone === "blue"
+        ? "text-blue-700"
+        : tone === "red"
+          ? "text-red-700"
+          : "text-gray-900";
+
+  return (
+    <div className="rounded border px-4 py-3">
+      <div className="text-xs text-gray-500 mb-1">{label}</div>
+      <div className={`text-2xl font-medium ${toneClass}`}>{value}</div>
+      {sub ? <div className="text-xs text-gray-400 mt-1">{sub}</div> : null}
     </div>
   );
 }
 
-function UserListRow({ user }: { user: UserAnalytics }) {
-  const [expanded, setExpanded] = useState(false);
+function sortableHeaderProps(
+  column: UserColumn,
+  sortBy: string,
+  sortOrder: SortDirection,
+  sortable: boolean,
+  onSort: (key: string) => void
+) {
+  const active = sortBy === column.key;
+  if (!sortable) {
+    return {
+      className:
+        "text-left font-normal text-xs text-gray-500 px-3 py-2 whitespace-nowrap",
+      children: column.label,
+    };
+  }
 
-  return (
-    <>
-      <tr
-        onClick={() => setExpanded((value) => !value)}
-        className="cursor-pointer hover:bg-gray-50 border-b border-gray-200"
-      >
-        <td className="px-3 py-2.5">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-400">{expanded ? "▼" : "▶"}</span>
-            <div>
-              <div className="text-sm font-medium">{user.email || "—"}</div>
-              <div className="text-xs text-gray-400">User ID {user.user_id}</div>
-            </div>
-          </div>
-        </td>
-        <td className="px-3 py-2.5">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium">{eaFormatRate(user.open_rate)}</span>
-            <span className="text-xs text-gray-400">
-              {user.opened}/{user.sent} opened
-            </span>
-          </div>
-        </td>
-        <td className="px-3 py-2.5 text-xs text-gray-600 whitespace-nowrap">
-          {user.sent} sent · {user.opened} opened · {user.total_clicks} clicks
-        </td>
-        <td className="px-3 py-2.5 text-xs text-gray-600">
-          {user.opened === 0 && user.sent > 0 ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700">
-              No opens
-            </span>
-          ) : user.sent > 0 ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">
-              Opened
-            </span>
-          ) : (
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
-              No sends
-            </span>
-          )}
-        </td>
-      </tr>
-      {expanded ? (
-        <tr className="border-b border-gray-200">
-          <td colSpan={4} className="p-0">
-            <UserDetailPanel user={user} />
-          </td>
-        </tr>
-      ) : null}
-    </>
-  );
+  return {
+    className:
+      "text-left font-normal text-xs text-gray-500 px-3 py-2 whitespace-nowrap cursor-pointer select-none hover:bg-gray-100",
+    onClick: () => onSort(column.key),
+    children: (
+      <span className="inline-flex items-center gap-1">
+        {column.label}
+        {active ? (
+          <span className="text-gray-400">{sortOrder === "desc" ? "▼" : "▲"}</span>
+        ) : null}
+      </span>
+    ),
+  };
 }
 
 export function EmailAnalyticsTab() {
@@ -303,6 +332,10 @@ export function EmailAnalyticsTab() {
     () => new Date().toISOString().split("T")[0]
   );
   const [itemType, setItemType] = useState<ItemTypeFilter>("");
+  const [companyId, setCompanyId] = useState("");
+  const [companies, setCompanies] = useState<ClientCompanyOption[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [dashboardPeriod, setDashboardPeriod] = useState<PeriodKey>("today");
   const [tab, setTab] = useState<EATab>("all");
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -310,32 +343,63 @@ export function EmailAnalyticsTab() {
   const [showDebug, setShowDebug] = useState(false);
   const [dcpCompanyCount, setDcpCompanyCount] = useState(0);
 
-  const [dailyStats, setDailyStats] = useState<DailyAnalytics | null>(null);
+  const [dailyStats, setDailyStats] = useState<DailyAnalyticsResponse | null>(null);
   const [dailyLoading, setDailyLoading] = useState(true);
   const [dailyError, setDailyError] = useState<string | null>(null);
 
-  const [allUsers, setAllUsers] = useState<UserAnalytics[]>([]);
+  const [allUsers, setAllUsers] = useState<UserRow[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [usersRaw, setUsersRaw] = useState<object | null>(null);
+  const [sortBy, setSortBy] = useState("sent_7d");
+  const [sortOrder, setSortOrder] = useState<SortDirection>("desc");
+  const [sortableColumns, setSortableColumns] = useState<string[]>(
+    DEFAULT_SORTABLE_COLUMNS
+  );
+  const [periodRanges, setPeriodRanges] =
+    useState<UserAnalyticsResponse["period_ranges"] | null>(null);
 
-  const [userSortCol, setUserSortCol] = useState<UserSortCol>("openRate");
-  const [userSortDir, setUserSortDir] = useState<SortDirection>("desc");
-
-  function onUserSort(col: UserSortCol) {
-    if (userSortCol === col) {
-      setUserSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+  const handleSort = (key: string) => {
+    if (!sortableColumns.includes(key) && key !== "email") return;
+    if (sortBy !== key) {
+      setSortBy(key);
+      setSortOrder(SORT_ASC_FIRST.has(key) ? "asc" : "desc");
     } else {
-      setUserSortCol(col);
-      setUserSortDir(col === "email" ? "asc" : "desc");
+      setSortOrder((prevOrder) => (prevOrder === "desc" ? "asc" : "desc"));
     }
-  }
+    setPage(1);
+  };
+
+  useEffect(() => {
+    let aborted = false;
+    async function loadCompanies() {
+      setCompaniesLoading(true);
+      try {
+        const res = await fetch("/api/admin/client-companies", {
+          headers: authHeaders(),
+        });
+        if (!res.ok) {
+          throw new Error(`${res.status} ${await res.text().catch(() => "")}`);
+        }
+        const json = (await res.json()) as ClientCompanyOption[];
+        if (!aborted) setCompanies(Array.isArray(json) ? json : []);
+      } catch {
+        if (!aborted) setCompanies([]);
+      } finally {
+        if (!aborted) setCompaniesLoading(false);
+      }
+    }
+    loadCompanies();
+    return () => {
+      aborted = true;
+    };
+  }, []);
 
   const fetchDailyStats = useCallback(async () => {
     setDailyLoading(true);
     setDailyError(null);
     try {
-      const params = analyticsQueryParams(auditDate, itemType);
+      const params = analyticsQueryParams(auditDate, itemType, companyId);
       const res = await fetch(`${EMAIL_ANALYTICS_DAILY_URL}?${params.toString()}`, {
         method: "GET",
         headers: authHeaders(),
@@ -354,13 +418,19 @@ export function EmailAnalyticsTab() {
     } finally {
       setDailyLoading(false);
     }
-  }, [auditDate, itemType]);
+  }, [auditDate, itemType, companyId]);
 
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     setUsersError(null);
     try {
-      const params = analyticsQueryParams(auditDate, itemType);
+      const params = analyticsQueryParams(
+        auditDate,
+        itemType,
+        companyId,
+        sortBy,
+        sortOrder
+      );
       const res = await fetch(`${EMAIL_ANALYTICS_USERS_URL}?${params.toString()}`, {
         method: "GET",
         headers: authHeaders(),
@@ -371,7 +441,12 @@ export function EmailAnalyticsTab() {
       }
       const json = await res.json();
       setUsersRaw(json && typeof json === "object" ? (json as object) : null);
-      setAllUsers(normalizeUsersResponse(json));
+      const normalized = normalizeUsersResponse(json);
+      setAllUsers(normalized.users);
+      setSortBy(normalized.sortBy);
+      setSortOrder(normalized.sortOrder);
+      setSortableColumns(normalized.sortableColumns);
+      setPeriodRanges(normalized.periodRanges);
     } catch (error) {
       setAllUsers([]);
       setUsersRaw(null);
@@ -381,7 +456,7 @@ export function EmailAnalyticsTab() {
     } finally {
       setUsersLoading(false);
     }
-  }, [auditDate, itemType]);
+  }, [auditDate, itemType, companyId, sortBy, sortOrder]);
 
   const refreshAll = useCallback(() => {
     fetchDailyStats();
@@ -406,7 +481,9 @@ export function EmailAnalyticsTab() {
 
   useEffect(() => {
     setPage(1);
-  }, [auditDate, itemType, tab]);
+  }, [auditDate, itemType, companyId, tab]);
+
+  const hasActiveFilters = !!itemType || !!companyId || !!searchInput;
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery) return allUsers;
@@ -415,30 +492,14 @@ export function EmailAnalyticsTab() {
     );
   }, [allUsers, searchQuery]);
 
-  const sortedUsers = useMemo(() => {
-    const mul = userSortDir === "asc" ? 1 : -1;
-    return filteredUsers.slice().sort((a, b) => {
-      switch (userSortCol) {
-        case "openRate":
-          return (a.open_rate - b.open_rate) * mul;
-        case "sent":
-          return (a.sent - b.sent) * mul;
-        case "clicks":
-          return (a.total_clicks - b.total_clicks) * mul;
-        case "email":
-          return a.email.localeCompare(b.email) * mul;
-        default:
-          return 0;
-      }
-    });
-  }, [filteredUsers, userSortCol, userSortDir]);
-
-  const totalPages = Math.max(1, Math.ceil(sortedUsers.length / LIST_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / LIST_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
-  const pagedUsers = sortedUsers.slice(
+  const pagedUsers = filteredUsers.slice(
     (currentPage - 1) * LIST_PER_PAGE,
     currentPage * LIST_PER_PAGE
   );
+
+  const selectedPeriod = dailyStats?.periods[dashboardPeriod] ?? null;
 
   const periodLabel = useMemo(() => {
     if (!auditDate) return "Selected day";
@@ -455,6 +516,12 @@ export function EmailAnalyticsTab() {
     }
   }, [auditDate]);
 
+  const periodRangeLabel = useMemo(() => {
+    const range = periodRanges?.[dashboardPeriod];
+    if (!range?.from_date || !range?.to_date) return null;
+    return `${range.from_date} → ${range.to_date}`;
+  }, [periodRanges, dashboardPeriod]);
+
   return (
     <div className="space-y-4">
       <div className="bg-white rounded border">
@@ -462,14 +529,32 @@ export function EmailAnalyticsTab() {
           <div>
             <h2 className="text-sm font-medium">Daily analytics</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Turso-backed send and engagement stats for the selected day (
-              {DEFAULT_TIMEZONE})
+              Send and engagement stats by period ({DEFAULT_TIMEZONE})
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
+              value={companyId}
+              onChange={(event) => {
+                setPage(1);
+                setCompanyId(event.target.value);
+              }}
+              disabled={companiesLoading}
+              className="text-sm border rounded px-2 py-1.5 min-w-[180px]"
+            >
+              <option value="">All companies</option>
+              {companies.map((company) => (
+                <option key={company.id} value={String(company.id)}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
+            <select
               value={itemType}
-              onChange={(event) => setItemType(event.target.value as ItemTypeFilter)}
+              onChange={(event) => {
+                setPage(1);
+                setItemType(event.target.value as ItemTypeFilter);
+              }}
               className="text-sm border rounded px-2 py-1.5"
             >
               <option value="">All alert types</option>
@@ -478,11 +563,21 @@ export function EmailAnalyticsTab() {
             <input
               type="date"
               value={auditDate}
-              onChange={(event) => setAuditDate(event.target.value)}
+              onChange={(event) => {
+                setPage(1);
+                setAuditDate(event.target.value);
+              }}
               className="text-sm border rounded px-2 py-1.5"
             />
           </div>
         </div>
+
+        {companyId ? (
+          <div className="mx-4 mt-4 text-xs text-gray-600 bg-gray-50 border border-gray-100 rounded px-3 py-2">
+            Filtered to one company — scheduled and remaining counts are not
+            available per company.
+          </div>
+        ) : null}
 
         {dailyError ? (
           <div className="mx-4 mt-4 bg-red-50 text-red-700 rounded border border-red-200 px-3 py-2 text-sm">
@@ -498,61 +593,73 @@ export function EmailAnalyticsTab() {
           </div>
         ) : (
           <div className="p-4 space-y-3">
-            {dailyStats.is_weekend ? (
+            {dailyStats.is_weekend && dashboardPeriod === "today" ? (
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded px-3 py-2">
                 Weekend day — scheduled sends are expected to be 0.
               </p>
             ) : null}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              <div className="rounded border px-4 py-3">
-                <div className="text-xs text-gray-500 mb-1">Scheduled</div>
-                <div className="text-2xl font-medium text-gray-900">
-                  {dailyStats.scheduled.toLocaleString()}
-                </div>
-              </div>
-              <div className="rounded border px-4 py-3">
-                <div className="text-xs text-gray-500 mb-1">Sent today</div>
-                <div className="text-2xl font-medium text-green-700">
-                  {dailyStats.sent_today.toLocaleString()}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {eaFormatRate(dailyStats.send_rate)} send rate
-                </div>
-              </div>
-              <div className="rounded border px-4 py-3">
-                <div className="text-xs text-gray-500 mb-1">Remaining</div>
-                <div className="text-2xl font-medium text-gray-900">
-                  {dailyStats.remaining.toLocaleString()}
-                </div>
-              </div>
-              <div className="rounded border px-4 py-3">
-                <div className="text-xs text-gray-500 mb-1">Opened</div>
-                <div className="text-2xl font-medium text-green-700">
-                  {dailyStats.opened.toLocaleString()}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {eaFormatRate(dailyStats.open_rate)} open rate
-                </div>
-              </div>
-              <div className="rounded border px-4 py-3">
-                <div className="text-xs text-gray-500 mb-1">Total clicks</div>
-                <div className="text-2xl font-medium text-blue-700">
-                  {dailyStats.total_clicks.toLocaleString()}
-                </div>
-              </div>
-              <div className="rounded border px-4 py-3">
-                <div className="text-xs text-gray-500 mb-1">Failed</div>
-                <div className="text-2xl font-medium text-red-700">
-                  {dailyStats.failed.toLocaleString()}
-                </div>
-              </div>
-              <div className="rounded border px-4 py-3">
-                <div className="text-xs text-gray-500 mb-1">Skipped</div>
-                <div className="text-2xl font-medium text-gray-900">
-                  {dailyStats.skipped.toLocaleString()}
-                </div>
-              </div>
+
+            <div className="flex flex-wrap gap-2">
+              {PERIOD_KEYS.map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  onClick={() => setDashboardPeriod(period)}
+                  className={`text-sm px-3 py-1.5 rounded border ${
+                    dashboardPeriod === period
+                      ? "bg-gray-900 text-white border-gray-900"
+                      : "bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {PERIOD_LABELS[period]}
+                </button>
+              ))}
             </div>
+
+            {selectedPeriod?.from_date && selectedPeriod?.to_date ? (
+              <p className="text-xs text-gray-500">
+                {selectedPeriod.from_date} → {selectedPeriod.to_date}
+              </p>
+            ) : null}
+
+            {selectedPeriod ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <PeriodStatCard
+                  label="Scheduled"
+                  value={selectedPeriod.scheduled.toLocaleString()}
+                />
+                <PeriodStatCard
+                  label="Sent"
+                  value={selectedPeriod.sent.toLocaleString()}
+                  sub={`${eaFormatRate(selectedPeriod.send_rate)} send rate`}
+                  tone="green"
+                />
+                <PeriodStatCard
+                  label="Remaining"
+                  value={selectedPeriod.remaining.toLocaleString()}
+                />
+                <PeriodStatCard
+                  label="Opened"
+                  value={selectedPeriod.opened.toLocaleString()}
+                  sub={`${eaFormatRate(selectedPeriod.open_rate)} open rate`}
+                  tone="green"
+                />
+                <PeriodStatCard
+                  label="Total clicks"
+                  value={selectedPeriod.total_clicks.toLocaleString()}
+                  tone="blue"
+                />
+                <PeriodStatCard
+                  label="Failed"
+                  value={selectedPeriod.failed.toLocaleString()}
+                  tone="red"
+                />
+                <PeriodStatCard
+                  label="Skipped"
+                  value={selectedPeriod.skipped.toLocaleString()}
+                />
+              </div>
+            ) : null}
           </div>
         )}
       </div>
@@ -574,7 +681,10 @@ export function EmailAnalyticsTab() {
               {showDebug ? "Hide debug" : "Debug"}
             </button>
           </div>
-          <span className="text-xs text-gray-500">{periodLabel}</span>
+          <span className="text-xs text-gray-500">
+            {periodLabel}
+            {periodRangeLabel ? ` · ${periodRangeLabel}` : ""}
+          </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -594,6 +704,20 @@ export function EmailAnalyticsTab() {
               Clear search
             </button>
           ) : null}
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={() => {
+                setPage(1);
+                setCompanyId("");
+                setItemType("");
+                setSearchInput("");
+              }}
+              className="text-xs text-gray-500 hover:text-gray-800 underline"
+            >
+              Clear filters
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -606,7 +730,7 @@ export function EmailAnalyticsTab() {
       {showDebug && usersRaw ? (
         <div className="bg-gray-900 text-gray-100 rounded border border-gray-700 px-4 py-3 text-xs font-mono">
           <div className="text-gray-400 font-sans font-medium text-xs mb-2">
-            Turso users analytics response
+            Users analytics response
           </div>
           <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
             {JSON.stringify(usersRaw, null, 2)}
@@ -661,42 +785,63 @@ export function EmailAnalyticsTab() {
         </div>
 
         {tab === "dcp" ? (
-          <DcpOutreachTab onCompanyCountChange={setDcpCompanyCount} />
+          <DcpOutreachTab
+            companyId={companyId}
+            onCompanyCountChange={setDcpCompanyCount}
+          />
         ) : (
           <>
             <div className="overflow-x-auto">
               {usersLoading ? (
                 <div className="text-center py-8 text-sm text-gray-500">Loading…</div>
               ) : (
-                <table className="w-full text-sm border-collapse">
+                <table className="w-full text-sm border-collapse min-w-[1200px]">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      {(
-                        [
-                          ["email", "User", true],
-                          ["openRate", "Open rate", true],
-                          [null, "Engagement", false],
-                          [null, "Status", false],
-                        ] as [UserSortCol | null, string, boolean][]
-                      ).map(([col, label, sortable]) => (
+                      {(() => {
+                        const emailHeader = sortableHeaderProps(
+                          { key: "email", label: "Email" },
+                          sortBy,
+                          sortOrder,
+                          sortableColumns.includes("email"),
+                          handleSort
+                        );
+                        return (
+                          <th
+                            rowSpan={2}
+                            {...emailHeader}
+                            className={`${emailHeader.className} align-bottom border-r border-gray-100`}
+                          />
+                        );
+                      })()}
+                      {PERIOD_KEYS.map((period) => {
+                        const cols = USER_TABLE_COLUMNS.filter(
+                          (col) => col.period === period
+                        );
+                        if (cols.length === 0) return null;
+                        return (
+                          <th
+                            key={period}
+                            colSpan={cols.length}
+                            className="text-center font-medium text-xs text-gray-600 px-3 py-2 border-r border-gray-100"
+                          >
+                            {PERIOD_LABELS[period]}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                    <tr className="border-b border-gray-200">
+                      {USER_TABLE_COLUMNS.filter((col) => col.period).map((col) => (
                         <th
-                          key={label}
-                          className="text-left font-normal text-xs text-gray-500 px-3 py-2"
-                        >
-                          {sortable && col ? (
-                            <button
-                              onClick={() => onUserSort(col)}
-                              className="inline-flex items-center gap-1 hover:text-gray-900"
-                            >
-                              {label}
-                              {userSortCol === col ? (
-                                <span>{userSortDir === "asc" ? "▲" : "▼"}</span>
-                              ) : null}
-                            </button>
-                          ) : (
-                            label
+                          key={col.key}
+                          {...sortableHeaderProps(
+                            col,
+                            sortBy,
+                            sortOrder,
+                            sortableColumns.includes(col.key),
+                            handleSort
                           )}
-                        </th>
+                        />
                       ))}
                     </tr>
                   </thead>
@@ -704,7 +849,7 @@ export function EmailAnalyticsTab() {
                     {pagedUsers.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={USER_TABLE_COLUMNS.length}
                           className="text-center py-8 text-sm text-gray-500"
                         >
                           No users match this filter.
@@ -712,7 +857,30 @@ export function EmailAnalyticsTab() {
                       </tr>
                     ) : (
                       pagedUsers.map((user) => (
-                        <UserListRow key={user.user_id} user={user} />
+                        <tr
+                          key={`${user.user_id ?? "none"}-${user.email}`}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
+                          {USER_TABLE_COLUMNS.map((col) => (
+                            <td
+                              key={col.key}
+                              className={`px-3 py-2 whitespace-nowrap ${
+                                col.key === "email" ? "font-medium" : "text-gray-700"
+                              }`}
+                            >
+                              {col.key === "email" && user.user_id ? (
+                                <div>
+                                  <div>{formatUserCell(user, col)}</div>
+                                  <div className="text-xs text-gray-400 font-normal">
+                                    User ID {user.user_id}
+                                  </div>
+                                </div>
+                              ) : (
+                                formatUserCell(user, col)
+                              )}
+                            </td>
+                          ))}
+                        </tr>
                       ))
                     )}
                   </tbody>

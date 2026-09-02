@@ -27,6 +27,13 @@ const UA_USER_STATUSES = ["Admin", "Client", "Trial", "Contributor"] as const;
 
 type ViewMode = "by-user" | "by-company";
 
+type SortDir = "asc" | "desc";
+
+type SortState = {
+  sort_by: string | null;
+  sort_dir: SortDir;
+};
+
 type UnifiedFilters = {
   firmType: string;
   seniorityLevel: string;
@@ -173,7 +180,8 @@ function unifiedOverviewQueryParams(
   q: string,
   page: number,
   perPage: number,
-  companyIdOverride?: number
+  companyIdOverride?: number,
+  sort?: SortState
 ): string {
   const params = new URLSearchParams({
     page: String(page),
@@ -190,6 +198,11 @@ function unifiedOverviewQueryParams(
     (filters.companyId ? parseInt(filters.companyId, 10) : NaN);
   if (Number.isFinite(companyId) && companyId > 0) {
     params.set("company_id", String(companyId));
+  }
+
+  if (sort?.sort_by) {
+    params.set("sort_by", sort.sort_by);
+    params.set("sort_dir", sort.sort_dir);
   }
 
   return params.toString();
@@ -247,23 +260,57 @@ function UnifiedUserRow({ row }: { row: UnifiedOverviewRow }) {
   );
 }
 
-const USER_TABLE_HEADERS = [
-  "User ID",
-  "User name",
-  "Email",
-  "Company",
-  "Sessions 24h",
-  "Page views 24h",
-  "Sessions 7d",
-  "Page views 7d",
-  "Sessions 30d",
-  "Sessions 90d",
-  "Page views 30d",
-  "Page views 90d",
-  "Total sessions",
-  "Total page views",
-  "Last activity",
-] as const;
+const USER_TABLE_COLUMNS: { key: string; label: string }[] = [
+  { key: "user_id", label: "User ID" },
+  { key: "user_name", label: "User name" },
+  { key: "email", label: "Email" },
+  { key: "company_name", label: "Company" },
+  { key: "sessions_24h", label: "Sessions 24h" },
+  { key: "page_views_24h", label: "Page views 24h" },
+  { key: "sessions_7d", label: "Sessions 7d" },
+  { key: "page_views_7d", label: "Page views 7d" },
+  { key: "sessions_30d", label: "Sessions 30d" },
+  { key: "sessions_90d", label: "Sessions 90d" },
+  { key: "page_views_30d", label: "Page views 30d" },
+  { key: "page_views_90d", label: "Page views 90d" },
+  { key: "total_sessions", label: "Total sessions" },
+  { key: "total_page_views", label: "Total page views" },
+  { key: "last_activity_at", label: "Last activity" },
+];
+
+const USER_SORT_ASC_FIRST = new Set([
+  "user_id",
+  "user_name",
+  "email",
+  "company_name",
+]);
+
+function SortableUserTableHeader({
+  column,
+  sort,
+  onSort,
+}: {
+  column: { key: string; label: string };
+  sort: SortState;
+  onSort: (key: string) => void;
+}) {
+  const active = sort.sort_by === column.key;
+  return (
+    <th
+      className="px-3 py-2 text-left whitespace-nowrap cursor-pointer select-none hover:bg-gray-100"
+      onClick={() => onSort(column.key)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {column.label}
+        {active ? (
+          <span className="text-xs text-gray-500">
+            {sort.sort_dir === "desc" ? "▼" : "▲"}
+          </span>
+        ) : null}
+      </span>
+    </th>
+  );
+}
 
 function PaginationBar({
   meta,
@@ -315,6 +362,7 @@ export function UnifiedActivityTab() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<SortState>({ sort_by: null, sort_dir: "desc" });
 
   const [userItems, setUserItems] = useState<UnifiedOverviewRow[]>([]);
   const [userMeta, setUserMeta] = useState<PaginatedMeta>({
@@ -349,6 +397,22 @@ export function UnifiedActivityTab() {
   const updateFilter = (key: keyof UnifiedFilters, value: string) => {
     setPage(1);
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleUserSort = (key: string) => {
+    setSort((prev) => {
+      if (prev.sort_by !== key) {
+        return {
+          sort_by: key,
+          sort_dir: USER_SORT_ASC_FIRST.has(key) ? "asc" : "desc",
+        };
+      }
+      return {
+        sort_by: key,
+        sort_dir: prev.sort_dir === "desc" ? "asc" : "desc",
+      };
+    });
+    setPage(1);
   };
 
   useEffect(() => {
@@ -400,7 +464,9 @@ export function UnifiedActivityTab() {
           filters,
           searchQuery,
           page,
-          UA_PER_PAGE
+          UA_PER_PAGE,
+          undefined,
+          sort
         )}`
       );
       if (!res.ok) {
@@ -429,7 +495,7 @@ export function UnifiedActivityTab() {
     } finally {
       setUserLoading(false);
     }
-  }, [filters, searchQuery, page]);
+  }, [filters, searchQuery, page, sort]);
 
   const fetchCompanySummary = useCallback(async () => {
     setCompanyLoading(true);
@@ -693,24 +759,33 @@ export function UnifiedActivityTab() {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-gray-700">
               <tr>
-                {USER_TABLE_HEADERS.map((label) => (
-                  <th key={label} className="px-3 py-2 text-left whitespace-nowrap">
-                    {label}
-                  </th>
+                {USER_TABLE_COLUMNS.map((col) => (
+                  <SortableUserTableHeader
+                    key={col.key}
+                    column={col}
+                    sort={sort}
+                    onSort={handleUserSort}
+                  />
                 ))}
               </tr>
             </thead>
             <tbody>
               {userLoading ? (
                 <tr>
-                  <td className="px-3 py-3 text-center text-gray-500" colSpan={USER_TABLE_HEADERS.length}>
+                  <td
+                    className="px-3 py-3 text-center text-gray-500"
+                    colSpan={USER_TABLE_COLUMNS.length}
+                  >
                     Loading…
                   </td>
                 </tr>
               ) : null}
               {!userLoading && !userError && userItems.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-3 text-center text-gray-500" colSpan={USER_TABLE_HEADERS.length}>
+                  <td
+                    className="px-3 py-3 text-center text-gray-500"
+                    colSpan={USER_TABLE_COLUMNS.length}
+                  >
                     No results
                   </td>
                 </tr>
@@ -820,12 +895,12 @@ export function UnifiedActivityTab() {
                                   <table className="min-w-full text-sm bg-white rounded border">
                                     <thead className="bg-gray-50 text-gray-700">
                                       <tr>
-                                        {USER_TABLE_HEADERS.map((label) => (
+                                        {USER_TABLE_COLUMNS.map((col) => (
                                           <th
-                                            key={`drill-${label}`}
+                                            key={`drill-${col.key}`}
                                             className="px-3 py-2 text-left whitespace-nowrap"
                                           >
-                                            {label}
+                                            {col.label}
                                           </th>
                                         ))}
                                       </tr>

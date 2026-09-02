@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     "from_date",
     "to_date",
     "timezone",
+    "company_id",
     "company_name",
     "filter",
     "include_rounds",

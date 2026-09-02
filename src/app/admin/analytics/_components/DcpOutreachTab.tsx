@@ -73,6 +73,7 @@ type DcpSummary = {
 };
 
 type DcpOutreachTabProps = {
+  companyId?: string;
   onCompanyCountChange?: (count: number) => void;
 };
 
@@ -133,7 +134,8 @@ function dcpQueryParams(
   dateTo: string,
   companyName: string,
   filter: DcpFilter,
-  includeRounds: boolean
+  includeRounds: boolean,
+  companyId?: string
 ): URLSearchParams {
   const params = new URLSearchParams({
     timezone: DEFAULT_TIMEZONE,
@@ -143,6 +145,10 @@ function dcpQueryParams(
   if (dateFrom) params.set("from_date", dateFrom);
   if (dateTo) params.set("to_date", dateTo);
   if (companyName) params.set("company_name", companyName);
+  const parsedCompanyId = companyId ? Number.parseInt(companyId, 10) : NaN;
+  if (Number.isFinite(parsedCompanyId) && parsedCompanyId > 0) {
+    params.set("company_id", String(parsedCompanyId));
+  }
   return params;
 }
 
@@ -759,7 +765,10 @@ const DCP_FILTER_OPTIONS: Array<{ value: DcpFilter; label: string }> = [
   { value: "inactive", label: "Inactive" },
 ];
 
-export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
+export function DcpOutreachTab({
+  companyId = "",
+  onCompanyCountChange,
+}: DcpOutreachTabProps) {
   const [companies, setCompanies] = useState<DcpCompanyRow[]>([]);
   const [summary, setSummary] = useState<DcpSummary>({
     companies_total: 0,
@@ -799,7 +808,8 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
         dateTo,
         companyName,
         filter,
-        true
+        true,
+        companyId
       );
       const res = await fetch(`${DCP_ANALYTICS_URL}?${params.toString()}`, {
         method: "GET",
@@ -841,7 +851,7 @@ export function DcpOutreachTab({ onCompanyCountChange }: DcpOutreachTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, companyName, filter]);
+  }, [dateFrom, dateTo, companyName, filter, companyId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
