@@ -7,7 +7,7 @@ import McpGuestPageShell from "@/components/mcp-guest/McpGuestPageShell";
 import McpGuestRequestForm from "@/components/mcp-guest/McpGuestRequestForm";
 import { MCP_GUEST_OTP_LOGIN_PATH, MCP_GUEST_TRACKER_REQUEST_TITLE } from "@/lib/mcpGuest";
 
-function McpGuestRequestContent() {
+function McpTrackerRequestContent() {
   const searchParams = useSearchParams();
   const initialWorkEmail = searchParams.get("email")?.trim() ?? "";
 
@@ -28,7 +28,7 @@ function McpGuestRequestContent() {
   );
 }
 
-export default function McpTrackerRequestPage() {
+export default function McpTrackerPage() {
   return (
     <McpGuestPageShell>
       <div className="mb-8 text-center">
@@ -42,7 +42,7 @@ export default function McpTrackerRequestPage() {
       </div>
 
       <Suspense fallback={null}>
-        <McpGuestRequestContent />
+        <McpTrackerRequestContent />
       </Suspense>
     </McpGuestPageShell>
   );

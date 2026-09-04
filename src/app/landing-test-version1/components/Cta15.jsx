@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { LandingCalendlyInline } from "./LandingCalendlyInline";
 import { Reveal } from "./Reveal";
-import { Button } from "@relume_io/relume-ui";
-import { openCalendlyPopup } from "@/lib/calendlyWidget";
+
+const LANDING_CONTACT = "/landing-test-version1/contact-us";
 
 export function Cta15() {
   return (
@@ -21,27 +22,12 @@ export function Cta15() {
                 Start with a demo or get in touch with our team
               </p>
               <div className="mt-6 flex flex-wrap gap-4 md:mt-8">
-                <Button
-                  title="Book a call"
-                  data-calendly-trigger
-                  className="landing-btn-primary h-12 rounded-full px-8"
-                  onClick={() => {
-                    void openCalendlyPopup();
-                  }}
-                >
-                  Book a call
-                </Button>
-                <Button
-                  title="Contact Us"
-                  data-calendly-trigger
-                  variant="secondary-alt"
-                  className="landing-btn-secondary h-12 rounded-full px-8"
-                  onClick={() => {
-                    void openCalendlyPopup();
-                  }}
+                <Link
+                  href={LANDING_CONTACT}
+                  className="landing-btn-primary inline-flex h-12 items-center justify-center rounded-full px-8 text-sm font-semibold text-text-alternative"
                 >
                   Contact Us
-                </Button>
+                </Link>
               </div>
             </div>
           </div>
