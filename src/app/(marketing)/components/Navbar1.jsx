@@ -60,7 +60,13 @@ export function Navbar1() {
       <div className="size-full lg:flex lg:items-center lg:justify-between">
         <div className="flex min-h-16 items-center justify-between px-[5%] md:min-h-18 lg:min-h-full lg:px-0">
           <Link href="/">
-            <img src="/icons/logo.svg" alt="Asymmetrix" className="h-8 md:h-9" />
+            <img
+              src="/icons/logo.svg"
+              alt="Asymmetrix"
+              width={36}
+              height={36}
+              className="h-8 w-8 md:h-9 md:w-9"
+            />
           </Link>
           <button
             type="button"
