@@ -1,0 +1,836 @@
+/* Only scoped to this route via the layout's import, so a plain html
+   selector here is safe - it won't leak into the rest of the app. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing-rebrand) {
+    scroll-behavior: smooth;
+  }
+}
+
+.landing-rebrand .landing-kanban-scroll {
+  scrollbar-width: none;
+}
+
+.landing-rebrand .landing-kanban-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.landing-rebrand {
+  --asymmetrix-blue: hsl(228, 85%, 63%);
+  --asymmetrix-blue-dark: hsl(228, 85%, 55%);
+  --asymmetrix-blue-deep: hsl(228, 85%, 45%);
+  --asymmetrix-blue-light: hsl(228, 85%, 96%);
+  --asymmetrix-blue-muted: hsl(228, 30%, 94%);
+  --asymmetrix-navy: #ffffff;
+  --asymmetrix-near-black: #f7f8fc;
+  --asymmetrix-text-primary: #000b29;
+  --asymmetrix-text-secondary: #5a6272;
+  --asymmetrix-divider: rgba(0, 11, 41, 0.08);
+  --gradient-hero: linear-gradient(
+    160deg,
+    #ffffff 0%,
+    #f5f8ff 45%,
+    hsl(228, 85%, 96%) 100%
+  );
+
+  background-color: #ffffff;
+  color: var(--asymmetrix-text-primary);
+}
+
+.landing-rebrand ::selection {
+  background-color: hsla(228, 85%, 63%, 0.25);
+  color: var(--asymmetrix-text-primary);
+}
+
+/* Relume utility overrides for light theme */
+.landing-rebrand .text-text-alternative {
+  color: var(--asymmetrix-text-primary);
+}
+
+.landing-rebrand .bg-background-alternative {
+  background-color: var(--asymmetrix-blue);
+  color: #ffffff;
+}
+
+.landing-rebrand .hover\:bg-background-alternative:hover {
+  background-color: var(--asymmetrix-blue-dark);
+}
+
+.landing-rebrand .border-border-primary {
+  border-color: var(--asymmetrix-blue);
+}
+
+.landing-rebrand .ring-border-primary,
+.landing-rebrand .focus\:ring-border-primary:focus,
+.landing-rebrand .focus-visible\:ring-border-primary:focus-visible {
+  --tw-ring-color: var(--asymmetrix-blue);
+}
+
+.landing-rebrand .bg-background-secondary {
+  background-color: var(--asymmetrix-blue-light);
+  color: var(--asymmetrix-blue-deep);
+}
+
+.landing-rebrand .landing-hero-bg {
+  background: var(--gradient-hero);
+}
+
+.landing-rebrand .landing-navy-bg {
+  background-color: var(--asymmetrix-navy);
+}
+
+.landing-rebrand .landing-near-black-bg {
+  background-color: var(--asymmetrix-near-black);
+}
+
+.landing-rebrand .landing-divider {
+  background-color: var(--asymmetrix-divider);
+}
+
+.landing-rebrand .landing-text-secondary {
+  color: var(--asymmetrix-text-secondary);
+}
+
+.landing-rebrand .landing-text-muted {
+  color: rgba(0, 11, 41, 0.45);
+}
+
+/* Blue glow border around the "Book a demo" CTA container */
+.landing-rebrand .landing-glow-border {
+  position: relative;
+  border-radius: 1.5rem;
+  overflow: hidden;
+}
+
+.landing-rebrand .landing-glow-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  padding: 1.5px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    hsl(228, 90%, 68%) 0%,
+    hsl(228, 85%, 55%) 50%,
+    hsl(218, 90%, 58%) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  box-shadow:
+    0 0 40px 4px hsla(228, 85%, 63%, 0.2),
+    0 0 80px 10px hsla(228, 85%, 63%, 0.1);
+}
+
+.landing-rebrand .landing-trust-pill {
+  border: 1px solid hsla(228, 85%, 63%, 0.25);
+  background-color: var(--asymmetrix-blue-light);
+  color: var(--asymmetrix-blue-deep);
+}
+
+.landing-rebrand .landing-eyebrow-chip {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid hsla(228, 85%, 63%, 0.25);
+  background-color: var(--asymmetrix-blue-light);
+  color: var(--asymmetrix-blue-deep);
+}
+
+.landing-rebrand .landing-gradient-text {
+  background-image: linear-gradient(
+    120deg,
+    hsl(228, 85%, 45%) 0%,
+    hsl(228, 85%, 63%) 50%,
+    hsl(228, 85%, 55%) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.landing-rebrand .landing-shine-overlay {
+  background-image: linear-gradient(
+    100deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.35) 48%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0.35) 52%,
+    transparent 58%
+  );
+  background-size: 260% 100%;
+  background-repeat: no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.3));
+  animation: landing-shine-sweep 3.2s ease-in-out infinite alternate;
+}
+
+@keyframes landing-shine-sweep {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-shine-overlay {
+    animation: none;
+    background-image: none;
+  }
+}
+
+.landing-rebrand .landing-tab-pill-track {
+  position: relative;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 14px;
+  background-color: var(--asymmetrix-blue-muted);
+  border: 1px solid var(--asymmetrix-divider);
+}
+
+.landing-rebrand .landing-tab-scroll-fade {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 5vw,
+    black calc(100% - 28px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 5vw,
+    black calc(100% - 28px),
+    transparent 100%
+  );
+}
+
+@media (min-width: 640px) {
+  .landing-rebrand .landing-tab-scroll-fade {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+.landing-rebrand .landing-tab-scroll-wrap,
+.landing-rebrand .no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.landing-rebrand .landing-tab-scroll-wrap::-webkit-scrollbar,
+.landing-rebrand .no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.landing-rebrand .landing-tab-pill {
+  position: relative;
+  z-index: 1;
+  border-radius: 10px;
+  color: var(--asymmetrix-text-secondary);
+  background-color: transparent;
+  transition: color 0.2s ease;
+}
+
+.landing-rebrand .landing-tab-pill.is-active {
+  color: var(--asymmetrix-text-primary);
+}
+
+.landing-rebrand .landing-tab-pill-highlight {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 10px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 11, 41, 0.08);
+}
+
+.landing-rebrand .landing-btn-primary,
+.landing-rebrand .landing-btn-primary.text-text-alternative {
+  color: #ffffff;
+}
+
+.landing-rebrand .landing-btn-secondary.text-text-alternative {
+  color: var(--asymmetrix-blue-deep);
+}
+
+.landing-rebrand .landing-btn-primary {
+  background-image: linear-gradient(
+    135deg,
+    hsl(228, 85%, 63%) 0%,
+    hsl(228, 85%, 55%) 55%,
+    hsl(228, 85%, 50%) 100%
+  );
+  border: 1px solid hsla(228, 85%, 45%, 0.3);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 12px 28px -8px hsla(228, 85%, 55%, 0.45),
+    0 4px 14px hsla(228, 85%, 55%, 0.3);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+}
+
+.landing-rebrand .landing-btn-primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 16px 34px -8px hsla(228, 85%, 55%, 0.55),
+    0 6px 18px hsla(228, 85%, 55%, 0.35);
+}
+
+.landing-rebrand .landing-navbar {
+  overflow: visible;
+  border-color: var(--asymmetrix-divider) !important;
+}
+
+.landing-rebrand .landing-btn-primary-nav {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 4px 12px -2px hsla(228, 85%, 55%, 0.4),
+    0 2px 6px hsla(228, 85%, 55%, 0.25);
+}
+
+.landing-rebrand .landing-btn-primary-nav:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 6px 16px -2px hsla(228, 85%, 55%, 0.5),
+    0 3px 8px hsla(228, 85%, 55%, 0.3);
+}
+
+.landing-rebrand .landing-btn-login-nav {
+  border: 1px solid hsla(228, 85%, 63%, 0.35);
+  background-color: var(--asymmetrix-blue-light);
+  color: var(--asymmetrix-blue-deep);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 4px 12px -2px hsla(228, 85%, 63%, 0.4),
+    0 2px 6px hsla(228, 85%, 63%, 0.25);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.landing-rebrand .landing-btn-login-nav:hover {
+  transform: translateY(-1px);
+  background-color: hsl(228, 85%, 93%);
+  border-color: hsla(228, 85%, 63%, 0.5);
+  color: var(--asymmetrix-blue-deep);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 6px 16px -2px hsla(228, 85%, 63%, 0.45),
+    0 3px 8px hsla(228, 85%, 63%, 0.3);
+}
+
+.landing-rebrand .landing-btn-secondary {
+  border-color: hsla(228, 85%, 63%, 0.35);
+  background-color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  color: var(--asymmetrix-blue-deep);
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.landing-rebrand .landing-btn-secondary:hover {
+  transform: translateY(-1px);
+  background-color: var(--asymmetrix-blue-light);
+  border-color: hsla(228, 85%, 63%, 0.5);
+}
+
+.landing-rebrand .landing-panel {
+  border: 1px solid var(--asymmetrix-divider);
+  background-color: #ffffff;
+  box-shadow: 0 4px 24px rgba(0, 11, 41, 0.06);
+}
+
+.landing-rebrand .landing-cookie-banner {
+  box-shadow:
+    0 12px 32px -8px rgba(0, 11, 41, 0.18),
+    0 4px 16px rgba(0, 11, 41, 0.08);
+}
+
+.landing-rebrand .landing-tab-track-list {
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 14px;
+  background-color: var(--asymmetrix-blue-muted);
+  border: 1px solid var(--asymmetrix-divider);
+  width: fit-content;
+}
+
+.landing-rebrand .landing-tab-scroll-wrap {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 5vw,
+    black calc(100% - 28px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 5vw,
+    black calc(100% - 28px),
+    transparent 100%
+  );
+}
+
+@media (min-width: 768px) {
+  .landing-rebrand .landing-tab-scroll-wrap {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+/* Small "swipe" hint that fades out once the user has scrolled the tab
+   row at least once — pure CSS, no JS needed. */
+.landing-rebrand .landing-tab-scroll-hint {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--asymmetrix-text-secondary);
+  animation: landing-tab-scroll-hint-fade 4s ease forwards;
+}
+
+@keyframes landing-tab-scroll-hint-fade {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .landing-rebrand .landing-tab-scroll-hint {
+    display: none;
+  }
+}
+
+.landing-rebrand .landing-tab-trigger {
+  color: var(--asymmetrix-text-secondary);
+  background-color: transparent;
+  border-color: transparent !important;
+  border-radius: 10px;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+  font-weight: 500;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.landing-rebrand .landing-tab-trigger[data-state="active"] {
+  color: var(--asymmetrix-text-primary);
+  background-color: #ffffff;
+  border-color: transparent !important;
+  box-shadow: 0 1px 4px rgba(0, 11, 41, 0.08);
+}
+
+.landing-rebrand .landing-floating-cta {
+  animation: landing-floating-cta-pulse 3s ease-in-out infinite;
+}
+
+@keyframes landing-floating-cta-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 12px 28px -8px hsla(228, 85%, 55%, 0.45),
+      0 4px 14px hsla(228, 85%, 55%, 0.3);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 12px 34px -6px hsla(228, 85%, 55%, 0.6),
+      0 4px 20px hsla(228, 85%, 55%, 0.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-floating-cta {
+    animation: none;
+  }
+}
+
+.landing-rebrand .landing-node-glow {
+  animation: landing-node-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes landing-node-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-node-glow {
+    animation: none;
+  }
+}
+
+.landing-rebrand .landing-logo-pulse-ring {
+  animation: landing-logo-pulse-ring 2.4s ease-out infinite;
+}
+
+.landing-rebrand .landing-logo-pulse-ring-delay {
+  animation: landing-logo-pulse-ring 2.4s ease-out infinite;
+  animation-delay: 1.2s;
+}
+
+@keyframes landing-logo-pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.12;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-logo-pulse-ring,
+  .landing-rebrand .landing-logo-pulse-ring-delay {
+    animation: none;
+  }
+}
+
+.landing-rebrand .landing-satellite-pulse {
+  animation: landing-satellite-pulse 3.4s ease-in-out infinite;
+}
+
+@keyframes landing-satellite-pulse {
+  0%,
+  100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.22;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-satellite-pulse {
+    animation: none;
+  }
+}
+
+.landing-rebrand .landing-radar-sweep {
+  animation: landing-radar-sweep 7s linear infinite;
+  transform-origin: 0px 0px;
+}
+
+@keyframes landing-radar-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.landing-rebrand .landing-radar-blip-ping {
+  animation: landing-radar-blip-ping 7s ease-in-out infinite;
+}
+
+@keyframes landing-radar-blip-ping {
+  0%,
+  90%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  2% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  10% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+.landing-rebrand .landing-radar-card-reveal {
+  opacity: 0;
+  animation: landing-radar-card-reveal 7s ease-in-out infinite;
+}
+
+@keyframes landing-radar-card-reveal {
+  0%,
+  88%,
+  100% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.94);
+  }
+  3%,
+  22% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    opacity: 0;
+    transform: translateY(2px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-radar-sweep,
+  .landing-rebrand .landing-radar-blip-ping,
+  .landing-rebrand .landing-radar-card-reveal {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+
+.landing-rebrand .landing-mockup {
+  border: 1px solid var(--asymmetrix-divider);
+  background-color: var(--asymmetrix-near-black);
+}
+
+.landing-rebrand .landing-mockup-donut-inner {
+  background-color: #ffffff;
+}
+
+.landing-rebrand .landing-input {
+  border-color: var(--asymmetrix-divider);
+  background-color: #ffffff;
+  color: var(--asymmetrix-text-primary);
+}
+
+.landing-rebrand .landing-input::placeholder {
+  color: var(--asymmetrix-text-secondary);
+}
+
+.landing-rebrand .landing-video-frame {
+  border: 1px solid var(--asymmetrix-divider);
+  background-color: var(--asymmetrix-near-black);
+}
+
+.landing-rebrand .landing-blog-thumb {
+  border-bottom: 1px solid var(--asymmetrix-divider);
+  background-color: #000b29;
+}
+
+.landing-rebrand .landing-blog-thumb-wide {
+  aspect-ratio: 2 / 1;
+}
+
+.landing-rebrand .landing-blog-card .landing-blog-thumb-wide {
+  aspect-ratio: 2 / 1;
+}
+
+.landing-rebrand .landing-blog-thumb-wide .landing-blog-thumb-image {
+  object-fit: cover;
+  object-position: center;
+}
+
+.landing-rebrand .landing-blog-thumb-square {
+  aspect-ratio: 2 / 1;
+}
+
+.landing-rebrand .landing-blog-thumb-square .landing-blog-thumb-image {
+  object-fit: cover;
+  object-position: center;
+}
+
+.landing-rebrand .landing-blog-thumb-image {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.landing-rebrand .landing-blog-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  min-height: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.landing-rebrand .landing-blog-card-strapline {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  min-height: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.landing-rebrand .landing-blog-card-footer {
+  min-height: 1.75rem;
+}
+
+.landing-rebrand .landing-market-grid {
+  grid-auto-rows: 1fr;
+}
+
+.landing-rebrand .landing-market-card {
+  border-color: rgba(0, 11, 41, 0.08);
+  background-color: #fafbff;
+  box-shadow: 0 1px 2px rgba(0, 11, 41, 0.04);
+  transition:
+    border-color 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-rebrand .landing-market-card.is-focused {
+  border-color: rgba(83, 111, 240, 0.5);
+  background-color: #ffffff;
+  box-shadow:
+    0 14px 36px rgba(83, 111, 240, 0.16),
+    0 0 0 1px rgba(83, 111, 240, 0.1);
+}
+
+.landing-rebrand .landing-market-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  min-height: 0;
+  overflow-wrap: anywhere;
+  color: #1a2340;
+  transition: color 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-rebrand .landing-market-card.is-focused .landing-market-card-title {
+  color: #000b29;
+}
+
+.landing-rebrand .landing-market-card-meta {
+  color: #8791a8;
+  transition: color 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-rebrand .landing-market-card.is-focused .landing-market-card-meta {
+  color: #5a6272;
+}
+
+.landing-rebrand .landing-market-card:focus-visible {
+  box-shadow:
+    0 14px 36px rgba(83, 111, 240, 0.16),
+    0 0 0 3px rgba(83, 111, 240, 0.28);
+}
+
+.landing-rebrand .landing-navbar-icon {
+  background-color: var(--asymmetrix-text-primary);
+}
+
+/* Client logo marquee strip */
+.landing-rebrand .landing-logo-strip-track {
+  animation: landing-logo-strip-scroll 45s linear infinite;
+}
+
+@keyframes landing-logo-strip-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.landing-rebrand .landing-logo-strip-image {
+  height: 2rem;
+  width: auto;
+  max-width: 9rem;
+  object-fit: contain;
+}
+
+@media (min-width: 768px) {
+  .landing-rebrand .landing-logo-strip-image {
+    height: 2.5rem;
+    max-width: 11rem;
+  }
+}
+
+.landing-rebrand .landing-logo-strip-image-lg {
+  height: 3rem;
+  max-width: 11rem;
+}
+
+@media (min-width: 768px) {
+  .landing-rebrand .landing-logo-strip-image-lg {
+    height: 3.75rem;
+    max-width: 13rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-logo-strip-track {
+    animation: none;
+  }
+}
+
+/* Press releases */
+.landing-rebrand .landing-press-card {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.landing-rebrand .landing-press-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 11, 41, 0.1);
+}
+
+.landing-rebrand .landing-press-card-accent {
+  background: linear-gradient(
+    180deg,
+    var(--asymmetrix-blue-light) 0%,
+    #ffffff 100%
+  );
+}
+
+.landing-rebrand .landing-press-quote {
+  border-color: var(--asymmetrix-blue);
+  background-color: var(--asymmetrix-blue-light);
+  border-radius: 0 0.75rem 0.75rem 0;
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+
+.landing-rebrand .landing-press-contact {
+  border: 1px solid hsla(228, 85%, 63%, 0.2);
+  background-color: var(--asymmetrix-blue-light);
+}
+
