@@ -1,12 +1,43 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /login
+Disallow: /auth
+Disallow: /api
+Disallow: /contributor-crm
+Disallow: /mcp-guest
+Disallow: /access-denied
+Disallow: /get-access
+Disallow: /forgot-password
+Disallow: /home-user
 
-# Block access to admin or private areas (add as needed)
-# Disallow: /admin
-# Disallow: /private
+# AI answer-engine / assistant crawlers — explicitly welcomed so Asymmetrix
+# can be referenced and cited in AI-generated answers (ChatGPT, Claude,
+# Perplexity, Google AI Overviews, Apple Intelligence).
+User-agent: GPTBot
+User-agent: ChatGPT-User
+User-agent: OAI-SearchBot
+User-agent: ClaudeBot
+User-agent: Claude-User
+User-agent: anthropic-ai
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /admin
+Disallow: /login
+Disallow: /auth
+Disallow: /api
+Disallow: /contributor-crm
+Disallow: /mcp-guest
+Disallow: /access-denied
+Disallow: /get-access
+Disallow: /forgot-password
+Disallow: /home-user
 
 # Sitemap location
-Sitemap: https://asymmetrix.com/sitemap.xml
+Sitemap: https://www.asymmetrixintelligence.com/sitemap.xml
 
 # Crawl delay (optional)
 Crawl-delay: 1

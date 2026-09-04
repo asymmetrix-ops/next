@@ -1,56 +1,74 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://asymmetrix.com</loc>
-    <lastmod>2025-01-27</lastmod>
+    <loc>https://www.asymmetrixintelligence.com</loc>
+    <lastmod>2026-09-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://asymmetrix.com/about-us</loc>
-    <lastmod>2025-01-27</lastmod>
+    <loc>https://www.asymmetrixintelligence.com/about-us</loc>
+    <lastmod>2026-09-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://asymmetrix.com/advisors</loc>
-    <lastmod>2025-01-27</lastmod>
+    <loc>https://www.asymmetrixintelligence.com/contact-us</loc>
+    <lastmod>2026-09-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.asymmetrixintelligence.com/press-releases</loc>
+    <lastmod>2026-09-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.asymmetrixintelligence.com/privacy-policy</loc>
+    <lastmod>2026-09-04</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://www.asymmetrixintelligence.com/advisors</loc>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://asymmetrix.com/investors</loc>
-    <lastmod>2025-01-27</lastmod>
+    <loc>https://www.asymmetrixintelligence.com/investors</loc>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://asymmetrix.com/companies</loc>
-    <lastmod>2025-01-27</lastmod>
+    <loc>https://www.asymmetrixintelligence.com/companies</loc>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://asymmetrix.com/individuals</loc>
-    <lastmod>2025-01-27</lastmod>
+    <loc>https://www.asymmetrixintelligence.com/individuals</loc>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://asymmetrix.com/sectors</loc>
-    <lastmod>2025-01-27</lastmod>
+    <loc>https://www.asymmetrixintelligence.com/sectors</loc>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://asymmetrix.com/corporate-events</loc>
-    <lastmod>2025-01-27</lastmod>
+    <loc>https://www.asymmetrixintelligence.com/corporate-events</loc>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://asymmetrix.com/insights-analysis</loc>
-    <lastmod>2025-01-27</lastmod>
+    <loc>https://www.asymmetrixintelligence.com/insights-analysis</loc>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
