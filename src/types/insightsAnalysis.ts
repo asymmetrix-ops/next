@@ -79,6 +79,9 @@ export interface ContentArticle {
   series?: ArticleSeries;
   /** News byline — plain string, list of names, or nested arrays from API */
   byline?: string | string[] | Array<string | string[]> | null;
+  /** News sub-type label (e.g. Company update, Funding) */
+  News_Sub_Type?: string;
+  news_sub_type?: string;
   right_to_reply?: boolean;
   corrections?: ContentCorrection[] | null;
   is_corrected?: boolean;

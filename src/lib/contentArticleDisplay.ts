@@ -39,6 +39,23 @@ export function isNewsArticle(article: ContentTypeCarrier): boolean {
   return getEffectiveContentType(article).toLowerCase() === "news";
 }
 
+type NewsSubTypeCarrier = {
+  News_Sub_Type?: string;
+  news_sub_type?: string;
+  NewsSubType?: string;
+  newsSubType?: string;
+};
+
+export function getArticleNewsSubType(article: NewsSubTypeCarrier): string {
+  return (
+    article.News_Sub_Type ||
+    article.news_sub_type ||
+    article.NewsSubType ||
+    article.newsSubType ||
+    ""
+  ).trim();
+}
+
 export function parseCorrections(raw: unknown): ContentCorrection[] {
   if (!Array.isArray(raw)) return [];
 

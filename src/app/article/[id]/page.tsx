@@ -22,8 +22,13 @@ import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
 import type { ArticleSeries, ContentArticle } from "@/types/insightsAnalysis";
-import { getArticleByline, isNewsArticle } from "@/lib/contentArticleDisplay";
+import {
+  getArticleByline,
+  getArticleNewsSubType,
+  isNewsArticle,
+} from "@/lib/contentArticleDisplay";
 import { getContentTypeBadgeStyle } from "@/lib/contentTypeBadge";
+import { getNewsSubTypeBadgeStyle } from "@/lib/newsSubTypeBadge";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
 import {
   fetchCompanyFinancialMetricsCard,
@@ -51,6 +56,8 @@ interface ArticleDetail {
   summary?: string;
   Content_Type?: string;
   content_type?: string;
+  News_Sub_Type?: string;
+  news_sub_type?: string;
   // Some API variants may nest under Content
   Content?: {
     Content_type?: string;
@@ -1923,6 +1930,7 @@ const ArticleDetailPage = () => {
   );
   const hqCountryIso2 = getInsightHqCountryIso2(article);
   const isNews = isNewsArticle(article as unknown as ContentArticle);
+  const newsSubType = isNews ? getArticleNewsSubType(article) : "";
   const byline = getArticleByline(article);
 
   return (
@@ -1971,6 +1979,11 @@ const ArticleDetailPage = () => {
               return ct ? (
                 <div style={styles.contentTypeRow}>
                   <span style={getContentTypeBadgeStyle(ct)}>{ct}</span>
+                  {newsSubType ? (
+                    <span style={getNewsSubTypeBadgeStyle(newsSubType)}>
+                      {newsSubType}
+                    </span>
+                  ) : null}
                   {article.Transaction_status && (
                     <span style={styles.transactionStatusBadge}>
                       {article.Transaction_status}
