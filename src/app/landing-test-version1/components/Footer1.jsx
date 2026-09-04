@@ -126,8 +126,13 @@ export function Footer1() {
         <div className="landing-text-secondary flex flex-col-reverse items-start justify-between pb-4 pt-6 text-sm md:flex-row md:items-center md:pb-0 md:pt-8">
           <p className="mt-6 md:mt-0">© 2026 Asymmetrix. All rights reserved.</p>
           <ul className="grid grid-flow-row grid-cols-[max-content] justify-center gap-y-4 text-sm md:grid-flow-col md:gap-x-6 md:gap-y-0">
-            <li className="underline hover:text-text-alternative">
-              <a href="https://www.asymmetrixintelligence.com/privacy">Privacy policy</a>
+            <li className="underline">
+              <a
+                href={`${LANDING_HOME}/privacy-policy`}
+                className="transition-colors hover:text-[var(--asymmetrix-blue)]"
+              >
+                Privacy policy
+              </a>
             </li>
           </ul>
         </div>
