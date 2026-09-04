@@ -94,10 +94,10 @@ export function Coverage() {
           className="flex flex-col justify-center"
         >
           <div
-            className="landing-tab-scroll-wrap -mx-[5vw] flex justify-start overflow-x-auto px-[5vw] pb-1 md:mx-0 md:justify-center md:overflow-visible md:px-0 md:pb-0"
+            className="landing-tab-scroll-wrap -mx-[5vw] mb-12 flex justify-start overflow-x-auto px-[5vw] pb-1 md:mb-16 md:mx-0 md:justify-center md:overflow-visible md:px-0 md:pb-0"
             style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
           >
-            <TabsList className="landing-tab-track-list flex w-max shrink-0 items-center justify-start md:w-fit md:justify-center">
+            <TabsList className="landing-tab-track-list flex w-max shrink-0 items-center justify-start gap-2.5 md:w-fit md:justify-center">
               {TABS.map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -109,7 +109,7 @@ export function Coverage() {
               ))}
             </TabsList>
           </div>
-          <p className="landing-tab-scroll-hint mb-12">← swipe to see all features →</p>
+          <p className="landing-tab-scroll-hint">← swipe to see all features →</p>
           {TABS.map((tab) => (
             <TabsContent
               key={tab.value}
