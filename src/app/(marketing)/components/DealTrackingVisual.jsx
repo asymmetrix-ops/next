@@ -184,6 +184,9 @@ export function DealTrackingVisual() {
           );
         })}
       </div>
+      <p className="landing-kanban-scroll-hint" aria-hidden="true">
+        Scroll to see full pipeline (through exclusivity &amp; close) →
+      </p>
     </div>
   );
 }

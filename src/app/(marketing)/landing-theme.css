@@ -8,10 +8,29 @@
 
 .landing-rebrand .landing-kanban-scroll {
   scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    black calc(100% - 28px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    black calc(100% - 28px),
+    transparent 100%
+  );
 }
 
 .landing-rebrand .landing-kanban-scroll::-webkit-scrollbar {
   display: none;
+}
+
+.landing-rebrand .landing-kanban-scroll-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--asymmetrix-text-secondary);
 }
 
 .landing-rebrand {
