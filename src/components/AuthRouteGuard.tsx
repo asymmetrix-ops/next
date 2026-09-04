@@ -12,6 +12,9 @@ import { isContributorCrmPath } from "@/lib/userStatus";
 const PUBLIC_PATHS = [
   "/",
   "/about-us",
+  "/contact-us",
+  "/press-releases",
+  "/privacy-policy",
   "/login",
   "/trial-expired",
   "/forgot-password",
