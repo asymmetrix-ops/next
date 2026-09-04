@@ -117,18 +117,32 @@ export async function POST(request: Request) {
       cache: "no-store",
     });
 
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => "");
+    const resultBody = await response.json().catch(() => null);
+
+    // Postmark can return HTTP 200 with a non-zero ErrorCode in the body
+    // (e.g. inactive recipient, unverified sender signature) — the request
+    // "succeeded" but no email was actually queued, so check both.
+    if (!response.ok || !resultBody || resultBody.ErrorCode !== 0) {
       console.error(
         "Landing contact submission failed: Postmark error",
         response.status,
-        errorBody
+        JSON.stringify(resultBody)
       );
       return NextResponse.json(
         { error: "Unable to send your message. Please try again." },
         { status: 500 }
       );
     }
+
+    console.log(
+      "Landing contact submission sent via Postmark:",
+      JSON.stringify({
+        MessageID: resultBody.MessageID,
+        To: resultBody.To,
+        SubmittedAt: resultBody.SubmittedAt,
+        from: email,
+      })
+    );
 
     return NextResponse.json({ ok: true });
   } catch (error) {
