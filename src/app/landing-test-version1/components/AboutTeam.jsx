@@ -36,6 +36,14 @@ const TEAM = [
     linkedin: "https://www.linkedin.com/in/alexanderboden/",
   },
   {
+    name: "Honor Crean",
+    title: "Founders' Associate",
+    blurb: "Supporting the founders across operations and growth",
+    image: "/images/honor.jpg",
+    imageClassName: "object-[center_30%]",
+    linkedin: "https://www.linkedin.com/in/honor-crean-944437189/",
+  },
+  {
     name: "Dawnn Dinsey",
     title: "Research Analyst",
     blurb: "Previously at Kaleido Intelligence",
