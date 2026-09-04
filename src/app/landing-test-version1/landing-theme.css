@@ -360,6 +360,12 @@
   box-shadow: 0 4px 24px rgba(0, 11, 41, 0.06);
 }
 
+.landing-rebrand .landing-cookie-banner {
+  box-shadow:
+    0 12px 32px -8px rgba(0, 11, 41, 0.18),
+    0 4px 16px rgba(0, 11, 41, 0.08);
+}
+
 .landing-rebrand .landing-tab-track-list {
   gap: 0.25rem;
   padding: 0.25rem;
