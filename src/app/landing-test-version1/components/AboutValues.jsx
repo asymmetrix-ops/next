@@ -32,18 +32,28 @@ export function AboutValues() {
           </ul>
         </Reveal>
 
-        <Reveal delay={0.1} className="flex justify-center md:justify-end">
+        <Reveal delay={0.1} className="flex w-full items-center justify-center">
           <div
-            className="relative flex size-56 items-center justify-center rounded-full md:size-72"
+            className="relative flex size-64 items-center justify-center rounded-full md:size-96"
             style={{
               background: "linear-gradient(160deg, rgba(83,111,240,0.12) 0%, rgba(83,111,240,0) 70%)",
               border: "1px solid rgba(255,255,255,0.08)",
             }}
           >
+            <span
+              className="landing-logo-pulse-ring pointer-events-none absolute inset-0 rounded-full"
+              style={{ border: "1.5px solid rgba(83,111,240,0.55)" }}
+              aria-hidden="true"
+            />
+            <span
+              className="landing-logo-pulse-ring-delay pointer-events-none absolute inset-0 rounded-full"
+              style={{ border: "1.5px solid rgba(83,111,240,0.55)" }}
+              aria-hidden="true"
+            />
             <img
               src="/icons/logo.svg"
               alt="Asymmetrix"
-              className="size-28 md:size-36"
+              className="relative z-10 size-40 md:size-56"
             />
           </div>
         </Reveal>

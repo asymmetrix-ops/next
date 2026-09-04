@@ -195,6 +195,30 @@
   border: 1px solid var(--asymmetrix-divider);
 }
 
+.landing-rebrand .landing-tab-scroll-fade {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 5vw,
+    black calc(100% - 28px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 5vw,
+    black calc(100% - 28px),
+    transparent 100%
+  );
+}
+
+@media (min-width: 640px) {
+  .landing-rebrand .landing-tab-scroll-fade {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
 .landing-rebrand .landing-tab-pill {
   position: relative;
   z-index: 1;
@@ -329,6 +353,54 @@
   background-color: var(--asymmetrix-blue-muted);
   border: 1px solid var(--asymmetrix-divider);
   width: fit-content;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 5vw,
+    black calc(100% - 28px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 5vw,
+    black calc(100% - 28px),
+    transparent 100%
+  );
+}
+
+@media (min-width: 768px) {
+  .landing-rebrand .landing-tab-track-list {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+/* Small "swipe" hint that fades out once the user has scrolled the tab
+   row at least once — pure CSS, no JS needed. */
+.landing-rebrand .landing-tab-scroll-hint {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--asymmetrix-text-secondary);
+  animation: landing-tab-scroll-hint-fade 4s ease forwards;
+}
+
+@keyframes landing-tab-scroll-hint-fade {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .landing-rebrand .landing-tab-scroll-hint {
+    display: none;
+  }
 }
 
 .landing-rebrand .landing-tab-trigger {
@@ -397,6 +469,36 @@
 
 @media (prefers-reduced-motion: reduce) {
   .landing-rebrand .landing-node-glow {
+    animation: none;
+  }
+}
+
+.landing-rebrand .landing-logo-pulse-ring {
+  animation: landing-logo-pulse-ring 2.4s ease-out infinite;
+}
+
+.landing-rebrand .landing-logo-pulse-ring-delay {
+  animation: landing-logo-pulse-ring 2.4s ease-out infinite;
+  animation-delay: 1.2s;
+}
+
+@keyframes landing-logo-pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.12;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rebrand .landing-logo-pulse-ring,
+  .landing-rebrand .landing-logo-pulse-ring-delay {
     animation: none;
   }
 }

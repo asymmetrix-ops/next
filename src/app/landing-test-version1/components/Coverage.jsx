@@ -15,7 +15,6 @@ import { DealTrackingVisual } from "./DealTrackingVisual";
 import { FinancialBenchmarkVisual } from "./FinancialBenchmarkVisual";
 import { InvestorPortfolioVisual } from "./InvestorPortfolioVisual";
 import { Reveal } from "./Reveal";
-import { SectorTaxonomyVisual } from "./SectorTaxonomyVisual";
 
 const TABS = [
   {
@@ -68,16 +67,6 @@ const TABS = [
       "Follow the PE firms, venture investors and M&A advisors active in the space — their portfolios, mandates and deal history — so you always know who is transacting and who is advising them.",
     stat: { value: "3,636", caption: "Investors covered" },
   },
-  {
-    value: "sector-intelligence",
-    trigger: "Sector Intelligence",
-    label: "Classify",
-    heading: "Sector Intelligence",
-    description:
-      "Every company sits within a single, consistent taxonomy spanning data, research and content sub-sectors — benchmark peers, track sector-level M&A activity, and see how the boundaries are shifting as business models converge.",
-    stat: { value: "40+", caption: "Sub-sectors mapped" },
-    bars: [55, 45, 70, 50, 35],
-  },
 ];
 
 export function Coverage() {
@@ -101,10 +90,10 @@ export function Coverage() {
           </p>
         </Reveal>
         <Tabs
-          defaultValue="company-profiles"
+          defaultValue="ai-defensibility"
           className="flex flex-col justify-center"
         >
-          <TabsList className="landing-tab-track-list no-scrollbar mb-12 ml-[-5vw] flex w-screen items-center justify-start overflow-scroll pl-[5vw] md:mb-16 md:ml-auto md:mr-auto md:w-fit md:justify-center md:overflow-hidden md:pl-0">
+          <TabsList className="landing-tab-track-list no-scrollbar ml-[-5vw] flex w-screen items-center justify-start overflow-scroll pl-[5vw] md:mb-16 md:ml-auto md:mr-auto md:w-fit md:justify-center md:overflow-hidden md:pl-0">
             {TABS.map((tab) => (
               <TabsTrigger
                 key={tab.value}
@@ -115,6 +104,7 @@ export function Coverage() {
               </TabsTrigger>
             ))}
           </TabsList>
+          <p className="landing-tab-scroll-hint mb-12">← swipe to see all features →</p>
           {TABS.map((tab) => (
             <TabsContent
               key={tab.value}
@@ -139,8 +129,6 @@ export function Coverage() {
                   <DealRadarVisual />
                 ) : tab.value === "deal-tracking" ? (
                   <DealTrackingVisual />
-                ) : tab.value === "sector-intelligence" ? (
-                  <SectorTaxonomyVisual />
                 ) : tab.value === "financial-intelligence" ? (
                   <FinancialBenchmarkVisual />
                 ) : tab.value === "ai-defensibility" ? (

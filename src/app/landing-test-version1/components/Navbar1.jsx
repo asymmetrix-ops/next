@@ -130,6 +130,13 @@ export function Navbar1() {
             About Us
           </Link>
           <Link
+            href="/mcp-tracker"
+            className={NAV_LINK_CLASS}
+            onClick={closeMobileMenu}
+          >
+            MCP Tracker
+          </Link>
+          <Link
             href={`${LANDING_HOME}/press-releases`}
             className={NAV_LINK_CLASS}
             onClick={closeMobileMenu}

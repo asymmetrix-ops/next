@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { BiEnvelope, BiPhone, BiMap } from "react-icons/bi";
+import { BiEnvelope, BiMap } from "react-icons/bi";
 import { LANDING_CONTACT_EMAIL } from "@/lib/landingContact";
 import { Reveal } from "./Reveal";
 
@@ -18,7 +18,6 @@ const initialState = {
   firstName: "",
   lastName: "",
   email: "",
-  phone: "",
   about: "",
   message: "",
 };
@@ -84,10 +83,6 @@ export function ContactFormSection() {
                 </a>
               </li>
               <li className="flex items-center gap-3">
-                <BiPhone className="size-5 shrink-0 text-background-alternative" />
-                <span>+44 20 3745 8420</span>
-              </li>
-              <li className="flex items-center gap-3">
                 <BiMap className="size-5 shrink-0 text-background-alternative" />
                 <span>London, United Kingdom</span>
               </li>
@@ -130,7 +125,7 @@ export function ContactFormSection() {
                     className="landing-input h-12 rounded-lg border px-4 text-sm"
                   />
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 sm:col-span-2">
                   <label htmlFor="email" className="text-sm font-medium">
                     Email
                   </label>
@@ -140,18 +135,6 @@ export function ContactFormSection() {
                     required
                     value={form.email}
                     onChange={update("email")}
-                    className="landing-input h-12 rounded-lg border px-4 text-sm"
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="phone" className="text-sm font-medium">
-                    Phone number
-                  </label>
-                  <input
-                    id="phone"
-                    type="tel"
-                    value={form.phone}
-                    onChange={update("phone")}
                     className="landing-input h-12 rounded-lg border px-4 text-sm"
                   />
                 </div>

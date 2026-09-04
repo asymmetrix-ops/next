@@ -78,20 +78,20 @@ export function PlatformHero({ topViewedArticles = [] }) {
               </p>
             </div>
             <div className="relative">
-              <h1 className="text-5xl font-bold leading-[1.05] text-text-alternative md:text-7xl lg:text-8xl">
+              <h1 className="text-4xl font-bold leading-[1.1] text-text-alternative sm:text-5xl sm:leading-[1.05] md:text-7xl lg:text-8xl">
                 Intelligence on the
                 <br />
-                <span className="landing-gradient-text whitespace-nowrap">
+                <span className="landing-gradient-text sm:whitespace-nowrap">
                   Data & Analytics Market
                 </span>
               </h1>
               <div
                 aria-hidden="true"
-                className="landing-shine-overlay pointer-events-none absolute inset-0 select-none text-5xl font-bold leading-[1.05] md:text-7xl lg:text-8xl"
+                className="landing-shine-overlay pointer-events-none absolute inset-0 select-none text-4xl font-bold leading-[1.1] sm:text-5xl sm:leading-[1.05] md:text-7xl lg:text-8xl"
               >
                 Intelligence on the
                 <br />
-                Data & Analytics Market
+                <span className="sm:whitespace-nowrap">Data & Analytics Market</span>
               </div>
             </div>
           </motion.div>
@@ -136,15 +136,15 @@ export function PlatformHero({ topViewedArticles = [] }) {
           transition={{ duration: 0.7, delay: 0.38, ease: [0.16, 1, 0.3, 1] }}
           className="mx-auto mt-8 max-w-[80rem] md:mt-10"
         >
-          <div className="flex justify-center">
-            <div className="landing-tab-pill-track inline-flex">
+          <div className="landing-tab-scroll-fade no-scrollbar -mx-[5vw] flex justify-start overflow-x-auto px-[5vw] sm:justify-center sm:overflow-visible sm:px-0">
+            <div className="landing-tab-pill-track inline-flex shrink-0">
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={
-                    "landing-tab-pill px-5 py-2.5 text-sm font-medium transition-all sm:px-7" +
+                    "landing-tab-pill whitespace-nowrap px-5 py-2.5 text-sm font-medium transition-all sm:px-7" +
                     (activeTab === tab.id ? " is-active" : "")
                   }
                 >
@@ -160,6 +160,7 @@ export function PlatformHero({ topViewedArticles = [] }) {
               ))}
             </div>
           </div>
+          <p className="landing-tab-scroll-hint mt-3">← swipe to see all →</p>
 
           <div className="landing-panel mt-8 rounded-[28px] p-6 sm:p-8">
             <AnimatePresence mode="wait">
