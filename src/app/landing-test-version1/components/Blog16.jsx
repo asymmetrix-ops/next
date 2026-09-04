@@ -154,20 +154,25 @@ export function Blog16({ substackTabs = EMPTY_SUBSTACK_TABS }) {
           </div>
         </Reveal>
         <Tabs defaultValue="latest" className="flex flex-col justify-center">
-          <TabsList className="landing-tab-track-list no-scrollbar mb-12 ml-[-5vw] flex w-screen items-center justify-start overflow-scroll pl-[5vw] md:mb-16 md:ml-auto md:mr-auto md:w-fit md:justify-center md:overflow-hidden md:pl-0">
-            <TabsTrigger
-              value="latest"
-              className="landing-tab-trigger whitespace-nowrap px-4"
-            >
-              Latest
-            </TabsTrigger>
-            <TabsTrigger
-              value="top"
-              className="landing-tab-trigger whitespace-nowrap px-4"
-            >
-              Top
-            </TabsTrigger>
-          </TabsList>
+          <div
+            className="landing-tab-scroll-wrap -mx-[5vw] mb-12 flex justify-start overflow-x-auto px-[5vw] pb-1 md:mb-16 md:mx-0 md:justify-center md:overflow-visible md:px-0 md:pb-0"
+            style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
+          >
+            <TabsList className="landing-tab-track-list flex w-max shrink-0 items-center justify-start md:w-fit md:justify-center">
+              <TabsTrigger
+                value="latest"
+                className="landing-tab-trigger whitespace-nowrap px-4"
+              >
+                Latest
+              </TabsTrigger>
+              <TabsTrigger
+                value="top"
+                className="landing-tab-trigger whitespace-nowrap px-4"
+              >
+                Top
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="latest" className="data-[state=active]:animate-tabs">
             <ArticleGrid

@@ -219,6 +219,20 @@
   }
 }
 
+.landing-rebrand .landing-tab-scroll-wrap,
+.landing-rebrand .no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.landing-rebrand .landing-tab-scroll-wrap::-webkit-scrollbar,
+.landing-rebrand .no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .landing-rebrand .landing-tab-pill {
   position: relative;
   z-index: 1;
@@ -353,6 +367,9 @@
   background-color: var(--asymmetrix-blue-muted);
   border: 1px solid var(--asymmetrix-divider);
   width: fit-content;
+}
+
+.landing-rebrand .landing-tab-scroll-wrap {
   -webkit-mask-image: linear-gradient(
     to right,
     transparent 0,
@@ -370,7 +387,7 @@
 }
 
 @media (min-width: 768px) {
-  .landing-rebrand .landing-tab-track-list {
+  .landing-rebrand .landing-tab-scroll-wrap {
     -webkit-mask-image: none;
     mask-image: none;
   }

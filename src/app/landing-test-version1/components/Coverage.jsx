@@ -93,17 +93,22 @@ export function Coverage() {
           defaultValue="ai-defensibility"
           className="flex flex-col justify-center"
         >
-          <TabsList className="landing-tab-track-list no-scrollbar ml-[-5vw] flex w-screen items-center justify-start overflow-scroll pl-[5vw] md:mb-16 md:ml-auto md:mr-auto md:w-fit md:justify-center md:overflow-hidden md:pl-0">
-            {TABS.map((tab) => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-                className="landing-tab-trigger whitespace-nowrap px-4"
-              >
-                {tab.trigger}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <div
+            className="landing-tab-scroll-wrap -mx-[5vw] flex justify-start overflow-x-auto px-[5vw] pb-1 md:mx-0 md:justify-center md:overflow-visible md:px-0 md:pb-0"
+            style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
+          >
+            <TabsList className="landing-tab-track-list flex w-max shrink-0 items-center justify-start md:w-fit md:justify-center">
+              {TABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="landing-tab-trigger whitespace-nowrap px-4"
+                >
+                  {tab.trigger}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
           <p className="landing-tab-scroll-hint mb-12">← swipe to see all features →</p>
           {TABS.map((tab) => (
             <TabsContent
