@@ -99,10 +99,13 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32" />
+        <link rel="icon" href="/icons/favicon-48.png" type="image/png" sizes="48x48" />
+        <link rel="icon" href="/icons/favicon-192.png" type="image/png" sizes="192x192" />
         <link
           rel="shortcut icon"
-          href="/icons/favicon.svg"
-          type="image/svg+xml"
+          href="/icons/favicon-32.png"
+          type="image/png"
         />
         {/* Hotjar Tracking Code */}
         <Script
