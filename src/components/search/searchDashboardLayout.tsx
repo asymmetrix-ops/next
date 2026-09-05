@@ -4,8 +4,8 @@ export const SEARCH_DASHBOARD_HORIZONTAL_PAD = "28px";
 export const SEARCH_DASHBOARD_TOP_PAD = "20px";
 
 export const SEARCH_DASHBOARD_SHELL: CSSProperties = {
-  background: "#f8fafc",
-  borderBottom: "1px solid #e2e8f0",
+  background: "#f7f8fc",
+  borderBottom: "1px solid rgba(0, 11, 41, 0.08)",
 };
 
 export const SEARCH_DASHBOARD_INNER: CSSProperties = {
@@ -23,29 +23,37 @@ export const SEARCH_DASHBOARD_HEADER_ROW: CSSProperties = {
 };
 
 export const SEARCH_DASHBOARD_EYEBROW: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  height: 22,
+  padding: "0 10px",
+  borderRadius: 999,
+  background: "hsl(228, 30%, 94%)",
   fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.09em",
+  fontWeight: 800,
+  letterSpacing: "0.08em",
   textTransform: "uppercase",
-  color: "#94a3b8",
-  marginBottom: 5,
+  color: "hsl(228, 85%, 45%)",
+  marginBottom: 6,
 };
 
 export const SEARCH_DASHBOARD_TITLE: CSSProperties = {
   margin: 0,
-  fontSize: 26,
-  fontWeight: 700,
-  color: "#0f172a",
+  fontSize: 28,
+  fontWeight: 800,
+  letterSpacing: "-0.026em",
+  color: "#000b29",
   display: "flex",
   alignItems: "baseline",
-  gap: 10,
+  gap: 11,
   lineHeight: 1.2,
 };
 
 export const SEARCH_DASHBOARD_MATCH_COUNT: CSSProperties = {
-  fontSize: 16,
-  fontWeight: 400,
-  color: "#94a3b8",
+  fontSize: 15,
+  fontWeight: 600,
+  color: "#5a6272",
+  letterSpacing: 0,
 };
 
 export const SEARCH_DASHBOARD_ACTIONS: CSSProperties = {
@@ -76,19 +84,18 @@ export function getSearchTabButtonStyle(active: boolean): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     height: 34,
     padding: "0 14px",
-    background: active ? "#0f172a" : "transparent",
-    color: active ? "#fff" : "#64748b",
+    background: active ? "#000b29" : "#fff",
+    color: active ? "#fff" : "#313a54",
     border: "1px solid",
-    borderColor: active ? "#0f172a" : "transparent",
-    borderBottom: "none",
-    borderRadius: "8px 8px 0 0",
+    borderColor: active ? "#000b29" : "rgba(0, 11, 41, 0.08)",
+    borderRadius: 999,
     fontSize: 13,
-    fontWeight: active ? 600 : 500,
+    fontWeight: 600,
     cursor: "pointer",
-    transition: "background 0.12s, color 0.12s",
+    transition: "background 0.15s ease, border-color 0.15s ease",
     whiteSpace: "nowrap",
   };
 }

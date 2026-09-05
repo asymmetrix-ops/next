@@ -1,0 +1,191 @@
+/* Scoped redesign styles for the user dashboard (home-user).
+   Colors are pulled from the landing page's asymmetrix tokens so the
+   dashboard matches the marketing site's palette (see landing-theme.css). */
+.dash {
+  --dash-blue: hsl(228, 85%, 63%);
+  --dash-blue-dark: hsl(228, 85%, 55%);
+  --dash-blue-deep: hsl(228, 85%, 45%);
+  --dash-blue-light: hsl(228, 85%, 96%);
+  --dash-blue-muted: hsl(228, 30%, 94%);
+  --dash-tint: #f7f8fc;
+  --dash-ink: #000b29;
+  --dash-ink-2: #1a2340;
+  --dash-ink-3: #313a54;
+  --dash-muted: #5a6272;
+  --dash-faint: #8791a8;
+  --dash-line: rgba(0, 11, 41, 0.08);
+  --dash-line-2: rgba(0, 11, 41, 0.06);
+  --dash-r-lg: 16px;
+  --dash-r-md: 12px;
+  --dash-r-sm: 8px;
+  --dash-r-pill: 999px;
+  --dash-sh-sm: 0 1px 2px rgba(0, 11, 41, 0.04);
+  --dash-sh-card: 0 8px 24px rgba(0, 11, 41, 0.08);
+  background-color: var(--dash-tint);
+}
+
+/* ---------------- search row ---------------- */
+.dash-searchrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dash-searchwrap {
+  position: relative;
+}
+
+.dash-searchwrap svg {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--dash-faint);
+  pointer-events: none;
+}
+
+.dash-searchwrap input {
+  padding-left: 42px !important;
+  border-radius: var(--dash-r-pill) !important;
+}
+
+/* ---------------- stat strip ---------------- */
+.dash-stats {
+  background: #fff;
+  border: 1px solid var(--dash-line);
+  border-radius: var(--dash-r-lg);
+  box-shadow: var(--dash-sh-sm);
+}
+
+.dash-stats > a,
+.dash-stats > div {
+  border-left: 1px solid var(--dash-line-2);
+  transition: background 0.15s ease;
+}
+
+.dash-stats > a:first-child,
+.dash-stats > div:first-child {
+  border-left: none;
+}
+
+.dash-stats > a:hover {
+  background: var(--dash-blue-light);
+}
+
+/* ---------------- cards ---------------- */
+.dash-card {
+  background: #fff;
+  border: 1px solid var(--dash-line);
+  border-radius: var(--dash-r-lg);
+  box-shadow: var(--dash-sh-sm);
+}
+
+.dash-card > .dash-card-header {
+  border-bottom: 1px solid var(--dash-line-2);
+}
+
+.dash-card-icon {
+  background: var(--dash-blue-light);
+  color: var(--dash-blue-deep);
+  border-radius: var(--dash-r-sm);
+}
+
+.dash-card-icon.is-purple {
+  background: #f5f3ff;
+  color: #5b21b6;
+}
+
+.dash-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: var(--dash-r-pill);
+  background: var(--dash-blue-muted);
+  color: var(--dash-blue-deep);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dash-view-all {
+  border: 1px solid hsla(228, 85%, 63%, 0.35);
+  background: #fff;
+  color: var(--dash-blue-deep);
+  border-radius: var(--dash-r-pill);
+  font-weight: 600;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.dash-view-all:hover {
+  background: var(--dash-blue-light);
+  border-color: hsla(228, 85%, 63%, 0.5);
+}
+
+/* ---------------- tables ---------------- */
+.dash-table thead th {
+  background: var(--dash-tint);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--dash-muted);
+}
+
+.dash-table tbody tr:hover {
+  background: var(--dash-blue-light);
+}
+
+.dash-company-link {
+  color: var(--dash-blue-deep);
+  font-weight: 700;
+}
+
+.dash-company-link:hover {
+  color: var(--dash-blue);
+}
+
+/* ---------------- chips ---------------- */
+.dash-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--dash-r-pill);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dash-chip .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* ---------------- insights feed ---------------- */
+.dash-art {
+  border: 1px solid var(--dash-line);
+  border-radius: var(--dash-r-md);
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.dash-art:hover {
+  border-color: hsla(228, 85%, 63%, 0.35);
+  box-shadow: var(--dash-sh-card);
+}
+
+.dash-art .go {
+  color: var(--dash-blue-deep);
+  font-weight: 700;
+}
+
+.dash-footer {
+  border-top: 1px solid var(--dash-line-2);
+  color: var(--dash-muted);
+}

@@ -129,7 +129,7 @@ export const SEARCH_TABLE_STYLES = `
       border-radius: 4px;
     }
     .company-table-col-loading {
-      background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%);
+      background: linear-gradient(90deg, rgba(0, 11, 41, 0.08) 25%, #cbd5e1 50%, rgba(0, 11, 41, 0.08) 75%);
       background-size: 200% 100%;
       animation: shimmer 1.5s ease-in-out infinite;
     }
@@ -159,8 +159,9 @@ export const SEARCH_TABLE_STYLES = `
     .company-stats {
       background: #fff;
       padding: 16px;
-      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 11, 41, 0.04);
+      border: 1px solid rgba(0, 11, 41, 0.08);
+      border-radius: 16px;
       margin-bottom: 12px;
     }
     .stats-title {
@@ -180,7 +181,7 @@ export const SEARCH_TABLE_STYLES = `
       align-items: center;
       gap: 8px;
       padding: 6px 0;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid rgba(0, 11, 41, 0.08);
     }
     .stats-item:last-child {
       border-bottom: none;
@@ -200,8 +201,8 @@ export const SEARCH_TABLE_STYLES = `
       min-width: 100%;
       background: #fff;
       padding: 16px;
-      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 11, 41, 0.04);
+      border-radius: 16px;
       border-collapse: separate;
       border-spacing: 0;
       table-layout: auto;
@@ -213,8 +214,9 @@ export const SEARCH_TABLE_STYLES = `
       width: 100%;
       max-width: 100%;
       max-height: min(72vh, calc(100vh - 240px));
-      border-radius: 8px;
-      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
+      border-radius: 16px;
+      box-shadow: 0 1px 2px rgba(0, 11, 41, 0.04);
+      border: 1px solid rgba(0, 11, 41, 0.08);
       background: #fff;
     }
     .company-table-scroll .company-table {
@@ -223,7 +225,7 @@ export const SEARCH_TABLE_STYLES = `
       margin: 0;
     }
     .company-columns-button {
-      border: 1px solid #e2e8f0;
+      border: 1px solid rgba(0, 11, 41, 0.08);
       background: #fff;
       color: #1a202c;
       border-radius: 8px;
@@ -247,7 +249,7 @@ export const SEARCH_TABLE_STYLES = `
       left: 0;
       z-index: 3;
       background: #fff;
-      box-shadow: 1px 0 0 #e2e8f0;
+      box-shadow: 1px 0 0 rgba(0, 11, 41, 0.08);
     }
     .company-table tbody .company-table-select-cell input[type="checkbox"] {
       opacity: 0;
@@ -323,30 +325,30 @@ export const SEARCH_TABLE_STYLES = `
       padding: 8px 12px;
       text-align: left;
       vertical-align: middle;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid rgba(0, 11, 41, 0.08);
       word-wrap: break-word;
       overflow-wrap: break-word;
       min-width: 120px;
       white-space: nowrap;
     }
     .company-table th {
-      font-weight: 700;
-      color: #64748b;
-      font-size: 11px;
-      letter-spacing: 0.06em;
+      font-weight: 800;
+      color: #5a6272;
+      font-size: 10px;
+      letter-spacing: 0.09em;
       text-transform: uppercase;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
+      background: #f7f8fc;
+      border-bottom: 1px solid rgba(0, 11, 41, 0.08);
       position: sticky;
       top: 0;
       z-index: 4;
     }
     .company-table tbody tr:hover td {
-      background: #f8fafc;
+      background: #eff7ff;
     }
     .company-table tbody tr:hover td.company-table-sticky-frozen,
     .company-table tbody tr:hover td.company-table-select-cell {
-      background: #f8fafc;
+      background: #eff7ff;
     }
     .company-table-th-sortable {
       cursor: pointer;
@@ -389,7 +391,7 @@ export const SEARCH_TABLE_STYLES = `
     }
     .company-table th.company-table-col-follow {
       z-index: 4;
-      background: #f8fafc;
+      background: #f7f8fc;
     }
     .company-table td.company-table-col-follow {
       position: relative;
@@ -412,7 +414,7 @@ export const SEARCH_TABLE_STYLES = `
     }
     .company-table thead th.company-table-sticky-frozen {
       z-index: 7;
-      background: #f8fafc;
+      background: #f7f8fc;
     }
     .company-table td {
       font-size: 13px;
@@ -595,7 +597,7 @@ export const SEARCH_TABLE_STYLES = `
       border-radius: 8px;
       padding: 12px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      border: 1px solid #e2e8f0;
+      border: 1px solid rgba(0, 11, 41, 0.08);
     }
     .company-card-header {
       display: flex;
