@@ -1,5 +1,6 @@
 "use client";
 
+import "./dashboard.css";
 import {
   useState,
   useEffect,
@@ -181,8 +182,8 @@ function dealRadarStageStyle(
     };
   }
   return {
-    pill: { backgroundColor: "#dbeafe", color: "#1e40af" },
-    dot: "#3b82f6",
+    pill: { backgroundColor: "hsl(228, 85%, 96%)", color: "hsl(228, 85%, 35%)" },
+    dot: "hsl(228, 85%, 63%)",
   };
 }
 
@@ -1670,7 +1671,7 @@ export default function HomeUserPage() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="dash min-h-screen">
       <Header />
 
       {/* Main Content */}
@@ -1692,15 +1693,28 @@ export default function HomeUserPage() {
           </div>
         )}
         {/* Dashboard Subheader */}
-        <div className="flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
+        <div className="dash-searchrow flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
           <div
             ref={searchWrapRef}
-            className={`relative w-full min-w-0 rounded-lg border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
+            className={`dash-searchwrap relative w-full min-w-0 rounded-full border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
               isTrialActive
                 ? "border-gray-200"
                 : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
             }`}
           >
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
             <input
               type="search"
               value={searchQuery}
@@ -1708,9 +1722,9 @@ export default function HomeUserPage() {
               placeholder={
                 isTrialActive
                   ? "Search is disabled during trial access"
-                  : "Search all pages..."
+                  : "Search companies, investors, advisors, events…"
               }
-              className={`w-full px-4 py-3 text-base rounded-lg border-0 bg-transparent focus:outline-none focus:ring-0 ${
+              className={`w-full px-4 py-3 text-base rounded-full border-0 bg-transparent focus:outline-none focus:ring-0 ${
                 isTrialActive
                   ? "text-gray-500 cursor-not-allowed"
                   : "text-gray-900 placeholder-gray-500"
@@ -1832,8 +1846,8 @@ export default function HomeUserPage() {
         </div>
 
         {asymmetrixData.length > 0 && (
-          <div className="mb-4 sm:mb-6 overflow-x-auto rounded-lg border border-gray-200 bg-white">
-            <div className="flex min-w-max w-full divide-x divide-gray-200">
+          <div className="dash-stats mb-4 sm:mb-6 overflow-x-auto">
+            <div className="flex min-w-max w-full">
               {asymmetrixData.map((item, index) => {
                 const href = resolveAsymmetrixStatHref(item.label);
                 const RowTag = href ? "a" : "div";
@@ -1848,7 +1862,7 @@ export default function HomeUserPage() {
                     href={href || undefined}
                     className={`group flex flex-1 flex-col items-start justify-center min-w-[7.5rem] px-4 py-3.5 sm:min-w-0 sm:px-5 sm:py-4 transition-colors ${
                       href
-                        ? "cursor-pointer hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-200"
+                        ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-200"
                         : ""
                     }`}
                     onClick={(e: React.MouseEvent<HTMLElement>) => {
@@ -2097,12 +2111,12 @@ export default function HomeUserPage() {
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 lg:items-start">
           {/* Deal Radar - last on mobile, first on lg+ */}
           <div
-            className="grid grid-rows-[auto_1fr] overflow-hidden bg-white rounded-lg shadow order-3 lg:order-1"
+            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden order-3 lg:order-1"
             style={sideColumnHeightStyle}
           >
-            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700 shrink-0">
+            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="dash-card-icon flex items-center justify-center w-9 h-9 shrink-0">
                   <svg
                     className="w-[18px] h-[18px]"
                     viewBox="0 0 24 24"
@@ -2125,13 +2139,29 @@ export default function HomeUserPage() {
                   persistDismissal
                   side="right"
                 >
-                  <h2
-                    className="text-base font-semibold text-gray-900 sm:text-lg"
-                    style={{ fontWeight: "600" }}
-                  >
-                    Deal Radar
-                  </h2>
+                  <span className="flex items-center gap-2">
+                    <h2
+                      className="text-base font-semibold text-gray-900 sm:text-lg"
+                      style={{ fontWeight: "600" }}
+                    >
+                      Deal Radar
+                    </h2>
+                    <span className="dash-eyebrow">Live</span>
+                  </span>
                 </NewFeatureCallout>
+              </div>
+              <div className="hidden sm:flex items-center gap-3 shrink-0">
+                {dealRadarItems.length > 0 && (
+                  <span className="text-xs text-gray-500 tabular-nums whitespace-nowrap">
+                    {dealRadarItems.length} companies
+                  </span>
+                )}
+                <a
+                  href="/deal-radar"
+                  className="dash-view-all px-3 py-1.5 text-xs whitespace-nowrap"
+                >
+                  View all
+                </a>
               </div>
             </div>
             <div
@@ -2154,21 +2184,21 @@ export default function HomeUserPage() {
                 </div>
               ) : dealRadarItems.length > 0 ? (
                 <div className="min-w-0 w-full">
-                    <table className="w-full table-fixed">
+                    <table className="dash-table w-full table-fixed">
                       <colgroup>
                         <col style={{ width: "30%" }} />
                         <col style={{ width: "34%" }} />
                         <col style={{ width: "36%" }} />
                       </colgroup>
-                      <thead className="sticky top-0 z-10 bg-gray-50">
+                      <thead className="sticky top-0 z-10">
                         <tr>
-                          <th className="pl-3 pr-1 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="pl-3 pr-1 py-3 text-left">
                             Company
                           </th>
-                          <th className="px-2 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
+                          <th className="px-2 py-3 text-center">
                             Sector
                           </th>
-                          <th className="pl-3 pr-2 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase bg-gray-50">
+                          <th className="pl-3 pr-2 py-3 text-center">
                             <span className="inline-flex items-center gap-1.5">
                               Stage
                               <DealStageInfoTooltip />
@@ -2176,7 +2206,7 @@ export default function HomeUserPage() {
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white divide-y divide-gray-100">
                         {dealRadarItems.map((item) => {
                           const stageStyle = dealRadarStageStyle(
                             item.transactionStatus
@@ -2185,14 +2215,14 @@ export default function HomeUserPage() {
                           return (
                             <tr
                               key={item.companyId}
-                              className="align-top hover:bg-gray-50"
+                              className="align-top"
                             >
                               <td className="pl-3 pr-1 py-3 min-w-0 align-top">
                                 <div className="space-y-1 min-w-0">
                                   <div className="min-w-0">
                                     <a
                                       href={`/company/${item.companyId}`}
-                                      className="text-xs font-semibold text-blue-700 break-words hover:text-blue-900 hover:underline"
+                                      className="dash-company-link text-xs break-words hover:underline"
                                       onClick={(
                                         e: React.MouseEvent<HTMLAnchorElement>
                                       ) => {
@@ -2285,11 +2315,11 @@ export default function HomeUserPage() {
                               </td>
                               <td className="px-2 py-3 text-center align-top">
                                 <span
-                                  className="inline-flex items-start gap-1.5 rounded-2xl px-2.5 py-1.5 text-xs font-medium leading-snug text-center"
+                                  className="dash-chip items-start px-2.5 py-1.5 text-xs leading-snug text-center"
                                   style={stageStyle.pill}
                                 >
                                   <span
-                                    className="inline-block w-1.5 h-1.5 rounded-full shrink-0 mt-1"
+                                    className="dot shrink-0 mt-1"
                                     style={{ backgroundColor: stageStyle.dot }}
                                   />
                                   <span className="whitespace-pre-line">
@@ -2341,11 +2371,11 @@ export default function HomeUserPage() {
           {/* Insights & Analysis - first on mobile */}
           <div
             ref={insightsCardRef}
-            className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2"
+            className="dash-card flex flex-col order-1 lg:order-2"
           >
-            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
+            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="dash-card-icon flex items-center justify-center w-9 h-9 shrink-0">
                   <svg
                     width="18"
                     height="18"
@@ -2365,12 +2395,19 @@ export default function HomeUserPage() {
                 </div>
                 <a
                   href="/insights-analysis"
-                  className="text-base font-semibold text-blue-600 underline hover:text-blue-800 sm:text-lg"
+                  className="flex items-center gap-2 text-base font-semibold text-gray-900 hover:text-blue-700 sm:text-lg"
                   style={{ fontWeight: "600" }}
                 >
                   Insights &amp; Analysis
+                  <span className="dash-eyebrow">Weekly</span>
                 </a>
               </div>
+              <a
+                href="/insights-analysis"
+                className="dash-view-all hidden sm:inline-flex px-3 py-1.5 text-xs whitespace-nowrap shrink-0"
+              >
+                View all
+              </a>
             </div>
             <div className="p-3 sm:p-4">
               {insightsArticlesLoading ? (
@@ -2404,7 +2441,7 @@ export default function HomeUserPage() {
                     return (
                       <div
                         key={article.id}
-                        className="p-4 rounded-xl border border-blue-100 bg-white shadow-sm hover:shadow transition-shadow"
+                        className="dash-art p-4"
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -2459,7 +2496,7 @@ export default function HomeUserPage() {
 
                         <a
                           href={href}
-                          className="inline-flex items-center gap-1 mt-3 text-sm font-medium text-blue-600 hover:text-blue-800"
+                          className="go inline-flex items-center gap-1 mt-3 text-sm"
                           onClick={(e) => {
                             if (
                               e.defaultPrevented ||
@@ -2490,12 +2527,12 @@ export default function HomeUserPage() {
 
           {/* Corporate Events - second on mobile */}
           <div
-            className="grid grid-rows-[auto_1fr] overflow-hidden bg-white rounded-lg shadow order-2 lg:order-3"
+            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden order-2 lg:order-3"
             style={sideColumnHeightStyle}
           >
-            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
+            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="dash-card-icon is-purple flex items-center justify-center w-9 h-9 shrink-0">
                   <svg
                     width="18"
                     height="18"
@@ -2515,12 +2552,19 @@ export default function HomeUserPage() {
                 </div>
                 <a
                   href="/corporate-events"
-                  className="text-base font-semibold text-blue-600 underline hover:text-blue-800 sm:text-lg"
+                  className="flex items-center gap-2 text-base font-semibold text-gray-900 hover:text-blue-700 sm:text-lg"
                   style={{ fontWeight: "600" }}
                 >
                   Corporate Events
+                  <span className="dash-eyebrow">Last 7 days</span>
                 </a>
               </div>
+              <a
+                href="/corporate-events"
+                className="dash-view-all hidden sm:inline-flex px-3 py-1.5 text-xs whitespace-nowrap shrink-0"
+              >
+                View all
+              </a>
             </div>
             <div className="min-h-0 min-w-0 overflow-y-auto overflow-x-auto">
               {corporateEventsLoading ? (
@@ -3010,30 +3054,30 @@ export default function HomeUserPage() {
 
                   {/* Desktop view - table (scroll handled by parent column body) */}
                   <div className="hidden lg:block min-w-full">
-                    <table className="w-full min-w-max table-fixed">
+                    <table className="dash-table w-full min-w-max table-fixed">
                       <colgroup>
                         <col />
                         <col style={{ width: "22%" }} />
                         <col />
                         <col />
                       </colgroup>
-                      <thead className="sticky top-0 z-10 bg-gray-50">
+                      <thead className="sticky top-0 z-10">
                         <tr>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="px-4 py-4 text-left">
                             Event Details
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="px-4 py-4 text-left">
                             Parties
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="px-4 py-4 text-left">
                             Deal Details
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                          <th className="px-4 py-4 text-left">
                             Sectors
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white divide-y divide-gray-100">
                         {corporateEvents.slice(0, 25).map((event, idx) => {
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           const eid = getCorporateEventId(event as any);
@@ -3044,7 +3088,6 @@ export default function HomeUserPage() {
                           return (
                             <tr
                               key={eid ?? `ev-row-${idx}`}
-                              className="hover:bg-gray-50"
                             >
                               <td className="px-4 py-4 max-w-xs text-xs text-gray-900">
                                 <div className="mb-2">

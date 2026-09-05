@@ -38,9 +38,9 @@ function EntityLogo({
           width: 40,
           height: 40,
           objectFit: "contain",
-          borderRadius: 4,
-          background: "var(--ax-gray-25, #f8fafc)",
-          border: "1px solid var(--border-1, #e2e8f0)",
+          borderRadius: 8,
+          background: "#fff",
+          border: "1px solid rgba(0, 11, 41, 0.08)",
           flexShrink: 0,
         }}
       />
@@ -54,8 +54,8 @@ function EntityLogo({
       style={{
         width: 40,
         height: 40,
-        borderRadius: 4,
-        background: "var(--ax-cyan-700, #0e7490)",
+        borderRadius: 8,
+        background: "var(--ax-cyan-700, #0075df)",
         color: "white",
         display: "inline-flex",
         alignItems: "center",

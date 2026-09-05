@@ -211,22 +211,22 @@ const FILTER_BAR_CSS = `
     --ax-cyan-200: #b3d9ff;
     --ax-cyan-100: #cce7ff;
     --ax-cyan-300: #80c2ff;
-    --border-1:    #e2e8f0;
-    --fg-1:  #0f172a;
-    --fg-2:  #334155;
-    --fg-3:  #64748b;
-    --fg-4:  #94a3b8;
-    --fg-link: #2563eb;
-    --ax-gray-25:  #f9fafb;
-    --ax-gray-50:  #f1f5f9;
-    --ax-gray-100: #e2e8f0;
-    --ax-gray-200: #cbd5e1;
-    --ax-gray-300: #94a3b8;
-    --ax-gray-500: #64748b;
-    --ax-gray-900: #0f172a;
-    --r-lg:  10px;
-    --r-md:  6px;
-    --r-sm:  4px;
+    --border-1:    rgba(0, 11, 41, 0.08);
+    --fg-1:  #000b29;
+    --fg-2:  #313a54;
+    --fg-3:  #5a6272;
+    --fg-4:  #8791a8;
+    --fg-link: #0075df;
+    --ax-gray-25:  #fafbff;
+    --ax-gray-50:  #f7f8fc;
+    --ax-gray-100: rgba(0, 11, 41, 0.06);
+    --ax-gray-200: rgba(0, 11, 41, 0.12);
+    --ax-gray-300: #8791a8;
+    --ax-gray-500: #5a6272;
+    --ax-gray-900: #000b29;
+    --r-lg:  16px;
+    --r-md:  10px;
+    --r-sm:  8px;
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-mono: ui-monospace, 'SFMono-Regular', monospace;
     --fs-12: 12px;
@@ -468,14 +468,14 @@ function Chip({
         alignItems: "center",
         background: bg,
         border: `1px solid ${border}`,
-        borderRadius: "var(--r-md)",
+        borderRadius: 999,
         fontSize: "var(--fs-13)",
         fontFamily: "var(--font-sans)",
         cursor: locked ? "default" : "pointer",
         userSelect: "none",
         transition: "box-shadow 120ms",
         boxShadow: hover && !locked ? "0 1px 2px rgba(17,22,29,0.08)" : "none",
-        height: 30,
+        height: 34,
       }}
     >
       <span
@@ -1029,17 +1029,17 @@ function AddFilterButton({
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
-          padding: "5px 12px 5px 9px",
+          padding: "5px 14px 5px 11px",
           fontFamily: "var(--font-sans)",
           fontSize: "var(--fs-13)",
           fontWeight: 600,
           color: open ? "var(--ax-cyan-700)" : "var(--fg-2)",
           background: open ? "var(--ax-cyan-50)" : "white",
           border: `1px dashed ${open ? "var(--ax-cyan-300)" : "var(--ax-gray-300, #94a3b8)"}`,
-          borderRadius: "var(--r-md)",
+          borderRadius: 999,
           cursor: "pointer",
           transition: "all 120ms",
-          height: 30,
+          height: 34,
           whiteSpace: "nowrap",
         }}
       >
@@ -2548,15 +2548,15 @@ export function CompaniesFilterBar({
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 6,
-              padding: "0 10px",
-              background: "var(--ax-gray-25)",
+              gap: 8,
+              padding: "0 12px",
+              background: "#fff",
               border: "1px solid var(--border-1)",
-              borderRadius: "var(--r-md)",
+              borderRadius: 999,
               minWidth: 220,
               maxWidth: 320,
               flex: "0 1 auto",
-              height: 30,
+              height: 34,
             }}
           >
             <svg
