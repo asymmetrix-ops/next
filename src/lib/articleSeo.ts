@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-
-const XANO_BASE = "https://xdil-abvj-o7rq.e2.xano.io";
-const CONTENT_API = `${XANO_BASE}/api:Z3F6JUiu/content`;
+import { XANO_CONTENT_URL } from "@/lib/contentApiBase";
 
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.asymmetrixintelligence.com";
@@ -113,11 +111,13 @@ export async function fetchArticleForSeo(
   id: string,
   token?: string
 ): Promise<ArticleSeoData | null> {
+  if (!token) return null;
+
   try {
-    const res = await fetch(`${CONTENT_API}/${encodeURIComponent(id)}`, {
+    const res = await fetch(`${XANO_CONTENT_URL}/${encodeURIComponent(id)}`, {
       method: "GET",
       headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       next: { revalidate: 300 },

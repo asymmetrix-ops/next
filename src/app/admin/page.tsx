@@ -18,6 +18,7 @@ import {
   type UserEmailItem,
 } from "@/lib/api";
 import { authService } from "@/lib/auth";
+import { XANO_CONTENT_API_BASE, XANO_CONTENT_URL } from "@/lib/contentApiBase";
 import {
   CONTRIBUTION_EMAIL_ENTITY_TYPE,
   coerceEmailContentRound,
@@ -2006,7 +2007,7 @@ function ContentTab() {
     created_at?: number;
     Created_by?: number | null;
   }
-  const CONTENT_LIST_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content";
+  const CONTENT_LIST_URL = XANO_CONTENT_URL;
 
   const buildContentListUrl = () => {
     const params = new URLSearchParams({
@@ -2982,8 +2983,8 @@ function ContentTab() {
 
       const isEditing = editingContentId !== null;
       const apiUrl = isEditing
-        ? `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${editingContentId}`
-        : "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content";
+        ? `${XANO_CONTENT_URL}/${editingContentId}`
+        : `${XANO_CONTENT_API_BASE}/new_content`;
       const res = await fetch(apiUrl, {
         method: isEditing ? "PATCH" : "POST",
         headers: {
@@ -3069,8 +3070,8 @@ function ContentTab() {
 
       const isEditing = editingContentId !== null;
       const apiUrl = isEditing
-        ? `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${editingContentId}`
-        : "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content";
+        ? `${XANO_CONTENT_URL}/${editingContentId}`
+        : `${XANO_CONTENT_API_BASE}/new_content`;
       const res = await fetch(apiUrl, {
         method: isEditing ? "PATCH" : "POST",
         headers: {

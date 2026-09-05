@@ -28,6 +28,7 @@ import {
   isNewsArticle,
 } from "@/lib/contentArticleDisplay";
 import { getContentTypeBadgeStyle } from "@/lib/contentTypeBadge";
+import { XANO_CONTENT_URL } from "@/lib/contentApiBase";
 import { getNewsSubTypeBadgeStyle } from "@/lib/newsSubTypeBadge";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
 import {
@@ -634,7 +635,7 @@ const ArticleDetailPage = () => {
       }
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${articleId}`,
+        `${XANO_CONTENT_URL}/${articleId}`,
         {
           method: "GET",
           headers: {
