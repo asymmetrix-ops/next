@@ -54,9 +54,9 @@ const TABS = [
     id: "news",
     label: "News",
     eyebrow: "News",
-    title: "Company news and market headlines, as they break",
+    title: "Proprietary deal news and insight before the competition",
     description:
-      "Track funding rounds, personnel moves and market headlines across Data & Analytics, classified and connected to our wider research.",
+      "Track live deals, M&A, funding rounds, people moves and more across Data & Analytics.",
   },
 ];
 
