@@ -1364,18 +1364,53 @@ const InvestorDetailPage = () => {
               name={Investor.name}
               className="investor-profile-header-logo"
             />
-            <span
-              style={{
-                fontSize: 24,
-                fontWeight: 600,
-                color: T.ink,
-                letterSpacing: "-0.4px",
-                lineHeight: 1.2,
-                fontFamily: T.sans,
-              }}
-            >
-              {Investor.name}
-            </span>
+            <div style={{ minWidth: 0 }}>
+              <span
+                style={{
+                  fontSize: 24,
+                  fontWeight: 600,
+                  color: T.ink,
+                  letterSpacing: "-0.4px",
+                  lineHeight: 1.2,
+                  fontFamily: T.sans,
+                }}
+              >
+                {Investor.name}
+              </span>
+              {(investorType || hq) && (
+                <div
+                  style={{
+                    marginTop: 3,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontFamily: T.sans,
+                    fontSize: 13,
+                    color: T.muted,
+                  }}
+                >
+                  {investorType && <span>{investorType}</span>}
+                  {hq && (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        height: 22,
+                        padding: "0 10px",
+                        borderRadius: 999,
+                        background: T.paper,
+                        border: `1px solid ${T.divider}`,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: T.ink,
+                      }}
+                    >
+                      {hq}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1395,15 +1430,17 @@ const InvestorDetailPage = () => {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 5,
+                gap: 6,
                 fontFamily: T.sans,
-                fontSize: 12.5,
-                fontWeight: 600,
-                color: "#fff",
-                backgroundColor: exportingPdf ? T.faint : "#475569",
-                border: "none",
-                borderRadius: 6,
-                padding: "8px 14px",
+                fontSize: 13,
+                fontWeight: 700,
+                color: exportingPdf ? T.faint : T.azure,
+                backgroundColor: "#fff",
+                border: `1px solid ${exportingPdf ? T.divider : "#C6D1FB"}`,
+                borderRadius: 999,
+                height: 34,
+                padding: "0 16px",
+                boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
                 cursor: exportingPdf || !investorData ? "not-allowed" : "pointer",
               }}
             >
@@ -1417,14 +1454,16 @@ const InvestorDetailPage = () => {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 5,
+                gap: 6,
                 fontFamily: T.sans,
-                fontSize: 12.5,
-                fontWeight: 600,
+                fontSize: 13,
+                fontWeight: 700,
                 color: "#fff",
-                backgroundColor: T.emerald,
-                borderRadius: 6,
-                padding: "8px 14px",
+                backgroundColor: T.azure,
+                borderRadius: 999,
+                height: 34,
+                padding: "0 18px",
+                boxShadow: "0 6px 18px rgba(42, 70, 234, 0.32)",
                 textDecoration: "none",
               }}
             >
@@ -1436,8 +1475,15 @@ const InvestorDetailPage = () => {
 
         <div
           style={{
-            display: "flex",
-            gap: "2px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 2,
+            padding: 5,
+            marginTop: 0,
+            marginBottom: 16,
+            borderRadius: 999,
+            background: T.paper,
+            border: `1px solid ${T.divider}`,
             overflowX: "auto" as const,
             scrollbarWidth: "none" as const,
           }}
@@ -1454,20 +1500,21 @@ const InvestorDetailPage = () => {
                   if (!disabled) setActiveProfileTab(tab);
                 }}
                 style={{
-                  padding: "10px 14px",
+                  height: 38,
+                  padding: "0 20px",
                   fontFamily: T.sans,
                   fontSize: "13px",
-                  fontWeight: active ? 600 : 500,
+                  fontWeight: active ? 700 : 600,
                   color: disabled ? T.faint : active ? T.ink : T.muted,
-                  borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
-                  marginBottom: "-1px",
-                  cursor: disabled ? "not-allowed" : "pointer",
+                  borderRadius: 999,
                   whiteSpace: "nowrap" as const,
-                  transition: "color 120ms",
-                  background: "transparent",
-                  borderTop: "none",
-                  borderLeft: "none",
-                  borderRight: "none",
+                  transition: "color 120ms, background 120ms, box-shadow 120ms",
+                  background: active ? "#fff" : "transparent",
+                  boxShadow: active
+                    ? "0 1px 2px rgba(16, 28, 70, 0.06), 0 3px 10px rgba(16, 28, 70, 0.08)"
+                    : "none",
+                  border: "none",
+                  cursor: disabled ? "not-allowed" : "pointer",
                 }}
               >
                 {tab}
@@ -1636,6 +1683,7 @@ const InvestorDetailPage = () => {
             <InvestorPortfolioTab
               investorId={investorId}
               investorName={Investor.name}
+              avgHoldingPeriodDisplay={avgHoldingPeriod?.display}
             />
           ) : (
             <div

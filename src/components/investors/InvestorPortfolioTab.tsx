@@ -43,6 +43,7 @@ import {
 export type InvestorPortfolioTabProps = {
   investorId: string;
   investorName: string;
+  avgHoldingPeriodDisplay?: string | null;
 };
 
 function useInvestorPortfolioSearch(
@@ -279,6 +280,7 @@ function useInvestorPortfolioSearch(
 export function InvestorPortfolioTab({
   investorId,
   investorName,
+  avgHoldingPeriodDisplay,
 }: InvestorPortfolioTabProps) {
   const { currencyId: preferredCurrencyId, currency: platformCurrency } =
     usePlatformCurrency();
@@ -455,6 +457,7 @@ export function InvestorPortfolioTab({
         medianFte={headstats?.median_fte}
         loading={headstatsLoading && !headstats}
         currencyCode={platformCurrency}
+        avgHoldingPeriodDisplay={avgHoldingPeriodDisplay}
       />
 
       <div

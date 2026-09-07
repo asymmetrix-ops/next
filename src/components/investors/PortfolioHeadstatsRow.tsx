@@ -19,6 +19,7 @@ interface PortfolioHeadstatsRowProps {
   medianFte?: PortfolioHeadstatTile | null;
   loading?: boolean;
   currencyCode?: Currency;
+  avgHoldingPeriodDisplay?: string | null;
 }
 
 function millionsMetricLabel(base: string, currencyCode: Currency): string {
@@ -138,6 +139,7 @@ export function PortfolioHeadstatsRow({
   medianFte,
   loading = false,
   currencyCode = DEFAULT_PLATFORM_CURRENCY,
+  avgHoldingPeriodDisplay,
 }: PortfolioHeadstatsRowProps) {
   return (
     <div
@@ -161,6 +163,55 @@ export function PortfolioHeadstatsRow({
         currencyCode={currencyCode}
       />
       <StatTile label="Median FTE" tile={medianFte} loading={loading} />
+      <div
+        style={{
+          flex: "1 1 0",
+          minWidth: 180,
+          background: "#fff",
+          border: `1px solid ${T.divider}`,
+          borderRadius: T.rLg,
+          boxShadow:
+            "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)",
+          padding: "15px 18px 16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: T.sans,
+            fontSize: 10.5,
+            fontWeight: 800,
+            color: T.muted,
+            letterSpacing: "0.09em",
+            textTransform: "uppercase",
+          }}
+        >
+          Average holding period
+        </span>
+        <span
+          style={{
+            fontFamily: T.sans,
+            fontSize: 30,
+            fontWeight: 800,
+            color: T.ink,
+            letterSpacing: "-0.028em",
+            lineHeight: 1,
+          }}
+        >
+          {avgHoldingPeriodDisplay || "—"}
+        </span>
+        <span
+          style={{
+            fontFamily: T.sans,
+            fontSize: 11.5,
+            color: T.muted,
+          }}
+        >
+          Active holdings, weighted by first investment date
+        </span>
+      </div>
     </div>
   );
 }
