@@ -717,25 +717,20 @@
   min-height: 1.75rem;
 }
 
-.landing-rebrand .landing-market-grid {
-  grid-auto-rows: 1fr;
-}
-
 .landing-rebrand .landing-market-card {
-  border-color: rgba(0, 11, 41, 0.08);
-  background-color: #fafbff;
-  box-shadow: 0 1px 2px rgba(0, 11, 41, 0.04);
+  border-color: #e2e8f0;
+  background-color: #ffffff;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
   transition:
     border-color 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-    background-color 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .landing-rebrand .landing-market-card.is-focused {
   border-color: rgba(83, 111, 240, 0.5);
-  background-color: #ffffff;
   box-shadow:
-    0 14px 36px rgba(83, 111, 240, 0.16),
+    0 10px 30px rgba(15, 23, 42, 0.18),
     0 0 0 1px rgba(83, 111, 240, 0.1);
 }
 
@@ -743,11 +738,11 @@
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   min-height: 0;
   overflow-wrap: anywhere;
-  color: #1a2340;
+  color: #111827;
   transition: color 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -762,6 +757,25 @@
 
 .landing-rebrand .landing-market-card.is-focused .landing-market-card-meta {
   color: #5a6272;
+}
+
+.landing-rebrand .landing-market-card-strapline {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+  color: #5a6272;
+}
+
+.landing-rebrand .landing-market-card-footer {
+  color: #8791a8;
+}
+
+.landing-rebrand .landing-market-card-sector {
+  background-color: #f0f3ff;
+  color: #3e5edc;
 }
 
 .landing-rebrand .landing-market-card:focus-visible {

@@ -11,7 +11,6 @@ import { AIDefensibilityVisual } from "./AIDefensibilityVisual";
 import { CompanyProfileVisual } from "./CompanyProfileVisual";
 import { DashboardMockup } from "./DashboardMockup";
 import { DealRadarVisual } from "./DealRadarVisual";
-import { DealTrackingVisual } from "./DealTrackingVisual";
 import { FinancialBenchmarkVisual } from "./FinancialBenchmarkVisual";
 import { InvestorPortfolioVisual } from "./InvestorPortfolioVisual";
 import { Reveal } from "./Reveal";
@@ -39,16 +38,7 @@ const TABS = [
     label: "Surface",
     heading: "Deal Radar",
     description:
-      "Know which Data & Analytics companies will transact before the rest of the market does. Asymmetrix provides proprietary intelligence on in-market companies and surfaces deal signals long before a process formally begins.",
-  },
-  {
-    value: "deal-tracking",
-    trigger: "Deal Tracking",
-    label: "Source",
-    heading: "Deal Tracking",
-    description:
-      "See in-market companies and live processes surfaced through proprietary deal signals, long before a transaction is formally announced.",
-    stat: { value: "5,708", caption: "Corporate events tracked" },
+      "Know which Data & Analytics companies will transact before the rest of the market does. Asymmetrix surfaces proprietary deal signals ahead of a formal process, then tracks every one of the 5,708+ corporate events it covers through to close.",
   },
   {
     value: "financial-intelligence",
@@ -133,8 +123,6 @@ export function Coverage() {
                   <CompanyProfileVisual />
                 ) : tab.value === "deal-radar" ? (
                   <DealRadarVisual />
-                ) : tab.value === "deal-tracking" ? (
-                  <DealTrackingVisual />
                 ) : tab.value === "financial-intelligence" ? (
                   <FinancialBenchmarkVisual />
                 ) : tab.value === "ai-defensibility" ? (
