@@ -3366,8 +3366,9 @@ const CompanyDetail = () => {
       font-family: ${T.sans} !important;
       font-size: 13px !important;
       line-height: 1.55 !important;
-      font-weight: 400 !important;
-      color: ${T.body} !important;
+      font-weight: 700 !important;
+      font-variant-numeric: tabular-nums !important;
+      color: ${T.ink} !important;
     }
     .desktop-financial-metrics .info-row:not(.income-statement-row) > :nth-child(3) {
       min-width: 0;

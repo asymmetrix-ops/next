@@ -3684,8 +3684,9 @@ const CompanyDetail = () => {
       font-family: ${T.sans} !important;
       font-size: ${FIN_METRIC_COMPACT_BODY_FONT_SIZE}px !important;
       line-height: 1.55 !important;
-      font-weight: 400 !important;
-      color: ${T.body} !important;
+      font-weight: 700 !important;
+      font-variant-numeric: tabular-nums !important;
+      color: ${T.ink} !important;
     }
     .company-grid-finance-primary.desktop-financial-metrics .info-row:not(.income-statement-row):not(.fin-metric-period-header) > :nth-child(1),
     .company-grid-finance-secondary.desktop-financial-metrics .info-row:not(.income-statement-row):not(.fin-metric-period-header) > :nth-child(1),
