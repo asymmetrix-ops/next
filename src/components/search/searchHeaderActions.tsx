@@ -5,15 +5,17 @@ export const SEARCH_HEADER_ACTION_BUTTON_STYLE: CSSProperties = {
   alignItems: "center",
   gap: 6,
   height: 36,
-  padding: "0 14px",
+  padding: "0 16px",
   background: "#fff",
-  border: "1px solid #e2e8f0",
-  borderRadius: 8,
+  border: "1px solid #C6D1FB",
+  borderRadius: 999,
   fontSize: 13,
-  fontWeight: 500,
-  color: "#374151",
+  fontWeight: 700,
+  color: "#2A46EA",
+  fontFamily:
+    "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   cursor: "pointer",
-  boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+  boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
 };
 
 export function SearchExportCsvIcon() {

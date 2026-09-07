@@ -693,7 +693,7 @@ export default function FinancialIntelligencePage() {
   const isRefreshingBenchmark = loading && peers.length > 0;
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--ax-gray-25)", fontFamily: "var(--font-sans)" }}>
+    <div className="min-h-screen" style={{ background: "var(--ax-gray-50)", fontFamily: "var(--font-sans)" }}>
       <Header />
       <main style={{ width: "100%", padding: "20px 28px 48px", boxSizing: "border-box" }}>
         <div
@@ -706,18 +706,25 @@ export default function FinancialIntelligencePage() {
           }}
         >
           <div>
-            <div
+            <span
               style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: "var(--ax-cyan-700)",
+                display: "inline-flex",
+                alignItems: "center",
+                height: 26,
+                padding: "0 13px",
+                borderRadius: 999,
+                background: "var(--ax-cyan-50)",
+                border: "1px solid var(--ax-cyan-100)",
+                fontSize: 11,
+                fontWeight: 800,
+                color: "var(--ax-cyan-600)",
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
               }}
             >
               Financial Intelligence
-            </div>
-            <h1 style={{ margin: "6px 0 8px", fontSize: 28, fontWeight: 800, color: "var(--fg-1)" }}>
+            </span>
+            <h1 style={{ margin: "6px 0 0", fontSize: 28, fontWeight: 800, letterSpacing: "-0.026em", color: "var(--fg-1)" }}>
               Financial Benchmark
             </h1>
             <p style={{ margin: 0, color: "var(--fg-3)", fontSize: 14, maxWidth: 760 }}>
@@ -753,13 +760,15 @@ export default function FinancialIntelligencePage() {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
-                  padding: "8px 14px",
-                  borderRadius: "var(--r-md)",
+                  height: 32,
+                  padding: "0 14px",
+                  borderRadius: 999,
                   border: "none",
-                  background: "var(--ax-gray-900)",
+                  background: "var(--ax-cyan-600)",
                   color: "white",
-                  fontWeight: 600,
+                  fontWeight: 700,
                   fontSize: 12,
+                  boxShadow: "var(--shadow-brand-glow)",
                   cursor: loading || selectedCompanyIdList.length === 0 ? "default" : "pointer",
                   opacity: loading || selectedCompanyIdList.length === 0 ? 0.5 : 1,
                   fontFamily: "var(--font-sans)",

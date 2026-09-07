@@ -62,7 +62,7 @@ export const SEARCH_BULK_TOOLBAR_STYLES = `
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       background: #fff;
-      color: #0f172a;
+      color: #0A0E1A;
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
@@ -76,8 +76,8 @@ export const SEARCH_BULK_TOOLBAR_STYLES = `
       cursor: not-allowed;
     }
     .search-bulk-action-toolbar-btn-primary {
-      background: #0f172a;
-      border-color: #0f172a;
+      background: #0A0E1A;
+      border-color: #0A0E1A;
       color: #fff;
     }
     .search-bulk-action-toolbar-btn-primary:hover:not(:disabled) {
@@ -91,7 +91,7 @@ export const SEARCH_BULK_TOOLBAR_STYLES = `
       border-radius: 6px;
       background: #fff;
       font-size: 12px;
-      color: #0f172a;
+      color: #0A0E1A;
       min-width: 160px;
     }
     .search-bulk-action-toolbar-input {
@@ -116,12 +116,13 @@ export const SEARCH_BULK_TOOLBAR_STYLES = `
     }
     .search-bulk-action-toolbar-progress-text {
       font-size: 11px;
-      color: #64748b;
+      color: #6B7488;
       white-space: nowrap;
     }
 `;
 
 export const SEARCH_TABLE_STYLES = `
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     .loading-skeleton {
       background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
       background-size: 200% 100%;
@@ -129,7 +130,7 @@ export const SEARCH_TABLE_STYLES = `
       border-radius: 4px;
     }
     .company-table-col-loading {
-      background: linear-gradient(90deg, rgba(0, 11, 41, 0.08) 25%, #cbd5e1 50%, rgba(0, 11, 41, 0.08) 75%);
+      background: linear-gradient(90deg, #E4E8F2 25%, #cbd5e1 50%, #E4E8F2 75%);
       background-size: 200% 100%;
       animation: shimmer 1.5s ease-in-out infinite;
     }
@@ -138,6 +139,7 @@ export const SEARCH_TABLE_STYLES = `
       100% { background-position: -200% 0; }
     }
     .company-section {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       width: 100%;
       max-width: 100%;
       min-width: 0;
@@ -159,8 +161,8 @@ export const SEARCH_TABLE_STYLES = `
     .company-stats {
       background: #fff;
       padding: 16px;
-      box-shadow: 0 1px 2px rgba(0, 11, 41, 0.04);
-      border: 1px solid rgba(0, 11, 41, 0.08);
+      box-shadow: 0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04);
+      border: 1px solid #E4E8F2;
       border-radius: 16px;
       margin-bottom: 12px;
     }
@@ -181,7 +183,7 @@ export const SEARCH_TABLE_STYLES = `
       align-items: center;
       gap: 8px;
       padding: 6px 0;
-      border-bottom: 1px solid rgba(0, 11, 41, 0.08);
+      border-bottom: 1px solid #E4E8F2;
     }
     .stats-item:last-child {
       border-bottom: none;
@@ -201,7 +203,7 @@ export const SEARCH_TABLE_STYLES = `
       min-width: 100%;
       background: #fff;
       padding: 16px;
-      box-shadow: 0 1px 2px rgba(0, 11, 41, 0.04);
+      box-shadow: 0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04);
       border-radius: 16px;
       border-collapse: separate;
       border-spacing: 0;
@@ -215,8 +217,8 @@ export const SEARCH_TABLE_STYLES = `
       max-width: 100%;
       max-height: min(72vh, calc(100vh - 240px));
       border-radius: 16px;
-      box-shadow: 0 1px 2px rgba(0, 11, 41, 0.04);
-      border: 1px solid rgba(0, 11, 41, 0.08);
+      box-shadow: 0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04);
+      border: 1px solid #E4E8F2;
       background: #fff;
     }
     .company-table-scroll .company-table {
@@ -225,7 +227,7 @@ export const SEARCH_TABLE_STYLES = `
       margin: 0;
     }
     .company-columns-button {
-      border: 1px solid rgba(0, 11, 41, 0.08);
+      border: 1px solid #E4E8F2;
       background: #fff;
       color: #1a202c;
       border-radius: 8px;
@@ -235,8 +237,8 @@ export const SEARCH_TABLE_STYLES = `
       cursor: pointer;
     }
     .company-columns-button.primary {
-      border-color: #0075df;
-      color: #0075df;
+      border-color: #2A46EA;
+      color: #2A46EA;
     }
     .company-table-cell-wrap {
       white-space: normal !important;
@@ -249,7 +251,7 @@ export const SEARCH_TABLE_STYLES = `
       left: 0;
       z-index: 3;
       background: #fff;
-      box-shadow: 1px 0 0 rgba(0, 11, 41, 0.08);
+      box-shadow: 1px 0 0 #E4E8F2;
     }
     .company-table tbody .company-table-select-cell input[type="checkbox"] {
       opacity: 0;
@@ -284,7 +286,7 @@ export const SEARCH_TABLE_STYLES = `
     .company-table-entity-name {
       font-weight: 600;
       font-size: 14px;
-      color: #0f172a;
+      color: #0A0E1A;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -295,11 +297,11 @@ export const SEARCH_TABLE_STYLES = `
       cursor: pointer;
     }
     .company-table-entity-name-link:hover {
-      color: #0f172a;
+      color: #0A0E1A;
     }
     .company-table-entity-subtitle {
       font-size: 12px;
-      color: #94a3b8;
+      color: #8A93A8;
       margin-top: 2px;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -309,7 +311,7 @@ export const SEARCH_TABLE_STYLES = `
       padding: 4px 10px;
       font-size: 12px;
       font-weight: 500;
-      color: #0075df;
+      color: #2A46EA;
       background: #eff6ff;
       border: 1px solid #bfdbfe;
       border-radius: 6px;
@@ -325,7 +327,7 @@ export const SEARCH_TABLE_STYLES = `
       padding: 8px 12px;
       text-align: left;
       vertical-align: middle;
-      border-bottom: 1px solid rgba(0, 11, 41, 0.08);
+      border-bottom: 1px solid #E4E8F2;
       word-wrap: break-word;
       overflow-wrap: break-word;
       min-width: 120px;
@@ -333,22 +335,22 @@ export const SEARCH_TABLE_STYLES = `
     }
     .company-table th {
       font-weight: 800;
-      color: #5a6272;
+      color: #6B7488;
       font-size: 10px;
       letter-spacing: 0.09em;
       text-transform: uppercase;
-      background: #f7f8fc;
-      border-bottom: 1px solid rgba(0, 11, 41, 0.08);
+      background: #F5F7FD;
+      border-bottom: 1px solid #E4E8F2;
       position: sticky;
       top: 0;
       z-index: 4;
     }
     .company-table tbody tr:hover td {
-      background: #eff7ff;
+      background: #F1F4FE;
     }
     .company-table tbody tr:hover td.company-table-sticky-frozen,
     .company-table tbody tr:hover td.company-table-select-cell {
-      background: #eff7ff;
+      background: #F1F4FE;
     }
     .company-table-th-sortable {
       cursor: pointer;
@@ -374,13 +376,13 @@ export const SEARCH_TABLE_STYLES = `
     .company-table-sort-indicator {
       margin-left: 4px;
       font-size: 10px;
-      color: #64748b;
+      color: #6B7488;
     }
     .company-table-pin-indicator {
       display: inline-flex;
       align-items: center;
       margin-left: 4px;
-      color: #94a3b8;
+      color: #8A93A8;
       vertical-align: middle;
     }
     .company-table th.company-table-col-follow,
@@ -391,7 +393,7 @@ export const SEARCH_TABLE_STYLES = `
     }
     .company-table th.company-table-col-follow {
       z-index: 4;
-      background: #f7f8fc;
+      background: #F5F7FD;
     }
     .company-table td.company-table-col-follow {
       position: relative;
@@ -414,11 +416,11 @@ export const SEARCH_TABLE_STYLES = `
     }
     .company-table thead th.company-table-sticky-frozen {
       z-index: 7;
-      background: #f7f8fc;
+      background: #F5F7FD;
     }
     .company-table td {
       font-size: 13px;
-      color: #0f172a;
+      color: #0A0E1A;
       line-height: 1.4;
     }
     .company-section .company-logo,
@@ -432,19 +434,19 @@ export const SEARCH_TABLE_STYLES = `
       border-radius: 8px;
     }
     .company-name {
-      color: #0075df;
+      color: #2A46EA;
       text-decoration: underline;
       cursor: pointer;
       font-weight: 500;
     }
     .link-blue {
-      color: #0075df;
+      color: #2A46EA;
       text-decoration: underline;
       cursor: pointer;
       font-weight: 500;
     }
     .link-blue:hover {
-      color: #005bb5;
+      color: #1F35C4;
     }
     .muted-row {
       font-size: 12px;
@@ -483,7 +485,7 @@ export const SEARCH_TABLE_STYLES = `
       background: none;
       border: none;
       padding: 0;
-      color: #0075df;
+      color: #2A46EA;
       text-decoration: underline;
       cursor: pointer;
       font-size: 12px;
@@ -498,7 +500,7 @@ export const SEARCH_TABLE_STYLES = `
       text-overflow: ellipsis;
     }
     .expand-description {
-      color: #0075df;
+      color: #2A46EA;
       text-decoration: underline;
       cursor: pointer;
       font-size: 12px;
@@ -544,10 +546,10 @@ export const SEARCH_TABLE_STYLES = `
       text-decoration: none;
     }
     .pagination-button:hover {
-      color: #0075df;
+      color: #2A46EA;
     }
     .pagination-button.active {
-      color: #0075df;
+      color: #2A46EA;
       text-decoration: underline;
       font-weight: 500;
     }
@@ -597,7 +599,7 @@ export const SEARCH_TABLE_STYLES = `
       border-radius: 8px;
       padding: 12px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      border: 1px solid rgba(0, 11, 41, 0.08);
+      border: 1px solid #E4E8F2;
     }
     .company-card-header {
       display: flex;
@@ -625,7 +627,7 @@ export const SEARCH_TABLE_STYLES = `
       flex-shrink: 0;
     }
     .company-card-name {
-      color: #0075df;
+      color: #2A46EA;
       text-decoration: underline;
       cursor: pointer;
       font-weight: 600;
@@ -671,7 +673,7 @@ export const SEARCH_TABLE_STYLES = `
       text-overflow: ellipsis;
     }
     .company-card-expand {
-      color: #0075df;
+      color: #2A46EA;
       text-decoration: underline;
       cursor: pointer;
       font-size: 12px;

@@ -249,7 +249,10 @@
             gridTemplateColumns: "26px 172px 1fr 76px",
             alignItems: "center",
             gap: 10,
-            padding: "5px 0",
+            padding: "5px 8px",
+            margin: "0 -8px",
+            borderRadius: 6,
+            background: entry.isTarget ? "var(--ax-cyan-50)" : "transparent",
           }}
         >
           <span
@@ -302,7 +305,7 @@
                 bottom: 0,
                 width: `${fill}%`,
                 borderRadius: 4,
-                background: entry.isTarget ? "var(--ax-positive)" : "var(--ax-gray-300)",
+                background: entry.isTarget ? "var(--ax-cyan-600)" : "var(--ax-gray-300)",
               }}
             />
           </span>

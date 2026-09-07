@@ -18,9 +18,9 @@ const MENU_STYLES = `
     right: 0;
     min-width: 220px;
     background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+    border: 1px solid #E4E8F2;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(16, 28, 70, 0.07), 0 20px 48px rgba(16, 28, 70, 0.10);
     padding: 6px;
     z-index: 40;
   }
@@ -34,11 +34,11 @@ const MENU_STYLES = `
     padding: 10px 12px;
     font-size: 13px;
     font-weight: 500;
-    color: #374151;
+    color: #3D4657;
     cursor: pointer;
   }
   .search-export-menu-item:hover:not(:disabled) {
-    background: #f8fafc;
+    background: #F1F4FE;
   }
   .search-export-menu-item:disabled {
     opacity: 0.6;
@@ -49,7 +49,7 @@ const MENU_STYLES = `
     margin-top: 2px;
     font-size: 11px;
     font-weight: 400;
-    color: #64748b;
+    color: #6B7488;
   }
 `;
 

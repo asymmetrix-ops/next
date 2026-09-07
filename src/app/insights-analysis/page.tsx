@@ -24,7 +24,7 @@ const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 // Shared styles object
 const styles = {
   container: {
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#F5F7FD",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     width: "100%",
@@ -53,14 +53,14 @@ const styles = {
   heading: {
     fontSize: "24px",
     fontWeight: "700",
-    color: "#1a202c",
+    color: "#0A0E1A",
     marginBottom: "16px",
     marginTop: "0px",
   },
   subHeading: {
     fontSize: "20px",
     fontWeight: "600",
-    color: "#1a202c",
+    color: "#0A0E1A",
     marginBottom: "12px",
   },
   searchDiv: {
@@ -76,10 +76,10 @@ const styles = {
     width: "100%",
     maxWidth: "280px",
     padding: "10px 12px",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #E4E8F2",
     borderRadius: "6px",
     fontSize: "14px",
-    color: "#4a5568",
+    color: "#3D4657",
     outline: "none",
     marginBottom: "0",
     boxSizing: "border-box" as const,
@@ -87,7 +87,7 @@ const styles = {
   button: {
     width: "100%",
     maxWidth: "120px",
-    backgroundColor: "#0075df",
+    backgroundColor: "#2A46EA",
     color: "white",
     fontWeight: "600",
     padding: "10px 14px",
@@ -102,7 +102,7 @@ const styles = {
   linkButton: {
     backgroundColor: "transparent",
     border: "none",
-    color: "#0075df",
+    color: "#2A46EA",
     textDecoration: "underline",
     cursor: "pointer",
     fontSize: "14px",
@@ -124,7 +124,7 @@ const styles = {
   label: {
     fontSize: "14px",
     fontWeight: "500",
-    color: "#374151",
+    color: "#3D4657",
     marginBottom: "4px",
     marginTop: "4px",
   },
@@ -132,10 +132,10 @@ const styles = {
     width: "100%",
     maxWidth: "280px",
     padding: "10px 12px",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #E4E8F2",
     borderRadius: "6px",
     fontSize: "14px",
-    color: "#4a5568",
+    color: "#3D4657",
     outline: "none",
     backgroundColor: "white",
     cursor: "pointer",
@@ -805,7 +805,7 @@ function InsightsAnalysisPageContent() {
     .stats-title {
       font-size: 24px;
       font-weight: 700;
-      color: #1a202c;
+      color: #0A0E1A;
       margin: 0 0 24px 0;
     }
     .stats-grid {
@@ -820,7 +820,7 @@ function InsightsAnalysisPageContent() {
     }
     .stats-label {
       font-size: 14px;
-      color: #4a5568;
+      color: #3D4657;
       font-weight: 500;
       line-height: 1.4;
     }
@@ -841,7 +841,7 @@ function InsightsAnalysisPageContent() {
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       padding: 16px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid #E4E8F2;
       cursor: pointer;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
@@ -850,8 +850,8 @@ function InsightsAnalysisPageContent() {
       box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
     }
     .article-card--series {
-      border-color: #c4b5fd;
-      background: linear-gradient(180deg, #ffffff 0%, #faf5ff 100%);
+      border-color: #7A5BD0;
+      background: linear-gradient(180deg, #ffffff 0%, #F1EBFC 100%);
     }
     .series-tile-header {
       display: flex;
@@ -867,9 +867,9 @@ function InsightsAnalysisPageContent() {
       font-weight: 700;
       letter-spacing: 0.03em;
       text-transform: uppercase;
-      color: #5b21b6;
-      background: #ede9fe;
-      border: 1px solid #c4b5fd;
+      color: #523793;
+      background: #F1EBFC;
+      border: 1px solid #7A5BD0;
       border-radius: 9999px;
       padding: 5px 10px;
       white-space: nowrap;
@@ -884,9 +884,9 @@ function InsightsAnalysisPageContent() {
       width: 28px;
       height: 28px;
       border-radius: 9999px;
-      border: 1px solid #c4b5fd;
+      border: 1px solid #7A5BD0;
       background: #ffffff;
-      color: #5b21b6;
+      color: #523793;
       font-size: 18px;
       line-height: 1;
       cursor: pointer;
@@ -897,8 +897,8 @@ function InsightsAnalysisPageContent() {
       transition: background-color 0.15s ease, border-color 0.15s ease;
     }
     .series-tile-arrow:hover:not(:disabled) {
-      background: #ede9fe;
-      border-color: #a78bfa;
+      background: #F1EBFC;
+      border-color: #7A5BD0;
     }
     .series-tile-arrow:disabled {
       opacity: 0.35;
@@ -915,16 +915,16 @@ function InsightsAnalysisPageContent() {
       width: 7px;
       height: 7px;
       border-radius: 9999px;
-      background: #ddd6fe;
+      background: #E2E8FD;
     }
     .series-part-dot.active {
-      background: #7c3aed;
+      background: #523793;
       transform: scale(1.15);
     }
     .article-title {
       font-size: 18px;
       font-weight: 700;
-      color: #1a202c;
+      color: #0A0E1A;
       margin: 0 0 8px 0;
       line-height: 1.3;
     }
@@ -937,8 +937,8 @@ function InsightsAnalysisPageContent() {
       display: inline-block;
       font-size: 12px;
       line-height: 1;
-      color: #374151;
-      background-color: #f3f4f6;
+      color: #3D4657;
+      background-color: #EFF2F8;
       padding: 4px 8px;
       border-radius: 9999px;
       margin: 0 0 8px 0;
@@ -946,7 +946,7 @@ function InsightsAnalysisPageContent() {
     }
     .article-date {
       font-size: 14px;
-      color: #6b7280;
+      color: #6B7488;
       margin: 0 0 16px 0;
       font-weight: 500;
     }
@@ -964,34 +964,34 @@ function InsightsAnalysisPageContent() {
       font-weight: 600;
     }
     .badge-company-analysis {
-      background: #ecfdf5;
-      color: #065f46;
-      border-color: #a7f3d0;
+      background: #E4F5EC;
+      color: #0F7040;
+      border-color: #E4F5EC;
     }
     .badge-deal-analysis {
-      background: #eff6ff;
-      color: #1e40af;
-      border-color: #bfdbfe;
+      background: #F1F4FE;
+      color: #1F35C4;
+      border-color: #C6D1FB;
     }
     .badge-sector-analysis {
-      background: #f5f3ff;
-      color: #5b21b6;
-      border-color: #ddd6fe;
+      background: #F1EBFC;
+      color: #523793;
+      border-color: #E2E8FD;
     }
     .badge-hot-take {
-      background: #fff7ed;
-      color: #9a3412;
-      border-color: #fed7aa;
+      background: #FEF6E0;
+      color: #7A5605;
+      border-color: #FEF6E0;
     }
     .badge-executive-interview {
-      background: #f0fdf4;
-      color: #166534;
-      border-color: #bbf7d0;
+      background: #E4F5EC;
+      color: #0F7040;
+      border-color: #E4F5EC;
     }
     .badge-news {
-      background: #fff1f2;
-      color: #9f1239;
-      border-color: #fecdd3;
+      background: #FCEAE7;
+      color: #A62E22;
+      border-color: #FCEAE7;
     }
     .article-transaction-status-row {
       margin: 0 0 10px 0;
@@ -1004,17 +1004,17 @@ function InsightsAnalysisPageContent() {
       line-height: 1;
       padding: 5px 10px;
       border-radius: 9999px;
-      border: 1.5px solid #4ade80;
+      border: 1.5px solid #17A05C;
       font-weight: 700;
       letter-spacing: 0.03em;
       text-transform: uppercase;
-      background-color: #dcfce7;
-      color: #166534;
+      background-color: #E4F5EC;
+      color: #0F7040;
       white-space: nowrap;
     }
     .article-summary {
       font-size: 14px;
-      color: #374151;
+      color: #3D4657;
       line-height: 1.6;
       margin: 0 0 16px 0;
       display: -webkit-box;
@@ -1032,12 +1032,12 @@ function InsightsAnalysisPageContent() {
     .article-meta-label {
       font-size: 13px;
       font-weight: 600;
-      color: #374151;
+      color: #3D4657;
       margin-right: 8px;
     }
     .article-meta-value {
       font-size: 13px;
-      color: #6b7280;
+      color: #6B7488;
       line-height: 1.4;
     }
     .loading {
@@ -1048,8 +1048,8 @@ function InsightsAnalysisPageContent() {
     .error {
       text-align: center;
       padding: 20px;
-      color: #e53e3e;
-      background-color: #fed7d7;
+      color: #A62E22;
+      background-color: #FCEAE7;
       border-radius: 6px;
       margin-bottom: 16px;
     }
@@ -1073,10 +1073,10 @@ function InsightsAnalysisPageContent() {
       text-decoration: none;
     }
     .pagination-button:hover {
-      color: #0075df;
+      color: #2A46EA;
     }
     .pagination-button.active {
-      color: #0075df;
+      color: #2A46EA;
       text-decoration: underline;
       font-weight: 500;
     }
@@ -1096,9 +1096,9 @@ function InsightsAnalysisPageContent() {
       gap: 10px;
       padding: 8px 10px;
       margin: 0;
-      border: 1px solid #e2e8f0;
+      border: 1px solid #E4E8F2;
       border-radius: 8px;
-      background: #f8fafc;
+      background: #F5F7FD;
       max-width: 320px;
       min-height: 36px;
     }
@@ -1106,7 +1106,7 @@ function InsightsAnalysisPageContent() {
       width: 16px;
       height: 16px;
       margin-top: 1px;
-      accent-color: #0075df;
+      accent-color: #2A46EA;
       cursor: pointer;
       flex-shrink: 0;
     }
@@ -1118,13 +1118,13 @@ function InsightsAnalysisPageContent() {
     .followed-filter-title {
       font-size: 13px;
       font-weight: 600;
-      color: #1a202c;
+      color: #0A0E1A;
       line-height: 1.2;
     }
     .followed-filter-description {
       font-size: 11px;
       line-height: 1.35;
-      color: #4a5568;
+      color: #3D4657;
       margin: 0;
     }
     .company-filter-banner {
@@ -1135,21 +1135,21 @@ function InsightsAnalysisPageContent() {
       flex-wrap: wrap;
       margin: 0 0 16px 0;
       padding: 12px 14px;
-      border: 1px solid #bfdbfe;
+      border: 1px solid #C6D1FB;
       border-radius: 8px;
-      background: #eff6ff;
-      color: #1e3a8a;
+      background: #F1F4FE;
+      color: #182A9B;
       font-size: 14px;
       line-height: 1.4;
     }
     .company-filter-banner strong {
-      color: #1e40af;
+      color: #1F35C4;
       font-weight: 700;
     }
     .company-filter-clear {
       background: #fff;
-      border: 1px solid #93c5fd;
-      color: #1d4ed8;
+      border: 1px solid #93A6F7;
+      color: #1F35C4;
       border-radius: 6px;
       padding: 6px 12px;
       font-size: 13px;
@@ -1158,7 +1158,7 @@ function InsightsAnalysisPageContent() {
       white-space: nowrap;
     }
     .company-filter-clear:hover {
-      background: #dbeafe;
+      background: #F1F4FE;
     }
     @media (max-width: 768px) {
       .insights-analysis-cards {
@@ -1314,8 +1314,8 @@ function InsightsAnalysisPageContent() {
                   style={{
                     ...styles.button,
                     backgroundColor: "#fff",
-                    color: "#1a202c",
-                    border: "1px solid #e2e8f0",
+                    color: "#0A0E1A",
+                    border: "1px solid #E4E8F2",
                     fontWeight: 500,
                   }}
                 >
@@ -1327,8 +1327,8 @@ function InsightsAnalysisPageContent() {
                   style={{
                     ...styles.button,
                     backgroundColor: "#fff",
-                    color: "#1a202c",
-                    border: "1px solid #e2e8f0",
+                    color: "#0A0E1A",
+                    border: "1px solid #E4E8F2",
                     fontWeight: 500,
                   }}
                 >
@@ -1479,7 +1479,7 @@ export default function InsightsAnalysisPage() {
               padding: "32px 16px",
               fontFamily:
                 '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-              color: "#4a5568",
+              color: "#3D4657",
             }}
           >
             Loading insights...

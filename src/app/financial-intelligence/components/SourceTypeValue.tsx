@@ -111,7 +111,6 @@ export function fmtFiMetric(
 export function SourceColoredValue({
   value,
   format,
-  sourceType,
   fontWeight = 600,
   fontSize,
   justify = "flex-end",
@@ -120,6 +119,7 @@ export function SourceColoredValue({
 }: {
   value: number | null;
   format: FiMetricFormat;
+  /** Accepted for API compatibility; values render in plain ink (see SourceTypeDot for legend colors). */
   sourceType?: FiMetricSourceType | string | null;
   fontWeight?: number;
   fontSize?: number | string;
@@ -146,7 +146,10 @@ export function SourceColoredValue({
     );
   }
 
-  const color = sourceType ? sourceTypeColor(sourceType) : "var(--fg-2)";
+  // Values render in plain ink — matching the FinancialBenchmark design, which
+  // never colors headline/table figures by data source (only the "Data
+  // source" filter legend uses per-type color, via SourceTypeDot).
+  const color = "var(--fg-1)";
 
   return (
     <span

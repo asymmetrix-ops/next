@@ -75,6 +75,7 @@ function StatTile({
   const value = currencyCode
     ? formatTileValue(tile, currencyCode)
     : formatCountTileValue(tile);
+  const isNegative = value.trim().startsWith("-");
 
   return (
     <div
@@ -83,20 +84,22 @@ function StatTile({
         minWidth: 180,
         background: "#fff",
         border: `1px solid ${T.divider}`,
-        borderRadius: 10,
-        padding: "16px 18px",
+        borderRadius: T.rLg,
+        boxShadow:
+          "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)",
+        padding: "15px 18px 16px",
         display: "flex",
         flexDirection: "column",
-        gap: 6,
+        gap: 8,
       }}
     >
       <span
         style={{
           fontFamily: T.sans,
-          fontSize: 12,
-          fontWeight: 600,
+          fontSize: 10.5,
+          fontWeight: 800,
           color: T.muted,
-          letterSpacing: "0.02em",
+          letterSpacing: "0.09em",
           textTransform: "uppercase",
         }}
       >
@@ -105,11 +108,11 @@ function StatTile({
       <span
         style={{
           fontFamily: T.sans,
-          fontSize: 24,
-          fontWeight: 600,
-          color: T.ink,
-          letterSpacing: "-0.4px",
-          lineHeight: 1.2,
+          fontSize: 30,
+          fontWeight: 800,
+          color: isNegative ? T.down : T.ink,
+          letterSpacing: "-0.028em",
+          lineHeight: 1,
         }}
       >
         {loading ? "…" : value}

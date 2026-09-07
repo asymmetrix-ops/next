@@ -1245,7 +1245,7 @@ const CompanyLogo = ({
     alignItems: "center",
     justifyContent: "center",
     fontSize: "12px",
-    color: "#718096",
+    color: "#6B7488",
   };
 
   if (src) {
@@ -2430,7 +2430,7 @@ const CompanyDetail = () => {
           <div style={{ fontSize: "18px", color: "#666" }}>
             Loading company data...
           </div>
-          <div style={{ marginTop: 8, fontSize: 12, color: "#9ca3af" }}>
+          <div style={{ marginTop: 8, fontSize: 12, color: "#8A93A8" }}>
             If this takes more than a few seconds, please refresh.
           </div>
         </div>
@@ -2457,7 +2457,7 @@ const CompanyDetail = () => {
                 <a
                   href="/companies"
                   style={{
-                    color: "#0075df",
+                    color: "#2A46EA",
                     textDecoration: "underline",
                     fontSize: "16px",
                   }}
@@ -2474,7 +2474,7 @@ const CompanyDetail = () => {
                 <a
                   href="/companies"
                   style={{
-                    color: "#0075df",
+                    color: "#2A46EA",
                     textDecoration: "underline",
                     fontSize: "16px",
                   }}
@@ -2879,30 +2879,30 @@ const CompanyDetail = () => {
   const canCePrev = ceTotal > 0 && cePage > 1;
   const canCeNext = ceTotal > 0 && cePage < ceTotalPages;
 
-  // ── Design tokens (mirroring the HTML template's T object) ──────────────
+  // ── Design tokens (exact values from ui_kits/landing/landing.css "--lp-*") ──
   const T = {
-    paper:   "#FAFAF7",
+    paper:   "#F5F7FD",
     panel:   "#FFFFFF",
-    inset:   "#F4F3EE",
-    divider: "rgba(15,17,21,0.08)",
-    hair:    "rgba(15,17,21,0.06)",
-    ink:     "#0F1115",
-    body:    "#2A2D33",
-    muted:   "#6B6E76",
-    faint:   "#9A9CA3",
-    azure:   "oklch(54% 0.22 258)",
-    azureSoft: "oklch(96% 0.035 258)",
-    emerald: "oklch(56% 0.13 158)",
-    emeraldSoft: "oklch(95% 0.05 158)",
-    coral:   "oklch(68% 0.13 25)",
-    coralSoft: "oklch(95% 0.04 25)",
-    lavender: "oklch(64% 0.16 285)",
-    lavenderSoft: "oklch(94% 0.045 285)",
-    up:      "oklch(55% 0.13 150)",
-    down:    "oklch(55% 0.17 25)",
-    r:       6,
-    rLg:     10,
-    sans:    'var(--font-geist-sans, "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif)',
+    inset:   "#EFF2F8",
+    divider: "#E4E8F2",
+    hair:    "#EFF2F8",
+    ink:     "#0A0E1A",
+    body:    "#566078",
+    muted:   "#6B7488",
+    faint:   "#8A93A8",
+    azure:   "#2A46EA",
+    azureSoft: "#F1F4FE",
+    emerald: "#0F7040",
+    emeraldSoft: "#E4F5EC",
+    coral:   "#A62E22",
+    coralSoft: "#FCEAE7",
+    lavender: "#523793",
+    lavenderSoft: "#F1EBFC",
+    up:      "#0F7040",
+    down:    "#A62E22",
+    r:       8,
+    rLg:     16,
+    sans:    "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     mono:    'var(--font-geist-mono, "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace)',
   };
 
@@ -3372,7 +3372,7 @@ const CompanyDetail = () => {
     T.azure,
     T.lavender,
     T.coral,
-    "oklch(72% 0.14 65)",
+    "#E0A32E",
     T.emerald,
     T.muted,
   ];
@@ -3556,8 +3556,8 @@ const CompanyDetail = () => {
     .card:hover,
     .v3-finance-tabbed-card:hover,
     .management-v3-card:hover {
-      border-color: oklch(58% 0.16 258 / 0.42);
-      box-shadow: 0 8px 28px oklch(54% 0.18 258 / 0.14);
+      border-color: #C6D1FB;
+      box-shadow: 0 4px 10px rgba(16, 28, 70, 0.07), 0 20px 48px rgba(16, 28, 70, 0.10);
       z-index: 1;
     }
     .v3-finance-tabbed-card,
@@ -3753,16 +3753,16 @@ const CompanyDetail = () => {
     }
     /* Corporate Events styles (mirrors corporate-events list page) */
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
-    .corporate-event-table th, .corporate-event-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #e2e8f0; word-wrap: break-word; overflow-wrap: break-word; font-size: 14px; }
-    .corporate-event-table th { font-weight: 600; color: #1a202c; background: #f9fafb; border-bottom: 2px solid #e2e8f0; }
-    .corporate-event-name { color: #0075df; text-decoration: underline; cursor: pointer; font-weight: 500; transition: color 0.2s; }
-    .corporate-event-name:hover { color: #005bb5; }
-    .link-blue { color: #0075df; text-decoration: underline; cursor: pointer; font-weight: 500; }
-    .link-blue:hover { color: #005bb5; }
-    .muted-row { font-size: 12px; color: #4a5568; margin: 4px 0; }
+    .corporate-event-table th, .corporate-event-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #E4E8F2; word-wrap: break-word; overflow-wrap: break-word; font-size: 14px; }
+    .corporate-event-table th { font-weight: 600; color: #0A0E1A; background: #F5F7FD; border-bottom: 2px solid #E4E8F2; }
+    .corporate-event-name { color: #2A46EA; text-decoration: underline; cursor: pointer; font-weight: 500; transition: color 0.2s; }
+    .corporate-event-name:hover { color: #1F35C4; }
+    .link-blue { color: #2A46EA; text-decoration: underline; cursor: pointer; font-weight: 500; }
+    .link-blue:hover { color: #1F35C4; }
+    .muted-row { font-size: 12px; color: #566078; margin: 4px 0; }
     .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
-    .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
-    .pill-green { background-color: #dcfce7; color: #15803d; }
+    .pill-blue { background-color: #F1F4FE; color: #1F35C4; }
+    .pill-green { background-color: #E4F5EC; color: #0F7040; }
     .management-profile-row:hover {
       background-color: ${T.inset};
     }
@@ -3799,7 +3799,7 @@ const CompanyDetail = () => {
       .mobile-financial-metrics { display: block !important; }
       .desktop-linkedin-section { display: none !important; }
       .overview-card .info-row { padding: 8px 0 !important; display: block !important; }
-      .overview-card .info-label { font-size: 12px !important; color: #718096 !important; margin-bottom: 2px !important; }
+      .overview-card .info-label { font-size: 12px !important; color: #6B7488 !important; margin-bottom: 2px !important; }
       .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; word-break: break-word !important; overflow-wrap: break-word !important; }
       .overview-card { padding: 14px 8px !important; }
       .overview-grid { grid-template-columns: 1fr !important; }
@@ -3868,12 +3868,15 @@ const CompanyDetail = () => {
                       aria-haspopup="menu"
                       aria-expanded={showPdfExportOptions}
                       style={{
-                  display: "inline-flex", alignItems: "center", gap: "5px",
-                  fontFamily: T.sans, fontSize: "12.5px", fontWeight: 600,
-                  color: "#fff",
-                  backgroundColor: exportingPdf ? T.faint : "#475569",
-                  border: "none", borderRadius: "6px",
-                  padding: "8px 14px",
+                  display: "inline-flex", alignItems: "center", gap: "6px",
+                  fontFamily: T.sans, fontSize: "13px", fontWeight: 700,
+                  color: exportingPdf ? T.faint : T.azure,
+                  backgroundColor: "#fff",
+                  border: `1px solid ${exportingPdf ? T.divider : "#C6D1FB"}`,
+                  borderRadius: 999,
+                  height: 34,
+                  padding: "0 16px",
+                  boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
                   cursor: exportingPdf || !company?.id ? "not-allowed" : "pointer",
                       }}
                     >
@@ -3917,10 +3920,11 @@ const CompanyDetail = () => {
                     target="_blank"
                     rel="noopener noreferrer"
               style={{
-                display: "inline-flex", alignItems: "center", gap: "5px",
-                fontFamily: T.sans, fontSize: "12.5px", fontWeight: 600,
-                color: "#fff", backgroundColor: T.emerald,
-                borderRadius: "6px", padding: "8px 14px",
+                display: "inline-flex", alignItems: "center", gap: "6px",
+                fontFamily: T.sans, fontSize: "13px", fontWeight: 700,
+                color: "#fff", backgroundColor: T.azure,
+                borderRadius: 999, height: 34, padding: "0 18px",
+                boxShadow: "0 6px 18px rgba(42, 70, 234, 0.32)",
                 textDecoration: "none",
               }}
                   >
@@ -3931,7 +3935,21 @@ const CompanyDetail = () => {
               </div>
 
         {/* Navigation tabs */}
-        <div style={{ display: "flex", gap: "2px", overflowX: "auto" as const, scrollbarWidth: "none" as const }}>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 2,
+            padding: 5,
+            marginTop: "16px",
+            marginBottom: "16px",
+            borderRadius: 999,
+            background: T.paper,
+            border: `1px solid ${T.divider}`,
+            overflowX: "auto" as const,
+            scrollbarWidth: "none" as const,
+          }}
+        >
           {(showFinancialsTab
             ? (["Summary", "Financials"] as const)
             : (["Summary"] as const)
@@ -3943,19 +3961,20 @@ const CompanyDetail = () => {
                 type="button"
                 onClick={() => setActiveProfileTab(tab)}
                 style={{
-                  padding: "10px 14px",
+                  height: 38,
+                  padding: "0 20px",
                   fontFamily: T.sans,
                   fontSize: "13px",
-                  fontWeight: active ? 600 : 500,
+                  fontWeight: active ? 700 : 600,
                   color: active ? T.ink : T.muted,
-                  borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
-                  marginBottom: "-1px",
+                  borderRadius: 999,
                   whiteSpace: "nowrap" as const,
-                  transition: "color 120ms",
-                  background: "transparent",
-                  borderTop: "none",
-                  borderLeft: "none",
-                  borderRight: "none",
+                  transition: "color 120ms, background 120ms, box-shadow 120ms",
+                  background: active ? "#fff" : "transparent",
+                  boxShadow: active
+                    ? "0 1px 2px rgba(16, 28, 70, 0.06), 0 3px 10px rgba(16, 28, 70, 0.08)"
+                    : "none",
+                  border: "none",
                   cursor: "pointer",
                 }}
               >
@@ -4321,11 +4340,12 @@ const CompanyDetail = () => {
                               : T.up,
                             backgroundColor:
                               overviewEmployeesYoY.trim().startsWith("-")
-                                ? "oklch(95% 0.04 25)"
-                                : "oklch(95% 0.05 150)",
+                                ? T.coralSoft
+                                : T.emeraldSoft,
                             border: "1px solid transparent",
-                            borderRadius: "4px",
-                            padding: "2px 8px",
+                            borderRadius: 999,
+                            padding: "0 10px",
+                            height: 24,
                             lineHeight: 1.5,
                           }}
                         >

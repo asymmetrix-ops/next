@@ -33,10 +33,10 @@ function resolveFactorDescription(axis: AIRiskAxis): string | undefined {
 }
 
 const DEFENSIBILITY_TONE = {
-  fg: "oklch(40% 0.12 158)",
-  fill: "oklch(56% 0.13 158)",
-  bg: "oklch(95% 0.05 158)",
-  ring: "oklch(60% 0.14 158)",
+  fg: "#0F7040",
+  fill: "#17A05C",
+  bg: "#E4F5EC",
+  ring: "#17A05C",
 } as const;
 
 type FactorTooltipProps = {
@@ -183,7 +183,7 @@ function RadarChart({
         points={pts}
         fill={s === maxScore ? T.azureSoft : "transparent"}
         fillOpacity={s === maxScore ? 0.45 : 0}
-        stroke={s === maxScore ? "oklch(80% 0.05 258)" : T.hair}
+        stroke={s === maxScore ? "#C6D1FB" : T.hair}
         strokeWidth={1}
         strokeDasharray={s === maxScore ? "0" : "2 3"}
       />
@@ -408,7 +408,7 @@ export function AIRiskCard({
       onMouseLeave={() => setHover(false)}
       style={{
         background: T.panel,
-        border: `1px solid ${hover ? "oklch(82% 0.07 258)" : T.divider}`,
+        border: `1px solid ${hover ? "#C6D1FB" : T.divider}`,
         borderRadius: T.rLg,
         boxShadow: hover ? "0 4px 20px rgba(35,80,200,0.06)" : "none",
         transition:

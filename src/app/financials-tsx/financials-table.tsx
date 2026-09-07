@@ -101,10 +101,10 @@ export function Sparkline({ data, width = 56, height = 18, color = 'var(--ax-cya
 // ── Ownership pill ───────────────────────────────────────────────────────────
 
 const OWNERSHIP_STYLES: Record<string, { bg: string; fg: string }> = {
-  'Public':               { bg: '#EDE7F9', fg: '#5436A8' },
+  'Public':               { bg: '#F1EBFC', fg: '#523793' },
   'PE-owned':             { bg: 'var(--ax-cyan-50)',         fg: 'var(--ax-cyan-700)' },
   'VC-owned':             { bg: 'var(--ax-positive-bg)',     fg: 'var(--ax-positive)' },
-  'Private':              { bg: 'var(--ax-warning-bg)',      fg: '#7A4E0E' },
+  'Private':              { bg: 'var(--ax-warning-bg)',      fg: '#7A5605' },
   'Founder-led':          { bg: 'var(--ax-gray-100)',        fg: 'var(--fg-2)' },
   'Corporate subsidiary': { bg: 'var(--ax-gray-100)',        fg: 'var(--fg-2)' },
 };

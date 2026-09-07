@@ -204,39 +204,40 @@ export interface CompaniesFilterBarProps {
 // ── CSS variables scoped to the component ─────────────────────────────────
 
 const FILTER_BAR_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
   .cfb-root {
-    --ax-cyan-700: #0075df;
-    --ax-cyan-400: #54a8ff;
-    --ax-cyan-50:  #eff7ff;
-    --ax-cyan-200: #b3d9ff;
-    --ax-cyan-100: #cce7ff;
-    --ax-cyan-300: #80c2ff;
-    --border-1:    rgba(0, 11, 41, 0.08);
-    --fg-1:  #000b29;
-    --fg-2:  #313a54;
-    --fg-3:  #5a6272;
-    --fg-4:  #8791a8;
-    --fg-link: #0075df;
-    --ax-gray-25:  #fafbff;
-    --ax-gray-50:  #f7f8fc;
-    --ax-gray-100: rgba(0, 11, 41, 0.06);
-    --ax-gray-200: rgba(0, 11, 41, 0.12);
-    --ax-gray-300: #8791a8;
-    --ax-gray-500: #5a6272;
-    --ax-gray-900: #000b29;
+    --ax-cyan-700: #1F35C4;
+    --ax-cyan-400: #5C77F2;
+    --ax-cyan-50:  #F1F4FE;
+    --ax-cyan-200: #C6D1FB;
+    --ax-cyan-100: #E2E8FD;
+    --ax-cyan-300: #93A6F7;
+    --border-1:    #E4E8F2;
+    --fg-1:  #0A0E1A;
+    --fg-2:  #3D4657;
+    --fg-3:  #6B7488;
+    --fg-4:  #8A93A8;
+    --fg-link: #2A46EA;
+    --ax-gray-25:  #FAFBFE;
+    --ax-gray-50:  #F5F7FD;
+    --ax-gray-100: #EFF2F8;
+    --ax-gray-200: #E4E8F2;
+    --ax-gray-300: #8A93A8;
+    --ax-gray-500: #6B7488;
+    --ax-gray-900: #0A0E1A;
     --r-lg:  16px;
     --r-md:  10px;
     --r-sm:  8px;
-    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-mono: ui-monospace, 'SFMono-Regular', monospace;
     --fs-12: 12px;
     --fs-13: 13px;
     --fs-14: 14px;
-    --ax-positive:    #1f8a5b;
-    --ax-positive-bg: #e8f5e9;
-    --ax-negative:    #dc2626;
-    --ax-warning-bg:  #fef3c7;
-    --ax-accent-amber:#d97706;
+    --ax-positive:    #0F7040;
+    --ax-positive-bg: #E4F5EC;
+    --ax-negative:    #A62E22;
+    --ax-warning-bg:  #FEF6E0;
+    --ax-accent-amber:#7A5605;
   }
   .cfb-root { font-family: var(--font-sans); }
   .cfb-root .ax-eyebrow {
@@ -436,26 +437,22 @@ function Chip({
   let bg: string,
     fg: string,
     border: string,
-    valueFg: string,
-    sepColor: string;
+    valueFg: string;
   if (chipStyle === "cyan") {
     bg = "var(--ax-cyan-50)";
     fg = "var(--ax-cyan-700)";
-    border = "var(--ax-cyan-100)";
-    valueFg = "var(--ax-cyan-700)";
-    sepColor = "var(--ax-cyan-200)";
+    border = "var(--ax-cyan-200)";
+    valueFg = "var(--fg-1)";
   } else if (chipStyle === "outlined") {
     bg = "white";
     fg = "var(--fg-2)";
     border = "var(--ax-cyan-300)";
-    valueFg = "var(--ax-cyan-700)";
-    sepColor = "var(--ax-cyan-100)";
+    valueFg = "var(--fg-1)";
   } else {
     bg = "var(--ax-gray-50)";
     fg = "var(--fg-3)";
     border = "var(--border-1)";
     valueFg = "var(--fg-1)";
-    sepColor = "var(--ax-gray-200)";
   }
 
   return (
@@ -466,6 +463,7 @@ function Chip({
       style={{
         display: "inline-flex",
         alignItems: "center",
+        gap: 7,
         background: bg,
         border: `1px solid ${border}`,
         borderRadius: 999,
@@ -476,6 +474,7 @@ function Chip({
         transition: "box-shadow 120ms",
         boxShadow: hover && !locked ? "0 1px 2px rgba(17,22,29,0.08)" : "none",
         height: 34,
+        padding: "0 8px 0 14px",
       }}
     >
       <span
@@ -483,24 +482,12 @@ function Chip({
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
-          padding: "0 8px 0 10px",
           color: fg,
           fontWeight: 500,
         }}
       >
-        <span>{def.label}:</span>
-      </span>
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          padding: "0 8px",
-          color: valueFg,
-          fontWeight: 600,
-          borderLeft: `1px dashed ${sepColor}`,
-        }}
-      >
-        {summary}
+        <span>{def.label}</span>
+        <span style={{ color: valueFg, fontWeight: 700 }}>{summary}</span>
       </span>
       {!locked && onRemove && (
       <button
@@ -514,13 +501,17 @@ function Chip({
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          width: 24,
-          alignSelf: "stretch",
-          padding: "0 6px 0 2px",
+          width: 20,
+          height: 20,
+          flexShrink: 0,
+          padding: 0,
           border: "none",
-          background: "transparent",
+          borderRadius: "50%",
+          background: "rgba(42, 70, 234, 0.12)",
           cursor: "pointer",
-          color: hover ? valueFg : "var(--fg-4)",
+          color: "var(--ax-cyan-700)",
+          transition: "background 120ms, color 120ms",
+          ...(hover ? { background: "var(--ax-cyan-700)", color: "#fff" } : {}),
         }}
       >
         <svg width="10" height="10" viewBox="0 0 12 12" fill="none">

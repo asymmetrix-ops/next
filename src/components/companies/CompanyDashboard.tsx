@@ -468,7 +468,7 @@ export const CompanyDashboard = ({
   ];
 
   const ownershipTabs: { id: OwnershipTab; label: string; count: number; dot: string }[] = [
-    { id: "all", label: "All", count: ownershipCounts.totalCount, dot: "#64748b" },
+    { id: "all", label: "All", count: ownershipCounts.totalCount, dot: "#8A93A8" },
     ...ownershipTabOrder.map((id) => ({
       id,
       label: OWNERSHIP_TAB_CONFIG[id].label,
@@ -502,8 +502,8 @@ export const CompanyDashboard = ({
   return (
     <div
       style={{
-        background: embedded ? "#fff" : "#f8fafc",
-        borderBottom: embedded ? "none" : "1px solid #e2e8f0",
+        background: embedded ? "#fff" : "#F5F7FD",
+        borderBottom: embedded ? "none" : "1px solid #E4E8F2",
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: OWNERSHIP_OTHER_TOOLTIP_STYLES }} />
@@ -576,13 +576,15 @@ export const CompanyDashboard = ({
               }
               style={{
                 display: "flex", alignItems: "center", gap: 6,
-                height: 36, padding: "0 16px",
-                background: selectedCount > 0 ? "#0f172a" : "#94a3b8",
+                height: 36, padding: "0 18px",
+                background: selectedCount > 0 ? "#2A46EA" : "#C6D1FB",
                 color: "#fff",
-                border: "none", borderRadius: 8,
-                fontSize: 13, fontWeight: 600,
+                border: "none", borderRadius: 999,
+                fontSize: 13, fontWeight: 700,
+                fontFamily:
+                  "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                 cursor: selectedCount > 0 ? "pointer" : "not-allowed",
-                opacity: selectedCount > 0 ? 1 : 0.85,
+                boxShadow: selectedCount > 0 ? "0 6px 18px rgba(42, 70, 234, 0.32)" : "none",
               }}
             >
               + Add to portfolio
@@ -599,6 +601,7 @@ export const CompanyDashboard = ({
               display: "flex",
               flexDirection: "column",
               gap: showListTabs && showOwnershipTabs ? 6 : 0,
+              marginBottom: embedded ? 12 : 18,
             }}
           >
             {showListTabs && listTabs && (
@@ -633,7 +636,7 @@ export const CompanyDashboard = ({
                     fontWeight: 600,
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
-                    color: "#94a3b8",
+                    color: "#8A93A8",
                     paddingLeft: 2,
                   }}
                 >
@@ -670,11 +673,11 @@ export const CompanyDashboard = ({
       <div
         style={{
           background: "#fff",
-          borderTop: embedded ? "none" : "1px solid #e2e8f0",
-          borderBottom: "1px solid #e2e8f0",
+          borderTop: embedded ? "none" : "1px solid #E4E8F2",
+          borderBottom: "1px solid #E4E8F2",
         }}
       >
-        <div style={{ width: "100%", padding: `10px ${horizontalPad} 12px` }}>
+        <div style={{ width: "100%", padding: `14px ${horizontalPad} 14px` }}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={filterCategories}

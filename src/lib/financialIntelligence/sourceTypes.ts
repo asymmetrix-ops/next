@@ -11,9 +11,9 @@ export const FI_SOURCE_TYPES: FiMetricSourceType[] = [
 export const DEFAULT_FI_SOURCE_TYPES: FiMetricSourceType[] = [...FI_SOURCE_TYPES];
 
 export const SOURCE_TYPE_COLORS: Record<FiMetricSourceType, string> = {
-  Proprietary: "#2DB7FF",
-  Public: "#0F172A",
-  Estimate: "#9CA3AF",
+  Proprietary: "#0670A8",
+  Public: "#0A0E1A",
+  Estimate: "#9A6A0A",
 };
 
 /** Display order for the data-source legend (matches product design). */
@@ -178,12 +178,12 @@ export function deriveAllowedSourceTypes(
 }
 
 export function sourceTypeColor(type: FiMetricSourceType | string | null | undefined): string {
-  if (!type) return "var(--fg-4)";
+  if (!type) return "#8A93A8";
   const bucket =
     (typeof type === "string" ? resolveFinancialMetricSourceType(type) : type) ??
     parseSourceType(type);
   if (bucket) return SOURCE_TYPE_COLORS[bucket];
-  return "var(--fg-4)";
+  return "#8A93A8";
 }
 
 export function sourceLabelDescription(label: string): string {

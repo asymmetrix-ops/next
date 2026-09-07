@@ -10,64 +10,62 @@
    NOTE: substitutions — see README "Type" section. If the real
    Asymmetrix product uses different webfonts, swap here.
    ------------------------------------------------------------- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
   /* ===========================================================
      COLORS — Brand
-     Derived from the Asymmetrix logo:
-       Light hemisphere #2DB7FF  → "Asymmetrix Cyan"
-       Dark hemisphere  #0370AA  → "Asymmetrix Deep"
-     The cyan is the energetic mark; the deep blue is the
-     institutional/authority color used for primary UI.
+     Exact values from the Asymmetrix design system
+     (ui_kits/landing/landing.css "--lp-*"), the authoritative
+     source for this redesign.
      =========================================================== */
-  --ax-cyan-50:  #E8F8FF;
-  --ax-cyan-100: #C6ECFF;
-  --ax-cyan-200: #8DDAFF;
-  --ax-cyan-300: #54C7FF;
-  --ax-cyan-400: #2DB7FF;   /* brand cyan */
-  --ax-cyan-500: #15A2EA;
-  --ax-cyan-600: #0788C8;
-  --ax-cyan-700: #0370AA;   /* brand deep */
-  --ax-cyan-800: #02527D;
-  --ax-cyan-900: #013A58;
-  --ax-cyan-950: #001E2F;
+  --ax-cyan-50:  #F1F4FE;
+  --ax-cyan-100: #E2E8FD;
+  --ax-cyan-200: #C6D1FB;
+  --ax-cyan-300: #93A6F7;
+  --ax-cyan-400: #5C77F2;
+  --ax-cyan-500: #3D5BF3;
+  --ax-cyan-600: #2A46EA;   /* brand blue */
+  --ax-cyan-700: #1F35C4;
+  --ax-cyan-800: #182A9B;
+  --ax-cyan-900: #101C6B;
+  --ax-cyan-950: #0B1445;
 
   /* ===========================================================
      COLORS — Neutrals (cool gray, slight blue cast)
      =========================================================== */
   --ax-gray-0:   #FFFFFF;
-  --ax-gray-25:  #FAFBFC;
-  --ax-gray-50:  #F4F6F8;
-  --ax-gray-100: #ECEFF3;
-  --ax-gray-200: #DDE2E8;
-  --ax-gray-300: #C5CCD4;
-  --ax-gray-400: #99A2AD;
-  --ax-gray-500: #6B7480;
-  --ax-gray-600: #4B5460;
-  --ax-gray-700: #343C46;
-  --ax-gray-800: #1F252E;
-  --ax-gray-900: #11161D;
-  --ax-gray-950: #070A0F;
+  --ax-gray-25:  #FAFBFE;
+  --ax-gray-50:  #F5F7FD;
+  --ax-gray-100: #EFF2F8;
+  --ax-gray-200: #E4E8F2;
+  --ax-gray-300: #B4BCCB;
+  --ax-gray-400: #8A93A8;
+  --ax-gray-500: #6B7488;
+  --ax-gray-600: #566078;
+  --ax-gray-700: #3D4657;
+  --ax-gray-800: #1E2536;
+  --ax-gray-900: #0A0E1A;
+  --ax-gray-950: #05070C;
 
   /* ===========================================================
      COLORS — Semantic data
      Used to color deltas, deal types, sector chips.
      =========================================================== */
-  --ax-positive:   #128A5C;   /* up, gain, acquired */
-  --ax-positive-bg:#DCF3E9;
-  --ax-negative:   #C7382A;   /* down, loss, divested */
-  --ax-negative-bg:#FBE3E0;
-  --ax-warning:    #B5790B;   /* watch, pending */
-  --ax-warning-bg: #FFF1D2;
-  --ax-info:       var(--ax-cyan-600);
+  --ax-positive:   #0F7040;   /* up, gain, acquired */
+  --ax-positive-bg:#E4F5EC;
+  --ax-negative:   #A62E22;   /* down, loss, divested */
+  --ax-negative-bg:#FCEAE7;
+  --ax-warning:    #7A5605;   /* watch, pending */
+  --ax-warning-bg: #FEF6E0;
+  --ax-info:       var(--ax-cyan-700);
   --ax-info-bg:    var(--ax-cyan-50);
   --ax-neutral:    var(--ax-gray-500);
   --ax-neutral-bg: var(--ax-gray-100);
 
   /* Editorial accent — "Deal Perspective" tag, callouts */
-  --ax-accent-amber: #E8A33B;
-  --ax-accent-amber-bg: #FBF1DE;
+  --ax-accent-amber: #E0A32E;
+  --ax-accent-amber-bg: #FEF6E0;
 
   /* ===========================================================
      COLORS — Semantic foreground / background
@@ -97,9 +95,9 @@
   /* ===========================================================
      TYPE — Families
      =========================================================== */
-  --font-sans:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans:  'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
-  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono:  ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-display: var(--font-sans);   /* swap to --font-serif for editorial layouts */
 
   /* ===========================================================
@@ -159,22 +157,22 @@
   /* ===========================================================
      RADII
      =========================================================== */
-  --r-xs: 2px;
-  --r-sm: 4px;
-  --r-md: 6px;     /* default button, input */
-  --r-lg: 10px;    /* card */
-  --r-xl: 16px;    /* hero card, modal */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;    /* default button, input */
+  --r-lg: 16px;    /* card */
+  --r-xl: 20px;    /* hero card, modal */
   --r-pill: 999px;
 
   /* ===========================================================
      SHADOWS — restrained, B2B style. Mostly use borders.
      =========================================================== */
-  --shadow-xs: 0 1px 2px rgba(17, 22, 29, 0.04);
-  --shadow-sm: 0 1px 2px rgba(17, 22, 29, 0.06), 0 1px 1px rgba(17, 22, 29, 0.04);
-  --shadow-md: 0 4px 12px rgba(17, 22, 29, 0.06), 0 1px 2px rgba(17, 22, 29, 0.04);
-  --shadow-lg: 0 12px 32px rgba(17, 22, 29, 0.10), 0 2px 6px rgba(17, 22, 29, 0.04);
-  --shadow-popover: 0 8px 24px rgba(17, 22, 29, 0.12);
-  --shadow-brand-glow: 0 8px 28px rgba(3, 112, 170, 0.18);
+  --shadow-xs: 0 1px 2px rgba(16, 28, 70, 0.05);
+  --shadow-sm: 0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04);
+  --shadow-md: 0 4px 10px rgba(16, 28, 70, 0.07), 0 20px 48px rgba(16, 28, 70, 0.10);
+  --shadow-lg: 0 12px 32px rgba(16, 28, 70, 0.10), 0 2px 6px rgba(16, 28, 70, 0.04);
+  --shadow-popover: 0 8px 24px rgba(16, 28, 70, 0.12);
+  --shadow-brand-glow: 0 6px 18px rgba(42, 70, 234, 0.32);
 
   /* ===========================================================
      MOTION

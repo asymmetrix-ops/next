@@ -184,7 +184,7 @@ export function HeadcountCard({
   })();
 
   /** Line stroke: blue-grey (ref), distinct from bright axis accent */
-  const lineStroke = "oklch(40% 0.06 258)";
+  const lineStroke = "#3D4657";
 
   const linkedinIcon = linkedinUrl ? (
     <Link
