@@ -12,6 +12,7 @@ import { locationsService } from "@/lib/locationsService";
 interface Sector {
   id: number;
   sector_name: string;
+  sector_type?: "Primary" | "Secondary" | string;
   Number_of_Companies: number;
   Number_of_Sub_Sectors?: number;
   Number_of_PE: number;
@@ -303,6 +304,12 @@ const SectorCard = ({
 const normalizeSectorName = (name: string | undefined | null): string =>
   (name || "").trim().toLowerCase();
 
+function isPrimarySector(sector: Sector): boolean {
+  if (sector.sector_type === "Primary") return true;
+  if (sector.sector_type === "Secondary") return false;
+  return (sector.Number_of_Sub_Sectors ?? 0) > 0;
+}
+
 const SectorsSection = () => {
   const router = useRouter();
   const [sectors, setSectors] = useState<Sector[]>([]);
@@ -338,35 +345,35 @@ const SectorsSection = () => {
     }
   });
 
-  // Fetch sectors data
+  // Fetch sector list from Upstash cache (populated by external cache engine).
   const fetchSectors = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      const baseUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/Primary_sectors_with_companies_counts`;
-
+      const trimmed = searchTerm.trim();
       const url =
-        searchTerm.trim().length > 0
-          ? `${baseUrl}?search=${encodeURIComponent(searchTerm.trim())}&sort=`
-          : baseUrl;
+        trimmed.length > 0
+          ? `/api/sectors/list?search=${encodeURIComponent(trimmed)}`
+          : "/api/sectors/list";
 
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      const response = await fetch(url, { method: "GET" });
+
+      if (response.status === 503) {
+        setError("Sector list is not available yet. Please try again later.");
+        setSectors([]);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(`API request failed: ${response.statusText}`);
       }
 
       const data: SectorsResponse = await response.json();
-      setSectors(data.sectors || []);
+      const list = data.sectors || [];
+      setSectors(
+        trimmed.length > 0 ? list : list.filter(isPrimarySector)
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch sectors");
       console.error("Error fetching sectors:", err);
