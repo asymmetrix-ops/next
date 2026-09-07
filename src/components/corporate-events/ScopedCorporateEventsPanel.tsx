@@ -278,10 +278,18 @@ export function ScopedCorporateEventsPanel({
 
   return (
     <div
-      className={
+      className={embedded ? undefined : "min-h-screen"}
+      style={
         embedded
-          ? "overflow-hidden bg-white rounded-xl border shadow-lg border-slate-200/60"
-          : "min-h-screen"
+          ? {
+              background: "#fff",
+              border: "1px solid #E4E8F2",
+              borderRadius: 16,
+              boxShadow:
+                "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)",
+              overflow: "hidden",
+            }
+          : undefined
       }
     >
       <div className={embedded ? "px-5" : undefined}>

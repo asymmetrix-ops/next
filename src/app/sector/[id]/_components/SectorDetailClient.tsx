@@ -26,7 +26,6 @@ import {
   isNewsArticle,
   normalizeContentArticles,
 } from "@/lib/contentArticleDisplay";
-import { BuildingOfficeIcon } from "@heroicons/react/24/outline";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import {
   ContentArticle,
@@ -36,6 +35,73 @@ import {
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { exportMarketMapBucket } from "@/lib/listExport/marketMapExport";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
+import { InlineFollowButton } from "@/components/InlineFollowButton";
+
+// ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
+// (same convention as src/app/sectors/page.tsx)
+const LINE = "#E4E8F2";
+const LINE_2 = "#EFF2F8";
+const INK = "#0A0E1A";
+const INK_2 = "#1E2536";
+const INK_3 = "#3D4657";
+const BODY = "#566078";
+const MUTED = "#6B7488";
+const MUTED_SOFT = "#8A93A8";
+const EMPTY = "#6B7488";
+const TINT = "#F5F7FD";
+const BLUE_50 = "#F1F4FE";
+const BLUE_200 = "#C6D1FB";
+const BLUE_600 = "#2A46EA";
+const BLUE_700 = "#1F35C4";
+const R_LG = 16;
+const R_SM = 8;
+const SH_SM = "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)";
+const SH_XS = "0 1px 2px rgba(16, 28, 70, 0.05)";
+
+// Semantic ownership colors (matches CompanySection.tsx OwnershipChip / sectors/page.tsx)
+const OWNERSHIP_DOT: Record<string, string> = {
+  public: "#7A5BD0",
+  private_equity_owned: "#3D5BF3",
+  venture_capital_backed: "#17A05C",
+  private: "#E0A32E",
+};
+
+// Content-type dot colors (matches redesign/InsightsCard.tsx badgeTone semantics)
+const CONTENT_TYPE_DOT: Record<string, string> = {
+  news: "#A62E22",
+  "company analysis": "#2A46EA",
+  "sector analysis": "#523793",
+  "sector report": "#523793",
+  "executive interview": "#0F7040",
+  "deal analysis": "#7A5605",
+  "deal perspective": "#7A5605",
+  "hot take": "#7A5605",
+  "market commentary": "#7A5605",
+};
+
+function contentTypeDot(contentType?: string): string {
+  const key = (contentType || "").toLowerCase().trim();
+  return CONTENT_TYPE_DOT[key] || MUTED_SOFT;
+}
+
+function contentTypeBadgeStyle(contentType?: string): React.CSSProperties {
+  const t = (contentType || "").toLowerCase();
+  if (t === "company analysis" || t === "company update")
+    return { background: BLUE_50, color: BLUE_700 };
+  if (t === "sector analysis" || t === "sector report")
+    return { background: "#F1EBFC", color: "#523793" };
+  if (t === "executive interview")
+    return { background: "#E4F5EC", color: "#0F7040" };
+  if (
+    t === "deal analysis" ||
+    t === "deal perspective" ||
+    t === "hot take" ||
+    t === "market commentary"
+  )
+    return { background: "#FEF6E0", color: "#7A5605" };
+  if (t === "news") return { background: "#FCEAE7", color: "#A62E22" };
+  return { background: TINT, color: INK_3 };
+}
 
 // Types for API integration
 interface SectorData {
@@ -160,34 +226,6 @@ const getSectorLabel = (sector: SectorLinkItem): string => {
       : sector?.sector_name || sector?.Sector_name || sector?.name;
   return String(name ?? "").trim();
 };
-
-interface NewCompanyItem {
-  id: number;
-  name: string;
-  url?: string;
-  secondary_sectors?: SectorLinkItem[];
-  primary_sectors?: SectorLinkItem[];
-  description?: string;
-  linkedin_members?: number;
-  linkedin_members_old?: number;
-  linkedin_logo?: string;
-  country?: string;
-  ownership_type_id?: number;
-  ownership?: string;
-}
-
-interface NewCompaniesAPIResult {
-  result1?: {
-    items?: Array<NewCompanyItem>;
-    itemsReceived?: number;
-    curPage?: number;
-    nextPage?: number | null;
-    prevPage?: number | null;
-    offset?: number;
-    perPage?: number;
-    pageTotal?: number;
-  };
-}
 
 // Sub-sectors
 interface SubSector {
@@ -527,39 +565,86 @@ const OWNERSHIP_URL_FILTER_MAP: Record<string, number[]> = {
 function TabNavigation({
   activeTab,
   setActiveTab,
+  counts,
 }: {
   activeTab: string;
   setActiveTab: (id: string) => void;
+  counts: Partial<Record<(typeof TABS)[number]["id"], number>>;
 }) {
   return (
-    <div className="mb-8">
-      <div className="border-b border-slate-200">
-        <nav className="flex overflow-x-auto space-x-8">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-                if (typeof window !== "undefined") {
-                  const url = new URL(window.location.href);
-                  url.searchParams.set("tab", tab.id);
-                  window.history.replaceState({}, "", url.toString());
-                }
-              }}
-              className={`relative py-4 px-2 text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
-                activeTab === tab.id
-                  ? "text-blue-600"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              {tab.name}
-              {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-              )}
-            </button>
-          ))}
-        </nav>
-      </div>
+    <div
+      style={{
+        display: "flex",
+        gap: 2,
+        padding: "0 20px",
+        background: "#fff",
+        borderBottom: `1px solid ${LINE}`,
+        position: "sticky",
+        top: 0,
+        zIndex: 30,
+        overflowX: "auto",
+      }}
+    >
+      {TABS.map((tab) => {
+        const on = activeTab === tab.id;
+        const count = counts[tab.id];
+        return (
+          <button
+            key={tab.id}
+            onClick={() => {
+              setActiveTab(tab.id);
+              if (typeof window !== "undefined") {
+                const url = new URL(window.location.href);
+                url.searchParams.set("tab", tab.id);
+                window.history.replaceState({}, "", url.toString());
+              }
+            }}
+            style={{
+              position: "relative",
+              border: "none",
+              background: "transparent",
+              fontSize: 13.5,
+              fontWeight: on ? 800 : 600,
+              color: on ? INK : MUTED,
+              padding: "14px 15px 13px",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+            }}
+          >
+            {tab.name}
+            {typeof count === "number" && (
+              <b
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: on ? BLUE_700 : MUTED_SOFT,
+                  background: on ? BLUE_50 : TINT,
+                  borderRadius: 999,
+                  padding: "2px 7px",
+                }}
+              >
+                {count.toLocaleString()}
+              </b>
+            )}
+            {on && (
+              <span
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  right: 12,
+                  bottom: -1,
+                  height: 2.5,
+                  background: BLUE_600,
+                  borderRadius: "2px 2px 0 0",
+                }}
+              />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -620,89 +705,129 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
     }
   };
 
-  const getBadgeStyle = (contentType?: string): React.CSSProperties => {
-    const t = (contentType || "").toLowerCase();
-    if (t === "company analysis") return { background: "#E4F5EC", color: "#0F7040", border: "1px solid #E4F5EC" };
-    if (t === "deal analysis") return { background: "#F1F4FE", color: "#1F35C4", border: "1px solid #C6D1FB" };
-    if (t === "sector analysis") return { background: "#F1EBFC", color: "#523793", border: "1px solid #E2E8FD" };
-    if (t === "hot take") return { background: "#FEF6E0", color: "#7A5605", border: "1px solid #FEF6E0" };
-    if (t === "executive interview") return { background: "#E4F5EC", color: "#0F7040", border: "1px solid #E4F5EC" };
-    return { background: "#F5F7FD", color: "#3D4657", border: "1px solid #E4E8F2" };
-  };
-
   return (
-    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col overflow-hidden" style={{ height: "535px" }}>
-      <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
-        <div className="flex justify-between items-center">
-          <div className="flex gap-3 items-center">
-            <span className="inline-flex justify-center items-center w-8 h-8 bg-blue-50 rounded-lg">
-              <svg
-                className="w-4 h-4 text-blue-600"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
-            </span>
-            <span className="font-semibold text-slate-900">Recent Insights &amp; Analysis</span>
-          </div>
-          <a
-            href="?tab=insights"
-            className="text-xs text-blue-600 hover:text-blue-800 font-medium underline flex-shrink-0"
-          >
-            View All
-          </a>
-        </div>
+    <div
+      style={{
+        background: "#fff",
+        border: `1px solid ${LINE}`,
+        borderRadius: R_LG,
+        boxShadow: SH_SM,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        height: 535,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "13px 16px",
+          borderBottom: `1px solid ${LINE_2}`,
+          flexShrink: 0,
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: INK }}>
+          Recent Insights &amp; Analysis
+        </h2>
+        <a
+          href="?tab=insights"
+          style={{
+            marginLeft: "auto",
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: BLUE_600,
+            textDecoration: "none",
+            flexShrink: 0,
+          }}
+        >
+          View all →
+        </a>
       </div>
-      <div className="px-5 py-4 flex-1 overflow-hidden">
+      <div style={{ flex: 1, overflow: "hidden" }}>
         {loading ? (
-          <div className="space-y-3 animate-pulse">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="space-y-1.5 pb-3 border-b border-slate-100 last:border-0">
-                <div className="h-3.5 bg-slate-200 rounded w-1/4"></div>
-                <div className="h-4 bg-slate-200 rounded w-5/6"></div>
-                <div className="h-3 bg-slate-200 rounded w-full"></div>
-                <div className="h-3 bg-slate-200 rounded w-4/5"></div>
-              </div>
-            ))}
+          <div style={{ padding: "14px 16px", color: MUTED, fontSize: 13 }}>
+            Loading…
           </div>
         ) : articles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-              <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <p className="text-slate-500 text-sm">No insights available for this sector yet</p>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              color: MUTED,
+              fontSize: 13,
+              textAlign: "center",
+              padding: "0 16px",
+            }}
+          >
+            No insights available for this sector yet
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 overflow-y-auto overflow-x-hidden h-full">
+          <div style={{ display: "flex", flexDirection: "column", overflowY: "auto", height: "100%" }}>
             {articles.map((article) => (
               <a
                 key={article.id}
                 href={`/article/${article.id}`}
-                className="block py-3 first:pt-0 group hover:bg-slate-50/50 -mx-5 px-5 transition-colors duration-150"
+                style={{
+                  display: "block",
+                  padding: "13px 16px",
+                  borderBottom: `1px solid ${LINE_2}`,
+                  textDecoration: "none",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = BLUE_50)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
-                <div className="flex items-center gap-2 mb-1">
+                <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 5 }}>
                   {article.Content_Type && (
                     <span
-                      className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
-                      style={getBadgeStyle(article.Content_Type)}
+                      style={{
+                        display: "inline-block",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        lineHeight: 1.5,
+                        flexShrink: 0,
+                        ...contentTypeBadgeStyle(article.Content_Type),
+                      }}
                     >
                       {article.Content_Type}
                     </span>
                   )}
-                  <span className="text-xs text-slate-400 flex-shrink-0">
+                  <span style={{ fontSize: 11.5, color: MUTED, flexShrink: 0 }}>
                     {formatDate(article.Publication_Date)}
                   </span>
                 </div>
-                <h3 className="text-sm font-semibold text-slate-900 leading-snug mb-1 group-hover:text-blue-700 transition-colors line-clamp-1">
+                <h3
+                  style={{
+                    margin: "0 0 4px",
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    color: INK,
+                    lineHeight: 1.35,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {article.Headline || "Untitled"}
                 </h3>
                 {article.Strapline && (
-                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 12.5,
+                      lineHeight: 1.5,
+                      color: BODY,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
                     {article.Strapline}
                   </p>
                 )}
@@ -718,9 +843,7 @@ function MostActiveTableCard({
   title,
   items,
   accent,
-  badgeLabel,
   mostRecentHeader,
-  showBadge = true,
   onViewAll,
 }: {
   title: string;
@@ -732,297 +855,214 @@ function MostActiveTableCard({
   onViewAll?: () => void;
 }) {
   const hasItems = Array.isArray(items) && items.length > 0;
-  const accentClasses =
-    accent === "purple"
-      ? {
-          gradient: "from-purple-500 to-pink-500",
-          badge: "bg-purple-50 text-purple-700 border-purple-200",
-          countBg: "bg-blue-50 text-blue-600",
-        }
-      : {
-          gradient: "from-blue-500 to-indigo-500",
-          badge: "bg-blue-50 text-blue-700 border-blue-200",
-          countBg: "bg-indigo-50 text-indigo-600",
-        };
   const isInvestorTable = title.toLowerCase().includes("private equity");
+  const countBg = accent === "purple" ? "#F1EBFC" : BLUE_50;
+  const countFg = accent === "purple" ? "#523793" : BLUE_700;
 
   return (
-    <div className="h-full bg-white rounded-xl border shadow-lg border-slate-200/60">
-      <div className="px-5 py-4 border-b border-slate-100">
-        <div className="flex gap-3 items-center justify-between">
-          <div className="flex gap-3 items-center text-xl">
-            <span className="inline-flex justify-center items-center w-8 h-8 rounded-lg bg-slate-50">
-              <BuildingOfficeIcon
-                className={`w-4 h-4 text-${
-                  accent === "purple" ? "purple" : "blue"
-                }-600`}
-              />
-            </span>
-            <span className="text-base font-semibold text-slate-900 sm:text-lg">
-              {title}
-            </span>
-          </div>
-          {onViewAll && (
-            <button
-              onClick={onViewAll}
-              className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors whitespace-nowrap"
-            >
-              View All →
-            </button>
-          )}
-        </div>
+    <div
+      style={{
+        background: "#fff",
+        border: `1px solid ${LINE}`,
+        borderRadius: R_LG,
+        boxShadow: SH_SM,
+        overflow: "hidden",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "13px 16px",
+          borderBottom: `1px solid ${LINE_2}`,
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: INK }}>
+          {title}
+        </h2>
+        {onViewAll && (
+          <button
+            type="button"
+            onClick={onViewAll}
+            style={{
+              marginLeft: "auto",
+              border: "none",
+              background: "transparent",
+              fontSize: 12.5,
+              fontWeight: 700,
+              color: BLUE_600,
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            View all →
+          </button>
+        )}
       </div>
-      <div className="px-5 pb-5">
-        <div className="overflow-auto md:max-h-[28rem]" style={{ maxHeight: "28rem" }}>
-          {/* Mobile: card list */}
-          <div className="block space-y-3 md:hidden">
+      <div style={{ maxHeight: 330, overflow: "auto", flex: 1 }}>
+        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 }}>
+          <thead>
+            <tr>
+              <th
+                style={{
+                  position: "sticky",
+                  top: 0,
+                  background: TINT,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.09em",
+                  textTransform: "uppercase",
+                  color: MUTED,
+                  textAlign: "left",
+                  padding: "9px 14px",
+                  borderBottom: `1px solid ${LINE}`,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {isInvestorTable ? "Investor" : "Acquirer"}
+              </th>
+              <th
+                style={{
+                  position: "sticky",
+                  top: 0,
+                  background: TINT,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.09em",
+                  textTransform: "uppercase",
+                  color: MUTED,
+                  textAlign: "center",
+                  padding: "9px 14px",
+                  borderBottom: `1px solid ${LINE}`,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Deals
+              </th>
+              <th
+                style={{
+                  position: "sticky",
+                  top: 0,
+                  background: TINT,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.09em",
+                  textTransform: "uppercase",
+                  color: MUTED,
+                  textAlign: "left",
+                  padding: "9px 14px",
+                  borderBottom: `1px solid ${LINE}`,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {mostRecentHeader ?? "Most Recent"}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
             {!hasItems ? (
-              <div className="py-6 text-sm text-center text-slate-500">
-                -
-              </div>
+              <tr>
+                <td colSpan={3} style={{ padding: "24px 14px", textAlign: "center", color: MUTED, fontSize: 13 }}>
+                  <span style={{ color: EMPTY }}>—</span>
+                </td>
+              </tr>
             ) : (
-              items.slice(0, 25).map((it) => {
+              items.slice(0, 25).map((it, i) => {
                 const linkUrl = isInvestorTable
                   ? `/investors/${it.id}`
                   : `/company/${it.id}`;
-                const content = (
-                  <>
-                    <div className="flex gap-3 items-center min-w-0 flex-1">
-                      {it.logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={it.logoUrl}
-                          alt={it.name}
-                          className="object-contain w-8 h-8 rounded-lg flex-shrink-0"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = "none";
-                            const fallback =
-                              target.nextElementSibling as HTMLElement | null;
-                            if (fallback) fallback.style.display = "flex";
-                          }}
-                        />
-                      ) : null}
-                      <div
-                        className={`${
-                          it.logoUrl ? "hidden" : "flex"
-                        } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br flex-shrink-0 ${
-                          accentClasses.gradient
-                        }`}
-                      >
-                        <BuildingOfficeIcon className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-900 truncate">
-                          {it.name}
-                        </p>
-                        {showBadge && badgeLabel && (
-                          <span
-                            className={`inline-block mt-0.5 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                return (
+                  <tr
+                    key={`${title}-${it.name}-${i}`}
+                    style={{ cursor: it.id ? "pointer" : "default" }}
+                    onClick={() => {
+                      if (it.id) window.location.href = linkUrl;
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = BLUE_50)
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${LINE_2}`, verticalAlign: "middle" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {it.logoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={it.logoUrl}
+                            alt={it.name}
+                            style={{ width: 30, height: 30, borderRadius: R_SM, border: `1px solid ${LINE}`, objectFit: "contain" }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: R_SM,
+                              border: `1px solid ${LINE}`,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: MUTED_SOFT,
+                              flexShrink: 0,
+                            }}
                           >
-                            {badgeLabel}
-                          </span>
+                            {(it.name || "?").charAt(0)}
+                          </div>
+                        )}
+                        {it.id ? (
+                          <a
+                            href={linkUrl}
+                            style={{ fontSize: 13.5, fontWeight: 700, color: BLUE_600, textDecoration: "none" }}
+                          >
+                            {it.name}
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: 13.5, fontWeight: 700, color: INK_2 }}>{it.name}</span>
                         )}
                       </div>
-                    </div>
-                    <div className="flex gap-2 items-center justify-between mt-2 pt-2 border-t border-slate-100">
-                      <span className="text-xs text-slate-500">Deals</span>
-                      <div
-                        className={`inline-flex justify-center items-center w-8 h-8 rounded-full flex-shrink-0 ${accentClasses.countBg}`}
+                    </td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${LINE_2}`, textAlign: "center" }}>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          minWidth: 28,
+                          height: 24,
+                          padding: "0 8px",
+                          borderRadius: 999,
+                          background: countBg,
+                          color: countFg,
+                          fontSize: 12.5,
+                          fontWeight: 800,
+                          fontVariantNumeric: "tabular-nums",
+                        }}
                       >
-                        <span className="text-sm font-bold">
-                          {formatNumber(it.count)}
-                        </span>
+                        {formatNumber(it.count)}
+                      </span>
+                    </td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${LINE_2}` }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: INK_2 }}>
+                        {renderMostRecentTargetValue(it)}
                       </div>
-                      <div className="text-right min-w-0 flex-1">
-                        <p className="text-xs font-medium text-slate-900 truncate">
-                          {renderMostRecentTargetValue(
-                            it,
-                            "text-blue-600 hover:underline"
-                          )}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {it.closedDate || "-"}
-                        </p>
+                      <div style={{ marginTop: 2, fontSize: 11.5, color: MUTED }}>
+                        {it.closedDate || <span style={{ color: EMPTY }}>—</span>}
                       </div>
-                    </div>
-                  </>
-                );
-                return it.id ? (
-                  <a
-                    key={`${title}-${it.name}`}
-                    href={linkUrl}
-                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors"
-                  >
-                    {content}
-                  </a>
-                ) : (
-                  <div
-                    key={`${title}-${it.name}`}
-                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50"
-                  >
-                    {content}
-                  </div>
+                    </td>
+                  </tr>
                 );
               })
             )}
-          </div>
-          {/* Desktop: table */}
-          <div className="hidden md:block overflow-auto" style={{ maxHeight: "28rem" }}>
-            <table className="min-w-full text-sm table-fixed">
-              <colgroup>
-                <col style={{ width: "38%" }} />
-                <col style={{ width: "24%" }} />
-                <col style={{ width: "38%" }} />
-              </colgroup>
-              <thead className="bg-slate-50/80">
-                <tr className="hover:bg-slate-50/80">
-                  <th className="py-3 font-semibold text-left text-slate-700">
-                    {isInvestorTable ? "Investor" : "Acquirer"}
-                  </th>
-                  <th className="py-3 font-semibold text-center text-slate-700">
-                    Deals
-                  </th>
-                  <th className="py-3 font-semibold text-left text-slate-700">
-                    {mostRecentHeader ?? "Most Recent"}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {!hasItems ? (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="py-6 text-sm text-center text-slate-500"
-                    >
-                      -
-                    </td>
-                  </tr>
-                ) : (
-                  items.slice(0, 25).map((it) => {
-                    const linkUrl = isInvestorTable
-                      ? `/investors/${it.id}`
-                      : `/company/${it.id}`;
-                    return (
-                      <tr
-                        key={`${title}-${it.name}`}
-                        className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                          it.id ? "cursor-pointer" : ""
-                        }`}
-                        onClick={() => {
-                          if (it.id) {
-                            window.location.href = linkUrl;
-                          }
-                        }}
-                      >
-                        <td className="py-3 pr-4">
-                          {it.id ? (
-                            <a href={linkUrl} className="flex gap-3 items-center">
-                              {it.logoUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={it.logoUrl}
-                                  alt={it.name}
-                                  className="object-contain w-8 h-8 rounded-lg"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = "none";
-                                    const fallback =
-                                      target.nextElementSibling as HTMLElement | null;
-                                    if (fallback) fallback.style.display = "flex";
-                                  }}
-                                />
-                              ) : null}
-                              <div
-                                className={`${
-                                  it.logoUrl ? "hidden" : "flex"
-                                } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
-                                  accentClasses.gradient
-                                }`}
-                              >
-                                <BuildingOfficeIcon className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <span className="font-medium text-blue-600 underline">
-                                  {it.name}
-                                </span>
-                                {showBadge && badgeLabel && (
-                                  <span
-                                    className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
-                                  >
-                                    {badgeLabel}
-                                  </span>
-                                )}
-                              </div>
-                            </a>
-                          ) : (
-                            <div className="flex gap-3 items-center">
-                              {it.logoUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={it.logoUrl}
-                                  alt={it.name}
-                                  className="object-contain w-8 h-8 rounded-lg"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = "none";
-                                    const fallback =
-                                      target.nextElementSibling as HTMLElement | null;
-                                    if (fallback) fallback.style.display = "flex";
-                                  }}
-                                />
-                              ) : null}
-                              <div
-                                className={`${
-                                  it.logoUrl ? "hidden" : "flex"
-                                } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
-                                  accentClasses.gradient
-                                }`}
-                              >
-                                <BuildingOfficeIcon className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-slate-900">
-                                  {it.name}
-                                </p>
-                                {showBadge && badgeLabel && (
-                                  <span
-                                    className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
-                                  >
-                                    {badgeLabel}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-3 text-center">
-                          <div
-                            className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
-                          >
-                            <span className="text-sm font-bold">
-                              {formatNumber(it.count)}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3">
-                          <div>
-                            <p className="text-sm font-medium text-slate-900">
-                              {renderMostRecentTargetValue(it)}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              {it.closedDate || "-"}
-                            </p>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -1039,336 +1079,176 @@ function RecentTransactionsCard({
 }) {
   const hasItems = Array.isArray(transactions) && transactions.length > 0;
 
-  const getDealTypeBadge = (dealType?: string) => {
-    const colors: Record<string, string> = {
-      acquisition: "bg-red-50 text-red-700 border-red-200",
-      merger: "bg-blue-50 text-blue-700 border-blue-200",
-      ipo: "bg-green-50 text-green-700 border-green-200",
-      funding_round: "bg-purple-50 text-purple-700 border-purple-200",
-      lbo: "bg-orange-50 text-orange-700 border-orange-200",
-      recapitalization: "bg-pink-50 text-pink-700 border-pink-200",
-    };
-    return (
-      colors[(dealType || "").toLowerCase().replace(/\s+/g, "_")] ||
-      "bg-gray-50 text-gray-700 border-gray-200"
-    );
-  };
-
-  const getStatusBadge = (status?: string) => {
-    const colors: Record<string, string> = {
-      completed: "bg-green-50 text-green-700 border-green-200",
-      announced: "bg-blue-50 text-blue-700 border-blue-200",
-      pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
-      terminated: "bg-red-50 text-red-700 border-red-200",
-    };
-    return (
-      colors[(status || "").toLowerCase()] ||
-      "bg-gray-50 text-gray-700 border-gray-200"
-    );
-  };
-
   return (
-    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col overflow-hidden" style={{ height: '535px' }}>
-      <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
-        <div className="flex gap-3 items-center text-xl">
-          <span className="inline-flex justify-center items-center w-8 h-8 bg-orange-50 rounded-lg">
-            <svg
-              className="w-4 h-4 text-orange-600"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M3 12h18M12 3v18" />
-            </svg>
-          </span>
-          <span className="text-slate-900">Recent Transactions</span>
-        </div>
+    <div
+      style={{
+        background: "#fff",
+        border: `1px solid ${LINE}`,
+        borderRadius: R_LG,
+        boxShadow: SH_SM,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        height: 535,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "13px 16px",
+          borderBottom: `1px solid ${LINE_2}`,
+          flexShrink: 0,
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: INK }}>
+          Recent transactions
+        </h2>
+        <a
+          href="?tab=transactions"
+          style={{
+            marginLeft: "auto",
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: BLUE_600,
+            textDecoration: "none",
+            flexShrink: 0,
+          }}
+        >
+          View all →
+        </a>
       </div>
-      <div className="px-5 pb-5 flex-1 overflow-hidden">
-        <div className="overflow-auto h-full">
-          {/* Mobile: card list */}
-          <div className="block space-y-3 md:hidden">
+      <div style={{ flex: 1, overflow: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 }}>
+          <thead>
+            <tr>
+              {["Target", "Buyer/Investor", "Type", "Value"].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    position: "sticky",
+                    top: 0,
+                    background: TINT,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.09em",
+                    textTransform: "uppercase",
+                    color: MUTED,
+                    textAlign: "left",
+                    padding: "9px 14px",
+                    borderBottom: `1px solid ${LINE}`,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
             {!hasItems ? (
-              <div className="py-6 text-sm text-center text-slate-500">
-                -
-              </div>
+              <tr>
+                <td colSpan={4} style={{ padding: "24px 14px", textAlign: "center", color: MUTED, fontSize: 13 }}>
+                  <span style={{ color: EMPTY }}>—</span>
+                </td>
+              </tr>
             ) : (
               transactions.slice(0, 25).map((t, idx) => {
-                const announcementDate = t.date ? new Date(t.date) : null;
                 const valueDisplay = t.value ? `$${t.value}M` : null;
                 const href = t.eventId
                   ? `/corporate-event/${t.eventId}`
                   : t.targetCompanyId
                   ? `/company/${t.targetCompanyId}`
                   : undefined;
-                const content = (
-                  <>
-                    <div className="flex gap-3 items-start min-w-0">
-                      {t.targetLogoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={t.targetLogoUrl}
-                          alt={t.target}
-                          className="object-contain w-8 h-8 rounded-lg flex-shrink-0"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = "none";
-                            const fallback =
-                              target.nextElementSibling as HTMLElement | null;
-                            if (fallback) fallback.style.display = "flex";
+                return (
+                  <tr
+                    key={`tx-${idx}`}
+                    style={{ cursor: href ? "pointer" : "default" }}
+                    onClick={() => {
+                      if (href) window.location.href = href;
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = BLUE_50)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${LINE_2}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {t.targetLogoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={t.targetLogoUrl}
+                            alt={t.target}
+                            style={{ width: 30, height: 30, borderRadius: R_SM, border: `1px solid ${LINE}`, objectFit: "contain", flexShrink: 0 }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: R_SM,
+                              border: `1px solid ${LINE}`,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: MUTED_SOFT,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {(t.target || "?").charAt(0)}
+                          </div>
+                        )}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 700, color: href ? BLUE_600 : INK_2 }}>
+                            {t.target || <span style={{ color: EMPTY }}>—</span>}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: MUTED, marginTop: 1 }}>
+                            {t.date || <span style={{ color: EMPTY }}>—</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${LINE_2}`, color: INK_3 }}>
+                      {t.buyer || <span style={{ color: EMPTY }}>—</span>}
+                    </td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${LINE_2}`, color: INK_3 }}>
+                      {t.type ? (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            background: TINT,
+                            color: INK_3,
+                            fontSize: 11.5,
+                            fontWeight: 600,
                           }}
-                        />
-                      ) : null}
-                      <div
-                        className={`${
-                          t.targetLogoUrl ? "hidden" : "flex"
-                        } justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex-shrink-0`}
-                      >
-                        {(t.target || "?").charAt(0)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-slate-900 break-words">
-                          {t.target || "-"}
-                        </p>
-                        {announcementDate &&
-                          !Number.isNaN(announcementDate.getTime()) && (
-                            <div className="flex gap-1 items-center mt-0.5">
-                              <svg
-                                className="w-3 h-3 text-slate-400 flex-shrink-0"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <rect
-                                  x="3"
-                                  y="4"
-                                  width="18"
-                                  height="18"
-                                  rx="2"
-                                />
-                                <path d="M16 2v4M8 2v4M3 10h18" />
-                              </svg>
-                              <p className="text-xs text-slate-500">
-                                {announcementDate.toLocaleDateString(
-                                  undefined,
-                                  {
-                                    month: "short",
-                                    day: "2-digit",
-                                    year: "numeric",
-                                  }
-                                )}
-                              </p>
-                            </div>
-                          )}
-                      </div>
-                    </div>
-                    <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
-                      <p className="text-xs font-semibold text-slate-500">
-                        Buyer/Investor
-                      </p>
-                      <p className="text-sm font-medium text-slate-900 break-words">
-                        {t.buyer || "-"}
-                      </p>
-                      {valueDisplay && (
-                        <p className="text-xs text-slate-500">{valueDisplay}</p>
+                        >
+                          {t.type.replace(/_/g, " ")}
+                        </span>
+                      ) : (
+                        <span style={{ color: EMPTY }}>—</span>
                       )}
-                    </div>
-                    {(t.type || t.seller) && (
-                      <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap gap-1">
-                        {t.type && (
-                          <span
-                            className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
-                              t.type
-                            )}`}
-                          >
-                            {t.type.replace(/_/g, " ")}
-                          </span>
-                        )}
-                        {t.seller && (
-                          <span
-                            className={`inline-block px-2 py-1 border rounded text-xs ${getStatusBadge(
-                              t.seller
-                            )}`}
-                          >
-                            {t.seller}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </>
-                );
-                return href ? (
-                  <a
-                    key={`tx-${idx}`}
-                    href={href}
-                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors"
-                  >
-                    {content}
-                  </a>
-                ) : (
-                  <div
-                    key={`tx-${idx}`}
-                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50"
-                  >
-                    {content}
-                  </div>
+                    </td>
+                    <td
+                      style={{
+                        padding: "11px 14px",
+                        borderBottom: `1px solid ${LINE_2}`,
+                        fontVariantNumeric: "tabular-nums",
+                        fontWeight: 600,
+                        color: INK_2,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {valueDisplay || <span style={{ color: EMPTY }}>—</span>}
+                    </td>
+                  </tr>
                 );
               })
             )}
-          </div>
-          {/* Desktop: table */}
-          <div className="hidden md:block overflow-auto h-full">
-            <table className="min-w-full text-sm table-fixed">
-              <thead className="bg-slate-50/80">
-                <tr className="hover:bg-slate-50/80">
-                  <th className="py-3 w-1/2 font-semibold text-left text-slate-700">
-                    Target
-                  </th>
-                  <th className="py-3 font-semibold text-left text-slate-700">
-                    Buyer/Investor
-                  </th>
-                  <th className="py-3 font-semibold text-left text-slate-700">
-                    Deal Type
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {hasItems ? (
-                  transactions.slice(0, 25).map((t, idx) => {
-                    const announcementDate = t.date ? new Date(t.date) : null;
-                    const valueDisplay = t.value ? `$${t.value}M` : null;
-                    const href = t.eventId
-                      ? `/corporate-event/${t.eventId}`
-                      : t.targetCompanyId
-                      ? `/company/${t.targetCompanyId}`
-                      : undefined;
-                    return (
-                      <tr
-                        key={`tx-${idx}`}
-                        className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                          href ? "cursor-pointer" : ""
-                        }`}
-                        onClick={() => {
-                          if (href) {
-                            window.location.href = href;
-                          }
-                        }}
-                      >
-                        <td className="py-3 pr-4">
-                          <div className="flex gap-3 items-center">
-                            {t.targetLogoUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={t.targetLogoUrl}
-                                alt={t.target}
-                                className="object-contain w-8 h-8 rounded-lg"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = "none";
-                                  const fallback =
-                                    target.nextElementSibling as HTMLElement | null;
-                                  if (fallback) fallback.style.display = "flex";
-                                }}
-                              />
-                            ) : null}
-                            <div
-                              className={`${
-                                t.targetLogoUrl ? "hidden" : "flex"
-                              } justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg`}
-                            >
-                              {(t.target || "?").charAt(0)}
-                            </div>
-                            <div>
-                              <p className="font-medium text-slate-900">
-                                {t.target || "-"}
-                              </p>
-                              {announcementDate &&
-                                !Number.isNaN(announcementDate.getTime()) && (
-                                  <div className="flex gap-1 items-center mt-1">
-                                    <svg
-                                      className="w-3 h-3 text-slate-400"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                    >
-                                      <rect
-                                        x="3"
-                                        y="4"
-                                        width="18"
-                                        height="18"
-                                        rx="2"
-                                      />
-                                      <path d="M16 2v4M8 2v4M3 10h18" />
-                                    </svg>
-                                    <p className="text-xs text-slate-500">
-                                      {announcementDate.toLocaleDateString(
-                                        undefined,
-                                        {
-                                          month: "short",
-                                          day: "2-digit",
-                                          year: "numeric",
-                                        }
-                                      )}
-                                    </p>
-                                  </div>
-                                )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 pr-4">
-                          <div>
-                            <p className="font-medium text-slate-900">
-                              {t.buyer || "-"}
-                            </p>
-                            {valueDisplay && (
-                              <p className="mt-1 text-xs text-slate-500">
-                                {valueDisplay}
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3">
-                          <div className="space-y-1">
-                            {t.type && (
-                              <span
-                                className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
-                                  t.type
-                                )}`}
-                              >
-                                {t.type.replace(/_/g, " ")}
-                              </span>
-                            )}
-                            {t.seller && (
-                              <span
-                                className={`inline-block px-2 py-1 border rounded text-xs ${getStatusBadge(
-                                  t.seller
-                                )} ml-1`}
-                              >
-                                {t.seller}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="py-6 text-sm text-center text-slate-500"
-                    >
-                      -
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -1446,167 +1326,195 @@ function MarketMapGrid({
     }>
   >;
 
-  const getIcon = (type: string) => {
-    if (type === "public")
-      return (
-        <svg
-          className="w-4 h-4 text-blue-600"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M3 12h18M3 6h18M3 18h18" />
-        </svg>
-      );
-    if (type === "private_equity_owned")
-      return (
-        <svg
-          className="w-4 h-4 text-purple-600"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M12 1v22M3 8h18M3 16h18" />
-        </svg>
-      );
-    if (type === "venture_capital_backed")
-      return (
-        <svg
-          className="w-4 h-4 text-green-600"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      );
-    return (
-      <svg
-        className="w-4 h-4 text-gray-600"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M3 12h18M3 6h18M3 18h18" />
-      </svg>
-    );
-  };
-
   const titleFor = (type: string) =>
     type === "public"
-      ? "Public Companies"
+      ? "Public"
       : type === "private_equity_owned"
-      ? "Private Equity Owned"
+      ? "PE-owned"
       : type === "venture_capital_backed"
-      ? "Venture Capital Backed"
-      : "Private Companies";
+      ? "VC-backed"
+      : "Private & other";
 
-  const colorFor = (type: string) =>
-    type === "public"
-      ? "from-blue-500 to-blue-600"
-      : type === "private_equity_owned"
-      ? "from-purple-500 to-purple-600"
-      : type === "venture_capital_backed"
-      ? "from-green-500 to-green-600"
-      : "from-gray-500 to-gray-600";
+  const dotFor = (type: string) => OWNERSHIP_DOT[type] || MUTED_SOFT;
+
+  const bucketOrder = [
+    "public",
+    "private_equity_owned",
+    "venture_capital_backed",
+    "private",
+  ] as const;
 
   return (
-    <div className="bg-gradient-to-br from-white rounded-xl border-0 shadow-lg to-slate-50/50">
-      <div className="px-5 py-4 border-b border-slate-100">
-        <div className="flex gap-3 items-center text-xl">
-          <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
-            <svg
-              className="w-5 h-5 text-indigo-600"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, 1fr)",
+        gap: 14,
+        alignItems: "start",
+      }}
+    >
+      {bucketOrder.map((type) => {
+        const list = categorized[type] || [];
+        const count = countsProp?.[type as keyof MarketMapCounts] ?? list.length;
+        return (
+          <div
+            key={type}
+            style={{
+              background: "#fff",
+              border: `1px solid ${LINE}`,
+              borderRadius: R_LG,
+              boxShadow: SH_SM,
+              padding: "0 14px",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "13px 0 10px",
+                borderBottom: `1px solid ${LINE_2}`,
+                marginBottom: 7,
+              }}
             >
-              <path d="M3 12h18M3 6h18M3 18h18" />
-            </svg>
-          </span>
-          <span className="text-slate-900">Market Map</span>
-        </div>
-      </div>
-      <div className="px-5 pt-6 pb-5">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {Object.entries(categorized).map(([type, list]) => (
-            <div key={type} className="space-y-4">
-              <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-                <div className="flex gap-3 items-center min-w-0">
-                  {getIcon(type)}
-                  <h3 className="font-semibold text-slate-900 truncate">
-                    {titleFor(type)}
-                  </h3>
-                  <span className="inline-flex flex-shrink-0 px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700 border border-slate-200">
-                    {countsProp?.[type as keyof MarketMapCounts] ?? list.length}
-                  </span>
-                </div>
-                <div className="flex flex-shrink-0 gap-2">
-                  {onExportBucket && (
-                    <button
-                      type="button"
-                      onClick={() => onExportBucket(type, titleFor(type))}
-                      disabled={exportingBucket === type}
-                      className="px-3 py-1.5 text-sm border border-green-600 text-green-700 rounded-md hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {exportingBucket === type ? "Exporting..." : "Export"}
-                    </button>
-                  )}
-                  <a
-                    href={`?tab=all&ownership=${encodeURIComponent(type)}`}
-                    className="px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: dotFor(type),
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ fontSize: 12.5, fontWeight: 800, color: INK_2 }}>
+                {titleFor(type)}
+              </span>
+              <span
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: MUTED,
+                  background: TINT,
+                  borderRadius: 999,
+                  padding: "2px 8px",
+                }}
+              >
+                {formatNumber(count)}
+              </span>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+                {onExportBucket && (
+                  <button
+                    type="button"
+                    onClick={() => onExportBucket(type, titleFor(type))}
+                    disabled={exportingBucket === type}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      color: BLUE_600,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      opacity: exportingBucket === type ? 0.5 : 1,
+                    }}
                   >
-                    View All
-                  </a>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-                {list.slice(0, 12).map((company) => (
-                  <a
-                    key={company.id}
-                    href={`/company/${company.id}`}
-                    className="relative p-3 bg-white rounded-xl border transition-all duration-200 group border-slate-200 hover:border-slate-300 hover:shadow-sm"
-                    title={company.name}
-                  >
-                    {company.logo_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={company.logo_url}
-                        alt={company.name}
-                        className="object-contain w-10 h-10"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = "none";
-                          const fallback =
-                            target.nextElementSibling as HTMLElement | null;
-                          if (fallback) fallback.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      className={`w-8 h-8 bg-gradient-to-r ${colorFor(
-                        type
-                      )} rounded-lg flex items-center justify-center text-white text-xs font-semibold mb-2 ${
-                        company.logo_url ? "hidden" : "flex"
-                      }`}
-                    >
-                      {company.name.charAt(0)}
-                    </div>
-                    <p className="mt-2 text-[11px] leading-tight text-slate-700 truncate">
-                      {company.name}
-                    </p>
-                  </a>
-                ))}
+                    {exportingBucket === type ? "Exporting…" : "Export CSV"}
+                  </button>
+                )}
+                <a
+                  href={`?tab=all&ownership=${encodeURIComponent(type)}`}
+                  style={{ fontSize: 11.5, fontWeight: 700, color: BLUE_600, textDecoration: "none", whiteSpace: "nowrap" }}
+                >
+                  View all
+                </a>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingBottom: 14 }}>
+              {list.length === 0 ? (
+                <div style={{ padding: "10px 8px", fontSize: 12.5, color: EMPTY }}>
+                  No companies
+                </div>
+              ) : (
+                <>
+                  {list.slice(0, 8).map((company) => (
+                    <a
+                      key={company.id}
+                      href={`/company/${company.id}`}
+                      title={company.name}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 9,
+                        padding: "6px 8px",
+                        borderRadius: R_SM,
+                        textDecoration: "none",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = BLUE_50)}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
+                      {company.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={company.logo_url}
+                          alt={company.name}
+                          style={{ width: 22, height: 22, borderRadius: 5, border: `1px solid ${LINE}`, objectFit: "contain", flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: 5,
+                            border: `1px solid ${LINE}`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 7.5,
+                            fontWeight: 800,
+                            color: MUTED_SOFT,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {company.name.charAt(0)}
+                        </div>
+                      )}
+                      <span
+                        style={{
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          color: INK_3,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {company.name}
+                      </span>
+                    </a>
+                  ))}
+                  {list.length > 8 && (
+                    <a
+                      href={`?tab=all&ownership=${encodeURIComponent(type)}`}
+                      style={{
+                        marginTop: 4,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: BLUE_600,
+                        padding: "6px 8px",
+                        textDecoration: "none",
+                      }}
+                    >
+                      +{list.length - 8} more
+                    </a>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1658,20 +1566,7 @@ const SectorDetailPage = ({
       }
     }
   }, [initialSectorData]);
-  const [companies, setCompanies] = useState<SectorCompany[]>([]);
-  const [companiesTotal, setCompaniesTotal] = useState<number | null>(null);
-  const [companiesLoading, setCompaniesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState({
-    itemsReceived: 0,
-    curPage: 1,
-    nextPage: null as number | null,
-    prevPage: null as number | null,
-    offset: 0,
-    perPage: 50,
-    pageTotal: 0,
-  });
-  const [selectedPerPage, setSelectedPerPage] = useState(50);
   // const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<Record<string, string>>({});
   const searchParams = useSearchParams();
   const initialTab = (searchParams?.get("tab") || "overview").toString();
@@ -1693,7 +1588,7 @@ const SectorDetailPage = ({
     searchParams?.get("ownership") || null
   );
   // Debug states removed
-  const [companiesApiPayload, setCompaniesApiPayload] = useState<unknown>(null);
+  const companiesApiPayload: unknown = null;
   // Split datasets fetched from dedicated endpoints (initialized with server-side data if available)
   const [splitStrategicRaw, setSplitStrategicRaw] = useState<unknown>(
     initialStrategicAcquirers || null
@@ -1713,165 +1608,6 @@ const SectorDetailPage = ({
   const [mmExportingBucket, setMmExportingBucket] = useState<string | null>(null);
   const [mmShowExportLimitModal, setMmShowExportLimitModal] = useState(false);
   const [mmExportsLeft, setMmExportsLeft] = useState(0);
-
-  // Fetch companies data (include companies whose secondary sectors map to this primary sector)
-  const fetchCompanies = useCallback(
-    async (page: number = 1, perPageOverride?: number) => {
-      setCompaniesLoading(true);
-      const perPageToUse = perPageOverride || selectedPerPage;
-
-      try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        if (!token) {
-          setError("Authentication required");
-          setCompaniesLoading(false);
-          return;
-        }
-
-        const sectorIdNum = Number(sectorId);
-        const offsetForApi = Math.max(1, page);
-        const params = new URLSearchParams();
-        params.append("Offset", String(offsetForApi));
-        params.append("Per_page", String(perPageToUse));
-        if (!Number.isNaN(sectorIdNum)) {
-          params.append("Sector_id", String(sectorIdNum));
-        }
-
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector_s_new_companies?${params.toString()}`;
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          credentials: "include",
-        });
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            throw new Error("Authentication required");
-          }
-          throw new Error(`API request failed: ${response.statusText}`);
-        }
-
-        const rawJson = await response.json();
-        setCompaniesApiPayload(rawJson);
-
-        const raw = rawJson as unknown as
-          | NewCompaniesAPIResult
-          | { items?: NewCompanyItem[] }
-          | (NewCompanyItem[] & { Count?: number })
-          | ({ result1?: { items?: NewCompanyItem[] } } & { Count?: number })
-          | { sql_count?: Array<{ total_companies?: number }> };
-
-        let items: NewCompanyItem[] = [];
-        if (Array.isArray((raw as NewCompaniesAPIResult)?.result1?.items)) {
-          items = ((raw as NewCompaniesAPIResult).result1!.items ||
-            []) as NewCompanyItem[];
-        } else if (Array.isArray((raw as { items?: NewCompanyItem[] }).items)) {
-          items = ((raw as { items?: NewCompanyItem[] }).items ||
-            []) as NewCompanyItem[];
-        } else if (Array.isArray(raw)) {
-          items = raw as NewCompanyItem[];
-        }
-        const r1 = (raw as NewCompaniesAPIResult)?.result1;
-        const sqlTotal = (
-          raw as { sql_count?: Array<{ total_companies?: number }> }
-        ).sql_count?.[0]?.total_companies;
-        const overallCount: number =
-          (typeof sqlTotal === "number" ? sqlTotal : undefined) ??
-          (raw as { Count?: number })?.Count ??
-          (typeof r1?.itemsReceived === "number"
-            ? r1!.itemsReceived
-            : undefined) ??
-          items.length;
-        const adapted: SectorCompany[] = items.map((c) => ({
-          id: c.id,
-          name: c.name,
-          locations_id: 0,
-          url: c.url || "",
-          sectors: Array.isArray(
-            (c as unknown as { sectors?: string[] }).sectors
-          )
-            ? ((c as unknown as { sectors?: string[] }).sectors as string[])
-            : Array.isArray(c.secondary_sectors)
-            ? (c.secondary_sectors as SectorLinkItem[])
-                .map(getSectorLabel)
-                .filter((s) => s.length > 0)
-            : [],
-          primary_sectors: Array.isArray(c.primary_sectors)
-            ? c.primary_sectors
-            : [],
-          description: c.description || "",
-          linkedin_employee:
-            (c as unknown as { linkedin_employee?: number })
-              .linkedin_employee ??
-            (c as unknown as { linkedin_members?: number }).linkedin_members ??
-            0,
-          linkedin_employee_latest:
-            (c as unknown as { linkedin_employee_latest?: number })
-              .linkedin_employee_latest ??
-            (c as unknown as { linkedin_employee?: number })
-              .linkedin_employee ??
-            (c as unknown as { linkedin_members?: number }).linkedin_members ??
-            0,
-          linkedin_employee_old:
-            (c as unknown as { linkedin_employee_old?: number })
-              .linkedin_employee_old ??
-            (c as unknown as { linkedin_members_old?: number })
-              .linkedin_members_old ??
-            0,
-          linkedin_logo: c.linkedin_logo || "",
-          country: c.country || "",
-          ownership_type_id: c.ownership_type_id || 0,
-          ownership: c.ownership || "",
-          is_that_investor:
-            (c as unknown as { is_that_investor?: boolean }).is_that_investor ??
-            false,
-          companies_investors:
-            (
-              c as unknown as {
-                companies_investors?: Array<{
-                  company_name: string;
-                  original_new_company_id: number;
-                }>;
-              }
-            ).companies_investors || [],
-        }));
-
-        setCompanies(adapted);
-        setCompaniesTotal(
-          typeof overallCount === "number" ? overallCount : adapted.length
-        );
-        const r1b = (raw as NewCompaniesAPIResult)?.result1;
-        const computedCurPage = r1b?.curPage ?? page;
-        const computedPerPage = r1b?.perPage ?? perPageToUse;
-        const computedOffset =
-          typeof r1b?.offset === "number"
-            ? Math.max(0, (r1b.offset - 1) * computedPerPage)
-            : Math.max(0, (computedCurPage - 1) * computedPerPage);
-        setPagination({
-          itemsReceived: r1b?.itemsReceived || adapted.length,
-          curPage: computedCurPage,
-          nextPage: r1b?.nextPage ?? null,
-          prevPage: r1b?.prevPage ?? null,
-          offset: computedOffset,
-          perPage: computedPerPage,
-          pageTotal:
-            r1b?.pageTotal ||
-            Math.max(
-              1,
-              Math.ceil((overallCount || adapted.length) / computedPerPage)
-            ),
-        });
-      } catch (err) {
-        console.error("Error fetching companies:", err);
-      } finally {
-        setCompaniesLoading(false);
-      }
-    },
-    [sectorId, selectedPerPage]
-  );
 
   // Fetch all overview data via Next.js API route (cached for 5 min).
   // Single request aggregates all Xano calls server-side → faster for users far from Xano.
@@ -1929,13 +1665,6 @@ const SectorDetailPage = ({
     if (!sectorId) return;
     fetchOverviewData();
   }, [sectorId, fetchOverviewData]);
-
-  const handlePageChange = useCallback(
-    (page: number) => {
-      fetchCompanies(page);
-    },
-    [fetchCompanies]
-  );
 
   // Fetch Sub-Sectors for this sector
   const fetchSubSectors = useCallback(async () => {
@@ -2049,7 +1778,6 @@ const SectorDetailPage = ({
   }, [
     companiesApiPayload,
     sectorData,
-    companies,
     splitStrategicRaw,
     splitPERaw,
     splitMarketMapRaw,
@@ -2144,11 +1872,10 @@ const SectorDetailPage = ({
   }, [preferredSource]);
 
   const marketMapCompanies: SectorCompany[] = useMemo(() => {
-    if (!preferredSource) return companies;
+    if (!preferredSource) return [];
     const raw = (preferredSource as { market_map?: unknown })?.market_map;
-    const mapped = mapMarketMapToCompanies(raw);
-    return mapped.length > 0 ? mapped : companies;
-  }, [preferredSource, companies]);
+    return mapMarketMapToCompanies(raw);
+  }, [preferredSource]);
 
   // Total counts per type from market_map API (prefer cached totals over visible item counts)
   const marketMapCounts: MarketMapCounts | undefined = useMemo(() => {
@@ -2349,18 +2076,6 @@ const SectorDetailPage = ({
         ).Total_number_of_companies[0] || null
       : null;
 
-  const totalCompaniesStat =
-    totalsRow?.Number_of_Companies ??
-    (typeof (
-      sectorData as unknown as { Total_number_of_companies?: unknown } | null
-    )?.Total_number_of_companies === "number"
-      ? (
-          sectorData as unknown as {
-            Total_number_of_companies: number;
-          }
-        ).Total_number_of_companies
-      : 0);
-
   // Removed statistics card; keep totals only when needed elsewhere
 
   function SectorInsightsTab({ sectorId }: { sectorId: string }) {
@@ -2543,516 +2258,491 @@ const SectorDetailPage = ({
       return validCompanies.length > 0 ? validCompanies.join(", ") : "-";
     };
 
-    const badgeClassFor = (contentType?: string): string => {
-      const t = (contentType || "").toLowerCase();
-      if (t === "company analysis") return "badge badge-company-analysis";
-      if (t === "deal analysis") return "badge badge-deal-analysis";
-      if (t === "deal perspective") return "badge badge-deal-perspective";
-      if (t === "market commentary") return "badge badge-market-commentary";
-      if (t === "sector analysis") return "badge badge-sector-analysis";
-      if (t === "hot take") return "badge badge-hot-take";
-      if (t === "executive interview") return "badge badge-executive-interview";
-      return "badge";
-    };
-
-    const generatePaginationButtons = () => {
-      const buttons = [];
-      const currentPage = pagination.curPage;
-      const totalPages = pagination.pageTotal;
-
-      buttons.push(
-        <button
-          key="prev"
-          className="pagination-button"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={!pagination.prevPage}
-        >
-          &lt;
-        </button>
-      );
-
-      if (totalPages <= 7) {
-        for (let i = 1; i <= totalPages; i++) {
-          buttons.push(
-            <button
-              key={i}
-              className={`pagination-button ${
-                i === currentPage ? "active" : ""
-              }`}
-              onClick={() => handlePageChange(i)}
-            >
-              {i.toString()}
-            </button>
-          );
-        }
-      } else {
-        buttons.push(
-          <button
-            key={1}
-            className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
-            onClick={() => handlePageChange(1)}
-          >
-            1
-          </button>
-        );
-
-        if (currentPage > 3) {
-          buttons.push(
-            <span key="ellipsis1" className="pagination-ellipsis">
-              ...
-            </span>
-          );
-        }
-
-        for (
-          let i = Math.max(2, currentPage - 1);
-          i <= Math.min(totalPages - 1, currentPage + 1);
-          i++
-        ) {
-          if (i > 1 && i < totalPages) {
-            buttons.push(
-              <button
-                key={i}
-                className={`pagination-button ${
-                  i === currentPage ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(i)}
-              >
-                {i.toString()}
-              </button>
-            );
-          }
-        }
-
-        if (currentPage < totalPages - 2) {
-          buttons.push(
-            <span key="ellipsis2" className="pagination-ellipsis">
-              ...
-            </span>
-          );
-        }
-
-        buttons.push(
-          <button
-            key={totalPages}
-            className={`pagination-button ${
-              currentPage === totalPages ? "active" : ""
-            }`}
-            onClick={() => handlePageChange(totalPages)}
-          >
-            {totalPages.toString()}
-          </button>
-        );
-      }
-
-      buttons.push(
-        <button
-          key="next"
-          className="pagination-button"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={!pagination.nextPage}
-        >
-          &gt;
-        </button>
-      );
-
-      return buttons;
-    };
+    const rangeStart = pagination.pageTotal > 0 ? pagination.offset + 1 : 0;
+    const rangeEnd = Math.min(
+      pagination.offset + pagination.perPage,
+      pagination.itemsReceived
+    );
 
     return (
-      <div className="space-y-6">
-        {/* Filters Section */}
-        <div className="p-8 bg-white rounded-xl border shadow-lg border-slate-200/60">
-          <div className="space-y-4 max-w-2xl">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <input
-                type="text"
-                placeholder="Enter search term here"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-4 py-3 w-full rounded-md border border-slate-300"
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              />
-              <select
-                value={filters.Content_Type || ""}
-                onChange={(e) => {
-                  const updated = {
-                    ...filters,
-                    Content_Type: e.target.value || undefined,
-                    content_type: e.target.value || undefined,
-                    Offset: 1,
-                  };
-                  setFilters(updated);
-                  fetchInsightsAnalysis(updated);
-                }}
-                className="px-4 py-3 w-full rounded-md border border-slate-300"
-              >
-                <option value="">All Content Types</option>
-                {contentTypes.map((ct) => (
-                  <option key={ct} value={ct}>
-                    {ct}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              onClick={handleSearch}
-              className="px-6 py-3 w-full font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700"
-            >
-              {loading ? "Searching..." : "Search"}
-            </button>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Search + content-type filter */}
+        <div
+          style={{
+            background: "#fff",
+            border: `1px solid ${LINE}`,
+            borderRadius: R_LG,
+            boxShadow: SH_SM,
+            padding: "13px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ position: "relative", width: 280 }}>
+            <input
+              type="text"
+              placeholder="Search insights…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              style={{
+                width: "100%",
+                height: 38,
+                padding: "0 14px",
+                borderRadius: 999,
+                border: `1px solid ${LINE}`,
+                fontSize: 13,
+                color: INK,
+              }}
+            />
           </div>
-
+          <select
+            value={filters.Content_Type || ""}
+            onChange={(e) => {
+              const updated = {
+                ...filters,
+                Content_Type: e.target.value || undefined,
+                content_type: e.target.value || undefined,
+                Offset: 1,
+              };
+              setFilters(updated);
+              fetchInsightsAnalysis(updated);
+            }}
+            style={{
+              height: 38,
+              padding: "0 14px",
+              borderRadius: 999,
+              border: `1px solid ${LINE}`,
+              background: "#fff",
+              fontSize: 13,
+              fontWeight: 600,
+              color: INK_3,
+            }}
+          >
+            <option value="">All content types</option>
+            {contentTypes.map((ct) => (
+              <option key={ct} value={ct}>
+                {ct}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleSearch}
+            style={{
+              height: 38,
+              padding: "0 20px",
+              borderRadius: 999,
+              border: "none",
+              background: BLUE_600,
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {loading ? "Searching…" : "Search"}
+          </button>
           {error && (
-            <div className="p-3 mt-4 text-red-700 bg-red-50 rounded-md">
-              {error}
-            </div>
+            <span style={{ fontSize: 12.5, color: "#A62E22" }}>{error}</span>
           )}
         </div>
 
-        {/* Results Section */}
-        {loading && (
-          <div className="py-10 text-center text-slate-600">
-            Loading articles...
-          </div>
-        )}
-
-        {!loading && articles.length === 0 && (
-          <div className="py-10 text-center text-slate-600">
-            No articles found.
-          </div>
-        )}
-
-        {!loading && articles.length > 0 && (
-          <div className="insights-analysis-cards">
-            {articles.map((article: ContentArticle, index: number) => {
-              const effectiveContentType = getEffectiveContentType(article);
-              const isNews = isNewsArticle({
-                Content_Type: effectiveContentType,
-              });
-              const byline = isNews ? getArticleByline(article) : "";
-
+        {/* Content-type segments (dot-keyed) */}
+        {contentTypes.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            {["All", ...contentTypes].map((ct) => {
+              const value = ct === "All" ? "" : ct;
+              const on = (filters.Content_Type || "") === value;
               return (
-                <a
-                  key={article.id || index}
-                  href={`/article/${article.id}`}
-                  className="article-card"
-                  onClick={(e) => {
-                    if (
-                      e.defaultPrevented ||
-                      e.button !== 0 ||
-                      e.metaKey ||
-                      e.ctrlKey ||
-                      e.shiftKey ||
-                      e.altKey
-                    )
-                      return;
-                    e.preventDefault();
-                    router.push(`/article/${article.id}`);
+                <button
+                  key={ct}
+                  type="button"
+                  onClick={() => {
+                    const updated = {
+                      ...filters,
+                      Content_Type: value || undefined,
+                      content_type: value || undefined,
+                      Offset: 1,
+                    };
+                    setFilters(updated);
+                    fetchInsightsAnalysis(updated);
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    height: 34,
+                    padding: "0 14px",
+                    borderRadius: 999,
+                    border: `1px solid ${on ? INK : LINE}`,
+                    background: on ? INK : "#fff",
+                    color: on ? "#fff" : INK_3,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
                   }}
                 >
-                  <h3 className="article-title">
-                    {article.Headline || "-"}
-                  </h3>
-                  <p className="article-date">
-                    {formatDate(article.Publication_Date)}
-                  </p>
-                  {article.Transaction_status && (
-                    <div className="article-transaction-status-row">
-                      <span className="article-transaction-status-badge">
-                        {article.Transaction_status}
-                      </span>
-                    </div>
+                  {ct !== "All" && (
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background: contentTypeDot(ct),
+                        flexShrink: 0,
+                      }}
+                    />
                   )}
-                  {effectiveContentType && (
-                    <div className="article-badge-row">
-                      <span className={badgeClassFor(effectiveContentType)}>
-                        {effectiveContentType}
-                      </span>
-                    </div>
-                  )}
-                  {byline ? (
-                    <p className="article-byline">{byline}</p>
-                  ) : null}
-                  <p className="article-summary">
-                    {article.Strapline || "No summary available"}
-                  </p>
-                  <div className="article-meta">
-                    <span className="article-meta-label">Companies:</span>
-                    <span className="article-meta-value">
-                      {formatCompanies(article.companies_mentioned)}
-                    </span>
-                  </div>
-                  <div className="article-meta">
-                    <span className="article-meta-label">Sectors:</span>
-                    <span className="article-meta-value">
-                      {formatSectors(article.sectors)}
-                    </span>
-                  </div>
-                </a>
+                  {ct}
+                </button>
               );
             })}
           </div>
         )}
 
-        {/* Pagination */}
-        {pagination.pageTotal > 1 && (
-          <div className="flex gap-2 justify-center items-center mt-6">
-            {generatePaginationButtons()}
-          </div>
-        )}
+        {/* Results panel */}
+        <div
+          style={{
+            background: "#fff",
+            border: `1px solid ${LINE}`,
+            borderRadius: R_LG,
+            boxShadow: SH_SM,
+            overflow: "hidden",
+          }}
+        >
+          {loading ? (
+            <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
+              Loading articles…
+            </div>
+          ) : articles.length === 0 ? (
+            <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
+              No articles found.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {articles.map((article: ContentArticle, index: number) => {
+                const effectiveContentType = getEffectiveContentType(article);
+                const isNews = isNewsArticle({ Content_Type: effectiveContentType });
+                const byline = isNews ? getArticleByline(article) : "";
 
-        {/* CSS Styles */}
-        <style jsx>{`
-          .insights-analysis-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 24px;
-            padding: 0;
-            margin-bottom: 24px;
-          }
-          .article-card {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            padding: 16px;
-            border: 1px solid #E4E8F2;
-            cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            display: block;
-            text-decoration: none;
-            color: inherit;
-          }
-          .article-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-          }
-          .article-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: #0A0E1A;
-            margin: 0 0 8px 0;
-            line-height: 1.3;
-          }
-          .article-date {
-            font-size: 14px;
-            color: #6B7488;
-            margin: 0 0 16px 0;
-            font-weight: 500;
-          }
-          .article-transaction-status-row {
-            margin: -6px 0 10px 0;
-            display: block;
-          }
-          .article-transaction-status-badge {
-            display: inline-flex;
-            align-items: center;
-            font-size: 11px;
-            line-height: 1;
-            padding: 5px 10px;
-            border-radius: 9999px;
-            border: 1.5px solid #4ade80;
-            font-weight: 700;
-            letter-spacing: 0.03em;
-            text-transform: uppercase;
-            background: #dcfce7;
-            color: #0F7040;
-            white-space: nowrap;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          .article-badge-row {
-            margin: -8px 0 16px 0;
-            display: block;
-          }
-          .article-byline {
-            font-size: 13px;
-            color: #6B7488;
-            margin: -12px 0 16px 0;
-            font-style: italic;
-          }
-          .badge {
-            display: inline-block;
-            font-size: 12px;
-            line-height: 1;
-            padding: 6px 10px;
-            border-radius: 9999px;
-            border: 1px solid transparent;
-            font-weight: 600;
-          }
-          .badge-company-analysis {
-            background: #E4F5EC;
-            color: #0F7040;
-            border-color: #E4F5EC;
-          }
-          .badge-deal-analysis {
-            background: #F1F4FE;
-            color: #1F35C4;
-            border-color: #C6D1FB;
-          }
-          .badge-deal-perspective {
-            background: #F1F4FE;
-            color: #1F35C4;
-            border-color: #C6D1FB;
-          }
-          .badge-market-commentary {
-            background: #FEF6E0;
-            color: #7A5605;
-            border-color: #FEF6E0;
-          }
-          .badge-sector-analysis {
-            background: #F1EBFC;
-            color: #523793;
-            border-color: #E2E8FD;
-          }
-          .badge-hot-take {
-            background: #FEF6E0;
-            color: #7A5605;
-            border-color: #FEF6E0;
-          }
-          .badge-executive-interview {
-            background: #E4F5EC;
-            color: #0F7040;
-            border-color: #E4F5EC;
-          }
-          .article-summary {
-            font-size: 14px;
-            color: #3D4657;
-            line-height: 1.6;
-            margin: 0 0 16px 0;
-            display: -webkit-box;
-            -webkit-line-clamp: 4;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          .article-meta {
-            margin-bottom: 12px;
-          }
-          .article-meta:last-child {
-            margin-bottom: 0;
-          }
-          .article-meta-label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #3D4657;
-            margin-right: 8px;
-          }
-          .article-meta-value {
-            font-size: 13px;
-            color: #6B7488;
-            line-height: 1.4;
-          }
-          .pagination-button {
-            padding: 8px 12px;
-            border: none;
-            background: none;
-            color: #000;
-            cursor: pointer;
-            font-size: 14px;
-            transition: color 0.2s;
-          }
-          .pagination-button:hover {
-            color: #2A46EA;
-          }
-          .pagination-button.active {
-            color: #2A46EA;
-            text-decoration: underline;
-            font-weight: 500;
-          }
-          .pagination-button:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-            color: #666;
-          }
-          .pagination-ellipsis {
-            padding: 8px 12px;
-            color: #000;
-            font-size: 14px;
-          }
-          @media (max-width: 768px) {
-            .insights-analysis-cards {
-              grid-template-columns: 1fr !important;
-              gap: 12px !important;
-            }
-          }
-        `}</style>
+                return (
+                  <a
+                    key={article.id || index}
+                    href={`/article/${article.id}`}
+                    style={{
+                      display: "block",
+                      padding: "13px 16px",
+                      borderBottom: `1px solid ${LINE_2}`,
+                      textDecoration: "none",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = BLUE_50)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    onClick={(e) => {
+                      if (
+                        e.defaultPrevented ||
+                        e.button !== 0 ||
+                        e.metaKey ||
+                        e.ctrlKey ||
+                        e.shiftKey ||
+                        e.altKey
+                      )
+                        return;
+                      e.preventDefault();
+                      router.push(`/article/${article.id}`);
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 5 }}>
+                      {effectiveContentType && (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            ...contentTypeBadgeStyle(effectiveContentType),
+                          }}
+                        >
+                          {effectiveContentType}
+                        </span>
+                      )}
+                      <span style={{ fontSize: 11.5, color: MUTED }}>
+                        {formatDate(article.Publication_Date)}
+                      </span>
+                      {article.Transaction_status && (
+                        <span
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: 700,
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            background: "#E4F5EC",
+                            color: "#0F7040",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.03em",
+                          }}
+                        >
+                          {article.Transaction_status}
+                        </span>
+                      )}
+                    </div>
+                    <h3 style={{ margin: "0 0 4px", fontSize: 13.5, fontWeight: 700, color: INK, lineHeight: 1.35 }}>
+                      {article.Headline || "-"}
+                    </h3>
+                    {byline ? (
+                      <p style={{ margin: "0 0 4px", fontSize: 12, color: MUTED, fontStyle: "italic" }}>
+                        {byline}
+                      </p>
+                    ) : null}
+                    <p style={{ margin: "0 0 8px", fontSize: 12.5, lineHeight: 1.5, color: BODY }}>
+                      {article.Strapline || "No summary available"}
+                    </p>
+                    <div style={{ fontSize: 12, color: MUTED }}>
+                      <span style={{ fontWeight: 600, color: INK_3 }}>Companies: </span>
+                      {formatCompanies(article.companies_mentioned)}
+                    </div>
+                    <div style={{ fontSize: 12, color: MUTED }}>
+                      <span style={{ fontWeight: 600, color: INK_3 }}>Sectors: </span>
+                      {formatSectors(article.sectors)}
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Pagination footer */}
+          {pagination.pageTotal > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto 1fr",
+                alignItems: "center",
+                gap: 14,
+                padding: "11px 16px",
+                background: "#fff",
+                borderTop: `1px solid ${LINE_2}`,
+                fontSize: 13,
+                color: MUTED,
+              }}
+            >
+              <div>
+                Showing {rangeStart}–{rangeEnd} of {pagination.itemsReceived} · Page{" "}
+                {pagination.curPage} of {pagination.pageTotal}
+              </div>
+              <div style={{ display: "flex", gap: 6, justifySelf: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(pagination.curPage - 1)}
+                  disabled={!pagination.prevPage}
+                  style={{
+                    height: 32,
+                    padding: "0 14px",
+                    borderRadius: 999,
+                    border: `1px solid ${LINE}`,
+                    background: "#fff",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: INK_3,
+                    cursor: pagination.prevPage ? "pointer" : "not-allowed",
+                    opacity: pagination.prevPage ? 1 : 0.5,
+                  }}
+                >
+                  ← Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(pagination.curPage + 1)}
+                  disabled={!pagination.nextPage}
+                  style={{
+                    height: 32,
+                    padding: "0 14px",
+                    borderRadius: 999,
+                    border: `1px solid ${LINE}`,
+                    background: "#fff",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: INK_3,
+                    cursor: pagination.nextPage ? "pointer" : "not-allowed",
+                    opacity: pagination.nextPage ? 1 : 0.5,
+                  }}
+                >
+                  Next →
+                </button>
+              </div>
+              <div />
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
+  const sectorNameForDisplay =
+    (sectorData as { sector_name?: string })?.sector_name ||
+    (sectorData as { Sector?: { sector_name?: string } })?.Sector?.sector_name ||
+    "Sector";
+
+  const tabCounts: Partial<Record<(typeof TABS)[number]["id"], number>> = {
+    subsectors: subSectors.length > 0 ? subSectors.length : undefined,
+    all: totalsRow?.Number_of_Companies,
+    public: totalsRow?.Number_of_Public,
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br to-blue-50 from-slate-50">
+    <div style={{ minHeight: "100vh", background: TINT }}>
       <Header />
-      <header className="bg-white border-b shadow-sm border-slate-200/60">
-        <div className="px-6 py-4 w-full">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <div className="flex justify-center items-center w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">
-                <BuildingOfficeIcon className="w-6 h-6 text-white" />
+      <div style={{ background: "#fff", borderBottom: `1px solid ${LINE}`, padding: "18px 20px 16px" }}>
+        <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>
+          <a href="/sectors" style={{ fontWeight: 600, color: BLUE_600, textDecoration: "none" }}>
+            Sectors
+          </a>
+          {" / "}
+          {sectorData ? sectorNameForDisplay : "…"}
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 18 }}>
+          <div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 30,
+                fontWeight: 800,
+                letterSpacing: "-0.028em",
+                color: INK,
+                lineHeight: 1.1,
+              }}
+            >
+              {sectorData ? (
+                sectorNameForDisplay
+              ) : (
+                <span
+                  style={{
+                    display: "inline-block",
+                    height: 28,
+                    width: 260,
+                    background: LINE_2,
+                    borderRadius: 6,
+                  }}
+                />
+              )}
+            </h1>
+          </div>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            {sectorData && (sectorData as { id?: number })?.id != null && (
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  height: 36,
+                  padding: "0 10px 0 14px",
+                  borderRadius: 999,
+                  border: `1px solid ${LINE}`,
+                  background: "#fff",
+                }}
+              >
+                <InlineFollowButton
+                  followKey="followed_sectors"
+                  entityId={(sectorData as unknown as { id: number }).id}
+                  label={sectorNameForDisplay}
+                  showLabel
+                />
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">
-                  {sectorData ? (
-                    (sectorData as { sector_name?: string })?.sector_name || // New flat format
-                    (sectorData as { Sector?: { sector_name?: string } })?.Sector?.sector_name || // Old nested format
-                    "Sector"
-                  ) : (
-                    <span className="inline-block h-7 w-48 bg-slate-200 animate-pulse rounded"></span>
-                  )}
-                </h1>
-              </div>
-            </div>
-            <div className="flex items-center space-x-6">
-              <div className="flex justify-center items-center w-8 h-8 rounded-full bg-slate-200">
-                <BuildingOfficeIcon className="w-4 h-4 text-slate-600" />
-              </div>
-            </div>
+            )}
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="px-6 py-8 w-full">
-        <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+      <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} counts={tabCounts} />
 
+      <main style={{ padding: "18px 20px 40px" }}>
         {activeTab === "overview" ? (
-          <div className="space-y-8">
-            {/* Top Row - Changed from grid to flex */}
-            <div className="flex flex-col lg:flex-row gap-6">
-              <div className="lg:w-1/2">
-                <RecentInsightsCard sectorId={sectorId} />
-              </div>
-              <div className="lg:w-1/2">
-                {recentTransactions.length > 0 ? (
-                  <RecentTransactionsCard transactions={recentTransactions} />
-                ) : overviewDataLoaded ? (
-                  <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Transactions</h3>
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                        <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                      </div>
-                      <p className="text-slate-500 text-sm">No recent transactions data available for this sector</p>
-                    </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Top row: Recent Insights + Recent Transactions */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.15fr 1fr",
+                gap: 14,
+                alignItems: "start",
+              }}
+            >
+              <RecentInsightsCard sectorId={sectorId} />
+              {recentTransactions.length > 0 ? (
+                <RecentTransactionsCard transactions={recentTransactions} />
+              ) : (
+                <div
+                  style={{
+                    background: "#fff",
+                    border: `1px solid ${LINE}`,
+                    borderRadius: R_LG,
+                    boxShadow: SH_SM,
+                    padding: 16,
+                    height: 535,
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <h2 style={{ margin: "0 0 12px", fontSize: 14.5, fontWeight: 800, color: INK }}>
+                    Recent transactions
+                  </h2>
+                  <div
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: MUTED,
+                      fontSize: 13,
+                      textAlign: "center",
+                    }}
+                  >
+                    {overviewDataLoaded
+                      ? "No recent transactions data available for this sector"
+                      : "Loading…"}
                   </div>
-                ) : (
-                  <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
-                    <div className="h-6 bg-slate-200 rounded w-1/2 mb-4"></div>
-                    <div className="space-y-3">
-                      <div className="h-16 bg-slate-200 rounded"></div>
-                      <div className="h-16 bg-slate-200 rounded"></div>
-                      <div className="h-16 bg-slate-200 rounded"></div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
-            {/* Middle Row */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Market map cards */}
+            {marketMapCompanies.length > 0 ? (
+              <MarketMapGrid
+                companies={marketMapCompanies}
+                counts={marketMapCounts}
+                onExportBucket={handleExportMarketMapBucket}
+                exportingBucket={mmExportingBucket}
+              />
+            ) : (
+              <div
+                style={{
+                  background: "#fff",
+                  border: `1px solid ${LINE}`,
+                  borderRadius: R_LG,
+                  boxShadow: SH_SM,
+                  padding: 16,
+                  textAlign: "center",
+                  color: MUTED,
+                  fontSize: 13,
+                }}
+              >
+                {overviewDataLoaded
+                  ? "No market map data available for this sector"
+                  : "Loading…"}
+              </div>
+            )}
+
+            {/* Most Active preview row */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 14,
+                alignItems: "start",
+              }}
+            >
               {strategicAcquirers.length > 0 ? (
                 <MostActiveTableCard
                   title="Most Active Strategic Acquirers"
@@ -3063,26 +2753,22 @@ const SectorDetailPage = ({
                   showBadge={false}
                   onViewAll={() => goToMostActiveSubTab("strategics")}
                 />
-              ) : overviewDataLoaded ? (
-                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Most Active Strategic Acquirers</h3>
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                      <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                    </div>
-                    <p className="text-slate-500 text-sm">No strategic acquirers data available for this sector</p>
-                  </div>
-                </div>
               ) : (
-                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
-                  <div className="h-6 bg-slate-200 rounded w-2/3 mb-4"></div>
-                  <div className="space-y-3">
-                    <div className="h-12 bg-slate-200 rounded"></div>
-                    <div className="h-12 bg-slate-200 rounded"></div>
-                    <div className="h-12 bg-slate-200 rounded"></div>
-                  </div>
+                <div
+                  style={{
+                    background: "#fff",
+                    border: `1px solid ${LINE}`,
+                    borderRadius: R_LG,
+                    boxShadow: SH_SM,
+                    padding: 16,
+                    textAlign: "center",
+                    color: MUTED,
+                    fontSize: 13,
+                  }}
+                >
+                  {overviewDataLoaded
+                    ? "No strategic acquirers data available for this sector"
+                    : "Loading…"}
                 </div>
               )}
               {peInvestors.length > 0 ? (
@@ -3095,155 +2781,57 @@ const SectorDetailPage = ({
                   showBadge={false}
                   onViewAll={() => goToMostActiveSubTab("pe")}
                 />
-              ) : overviewDataLoaded ? (
-                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Most Active Private Equity Investors</h3>
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                      <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <p className="text-slate-500 text-sm">No private equity investors data available for this sector</p>
-                  </div>
-                </div>
               ) : (
-                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
-                  <div className="h-6 bg-slate-200 rounded w-2/3 mb-4"></div>
-                  <div className="space-y-3">
-                    <div className="h-12 bg-slate-200 rounded"></div>
-                    <div className="h-12 bg-slate-200 rounded"></div>
-                    <div className="h-12 bg-slate-200 rounded"></div>
-                  </div>
+                <div
+                  style={{
+                    background: "#fff",
+                    border: `1px solid ${LINE}`,
+                    borderRadius: R_LG,
+                    boxShadow: SH_SM,
+                    padding: 16,
+                    textAlign: "center",
+                    color: MUTED,
+                    fontSize: 13,
+                  }}
+                >
+                  {overviewDataLoaded
+                    ? "No private equity investors data available for this sector"
+                    : "Loading…"}
                 </div>
               )}
             </div>
-
-            {/* Bottom Row */}
-            {marketMapCompanies.length > 0 ? (
-              <MarketMapGrid
-                companies={marketMapCompanies}
-                counts={marketMapCounts}
-                onExportBucket={handleExportMarketMapBucket}
-                exportingBucket={mmExportingBucket}
-              />
-            ) : overviewDataLoaded ? (
-              <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Market Map</h3>
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                    <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-500 text-sm">No market map data available for this sector</p>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
-                <div className="h-6 bg-slate-200 rounded w-1/4 mb-4"></div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                    <div key={i} className="h-24 bg-slate-200 rounded"></div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Debug blocks removed */}
-
-            {/* Pagination controls */}
-            {pagination.pageTotal > 1 && (
-              <div className="flex gap-3 justify-between items-center">
-                <div className="text-sm text-slate-600">
-                  Showing {pagination.offset + 1} -{" "}
-                  {Math.min(
-                    pagination.offset + pagination.perPage,
-                    companiesTotal ?? totalCompaniesStat
-                  )}{" "}
-                  of {formatNumber(companiesTotal ?? totalCompaniesStat)}{" "}
-                  companies
-                  {pagination.pageTotal > 1 && (
-                    <span className="ml-2">
-                      (Page {pagination.curPage} of {pagination.pageTotal})
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2 items-center">
-                  <label className="text-sm text-slate-600">Show</label>
-                  <select
-                    value={selectedPerPage}
-                    onChange={(e) => {
-                      const newPerPage = parseInt(e.target.value);
-                      setSelectedPerPage(newPerPage);
-                      fetchCompanies(1, newPerPage);
-                    }}
-                    className="px-2 py-1 text-sm bg-white rounded-md border border-slate-300"
-                  >
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                    <option value={500}>500</option>
-                  </select>
-                  <span className="text-sm text-slate-600">per page</span>
-                  <div className="flex gap-2 items-center ml-4">
-                    <button
-                      className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                      onClick={() =>
-                        handlePageChange(
-                          Math.max(1, (pagination.curPage || 1) - 1)
-                        )
-                      }
-                      disabled={(pagination.curPage || 1) <= 1}
-                    >
-                      ← Previous
-                    </button>
-                    <button
-                      className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                      onClick={() =>
-                        handlePageChange(
-                          Math.min(
-                            pagination.pageTotal || 1,
-                            (pagination.curPage || 1) + 1
-                          )
-                        )
-                      }
-                      disabled={
-                        (pagination.curPage || 1) >= (pagination.pageTotal || 1)
-                      }
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {companiesLoading && (
-              <div className="text-center text-slate-500">
-                Loading companies...
-              </div>
-            )}
           </div>
         ) : activeTab === "all" ? (
           !Number.isNaN(Number(sectorId)) && Number(sectorId) > 0 ? (
-            <div className="space-y-4">
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {ownershipFilter && (
-                <div className="px-3 py-2 bg-blue-50 rounded border border-blue-200">
-                  <span className="text-sm text-blue-900">
-                    Viewing a pre-filtered list:{" "}
-                    <strong>
-                      {ownershipFilter === "public"
-                        ? "Public Companies"
-                        : ownershipFilter === "private_equity_owned"
-                        ? "Private Equity Owned"
-                        : ownershipFilter === "venture_capital_backed"
-                        ? "Venture Capital Backed"
-                        : "Private Companies"}
-                    </strong>
-                  </span>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 7,
+                    height: 38,
+                    padding: "0 8px 0 14px",
+                    borderRadius: 999,
+                    background: BLUE_50,
+                    border: `1px solid ${BLUE_200}`,
+                    fontSize: 13,
+                    color: BLUE_700,
+                    width: "fit-content",
+                  }}
+                >
+                  Viewing a pre-filtered list:{" "}
+                  <b style={{ color: INK, fontWeight: 700 }}>
+                    {ownershipFilter === "public"
+                      ? "Public Companies"
+                      : ownershipFilter === "private_equity_owned"
+                      ? "Private Equity Owned"
+                      : ownershipFilter === "venture_capital_backed"
+                      ? "Venture Capital Backed"
+                      : "Private Companies"}
+                  </b>
                   <button
+                    type="button"
                     onClick={() => {
                       try {
                         if (typeof window !== "undefined") {
@@ -3256,9 +2844,19 @@ const SectorDetailPage = ({
                         setOwnershipFilter(null);
                       }
                     }}
-                    className="ml-3 text-sm font-semibold text-blue-700 underline hover:text-blue-900"
+                    style={{
+                      width: 20,
+                      height: 20,
+                      border: "none",
+                      borderRadius: "50%",
+                      background: "rgba(42,70,234,.12)",
+                      color: BLUE_700,
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                    aria-label="Clear filter"
                   >
-                    Clear filter
+                    ×
                   </button>
                 </div>
               )}
@@ -3291,58 +2889,58 @@ const SectorDetailPage = ({
             />
           ) : null
         ) : activeTab === "subsectors" ? (
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
-              <div className="px-5 py-4 border-b border-slate-100">
-                <div className="flex justify-between items-center">
-                  <div className="flex gap-3 items-center text-xl">
-                    <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
-                      <svg
-                        className="w-4 h-4 text-indigo-600"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M3 12h18M3 6h18M3 18h18" />
-                      </svg>
-                    </span>
-                    <span className="text-slate-900">Sub-Sectors</span>
-                  </div>
-                  <div className="text-sm text-slate-600">
-                    {subSectors.length.toLocaleString()} total
-                  </div>
-                </div>
+          <div>
+            {subSectorsLoading ? (
+              <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
+                Loading sub-sectors…
               </div>
-              <div className="px-5 py-4">
-                {subSectorsLoading ? (
-                  <div className="py-10 text-center text-slate-500">
-                    Loading sub-sectors...
-                  </div>
-                ) : subSectorsError ? (
-                  <div className="py-4 text-center text-red-600">
-                    {subSectorsError}
-                  </div>
-                ) : subSectors.length === 0 ? (
-                  <div className="py-10 text-center text-slate-500">
-                    No sub-sectors found.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {subSectors.map((s) => (
-                      <a
-                        key={s.id}
-                        href={`/sub-sector/${s.id}`}
-                        className="inline-flex max-w-full text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 truncate hover:bg-blue-100 hover:border-blue-300 transition-colors duration-150"
-                        title={s.sector_name}
-                      >
-                        {s.sector_name}
-                      </a>
-                    ))}
-                  </div>
-                )}
+            ) : subSectorsError ? (
+              <div style={{ padding: "16px 0", textAlign: "center", color: "#A62E22", fontSize: 13 }}>
+                {subSectorsError}
               </div>
-            </div>
+            ) : subSectors.length === 0 ? (
+              <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
+                No sub-sectors found.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                {subSectors.map((s) => (
+                  <a
+                    key={s.id}
+                    href={`/sub-sector/${s.id}`}
+                    style={{
+                      background: "#fff",
+                      border: `1px solid ${LINE}`,
+                      borderRadius: R_LG,
+                      boxShadow: SH_XS,
+                      padding: "14px 15px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                      textDecoration: "none",
+                    }}
+                    title={s.sector_name}
+                  >
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        lineHeight: 1.3,
+                        color: BLUE_600,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                    >
+                      {s.sector_name}
+                    </h3>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         ) : activeTab === "most_active" ? (
           <SectorMostActiveTab
@@ -3362,14 +2960,24 @@ const SectorDetailPage = ({
         ) : activeTab === "insights" ? (
           <SectorInsightsTab sectorId={sectorId} />
         ) : (
-          <div className="flex justify-center items-center h-64 bg-white rounded-xl border border-slate-200">
-            <div className="text-center">
-              <h3 className="mb-2 text-xl font-semibold text-slate-900">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: 260,
+              background: "#fff",
+              border: `1px solid ${LINE}`,
+              borderRadius: R_LG,
+            }}
+          >
+            <div style={{ textAlign: "center" }}>
+              <h3 style={{ margin: "0 0 6px", fontSize: 18, fontWeight: 700, color: INK }}>
                 {activeTab.charAt(0).toUpperCase() +
                   activeTab.slice(1).replace("_", " ")}{" "}
                 Section
               </h3>
-              <p className="text-slate-500">This section is coming soon</p>
+              <p style={{ margin: 0, color: MUTED, fontSize: 13 }}>This section is coming soon</p>
             </div>
           </div>
         )}
