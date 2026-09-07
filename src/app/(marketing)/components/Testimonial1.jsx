@@ -14,25 +14,25 @@ const TESTIMONIALS = [
     id: "motive-partners",
     quote:
       "We use a range of intelligence platforms across our investment process, and Asymmetrix stands out for its purpose-built approach to the way investors evaluate and track the Data & Analytics sector.",
-    initials: "CT",
     name: "Charles Teschner",
     title: "Motive Partners",
+    logoSrc: "/client_logos/motive-partners-testimonial.jpg",
   },
   {
     id: "raymond-james",
     quote:
       "Asymmetrix provides proprietary data on proprietary data businesses and is the go-to source for actionable intelligence.",
-    initials: "GW",
     name: "George Watson",
     title: "Raymond James",
+    logoSrc: "/client_logos/raymond-james-testimonial.jpg",
   },
   {
     id: "endicott",
     quote:
       "The team at Asymmetrix do a fantastic job covering the Data and Information services world. Their subject matter expertise, strong network, and importantly, understanding of the nuances in this sector, shine through in the content, including accurate and detailed company classifications, market maps and overviews, and deal briefs and rumor coverage. Asymmetrix has quickly become a go-to resource for our team at Endicott.",
-    initials: "MC",
     name: "Mike Chinn",
     title: "Endicott Capital",
+    logoSrc: "/client_logos/endicott-testimonial.jpg",
   },
 ];
 
@@ -68,9 +68,13 @@ function TestimonialCard({ testimonial, direction, draggable, onDragEnd }) {
         </span>
       </blockquote>
       <div className="mt-6 flex shrink-0 flex-col items-center justify-center self-center md:mt-0 md:w-44">
-        <div className="mb-3 flex size-12 min-h-12 min-w-12 items-center justify-center rounded-full bg-background-alternative text-sm font-semibold">
-          {testimonial.initials}
-        </div>
+        <img
+          src={testimonial.logoSrc}
+          alt={testimonial.title}
+          width={120}
+          height={48}
+          className="mb-3 h-10 w-auto max-w-[140px] object-contain object-center"
+        />
         <p className="text-center text-sm font-semibold">{testimonial.name}</p>
         <p className="landing-text-secondary text-center text-xs md:text-sm">
           {testimonial.title}
