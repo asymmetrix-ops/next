@@ -12,448 +12,50 @@ import {
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "../../types/insightsAnalysis";
-import SeriesArticleCard from "@/components/SeriesArticleCard";
-import NewsArticleCard from "@/components/NewsArticleCard";
-import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
-import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
-import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
-import { isNewsArticle, normalizeContentArticles } from "@/lib/contentArticleDisplay";
+import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
+import { T } from "@/components/redesign/primitives";
+import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 
-const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
+const CONTENT_ARTICLES_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles";
 
-// Shared styles object
-const styles = {
-  container: {
-    backgroundColor: "#F5F7FD",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-    width: "100%",
-    maxWidth: "100%",
-    boxSizing: "border-box" as const,
-  },
-  maxWidth: {
-    padding: "16px",
-    display: "flex" as const,
-    flexDirection: "column" as const,
-    gap: "16px",
-    width: "100%",
-    maxWidth: "100%",
-    boxSizing: "border-box" as const,
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    padding: "20px 24px",
-    marginBottom: "0",
-    boxSizing: "border-box" as const,
-    width: "100%",
-    maxWidth: "100%",
-  },
-  heading: {
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "#0A0E1A",
-    marginBottom: "16px",
-    marginTop: "0px",
-  },
-  subHeading: {
-    fontSize: "20px",
-    fontWeight: "600",
-    color: "#0A0E1A",
-    marginBottom: "12px",
-  },
-  searchDiv: {
-    display: "flex" as const,
-    flexDirection: "row" as const,
-    gap: "12px",
-    flexWrap: "wrap" as const,
-    alignItems: "flex-start" as const,
-    width: "100%",
-    maxWidth: "100%",
-  },
-  input: {
-    width: "100%",
-    maxWidth: "280px",
-    padding: "10px 12px",
-    border: "1px solid #E4E8F2",
-    borderRadius: "6px",
-    fontSize: "14px",
-    color: "#3D4657",
-    outline: "none",
-    marginBottom: "0",
-    boxSizing: "border-box" as const,
-  },
-  button: {
-    width: "100%",
-    maxWidth: "120px",
-    backgroundColor: "#2A46EA",
-    color: "white",
-    fontWeight: "600",
-    padding: "10px 14px",
-    borderRadius: "6px",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "14px",
-    minHeight: "44px",
-    touchAction: "manipulation",
-    WebkitTapHighlightColor: "transparent",
-  },
-  linkButton: {
-    backgroundColor: "transparent",
-    border: "none",
-    color: "#2A46EA",
-    textDecoration: "underline",
-    cursor: "pointer",
-    fontSize: "14px",
-    marginTop: "12px",
-  },
-  grid: {
-    display: "flex",
-    flexDirection: "row" as const,
-    flexWrap: "nowrap" as const,
-    gap: "16px",
-    marginBottom: "12px",
-    alignItems: "flex-end" as const,
-  },
-  gridItem: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "6px",
-  },
-  label: {
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#3D4657",
-    marginBottom: "4px",
-    marginTop: "4px",
-  },
-  select: {
-    width: "100%",
-    maxWidth: "280px",
-    padding: "10px 12px",
-    border: "1px solid #E4E8F2",
-    borderRadius: "6px",
-    fontSize: "14px",
-    color: "#3D4657",
-    outline: "none",
-    backgroundColor: "white",
-    cursor: "pointer",
-    boxSizing: "border-box" as const,
-  },
-};
+// ── Design tokens local to this page (mirrors src/app/sectors/page.tsx) ──────
+const SH_SM = "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)";
 
-// Generate pagination buttons (similar to advisors page)
-const generatePaginationButtons = (
-  pagination: {
-    curPage: number;
-    pageTotal: number;
-    prevPage: number | null;
-    nextPage: number | null;
-  },
-  handlePageChange: (page: number) => void
-) => {
-  const buttons = [];
-  const currentPage = pagination.curPage;
-  const totalPages = pagination.pageTotal;
+// Content-type accent dots — mirrors src/lib/contentTypeBadge.ts semantic mapping.
+function getTypeDotColor(contentType: string): string {
+  const t = contentType.toLowerCase();
+  if (t === "company analysis" || t === "company update") return T.azure;
+  if (t === "sector analysis") return T.lavender;
+  if (t === "executive interview") return T.emerald;
+  if (t === "news") return T.coral;
+  if (
+    t === "deal analysis" ||
+    t === "deal perspective" ||
+    t === "hot take" ||
+    t === "market commentary"
+  )
+    return T.warn;
+  return T.muted;
+}
 
-  // Previous button
-  buttons.push(
-    <button
-      key="prev"
-      className="pagination-button"
-      onClick={() =>
-        handlePageChange(
-          typeof pagination.prevPage === "number"
-            ? pagination.prevPage
-            : currentPage - 1
-        )
-      }
-      disabled={!pagination.prevPage}
-    >
-      &lt;
-    </button>
-  );
-
-  // Page numbers
-  if (totalPages <= 7) {
-    // Show all pages if total is 7 or less
-    for (let i = 1; i <= totalPages; i++) {
-      buttons.push(
-        <button
-          key={i}
-          className={`pagination-button ${i === currentPage ? "active" : ""}`}
-          onClick={() => handlePageChange(i)}
-        >
-          {i.toString()}
-        </button>
-      );
-    }
-  } else {
-    // Show first page
-    buttons.push(
-      <button
-        key={1}
-        className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
-        onClick={() => handlePageChange(1)}
-      >
-        1
-      </button>
-    );
-
-    // Show second page if not first
-    if (currentPage > 2) {
-      buttons.push(
-        <button
-          key={2}
-          className="pagination-button"
-          onClick={() => handlePageChange(2)}
-        >
-          2
-        </button>
-      );
-    }
-
-    // Show ellipsis if needed
-    if (currentPage > 3) {
-      buttons.push(
-        <span key="ellipsis1" className="pagination-ellipsis">
-          ...
-        </span>
-      );
-    }
-
-    // Show current page and neighbors
-    for (
-      let i = Math.max(3, currentPage - 1);
-      i <= Math.min(totalPages - 2, currentPage + 1);
-      i++
-    ) {
-      if (i > 2 && i < totalPages - 1) {
-        buttons.push(
-          <button
-            key={i}
-            className={`pagination-button ${i === currentPage ? "active" : ""}`}
-            onClick={() => handlePageChange(i)}
-          >
-            {i.toString()}
-          </button>
-        );
-      }
-    }
-
-    // Show ellipsis if needed
-    if (currentPage < totalPages - 2) {
-      buttons.push(
-        <span key="ellipsis2" className="pagination-ellipsis">
-          ...
-        </span>
-      );
-    }
-
-    // Show second to last page if not last
-    if (currentPage < totalPages - 1) {
-      buttons.push(
-        <button
-          key={totalPages - 1}
-          className="pagination-button"
-          onClick={() => handlePageChange(totalPages - 1)}
-        >
-          {(totalPages - 1).toString()}
-        </button>
-      );
-    }
-
-    // Show last page
-    buttons.push(
-      <button
-        key={totalPages}
-        className={`pagination-button ${
-          currentPage === totalPages ? "active" : ""
-        }`}
-        onClick={() => handlePageChange(totalPages)}
-      >
-        {totalPages.toString()}
-      </button>
-    );
-  }
-
-  // Next button
-  buttons.push(
-    <button
-      key="next"
-      className="pagination-button"
-      onClick={() =>
-        handlePageChange(
-          typeof pagination.nextPage === "number"
-            ? pagination.nextPage
-            : currentPage + 1
-        )
-      }
-      disabled={!pagination.nextPage}
-    >
-      &gt;
-    </button>
-  );
-
-  return buttons;
-};
-
-// Insights Analysis Cards Component
-const InsightsAnalysisCards = ({
-  articles,
-  loading,
-}: {
-  articles: ContentArticle[];
-  loading: boolean;
-}) => {
-  const router = useRouter();
-
-  const handleArticleClick = (articleId: number) => {
-    router.push(`/article/${articleId}`);
-  };
-
-  if (loading) {
-    return <div className="loading">Loading articles...</div>;
-  }
-
-  if (!articles || articles.length === 0) {
-    return <div className="loading">No articles found.</div>;
-  }
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "-";
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch {
-      return "Invalid date";
-    }
-  };
-
-  const formatSectors = (
-    sectors: Array<Array<{ sector_name: string }>> | undefined
-  ) => {
-    if (!sectors || sectors.length === 0) return "-";
-    const allSectors = sectors.flat().map((s) => s.sector_name);
-    return allSectors.join(", ");
-  };
-
-  const formatCompanies = (
-    companies: ContentArticle["companies_mentioned"] | undefined
-  ) => {
-    if (!companies || companies.length === 0) return "-";
-    return companies.map((c) => c.name).join(", ");
-  };
-
-  const badgeClassFor = (contentType?: string): string => {
-    const t = (contentType || "").toLowerCase();
-    if (t === "company analysis") return "badge badge-company-analysis";
-    if (t === "deal analysis") return "badge badge-deal-analysis";
-    if (t === "sector analysis") return "badge badge-sector-analysis";
-    if (t === "hot take") return "badge badge-hot-take";
-    if (t === "executive interview") return "badge badge-executive-interview";
-    if (t === "news") return "badge badge-news";
-    return "badge";
-  };
-
+function SearchIcon() {
   return (
-    <div className="insights-analysis-cards">
-      {articles.map((article: ContentArticle, index: number) =>
-        article.is_series && article.series ? (
-          <SeriesArticleCard
-            key={article.id || index}
-            article={article}
-            formatDate={formatDate}
-            formatSectors={formatSectors}
-            formatCompanies={formatCompanies}
-            badgeClassFor={badgeClassFor}
-          />
-        ) : isNewsArticle(article) ? (
-          <NewsArticleCard key={article.id || index} article={article} />
-        ) : (
-          <a
-            key={article.id || index}
-            href={`/article/${article.id}`}
-            className="article-card"
-            onClick={(e) => {
-              if (
-                e.defaultPrevented ||
-                e.button !== 0 ||
-                e.metaKey ||
-                e.ctrlKey ||
-                e.shiftKey ||
-                e.altKey
-              )
-                return;
-              e.preventDefault();
-              handleArticleClick(article.id);
-            }}
-          >
-            {/* Article Title */}
-            <h3 className="article-title">
-              <span className="article-title-inner">
-                {article.Headline || "-"}
-                {(() => {
-                  const hqCountryIso2 = getInsightHqCountryIso2(
-                    article as unknown as Record<string, unknown>
-                  );
-                  return hqCountryIso2 ? (
-                    <CountryFlagImg iso2={hqCountryIso2} size={INSIGHT_FLAG_SIZE_PX} />
-                  ) : null;
-                })()}
-              </span>
-            </h3>
-
-            {/* Transaction Status Badge */}
-            {article.Transaction_status && (
-              <div className="article-transaction-status-row">
-                <span className="badge-transaction-status">
-                  {article.Transaction_status}
-                </span>
-              </div>
-            )}
-
-            {/* Date */}
-            <p className="article-date">{formatDate(article.Publication_Date)}</p>
-            {/* Content Type Badge below date */}
-            {article.Content_Type && (
-              <div className="article-badge-row">
-                <span className={badgeClassFor(article.Content_Type)}>
-                  {article.Content_Type}
-                </span>
-              </div>
-            )}
-
-            {/* Strapline/Summary */}
-            <p className="article-summary">
-              {article.Strapline || "No summary available"}
-            </p>
-
-            {/* Companies Section */}
-            <div className="article-meta">
-              <span className="article-meta-label">Companies:</span>
-              <span className="article-meta-value">
-                {formatCompanies(article.companies_mentioned)}
-              </span>
-            </div>
-
-            {/* Sectors Section */}
-            <div className="article-meta">
-              <span className="article-meta-label">Sectors:</span>
-              <span className="article-meta-value">
-                {formatSectors(article.sectors)}
-              </span>
-            </div>
-          </a>
-        )
-      )}
-    </div>
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
   );
-};
+}
 
 const DEFAULT_FILTERS: InsightsAnalysisFilters = {
   search_query: "",
@@ -470,10 +72,41 @@ const DEFAULT_FILTERS: InsightsAnalysisFilters = {
   show_followed: true,
 };
 
+const PER_PAGE_OPTIONS = [10, 20, 50, 100];
+
 function parseCompanyIdFromParam(value: string | null): number | null {
   if (!value) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function buildContentArticlesParams(
+  filters: InsightsAnalysisFilters,
+  overrides?: { Per_page?: number; content_type?: string }
+): URLSearchParams {
+  const params = new URLSearchParams();
+  params.append("Offset", String(filters.Offset));
+  params.append("Per_page", String(overrides?.Per_page ?? filters.Per_page));
+  params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
+  if (filters.search_query) params.append("search_query", filters.search_query);
+  if (filters.Countries?.length) params.append("Countries", filters.Countries.join(","));
+  if (filters.Provinces?.length) params.append("Provinces", filters.Provinces.join(","));
+  if (filters.Cities?.length) params.append("Cities", filters.Cities.join(","));
+  if (filters.primary_sectors_ids?.length)
+    params.append("primary_sectors_ids", filters.primary_sectors_ids.join(","));
+  if (filters.Secondary_sectors_ids?.length)
+    params.append("Secondary_sectors_ids", filters.Secondary_sectors_ids.join(","));
+  const ct = overrides?.content_type ?? (filters.Content_Type || filters.content_type || "").trim();
+  if (ct) params.append("content_type", ct);
+  const ts = (filters.Transaction_status || "").trim();
+  if (ts) params.append("Transaction_status", ts);
+  if (filters.company_id != null && filters.company_id > 0) {
+    params.append("company_id", String(filters.company_id));
+  }
+  if (filters.show_followed != null) {
+    params.append("show_followed", String(Boolean(filters.show_followed)));
+  }
+  return params;
 }
 
 // Main Insights Analysis Page Component
@@ -524,6 +157,13 @@ function InsightsAnalysisPageContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Content-type pill counts (real counts read from a lightweight Per_page=1
+  // request per type — see the isTrialActive-style fetchByType pattern below).
+  const [typeCounts, setTypeCounts] = useState<Record<string, number | null>>({});
+  const [allTypesCount, setAllTypesCount] = useState<number | null>(null);
+
+  const [pageInputValue, setPageInputValue] = useState("1");
+
   const fetchInsightsAnalysis = async (filters: InsightsAnalysisFilters) => {
     try {
       setLoading(true);
@@ -542,7 +182,7 @@ function InsightsAnalysisPageContent() {
           p.append("Offset", "1");
           p.append("Per_page", String(perPage));
           p.append("content_type", contentType);
-          const u = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${p.toString()}`;
+          const u = `${CONTENT_ARTICLES_URL}?${p.toString()}`;
           const res = await fetch(u, {
             method: "GET",
             headers: {
@@ -587,41 +227,8 @@ function InsightsAnalysisPageContent() {
         return;
       }
 
-      // Build GET query params per API spec
-      const params = new URLSearchParams();
-      params.append("Offset", String(filters.Offset));
-      params.append("Per_page", String(filters.Per_page));
-      params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
-      if (filters.search_query)
-        params.append("search_query", filters.search_query);
-      if (filters.Countries?.length)
-        params.append("Countries", filters.Countries.join(","));
-      if (filters.Provinces?.length)
-        params.append("Provinces", filters.Provinces.join(","));
-      if (filters.Cities?.length)
-        params.append("Cities", filters.Cities.join(","));
-      if (filters.primary_sectors_ids?.length)
-        params.append(
-          "primary_sectors_ids",
-          filters.primary_sectors_ids.join(",")
-        );
-      if (filters.Secondary_sectors_ids?.length)
-        params.append(
-          "Secondary_sectors_ids",
-          filters.Secondary_sectors_ids.join(",")
-        );
-      const ct = (filters.Content_Type || filters.content_type || "").trim();
-      if (ct) params.append("content_type", ct);
-      const ts = (filters.Transaction_status || "").trim();
-      if (ts) params.append("Transaction_status", ts);
-      if (filters.company_id != null && filters.company_id > 0) {
-        params.append("company_id", String(filters.company_id));
-      }
-      if (filters.show_followed != null) {
-        params.append("show_followed", String(Boolean(filters.show_followed)));
-      }
-
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`;
+      const params = buildContentArticlesParams(filters);
+      const url = `${CONTENT_ARTICLES_URL}?${params.toString()}`;
 
       const response = await fetch(url, {
         method: "GET",
@@ -648,6 +255,7 @@ function InsightsAnalysisPageContent() {
         perPage: filters.Per_page,
         pageTotal: data.pageTotal,
       });
+      setPageInputValue(String(data.curPage));
     } catch (error) {
       console.error("Error fetching insights analysis:", error);
       setError(
@@ -735,6 +343,82 @@ function InsightsAnalysisPageContent() {
     run();
   }, []);
 
+  // Content-type pill counts — one lightweight Per_page=1 request per type
+  // (plus one untyped request for "All types"), refetched whenever a filter
+  // OTHER than the active content type changes. Never fires just from
+  // switching which type pill is selected.
+  const primarySectorIdsKey = JSON.stringify(filters.primary_sectors_ids);
+  const secondarySectorIdsKey = JSON.stringify(filters.Secondary_sectors_ids);
+  useEffect(() => {
+    if (isTrialActive) return;
+    if (contentTypes.length === 0) return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) return;
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-Data-Source": "live",
+      };
+
+      const fetchCount = async (contentType?: string): Promise<number | null> => {
+        try {
+          const params = buildContentArticlesParams(filters, {
+            Per_page: 1,
+            content_type: contentType ?? "",
+          });
+          const res = await fetch(`${CONTENT_ARTICLES_URL}?${params.toString()}`, {
+            method: "GET",
+            headers,
+          });
+          if (!res.ok) return null;
+          const json: InsightsAnalysisResponse = await res.json();
+          return typeof json.itemsReceived === "number" ? json.itemsReceived : null;
+        } catch {
+          return null;
+        }
+      };
+
+      try {
+        const [allCount, ...counts] = await Promise.all([
+          fetchCount(undefined),
+          ...contentTypes.map((ct) => fetchCount(ct)),
+        ]);
+        if (cancelled) return;
+        setAllTypesCount(allCount);
+        const next: Record<string, number | null> = {};
+        contentTypes.forEach((ct, idx) => {
+          next[ct] = counts[idx] ?? null;
+        });
+        setTypeCounts(next);
+      } catch {
+        // Leave counts unset — pills render without a count rather than a fake one.
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally excludes filters.Content_Type / filters.content_type so
+    // toggling the active type pill doesn't refire this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isTrialActive,
+    contentTypes,
+    filters.search_query,
+    primarySectorIdsKey,
+    secondarySectorIdsKey,
+    filters.Transaction_status,
+    filters.portfolio_only,
+    filters.company_id,
+    filters.show_followed,
+  ]);
+
   // Handle search
   const handleSearch = () => {
     const updatedFilters = {
@@ -748,18 +432,38 @@ function InsightsAnalysisPageContent() {
 
   // Handle page change
   const handlePageChange = (page: number) => {
-    const updatedFilters = { ...filters, Offset: page };
+    const clamped = Math.max(1, Math.min(page, pagination.pageTotal || page));
+    const updatedFilters = { ...filters, Offset: clamped };
     setFilters(updatedFilters);
     fetchInsightsAnalysis(updatedFilters);
   };
 
+  const handlePerPageChange = (perPage: number) => {
+    const updatedFilters = { ...filters, Per_page: perPage, Offset: 1 };
+    setFilters(updatedFilters);
+    fetchInsightsAnalysis(updatedFilters);
+  };
+
+  const handleTypeSelect = (contentType: string) => {
+    const updated = {
+      ...filters,
+      Content_Type: contentType || undefined,
+      content_type: contentType || undefined,
+      Offset: 1,
+    };
+    setFilters(updated);
+    fetchInsightsAnalysis(updated);
+  };
+
   const handleFollowedToggle = (checked: boolean) => {
-    setFilters((prev) => ({
-      ...prev,
+    const updated: InsightsAnalysisFilters = {
+      ...filters,
       Offset: 1,
       portfolio_only: checked,
       user_id: null,
-    }));
+    };
+    setFilters(updated);
+    fetchInsightsAnalysis(updated);
   };
 
   const clearCompanyFilter = useCallback(() => {
@@ -778,613 +482,383 @@ function InsightsAnalysisPageContent() {
     fetchInsightsAnalysis(updatedFilters);
   };
 
+  const activeContentType = (filters.Content_Type || filters.content_type || "").trim();
+
   const style = `
-    * {
-      box-sizing: border-box;
-    }
-    .insights-analysis-section {
-      padding: 32px 16px;
-      border-radius: 8px;
-      max-width: 100%;
-      width: 100%;
-      overflow-x: hidden;
-      box-sizing: border-box;
-    }
-    @media (max-width: 640px) {
-      .insights-analysis-section {
-        padding: 16px 12px !important;
-      }
-    }
-    .insights-analysis-stats {
-      background: #fff;
-      padding: 32px 24px;
-      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 16px;
-      margin-bottom: 24px;
-    }
-    .stats-title {
-      font-size: 24px;
-      font-weight: 700;
-      color: #0A0E1A;
-      margin: 0 0 24px 0;
-    }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px 24px;
-    }
-    .stats-item {
+    * { box-sizing: border-box; }
+    .ia-shell {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px 16px 56px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 16px;
+      width: 100%;
+      font-family: ${T.sans};
     }
-    .stats-label {
-      font-size: 14px;
-      color: #3D4657;
-      font-weight: 500;
-      line-height: 1.4;
-    }
-    .stats-value {
-      font-size: 20px;
-      color: #000;
+    .ia-eyebrow {
+      font-size: 12px;
       font-weight: 700;
-    }
-    .insights-analysis-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-      gap: 24px;
-      padding: 0;
-      margin-bottom: 24px;
-    }
-    .article-card {
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      padding: 16px;
-      border: 1px solid #E4E8F2;
-      cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .article-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    }
-    .article-card--series {
-      border-color: #7A5BD0;
-      background: linear-gradient(180deg, #ffffff 0%, #F1EBFC 100%);
-    }
-    .series-tile-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-    .series-part-badge {
-      display: inline-flex;
-      align-items: center;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #523793;
-      background: #F1EBFC;
-      border: 1px solid #7A5BD0;
-      border-radius: 9999px;
-      padding: 5px 10px;
-      white-space: nowrap;
+      color: ${T.azure};
+      margin: 0 0 4px 0;
     }
-    .series-tile-controls {
+    .ia-title {
+      font-size: 26px;
+      font-weight: 700;
+      color: ${T.ink};
+      margin: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .ia-title-count {
+      font-size: 14px;
+      font-weight: 600;
+      color: ${T.muted};
+    }
+    .ia-title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .ia-actions {
       display: flex;
       align-items: center;
-      gap: 4px;
-      flex-shrink: 0;
+      gap: 8px;
+      flex-wrap: wrap;
     }
-    .series-tile-arrow {
-      width: 28px;
-      height: 28px;
-      border-radius: 9999px;
-      border: 1px solid #7A5BD0;
-      background: #ffffff;
-      color: #523793;
-      font-size: 18px;
-      line-height: 1;
-      cursor: pointer;
+    .pill-btn {
       display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      transition: background-color 0.15s ease, border-color 0.15s ease;
-    }
-    .series-tile-arrow:hover:not(:disabled) {
-      background: #F1EBFC;
-      border-color: #7A5BD0;
-    }
-    .series-tile-arrow:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-    .series-part-dots {
-      display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
-      margin: 0 0 14px 0;
-    }
-    .series-part-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 9999px;
-      background: #E2E8FD;
-    }
-    .series-part-dot.active {
-      background: #523793;
-      transform: scale(1.15);
-    }
-    .article-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: #0A0E1A;
-      margin: 0 0 8px 0;
-      line-height: 1.3;
-    }
-    .article-title-inner {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .article-content-type {
-      display: inline-block;
-      font-size: 12px;
-      line-height: 1;
-      color: #3D4657;
-      background-color: #EFF2F8;
-      padding: 4px 8px;
-      border-radius: 9999px;
-      margin: 0 0 8px 0;
+      border-radius: 999px;
+      font-size: 13.5px;
       font-weight: 600;
-    }
-    .article-date {
-      font-size: 14px;
-      color: #6B7488;
-      margin: 0 0 16px 0;
-      font-weight: 500;
-    }
-    .article-badge-row {
-      margin: -8px 0 16px 0;
-      display: block;
-    }
-    .badge {
-      display: inline-block;
-      font-size: 12px;
-      line-height: 1;
-      padding: 6px 10px;
-      border-radius: 9999px;
-      border: 1px solid transparent;
-      font-weight: 600;
-    }
-    .badge-company-analysis {
-      background: #E4F5EC;
-      color: #0F7040;
-      border-color: #E4F5EC;
-    }
-    .badge-deal-analysis {
-      background: #F1F4FE;
-      color: #1F35C4;
-      border-color: #C6D1FB;
-    }
-    .badge-sector-analysis {
-      background: #F1EBFC;
-      color: #523793;
-      border-color: #E2E8FD;
-    }
-    .badge-hot-take {
-      background: #FEF6E0;
-      color: #7A5605;
-      border-color: #FEF6E0;
-    }
-    .badge-executive-interview {
-      background: #E4F5EC;
-      color: #0F7040;
-      border-color: #E4F5EC;
-    }
-    .badge-news {
-      background: #FCEAE7;
-      color: #A62E22;
-      border-color: #FCEAE7;
-    }
-    .article-transaction-status-row {
-      margin: 0 0 10px 0;
-      display: block;
-    }
-    .badge-transaction-status {
-      display: inline-flex;
-      align-items: center;
-      font-size: 11px;
-      line-height: 1;
-      padding: 5px 10px;
-      border-radius: 9999px;
-      border: 1.5px solid #17A05C;
-      font-weight: 700;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-      background-color: #E4F5EC;
-      color: #0F7040;
+      padding: 9px 16px;
+      cursor: pointer;
       white-space: nowrap;
+      transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
     }
-    .article-summary {
-      font-size: 14px;
-      color: #3D4657;
-      line-height: 1.6;
-      margin: 0 0 16px 0;
-      display: -webkit-box;
-      -webkit-line-clamp: 4;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .pill-btn-primary {
+      background: ${T.azure};
+      color: #fff;
+      border: 1px solid ${T.azure};
     }
-    .article-meta {
-      margin-bottom: 12px;
+    .pill-btn-primary:hover { background: #2038c9; }
+    .pill-btn-outline {
+      background: #fff;
+      color: ${T.ink};
+      border: 1px solid ${T.divider};
     }
-    .article-meta:last-child {
-      margin-bottom: 0;
-    }
-    .article-meta-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #3D4657;
-      margin-right: 8px;
-    }
-    .article-meta-value {
-      font-size: 13px;
-      color: #6B7488;
-      line-height: 1.4;
-    }
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: #666;
-    }
-    .error {
-      text-align: center;
-      padding: 20px;
-      color: #A62E22;
-      background-color: #FCEAE7;
-      border-radius: 6px;
-      margin-bottom: 16px;
-    }
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 16px;
-      margin-top: 24px;
+    .pill-btn-outline:hover { background: ${T.inset}; }
+    .ia-controls-card {
+      background: #fff;
+      border: 1px solid ${T.divider};
+      border-radius: ${T.rLg}px;
+      box-shadow: ${SH_SM};
       padding: 16px;
-    }
-    .pagination-button {
-      padding: 8px 12px;
-      border: none;
-      background: none;
-      color: #000;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 400;
-      transition: color 0.2s;
-      text-decoration: none;
-    }
-    .pagination-button:hover {
-      color: #2A46EA;
-    }
-    .pagination-button.active {
-      color: #2A46EA;
-      text-decoration: underline;
-      font-weight: 500;
-    }
-    .pagination-button:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
-      color: #666;
-    }
-    .pagination-ellipsis {
-      padding: 8px 12px;
-      color: #000;
-      font-size: 14px;
-    }
-    .followed-filter-card {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 8px 10px;
-      margin: 0;
-      border: 1px solid #E4E8F2;
-      border-radius: 8px;
-      background: #F5F7FD;
-      max-width: 320px;
-      min-height: 36px;
-    }
-    .followed-filter-checkbox {
-      width: 16px;
-      height: 16px;
-      margin-top: 1px;
-      accent-color: #2A46EA;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-    .followed-filter-content {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 14px;
     }
-    .followed-filter-title {
+    .ia-search-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .ia-search-pill {
+      flex: 1 1 260px;
+      min-width: 200px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: ${T.paper};
+      border: 1px solid ${T.divider};
+      border-radius: 999px;
+      padding: 9px 16px;
+      color: ${T.muted};
+    }
+    .ia-search-pill input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 13.5px;
+      color: ${T.ink};
+    }
+    .ia-adv-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: flex-end;
+      padding-top: 12px;
+      border-top: 1px solid ${T.hair};
+    }
+    .ia-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 200px;
+    }
+    .ia-field-label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: ${T.body};
+    }
+    .ia-select {
+      padding: 9px 14px;
+      border: 1px solid ${T.divider};
+      border-radius: 999px;
+      font-size: 13.5px;
+      color: ${T.ink};
+      background: #fff;
+      cursor: pointer;
+      outline: none;
+    }
+    .ia-followed-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      border: 1px solid ${T.divider};
+      border-radius: 999px;
+      background: ${T.paper};
+      cursor: pointer;
+    }
+    .ia-followed-pill input {
+      accent-color: ${T.azure};
+      cursor: pointer;
+    }
+    .ia-followed-pill span {
       font-size: 13px;
       font-weight: 600;
-      color: #0A0E1A;
-      line-height: 1.2;
+      color: ${T.ink};
     }
-    .followed-filter-description {
-      font-size: 11px;
-      line-height: 1.35;
-      color: #3D4657;
-      margin: 0;
+    .ia-types-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
     }
-    .company-filter-banner {
+    .ia-type-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid ${T.divider};
+      background: #fff;
+      color: ${T.body};
+      cursor: pointer;
+    }
+    .ia-type-pill.active {
+      background: ${T.azureSoft};
+      border-color: #C6D1FB;
+      color: ${T.azure};
+    }
+    .ia-type-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
+    .ia-type-count {
+      color: ${T.faint};
+      font-weight: 600;
+    }
+    .ia-company-banner {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
       flex-wrap: wrap;
-      margin: 0 0 16px 0;
-      padding: 12px 14px;
+      padding: 12px 16px;
       border: 1px solid #C6D1FB;
-      border-radius: 8px;
-      background: #F1F4FE;
+      border-radius: 999px;
+      background: ${T.azureSoft};
       color: #182A9B;
+      font-size: 13.5px;
+    }
+    .ia-company-banner strong { color: #1F35C4; }
+    .ia-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .ia-loading, .ia-empty {
+      text-align: center;
+      padding: 48px 16px;
+      color: ${T.muted};
       font-size: 14px;
-      line-height: 1.4;
     }
-    .company-filter-banner strong {
-      color: #1F35C4;
-      font-weight: 700;
+    .ia-error {
+      text-align: center;
+      padding: 16px;
+      color: ${T.coral};
+      background-color: ${T.coralSoft};
+      border-radius: 12px;
     }
-    .company-filter-clear {
-      background: #fff;
-      border: 1px solid #93A6F7;
-      color: #1F35C4;
-      border-radius: 6px;
-      padding: 6px 12px;
+    .ia-pgrow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 8px 4px;
       font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
+      color: ${T.muted};
     }
-    .company-filter-clear:hover {
-      background: #F1F4FE;
+    .ia-pgc {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ia-pgc-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid ${T.divider};
+      background: #fff;
+      color: ${T.ink};
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .ia-pgc-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .ia-pgc-in {
+      width: 44px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid ${T.divider};
+      text-align: center;
+      font-size: 13px;
+      color: ${T.ink};
+      outline: none;
+    }
+    .ia-pg-count { white-space: nowrap; }
+    @media (max-width: 1024px) {
+      .ia-grid { grid-template-columns: repeat(2, 1fr) !important; }
     }
     @media (max-width: 768px) {
-      .insights-analysis-cards {
-        grid-template-columns: 1fr !important;
-        gap: 12px !important;
-        padding: 8px !important;
-      }
-      .pagination {
-        flex-wrap: wrap !important;
-        gap: 8px !important;
-        padding: 16px 8px !important;
-      }
-      .pagination-button {
-        padding: 8px 10px !important;
-        font-size: 13px !important;
-        min-width: 32px !important;
-        text-align: center !important;
-      }
-      .pagination-ellipsis {
-        padding: 8px 6px !important;
-        font-size: 13px !important;
-      }
-      .insights-analysis-section {
-        padding: 20px 8px !important;
-      }
-      .insights-analysis-stats {
-        padding: 20px 16px !important;
-      }
-      .stats-title {
-        font-size: 20px !important;
-        margin-bottom: 16px !important;
-      }
-      .stats-grid {
-        grid-template-columns: 1fr !important;
-        gap: 16px !important;
-      }
-      .stats-item {
-        padding: 8px 0 !important;
-      }
-      .stats-label {
-        font-size: 12px !important;
-      }
-      .stats-value {
-        font-size: 14px !important;
-      }
-      .filters-grid {
-        flex-direction: column !important;
-      }
-      .filters-card {
-        padding: 20px 16px !important;
-      }
-      .filters-heading {
-        font-size: 20px !important;
-        margin-bottom: 16px !important;
-      }
-      .filters-sub-heading {
-        font-size: 16px !important;
-        margin-bottom: 8px !important;
-      }
-      .filters-input {
-        max-width: 100% !important;
-        width: 100% !important;
-      }
-      .filters-button {
-        max-width: 100% !important;
-      }
+      .ia-grid { grid-template-columns: 1fr !important; }
+      .ia-title-row { flex-direction: column !important; }
+      .ia-shell { padding: 16px 12px 40px !important; }
     }
   `;
 
   return (
     <div
       className="min-h-screen"
-      style={{ width: "100%", maxWidth: "100vw", overflowX: "hidden" }}
+      style={{ width: "100%", maxWidth: "100vw", overflowX: "hidden", background: T.paper }}
     >
       <Header />
 
-      {/* Filters Section (hidden for Trial) */}
-      {!isTrialActive && (
-        <div style={styles.container}>
-          <div style={styles.maxWidth}>
-            <div
-              style={{
-                ...styles.card,
-                ...(showFilters ? {} : { padding: "12px 16px" }),
-              }}
-              className="filters-card"
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "12px",
-                  flexWrap: "wrap",
-                  marginBottom: "16px",
-                }}
-              >
-                <h2
-                  style={{ ...styles.heading, marginBottom: 0 }}
-                  className="filters-heading"
-                >
-                  {filters.company_id
-                    ? `Insights & Analysis — ${
-                        companyFilterLabel || `Company #${filters.company_id}`
-                      }`
-                    : "Insights & Analysis"}
-                </h2>
-                <RequestDataResearchButton
-                  label="Request Report"
-                  context="insights-analysis"
-                  sourcePage="Insights & Analysis Search"
-                />
-              </div>
-              {filters.company_id != null && filters.company_id > 0 && (
-                <div className="company-filter-banner">
-                  <span>
-                    Showing insights tagged to{" "}
-                    <strong>
-                      {companyFilterLabel || `Company #${filters.company_id}`}
-                    </strong>
-                  </span>
-                  <button
-                    type="button"
-                    className="company-filter-clear"
-                    onClick={clearCompanyFilter}
-                  >
-                    View all insights
-                  </button>
-                </div>
-              )}
+      <div className="ia-shell">
+        {/* Title row */}
+        <div className="ia-title-row">
+          <div>
+            <p className="ia-eyebrow">Research</p>
+            <h1 className="ia-title">
+              {filters.company_id
+                ? `Insights & Analysis — ${companyFilterLabel || `Company #${filters.company_id}`}`
+                : "Insights & Analysis"}
+              <span className="ia-title-count">
+                {pagination.itemsReceived.toLocaleString()} reports
+              </span>
+            </h1>
+          </div>
+          {!isTrialActive && (
+            <div className="ia-actions">
+              <button type="button" className="pill-btn pill-btn-outline" onClick={resetFilters}>
+                Reset filters
+              </button>
+              <RequestDataResearchButton
+                label="Request report"
+                context="insights-analysis"
+                sourcePage="Insights & Analysis Search"
+                className="pill-btn pill-btn-primary"
+                style={{ borderRadius: 999 }}
+              />
+            </div>
+          )}
+        </div>
 
-              <div style={styles.searchDiv} className="search-bar">
-                <input
-                  type="text"
-                  placeholder="Enter search term here"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={styles.input}
-                  className="filters-input"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                />
+        {!isTrialActive && (
+          <>
+            {filters.company_id != null && filters.company_id > 0 && (
+              <div className="ia-company-banner">
+                <span>
+                  Showing insights tagged to{" "}
+                  <strong>{companyFilterLabel || `Company #${filters.company_id}`}</strong>
+                </span>
                 <button
                   type="button"
-                  onClick={handleSearch}
-                  style={styles.button}
-                  className="filters-button"
+                  className="pill-btn pill-btn-outline"
+                  onClick={clearCompanyFilter}
                 >
-                  {loading ? "Searching..." : "Search"}
+                  View all insights
+                </button>
+              </div>
+            )}
+
+            {/* Controls card */}
+            <div className="ia-controls-card">
+              <div className="ia-search-row">
+                <div className="ia-search-pill">
+                  <SearchIcon />
+                  <input
+                    type="text"
+                    placeholder="Search reports…"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  />
+                </div>
+                <button type="button" className="pill-btn pill-btn-primary" onClick={handleSearch}>
+                  {loading ? "Searching…" : "Search"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowFilters(!showFilters)}
-                  style={{
-                    ...styles.button,
-                    backgroundColor: "#fff",
-                    color: "#0A0E1A",
-                    border: "1px solid #E4E8F2",
-                    fontWeight: 500,
-                  }}
+                  className="pill-btn pill-btn-outline"
+                  onClick={() => setShowFilters((v) => !v)}
                 >
-                  {showFilters ? "Hide Filters" : "Show Filters"}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  style={{
-                    ...styles.button,
-                    backgroundColor: "#fff",
-                    color: "#0A0E1A",
-                    border: "1px solid #E4E8F2",
-                    fontWeight: 500,
-                  }}
-                >
-                  Reset Filters
+                  {showFilters ? "Hide filters" : "Show filters"}
                 </button>
               </div>
 
               {showFilters && (
-                <div
-                  className="filters-grid"
-                  style={{ ...styles.grid, marginTop: "12px" }}
-                >
-                  <div style={styles.gridItem}>
-                    <span style={styles.label}>Content Type</span>
+                <div className="ia-adv-filters">
+                  <div className="ia-field">
+                    <span className="ia-field-label">Primary sector</span>
                     <select
-                      value={filters.Content_Type || ""}
-                      onChange={(e) => {
-                        const updated = {
-                          ...filters,
-                          Content_Type: e.target.value || undefined,
-                          content_type: e.target.value || undefined,
-                          Offset: 1,
-                        };
-                        setFilters(updated);
-                        fetchInsightsAnalysis(updated);
-                      }}
-                      style={styles.select}
-                      className="filters-input"
-                    >
-                      <option value="">All Content Types</option>
-                      {contentTypes.map((ct) => (
-                        <option key={ct} value={ct}>
-                          {ct}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={styles.gridItem}>
-                    <span style={styles.label}>Primary Sector</span>
-                    <select
+                      className="ia-select"
                       value={filters.primary_sectors_ids?.[0]?.toString() || ""}
                       onChange={(e) => {
                         const value = e.target.value;
                         const updated = {
                           ...filters,
-                          primary_sectors_ids:
-                            value === "" ? [] : [Number.parseInt(value, 10)],
+                          primary_sectors_ids: value === "" ? [] : [Number.parseInt(value, 10)],
                           Offset: 1,
                         };
                         setFilters(updated);
                         fetchInsightsAnalysis(updated);
                       }}
-                      style={styles.select}
-                      className="filters-input"
                     >
-                      <option value="">All Primary Sectors</option>
+                      <option value="">All primary sectors</option>
                       {primarySectors.map((sector) => (
                         <option key={sector.id} value={sector.id}>
                           {sector.sector_name}
@@ -1392,9 +866,10 @@ function InsightsAnalysisPageContent() {
                       ))}
                     </select>
                   </div>
-                  <div style={styles.gridItem}>
-                    <span style={styles.label}>Transaction Status</span>
+                  <div className="ia-field">
+                    <span className="ia-field-label">Transaction status</span>
                     <select
+                      className="ia-select"
                       value={filters.Transaction_status || ""}
                       onChange={(e) => {
                         const updated = {
@@ -1405,59 +880,136 @@ function InsightsAnalysisPageContent() {
                         setFilters(updated);
                         fetchInsightsAnalysis(updated);
                       }}
-                      style={styles.select}
-                      className="filters-input"
                     >
-                      <option value="">All Transaction Statuses</option>
+                      <option value="">All transaction statuses</option>
                       <option value="Rumoured in Market">Rumoured in Market</option>
-                      <option value="Transaction anticipated within 18 months">Transaction anticipated within 18 months</option>
+                      <option value="Transaction anticipated within 18 months">
+                        Transaction anticipated within 18 months
+                      </option>
                       <option value="Reported in Market">Reported in Market</option>
                     </select>
                   </div>
-                  <div style={styles.gridItem}>
-                    <span style={styles.label}>View Followed</span>
-                    <label className="followed-filter-card">
+                  <div className="ia-field">
+                    <span className="ia-field-label">View followed</span>
+                    <label className="ia-followed-pill">
                       <input
                         type="checkbox"
                         checked={Boolean(filters.portfolio_only)}
                         onChange={(e) => handleFollowedToggle(e.target.checked)}
-                        className="followed-filter-checkbox"
                       />
-                      <span className="followed-filter-content">
-                        <span className="followed-filter-title">
-                          Followed Only
-                        </span>
-                        <span className="followed-filter-description">
-                          Show content tagged to followed companies, advisors,
-                          individuals, investors, or sectors.
-                        </span>
-                      </span>
+                      <span>Followed only</span>
                     </label>
                   </div>
                 </div>
               )}
-
-              {/* Error Display */}
-              {error && <div className="error">{error}</div>}
-
-              {/* Loading Display */}
-              {loading && <div className="loading">Loading articles...</div>}
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Insights Analysis Section */}
-      <div className="insights-analysis-section">
-        {/* Results Cards */}
+            {/* Content-type pill filters */}
+            <div className="ia-types-row">
+              <button
+                type="button"
+                className={`ia-type-pill${activeContentType === "" ? " active" : ""}`}
+                onClick={() => handleTypeSelect("")}
+              >
+                All types
+                {allTypesCount != null && (
+                  <span className="ia-type-count">{allTypesCount.toLocaleString()}</span>
+                )}
+              </button>
+              {contentTypes.map((ct) => (
+                <button
+                  key={ct}
+                  type="button"
+                  className={`ia-type-pill${activeContentType === ct ? " active" : ""}`}
+                  onClick={() => handleTypeSelect(ct)}
+                >
+                  <span className="ia-type-dot" style={{ background: getTypeDotColor(ct) }} />
+                  {ct}
+                  {typeCounts[ct] != null && (
+                    <span className="ia-type-count">{typeCounts[ct]!.toLocaleString()}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Error / loading */}
+        {error && <div className="ia-error">{error}</div>}
+        {loading && articles.length === 0 && <div className="ia-loading">Loading reports…</div>}
+
+        {/* Results grid */}
+        {!loading && articles.length === 0 && !error && (
+          <div className="ia-empty">No reports found.</div>
+        )}
         {articles.length > 0 && (
-          <InsightsAnalysisCards articles={articles} loading={loading} />
+          <div className="ia-grid">
+            {articles.map((article, index) => (
+              <InsightsAnalysisCard key={article.id ?? index} article={article} />
+            ))}
+          </div>
         )}
 
         {/* Pagination */}
         {!isTrialActive && pagination.pageTotal > 1 && (
-          <div className="pagination">
-            {generatePaginationButtons(pagination, handlePageChange)}
+          <div className="ia-pgrow">
+            <span className="ia-pg-count">
+              {pagination.itemsReceived.toLocaleString()} reports · page {pagination.curPage} of{" "}
+              {pagination.pageTotal}
+            </span>
+            <div className="ia-pgc">
+              <button
+                type="button"
+                className="ia-pgc-btn"
+                onClick={() => handlePageChange(pagination.curPage - 1)}
+                disabled={!pagination.prevPage}
+                aria-label="Previous page"
+              >
+                ‹
+              </button>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="ia-pgc-in"
+                value={pageInputValue}
+                onChange={(e) => setPageInputValue(e.target.value.replace(/[^0-9]/g, ""))}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  const page = Number.parseInt(pageInputValue, 10);
+                  if (Number.isFinite(page)) handlePageChange(page);
+                }}
+                onBlur={() => {
+                  const page = Number.parseInt(pageInputValue, 10);
+                  if (Number.isFinite(page)) {
+                    handlePageChange(page);
+                  } else {
+                    setPageInputValue(String(pagination.curPage));
+                  }
+                }}
+                aria-label="Page number"
+              />
+              <button
+                type="button"
+                className="ia-pgc-btn"
+                onClick={() => handlePageChange(pagination.curPage + 1)}
+                disabled={!pagination.nextPage}
+                aria-label="Next page"
+              >
+                ›
+              </button>
+            </div>
+            <select
+              className="ia-select"
+              value={pagination.perPage}
+              onChange={(e) => handlePerPageChange(Number.parseInt(e.target.value, 10))}
+              aria-label="Reports per page"
+            >
+              {PER_PAGE_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n} / page
+                </option>
+              ))}
+            </select>
           </div>
         )}
       </div>
@@ -1477,9 +1029,8 @@ export default function InsightsAnalysisPage() {
           <div
             style={{
               padding: "32px 16px",
-              fontFamily:
-                '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-              color: "#3D4657",
+              fontFamily: T.sans,
+              color: T.body,
             }}
           >
             Loading insights...
