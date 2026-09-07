@@ -7,6 +7,7 @@ import { CompanyGraphVisual } from "./CompanyGraphVisual";
 import { DashboardMockup } from "./DashboardMockup";
 import { DealRadarVisual } from "./DealRadarVisual";
 import { MarketAnalysisVisual } from "./MarketAnalysisVisual";
+import { NewsVisual } from "./NewsVisual";
 import { openCalendlyPopup } from "@/lib/calendlyWidget";
 
 const TABS = [
@@ -45,6 +46,14 @@ const TABS = [
     title: "Go beyond the data with research reports and market commentary",
     description:
       "Understand what's driving valuations, consolidation and disruption across the Data & Analytics sector, straight from our research desk.",
+  },
+  {
+    id: "news",
+    label: "News",
+    eyebrow: "News",
+    title: "Proprietary deal news and insight before the competition",
+    description:
+      "Track live deals, M&A, funding rounds, people moves and more across Data & Analytics.",
   },
 ];
 
@@ -199,6 +208,8 @@ export function PlatformHero({ topViewedArticles = [] }) {
                   <AIDefensibilityVisual />
                 ) : content.id === "market-analysis" ? (
                   <MarketAnalysisVisual articles={topViewedArticles} />
+                ) : content.id === "news" ? (
+                  <NewsVisual />
                 ) : (
                   <DashboardMockup
                     label={content.eyebrow}
