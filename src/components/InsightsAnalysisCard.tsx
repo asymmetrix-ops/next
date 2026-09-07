@@ -6,8 +6,6 @@ import type { ContentArticle } from "@/types/insightsAnalysis";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
-import { isNewsArticle } from "@/lib/contentArticleDisplay";
-import NewsArticleCard from "@/components/NewsArticleCard";
 
 const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
@@ -344,6 +342,14 @@ const badgeClassFor = (contentType?: string): React.CSSProperties => {
       borderColor: "#bbf7d0",
     };
   }
+  if (t === "news") {
+    return {
+      ...base,
+      backgroundColor: "#fff1f2",
+      color: "#9f1239",
+      borderColor: "#fecdd3",
+    };
+  }
 
   return {
     ...base,
@@ -427,6 +433,8 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
     [article.sectors]
   );
 
+  const isNews = (effectiveContentType || "").toLowerCase() === "news";
+
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!isClickable || !linkHref) return;
     if (
@@ -443,15 +451,25 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
     router.push(linkHref);
   };
 
+  const defaultBoxShadow = isNews
+    ? "0 1px 3px rgba(0, 0, 0, 0.08)"
+    : "0 4px 10px rgba(15, 23, 42, 0.08)";
+  const hoverBoxShadow = isNews
+    ? "0 8px 24px rgba(225, 29, 72, 0.12)"
+    : "0 10px 30px rgba(15, 23, 42, 0.18)";
+
   const shellStyle: React.CSSProperties = {
     display: "block",
     width: "100%",
     maxWidth: "100%",
     boxSizing: "border-box",
-    backgroundColor: "#ffffff",
+    background: isNews
+      ? "linear-gradient(180deg, #ffffff 0%, #fffafb 100%)"
+      : "#ffffff",
     borderRadius: 12,
-    boxShadow: "0 4px 10px rgba(15, 23, 42, 0.08)",
-    border: "1px solid #e2e8f0",
+    boxShadow: defaultBoxShadow,
+    border: isNews ? "1px solid #fecdd3" : "1px solid #e2e8f0",
+    borderLeft: isNews ? "4px solid #e11d48" : undefined,
     padding: 20,
     textDecoration: "none",
     color: "inherit",
@@ -471,13 +489,11 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
           onClick: handleClick,
           onMouseEnter: (e: React.MouseEvent<HTMLAnchorElement>) => {
             e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow =
-              "0 10px 30px rgba(15, 23, 42, 0.18)";
+            e.currentTarget.style.boxShadow = hoverBoxShadow;
           },
           onMouseLeave: (e: React.MouseEvent<HTMLAnchorElement>) => {
             e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow =
-              "0 4px 10px rgba(15, 23, 42, 0.08)";
+            e.currentTarget.style.boxShadow = defaultBoxShadow;
           },
         } satisfies React.AnchorHTMLAttributes<HTMLAnchorElement>)
       : ({
@@ -485,15 +501,11 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
           tabIndex: -1,
         } satisfies React.HTMLAttributes<HTMLDivElement>);
 
-  if (isNewsArticle(article)) {
-    return <NewsArticleCard article={article} />;
-  }
-
   return React.createElement(
     isClickable ? "a" : "div",
     {
       ...shellProps,
-      className: "content-card",
+      className: isNews ? "content-card content-card--news" : "content-card",
       style: shellStyle,
     },
     <>

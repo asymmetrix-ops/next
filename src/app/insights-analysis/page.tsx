@@ -24,11 +24,7 @@ import {
 } from "@/lib/sectorInsightsArticles";
 import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 import SeriesArticleCard from "@/components/SeriesArticleCard";
-import NewsArticleCard from "@/components/NewsArticleCard";
-import {
-  isNewsArticle,
-  normalizeContentArticles,
-} from "@/lib/contentArticleDisplay";
+import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 
 // Shared styles object
 const styles = {
@@ -221,8 +217,6 @@ const InsightsAnalysisCards = ({
             formatCompanies={formatCompanies}
             badgeClassFor={badgeClassFor}
           />
-        ) : isNewsArticle(article) ? (
-          <NewsArticleCard key={article.id || index} article={article} />
         ) : (
           <InsightsAnalysisCard
             key={article.id}
@@ -711,6 +705,11 @@ const InsightsAnalysisPageContent = () => {
       min-height: 480px !important;
       padding: 28px !important;
       box-sizing: border-box !important;
+    }
+    .insights-analysis-section .content-card.content-card--news {
+      background: linear-gradient(180deg, #ffffff 0%, #fffafb 100%) !important;
+      border: 1px solid #fecdd3 !important;
+      border-left: 4px solid #e11d48 !important;
     }
     .insights-analysis-section .card-header {
       margin-bottom: 16px !important;
