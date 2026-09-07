@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-
-const SITE_URL = "https://www.asymmetrixintelligence.com";
-const DEFAULT_OG_IMAGE = `${SITE_URL}/images/asymmetrix-video-thumbnail.png`;
+import { DEFAULT_OG_IMAGE, SITE_URL } from "@/lib/articleSeo";
 
 /**
  * Shared metadata for the marketing site (home, about, contact, press
@@ -36,7 +34,9 @@ export function buildLandingMetadata({
       description,
       url,
       siteName: "Asymmetrix",
-      images: [{ url: ogImage, width: 1024, height: 576, alt: title }],
+      images: [
+        { url: ogImage, width: 1200, height: 630, alt: title, type: "image/jpeg" },
+      ],
       locale: "en_US",
       type: "website",
     },

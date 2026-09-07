@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import "react-h5-audio-player/lib/styles.css";
+import { DEFAULT_OG_IMAGE } from "@/lib/articleSeo";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { PlatformCurrencyProvider } from "@/components/providers/PlatformCurrencyProvider";
@@ -54,10 +55,11 @@ export const metadata: Metadata = {
     siteName: "Asymmetrix",
     images: [
       {
-        url: "/images/asymmetrix-video-thumbnail.png",
+        url: DEFAULT_OG_IMAGE,
         width: 1200,
         height: 630,
         alt: "Asymmetrix - Data & Analytics Demystified",
+        type: "image/jpeg",
       },
     ],
     locale: "en_US",
@@ -68,7 +70,7 @@ export const metadata: Metadata = {
     title: "Asymmetrix - Data & Analytics Demystified",
     description:
       "Providing critical intelligence to stakeholders in the Data & Analytics industry",
-    images: ["/images/asymmetrix-video-thumbnail.png"],
+    images: [DEFAULT_OG_IMAGE],
   },
   robots: {
     index: true,
