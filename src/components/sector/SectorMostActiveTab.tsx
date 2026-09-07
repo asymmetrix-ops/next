@@ -55,6 +55,12 @@ interface AdvisorEntity {
   logoUrl?: string;
 }
 
+const LINE = "#E4E8F2";
+const INK = "#0A0E1A";
+const MUTED = "#6B7488";
+const R_LG = 16;
+const SH_XS = "0 1px 2px rgba(16, 28, 70, 0.05)";
+
 function MostActiveSubTabNav({
   active,
   onChange,
@@ -63,20 +69,42 @@ function MostActiveSubTabNav({
   onChange: (id: MostActiveSubTabId) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1 bg-slate-100 rounded-lg p-1 w-fit mb-6">
-      {MOST_ACTIVE_SUB_TABS.map((st) => (
-        <button
-          key={st.id}
-          onClick={() => onChange(st.id)}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-150 whitespace-nowrap ${
-            active === st.id
-              ? "bg-white text-slate-900 shadow-sm"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          {st.label}
-        </button>
-      ))}
+    <div
+      style={{
+        display: "flex",
+        gap: 3,
+        padding: 3,
+        background: "#fff",
+        border: `1px solid ${LINE}`,
+        borderRadius: 999,
+        width: "max-content",
+        marginBottom: 14,
+        boxShadow: SH_XS,
+      }}
+    >
+      {MOST_ACTIVE_SUB_TABS.map((st) => {
+        const on = active === st.id;
+        return (
+          <button
+            key={st.id}
+            onClick={() => onChange(st.id)}
+            style={{
+              height: 34,
+              padding: "0 16px",
+              border: "none",
+              borderRadius: 999,
+              background: on ? INK : "transparent",
+              color: on ? "#fff" : MUTED,
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {st.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -742,52 +770,60 @@ export function SectorMostActiveTab({
   );
 
   return (
-    <div className="space-y-6">
+    <div>
       <MostActiveSubTabNav active={activeSubTab} onChange={setActiveSubTab} />
 
-      <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <div className="flex items-center gap-3 mb-1">
-            <span
-              className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${
-                activeSubTab === "strategics"
-                  ? "bg-blue-50"
-                  : activeSubTab === "pe"
-                  ? "bg-purple-50"
-                  : activeSubTab === "venture"
-                  ? "bg-emerald-50"
-                  : "bg-amber-50"
-              }`}
-            >
-              <BuildingOfficeIcon
-                className={`w-4 h-4 ${
-                  activeSubTab === "strategics"
-                    ? "text-blue-600"
-                    : activeSubTab === "pe"
-                    ? "text-purple-600"
-                    : activeSubTab === "venture"
-                    ? "text-emerald-600"
-                    : "text-amber-600"
-                }`}
-              />
-            </span>
-            <h3 className="text-lg font-semibold text-slate-900">{config.title}</h3>
-            {((activeSubTab === "strategics" && strategicsState.total > 0) ||
-              (activeSubTab === "pe" && peState.total > 0) ||
-              (activeSubTab === "venture" && vcState.total > 0) ||
-              (activeSubTab === "advisors" && advisorsState.total > 0)) && (
-              <span className="ml-auto text-sm text-slate-500 tabular-nums">
-                {activeSubTab === "strategics"
-                  ? strategicsState.total
-                  : activeSubTab === "pe"
-                  ? peState.total
-                  : activeSubTab === "venture"
-                  ? vcState.total
-                  : advisorsState.total} total
-              </span>
-            )}
+      <div
+        style={{
+          background: "#fff",
+          border: `1px solid ${LINE}`,
+          borderRadius: R_LG,
+          boxShadow: "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "13px 16px",
+            borderBottom: "1px solid #EFF2F8",
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: INK }}>
+              {config.title}
+            </h2>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: MUTED }}>{config.description}</p>
           </div>
-          <p className="text-sm text-slate-500 ml-11">{config.description}</p>
+          {((activeSubTab === "strategics" && strategicsState.total > 0) ||
+            (activeSubTab === "pe" && peState.total > 0) ||
+            (activeSubTab === "venture" && vcState.total > 0) ||
+            (activeSubTab === "advisors" && advisorsState.total > 0)) && (
+            <span
+              style={{
+                marginLeft: "auto",
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: MUTED,
+                background: "#F5F7FD",
+                borderRadius: 999,
+                padding: "2px 8px",
+                flexShrink: 0,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {activeSubTab === "strategics"
+                ? strategicsState.total
+                : activeSubTab === "pe"
+                ? peState.total
+                : activeSubTab === "venture"
+                ? vcState.total
+                : advisorsState.total}{" "}
+              total
+            </span>
+          )}
         </div>
 
         <div className="px-6 py-4">
