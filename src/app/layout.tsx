@@ -42,6 +42,7 @@ export const metadata: Metadata = {
     telephone: false,
   },
   metadataBase: new URL("https://www.asymmetrixintelligence.com"),
+  manifest: "/site.webmanifest",
   alternates: {
     canonical: "/",
   },
@@ -85,7 +86,9 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
+      { url: "/icons/favicon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icons/favicon-96.png", sizes: "96x96", type: "image/png" },
       { url: "/icons/favicon.svg", type: "image/svg+xml" },
       { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
       { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
