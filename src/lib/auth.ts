@@ -133,16 +133,29 @@ class AuthService {
       process.env.NEXT_PUBLIC_XANO_API_URL ||
       "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
-    const response = await fetch(`${apiUrl}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email: normalizedEmail, password }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${apiUrl}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: normalizedEmail, password }),
+      });
+    } catch (error) {
+      // Network failure / server unreachable — not a credentials problem.
+      console.error("AuthService - login network error", error);
+      throw new Error("Login failed: network error");
+    }
 
     if (!response.ok) {
-      throw new Error("Login failed");
+      // 401/400 = genuinely wrong credentials. Anything else (5xx, 429, etc.)
+      // is a transient backend issue and should not be reported to the user
+      // as "invalid credentials".
+      if (response.status === 401 || response.status === 400) {
+        throw new Error("Login failed");
+      }
+      throw new Error(`Login failed: server error (${response.status})`);
     }
 
     const data = await response.json();
@@ -251,53 +264,58 @@ class AuthService {
   }
 
   // Fetch current user via internal /api/auth-me (enforces contributor block)
+  // Returns `null` only for a *definite* auth failure (401/403 — token is
+  // genuinely invalid). Any other failure (network error, 5xx, timeout) is
+  // transient and is re-thrown so callers don't mistake a backend hiccup for
+  // an expired session and wipe a perfectly valid token.
   async fetchMe(): Promise<AuthUser | null> {
     const token = this.getToken();
     if (!token) return null;
-    try {
-      const userResponse = await fetch("/api/auth-me", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-asym-token": token,
-        },
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (userResponse.status === 403) return null;
-      if (!userResponse.ok) return null;
-      const userData = (await userResponse.json()) as AuthUser;
-      this.setUser(userData);
-      return userData;
-    } catch (e) {
-      console.error("AuthService - fetchMe failed", e);
+    const userResponse = await fetch("/api/auth-me", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-asym-token": token,
+      },
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (userResponse.status === 401 || userResponse.status === 403) {
       return null;
     }
+    if (!userResponse.ok) {
+      throw new Error(`fetchMe transient failure: ${userResponse.status}`);
+    }
+    const userData = (await userResponse.json()) as AuthUser;
+    this.setUser(userData);
+    return userData;
   }
 
   /** Validate MCP Guest session against live Xano auth/me — rejects stale or deleted users. */
   async fetchMcpGuestMe(): Promise<AuthUser | null> {
     const token = this.getToken();
     if (!token) return null;
-    try {
-      const userResponse = await fetch("/api/mcp-guest/auth/me", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-asym-token": token,
-        },
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (!userResponse.ok) return null;
-      const userData = (await userResponse.json()) as AuthUser;
-      if (!isMcpGuestSession(token, userData)) return null;
-      this.setUser(userData);
-      return userData;
-    } catch (e) {
-      console.error("AuthService - fetchMcpGuestMe failed", e);
+    const userResponse = await fetch("/api/mcp-guest/auth/me", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-asym-token": token,
+      },
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (userResponse.status === 401 || userResponse.status === 403) {
       return null;
     }
+    if (!userResponse.ok) {
+      throw new Error(
+        `fetchMcpGuestMe transient failure: ${userResponse.status}`
+      );
+    }
+    const userData = (await userResponse.json()) as AuthUser;
+    if (!isMcpGuestSession(token, userData)) return null;
+    this.setUser(userData);
+    return userData;
   }
 
   /** Resolve session from server — never trust localStorage alone. */
@@ -315,13 +333,31 @@ class AuthService {
     const mcpGuestCandidate = isMcpGuestSession(token, cachedUser);
 
     let user: AuthUser | null = null;
-    if (mcpGuestCandidate) {
-      user = await this.fetchMcpGuestMe();
-    } else {
-      user = await this.fetchMe();
-      if (!user && isMcpGuestSession(token, null)) {
+    try {
+      if (mcpGuestCandidate) {
         user = await this.fetchMcpGuestMe();
+      } else {
+        user = await this.fetchMe();
+        if (!user && isMcpGuestSession(token, null)) {
+          user = await this.fetchMcpGuestMe();
+        }
       }
+    } catch (error) {
+      // Transient network/server failure — don't log the user out on the
+      // back of a temporary blip. Fall back to the last-known-good cached
+      // user (if any) rather than forcing a fresh sign-in.
+      console.error(
+        "AuthService - transient session validation failure, keeping existing session",
+        error
+      );
+      if (cachedUser) {
+        return {
+          user: cachedUser,
+          isMcpGuest: mcpGuestCandidate,
+          isContributor: isContributorSession(token, cachedUser),
+        };
+      }
+      return null;
     }
 
     if (!user) {

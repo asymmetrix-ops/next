@@ -208,7 +208,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           })
           .catch(() => {
-            dispatchUnauthorized();
+            // Body wasn't valid/parseable JSON (e.g. a gateway/proxy error
+            // page). That's ambiguous — it does NOT confirm the user's
+            // token is actually invalid, so don't force a logout / show the
+            // login modal on a guess. Previously this always logged the
+            // user out here, which caused spurious re-auth prompts for
+            // still-valid sessions.
           });
       }
 

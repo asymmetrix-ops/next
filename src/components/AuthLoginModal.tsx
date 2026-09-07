@@ -32,11 +32,17 @@ export default function AuthLoginModal() {
     } catch (err) {
       trackError(`Login failed: ${(err as Error)?.message || "unknown"}`);
       const message = (err as Error)?.message;
-      toast.error(
-        message === CONTRIBUTOR_ACCESS_MESSAGE
-          ? message
-          : "Invalid credentials. Please try again."
-      );
+      let toastMessage = "Invalid credentials. Please try again.";
+      if (message === CONTRIBUTOR_ACCESS_MESSAGE) {
+        toastMessage = message;
+      } else if (message !== "Login failed") {
+        // Anything other than the exact 401/400 "wrong credentials" signal
+        // (network error, 5xx, timeout) is a backend/connectivity problem —
+        // don't tell the user their correct password is wrong.
+        toastMessage =
+          "We couldn't reach the server. Please check your connection and try again.";
+      }
+      toast.error(toastMessage);
     } finally {
       setIsLoading(false);
     }
