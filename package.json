@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/ensure-deps.js",
     "dev": "next dev -p 3001",
+    "prebuild": "node scripts/ensure-deps.js",
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "next lint",
@@ -17,7 +19,7 @@
     "@react-pdf-viewer/scroll-mode": "^3.12.0",
     "@relume_io/relume-tailwind": "^1.3.0",
     "@relume_io/relume-ui": "^1.3.1",
-    "@sentry/nextjs": "^10.71.0",
+    "@sentry/nextjs": "^10.73.0",
     "@sparticuz/chromium": "^119.0.0",
     "@tiptap/extension-image": "^3.24.0",
     "@tiptap/extension-link": "^3.19.0",
