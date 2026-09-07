@@ -487,9 +487,8 @@ function InsightsAnalysisPageContent() {
   const style = `
     * { box-sizing: border-box; }
     .ia-shell {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 24px 16px 56px;
+      max-width: 100%;
+      padding: 20px 20px 56px;
       display: flex;
       flex-direction: column;
       gap: 16px;
