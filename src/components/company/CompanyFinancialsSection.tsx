@@ -148,7 +148,7 @@ function SourceLegend({
                     fontFamily: T.sans,
                     fontSize: 13,
                     fontWeight: 600,
-                    color: sourceTypeColor(type),
+                    color: T.ink,
                   }}
                 >
                   {type}
@@ -188,15 +188,15 @@ function MetricValueCell({
     allowedSources,
     currencyMode
   );
-  const color = cell.sourceType ? sourceTypeColor(cell.sourceType) : T.body;
 
   return (
     <span
       style={{
         fontFamily: T.sans,
         fontSize: 13,
-        fontWeight: display === "-" ? 400 : 600,
-        color: display === "-" ? T.muted : color,
+        fontWeight: display === "-" ? 400 : 700,
+        color: display === "-" ? T.muted : T.ink,
+        fontVariantNumeric: "tabular-nums",
         minWidth: 0,
         textAlign: "center",
       }}
@@ -247,8 +247,8 @@ function SourceCell({ sourceType }: { sourceType: FiMetricSourceType | null }) {
       style={{
         fontFamily: T.sans,
         fontSize: 13,
-        fontWeight: 600,
-        color: sourceTypeColor(sourceType),
+        fontWeight: 500,
+        color: T.muted,
         textAlign: "center",
         whiteSpace: "nowrap",
       }}

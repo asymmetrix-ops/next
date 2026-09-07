@@ -19,14 +19,19 @@ import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
 import { LinkPanel, LinkedH, Pill, T } from "./primitives";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+// Matches the InsightsAnalysis design's per-type accent: Company Analysis
+// blue, Sector Analysis purple, Executive Interview green, News red, Deal
+// Perspective amber.
 function badgeTone(
   contentType: string
-): "coral" | "azure" | "emerald" | "neutral" {
+): "coral" | "azure" | "lavender" | "emerald" | "warn" | "neutral" {
   const ct = contentType.toLowerCase().trim();
-  if (ct === "news") return "neutral";
-  if (ct === "company analysis" || ct === "company update") return "coral";
-  if (ct === "sector analysis") return "azure";
-  if (ct === "deal analysis" || ct === "deal perspective") return "emerald";
+  if (ct === "news") return "coral";
+  if (ct === "company analysis" || ct === "company update") return "azure";
+  if (ct === "sector analysis") return "lavender";
+  if (ct === "executive interview") return "emerald";
+  if (ct === "deal analysis" || ct === "deal perspective" || ct === "hot take")
+    return "warn";
   return "neutral";
 }
 

@@ -31,6 +31,8 @@ export const T = {
   lavenderSoft: "#F1EBFC",
   up:           "#0F7040",
   down:         "#A62E22",
+  warn:         "#7A5605",
+  warnSoft:     "#FEF6E0",
   r:            8,
   rLg:          16,
   sans:         "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -198,6 +200,9 @@ export const finMetricPeriodSourceColStyle: React.CSSProperties = {
 /** Numeric / currency values in Financial, Subscription, and Income Statement tabs. */
 export const finMetricValueStyle: React.CSSProperties = {
   ...descriptionBodyStyle,
+  fontWeight: 700,
+  color: T.ink,
+  fontVariantNumeric: "tabular-nums",
 };
 
 /** CSS class for fin-metric value cells (page-level typography guard). */
@@ -280,13 +285,14 @@ export const SUBS_PROFILE_ROW_GRID = "repeat(4, minmax(0, 1fr))";
 export const MANAGEMENT_ROW_GRID = "repeat(3, minmax(0, 1fr))";
 
 // ── Pill ────────────────────────────────────────────────────────────────────
-type PillTone = "neutral" | "azure" | "lavender" | "coral" | "emerald" | "up" | "down" | "ghost";
+type PillTone = "neutral" | "azure" | "lavender" | "coral" | "emerald" | "warn" | "up" | "down" | "ghost";
 const PILL_TONES: Record<PillTone, { bg: string; fg: string; bd: string }> = {
   neutral:  { bg: T.inset,        fg: T.body,     bd: T.divider },
   azure:    { bg: T.azureSoft,    fg: T.azure,    bd: "transparent" },
   lavender: { bg: T.lavenderSoft, fg: T.lavender, bd: "transparent" },
   coral:    { bg: T.coralSoft,    fg: T.coral,    bd: "transparent" },
   emerald:  { bg: T.emeraldSoft,  fg: T.emerald,  bd: "transparent" },
+  warn:     { bg: T.warnSoft,     fg: T.warn,     bd: "transparent" },
   up:       { bg: T.emeraldSoft, fg: T.up,   bd: "transparent" },
   down:     { bg: T.coralSoft,   fg: T.down, bd: "transparent" },
   ghost:    { bg: "transparent",  fg: T.muted,    bd: T.divider },
