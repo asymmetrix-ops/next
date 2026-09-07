@@ -65,7 +65,7 @@ export function Navbar1() {
               alt="Asymmetrix"
               width={36}
               height={36}
-              className="h-8 w-8 md:h-9 md:w-9"
+              className="h-8 w-8 rounded-full md:h-9 md:w-9"
             />
           </Link>
           <button

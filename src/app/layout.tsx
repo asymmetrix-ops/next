@@ -83,6 +83,19 @@ export const metadata: Metadata = {
   verification: {
     google: "your-google-verification-code",
   },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icons/favicon.svg", type: "image/svg+xml" },
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: {
+      url: "/icons/apple-touch-icon.png",
+      sizes: "180x180",
+      type: "image/png",
+    },
+  },
 };
 
 export const viewport: Viewport = {
@@ -98,15 +111,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
-        <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32" />
-        <link rel="icon" href="/icons/favicon-48.png" type="image/png" sizes="48x48" />
-        <link rel="icon" href="/icons/favicon-192.png" type="image/png" sizes="192x192" />
-        <link
-          rel="shortcut icon"
-          href="/icons/favicon-32.png"
-          type="image/png"
-        />
         {/* Hotjar Tracking Code */}
         <Script
           id="hotjar-tracking"

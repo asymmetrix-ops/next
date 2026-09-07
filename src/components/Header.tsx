@@ -307,6 +307,7 @@ const Header = () => {
                 alt="Logo"
                 width={48}
                 height={48}
+                className="rounded-full"
                 style={{
                   objectFit: "contain",
                 }}
