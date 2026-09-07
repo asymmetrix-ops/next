@@ -31,13 +31,13 @@ import type {
 import { buildFiFieldCurrencyCodes, resolveFiMetricKeyDisplayCurrency } from "./fieldCurrency";
 
 const BRAND_COLORS = [
-  "#0370AA",
-  "#0788C8",
-  "#15A2EA",
-  "#02527D",
-  "#54C7FF",
-  "#128A5C",
-  "#7B5CD9",
+  "#1F35C4",
+  "#2A46EA",
+  "#3D5BF3",
+  "#182A9B",
+  "#93A6F7",
+  "#0F7040",
+  "#7A5BD0",
 ];
 
 function readSectorIdFromEntry(value: unknown): number | null {

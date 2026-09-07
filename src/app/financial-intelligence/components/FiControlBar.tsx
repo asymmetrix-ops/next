@@ -147,14 +147,16 @@ function FilterChip({
       style={{
         display: "inline-flex",
         alignItems: "center",
+        gap: 7,
         background: "var(--ax-cyan-50)",
-        border: "1px solid var(--ax-cyan-100)",
-        borderRadius: "var(--r-md)",
+        border: "1px solid var(--ax-cyan-200)",
+        borderRadius: 999,
         fontSize: "var(--fs-13)",
         fontFamily: "var(--font-sans)",
         cursor: "pointer",
         userSelect: "none",
-        height: 30,
+        height: 34,
+        padding: "0 8px 0 14px",
         transition: "box-shadow 120ms",
         boxShadow: hover ? "0 1px 2px rgba(17,22,29,0.08)" : "none",
       }}
@@ -163,25 +165,13 @@ function FilterChip({
         style={{
           display: "inline-flex",
           alignItems: "center",
-          padding: "0 8px 0 10px",
+          gap: 6,
           color: "var(--ax-cyan-700)",
           fontWeight: 500,
         }}
       >
-        {chipLabel}:
-      </span>
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          padding: "0 8px",
-          color: "var(--ax-cyan-700)",
-          fontWeight: 600,
-          borderLeft: "1px dashed var(--ax-cyan-200)",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {summary}
+        <span>{chipLabel}</span>
+        <span style={{ color: "var(--fg-1)", fontWeight: 700 }}>{summary}</span>
       </span>
       <button
         type="button"
@@ -194,13 +184,16 @@ function FilterChip({
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          width: 24,
-          alignSelf: "stretch",
-          padding: "0 6px 0 2px",
+          width: 20,
+          height: 20,
+          flexShrink: 0,
+          padding: 0,
           border: "none",
-          background: "transparent",
+          borderRadius: "50%",
+          background: hover ? "var(--ax-cyan-700)" : "rgba(42, 70, 234, 0.12)",
           cursor: "pointer",
-          color: hover ? "var(--fg-2)" : "var(--fg-4)",
+          color: hover ? "#fff" : "var(--ax-cyan-700)",
+          transition: "background 120ms, color 120ms",
         }}
       >
         <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
@@ -599,13 +592,13 @@ export function FiControlBar({
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
-              padding: "5px 10px 5px 6px",
+              padding: "5px 12px 5px 6px",
               background: targetId ? "var(--ax-cyan-50)" : "white",
               border: `1px solid ${targetId ? "var(--border-brand)" : "var(--border-2)"}`,
-              borderRadius: "var(--r-md)",
+              borderRadius: 999,
               cursor: loading ? "default" : "pointer",
               fontFamily: "var(--font-sans)",
-              height: 30,
+              height: 38,
               opacity: loading ? 0.7 : 1,
             }}
           >
@@ -747,17 +740,17 @@ export function FiControlBar({
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 5,
-                  padding: "5px 10px",
-                  background: addFilterOpen ? "var(--ax-gray-25)" : "white",
-                  border: `1px dashed ${addFilterOpen ? "var(--border-2)" : "var(--border-2)"}`,
-                  borderRadius: "var(--r-md)",
+                  gap: 6,
+                  padding: "0 15px",
+                  background: addFilterOpen ? "var(--ax-cyan-50)" : "white",
+                  border: `1px dashed ${addFilterOpen ? "var(--border-brand)" : "var(--border-2)"}`,
+                  borderRadius: 999,
                   cursor: "pointer",
                   fontSize: "var(--fs-13)",
-                  color: "var(--fg-2)",
-                  fontWeight: 500,
+                  color: addFilterOpen ? "var(--ax-cyan-700)" : "var(--fg-2)",
+                  fontWeight: 600,
                   fontFamily: "var(--font-sans)",
-                  height: 30,
+                  height: 38,
                 }}
               >
                 <svg width="11" height="11" viewBox="0 0 12 12">
@@ -811,17 +804,17 @@ export function FiControlBar({
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 5,
-                  padding: "5px 10px",
+                  gap: 6,
+                  padding: "0 15px",
                   background: "var(--ax-cyan-50)",
                   border: "1px solid var(--border-brand)",
-                  borderRadius: "var(--r-md)",
+                  borderRadius: 999,
                   cursor: "pointer",
                   fontSize: "var(--fs-13)",
                   color: "var(--ax-cyan-700)",
                   fontWeight: 600,
                   fontFamily: "var(--font-sans)",
-                  height: 30,
+                  height: 38,
                 }}
               >
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
@@ -868,11 +861,12 @@ export function FiControlBar({
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  padding: 2,
+                  gap: 3,
+                  padding: 3,
                   background: "var(--ax-gray-50)",
                   border: "1px solid var(--border-1)",
-                  borderRadius: "var(--r-md)",
-                  height: 30,
+                  borderRadius: 999,
+                  height: 38,
                   flexShrink: 0,
                 }}
                 title="Compare target against peer median or peer mean"
@@ -890,9 +884,10 @@ export function FiControlBar({
                         background: active ? "white" : "transparent",
                         color: active ? "var(--fg-1)" : "var(--fg-3)",
                         fontSize: "var(--fs-12)",
-                        fontWeight: active ? 700 : 600,
-                        padding: "3px 10px",
-                        borderRadius: 5,
+                        fontWeight: 700,
+                        height: 30,
+                        padding: "0 14px",
+                        borderRadius: 999,
                         cursor: loading || !targetId ? "default" : "pointer",
                         fontFamily: "var(--font-sans)",
                         boxShadow: active ? "var(--shadow-xs)" : "none",
@@ -987,14 +982,13 @@ export function FiControlBar({
                         display: "flex",
                         alignItems: "flex-start",
                         gap: 10,
-                        padding: "10px 14px",
-                        borderRadius: "var(--r-md)",
-                        border: checked
-                          ? `1px solid ${color}33`
-                          : "1px solid var(--border-1)",
-                        background: checked ? "white" : "var(--ax-gray-25)",
+                        padding: "12px 14px",
+                        borderRadius: "var(--r-lg)",
+                        border: "1px solid var(--border-1)",
+                        boxShadow: "var(--shadow-sm)",
+                        background: "white",
                         cursor: disabled ? "default" : "pointer",
-                        opacity: disabled && !checked ? 0.55 : 1,
+                        opacity: !checked ? 0.55 : 1,
                         minWidth: 200,
                         flex: "1 1 200px",
                         maxWidth: 320,

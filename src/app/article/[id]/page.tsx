@@ -277,7 +277,7 @@ const WRAP_COLS = new Set([
 // Shared styles object
 const styles = {
   container: {
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#F5F7FD",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   },
@@ -297,27 +297,27 @@ const styles = {
   heading: {
     fontSize: "28px",
     fontWeight: "700",
-    color: "#1a202c",
+    color: "#0A0E1A",
     marginBottom: "12px",
     marginTop: "0px",
     lineHeight: "1.3",
   },
   date: {
     fontSize: "16px",
-    color: "#6b7280",
+    color: "#6B7488",
     marginBottom: "24px",
     fontWeight: "500",
   },
   strapline: {
     fontSize: "18px",
-    color: "#374151",
+    color: "#3D4657",
     lineHeight: "1.6",
     marginBottom: "32px",
     fontStyle: "italic",
   },
   body: {
     fontSize: "16px",
-    color: "#374151",
+    color: "#3D4657",
     lineHeight: "1.7",
     marginBottom: "32px",
   },
@@ -327,7 +327,7 @@ const styles = {
   sectionTitle: {
     fontSize: "20px",
     fontWeight: "600",
-    color: "#1a202c",
+    color: "#0A0E1A",
     marginBottom: "16px",
   },
   tagContainer: {
@@ -337,32 +337,43 @@ const styles = {
     marginBottom: "16px",
   },
   tag: {
-    backgroundColor: "#e3f2fd",
-    color: "#1976d2",
-    padding: "8px 12px",
-    borderRadius: "6px",
-    fontSize: "14px",
-    fontWeight: "500",
+    display: "inline-flex",
+    alignItems: "center",
+    height: "24px",
+    backgroundColor: "#F1F4FE",
+    border: "1px solid #E2E8FD",
+    color: "#1F35C4",
+    padding: "0 10px",
+    borderRadius: "999px",
+    fontSize: "12px",
+    fontWeight: "600",
     cursor: "pointer",
     transition: "background-color 0.2s ease",
   },
   companyTag: {
-    backgroundColor: "#e8f5e8",
-    color: "#2e7d32",
-    padding: "8px 12px",
-    borderRadius: "6px",
-    fontSize: "14px",
-    fontWeight: "500",
+    display: "inline-flex",
+    alignItems: "center",
+    height: "24px",
+    backgroundColor: "#F1F4FE",
+    border: "1px solid #E2E8FD",
+    color: "#1F35C4",
+    padding: "0 10px",
+    borderRadius: "999px",
+    fontSize: "12px",
+    fontWeight: "600",
     cursor: "pointer",
     transition: "background-color 0.2s ease",
   },
   sectorTag: {
-    backgroundColor: "#f3e5f5",
-    color: "#7b1fa2",
-    padding: "8px 12px",
-    borderRadius: "6px",
-    fontSize: "14px",
-    fontWeight: "500",
+    display: "inline-flex",
+    alignItems: "center",
+    height: "24px",
+    backgroundColor: "#F1EBFC",
+    color: "#523793",
+    padding: "0 10px",
+    borderRadius: "999px",
+    fontSize: "12px",
+    fontWeight: "600",
   },
   contentTypeRow: {
     marginTop: "-8px",
@@ -372,11 +383,11 @@ const styles = {
     display: "inline-block",
     fontSize: "12px",
     lineHeight: 1,
-    color: "#1e40af",
-    backgroundColor: "#eff6ff",
+    color: "#1F35C4",
+    backgroundColor: "#F1F4FE",
     padding: "6px 10px",
     borderRadius: "9999px",
-    border: "1px solid #bfdbfe",
+    border: "1px solid #C6D1FB",
     fontWeight: 600,
   },
   transactionStatusBadge: {
@@ -389,9 +400,9 @@ const styles = {
     fontWeight: 700,
     letterSpacing: "0.03em",
     textTransform: "uppercase" as const,
-    backgroundColor: "#dcfce7",
-    color: "#166534",
-    border: "1.5px solid #4ade80",
+    backgroundColor: "#E4F5EC",
+    color: "#0F7040",
+    border: "1.5px solid #17A05C",
     whiteSpace: "nowrap" as const,
   },
 
@@ -404,11 +415,11 @@ const styles = {
   error: {
     textAlign: "center" as const,
     padding: "40px",
-    color: "#dc2626",
+    color: "#A62E22",
     fontSize: "16px",
   },
   backButton: {
-    backgroundColor: "#0075df",
+    backgroundColor: "#2A46EA",
     color: "white",
     fontWeight: "600",
     padding: "12px 24px",
@@ -427,16 +438,16 @@ const styles = {
     alignItems: "center",
     columnGap: "8px",
     padding: "8px 0",
-    borderBottom: "1px solid #e5e7eb",
+    borderBottom: "1px solid #E4E8F2",
     fontSize: "15px",
   },
   label: {
     fontWeight: 600,
-    color: "#4b5563",
+    color: "#3D4657",
   },
   value: {
     textAlign: "right" as const,
-    color: "#111827",
+    color: "#0A0E1A",
     fontWeight: 500,
   },
 };
@@ -1526,7 +1537,7 @@ const ArticleDetailPage = () => {
               <p
                 style={{
                   fontSize: 16,
-                  color: "#6b7280",
+                  color: "#6B7488",
                   marginTop: -16,
                   marginBottom: 24,
                   fontStyle: "italic",
@@ -1693,7 +1704,7 @@ const ArticleDetailPage = () => {
                       ...styles.date,
                       marginBottom: 0,
                       fontSize: 14,
-                      color: "#92400e",
+                      color: "#7A5605",
                     }}
                   >
                     Updated {formatCorrectionTimestamp(latestCorrection.updated_at)}
@@ -1704,7 +1715,7 @@ const ArticleDetailPage = () => {
                   <button
                     onClick={() => openArticlePdfWindow(article)}
                     style={{
-                      backgroundColor: "#38a169",
+                      backgroundColor: "#0F7040",
                       color: "white",
                       fontWeight: 600,
                       padding: "10px 14px",
@@ -1717,11 +1728,11 @@ const ArticleDetailPage = () => {
                     }}
                     onMouseOver={(e) =>
                       ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#2f855a")
+                        "#0F7040")
                     }
                     onMouseOut={(e) =>
                       ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#38a169")
+                        "#0F7040")
                     }
                   >
                     Export PDF
@@ -1850,9 +1861,9 @@ const ArticleDetailPage = () => {
                       style={{
                         ...styles.section,
                         borderRadius: 8,
-                        border: "1px solid #e5e7eb",
+                        border: "1px solid #E4E8F2",
                         padding: "16px 16px 12px",
-                        backgroundColor: "#f9fafb",
+                        backgroundColor: "#F5F7FD",
                       }}
                       className="article-financial-metrics"
                     >
@@ -2064,9 +2075,9 @@ const ArticleDetailPage = () => {
                       style={{
                         ...styles.section,
                         borderRadius: 8,
-                        border: "1px solid #e5e7eb",
+                        border: "1px solid #E4E8F2",
                         padding: "16px 16px 12px",
-                        backgroundColor: "#f9fafb",
+                        backgroundColor: "#F5F7FD",
                       }}
                     >
                       <h2
@@ -2165,7 +2176,7 @@ const ArticleDetailPage = () => {
             {(isCompanyAnalysis && (competitorsLoading || hasCompetitorsData)) && (
               <div style={styles.section}>
                 {competitorsLoading ? (
-                  <div style={{ color: "#6b7280", fontSize: 14 }}>Loading...</div>
+                  <div style={{ color: "#6B7488", fontSize: 14 }}>Loading...</div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {competitors?.peers_and_competitors?.length ? (
@@ -2191,11 +2202,11 @@ const ArticleDetailPage = () => {
                               }}
                               onMouseEnter={(e) => {
                                 (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#c8e6c9";
+                                  "#E4F5EC";
                               }}
                               onMouseLeave={(e) => {
                                 (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#e8f5e8";
+                                  "#E4F5EC";
                               }}
                             >
                               {c.name}
@@ -2228,11 +2239,11 @@ const ArticleDetailPage = () => {
                               }}
                               onMouseEnter={(e) => {
                                 (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#c8e6c9";
+                                  "#E4F5EC";
                               }}
                               onMouseLeave={(e) => {
                                 (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#e8f5e8";
+                                  "#E4F5EC";
                               }}
                             >
                               {c.name}
@@ -2265,11 +2276,11 @@ const ArticleDetailPage = () => {
                               }}
                               onMouseEnter={(e) => {
                                 (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#c8e6c9";
+                                  "#E4F5EC";
                               }}
                               onMouseLeave={(e) => {
                                 (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#e8f5e8";
+                                  "#E4F5EC";
                               }}
                             >
                               {c.name}
@@ -2309,16 +2320,17 @@ const ArticleDetailPage = () => {
                     type="button"
                     onClick={handleOpenGenerateTable}
                     style={{
-                      backgroundColor: "#0f766e",
-                      color: "white",
-                      fontWeight: 600,
-                      padding: "8px 14px",
-                      borderRadius: 6,
-                      border: "none",
+                      backgroundColor: "#fff",
+                      color: "#2A46EA",
+                      fontWeight: 700,
+                      padding: "0 16px",
+                      borderRadius: 999,
+                      border: "1px solid #C6D1FB",
+                      boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
                       cursor: "pointer",
                       fontSize: 13,
                       whiteSpace: "nowrap",
-                      minHeight: 40,
+                      minHeight: 34,
                       touchAction: "manipulation",
                     }}
                   >
@@ -2341,12 +2353,12 @@ const ArticleDetailPage = () => {
                           onMouseEnter={(e) => {
                             (
                               e.currentTarget as HTMLAnchorElement
-                            ).style.backgroundColor = "#c8e6c9";
+                            ).style.backgroundColor = "#E4F5EC";
                           }}
                           onMouseLeave={(e) => {
                             (
                               e.currentTarget as HTMLAnchorElement
-                            ).style.backgroundColor = "#e8f5e8";
+                            ).style.backgroundColor = "#E4F5EC";
                           }}
                           prefetch={false}
                         >
@@ -2379,12 +2391,12 @@ const ArticleDetailPage = () => {
                         onMouseEnter={(e) => {
                           (
                             e.currentTarget as HTMLAnchorElement
-                          ).style.backgroundColor = "#e1bee7";
+                          ).style.backgroundColor = "#F1EBFC";
                         }}
                         onMouseLeave={(e) => {
                           (
                             e.currentTarget as HTMLAnchorElement
-                          ).style.backgroundColor = "#f3e5f5";
+                          ).style.backgroundColor = "#F1EBFC";
                         }}
                         title="Open sector page"
                         prefetch={false}
@@ -2464,7 +2476,7 @@ const ArticleDetailPage = () => {
               maxWidth: 1920,
               maxHeight: "92vh",
               borderRadius: 12,
-              border: "1px solid #e5e7eb",
+              border: "1px solid #E4E8F2",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
@@ -2473,7 +2485,7 @@ const ArticleDetailPage = () => {
             <div
               style={{
                 padding: "14px 16px",
-                borderBottom: "1px solid #e5e7eb",
+                borderBottom: "1px solid #E4E8F2",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -2481,11 +2493,11 @@ const ArticleDetailPage = () => {
                 flexWrap: "wrap",
               }}
             >
-              <h3 style={{ margin: 0, fontSize: 18, color: "#0f172a" }}>
+              <h3 style={{ margin: 0, fontSize: 18, color: "#0A0E1A" }}>
                 Custom Company Table
               </h3>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ color: "#9ca3af", fontSize: 12 }}>
+                <span style={{ color: "#8A93A8", fontSize: 12 }}>
                   {tableRows.filter((r) => selectedCompanyIds.has(r.id)).length} companies ·{" "}
                   {ALL_TABLE_COLUMNS.filter((c) => selectedColumnKeys.has(c.key)).length + 1} columns
                 </span>
@@ -2497,8 +2509,8 @@ const ArticleDetailPage = () => {
                       0 || selectedColumnKeys.size === 0
                   }
                   style={{
-                    border: "1px solid #0f766e",
-                    color: "#0f766e",
+                    border: "1px solid #2A46EA",
+                    color: "#2A46EA",
                     background: "#fff",
                     borderRadius: 8,
                     padding: "8px 12px",
@@ -2512,8 +2524,8 @@ const ArticleDetailPage = () => {
                   type="button"
                   onClick={() => setShowGenerateTableModal(false)}
                   style={{
-                    border: "1px solid #e5e7eb",
-                    color: "#111827",
+                    border: "1px solid #E4E8F2",
+                    color: "#0A0E1A",
                     background: "#fff",
                     borderRadius: 8,
                     padding: "8px 12px",
@@ -2536,7 +2548,7 @@ const ArticleDetailPage = () => {
             >
               <div
                 style={{
-                  borderRight: "1px solid #e5e7eb",
+                  borderRight: "1px solid #E4E8F2",
                   padding: 14,
                   overflow: "auto",
                 }}
@@ -2556,7 +2568,7 @@ const ArticleDetailPage = () => {
                       margin: 0,
                       fontSize: 13,
                       textTransform: "uppercase",
-                      color: "#9ca3af",
+                      color: "#8A93A8",
                       flex: "1 1 auto",
                       minWidth: 0,
                     }}
@@ -2572,7 +2584,7 @@ const ArticleDetailPage = () => {
                     style={{
                       border: "none",
                       background: "transparent",
-                      color: "#0f766e",
+                      color: "#2A46EA",
                       fontSize: 12,
                       cursor: "pointer",
                     }}
@@ -2583,7 +2595,7 @@ const ArticleDetailPage = () => {
                   </button>
                 </div>
                 {tableRows.length === 0 ? (
-                  <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
+                  <p style={{ margin: 0, color: "#6B7488", fontSize: 14 }}>
                     {tableLoading
                       ? "Loading companies..."
                       : "No companies available for this article."}
@@ -2626,7 +2638,7 @@ const ArticleDetailPage = () => {
                     margin: "16px 0 8px",
                   }}
                 >
-                  <h4 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", color: "#9ca3af" }}>
+                  <h4 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", color: "#8A93A8" }}>
                     Columns
                   </h4>
                   <button
@@ -2640,7 +2652,7 @@ const ArticleDetailPage = () => {
                     style={{
                       border: "none",
                       background: "transparent",
-                      color: "#0f766e",
+                      color: "#2A46EA",
                       fontSize: 12,
                       cursor: "pointer",
                     }}
@@ -2658,7 +2670,7 @@ const ArticleDetailPage = () => {
                           margin: "4px 0",
                           fontSize: 11,
                           fontWeight: 700,
-                          color: "#d1d5db",
+                          color: "#E4E8F2",
                           textTransform: "uppercase",
                         }}
                       >
@@ -2698,7 +2710,7 @@ const ArticleDetailPage = () => {
                 }}
               >
                 {tableLoading ? (
-                  <div style={{ color: "#6b7280", fontSize: 14 }}>
+                  <div style={{ color: "#6B7488", fontSize: 14 }}>
                     Preparing table data...
                   </div>
                 ) : (
@@ -2721,9 +2733,9 @@ const ArticleDetailPage = () => {
                         <th
                           style={{
                             textAlign: "left",
-                            borderBottom: "1px solid #e5e7eb",
+                            borderBottom: "1px solid #E4E8F2",
                             padding: "8px 10px",
-                            backgroundColor: "#f8fafc",
+                            backgroundColor: "#F5F7FD",
                             fontSize: 13,
                             fontWeight: 700,
                             whiteSpace: "nowrap",
@@ -2739,9 +2751,9 @@ const ArticleDetailPage = () => {
                             key={`header-${column.key}`}
                             style={{
                               textAlign: "left",
-                              borderBottom: "1px solid #e5e7eb",
+                              borderBottom: "1px solid #E4E8F2",
                               padding: "8px 10px",
-                              backgroundColor: "#f8fafc",
+                              backgroundColor: "#F5F7FD",
                               fontSize: 13,
                               fontWeight: 700,
                               whiteSpace: "nowrap",
@@ -2760,10 +2772,10 @@ const ArticleDetailPage = () => {
                           <tr key={`table-row-${row.id}`}>
                             <td
                               style={{
-                                borderBottom: "1px solid #f1f5f9",
+                                borderBottom: "1px solid #F5F7FD",
                                 padding: "8px 10px",
                                 fontSize: 13,
-                                color: "#111827",
+                                color: "#0A0E1A",
                                 verticalAlign: "top",
                                 fontWeight: 600,
                                 whiteSpace: "nowrap",
@@ -2774,7 +2786,7 @@ const ArticleDetailPage = () => {
                                 href={`/company/${row.id}`}
                                 prefetch={false}
                                 style={{
-                                  color: "#1d4ed8",
+                                  color: "#1F35C4",
                                   textDecoration: "none",
                                 }}
                               >
@@ -2791,10 +2803,10 @@ const ArticleDetailPage = () => {
                                 <td
                                   key={`${row.id}-${column.key}`}
                                   style={{
-                                    borderBottom: "1px solid #f1f5f9",
+                                    borderBottom: "1px solid #F5F7FD",
                                     padding: "8px 10px",
                                     fontSize: 13,
-                                    color: "#111827",
+                                    color: "#0A0E1A",
                                     verticalAlign: "top",
                                     minWidth: WRAP_COLS.has(column.key) ? 200 : 112,
                                     maxWidth: WRAP_COLS.has(column.key) ? 280 : undefined,
@@ -2818,7 +2830,7 @@ const ArticleDetailPage = () => {
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       style={{
-                                        color: "#2563eb",
+                                        color: "#2A46EA",
                                         textDecoration: "none",
                                         wordBreak: "break-all",
                                       }}
@@ -2860,8 +2872,8 @@ const ArticleDetailPage = () => {
           @media (max-width: 1024px) { .article-layout { grid-template-columns: 1fr; } }
           /* Summary accordion */
           .article-summary {
-            border: 1px solid #e5e7eb;
-            background: #f9fafb;
+            border: 1px solid #E4E8F2;
+            background: #F5F7FD;
             border-radius: 12px;
             padding: 14px 16px;
             margin-bottom: 24px;
@@ -2881,11 +2893,11 @@ const ArticleDetailPage = () => {
           .summary-title {
             font-size: 18px;
             font-weight: 700;
-            color: #111827;
+            color: #0A0E1A;
           }
           .summary-chevron {
             font-size: 18px;
-            color: #6b7280;
+            color: #6B7488;
             line-height: 1;
             transition: transform 0.2s ease;
             user-select: none;
@@ -2896,7 +2908,7 @@ const ArticleDetailPage = () => {
           .summary-list {
             margin: 10px 0 0 0;
             padding-left: 22px;
-            color: #374151;
+            color: #3D4657;
             list-style: disc !important;
             list-style-position: outside;
           }
@@ -2911,14 +2923,14 @@ const ArticleDetailPage = () => {
           .article-body ol { list-style: decimal; margin: 0 0 1rem 1.25rem; padding-left: 1.25rem; }
           .article-body li { margin-bottom: 0.5rem; }
           .article-body h1, .article-body h2, .article-body h3, .article-body h4, .article-body h5, .article-body h6 { margin: 1.25rem 0 0.75rem; font-weight: 700; }
-          .article-body a { color: #2563eb; text-decoration: underline; }
-          .article-body blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid #e5e7eb; color: #374151; }
+          .article-body a { color: #2A46EA; text-decoration: underline; }
+          .article-body blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid #E4E8F2; color: #3D4657; }
           .article-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-          .article-body th, .article-body td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+          .article-body th, .article-body td { border: 1px solid #E4E8F2; padding: 8px; text-align: left; }
           /* Images inside article body */
           .article-body img { max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; }
           .article-body figure { margin: 1rem 0; }
-          .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }
+          .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6B7488; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
           /* Hover tooltips for metric values using title attribute (align like company page) */
           .article-financial-metrics {

@@ -622,12 +622,12 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
 
   const getBadgeStyle = (contentType?: string): React.CSSProperties => {
     const t = (contentType || "").toLowerCase();
-    if (t === "company analysis") return { background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" };
-    if (t === "deal analysis") return { background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" };
-    if (t === "sector analysis") return { background: "#f5f3ff", color: "#5b21b6", border: "1px solid #ddd6fe" };
-    if (t === "hot take") return { background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa" };
-    if (t === "executive interview") return { background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" };
-    return { background: "#f8fafc", color: "#475569", border: "1px solid #e2e8f0" };
+    if (t === "company analysis") return { background: "#E4F5EC", color: "#0F7040", border: "1px solid #E4F5EC" };
+    if (t === "deal analysis") return { background: "#F1F4FE", color: "#1F35C4", border: "1px solid #C6D1FB" };
+    if (t === "sector analysis") return { background: "#F1EBFC", color: "#523793", border: "1px solid #E2E8FD" };
+    if (t === "hot take") return { background: "#FEF6E0", color: "#7A5605", border: "1px solid #FEF6E0" };
+    if (t === "executive interview") return { background: "#E4F5EC", color: "#0F7040", border: "1px solid #E4F5EC" };
+    return { background: "#F5F7FD", color: "#3D4657", border: "1px solid #E4E8F2" };
   };
 
   return (
@@ -2268,7 +2268,7 @@ const SectorDetailPage = ({
                 <a
                   href="/login"
                   style={{
-                    color: "#0075df",
+                    color: "#2A46EA",
                     textDecoration: "underline",
                     fontSize: "16px",
                   }}
@@ -2288,7 +2288,7 @@ const SectorDetailPage = ({
                 <a
                   href="/sectors"
                   style={{
-                    color: "#0075df",
+                    color: "#2A46EA",
                     textDecoration: "underline",
                     fontSize: "16px",
                   }}
@@ -2305,7 +2305,7 @@ const SectorDetailPage = ({
                 <a
                   href="/sectors"
                   style={{
-                    color: "#0075df",
+                    color: "#2A46EA",
                     textDecoration: "underline",
                     fontSize: "16px",
                   }}
@@ -2812,7 +2812,7 @@ const SectorDetailPage = ({
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             padding: 16px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #E4E8F2;
             cursor: pointer;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             display: block;
@@ -2826,13 +2826,13 @@ const SectorDetailPage = ({
           .article-title {
             font-size: 18px;
             font-weight: 700;
-            color: #1a202c;
+            color: #0A0E1A;
             margin: 0 0 8px 0;
             line-height: 1.3;
           }
           .article-date {
             font-size: 14px;
-            color: #6b7280;
+            color: #6B7488;
             margin: 0 0 16px 0;
             font-weight: 500;
           }
@@ -2852,7 +2852,7 @@ const SectorDetailPage = ({
             letter-spacing: 0.03em;
             text-transform: uppercase;
             background: #dcfce7;
-            color: #166534;
+            color: #0F7040;
             white-space: nowrap;
             max-width: 100%;
             overflow: hidden;
@@ -2864,7 +2864,7 @@ const SectorDetailPage = ({
           }
           .article-byline {
             font-size: 13px;
-            color: #6b7280;
+            color: #6B7488;
             margin: -12px 0 16px 0;
             font-style: italic;
           }
@@ -2878,43 +2878,43 @@ const SectorDetailPage = ({
             font-weight: 600;
           }
           .badge-company-analysis {
-            background: #ecfdf5;
-            color: #065f46;
-            border-color: #a7f3d0;
+            background: #E4F5EC;
+            color: #0F7040;
+            border-color: #E4F5EC;
           }
           .badge-deal-analysis {
-            background: #eff6ff;
-            color: #1e40af;
-            border-color: #bfdbfe;
+            background: #F1F4FE;
+            color: #1F35C4;
+            border-color: #C6D1FB;
           }
           .badge-deal-perspective {
-            background: #ecfeff;
-            color: #155e75;
-            border-color: #a5f3fc;
+            background: #F1F4FE;
+            color: #1F35C4;
+            border-color: #C6D1FB;
           }
           .badge-market-commentary {
-            background: #fefce8;
-            color: #854d0e;
-            border-color: #fde68a;
+            background: #FEF6E0;
+            color: #7A5605;
+            border-color: #FEF6E0;
           }
           .badge-sector-analysis {
-            background: #f5f3ff;
-            color: #5b21b6;
-            border-color: #ddd6fe;
+            background: #F1EBFC;
+            color: #523793;
+            border-color: #E2E8FD;
           }
           .badge-hot-take {
-            background: #fff7ed;
-            color: #9a3412;
-            border-color: #fed7aa;
+            background: #FEF6E0;
+            color: #7A5605;
+            border-color: #FEF6E0;
           }
           .badge-executive-interview {
-            background: #f0fdf4;
-            color: #166534;
-            border-color: #bbf7d0;
+            background: #E4F5EC;
+            color: #0F7040;
+            border-color: #E4F5EC;
           }
           .article-summary {
             font-size: 14px;
-            color: #374151;
+            color: #3D4657;
             line-height: 1.6;
             margin: 0 0 16px 0;
             display: -webkit-box;
@@ -2932,12 +2932,12 @@ const SectorDetailPage = ({
           .article-meta-label {
             font-size: 13px;
             font-weight: 600;
-            color: #374151;
+            color: #3D4657;
             margin-right: 8px;
           }
           .article-meta-value {
             font-size: 13px;
-            color: #6b7280;
+            color: #6B7488;
             line-height: 1.4;
           }
           .pagination-button {
@@ -2950,10 +2950,10 @@ const SectorDetailPage = ({
             transition: color 0.2s;
           }
           .pagination-button:hover {
-            color: #0075df;
+            color: #2A46EA;
           }
           .pagination-button.active {
-            color: #0075df;
+            color: #2A46EA;
             text-decoration: underline;
             font-weight: 500;
           }

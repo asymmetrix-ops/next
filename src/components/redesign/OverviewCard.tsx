@@ -75,7 +75,7 @@ function SectorTags({
   tone,
 }: {
   sectors: OverviewSector[];
-  tone: "coral" | "lavender";
+  tone: "azure" | "neutral";
 }) {
   if (sectors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
 
@@ -94,48 +94,60 @@ function SectorTags({
   );
 }
 
+function transactionStatusTone(label: string): { bg: string; fg: string; dot: string } {
+  const s = label.toLowerCase();
+  if (s.includes("reported")) return { bg: "#E4F5EC", fg: "#0F7040", dot: "#17A05C" };
+  if (s.includes("rumoured") || s.includes("rumored"))
+    return { bg: "#FEF6E0", fg: "#7A5605", dot: "#E0A32E" };
+  if (s.includes("hold")) return { bg: "#F5F7FD", fg: "#566078", dot: "#B4BCCB" };
+  return { bg: "#F1F4FE", fg: "#1F35C4", dot: "#3D5BF3" };
+}
+
 function TransactionStatusHighlight({ label }: { label: string }) {
+  const tone = transactionStatusTone(label);
   return (
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns: "auto 1fr",
-        columnGap: 4,
+        display: "flex",
         alignItems: "center",
-        backgroundColor: "#ffffff",
-        border: "1px solid #bfdbfe",
+        gap: 10,
+        backgroundColor: T.azureSoft,
+        border: `1px solid #E2E8FD`,
         borderRadius: 12,
-        boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
-        padding: "8px 8px",
-        margin: "8px 0 10px",
+        padding: "11px 13px",
+        margin: "0 0 12px",
+        fontSize: 12.5,
+        fontWeight: 600,
+        color: "#3D4657",
       }}
     >
+      Transaction status
       <span
+        className="transaction-status-pill"
         style={{
-          fontSize: 13,
-          color: T.muted,
-          fontWeight: 400,
-          whiteSpace: "nowrap",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          backgroundColor: tone.bg,
+          color: tone.fg,
+          borderRadius: "999px",
+          fontSize: 12,
+          fontWeight: 700,
+          padding: "0 10px",
+          height: 24,
         }}
       >
-        Transaction Status:
-      </span>
-      <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
         <span
-          className="transaction-status-pill"
           style={{
-            backgroundColor: "#dcfce7",
-            color: "#166534",
-            border: "1.5px solid #4ade80",
-            borderRadius: "999px",
-            fontSize: 13,
-            fontWeight: 500,
-            padding: "5px 10px",
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: tone.dot,
+            flexShrink: 0,
           }}
-        >
-          {label}
-        </span>
-      </div>
+        />
+        {label}
+      </span>
     </div>
   );
 }
@@ -184,13 +196,13 @@ export function OverviewCard({
     {
       k: "Primary sector(s)",
       v: (
-        <SectorTags sectors={primarySectors} tone="coral" />
+        <SectorTags sectors={primarySectors} tone="azure" />
       ),
     },
     {
       k: "Secondary sector(s)",
       v: (
-        <SectorTags sectors={secondarySectors} tone="lavender" />
+        <SectorTags sectors={secondarySectors} tone="neutral" />
       ),
     },
     {

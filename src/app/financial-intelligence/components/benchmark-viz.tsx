@@ -147,91 +147,87 @@ export interface PercentileBarProps {
   showScale?: boolean;
 }
 
-/** Green gradient ranking scale with quartile dividers and pinned target knob. */
+/** Four-quartile ranking rail with a pinned target knob — matches the
+ * FinancialBenchmark design (discrete blue quartile blocks, not a gradient). */
 export function PercentileBar({
   pct,
-  height = 14,
+  height = 9,
   showNumber = true,
   showScale = true,
 }: PercentileBarProps) {
   const p = pct == null ? null : Math.max(0, Math.min(100, pct));
-  const r = height / 2;
-  const knobD = height + 8;
+  const knobD = 17;
   const clampPos = (v: number) =>
     `clamp(${knobD / 2}px, ${v}%, calc(100% - ${knobD / 2}px))`;
 
   return (
     <div style={{ width: "100%", fontFamily: FONT }}>
-      {showNumber && (
-        <div style={{ position: "relative", height: 20, marginBottom: 5 }}>
+      <div style={{ position: "relative" }}>
+        {showNumber && p != null && (
+          <span
+            style={{
+              position: "absolute",
+              top: -19,
+              left: clampPos(p),
+              transform: "translateX(-50%)",
+              fontSize: 11,
+              fontWeight: 800,
+              lineHeight: 1,
+              color: "var(--ax-cyan-700)",
+              fontVariantNumeric: "tabular-nums",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {ordinalSuffix(p)}
+          </span>
+        )}
+        <div style={{ position: "relative", height, display: "flex", gap: 3 }}>
+          {[0, 1, 2, 3].map((i) => {
+            const lo = i * 25;
+            const fill =
+              p != null && p >= lo + 25
+                ? "var(--ax-cyan-500)"
+                : p != null && p > lo
+                  ? "var(--ax-cyan-200)"
+                  : "var(--ax-gray-100)";
+            return (
+              <div
+                key={i}
+                style={{
+                  flex: 1,
+                  borderRadius: 2,
+                  background: fill,
+                }}
+              />
+            );
+          })}
           {p != null && (
-            <span
+            <div
               style={{
                 position: "absolute",
+                top: -4,
                 left: clampPos(p),
+                width: knobD,
+                height: knobD,
                 transform: "translateX(-50%)",
-                fontSize: "var(--fs-15)",
-                fontWeight: 800,
-                lineHeight: 1,
-                color: "var(--ax-positive)",
-                fontVariantNumeric: "tabular-nums",
-                whiteSpace: "nowrap",
+                borderRadius: "50%",
+                background: "white",
+                border: "2.5px solid var(--ax-cyan-600)",
+                boxShadow: "var(--shadow-xs)",
               }}
-            >
-              {ordinalSuffix(p)}
-            </span>
+            />
           )}
         </div>
-      )}
-      <div style={{ position: "relative", height }}>
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: r,
-            background:
-              "linear-gradient(90deg, #EAF6F0 0%, #BEE4D2 28%, #79C9A5 56%, #2C9970 82%, #0E7A50 100%)",
-          }}
-        />
-        {[25, 50, 75].map((x) => (
-          <div
-            key={x}
-            style={{
-              position: "absolute",
-              top: 0,
-              bottom: 0,
-              left: `${x}%`,
-              width: 3,
-              transform: "translateX(-50%)",
-              background: "white",
-            }}
-          />
-        ))}
-        {p != null && (
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: clampPos(p),
-              width: knobD,
-              height: knobD,
-              transform: "translate(-50%,-50%)",
-              borderRadius: "50%",
-              background: "white",
-              border: "3px solid var(--ax-positive)",
-              boxShadow: "var(--shadow-sm)",
-            }}
-          />
-        )}
       </div>
       {showScale && (
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
-            marginTop: 5,
+            marginTop: 7,
             fontSize: 10.5,
-            color: "var(--fg-4)",
+            fontWeight: 600,
+            color: "var(--ax-gray-400)",
             fontVariantNumeric: "tabular-nums",
           }}
         >
@@ -255,15 +251,15 @@ export function PctPill({ pct, small }: PctPillProps) {
     return <span style={{ color: "var(--fg-4)", fontFamily: FONT }}>—</span>;
   }
 
-  const good = pct >= 60;
-  const bad = pct <= 40;
+  const good = pct >= 67;
+  const bad = pct < 34;
   const bg = good
-    ? "var(--ax-positive-bg)"
+    ? "var(--ax-cyan-50)"
     : bad
       ? "var(--ax-negative-bg)"
-      : "var(--ax-neutral-bg)";
+      : "var(--ax-gray-50)";
   const fg = good
-    ? "var(--ax-positive)"
+    ? "var(--ax-cyan-700)"
     : bad
       ? "var(--ax-negative)"
       : "var(--fg-2)";

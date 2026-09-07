@@ -419,13 +419,13 @@ export function InvestorPortfolioTab({
         id: "current",
         label: "Active",
         count: portfolioIds?.count_current ?? portfolioIds?.current_ids.length ?? 0,
-        dot: "#10b981",
+        dot: "#17A05C",
       },
       {
         id: "past",
         label: "Inactive / Exited",
         count: portfolioIds?.count_past ?? portfolioIds?.past_ids.length ?? 0,
-        dot: "#64748b",
+        dot: "#8A93A8",
       },
     ],
     [portfolioIds]
@@ -433,7 +433,7 @@ export function InvestorPortfolioTab({
 
   if (idsLoading) {
     return (
-      <div style={{ padding: "32px 0", textAlign: "center", color: "#64748b" }}>
+      <div style={{ padding: "32px 0", textAlign: "center", color: "#6B7488" }}>
         Loading portfolio…
       </div>
     );
@@ -441,7 +441,7 @@ export function InvestorPortfolioTab({
 
   if (idsError || !portfolioIds) {
     return (
-      <div style={{ padding: "32px 0", textAlign: "center", color: "#64748b" }}>
+      <div style={{ padding: "32px 0", textAlign: "center", color: "#6B7488" }}>
         {idsError ?? "Portfolio unavailable."}
       </div>
     );
@@ -457,7 +457,16 @@ export function InvestorPortfolioTab({
         currencyCode={platformCurrency}
       />
 
-      <div className="overflow-hidden bg-white rounded-xl border shadow-lg border-slate-200/60 px-5">
+      <div
+        className="overflow-hidden px-5"
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          border: "1px solid #E4E8F2",
+          boxShadow:
+            "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)",
+        }}
+      >
         <CompanyDashboard
           onSearch={handleSearch}
           onFilterColumnsChange={handleFilterColumnsChange}

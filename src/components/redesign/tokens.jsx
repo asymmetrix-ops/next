@@ -1,52 +1,55 @@
 // tokens.jsx — design tokens + mock company data as ES module exports.
 // Same values as ../tokens.jsx, just exported instead of stamped onto window.
 
+// Exact values from the Asymmetrix design system (ui_kits/landing/landing.css
+// "--lp-*"), the authoritative source for this redesign. Kept in sync with
+// ./primitives.tsx's T export.
 export const T = {
   // surfaces
-  paper:   '#FAFAF7',
+  paper:   '#F5F7FD',
   panel:   '#FFFFFF',
-  inset:   '#F4F3EE',
-  divider: 'rgba(15, 17, 21, 0.08)',
-  hair:    'rgba(15, 17, 21, 0.06)',
+  inset:   '#EFF2F8',
+  divider: '#E4E8F2',
+  hair:    '#EFF2F8',
 
   // ink
-  ink:   '#0F1115',
-  body:  '#2A2D33',
-  muted: '#6B6E76',
-  faint: '#9A9CA3',
+  ink:   '#0A0E1A',
+  body:  '#566078',
+  muted: '#6B7488',
+  faint: '#8A93A8',
 
   // Asymmetrix palette
-  azure:        'oklch(54% 0.22 258)',
-  azureSoft:    'oklch(96% 0.035 258)',
-  azureBand:    'oklch(28% 0.14 258)',
-  azureDeep:    'oklch(18% 0.08 258)',
-  lavender:     'oklch(64% 0.16 285)',
-  lavenderSoft: 'oklch(94% 0.045 285)',
-  coral:        'oklch(68% 0.13 25)',
-  coralSoft:    'oklch(95% 0.04 25)',
-  emerald:      'oklch(56% 0.13 158)',
-  emeraldSoft:  'oklch(95% 0.05 158)',
-  signal:       'oklch(60% 0.16 48)',
-  signalSoft:   'oklch(95% 0.05 70)',
-  up:           'oklch(55% 0.13 150)',
-  down:         'oklch(55% 0.17 25)',
+  azure:        '#2A46EA',
+  azureSoft:    '#F1F4FE',
+  azureBand:    '#1F35C4',
+  azureDeep:    '#182A9B',
+  lavender:     '#523793',
+  lavenderSoft: '#F1EBFC',
+  coral:        '#A62E22',
+  coralSoft:    '#FCEAE7',
+  emerald:      '#0F7040',
+  emeraldSoft:  '#E4F5EC',
+  signal:       '#E0A32E',
+  signalSoft:   '#FEF6E0',
+  up:           '#0F7040',
+  down:         '#A62E22',
 
   // aliases
-  indigo:     'oklch(54% 0.22 258)',
-  indigoSoft: 'oklch(96% 0.035 258)',
-  plum:       'oklch(64% 0.16 285)',
+  indigo:     '#2A46EA',
+  indigoSoft: '#F1F4FE',
+  plum:       '#523793',
 
   // radii / shadow
-  r: 6,
-  rLg: 10,
-  shadow1: '0 1px 0 rgba(15,17,21,0.04)',
-  shadow2: '0 1px 2px rgba(15,17,21,0.04), 0 4px 16px rgba(15,17,21,0.04)',
+  r: 8,
+  rLg: 16,
+  shadow1: '0 1px 2px rgba(16, 28, 70, 0.04)',
+  shadow2: '0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)',
 
   // type
-  sans: 'var(--font-geist-sans, "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif)',
+  sans: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   mono: 'var(--font-geist-mono, "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace)',
   serif: '"Fraunces", Georgia, serif',
-  editorial: 'oklch(38% 0.12 30)',
+  editorial: '#A62E22',
 };
 
 // Mock company data — Morningstar as the example

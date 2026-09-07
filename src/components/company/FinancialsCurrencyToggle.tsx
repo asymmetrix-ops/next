@@ -42,10 +42,11 @@ export function FinancialsCurrencyToggle({
         aria-describedby={showLegend ? "currency-toggle-legend" : undefined}
         style={{
           display: "inline-flex",
-          borderRadius: T.r,
-          border: `1px solid ${T.hair}`,
-          overflow: "hidden",
+          padding: 3,
+          borderRadius: 999,
+          border: `1px solid ${T.divider}`,
           background: T.panel,
+          boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
         }}
       >
         {OPTIONS.map((option) => {
@@ -63,12 +64,12 @@ export function FinancialsCurrencyToggle({
               aria-label={`Show ${option.label.toLowerCase()} currency (${currencyCode})`}
               onClick={() => onChange(option.mode)}
               style={{
-                padding: compact ? "6px 10px" : "7px 12px",
+                height: compact ? 26 : 28,
+                padding: compact ? "0 12px" : "0 14px",
                 border: "none",
-                borderRight:
-                  option.mode === "preferred" ? `1px solid ${T.hair}` : "none",
+                borderRadius: 999,
                 background: active ? T.ink : "transparent",
-                color: active ? "#fff" : T.body,
+                color: active ? "#fff" : T.muted,
                 fontFamily: T.sans,
                 fontSize: compact ? 11.5 : 12.5,
                 fontWeight: 600,

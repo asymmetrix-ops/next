@@ -1,27 +1,33 @@
 /* Scoped redesign styles for the user dashboard (home-user).
-   Colors are pulled from the landing page's asymmetrix tokens so the
-   dashboard matches the marketing site's palette (see landing-theme.css). */
+   Tokens/values are pulled directly from the Asymmetrix design system's
+   ui_kits/landing/landing.css ("--lp-*"), the authoritative source for
+   this redesign across the product's list/dashboard surfaces. */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+
 .dash {
-  --dash-blue: hsl(228, 85%, 63%);
-  --dash-blue-dark: hsl(228, 85%, 55%);
-  --dash-blue-deep: hsl(228, 85%, 45%);
-  --dash-blue-light: hsl(228, 85%, 96%);
-  --dash-blue-muted: hsl(228, 30%, 94%);
-  --dash-tint: #f7f8fc;
-  --dash-ink: #000b29;
-  --dash-ink-2: #1a2340;
-  --dash-ink-3: #313a54;
-  --dash-muted: #5a6272;
-  --dash-faint: #8791a8;
-  --dash-line: rgba(0, 11, 41, 0.08);
-  --dash-line-2: rgba(0, 11, 41, 0.06);
+  --dash-blue-50: #f1f4fe;
+  --dash-blue-100: #e2e8fd;
+  --dash-blue-200: #c6d1fb;
+  --dash-blue-400: #5c77f2;
+  --dash-blue-500: #3d5bf3;
+  --dash-blue-600: #2a46ea;
+  --dash-blue-700: #1f35c4;
+  --dash-tint: #f5f7fd;
+  --dash-ink: #0a0e1a;
+  --dash-ink-2: #1e2536;
+  --dash-ink-3: #3d4657;
+  --dash-muted: #6b7488;
+  --dash-faint: #8a93a8;
+  --dash-line: #e4e8f2;
+  --dash-line-2: #eff2f8;
   --dash-r-lg: 16px;
   --dash-r-md: 12px;
   --dash-r-sm: 8px;
   --dash-r-pill: 999px;
-  --dash-sh-sm: 0 1px 2px rgba(0, 11, 41, 0.04);
-  --dash-sh-card: 0 8px 24px rgba(0, 11, 41, 0.08);
+  --dash-sh-sm: 0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04);
+  --dash-sh-card: 0 2px 6px rgba(16, 28, 70, 0.05), 0 12px 32px rgba(16, 28, 70, 0.07);
   background-color: var(--dash-tint);
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 /* ---------------- search row ---------------- */
@@ -69,7 +75,7 @@
 }
 
 .dash-stats > a:hover {
-  background: var(--dash-blue-light);
+  background: var(--dash-blue-50);
 }
 
 /* ---------------- cards ---------------- */
@@ -85,14 +91,14 @@
 }
 
 .dash-card-icon {
-  background: var(--dash-blue-light);
-  color: var(--dash-blue-deep);
+  background: var(--dash-blue-50);
+  color: var(--dash-blue-700);
   border-radius: var(--dash-r-sm);
 }
 
 .dash-card-icon.is-purple {
-  background: #f5f3ff;
-  color: #5b21b6;
+  background: #f1ebfc;
+  color: #523793;
 }
 
 .dash-eyebrow {
@@ -101,8 +107,9 @@
   height: 22px;
   padding: 0 10px;
   border-radius: var(--dash-r-pill);
-  background: var(--dash-blue-muted);
-  color: var(--dash-blue-deep);
+  background: var(--dash-blue-50);
+  border: 1px solid var(--dash-blue-100);
+  color: var(--dash-blue-600);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -111,9 +118,9 @@
 }
 
 .dash-view-all {
-  border: 1px solid hsla(228, 85%, 63%, 0.35);
+  border: 1px solid var(--dash-blue-200);
   background: #fff;
-  color: var(--dash-blue-deep);
+  color: var(--dash-blue-600);
   border-radius: var(--dash-r-pill);
   font-weight: 600;
   transition:
@@ -122,8 +129,8 @@
 }
 
 .dash-view-all:hover {
-  background: var(--dash-blue-light);
-  border-color: hsla(228, 85%, 63%, 0.5);
+  background: var(--dash-blue-50);
+  border-color: var(--dash-blue-400);
 }
 
 /* ---------------- tables ---------------- */
@@ -137,16 +144,16 @@
 }
 
 .dash-table tbody tr:hover {
-  background: var(--dash-blue-light);
+  background: var(--dash-blue-50);
 }
 
 .dash-company-link {
-  color: var(--dash-blue-deep);
+  color: var(--dash-blue-600);
   font-weight: 700;
 }
 
 .dash-company-link:hover {
-  color: var(--dash-blue);
+  color: var(--dash-blue-700);
 }
 
 /* ---------------- chips ---------------- */
@@ -176,12 +183,12 @@
 }
 
 .dash-art:hover {
-  border-color: hsla(228, 85%, 63%, 0.35);
+  border-color: var(--dash-blue-200);
   box-shadow: var(--dash-sh-card);
 }
 
 .dash-art .go {
-  color: var(--dash-blue-deep);
+  color: var(--dash-blue-600);
   font-weight: 700;
 }
 

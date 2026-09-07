@@ -4,8 +4,8 @@ export const SEARCH_DASHBOARD_HORIZONTAL_PAD = "28px";
 export const SEARCH_DASHBOARD_TOP_PAD = "20px";
 
 export const SEARCH_DASHBOARD_SHELL: CSSProperties = {
-  background: "#f7f8fc",
-  borderBottom: "1px solid rgba(0, 11, 41, 0.08)",
+  background: "#F5F7FD",
+  borderBottom: "1px solid #E4E8F2",
 };
 
 export const SEARCH_DASHBOARD_INNER: CSSProperties = {
@@ -28,12 +28,13 @@ export const SEARCH_DASHBOARD_EYEBROW: CSSProperties = {
   height: 22,
   padding: "0 10px",
   borderRadius: 999,
-  background: "hsl(228, 30%, 94%)",
+  background: "#F1F4FE",
+  border: "1px solid #E2E8FD",
   fontSize: 11,
   fontWeight: 800,
   letterSpacing: "0.08em",
   textTransform: "uppercase",
-  color: "hsl(228, 85%, 45%)",
+  color: "#2A46EA",
   marginBottom: 6,
 };
 
@@ -42,7 +43,9 @@ export const SEARCH_DASHBOARD_TITLE: CSSProperties = {
   fontSize: 28,
   fontWeight: 800,
   letterSpacing: "-0.026em",
-  color: "#000b29",
+  color: "#0A0E1A",
+  fontFamily:
+    "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   display: "flex",
   alignItems: "baseline",
   gap: 11,
@@ -52,7 +55,7 @@ export const SEARCH_DASHBOARD_TITLE: CSSProperties = {
 export const SEARCH_DASHBOARD_MATCH_COUNT: CSSProperties = {
   fontSize: 15,
   fontWeight: 600,
-  color: "#5a6272",
+  color: "#6B7488",
   letterSpacing: 0,
 };
 
@@ -71,8 +74,8 @@ export const SEARCH_DASHBOARD_TABS_ROW: CSSProperties = {
 
 export const SEARCH_DASHBOARD_FILTER_SHELL: CSSProperties = {
   background: "#fff",
-  borderTop: "1px solid #e2e8f0",
-  borderBottom: "1px solid #e2e8f0",
+  borderTop: "1px solid #E4E8F2",
+  borderBottom: "1px solid #E4E8F2",
 };
 
 export const SEARCH_DASHBOARD_FILTER_INNER: CSSProperties = {
@@ -87,13 +90,15 @@ export function getSearchTabButtonStyle(active: boolean): CSSProperties {
     gap: 8,
     height: 34,
     padding: "0 14px",
-    background: active ? "#000b29" : "#fff",
-    color: active ? "#fff" : "#313a54",
+    background: active ? "#0A0E1A" : "#fff",
+    color: active ? "#fff" : "#3D4657",
     border: "1px solid",
-    borderColor: active ? "#000b29" : "rgba(0, 11, 41, 0.08)",
+    borderColor: active ? "#0A0E1A" : "#E4E8F2",
     borderRadius: 999,
     fontSize: 13,
     fontWeight: 600,
+    fontFamily:
+      "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     cursor: "pointer",
     transition: "background 0.15s ease, border-color 0.15s ease",
     whiteSpace: "nowrap",

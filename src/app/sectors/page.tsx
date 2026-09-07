@@ -42,7 +42,69 @@ interface SectorsResponse {
   };
 }
 
-// Sector Card Component - larger boxes for primary sectors
+// ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
+const LINE = "#E4E8F2";
+const LINE_2 = "#EFF2F8";
+const INK = "#0A0E1A";
+const INK_2 = "#1E2536";
+const MUTED = "#6B7488";
+const EMPTY = "#6B7488";
+const BLUE_50 = "#F1F4FE";
+const BLUE_100 = "#E2E8FD";
+const BLUE_600 = "#2A46EA";
+const BLUE_700 = "#1F35C4";
+const R_LG = 16;
+const SH_SM = "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)";
+const SH_CARD = "0 2px 6px rgba(16, 28, 70, 0.05), 0 12px 32px rgba(16, 28, 70, 0.07)";
+
+const OWNERSHIP_ROWS: Array<{
+  key: "Number_of_Public" | "Number_of_PE" | "Number_of_VC" | "Number_of_Private";
+  label: string;
+  dot: string;
+}> = [
+  { key: "Number_of_Public", label: "Public", dot: "#7A5BD0" },
+  { key: "Number_of_PE", label: "PE-owned", dot: "#3D5BF3" },
+  { key: "Number_of_VC", label: "VC-backed", dot: "#17A05C" },
+  { key: "Number_of_Private", label: "Private", dot: "#E0A32E" },
+];
+
+function SearchIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
+// ── Sector card ──────────────────────────────────────────────────────────────
 const SectorCard = ({
   sector,
   onClick,
@@ -51,231 +113,193 @@ const SectorCard = ({
   sector: Sector;
   onClick: () => void;
   href: string;
-  }) => {
+}) => {
+  const [hover, setHover] = useState(false);
   const formatNumber = (num: number | undefined) => {
     if (num === undefined || num === null) return "0";
     return num.toLocaleString();
   };
 
-  return React.createElement(
-    "div",
-    {
-      className: "sector-card",
-      onClick,
-      style: {
-        backgroundColor: "white",
-        borderRadius: "12px",
-        padding: "20px 16px",
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+  return (
+    <article
+      className="sector-card"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={onClick}
+      style={{
+        background: "#fff",
+        border: `1px solid ${hover ? BLUE_100 : LINE}`,
+        borderRadius: R_LG,
+        boxShadow: hover ? SH_CARD : SH_SM,
+        padding: "15px 16px 14px",
+        display: "flex",
+        flexDirection: "column",
         cursor: "pointer",
-        border: "1px solid #e2e8f0",
-        transition: "all 0.2s ease",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column" as const,
+        transition: "box-shadow 180ms, border-color 180ms, transform 180ms",
+        transform: hover ? "translateY(-2px)" : "translateY(0)",
         minWidth: 0,
-        maxWidth: "100%",
-        boxSizing: "border-box" as const,
-        overflow: "hidden",
-      },
-    },
-    React.createElement(
-      "div",
-      {
-        style: {
-          marginBottom: "12px",
-        },
-      },
-      React.createElement(
-        "a",
-        {
-          href,
-          style: {
-            fontSize: "16px",
-            fontWeight: "700",
-            margin: "0",
-            display: "block",
-            color: "#0075df",
-            textDecoration: "none",
-            marginBottom: "8px",
-          },
-        },
-        sector.sector_name || "-"
-      ),
-      React.createElement(
-        "div",
-        {
-          style: {
-            display: "flex",
-            gap: "8px",
-            flexWrap: "nowrap" as const,
+        height: "100%",
+      }}
+    >
+      <h2
+        style={{
+          margin: "0 0 10px",
+          fontSize: 16,
+          fontWeight: 700,
+          letterSpacing: "-0.018em",
+          lineHeight: 1.3,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 8,
+        }}
+      >
+        <a
+          href={href}
+          onClick={(e) => e.stopPropagation()}
+          style={{ color: BLUE_600, textDecoration: "none" }}
+        >
+          {sector.sector_name || "-"}
+        </a>
+        <span
+          style={{
+            marginLeft: "auto",
+            color: hover ? BLUE_600 : "#8A93A8",
+            flexShrink: 0,
+            marginTop: 2,
+            transition: "color 180ms",
+          }}
+        >
+          <ArrowIcon />
+        </span>
+      </h2>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 13 }}>
+        <span
+          style={{
+            display: "inline-flex",
             alignItems: "center",
-            minWidth: 0,
-            width: "100%",
-          },
-        },
-        React.createElement(
-          "div",
-          {
-            style: {
-              fontSize: "12px",
-              fontWeight: "600",
-              color: "#1a202c",
-              backgroundColor: "#f0f9ff",
-              padding: "6px 12px",
-              borderRadius: "6px",
-              display: "inline-block",
-              border: "1px solid #bae6fd",
-              whiteSpace: "nowrap" as const,
-              flexShrink: 0,
-            },
-          },
-          `${formatNumber(sector.Number_of_Companies)} companies`
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
-              fontSize: "12px",
-              fontWeight: "600",
-              color: "#1a202c",
-              backgroundColor: "#f0f9ff",
-              padding: "6px 12px",
-              borderRadius: "6px",
-              display: "inline-block",
-              border: "1px solid #bae6fd",
-              whiteSpace: "nowrap" as const,
-              flexShrink: 0,
-            },
-          },
-          `${formatNumber(sector.Number_of_Sub_Sectors || 0)} sub-sectors`
-        )
-      )
-    ),
-    React.createElement(
-      "div",
-      {
-        style: {
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "10px",
-          fontSize: "12px",
-        },
-      },
-      React.createElement(
-        "div",
-        {
-          style: {
-            display: "flex",
-            flexDirection: "column" as const,
-            padding: "8px",
-            backgroundColor: "#f9fafb",
-            borderRadius: "6px",
-          },
-        },
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
-          "Public"
-        ),
-        React.createElement(
-          "span",
-          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
-          formatNumber(sector.Number_of_Public)
-        )
-      ),
-      React.createElement(
-        "div",
-        {
-          style: {
-            display: "flex",
-            flexDirection: "column" as const,
-            padding: "8px",
-            backgroundColor: "#f9fafb",
-            borderRadius: "6px",
-          },
-        },
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
-          "PE-owned"
-        ),
-        React.createElement(
-          "span",
-          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
-          formatNumber(sector.Number_of_PE)
-        )
-      ),
-      React.createElement(
-        "div",
-        {
-          style: {
-            display: "flex",
-            flexDirection: "column" as const,
-            padding: "8px",
-            backgroundColor: "#f9fafb",
-            borderRadius: "6px",
-          },
-        },
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
-          "VC-backed"
-        ),
-        React.createElement(
-          "span",
-          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
-          formatNumber(sector.Number_of_VC)
-        )
-      ),
-      React.createElement(
-        "div",
-        {
-          style: {
-            display: "flex",
-            flexDirection: "column" as const,
-            padding: "8px",
-            backgroundColor: "#f9fafb",
-            borderRadius: "6px",
-          },
-        },
-      React.createElement(
-        "span",
-        { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
-        "Private"
-      ),
-      React.createElement(
-        "span",
-        { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
-        formatNumber(sector.Number_of_Private)
-      )
-    )
-  ),
-  React.createElement(
-    "div",
-    {
-      style: {
-        marginTop: "12px",
-        paddingTop: "10px",
-        borderTop: "1px solid #e2e8f0",
-        display: "flex",
-        justifyContent: "flex-end",
-      },
-      onClick: (e: React.MouseEvent) => e.stopPropagation(),
-    },
-    sector.id
-      ? React.createElement(InlineFollowButton, {
-          followKey: "followed_sectors",
-          entityId: sector.id,
-          label: sector.sector_name || "",
-          showLabel: true,
-        })
-      : null
-  )
+            height: 24,
+            padding: "0 10px",
+            borderRadius: 999,
+            background: BLUE_50,
+            border: `1px solid ${BLUE_100}`,
+            fontSize: 12,
+            fontWeight: 600,
+            color: BLUE_700,
+          }}
+        >
+          {formatNumber(sector.Number_of_Companies)} companies
+        </span>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            height: 24,
+            padding: "0 10px",
+            borderRadius: 999,
+            background: "#F5F7FD",
+            border: `1px solid ${LINE}`,
+            fontSize: 12,
+            fontWeight: 600,
+            color: "#3D4657",
+          }}
+        >
+          {formatNumber(sector.Number_of_Sub_Sectors || 0)} secondary
+        </span>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: "auto" }}>
+        {OWNERSHIP_ROWS.map((row, i) => {
+          const count = sector[row.key] ?? 0;
+          const isZero = count === 0;
+          return (
+            <div
+              key={row.key}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "6px 0",
+                borderTop: i === 0 ? "none" : `1px solid ${LINE_2}`,
+                fontSize: 12.5,
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  flexShrink: 0,
+                  background: isZero ? LINE : row.dot,
+                }}
+              />
+              <span
+                style={{
+                  color: isZero ? EMPTY : "#3D4657",
+                  fontWeight: 500,
+                }}
+              >
+                {row.label}
+              </span>
+              <span
+                style={{
+                  marginLeft: "auto",
+                  fontVariantNumeric: "tabular-nums",
+                  fontWeight: 700,
+                  color: isZero ? EMPTY : INK_2,
+                }}
+              >
+                {formatNumber(count)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 11,
+          paddingTop: 10,
+          borderTop: `1px solid ${LINE}`,
+          fontSize: 12,
+          color: MUTED,
+        }}
+      >
+        Total{" "}
+        <b style={{ color: INK, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+          {formatNumber(sector.Number_of_Companies)}
+        </b>
+        <a
+          href={href}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            marginLeft: "auto",
+            fontSize: 12,
+            fontWeight: 600,
+            color: BLUE_600,
+            textDecoration: "none",
+          }}
+        >
+          View companies →
+        </a>
+        <div onClick={(e) => e.stopPropagation()}>
+          {sector.id ? (
+            <InlineFollowButton
+              followKey="followed_sectors"
+              entityId={sector.id}
+              label={sector.sector_name || ""}
+            />
+          ) : null}
+        </div>
+      </div>
+    </article>
   );
 };
 
-// Helpers
+// ── Helpers ──────────────────────────────────────────────────────────────────
 const normalizeSectorName = (name: string | undefined | null): string =>
   (name || "").trim().toLowerCase();
 
@@ -377,50 +401,55 @@ const SectorsSection = () => {
       }
     })();
     fetchSectors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
 
   const style = `
     * {
       box-sizing: border-box;
     }
     .sectors-section {
-      padding: 32px 24px;
-      border-radius: 8px;
-      max-width: 1600px;
-      margin: 0 auto;
+      background: #F5F7FD;
+      padding: 20px;
       width: 100%;
       box-sizing: border-box;
       overflow-x: hidden;
+      min-height: calc(100vh - 200px);
     }
     .sectors-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 16px;
+      gap: 14px;
       width: 100%;
       box-sizing: border-box;
+      align-items: stretch;
     }
     .sector-card {
       min-width: 0;
       max-width: 100%;
       box-sizing: border-box;
     }
-    .sector-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-    }
     .loading {
       text-align: center;
       padding: 40px;
-      color: #666;
+      color: ${MUTED};
     }
     .error {
       text-align: center;
       padding: 20px;
-      color: #e53e3e;
-      background-color: #fed7d7;
-      border-radius: 6px;
+      color: #A62E22;
+      background-color: #FCEAE7;
+      border-radius: 12px;
       margin-bottom: 16px;
+    }
+    .sectors-search-input::placeholder {
+      color: #8A93A8;
+    }
+    .sectors-search-input:focus,
+    .sectors-sort-select:focus {
+      outline: none;
+      border-color: #5C77F2;
+      box-shadow: 0 0 0 4px rgba(42, 70, 234, 0.14);
     }
 
     @media (max-width: 768px) {
@@ -435,226 +464,238 @@ const SectorsSection = () => {
     @media (min-width: 769px) and (max-width: 1024px) {
       .sectors-grid {
         grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
       }
     }
     @media (min-width: 1025px) and (max-width: 1399px) {
       .sectors-grid {
         grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
       }
     }
     @media (min-width: 1400px) {
       .sectors-grid {
         grid-template-columns: repeat(5, 1fr);
-        gap: 16px;
       }
     }
   `;
 
-  if (loading) {
-    return React.createElement(
-      "div",
-      { className: "sectors-section" },
-      React.createElement(
-        "div",
-        { className: "loading" },
-        "Loading sectors..."
-      ),
-      React.createElement("style", {
-        dangerouslySetInnerHTML: { __html: style },
-      })
-    );
-  }
+  return (
+    <div className="sectors-section">
+      <style dangerouslySetInnerHTML={{ __html: style }} />
 
-  if (error) {
-    return React.createElement(
-      "div",
-      { className: "sectors-section" },
-      React.createElement("div", { className: "error" }, error),
-      React.createElement("style", {
-        dangerouslySetInnerHTML: { __html: style },
-      })
-    );
-  }
+      {/* Title row */}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
+        <div>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              height: 22,
+              padding: "0 10px",
+              borderRadius: 999,
+              background: BLUE_50,
+              border: `1px solid ${BLUE_100}`,
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: BLUE_600,
+            }}
+          >
+            Sectors
+          </span>
+          <h1
+            style={{
+              margin: "6px 0 0",
+              fontSize: 28,
+              fontWeight: 800,
+              letterSpacing: "-0.026em",
+              color: INK,
+              display: "flex",
+              alignItems: "baseline",
+              gap: 11,
+            }}
+          >
+            Sector search
+            <span style={{ fontSize: 15, fontWeight: 600, color: MUTED }}>
+              {sectors.length.toLocaleString()} matches
+            </span>
+          </h1>
+        </div>
+      </div>
 
-  return React.createElement(
-    "div",
-    { className: "sectors-section" },
-    // Search + Sort Controls
-    React.createElement(
-      "div",
-      {
-        className: "sort-controls",
-        style: {
-          marginBottom: "24px",
+      {/* Controls card */}
+      <div
+        style={{
+          background: "#fff",
+          border: `1px solid ${LINE}`,
+          borderRadius: R_LG,
+          boxShadow: SH_SM,
+          padding: "14px 16px",
+          marginBottom: 16,
           display: "flex",
           alignItems: "center",
-          gap: "12px",
-          flexWrap: "wrap" as const,
-          width: "100%",
-          maxWidth: "100%",
-        },
-      },
-      // Search input
-      React.createElement(
-        "div",
-        {
-          style: {
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            flexGrow: 1,
-            minWidth: "240px",
-          },
-        },
-        React.createElement("input", {
-          type: "text",
-          value: searchTerm,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            setSearchTerm(e.target.value),
-          onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
-            if (e.key === "Enter") {
-              fetchSectors();
-            }
-          },
-          placeholder: "Search sectors or sub-sectors",
-          style: {
-            padding: "8px 12px",
-            borderRadius: "8px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "white",
-            fontSize: "14px",
-            flexGrow: 1,
-            minWidth: "0",
-          },
-        }),
-        React.createElement(
-          "button",
-          {
-            onClick: () => fetchSectors(),
-            style: {
-              padding: "8px 16px",
-              borderRadius: "8px",
-              border: "1px solid #e2e8f0",
-              backgroundColor: "#0075df",
-              color: "white",
-              fontSize: "14px",
+          gap: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ position: "relative", flex: "1 1 auto", maxWidth: 460 }}>
+          <span
+            style={{
+              position: "absolute",
+              left: 14,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "#8A93A8",
+              pointerEvents: "none",
+              display: "flex",
+            }}
+          >
+            <SearchIcon />
+          </span>
+          <input
+            className="sectors-search-input"
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") fetchSectors();
+            }}
+            placeholder="Search sectors or secondary sectors…"
+            style={{
+              width: "100%",
+              height: 38,
+              padding: "0 14px 0 38px",
+              borderRadius: 999,
+              border: `1px solid ${LINE}`,
+              background: "#fff",
+              fontSize: 13,
+              color: INK,
+            }}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => fetchSectors()}
+          style={{
+            height: 38,
+            padding: "0 20px",
+            borderRadius: 999,
+            border: "none",
+            background: BLUE_600,
+            color: "#fff",
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "0 6px 18px rgba(42, 70, 234, 0.32)",
+          }}
+        >
+          Search
+        </button>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: MUTED }}>
+          Sort by
+          <select
+            className="sectors-sort-select"
+            value={sortField}
+            onChange={(e) => {
+              const newField = e.target.value as SortField;
+              if (sortField === newField) {
+                setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+              } else {
+                setSortField(newField);
+                setSortDirection("desc");
+              }
+            }}
+            style={{
+              height: 38,
+              border: `1px solid ${LINE}`,
+              borderRadius: 999,
+              background: "#fff",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#3D4657",
+              padding: "0 14px",
               cursor: "pointer",
-              fontWeight: "500",
-              whiteSpace: "nowrap",
-            },
-          },
-          "Search"
-        )
-      ),
-      // Sort controls
-      React.createElement(
-        "span",
-        {
-          style: {
-            fontSize: "14px",
-            fontWeight: "600",
-            color: "#4a5568",
-          },
-        },
-        "Sort by:"
-      ),
-      React.createElement(
-        "select",
-        {
-          value: sortField,
-          onChange: (e: React.ChangeEvent<HTMLSelectElement>) => {
-            const newField = e.target.value as SortField;
-            if (sortField === newField) {
-              setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-            } else {
-              setSortField(newField);
-              setSortDirection("desc");
-            }
-          },
-          style: {
-            padding: "8px 12px",
-            borderRadius: "8px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "white",
-            fontSize: "14px",
-            cursor: "pointer",
-            outline: "none",
-          },
-        },
-        React.createElement("option", { value: "sector_name" }, "Sector Name"),
-        React.createElement(
-          "option",
-          { value: "Number_of_Companies" },
-          "Number of Companies"
-        ),
-        React.createElement(
-          "option",
-          { value: "Number_of_Sub_Sectors" },
-          "Number of Sub-Sectors"
-        ),
-        React.createElement(
-          "option",
-          { value: "Number_of_Public" },
-          "Public Companies"
-        ),
-        React.createElement(
-          "option",
-          { value: "Number_of_PE" },
-          "PE-owned Companies"
-        ),
-        React.createElement(
-          "option",
-          { value: "Number_of_VC" },
-          "VC-backed Companies"
-        ),
-        React.createElement(
-          "option",
-          { value: "Number_of_Private" },
-          "Private Companies"
-        )
-      ),
-      React.createElement(
-        "button",
-        {
-          onClick: () =>
-            setSortDirection(sortDirection === "asc" ? "desc" : "asc"),
-          style: {
-            padding: "8px 16px",
-            borderRadius: "8px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "white",
-            fontSize: "14px",
-            cursor: "pointer",
-            display: "flex",
+            }}
+          >
+            <option value="sector_name">Sector name</option>
+            <option value="Number_of_Companies">Companies</option>
+            <option value="Number_of_Sub_Sectors">Secondary sectors</option>
+            <option value="Number_of_Public">Public companies</option>
+            <option value="Number_of_PE">PE-owned companies</option>
+            <option value="Number_of_VC">VC-backed companies</option>
+            <option value="Number_of_Private">Private companies</option>
+          </select>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setSortDirection(sortDirection === "asc" ? "desc" : "asc")}
+          style={{
+            display: "inline-flex",
             alignItems: "center",
-            gap: "4px",
-            fontWeight: "500",
-          },
-        },
-        sortDirection === "asc" ? "↑ Ascending" : "↓ Descending"
-      )
-    ),
-    // Sectors Grid (replaces table, shows on all screen sizes)
-    React.createElement(
-      "div",
-      { className: "sectors-grid" },
-      sortedSectors.map((sector) =>
-        React.createElement(SectorCard, {
-          key: sector.id,
-          sector,
-          href:
-            searchTerm.trim().length > 0
-              ? `/sector/${sector.id}?tab=subsectors`
-              : `/sector/${sector.id}`,
-          onClick: () => handleSectorClick(sector.id),
-        })
-      )
-    ),
-    React.createElement("style", {
-      dangerouslySetInnerHTML: { __html: style },
-    })
+            gap: 6,
+            height: 38,
+            padding: "0 14px",
+            borderRadius: 999,
+            border: `1px solid ${LINE}`,
+            background: "#fff",
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#3D4657",
+            cursor: "pointer",
+          }}
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              transform: sortDirection === "asc" ? "none" : "rotate(180deg)",
+              transition: "transform 150ms",
+            }}
+          >
+            <path d="m5 12 7-7 7 7" />
+            <path d="M12 19V5" />
+          </svg>
+          {sortDirection === "asc" ? "Ascending" : "Descending"}
+        </button>
+
+        <span style={{ marginLeft: "auto", fontSize: 13, color: MUTED }}>
+          <strong style={{ color: INK, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+            {sectors.length.toLocaleString()}
+          </strong>{" "}
+          sectors
+        </span>
+      </div>
+
+      {loading ? (
+        <div className="loading">Loading sectors...</div>
+      ) : error ? (
+        <div className="error">{error}</div>
+      ) : (
+        <div className="sectors-grid">
+          {sortedSectors.map((sector) => (
+            <SectorCard
+              key={sector.id}
+              sector={sector}
+              href={
+                searchTerm.trim().length > 0
+                  ? `/sector/${sector.id}?tab=subsectors`
+                  : `/sector/${sector.id}`
+              }
+              onClick={() => handleSectorClick(sector.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 

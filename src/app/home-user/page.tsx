@@ -165,25 +165,25 @@ function dealRadarStageStyle(
   const s = status.toLowerCase();
   if (s.includes("reported")) {
     return {
-      pill: { backgroundColor: "#dcfce7", color: "#166534" },
-      dot: "#22c55e",
+      pill: { backgroundColor: "#E4F5EC", color: "#0F7040" },
+      dot: "#17A05C",
     };
   }
   if (s.includes("rumoured") || s.includes("rumored")) {
     return {
-      pill: { backgroundColor: "#fef9c3", color: "#854d0e" },
-      dot: "#eab308",
+      pill: { backgroundColor: "#FEF6E0", color: "#7A5605" },
+      dot: "#E0A32E",
     };
   }
   if (s.includes("hold")) {
     return {
-      pill: { backgroundColor: "#f3f4f6", color: "#4b5563" },
-      dot: "#9ca3af",
+      pill: { backgroundColor: "#F5F7FD", color: "#566078" },
+      dot: "#B4BCCB",
     };
   }
   return {
-    pill: { backgroundColor: "hsl(228, 85%, 96%)", color: "hsl(228, 85%, 35%)" },
-    dot: "hsl(228, 85%, 63%)",
+    pill: { backgroundColor: "#F1F4FE", color: "#1F35C4" },
+    dot: "#3D5BF3",
   };
 }
 
