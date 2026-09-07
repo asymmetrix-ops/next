@@ -8,7 +8,7 @@ import { buildLandingMetadata } from "../seo";
 export const metadata = buildLandingMetadata({
   path: "/landing-test-version1/press-releases",
   title: "Press Releases | Asymmetrix",
-  description: "Official Asymmetrix press releases — coming soon.",
+  description: "Official Asymmetrix press releases. Coming soon.",
 });
 
 export default function PressReleasesPage() {

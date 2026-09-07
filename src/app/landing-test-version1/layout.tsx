@@ -4,7 +4,7 @@ import { CookieConsentBanner } from "./components/CookieConsentBanner";
 import { LandingCalendlyPrefetch } from "./components/LandingCalendlyInline";
 import { LandingHashScroll } from "./components/LandingHashScroll";
 
-export default function LandingTestVersion1Layout({
+export default function MarketingLayout({
   children,
 }: {
   children: React.ReactNode;

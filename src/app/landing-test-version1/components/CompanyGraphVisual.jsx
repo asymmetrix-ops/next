@@ -32,7 +32,7 @@ const NAMED_NODES = [
     big: true,
     primary: "Deal",
     secondary: "Deal type · value · date",
-    detail: "Tracked",
+    detail: "",
   },
   {
     id: "financial",
@@ -110,7 +110,7 @@ const NAMED_NODES = [
     h: 58,
     primary: "Competitor",
     secondary: "Market position",
-    detail: "Tracked",
+    detail: "",
   },
   {
     id: "competitor2",
@@ -122,7 +122,7 @@ const NAMED_NODES = [
     faint: true,
     primary: "Competitor",
     secondary: "Peer company",
-    detail: "Tracked",
+    detail: "",
   },
   {
     id: "analysis",

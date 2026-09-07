@@ -158,7 +158,7 @@ export function Blog16({ substackTabs = EMPTY_SUBSTACK_TABS }) {
             className="landing-tab-scroll-wrap -mx-[5vw] mb-12 flex justify-start overflow-x-auto px-[5vw] pb-1 md:mb-16 md:mx-0 md:justify-center md:overflow-visible md:px-0 md:pb-0"
             style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
           >
-            <TabsList className="landing-tab-track-list flex w-max shrink-0 items-center justify-start md:w-fit md:justify-center">
+            <TabsList className="landing-tab-track-list flex w-max shrink-0 items-center justify-start gap-2.5 md:w-fit md:justify-center">
               <TabsTrigger
                 value="latest"
                 className="landing-tab-trigger whitespace-nowrap px-4"
