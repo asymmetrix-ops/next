@@ -13,75 +13,59 @@ export function getContentTypeBadgeStyle(contentType?: string): CSSProperties {
   };
 
   const t = (contentType || "").toLowerCase();
-  if (t === "company analysis") {
+  if (t === "company analysis" || t === "company update") {
     return {
       ...base,
-      backgroundColor: "#ecfdf5",
-      color: "#065f46",
-      borderColor: "#a7f3d0",
+      backgroundColor: "#F1F4FE",
+      color: "#2A46EA",
+      borderColor: "#E2E8FD",
     };
   }
-  if (t === "deal analysis") {
+  if (t === "deal analysis" || t === "deal perspective" || t === "hot take") {
     return {
       ...base,
-      backgroundColor: "#eff6ff",
-      color: "#1e40af",
-      borderColor: "#bfdbfe",
-    };
-  }
-  if (t === "deal perspective") {
-    return {
-      ...base,
-      backgroundColor: "#ecfeff",
-      color: "#155e75",
-      borderColor: "#a5f3fc",
+      backgroundColor: "#FEF6E0",
+      color: "#7A5605",
+      borderColor: "#FBE8B8",
     };
   }
   if (t === "market commentary") {
     return {
       ...base,
-      backgroundColor: "#fefce8",
-      color: "#854d0e",
-      borderColor: "#fde68a",
+      backgroundColor: "#FEF6E0",
+      color: "#7A5605",
+      borderColor: "#FBE8B8",
     };
   }
   if (t === "sector analysis") {
     return {
       ...base,
-      backgroundColor: "#f5f3ff",
-      color: "#5b21b6",
-      borderColor: "#ddd6fe",
-    };
-  }
-  if (t === "hot take") {
-    return {
-      ...base,
-      backgroundColor: "#fff7ed",
-      color: "#9a3412",
-      borderColor: "#fed7aa",
+      backgroundColor: "#F1EBFC",
+      color: "#523793",
+      borderColor: "#E2D5F8",
     };
   }
   if (t === "executive interview") {
     return {
       ...base,
-      backgroundColor: "#f0fdf4",
-      color: "#166534",
-      borderColor: "#bbf7d0",
+      backgroundColor: "#E4F5EC",
+      color: "#0F7040",
+      borderColor: "#C8EBD9",
     };
   }
   if (t === "news") {
     return {
       ...base,
-      backgroundColor: "#fff1f2",
-      color: "#9f1239",
-      borderColor: "#fecdd3",
+      backgroundColor: "#FCEAE7",
+      color: "#A62E22",
+      borderColor: "#F8D4CD",
     };
   }
 
   return {
     ...base,
-    backgroundColor: "#f3f4f6",
-    color: "#374151",
-    borderColor: "#e5e7eb",
+    backgroundColor: "#EFF2F8",
+    color: "#6B7488",
+    borderColor: "#E4E8F2",
   };
 }
