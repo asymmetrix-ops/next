@@ -11,7 +11,6 @@
   } from "@/lib/financialIntelligence/types";
   import {
     FI_BENCHMARK_SECTIONS,
-    formatMetricPercent,
     formatMetricPercentDelta,
     getMetricValueForDisplay,
     peerAggregateLabels,
@@ -31,6 +30,26 @@
   import type { Currency } from "@/lib/fxRates";
 
   const FONT = "var(--font-sans)";
+
+  // Deterministic per-company avatar color + initials — matches the
+  // FinancialBenchmark design's drill-down company grid.
+  const AVATAR_PALETTE = [
+    "#2A46EA", "#0F7B6C", "#D24534", "#7A5BD0", "#E0A32E",
+    "#0B6E99", "#1B6E3A", "#8C3A5A", "#3B4C6B", "#B5763A",
+  ];
+  function avatarColorFor(id: number): string {
+    return AVATAR_PALETTE[Math.abs(id) % AVATAR_PALETTE.length];
+  }
+  function initialsFor(name: string): string {
+    return name
+      .replace(/[^A-Za-z0-9 ]/g, "")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase();
+  }
 
   function MetricValueWithSource({
     value,
@@ -108,30 +127,12 @@
     return { text, positive };
   }
 
-  function fmtSigned(
-    delta: number,
-    format: FiMetricFormat,
-    currencyCode: Currency | string = "USD"
-  ): string {
-    const sign = delta > 0 ? "+" : "";
-    if (format === "currency") {
-      return `${sign}${fmtFiMetric(Math.abs(delta), "currency", currencyCode).replace(/^—$/, "0")}`;
-    }
-    if (format === "currency_k") {
-      return `${sign}${fmtFiMetric(Math.abs(delta), "currency_k", currencyCode).replace(/^—$/, "0")}`;
-    }
-    if (format === "count") return `${sign}${Math.round(delta).toLocaleString()}`;
-    if (format === "percent") return formatMetricPercent(delta);
-    return `${sign}${Math.round(delta)}x`;
-  }
-
   function MetricBreakdown({
     row,
     target,
     peers,
     isLast,
     peerAggregateMode,
-    hasActiveSourceFilter = false,
     allowedSourceTypes,
     preferredCurrencyCode = "USD",
   }: {
@@ -140,7 +141,6 @@
     peers: FiCompanyRow[];
     isLast: boolean;
     peerAggregateMode: FiPeerAggregateMode;
-    hasActiveSourceFilter?: boolean;
     allowedSourceTypes?: FiMetricSourceType[];
     preferredCurrencyCode?: string;
   }) {
@@ -193,72 +193,29 @@
     }
 
     const values = list.map((entry) => entry.value);
-    const lo = Math.min(...values);
-    const hi = Math.max(...values);
-    const span = hi - lo || 1;
-    const median = row.peerMedian;
+    const maxAbs = Math.max(...values.map((v) => Math.abs(v))) || 1;
 
-    let dividerAt = -1;
-    if (median != null) {
-      for (let i = 0; i < list.length; i++) {
-        const worseThanMedian = row.higherIsBetter
-          ? list[i].value < median
-          : list[i].value > median;
-        if (worseThanMedian) {
-          dividerAt = i;
-          break;
-        }
-      }
-    }
-
-    const items: React.ReactNode[] = [];
-    list.forEach((entry, index) => {
-      if (index === dividerAt) {
-        items.push(
-          <div
-            key="median-divider"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "5px 0 5px 36px",
-            }}
-          >
-            <span style={{ flex: 1, height: 0, borderTop: "1px dashed var(--ax-gray-400)" }} />
-            <span
-              style={{
-                fontSize: 10.5,
-                fontWeight: 700,
-                color: "var(--fg-3)",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {aggregateLabels.peerColumn} · {fmtFiMetric(median, row.format, row.displayCurrencyCode ?? fallbackCurrency)}
-            </span>
-            <span style={{ flex: 1, height: 0, borderTop: "1px dashed var(--ax-gray-400)" }} />
-          </div>
-        );
-      }
-
-      const fill = Math.max(2, ((entry.value - lo) / span) * 100);
-      items.push(
+    const items = list.map((entry, index) => {
+      const fill = Math.max(2, (Math.abs(entry.value) / maxAbs) * 100);
+      const isTarget = entry.isTarget;
+      return (
         <div
           key={entry.id}
           style={{
             display: "grid",
-            gridTemplateColumns: "26px 172px 1fr 76px",
+            gridTemplateColumns: "28px minmax(0, 150px) minmax(0, 1fr) 76px",
             alignItems: "center",
             gap: 10,
-            padding: "5px 8px",
-            margin: "0 -8px",
+            padding: "6px 8px",
             borderRadius: 6,
-            background: entry.isTarget ? "var(--ax-cyan-50)" : "transparent",
+            background: isTarget ? "var(--ax-cyan-50)" : "transparent",
           }}
         >
           <span
             style={{
               fontSize: 11,
-              color: "var(--fg-4)",
+              fontWeight: 700,
+              color: "var(--ax-gray-400)",
               fontVariantNumeric: "tabular-nums",
               textAlign: "right",
             }}
@@ -268,9 +225,26 @@
           <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
             <span
               style={{
+                width: 19,
+                height: 19,
+                borderRadius: 5,
+                flexShrink: 0,
+                background: avatarColorFor(entry.id),
+                color: "#fff",
+                fontSize: 7.5,
+                fontWeight: 800,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {initialsFor(entry.name)}
+            </span>
+            <span
+              style={{
                 fontSize: 12.5,
-                fontWeight: entry.isTarget ? 700 : 500,
-                color: "var(--fg-1)",
+                fontWeight: isTarget ? 800 : 500,
+                color: isTarget ? "var(--ax-cyan-800)" : "var(--fg-2)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -278,23 +252,6 @@
             >
               {entry.name}
             </span>
-            {entry.isTarget && (
-              <span
-                style={{
-                  fontSize: 8.5,
-                  fontWeight: 700,
-                  color: "var(--ax-cyan-700)",
-                  letterSpacing: "0.05em",
-                  background: "var(--ax-cyan-50)",
-                  border: "1px solid var(--border-brand)",
-                  borderRadius: 3,
-                  padding: "0 4px",
-                  flexShrink: 0,
-                }}
-              >
-                TARGET
-              </span>
-            )}
           </span>
           <span style={{ position: "relative", height: 8, background: "var(--ax-gray-100)", borderRadius: 4 }}>
             <span
@@ -305,30 +262,24 @@
                 bottom: 0,
                 width: `${fill}%`,
                 borderRadius: 4,
-                background: entry.isTarget ? "var(--ax-cyan-600)" : "var(--ax-gray-300)",
+                background: isTarget ? "var(--ax-cyan-600)" : "var(--ax-cyan-300)",
               }}
             />
           </span>
           <span
             style={{
               fontSize: 12.5,
-              fontWeight: entry.isTarget ? 700 : 600,
+              fontWeight: 700,
               textAlign: "right",
+              color: isTarget ? "var(--ax-cyan-800)" : "var(--fg-2)",
+              fontVariantNumeric: "tabular-nums",
             }}
           >
-            <SourceColoredValue
-              value={entry.value}
-              format={row.format}
-              sourceType={entry.sourceType}
-              fontWeight={entry.isTarget ? 700 : 600}
-              fontSize={12.5}
-              hiddenBySourceFilter={hasActiveSourceFilter && entry.value == null}
-              displayCurrencyCode={resolveFiMetricKeyDisplayCurrency(
-                entry.row,
-                metricKey,
-                fallbackCurrency
-              )}
-            />
+            {fmtFiMetric(
+              entry.value,
+              row.format,
+              resolveFiMetricKeyDisplayCurrency(entry.row, metricKey, fallbackCurrency)
+            )}
           </span>
         </div>
       );
@@ -337,34 +288,35 @@
     return (
       <div
         style={{
-          background: "var(--ax-gray-25)",
+          background: "var(--ax-gray-50)",
           borderBottom: isLast ? "none" : "1px solid var(--ax-gray-100)",
-          padding: "12px 16px 14px 38px",
+          padding: "11px 16px 14px 38px",
           fontFamily: FONT,
         }}
       >
-        <div style={{ fontSize: 11.5, color: "var(--fg-3)", marginBottom: 9 }}>
-          All{" "}
-          <strong style={{ color: "var(--fg-1)" }}>{list.length}</strong> companies ranked by{" "}
-          {row.label} — {target.company_name} sits{" "}
-          <strong style={{ color: "var(--fg-1)" }}>
-            #{row.rank ?? "—"}
-          </strong>{" "}
-          of {row.rankTotal ?? list.length}
-          {row.deltaVsMedian != null && (
-            <span>
-              ,{" "}
-              <strong style={{ color: "var(--fg-1)" }}>
-                {row.format === "percent"
-                  ? formatMetricPercentDelta(row.deltaVsMedian)
-                  : fmtSigned(row.deltaVsMedian, row.format, row.displayCurrencyCode ?? fallbackCurrency)}
-              </strong>{" "}
-              vs the peer {aggregateLabels.noun}
-            </span>
-          )}
-          .
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 10, marginBottom: 9 }}>
+          <strong style={{ fontSize: 12.5, fontWeight: 800, color: "var(--fg-1)" }}>
+            {row.label} — every company in the benchmark
+          </strong>
+          <span style={{ fontSize: 11.5, color: "var(--fg-3)" }}>
+            ranked {row.higherIsBetter ? "high to low" : "low to high"} · {list.length} companies · peer{" "}
+            {aggregateLabels.noun}{" "}
+            {fmtFiMetric(row.peerMedian, row.format, row.displayCurrencyCode ?? fallbackCurrency)}
+          </span>
         </div>
-        <div style={{ maxHeight: 300, overflowY: "auto", paddingRight: 4 }}>{items}</div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+            gap: "0 24px",
+            background: "#fff",
+            border: "1px solid var(--border-1)",
+            borderRadius: "var(--r-md)",
+            padding: "4px 14px",
+          }}
+        >
+          {items}
+        </div>
       </div>
     );
   }
@@ -920,7 +872,6 @@
               peers={peers}
               isLast={isLastOverall}
               peerAggregateMode={peerAggregateMode}
-              hasActiveSourceFilter={hasActiveSourceFilter}
               allowedSourceTypes={allowedSourceTypes}
               preferredCurrencyCode={fallbackCurrency}
             />
