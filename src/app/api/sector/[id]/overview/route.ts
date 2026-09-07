@@ -1,102 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { getCachedSectorData } from '@/lib/sector-cache';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 300; // Cache for 5 minutes
-
-const XANO_BASE = 'https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop';
+export const revalidate = 0;
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const startTime = performance.now();
   const sectorId = params.id;
 
-  console.log(`[API] 🚀 Fetching overview data for sector ${sectorId}`);
-
-  try {
-    const cookieStore = cookies();
-    const token = cookieStore.get('asymmetrix_auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const authHeaders = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    };
-
-    const qs = new URLSearchParams();
-    qs.append('Sector_id', sectorId);
-    const strategicQs = new URLSearchParams();
-    strategicQs.append('Sector_id', sectorId);
-    strategicQs.append('limit', '5');
-    strategicQs.append('offset', '0');
-    const peQs = new URLSearchParams();
-    peQs.append('Sector_id', sectorId);
-    peQs.append('limit', '5');
-    peQs.append('offset', '0');
-
-    // Fetch all overview data in parallel
-    const [sectorRes, marketMapRes, strategicRes, peRes, recentRes] =
-      await Promise.all([
-        fetch(`${XANO_BASE}/sectors/${sectorId}`, {
-          method: 'GET',
-          headers: authHeaders,
-          cache: 'no-store',
-        }),
-        fetch(`${XANO_BASE}/sectors_market_map?${qs.toString()}`, {
-          method: 'GET',
-          headers: authHeaders,
-          cache: 'no-store',
-        }),
-        // Strategic acquirers — paginated GET endpoint, limit 5 for overview
-        fetch(`${XANO_BASE}/sectors_strategic_acquirers?${strategicQs.toString()}`, {
-          method: 'GET',
-          headers: authHeaders,
-          cache: 'no-store',
-        }),
-        fetch(`${XANO_BASE}/sectors_pe_investors?${peQs.toString()}`, {
-          method: 'GET',
-          headers: authHeaders,
-          cache: 'no-store',
-        }),
-        fetch(`${XANO_BASE}/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, {
-          method: 'GET',
-          headers: authHeaders,
-          cache: 'no-store',
-        }),
-      ]);
-
-    const [sectorData, marketMap, strategic, pe, recentTransactions] =
-      await Promise.all([
-        sectorRes.ok ? sectorRes.json() : null,
-        marketMapRes.ok ? marketMapRes.json() : null,
-        strategicRes.ok ? strategicRes.json() : null,
-        peRes.ok ? peRes.json() : null,
-        recentRes.ok ? recentRes.json() : null,
-      ]);
-
-    const totalTime = performance.now() - startTime;
-    console.log(`[API] ✅ Overview data fetched in ${totalTime.toFixed(0)}ms`);
-
+  const cachedData = await getCachedSectorData(sectorId);
+  if (cachedData) {
+    const cacheMs = Math.round(performance.now() - startTime);
+    console.log(`[API] ⚡ Serving sector ${sectorId} from cache in ${cacheMs}ms`);
     return NextResponse.json({
-      sectorData,
-      splitDatasets: {
-        marketMap,
-        strategic,
-        pe,
-        recentTransactions,
-      },
-      serverFetchTime: totalTime,
+      ...(cachedData as object),
+      fromCache: true,
+      cacheMs,
     });
-  } catch (error) {
-    console.error('[API] ❌ Error fetching overview data:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch overview data' },
-      { status: 500 }
-    );
   }
+
+  console.log(`[API] ❌ Cache miss for sector ${sectorId} (cache-only, no live fetch)`);
+  return NextResponse.json(
+    {
+      error: 'Sector data is not available',
+      code: 'CACHE_MISS',
+      sectorId,
+    },
+    { status: 503 }
+  );
 }
