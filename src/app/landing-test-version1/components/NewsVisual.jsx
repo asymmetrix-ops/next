@@ -5,25 +5,20 @@ import React, { useRef } from "react";
 
 const ENTRANCE_EASE = [0.16, 1, 0.3, 1];
 
-// Illustrative only — fabricated news items, not real companies or events.
-// Mirrors the platform's News card design: sub-type tag, headline, About
-// text, byline, date. Update once the News card design is finalised.
+// Illustrative only — sample news items for the landing page visual.
+// Mirrors the platform's News card design: sub-type tag, headline, summary.
 const NEWS_ITEMS = [
   {
-    subType: "Funding News",
-    headline: "Fabricated Analytics Co. raises $40m Series C",
+    subType: "Sales Process",
+    headline: "VC buys data center intel business",
     about:
-      "About: the round values the company at $210m and will fund expansion into supply-chain data.",
-    byline: "by Asymmetrix News Desk",
-    date: "2 days ago",
+      "A fast-growing Data Center-focused B2B media and events company was valued at around GBP275m",
   },
   {
-    subType: "Personnel News",
-    headline: "Sample Data Group appoints new Chief Data Officer",
+    subType: "Fundraise",
+    headline: "RegTech firm weighs fundraise",
     about:
-      "About: the appointment follows the company's acquisition of a smaller ESG data provider earlier this year.",
-    byline: "by Asymmetrix News Desk",
-    date: "5 days ago",
+      "The RegTech firm is set to decide by early 2027 on its first external funding round in 14 years; full interview with its CEO published next week",
   },
 ];
 
@@ -63,10 +58,6 @@ function NewsCard({ item, index, revealed, reduceMotion }) {
       <p className="text-xs leading-relaxed" style={{ color: "#374151" }}>
         {item.about}
       </p>
-      <div className="flex items-center justify-between gap-3 text-xs" style={{ color: "#6b7280" }}>
-        <span>{item.byline}</span>
-        <span>{item.date}</span>
-      </div>
     </motion.div>
   );
 }
