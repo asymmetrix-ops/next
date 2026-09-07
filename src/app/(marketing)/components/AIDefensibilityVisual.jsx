@@ -19,7 +19,7 @@ const AXES = [
     label: "Data Moat",
     score: 2.4,
     blurb:
-      "The strongest data businesses own something a competitor cannot simply acquire elsewhere — proprietary, exclusively licensed, or generated through the company's own operations.",
+      "The strongest data businesses own something a competitor cannot simply acquire elsewhere: proprietary data, exclusively licensed data, or data generated through the company's own operations.",
   },
   {
     key: "replicability",
@@ -33,7 +33,7 @@ const AXES = [
     label: "Authority · Source of Truth",
     score: 2.1,
     blurb:
-      "Being the recognised reference point for a metric or dataset — the source others cite — is difficult for a generative model to displace.",
+      "Being the recognised reference point for a metric or dataset, the source others cite, is difficult for a generative model to displace.",
   },
   {
     key: "accuracy",
@@ -47,7 +47,7 @@ const AXES = [
     label: "Historical Data",
     score: 2.9,
     blurb:
-      "Long, consistently-collected time series are hard to backfill — a new entrant or AI tool cannot generate history that was never recorded.",
+      "Long, consistently-collected time series are hard to backfill. A new entrant or AI tool cannot generate history that was never recorded.",
   },
   {
     key: "decision_stakes",
@@ -61,7 +61,7 @@ const AXES = [
     label: "Human Judgement · Expert Commentary",
     score: 1.9,
     blurb:
-      "Analysis that depends on experienced judgement calls — not just pattern-matching on public data — is the slowest layer for AI to substitute.",
+      "Analysis that depends on experienced judgement calls, not just pattern-matching on public data, is the slowest layer for AI to substitute.",
   },
   {
     key: "workflow_moat",
@@ -266,7 +266,7 @@ export function AIDefensibilityVisual() {
             <span className="relative inline-flex size-2 rounded-full" style={{ background: "#536FF0" }} />
           </span>
           <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "#5A6272" }}>
-            AI Index · live
+            AI Defensibility Index
           </span>
         </div>
         <span

@@ -19,11 +19,11 @@ import { Reveal } from "./Reveal";
 const TABS = [
   {
     value: "ai-defensibility",
-    trigger: "AI Defensibility",
+    trigger: "AI Defensibility Index",
     label: "Defend",
-    heading: "AI Defensibility",
+    heading: "AI Defensibility Index",
     description:
-      "Asymmetrix's AI Exposure Index assesses individual data companies' AI risk exposure and defensibility. Our research reports analyse which business models AI disrupts, which it reinforces, and how this is reshaping valuations across the sector.",
+      "Asymmetrix's AI Defensibility Index assesses individual data companies' AI risk exposure and defensibility. Our research reports analyse which business models AI disrupts, which it reinforces, and how this is reshaping valuations across the sector.",
   },
   {
     value: "company-profiles",
@@ -64,7 +64,7 @@ const TABS = [
     label: "Track",
     heading: "Investors & Advisors",
     description:
-      "Follow the PE firms, venture investors and M&A advisors active in the space — their portfolios, mandates and deal history — so you always know who is transacting and who is advising them.",
+      "Follow the PE firms, venture investors and M&A advisors active in the space: their portfolios, mandates and deal history, so you always know who is transacting and who is advising them.",
     stat: { value: "3,636", caption: "Investors covered" },
   },
 ];
@@ -81,12 +81,13 @@ export function Coverage() {
             Coverage
           </p>
           <h2 className="mb-5 text-5xl font-bold md:mb-6 md:text-7xl lg:text-8xl">
-            All of the data tracked in one place
+            All of the data.
+            <br />
+            Tracked and in one place
           </h2>
           <p className="landing-text-secondary md:text-md">
             Asymmetrix monitors the full spectrum of the Data &amp; Analytics
-            market, from early-stage startups to public companies. These
-            features are exclusive to our clients.
+            market, from early-stage startups to public companies.
           </p>
         </Reveal>
         <Tabs

@@ -10,7 +10,7 @@ export const metadata = buildLandingMetadata({
   path: "/about-us",
   title: "About Us | Asymmetrix",
   description:
-    "Asymmetrix is the source of truth for the Data & Analytics universe — meet the team and the values behind the platform.",
+    "Asymmetrix is the source of truth for the Data & Analytics universe. Meet the team and the values behind the platform.",
 });
 
 export default function AboutUsPage() {

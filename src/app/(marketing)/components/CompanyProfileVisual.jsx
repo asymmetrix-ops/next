@@ -334,7 +334,7 @@ export function CompanyProfileVisual() {
       >
         <div className="mb-1 flex items-center justify-between gap-2">
           <span className="text-xs font-semibold" style={{ color: "#000B29" }}>
-            AI Defensibility
+            AI Defensibility Index
           </span>
           <span className="shrink-0 text-xs font-semibold" style={{ color: "#3E5EDC" }}>
             Strong · 2.4 / 3.0
