@@ -70,6 +70,7 @@ export const SEARCH_DASHBOARD_TABS_ROW: CSSProperties = {
   display: "flex",
   gap: 4,
   flexWrap: "wrap",
+  marginBottom: 18,
 };
 
 export const SEARCH_DASHBOARD_FILTER_SHELL: CSSProperties = {
