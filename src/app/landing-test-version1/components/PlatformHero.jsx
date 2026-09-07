@@ -7,6 +7,7 @@ import { CompanyGraphVisual } from "./CompanyGraphVisual";
 import { DashboardMockup } from "./DashboardMockup";
 import { DealRadarVisual } from "./DealRadarVisual";
 import { MarketAnalysisVisual } from "./MarketAnalysisVisual";
+import { NewsVisual } from "./NewsVisual";
 import { openCalendlyPopup } from "@/lib/calendlyWidget";
 
 const TABS = [
@@ -16,7 +17,7 @@ const TABS = [
     eyebrow: "Company Data",
     title: "Investment-grade intelligence, interlinked & proprietary",
     description:
-      "The deepest Data & Analytics market graph — covering every company, its funding history, leadership team and product focus, all richly interconnected.",
+      "The deepest Data & Analytics market graph, covering every company, its funding history, leadership team and product focus, all richly interconnected.",
   },
   {
     id: "deal-radar",
@@ -30,11 +31,11 @@ const TABS = [
   },
   {
     id: "ai-index",
-    label: "AI Index",
-    eyebrow: "AI Index",
+    label: "AI Defensibility Index",
+    eyebrow: "AI Defensibility Index",
     title: "Your lens on AI defensibility across Data & Analytics",
     description:
-      "The AI Exposure Index assesses individual companies' AI risk exposure and defensibility, so you can see which business models AI disrupts and which it reinforces.",
+      "The AI Defensibility Index assesses individual companies' AI risk exposure and defensibility, so you can see which business models AI disrupts and which it reinforces.",
     stat: { value: "89", caption: "Companies scored" },
     bars: [40, 65, 50, 85, 55],
   },
@@ -44,7 +45,18 @@ const TABS = [
     eyebrow: "Market Analysis",
     title: "Go beyond the data with research reports and market commentary",
     description:
-      "Understand what's driving valuations, consolidation and disruption across the Data & Analytics sector — straight from our research desk.",
+      "Understand what's driving valuations, consolidation and disruption across the Data & Analytics sector, straight from our research desk.",
+  },
+  // PENDING: built ahead of legal/insurance clearance, not to be published
+  // until confirmed. Headline, body copy and tab label are drafts awaiting
+  // PA / Jordan sign-off — do not merge to master until both are given.
+  {
+    id: "news",
+    label: "News",
+    eyebrow: "News",
+    title: "Company news and market headlines, as they break",
+    description:
+      "Track funding rounds, personnel moves and market headlines across Data & Analytics, classified and connected to our wider research.",
   },
 ];
 
@@ -82,7 +94,7 @@ export function PlatformHero({ topViewedArticles = [] }) {
                 Intelligence on the
                 <br />
                 <span className="landing-gradient-text sm:whitespace-nowrap">
-                  Data & Analytics Market
+                  Data & Analytics market
                 </span>
               </h1>
               <div
@@ -91,7 +103,7 @@ export function PlatformHero({ topViewedArticles = [] }) {
               >
                 Intelligence on the
                 <br />
-                <span className="sm:whitespace-nowrap">Data & Analytics Market</span>
+                <span className="sm:whitespace-nowrap">Data & Analytics market</span>
               </div>
             </div>
           </motion.div>
@@ -199,6 +211,8 @@ export function PlatformHero({ topViewedArticles = [] }) {
                   <AIDefensibilityVisual />
                 ) : content.id === "market-analysis" ? (
                   <MarketAnalysisVisual articles={topViewedArticles} />
+                ) : content.id === "news" ? (
+                  <NewsVisual />
                 ) : (
                   <DashboardMockup
                     label={content.eyebrow}

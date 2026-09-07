@@ -3,6 +3,10 @@
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import React, { useRef, useState } from "react";
 import { ContentTypeBadge } from "./ContentTypeBadge";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
+
+const CARD_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.3;
 
 const ENTRANCE_EASE = [0.16, 1, 0.3, 1];
 const FOCUS_SPRING = { type: "spring", stiffness: 260, damping: 30, mass: 0.9 };
@@ -16,20 +20,19 @@ function ReportCard({
   isDimmed,
   onFocus,
 }) {
-  const delayS = 0.35 + index * 0.12;
+  const delayS = 0.3 + index * 0.1;
 
   return (
     <motion.div
       role="article"
       tabIndex={0}
-      className={`landing-market-card flex h-full cursor-pointer flex-col gap-2 rounded-xl border p-4 outline-none md:p-5 ${
+      className={`landing-market-card flex cursor-pointer flex-col gap-3 rounded-xl border p-4 outline-none md:p-5 ${
         isFocused ? "is-focused" : ""
       } ${isDimmed ? "is-dimmed" : ""}`}
       initial={{ opacity: 0, y: motionEnabled ? 14 : 0 }}
       animate={{
         opacity: !revealed ? 0 : isDimmed ? 0.64 : 1,
-        y: motionEnabled && isFocused ? -4 : 0,
-        scale: motionEnabled && isFocused ? 1.012 : 1,
+        y: motionEnabled && isFocused ? -3 : 0,
       }}
       transition={
         revealed
@@ -41,14 +44,34 @@ function ReportCard({
       onMouseEnter={() => onFocus(index)}
       onFocus={() => onFocus(index)}
     >
-      <ContentTypeBadge contentType={report.tag} className="shrink-0" />
-      <p className="landing-market-card-title flex-1 text-sm font-bold leading-snug md:text-base">
-        {report.headline}
+      <div className="flex items-center justify-between gap-3">
+        <ContentTypeBadge contentType={report.tag} className="shrink-0" />
+        {report.meta ? (
+          <span className="landing-market-card-meta shrink-0 text-xs font-medium">
+            {report.meta}
+          </span>
+        ) : null}
+      </div>
+      <p className="landing-market-card-title flex items-center gap-2 text-base font-bold leading-snug md:text-lg">
+        <span>{report.headline}</span>
+        {report.countryIso2 ? (
+          <CountryFlagImg iso2={report.countryIso2} size={CARD_FLAG_SIZE_PX} />
+        ) : null}
       </p>
-      {report.meta ? (
-        <span className="landing-market-card-meta mt-auto shrink-0 text-xs">
-          {report.meta}
-        </span>
+      {report.strapline ? (
+        <p className="landing-market-card-strapline text-sm leading-relaxed">
+          {report.strapline}
+        </p>
+      ) : null}
+      {report.sectorName || report.byline ? (
+        <div className="landing-market-card-footer flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          {report.sectorName ? (
+            <span className="landing-market-card-sector rounded-full px-2.5 py-0.5 font-medium">
+              {report.sectorName}
+            </span>
+          ) : null}
+          {report.byline ? <span>{report.byline}</span> : null}
+        </div>
       ) : null}
     </motion.div>
   );
@@ -103,12 +126,12 @@ export function MarketAnalysisVisual({ articles = [] }) {
           <span className="relative inline-flex size-2 rounded-full" style={{ background: "#536FF0" }} />
         </span>
         <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "#5A6272" }}>
-          Research feed · weekly
+          Research feed · daily
         </span>
       </div>
 
       <div
-        className="landing-market-grid relative grid grid-cols-1 items-stretch gap-4 md:grid-cols-2"
+        className="landing-market-list relative flex flex-col gap-3"
         onMouseLeave={handleClearFocus}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -117,13 +140,13 @@ export function MarketAnalysisVisual({ articles = [] }) {
         }}
       >
         {reports.length === 0 ? (
-          <p className="col-span-full text-sm" style={{ color: "#8791A8" }}>
+          <p className="text-sm" style={{ color: "#8791A8" }}>
             Top research reports will appear here soon.
           </p>
         ) : (
           reports.map((report, index) => (
             <ReportCard
-              key={`${report.headline}-${index}`}
+              key={report.id ?? `${report.headline}-${index}`}
               report={report}
               index={index}
               revealed={revealed}

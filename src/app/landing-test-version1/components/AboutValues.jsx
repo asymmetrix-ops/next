@@ -53,6 +53,8 @@ export function AboutValues() {
             <img
               src="/icons/logo.svg"
               alt="Asymmetrix"
+              width={224}
+              height={224}
               className="relative z-10 size-40 md:size-56"
             />
           </div>

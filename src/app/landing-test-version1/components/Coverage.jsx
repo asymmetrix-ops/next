@@ -11,7 +11,6 @@ import { AIDefensibilityVisual } from "./AIDefensibilityVisual";
 import { CompanyProfileVisual } from "./CompanyProfileVisual";
 import { DashboardMockup } from "./DashboardMockup";
 import { DealRadarVisual } from "./DealRadarVisual";
-import { DealTrackingVisual } from "./DealTrackingVisual";
 import { FinancialBenchmarkVisual } from "./FinancialBenchmarkVisual";
 import { InvestorPortfolioVisual } from "./InvestorPortfolioVisual";
 import { Reveal } from "./Reveal";
@@ -19,11 +18,11 @@ import { Reveal } from "./Reveal";
 const TABS = [
   {
     value: "ai-defensibility",
-    trigger: "AI Defensibility",
+    trigger: "AI Defensibility Index",
     label: "Defend",
-    heading: "AI Defensibility",
+    heading: "AI Defensibility Index",
     description:
-      "Asymmetrix's AI Exposure Index assesses individual data companies' AI risk exposure and defensibility. Our research reports analyse which business models AI disrupts, which it reinforces, and how this is reshaping valuations across the sector.",
+      "Asymmetrix's AI Defensibility Index assesses individual data companies' AI risk exposure and defensibility. Our research reports analyse which business models AI disrupts, which it reinforces, and how this is reshaping valuations across the sector.",
   },
   {
     value: "company-profiles",
@@ -39,16 +38,7 @@ const TABS = [
     label: "Surface",
     heading: "Deal Radar",
     description:
-      "Know which Data & Analytics companies will transact before the rest of the market does. Asymmetrix provides proprietary intelligence on in-market companies and surfaces deal signals long before a process formally begins.",
-  },
-  {
-    value: "deal-tracking",
-    trigger: "Deal Tracking",
-    label: "Source",
-    heading: "Deal Tracking",
-    description:
-      "See in-market companies and live processes surfaced through proprietary deal signals, long before a transaction is formally announced.",
-    stat: { value: "5,708", caption: "Corporate events tracked" },
+      "Know which Data & Analytics companies will transact before the rest of the market does. Asymmetrix surfaces proprietary deal signals ahead of a formal process, then tracks every one of the 5,708+ corporate events it covers through to close.",
   },
   {
     value: "financial-intelligence",
@@ -64,7 +54,7 @@ const TABS = [
     label: "Track",
     heading: "Investors & Advisors",
     description:
-      "Follow the PE firms, venture investors and M&A advisors active in the space — their portfolios, mandates and deal history — so you always know who is transacting and who is advising them.",
+      "Follow the PE firms, venture investors and M&A advisors active in the space: their portfolios, mandates and deal history, so you always know who is transacting and who is advising them.",
     stat: { value: "3,636", caption: "Investors covered" },
   },
 ];
@@ -81,12 +71,13 @@ export function Coverage() {
             Coverage
           </p>
           <h2 className="mb-5 text-5xl font-bold md:mb-6 md:text-7xl lg:text-8xl">
-            All of the data tracked in one place
+            All of the data.
+            <br />
+            Tracked and in one place
           </h2>
           <p className="landing-text-secondary md:text-md">
             Asymmetrix monitors the full spectrum of the Data &amp; Analytics
-            market, from early-stage startups to public companies. These
-            features are exclusive to our clients.
+            market, from early-stage startups to public companies.
           </p>
         </Reveal>
         <Tabs
@@ -94,10 +85,10 @@ export function Coverage() {
           className="flex flex-col justify-center"
         >
           <div
-            className="landing-tab-scroll-wrap -mx-[5vw] flex justify-start overflow-x-auto px-[5vw] pb-1 md:mx-0 md:justify-center md:overflow-visible md:px-0 md:pb-0"
+            className="landing-tab-scroll-wrap -mx-[5vw] mb-12 flex justify-start overflow-x-auto px-[5vw] pb-1 md:mb-16 md:mx-0 md:justify-center md:overflow-visible md:px-0 md:pb-0"
             style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
           >
-            <TabsList className="landing-tab-track-list flex w-max shrink-0 items-center justify-start md:w-fit md:justify-center">
+            <TabsList className="landing-tab-track-list flex w-max shrink-0 items-center justify-start gap-2.5 md:w-fit md:justify-center">
               {TABS.map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -109,7 +100,7 @@ export function Coverage() {
               ))}
             </TabsList>
           </div>
-          <p className="landing-tab-scroll-hint mb-12">← swipe to see all features →</p>
+          <p className="landing-tab-scroll-hint">← swipe to see all features →</p>
           {TABS.map((tab) => (
             <TabsContent
               key={tab.value}
@@ -132,8 +123,6 @@ export function Coverage() {
                   <CompanyProfileVisual />
                 ) : tab.value === "deal-radar" ? (
                   <DealRadarVisual />
-                ) : tab.value === "deal-tracking" ? (
-                  <DealTrackingVisual />
                 ) : tab.value === "financial-intelligence" ? (
                   <FinancialBenchmarkVisual />
                 ) : tab.value === "ai-defensibility" ? (

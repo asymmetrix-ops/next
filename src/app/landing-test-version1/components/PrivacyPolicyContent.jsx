@@ -16,7 +16,7 @@ const SECTIONS = [
   {
     heading: "2. Information we collect",
     list: [
-      "Contact details you provide directly — such as your name, email address, phone number and company — when you submit a form (e.g. requesting a demo or contacting our team).",
+      "Contact details you provide directly, such as your name, email address, phone number and company, when you submit a form (e.g. requesting a demo or contacting our team).",
       "Usage data collected automatically, such as pages visited, referring URLs, device and browser type, and approximate location, typically via cookies and similar technologies.",
       "Communications you send us, including any information you choose to include in a message.",
     ],

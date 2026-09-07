@@ -15,7 +15,7 @@ export const metadata = buildLandingMetadata({
   path: "/landing-test-version1",
   title: "Asymmetrix | Data & Analytics Market Intelligence",
   description:
-    "Asymmetrix tracks 6,550+ Data & Analytics companies, 3,636 investors, 290 M&A advisors and 5,708 corporate events — proprietary intelligence on the deals, companies and people shaping the Data & Analytics industry.",
+    "Asymmetrix tracks 6,550+ Data & Analytics companies, 3,636 investors, 290 M&A advisors and 5,708 corporate events: proprietary intelligence on the deals, companies and people shaping the Data & Analytics industry.",
 });
 
 const ORGANIZATION_JSON_LD = {
@@ -42,7 +42,7 @@ const WEBSITE_JSON_LD = {
   name: "Asymmetrix",
   url: "https://www.asymmetrixintelligence.com",
   description:
-    "Intelligence on the Data & Analytics market — companies, investors, advisors and deals.",
+    "Intelligence on the Data & Analytics market: companies, investors, advisors and deals.",
 };
 
 export default async function LandingTestVersion1Page() {

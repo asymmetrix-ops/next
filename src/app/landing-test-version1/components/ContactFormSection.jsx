@@ -92,7 +92,7 @@ export function ContactFormSection() {
           <div className="landing-panel rounded-2xl p-6 md:p-8">
             {submitted ? (
               <div className="flex min-h-[320px] flex-col items-center justify-center text-center">
-                <h3 className="mb-2 text-2xl font-bold">Thanks — message sent</h3>
+                <h3 className="mb-2 text-2xl font-bold">Message sent. Thanks!</h3>
                 <p className="landing-text-secondary max-w-sm">
                   A member of the Asymmetrix team will get back to you shortly.
                 </p>
