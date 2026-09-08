@@ -487,12 +487,13 @@ function InsightsAnalysisPageContent() {
   const style = `
     * { box-sizing: border-box; }
     .ia-shell {
-      max-width: 100%;
       padding: 20px 20px 56px;
       display: flex;
       flex-direction: column;
       gap: 16px;
       width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
       font-family: ${T.sans};
     }
     .ia-eyebrow {
@@ -689,8 +690,11 @@ function InsightsAnalysisPageContent() {
     .ia-company-banner strong { color: #1F35C4; }
     .ia-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 16px;
+      width: 100%;
+      box-sizing: border-box;
+      align-items: stretch;
     }
     .ia-loading, .ia-empty {
       text-align: center;
@@ -749,21 +753,25 @@ function InsightsAnalysisPageContent() {
       outline: none;
     }
     .ia-pg-count { white-space: nowrap; }
-    @media (max-width: 1024px) {
-      .ia-grid { grid-template-columns: repeat(2, 1fr) !important; }
-    }
     @media (max-width: 768px) {
       .ia-grid { grid-template-columns: 1fr !important; }
       .ia-title-row { flex-direction: column !important; }
       .ia-shell { padding: 16px 12px 40px !important; }
     }
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .ia-grid { grid-template-columns: repeat(3, 1fr) !important; }
+    }
+    @media (min-width: 1025px) and (max-width: 1399px) {
+      .ia-grid { grid-template-columns: repeat(4, 1fr) !important; }
+    }
+    @media (min-width: 1400px) {
+      .ia-grid { grid-template-columns: repeat(5, 1fr) !important; }
+    }
   `;
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ width: "100%", maxWidth: "100vw", overflowX: "hidden", background: T.paper }}
-    >
+    <div className="min-h-screen" style={{ width: "100%", background: T.paper }}>
+      <style dangerouslySetInnerHTML={{ __html: style }} />
       <Header />
 
       <div className="ia-shell">
@@ -1014,7 +1022,6 @@ function InsightsAnalysisPageContent() {
       </div>
 
       <Footer />
-      <style dangerouslySetInnerHTML={{ __html: style }} />
     </div>
   );
 }
