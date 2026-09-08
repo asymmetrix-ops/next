@@ -1881,20 +1881,16 @@ export default function HomeUserPage() {
                     }}
                   >
                     <span
-                      className={`text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${
-                        href
-                          ? "text-gray-500 group-hover:text-blue-600"
-                          : "text-gray-500"
-                      } transition-colors`}
+                      className={`dash-stat-k transition-colors ${
+                        href ? "group-hover:text-blue-600" : ""
+                      }`}
                     >
                       {item.label}
                     </span>
                     <span
-                      className={`mt-1 text-lg font-semibold tabular-nums tracking-tight sm:text-xl ${
-                        href
-                          ? "text-gray-900 group-hover:text-blue-700"
-                          : "text-gray-900"
-                      } transition-colors`}
+                      className={`dash-stat-v mt-1 transition-colors ${
+                        href ? "group-hover:text-blue-700" : ""
+                      }`}
                     >
                       {formattedValue}
                     </span>
@@ -2216,7 +2212,7 @@ export default function HomeUserPage() {
                                   <div className="min-w-0">
                                     <a
                                       href={`/company/${item.companyId}`}
-                                      className="dash-company-link text-xs break-words hover:underline"
+                                      className="dash-company-link break-words hover:underline"
                                       onClick={(
                                         e: React.MouseEvent<HTMLAnchorElement>
                                       ) => {
@@ -2241,7 +2237,7 @@ export default function HomeUserPage() {
                                   {item.latestContent && (
                                     <a
                                       href={`/article/${item.latestContent.id}?from=home`}
-                                      className="block text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                      className="dash-rr"
                                       onClick={(
                                         e: React.MouseEvent<HTMLAnchorElement>
                                       ) => {
@@ -2309,7 +2305,7 @@ export default function HomeUserPage() {
                               </td>
                               <td className="px-2 py-3 text-center align-top">
                                 <span
-                                  className="dash-chip items-start px-2.5 py-1.5 text-xs leading-snug text-center"
+                                  className="dash-chip items-start px-2.5 py-1.5 leading-snug text-center"
                                   style={stageStyle.pill}
                                 >
                                   <span
@@ -2453,7 +2449,7 @@ export default function HomeUserPage() {
                               ) : null;
                             })()}
                           </div>
-                          <span className="text-xs text-gray-500 shrink-0">
+                          <span className="dash-ev-meta shrink-0">
                             {formatDate(article.Publication_Date)}
                           </span>
                         </div>
@@ -2461,7 +2457,7 @@ export default function HomeUserPage() {
                         <div className="mt-3 min-w-0">
                           <a
                             href={href}
-                            className="text-sm font-semibold text-gray-900 hover:text-blue-700 break-words hover:underline"
+                            className="dash-art-title break-words hover:underline"
                             onClick={(e) => {
                               if (
                                 e.defaultPrevented ||
@@ -2482,14 +2478,14 @@ export default function HomeUserPage() {
                         </div>
 
                         {article.Strapline ? (
-                          <p className="mt-2 text-xs leading-5 text-gray-600 line-clamp-3">
+                          <p className="dash-art-p mt-2 line-clamp-3">
                             {article.Strapline}
                           </p>
                         ) : null}
 
                         <a
                           href={href}
-                          className="go inline-flex items-center gap-1 mt-3 text-sm"
+                          className="go inline-flex items-center gap-1 mt-3"
                           onClick={(e) => {
                             if (
                               e.defaultPrevented ||
