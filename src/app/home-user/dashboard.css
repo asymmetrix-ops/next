@@ -101,6 +101,17 @@
   color: #523793;
 }
 
+.dash-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.014em;
+  color: var(--dash-ink);
+}
+
+.dash-card-title:hover {
+  color: var(--dash-blue-700);
+}
+
 .dash-eyebrow {
   display: inline-flex;
   align-items: center;
