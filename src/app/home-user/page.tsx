@@ -23,6 +23,7 @@ import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
 import {
   appendDealRadarItems,
   applyHqCountryIso2ToDealRadarItems,
+  getDealRadarContentCtaLabel,
   mapDealRadarItem,
   readHqCountryIso2,
   type DealRadarItem,
@@ -2234,9 +2235,9 @@ export default function HomeUserPage() {
                                       <CountryFlagImg iso2={item.hqCountryIso2} />
                                     </a>
                                   </div>
-                                  {item.latestContent && (
+                                  {item.contentCta && (
                                     <a
-                                      href={`/article/${item.latestContent.id}?from=home`}
+                                      href={`/article/${item.contentCta.id}?from=home`}
                                       className="dash-rr"
                                       onClick={(
                                         e: React.MouseEvent<HTMLAnchorElement>
@@ -2253,11 +2254,11 @@ export default function HomeUserPage() {
                                         }
                                         e.preventDefault();
                                         router.push(
-                                          `/article/${item.latestContent!.id}?from=home`
+                                          `/article/${item.contentCta!.id}?from=home`
                                         );
                                       }}
                                     >
-                                      Read our research
+                                      {getDealRadarContentCtaLabel(item.contentCta)}
                                     </a>
                                   )}
                                 </div>

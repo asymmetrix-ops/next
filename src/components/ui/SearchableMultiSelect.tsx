@@ -167,7 +167,7 @@ const SearchableMultiSelect = <T extends string | number>({
           >
             <path
               d="M3 4.5L6 7.5L9 4.5"
-              stroke="#4a5568"
+              stroke={disabled ? "#a0aec0" : "#4a5568"}
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"

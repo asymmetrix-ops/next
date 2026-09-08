@@ -132,6 +132,7 @@ const Header = () => {
     ? []
     : [
     "Dashboard",
+    "Deal Radar",
     "Companies",
     "Sectors",
     "Investors",
@@ -141,7 +142,6 @@ const Header = () => {
     "Insights & Analysis",
     "Financials",
     "Financial Intelligence",
-    "Deal Radar",
     "My Portfolio",
     "Settings",
   ];

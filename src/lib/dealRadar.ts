@@ -3,6 +3,13 @@ export type DealRadarSector = {
   name: string;
 };
 
+export type DealRadarContentCta = {
+  id: number;
+  label: string;
+  contentType: string;
+  publicationDate: string;
+};
+
 export type DealRadarLatestContent = {
   id: number;
   headline: string;
@@ -16,7 +23,7 @@ export type DealRadarItem = {
   hqCountryIso2: string | null;
   transactionStatus: string;
   primarySectors: DealRadarSector[];
-  latestContent: DealRadarLatestContent | null;
+  contentCta: DealRadarContentCta | null;
 };
 
 export const COUNTRY_FLAG_CDN_BASE =
@@ -189,6 +196,47 @@ const mapDealRadarLatestContent = (
     contentType,
     publicationDate,
   };
+};
+
+const mapDealRadarContentCta = (value: unknown): DealRadarContentCta | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const id = Number(record.id);
+  const label = String(record.label || "").trim();
+  const contentType = String(
+    record.content_type || record.Content_Type || record.contentType || ""
+  ).trim();
+  const publicationDate = String(
+    record.publication_date ||
+      record.Publication_Date ||
+      record.publicationDate ||
+      ""
+  ).trim();
+
+  if (!Number.isFinite(id) || id <= 0) {
+    return null;
+  }
+
+  return {
+    id,
+    label,
+    contentType,
+    publicationDate,
+  };
+};
+
+export const getDealRadarContentCtaLabel = (
+  cta: Pick<DealRadarContentCta, "label" | "contentType">
+): string => {
+  const label = cta.label?.trim();
+  if (label) return label;
+  if (cta.contentType.toLowerCase().trim() === "news") {
+    return "Read our News";
+  }
+  return "Read our Research";
 };
 
 /** Append a page of results without duplicate companies (by companyId). */
@@ -516,6 +564,20 @@ export const mapDealRadarItem = (raw: Record<string, unknown>): DealRadarItem =>
   const companyId = Number(raw.company_id);
   const primarySectorsRaw =
     raw.primary_sectors ?? raw.Primary_sectors ?? raw.primarySectors;
+  const contentCta =
+    mapDealRadarContentCta(raw.content_cta ?? raw.contentCta) ??
+    (() => {
+      const latestContent = mapDealRadarLatestContent(
+        raw.latest_content ?? raw.latestContent
+      );
+      if (!latestContent) return null;
+      return {
+        id: latestContent.id,
+        label: "",
+        contentType: latestContent.contentType,
+        publicationDate: latestContent.publicationDate,
+      };
+    })();
 
   return {
     companyId: Number.isFinite(companyId) ? companyId : 0,
@@ -523,8 +585,6 @@ export const mapDealRadarItem = (raw: Record<string, unknown>): DealRadarItem =>
     hqCountryIso2: readHqCountryIso2(raw),
     transactionStatus: String(raw.transaction_status || "").trim(),
     primarySectors: mapDealRadarPrimarySectors(primarySectorsRaw),
-    latestContent: mapDealRadarLatestContent(
-      raw.latest_content ?? raw.latestContent
-    ),
+    contentCta,
   };
 };
