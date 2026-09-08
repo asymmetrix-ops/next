@@ -43,11 +43,16 @@ export const T = {
     "0 4px 10px rgba(16, 28, 70, 0.07), 0 20px 48px rgba(16, 28, 70, 0.10)",
 } as const;
 
-/** Card header title — matches LinkedH / Overview / Description. */
+/** Card header title — matches LinkedH / Overview / Description.
+ * 14.5px/700/-0.014em confirmed against both CompanyProfile.html and
+ * CompanyFinancials.html's `.card>header h2` (also matches Dashboard.html's
+ * 15px/700 card-header convention closely) — this is the app-wide card
+ * header size, not a Company-Profile-specific one. */
 export const CARD_TITLE_STYLE: React.CSSProperties = {
   fontFamily: T.sans,
-  fontSize: 13.5,
-  fontWeight: 600,
+  fontSize: 14.5,
+  fontWeight: 700,
+  letterSpacing: "-0.014em",
   color: T.ink,
   lineHeight: 1.25,
   whiteSpace: "nowrap",
@@ -70,23 +75,25 @@ export const CARD_HEADER_BAR_STYLE: React.CSSProperties = {
 /** Overview KV label column width. */
 export const KV_LABEL_COL = "minmax(118px, auto)";
 
-/** Overview-aligned row label (field names). */
+/** Overview-aligned row label (field names). Matches CompanyProfile.html's
+ * `.kv>dt` (12.5px/500/muted). */
 export const kvLabelStyle: React.CSSProperties = {
   color: T.muted,
   fontFamily: T.sans,
-  fontSize: 13,
-  fontWeight: 400,
+  fontSize: 12.5,
+  fontWeight: 500,
   lineHeight: 1.35,
 };
 
-/** Overview-aligned row value. */
+/** Overview-aligned row value. Matches CompanyProfile.html's `.kv>dd`
+ * (12.5px/600). */
 export const kvValueStyle: React.CSSProperties = {
   color: T.body,
   fontFamily: T.sans,
   fontVariantNumeric: "tabular-nums",
-  fontSize: 13,
+  fontSize: 12.5,
   lineHeight: 1.55,
-  fontWeight: 400,
+  fontWeight: 600,
 };
 
 /** Description card body — shared reference for Financial Metrics values. */
