@@ -172,6 +172,9 @@ export const finMetricRowStyle: React.CSSProperties = {
 
 export const finMetricLabelStyle: React.CSSProperties = {
   ...kvLabelStyle,
+  // Summary-tab compact metrics table (Financial/Subscription Metrics cards)
+  // specs 12.5px body text — smaller than the shared KV row's 13px.
+  fontSize: 12.5,
   whiteSpace: "nowrap",
   textAlign: "left",
   justifySelf: "start",
@@ -180,6 +183,9 @@ export const finMetricLabelStyle: React.CSSProperties = {
 /** Source column in data rows — centered under the period header. */
 export const finMetricSourceColStyle: React.CSSProperties = {
   ...kvLabelStyle,
+  // Summary-tab compact metrics table source column: 11px / 500.
+  fontSize: 11,
+  fontWeight: 500,
   textAlign: "center",
   whiteSpace: "nowrap",
   justifySelf: "stretch",
@@ -200,6 +206,8 @@ export const finMetricPeriodSourceColStyle: React.CSSProperties = {
 /** Numeric / currency values in Financial, Subscription, and Income Statement tabs. */
 export const finMetricValueStyle: React.CSSProperties = {
   ...descriptionBodyStyle,
+  // Summary-tab compact metrics table value: 12.5px (vs. shared 13px body text).
+  fontSize: 12.5,
   fontWeight: 700,
   color: T.ink,
   fontVariantNumeric: "tabular-nums",

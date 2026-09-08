@@ -147,7 +147,7 @@ function SourceLegend({
                   style={{
                     fontFamily: T.sans,
                     fontSize: 13,
-                    fontWeight: 600,
+                    fontWeight: 700,
                     color: T.ink,
                   }}
                 >
@@ -246,8 +246,8 @@ function SourceCell({ sourceType }: { sourceType: FiMetricSourceType | null }) {
     <span
       style={{
         fontFamily: T.sans,
-        fontSize: 13,
-        fontWeight: 500,
+        fontSize: 11.5,
+        fontWeight: 600,
         color: T.muted,
         textAlign: "center",
         whiteSpace: "nowrap",
