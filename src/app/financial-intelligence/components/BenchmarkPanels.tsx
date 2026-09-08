@@ -508,9 +508,9 @@
           >
             <div
               style={{
-                fontSize: 10.5,
-                fontWeight: 700,
-                letterSpacing: "0.1em",
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: "0.09em",
                 textTransform: "uppercase",
                 color: "rgba(255,255,255,0.6)",
               }}
@@ -520,7 +520,7 @@
             <CompositePercentileInfoTooltip />
           </div>
           {targetName != null && peerCount != null && (
-            <div style={{ fontSize: "var(--fs-12)", color: "rgba(255,255,255,0.7)", marginTop: 2 }}>
+            <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>
               {targetName} vs {peerCount} peers
             </div>
           )}
@@ -530,6 +530,7 @@
             style={{
               fontSize: "var(--fs-40)",
               fontWeight: 800,
+              letterSpacing: "-0.03em",
               lineHeight: 1,
               fontVariantNumeric: "tabular-nums",
             }}
@@ -537,7 +538,7 @@
             {compositePercentile ?? "—"}
           </span>
           {compositePercentile != null && (
-            <span style={{ fontSize: "var(--fs-16)", fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>
               / 100
             </span>
           )}
@@ -611,7 +612,7 @@
                 <div
                   style={{
                     fontSize: "var(--fs-13)",
-                    fontWeight: 600,
+                    fontWeight: 700,
                     color: "var(--fg-3)",
                   }}
                 >
@@ -633,8 +634,8 @@
                   format={metric.format}
                   sourceType={metric.targetSourceType}
                   fontWeight={800}
-                  fontSize={30}
-                  letterSpacing="-0.028em"
+                  fontSize={26}
+                  letterSpacing="-0.024em"
                   justify="flex-start"
                   hiddenBySourceFilter={
                     hasActiveSourceFilter && metric.targetValue == null
@@ -644,8 +645,8 @@
                 {medianText != null && (
                   <span
                     style={{
-                      fontSize: "var(--fs-13)",
-                      fontWeight: 500,
+                      fontSize: 12.5,
+                      fontWeight: 400,
                       color: "var(--fg-3)",
                     }}
                   >
@@ -716,9 +717,9 @@
     };
 
     const th: React.CSSProperties = {
-      fontSize: 10.5,
-      fontWeight: 700,
-      letterSpacing: "0.06em",
+      fontSize: 10,
+      fontWeight: 800,
+      letterSpacing: "0.09em",
       textTransform: "uppercase",
       color: "var(--fg-3)",
       fontFamily: FONT,

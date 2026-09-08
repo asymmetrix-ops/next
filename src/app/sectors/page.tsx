@@ -503,7 +503,7 @@ const SectorsSection = () => {
               border: `1px solid ${BLUE_100}`,
               fontSize: 11,
               fontWeight: 800,
-              letterSpacing: "0.08em",
+              letterSpacing: "0.09em",
               textTransform: "uppercase",
               color: BLUE_600,
             }}
