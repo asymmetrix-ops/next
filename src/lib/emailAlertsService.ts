@@ -37,7 +37,7 @@ const EMAIL_ALERTS_META: EmailAlertsMeta = {
       { value: "insights_analysis", label: "Insights & Analysis" },
       { value: "deal_radar", label: "Deal Radar" },
       { value: "news", label: "News" },
-      { value: "digest", label: "Corporate Events, Insights & Analysis, and Deal Radar" },
+      { value: "digest", label: "All types" },
     ],
     email_frequency: [
       { value: "as_added", label: "As they are added to platform" },

@@ -330,7 +330,7 @@ export default function SettingsPage() {
                   />
                   <div>
                     <p className="text-gray-900 font-medium">
-                      Send Corporate Events, Insights &amp; Analysis, and Deal Radar together
+                      Send All types together
                     </p>
                     <p className="text-gray-600 text-sm">
                       Available because both are set to{" "}
