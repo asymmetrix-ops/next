@@ -146,7 +146,7 @@ export function SearchListTabs({
               }}
             />
             {tab.label}
-            <span style={{ fontSize: 12, opacity: 0.75 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, opacity: 0.75 }}>
               {tab.count.toLocaleString()}
             </span>
           </button>
