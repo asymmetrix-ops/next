@@ -2742,7 +2742,7 @@ export function CompaniesFilterBar({
           <span style={{ flex: 1 }} />
           <span
             style={{
-              fontSize: "var(--fs-12)",
+              fontSize: "var(--fs-13)",
               color: "var(--fg-3)",
               display: "inline-flex",
               alignItems: "center",

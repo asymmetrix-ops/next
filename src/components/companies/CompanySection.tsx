@@ -370,7 +370,7 @@ const OwnershipChip = ({ value }: { value: string }) => {
         background: tone.bg,
         color: tone.fg,
         fontSize: 12,
-        fontWeight: 700,
+        fontWeight: 600,
         whiteSpace: "nowrap",
       }}
     >

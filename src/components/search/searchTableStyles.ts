@@ -284,8 +284,8 @@ export const SEARCH_TABLE_STYLES = `
       overflow: hidden;
     }
     .company-table-entity-name {
-      font-weight: 600;
-      font-size: 14px;
+      font-weight: 700;
+      font-size: 13.5px;
       color: #0A0E1A;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -300,7 +300,7 @@ export const SEARCH_TABLE_STYLES = `
       color: #0A0E1A;
     }
     .company-table-entity-subtitle {
-      font-size: 12px;
+      font-size: 11.5px;
       color: #8A93A8;
       margin-top: 2px;
       overflow: hidden;
@@ -469,6 +469,8 @@ export const SEARCH_TABLE_STYLES = `
       flex: 1 1 auto;
       word-break: break-word;
       overflow-wrap: break-word;
+      font-size: 12.5px;
+      line-height: 1.5;
     }
     .company-long-text-content-clamped {
       display: -webkit-box;
@@ -489,7 +491,7 @@ export const SEARCH_TABLE_STYLES = `
       text-decoration: underline;
       cursor: pointer;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 600;
       white-space: nowrap;
     }
     .company-description-truncated {

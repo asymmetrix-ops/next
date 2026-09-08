@@ -172,7 +172,8 @@ export function SearchEntityMultiValueCell({
 export const SEARCH_MULTI_VALUE_STYLES = `
   .search-multi-value-cell {
     display: inline;
-    line-height: 1.4;
+    font-size: 12.5px;
+    line-height: 1.6;
     white-space: normal;
     word-break: break-word;
     overflow-wrap: break-word;
