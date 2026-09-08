@@ -188,9 +188,10 @@ function ArticleRow({
         {headline ? (
           <div
             style={{
-              fontSize: 13.5,
-              fontWeight: 600,
-              lineHeight: 1.4,
+              fontSize: 14,
+              fontWeight: 700,
+              letterSpacing: "-0.012em",
+              lineHeight: 1.35,
               color: T.ink,
               marginBottom: strapline ? 6 : 0,
             }}
