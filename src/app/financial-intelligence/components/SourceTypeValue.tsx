@@ -113,6 +113,7 @@ export function SourceColoredValue({
   format,
   fontWeight = 600,
   fontSize,
+  letterSpacing,
   justify = "flex-end",
   hiddenBySourceFilter = false,
   displayCurrencyCode,
@@ -123,6 +124,7 @@ export function SourceColoredValue({
   sourceType?: FiMetricSourceType | string | null;
   fontWeight?: number;
   fontSize?: number | string;
+  letterSpacing?: number | string;
   justify?: "flex-start" | "flex-end" | "center";
   hiddenBySourceFilter?: boolean;
   displayCurrencyCode?: string;
@@ -161,6 +163,7 @@ export function SourceColoredValue({
         color,
         fontWeight,
         fontSize,
+        letterSpacing,
         fontVariantNumeric: "tabular-nums",
       }}
     >

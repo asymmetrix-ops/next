@@ -718,7 +718,7 @@ export default function FinancialIntelligencePage() {
                 fontSize: 11,
                 fontWeight: 800,
                 color: "var(--ax-cyan-600)",
-                letterSpacing: "0.08em",
+                letterSpacing: "0.09em",
                 textTransform: "uppercase",
               }}
             >
