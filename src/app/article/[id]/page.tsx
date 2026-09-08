@@ -301,6 +301,7 @@ const styles = {
     marginBottom: "12px",
     marginTop: "0px",
     lineHeight: "1.3",
+    letterSpacing: "-0.02em",
   },
   date: {
     fontSize: "16px",
@@ -311,14 +312,14 @@ const styles = {
   strapline: {
     fontSize: "18px",
     color: "#3D4657",
-    lineHeight: "1.6",
+    lineHeight: "1.55",
     marginBottom: "32px",
     fontStyle: "italic",
   },
   body: {
     fontSize: "16px",
     color: "#3D4657",
-    lineHeight: "1.7",
+    lineHeight: "1.6",
     marginBottom: "32px",
   },
   section: {
@@ -326,9 +327,11 @@ const styles = {
   },
   sectionTitle: {
     fontSize: "20px",
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#0A0E1A",
     marginBottom: "16px",
+    lineHeight: "1.35",
+    letterSpacing: "-0.014em",
   },
   tagContainer: {
     display: "flex",
@@ -421,7 +424,7 @@ const styles = {
   backButton: {
     backgroundColor: "#2A46EA",
     color: "white",
-    fontWeight: "600",
+    fontWeight: "700",
     padding: "12px 24px",
     borderRadius: "6px",
     border: "none",
@@ -439,7 +442,7 @@ const styles = {
     columnGap: "8px",
     padding: "8px 0",
     borderBottom: "1px solid #E4E8F2",
-    fontSize: "15px",
+    fontSize: "14px",
   },
   label: {
     fontWeight: 600,
@@ -1717,7 +1720,7 @@ const ArticleDetailPage = () => {
                     style={{
                       backgroundColor: "#0F7040",
                       color: "white",
-                      fontWeight: 600,
+                      fontWeight: 700,
                       padding: "10px 14px",
                       borderRadius: 6,
                       border: "none",
