@@ -2139,12 +2139,7 @@ export default function HomeUserPage() {
                   side="right"
                 >
                   <span className="flex items-center gap-2">
-                    <h2
-                      className="text-base font-semibold text-gray-900 sm:text-lg"
-                      style={{ fontWeight: "600" }}
-                    >
-                      Deal Radar
-                    </h2>
+                    <h2 className="dash-card-title">Deal Radar</h2>
                     <span className="dash-eyebrow">Live</span>
                   </span>
                 </NewFeatureCallout>
@@ -2394,8 +2389,7 @@ export default function HomeUserPage() {
                 </div>
                 <a
                   href="/insights-analysis"
-                  className="flex items-center gap-2 text-base font-semibold text-gray-900 hover:text-blue-700 sm:text-lg"
-                  style={{ fontWeight: "600" }}
+                  className="dash-card-title flex items-center gap-2"
                 >
                   Insights &amp; Analysis
                   <span className="dash-eyebrow">Weekly</span>
@@ -2551,8 +2545,7 @@ export default function HomeUserPage() {
                 </div>
                 <a
                   href="/corporate-events"
-                  className="flex items-center gap-2 text-base font-semibold text-gray-900 hover:text-blue-700 sm:text-lg"
-                  style={{ fontWeight: "600" }}
+                  className="dash-card-title flex items-center gap-2"
                 >
                   Corporate Events
                   <span className="dash-eyebrow">Last 7 days</span>
