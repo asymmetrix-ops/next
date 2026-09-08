@@ -295,13 +295,13 @@ const styles = {
     marginBottom: "0",
   },
   heading: {
-    fontSize: "28px",
-    fontWeight: "700",
+    fontSize: "30px",
+    fontWeight: "800",
     color: "#0A0E1A",
     marginBottom: "12px",
     marginTop: "0px",
-    lineHeight: "1.3",
-    letterSpacing: "-0.02em",
+    lineHeight: "1.2",
+    letterSpacing: "-0.028em",
   },
   date: {
     fontSize: "16px",
@@ -310,27 +310,39 @@ const styles = {
     fontWeight: "500",
   },
   strapline: {
-    fontSize: "18px",
+    fontSize: "16px",
     color: "#3D4657",
     lineHeight: "1.55",
     marginBottom: "32px",
     fontStyle: "italic",
   },
   body: {
-    fontSize: "16px",
+    fontSize: "14px",
     color: "#3D4657",
-    lineHeight: "1.6",
+    lineHeight: "1.72",
     marginBottom: "32px",
   },
   section: {
     marginBottom: "24px",
   },
+  // Main-article prose sub-headings ("Images", "Related Documents") --
+  // matches ReportDetail.html's .prose h2 (19px/800/-0.02em).
   sectionTitle: {
-    fontSize: "20px",
+    fontSize: "19px",
+    fontWeight: "800",
+    color: "#0A0E1A",
+    marginBottom: "16px",
+    letterSpacing: "-0.02em",
+  },
+  // Sidebar card headers ("Published", "Company overview", "Companies",
+  // "Sectors", etc.) -- matches ReportDetail.html's .card>header h2
+  // (14.5px/700/-0.014em), a distinct, smaller size from the in-article
+  // prose headings above.
+  cardSectionTitle: {
+    fontSize: "14.5px",
     fontWeight: "700",
     color: "#0A0E1A",
     marginBottom: "16px",
-    lineHeight: "1.35",
     letterSpacing: "-0.014em",
   },
   tagContainer: {
@@ -442,7 +454,7 @@ const styles = {
     columnGap: "8px",
     padding: "8px 0",
     borderBottom: "1px solid #E4E8F2",
-    fontSize: "14px",
+    fontSize: "12.5px",
   },
   label: {
     fontWeight: 600,
@@ -1689,7 +1701,7 @@ const ArticleDetailPage = () => {
           <div style={styles.card} className="article-meta">
             {/* Publication Date */}
             <div style={styles.section}>
-              <h2 style={styles.sectionTitle}>Published</h2>
+              <h2 style={styles.cardSectionTitle}>Published</h2>
               <div
                 style={{
                   display: "flex",
@@ -1872,7 +1884,7 @@ const ArticleDetailPage = () => {
                     >
                       <h2
                         style={{
-                          ...styles.sectionTitle,
+                          ...styles.cardSectionTitle,
                           marginBottom: "12px",
                         }}
                       >
@@ -2085,7 +2097,7 @@ const ArticleDetailPage = () => {
                     >
                       <h2
                         style={{
-                          ...styles.sectionTitle,
+                          ...styles.cardSectionTitle,
                           marginBottom: "12px",
                         }}
                       >
@@ -2186,7 +2198,7 @@ const ArticleDetailPage = () => {
                       <div>
                         <div
                           style={{
-                            ...styles.sectionTitle,
+                            ...styles.cardSectionTitle,
                             marginBottom: 8,
                           }}
                         >
@@ -2223,7 +2235,7 @@ const ArticleDetailPage = () => {
                       <div>
                         <div
                           style={{
-                            ...styles.sectionTitle,
+                            ...styles.cardSectionTitle,
                             marginBottom: 8,
                           }}
                         >
@@ -2260,7 +2272,7 @@ const ArticleDetailPage = () => {
                       <div>
                         <div
                           style={{
-                            ...styles.sectionTitle,
+                            ...styles.cardSectionTitle,
                             marginBottom: 8,
                           }}
                         >
@@ -2310,7 +2322,7 @@ const ArticleDetailPage = () => {
                 >
                   <h2
                     style={{
-                      ...styles.sectionTitle,
+                      ...styles.cardSectionTitle,
                       marginBottom: 0,
                     }}
                   >
@@ -2376,7 +2388,7 @@ const ArticleDetailPage = () => {
             {/* Sectors Section */}
             {article.sectors && article.sectors.length > 0 && (
               <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>Sectors</h2>
+                <h2 style={styles.cardSectionTitle}>Sectors</h2>
                 <div style={styles.tagContainer}>
                   {article.sectors.map((sector) => {
                     const sid = getSectorId(sector);
@@ -2427,7 +2439,7 @@ const ArticleDetailPage = () => {
               }
               return (
                 <div style={styles.section}>
-                  <h2 style={styles.sectionTitle}>Related Corporate Event</h2>
+                  <h2 style={styles.cardSectionTitle}>Related Corporate Event</h2>
                   <div style={styles.tagContainer}>
                     {events.map((ev, idx) => {
                       const id = ev?.id;
