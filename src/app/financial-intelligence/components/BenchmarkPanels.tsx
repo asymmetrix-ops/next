@@ -632,8 +632,9 @@
                   value={metric.targetValue}
                   format={metric.format}
                   sourceType={metric.targetSourceType}
-                  fontWeight={700}
-                  fontSize="var(--fs-28)"
+                  fontWeight={800}
+                  fontSize={30}
+                  letterSpacing="-0.028em"
                   justify="flex-start"
                   hiddenBySourceFilter={
                     hasActiveSourceFilter && metric.targetValue == null
