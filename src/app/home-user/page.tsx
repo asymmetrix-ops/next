@@ -614,8 +614,7 @@ export default function HomeUserPage() {
     hqCountryIso2?: string | null;
   };
 
-  const partyLinkClassName =
-    "text-blue-600 underline hover:text-blue-800";
+  const partyLinkClassName = "dash-ev-link";
 
   const renderPartyEntityInline = (entity: EntityRef): React.ReactNode => {
     const href = normalizeEntityHref(entity);
@@ -2598,12 +2597,7 @@ export default function HomeUserPage() {
                               return (
                                 <a
                                   href={safeHref}
-                                  className="flex-1 text-sm font-medium text-blue-600 underline break-words hover:text-blue-800"
-                                  style={{
-                                    textDecoration: "underline",
-                                    color: "#0075df",
-                                    fontWeight: "500",
-                                  }}
+                                  className="dash-ev-title flex-1 break-words"
                                   onClick={(e) => {
                                     if (
                                       e.defaultPrevented ||
@@ -2624,7 +2618,7 @@ export default function HomeUserPage() {
                               );
                             })()}
                           </div>
-                          <div className="space-y-1 text-xs text-gray-500">
+                          <div className="space-y-1 dash-ev-kv">
                             <div>
                               <strong>Date:</strong>{" "}
                               {(() => {
@@ -2954,7 +2948,7 @@ export default function HomeUserPage() {
                                       <span key={`m-primary-${s.id}`}>
                                         <a
                                           href={`/sector/${s.id}`}
-                                          className="text-blue-600 underline hover:text-blue-800"
+                                          className="dash-ev-link"
                                           style={{ fontWeight: "500" }}
                                         >
                                           {s.name}
@@ -3025,7 +3019,7 @@ export default function HomeUserPage() {
                                       <span key={`m-secondary-${s.id}`}>
                                         <a
                                           href={`/sub-sector/${s.id}`}
-                                          className="text-blue-600 underline hover:text-blue-800"
+                                          className="dash-ev-link"
                                           style={{ fontWeight: "500" }}
                                         >
                                           {s.name}
@@ -3089,7 +3083,7 @@ export default function HomeUserPage() {
                             <tr
                               key={eid ?? `ev-row-${idx}`}
                             >
-                              <td className="px-4 py-4 max-w-xs text-xs text-gray-900">
+                              <td className="px-4 py-4 max-w-xs">
                                 <div className="mb-2">
                                   {(() => {
                                     const safeHref = eid
@@ -3102,12 +3096,7 @@ export default function HomeUserPage() {
                                     return (
                                       <a
                                         href={safeHref}
-                                        className="font-medium text-blue-600 underline break-words hover:text-blue-800"
-                                        style={{
-                                          textDecoration: "underline",
-                                          color: "#0075df",
-                                          fontWeight: "500",
-                                        }}
+                                        className="dash-ev-title break-words"
                                         onClick={(e) => {
                                           if (
                                             e.defaultPrevented ||
@@ -3127,13 +3116,13 @@ export default function HomeUserPage() {
                                     );
                                   })()}
                                 </div>
-                                <div className="mb-1 text-xs text-gray-500">
+                                <div className="mb-1 dash-ev-meta">
                                   Date: {formatDate(
                                     ev.date || event.announcement_date
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-4 text-xs text-gray-900">
+                              <td className="px-4 py-4">
                                 {/* Parties column */}
                                 {(() => {
                                   const isPartnership =
@@ -3204,7 +3193,7 @@ export default function HomeUserPage() {
                                   return (
                                     <div className="space-y-1">
                                       {displayTargets.length > 0 ? (
-                                        <div className="text-xs text-gray-500">
+                                        <div className="dash-ev-kv">
                                           <strong>
                                             {isPartnership
                                               ? "Target(s):"
@@ -3220,7 +3209,7 @@ export default function HomeUserPage() {
                                           })}
                                         </div>
                                       ) : targetName ? (
-                                        <div className="text-xs text-gray-500">
+                                        <div className="dash-ev-kv">
                                           <strong>
                                             {isPartnership
                                               ? "Target(s):"
@@ -3235,7 +3224,7 @@ export default function HomeUserPage() {
                                       ) : null}
 
                                       {buyersArr.length > 0 && (
-                                        <div className="text-xs text-gray-500">
+                                        <div className="dash-ev-kv">
                                           <strong>Buyer(s):</strong>{" "}
                                           {dedupeById(buyersArr).map(
                                             (b, i, arr) => {
@@ -3251,7 +3240,7 @@ export default function HomeUserPage() {
                                       )}
 
                                       {investorsArr.length > 0 && (
-                                        <div className="text-xs text-gray-500">
+                                        <div className="dash-ev-kv">
                                           <strong>Investor(s):</strong>{" "}
                                           {dedupeById(investorsArr).map(
                                             (inv, i, arr) => {
@@ -3270,7 +3259,7 @@ export default function HomeUserPage() {
                                         investorsArr.length === 0 &&
                                         (buyersInvestorsCombined.length > 0 ||
                                           legacyCombinedNames.length > 0) && (
-                                          <div className="text-xs text-gray-500">
+                                          <div className="dash-ev-kv">
                                             <strong>
                                               Buyer(s) / Investor(s):
                                             </strong>{" "}
@@ -3290,7 +3279,7 @@ export default function HomeUserPage() {
                                         )}
 
                                       {sellersNew.length > 0 && (
-                                        <div className="text-xs text-gray-500">
+                                        <div className="dash-ev-kv">
                                           <strong>Seller(s):</strong>{" "}
                                           {dedupeById(sellersNew).map(
                                             (s, i, arr) => {
@@ -3306,7 +3295,7 @@ export default function HomeUserPage() {
                                       )}
 
                                       {advisors.length > 0 && (
-                                        <div className="text-xs text-gray-500">
+                                        <div className="dash-ev-kv">
                                           <strong>Advisor(s):</strong>{" "}
                                           {advisors.join(", ")}
                                         </div>
@@ -3315,7 +3304,7 @@ export default function HomeUserPage() {
                                   );
                                 })()}
                               </td>
-                              <td className="px-4 py-4 text-xs text-gray-900">
+                              <td className="px-4 py-4">
                                 {/* Deal Details column */}
                                 {(() => {
                                   const details = safeParseJson<{
@@ -3433,35 +3422,44 @@ export default function HomeUserPage() {
                                     valuationFromDetails || valuationFallback;
 
                                   return (
-                                    <div className="space-y-1">
+                                    <div className="space-y-1.5">
                                       {dealType && (
-                                        <div className="text-xs text-gray-500">
-                                          <strong>Type:</strong> {dealType}
+                                        <div className="dash-ev-kv">
+                                          <strong>Type</strong>{" "}
+                                          <span className="dash-chip-neutral">
+                                            {dealType}
+                                          </span>
                                         </div>
                                       )}
                                       {fundingStage && (
-                                        <div className="text-xs text-gray-500">
-                                          <strong>Deal Stage:</strong>{" "}
-                                          <span className="inline-block px-2 py-0.5 ml-1 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">
+                                        <div className="dash-ev-kv">
+                                          <strong>Stage</strong>{" "}
+                                          <span className="dash-chip-pos">
                                             {fundingStage}
                                           </span>
                                         </div>
                                       )}
                                       {amount && (
-                                        <div className="text-xs text-gray-500">
-                                          <strong>Amount (m):</strong> {amount}
+                                        <div className="dash-ev-kv">
+                                          <strong>Amount</strong>{" "}
+                                          <span className="dash-ev-num">
+                                            {amount}
+                                          </span>
                                         </div>
                                       )}
                                       {valuation && (
-                                        <div className="text-xs text-gray-500">
-                                          <strong>EV (m):</strong> {valuation}
+                                        <div className="dash-ev-kv">
+                                          <strong>EV</strong>{" "}
+                                          <span className="dash-ev-num">
+                                            {valuation}
+                                          </span>
                                         </div>
                                       )}
                                     </div>
                                   );
                                 })()}
                               </td>
-                              <td className="px-4 py-4 text-xs text-gray-900">
+                              <td className="px-4 py-4">
                                 {/* Sectors column */}
                                 {(() => {
                                   const sectors = safeParseJson<{
@@ -3509,14 +3507,14 @@ export default function HomeUserPage() {
                                   return (
                                     <div className="space-y-1">
                                       {primary && primary !== "Not Available" && (
-                                        <div className="text-xs text-gray-500">
+                                        <div className="dash-ev-kv">
                                           <strong>Primary:</strong>{" "}
                                           {primaryRefs.length > 0
                                             ? primaryRefs.map((s, idx, arr) => (
                                                 <span key={`primary-${s.id}`}>
                                                   <a
                                                     href={`/sector/${s.id}`}
-                                                    className="text-blue-600 underline hover:text-blue-800"
+                                                    className="dash-ev-link"
                                                   >
                                                     {s.name}
                                                   </a>
@@ -3535,14 +3533,14 @@ export default function HomeUserPage() {
                                         </div>
                                       )}
                                       {secondary.length > 0 && (
-                                        <div className="text-xs text-gray-500">
+                                        <div className="dash-ev-kv">
                                           <strong>Secondary:</strong>{" "}
                                           {secondaryRefs.length > 0
                                             ? secondaryRefs.slice(0, 3).map((s, idx, arr) => (
                                                 <span key={`secondary-${s.id}`}>
                                                   <a
                                                     href={`/sub-sector/${s.id}`}
-                                                    className="text-blue-600 underline hover:text-blue-800"
+                                                    className="dash-ev-link"
                                                   >
                                                     {s.name}
                                                   </a>
