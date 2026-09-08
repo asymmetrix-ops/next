@@ -28,9 +28,9 @@ interface LinkedEvent {
   announcement_date: string;
 }
 
-interface LinkedReport {
+interface ContentCta {
   id: number;
-  headline: string;
+  label: string;
   content_type: string;
   publication_date: string;
 }
@@ -55,7 +55,7 @@ interface DealRadarDashboardItem {
   ev: ValSource;
   potential_acquirers: NamedRef[];
   linked_event: LinkedEvent | null;
-  linked_reports: LinkedReport[];
+  content_cta: ContentCta | null;
 }
 
 interface Pagination {
@@ -116,7 +116,7 @@ const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
 const FILTER_API = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
 const PAGE_SIZE = 25;
 const ANTICIPATED_18_MONTHS_ID = 1;
-const TABLE_COL_COUNT = 13;
+const TABLE_COL_COUNT = 12;
 
 const TRANSACTION_STATUS_OPTIONS = [
   { id: 3, label: "Reported in Market", totalsKey: "Reported in Market" },
@@ -149,8 +149,11 @@ const STATUS_FILTERS = [
 ];
 
 const PROCESS_STAGE_OPTIONS = [
+  { value: "Strategic Review", label: "Strategic Review" },
   { value: "Banker Pitches", label: "Banker Pitches" },
   { value: "Deal Prep", label: "Deal Prep" },
+  { value: "In Market", label: "In Market" },
+  { value: "In Exclusivity", label: "In Exclusivity" },
 ];
 
 const TRANSACTION_SIGNAL_OPTIONS = [
@@ -158,6 +161,12 @@ const TRANSACTION_SIGNAL_OPTIONS = [
   { value: "Asymmetrix Assessment", label: "Asymmetrix Assessment" },
   { value: "Proprietary Intel", label: "Proprietary Intel" },
 ];
+
+const TRANSACTION_SIGNAL_DESCRIPTIONS: Record<string, string> = {
+  "Long Hold": "",
+  "Asymmetrix Assessment": "",
+  "Proprietary Intel": "",
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -263,6 +272,15 @@ function formatDate(dateStr: string | null | undefined): string {
   }
 }
 
+function getContentCtaLabel(cta: ContentCta): string {
+  const label = cta.label?.trim();
+  if (label) return label;
+  if (cta.content_type.toLowerCase().trim() === "news") {
+    return "Read our News";
+  }
+  return "Read our Research";
+}
+
 function buildDashboardUrl(
   offset: number,
   search: string,
@@ -307,6 +325,40 @@ function countActiveFilters(filters: DealRadarFilters): number {
 }
 
 // ─── Skeleton Row ─────────────────────────────────────────────────────────────
+
+function TransactionSignalLabel({ signal }: { signal: string }) {
+  return (
+    <div className="group relative mt-1 w-full text-center">
+      <p className="cursor-help text-[10px] text-gray-500">{signal}</p>
+      <div
+        role="tooltip"
+        className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg group-hover:block"
+      >
+        <p className="mb-2 text-[11px] font-semibold text-gray-900">
+          Transaction signals
+        </p>
+        <ul className="space-y-2">
+          {TRANSACTION_SIGNAL_OPTIONS.map((opt) => (
+            <li key={opt.value}>
+              <p
+                className={`text-[11px] font-medium ${
+                  opt.value === signal ? "text-blue-700" : "text-gray-800"
+                }`}
+              >
+                {opt.label}
+              </p>
+              {TRANSACTION_SIGNAL_DESCRIPTIONS[opt.value] && (
+                <p className="mt-0.5 text-[10px] leading-snug text-gray-500">
+                  {TRANSACTION_SIGNAL_DESCRIPTIONS[opt.value]}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
 
 function SkeletonRow() {
   return (
@@ -534,7 +586,7 @@ export default function DealRadarDashboardPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
-      <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <main className="flex-1 w-full px-4 py-6 sm:px-6 lg:px-8">
         {/* Page header */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-3">
@@ -687,36 +739,58 @@ export default function DealRadarDashboardPage() {
                   placeholder="All statuses"
                 />
               </div>
-              {showAnticipatedSubFilters && (
-                <>
-                  <div>
-                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                      Process stage
-                    </label>
-                    <SearchableMultiSelect
-                      options={PROCESS_STAGE_OPTIONS}
-                      selectedValues={filters.processStages}
-                      onSelectionChange={(vals) =>
-                        updateFilters({ processStages: vals })
-                      }
-                      placeholder="All stages"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                      Transaction signal
-                    </label>
-                    <SearchableMultiSelect
-                      options={TRANSACTION_SIGNAL_OPTIONS}
-                      selectedValues={filters.transactionSignals}
-                      onSelectionChange={(vals) =>
-                        updateFilters({ transactionSignals: vals })
-                      }
-                      placeholder="All signals"
-                    />
-                  </div>
-                </>
-              )}
+              <div
+                title={
+                  showAnticipatedSubFilters
+                    ? undefined
+                    : "Available when Transaction Anticipated within 18 Months is selected"
+                }
+              >
+                <label
+                  className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
+                    showAnticipatedSubFilters
+                      ? "text-gray-500"
+                      : "text-gray-400"
+                  }`}
+                >
+                  Process stage
+                </label>
+                <SearchableMultiSelect
+                  options={PROCESS_STAGE_OPTIONS}
+                  selectedValues={filters.processStages}
+                  onSelectionChange={(vals) =>
+                    updateFilters({ processStages: vals })
+                  }
+                  placeholder="All stages"
+                  disabled={!showAnticipatedSubFilters}
+                />
+              </div>
+              <div
+                title={
+                  showAnticipatedSubFilters
+                    ? undefined
+                    : "Available when Transaction Anticipated within 18 Months is selected"
+                }
+              >
+                <label
+                  className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
+                    showAnticipatedSubFilters
+                      ? "text-gray-500"
+                      : "text-gray-400"
+                  }`}
+                >
+                  Transaction signal
+                </label>
+                <SearchableMultiSelect
+                  options={TRANSACTION_SIGNAL_OPTIONS}
+                  selectedValues={filters.transactionSignals}
+                  onSelectionChange={(vals) =>
+                    updateFilters({ transactionSignals: vals })
+                  }
+                  placeholder="All signals"
+                  disabled={!showAnticipatedSubFilters}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -802,7 +876,6 @@ export default function DealRadarDashboardPage() {
                     <Th label="EV (m)" className="min-w-[100px]" />
                     <Th label="Potential Acquirers" className="min-w-[180px]" />
                     <Th label="Corp. Event" className="min-w-[110px]" />
-                    <Th label="Reports" className="min-w-[160px]" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -862,6 +935,28 @@ export default function DealRadarDashboardPage() {
                                   <p className="text-[10px] text-gray-400 mt-0.5">
                                     {formatDate(item.active_status_set_at)}
                                   </p>
+                                )}
+                                {item.content_cta && (
+                                  <a
+                                    href={`/article/${item.content_cta.id}`}
+                                    onClick={(e) => {
+                                      if (
+                                        e.button !== 0 ||
+                                        e.metaKey ||
+                                        e.ctrlKey ||
+                                        e.shiftKey ||
+                                        e.altKey
+                                      )
+                                        return;
+                                      e.preventDefault();
+                                      router.push(
+                                        `/article/${item.content_cta!.id}`
+                                      );
+                                    }}
+                                    className="mt-0.5 block text-[11.5px] font-medium text-gray-500 hover:text-blue-600 hover:underline"
+                                  >
+                                    {getContentCtaLabel(item.content_cta)}
+                                  </a>
                                 )}
                               </td>
 
@@ -935,7 +1030,7 @@ export default function DealRadarDashboardPage() {
 
                               {/* Transaction Status + Signal */}
                               <td className="px-3 py-3">
-                                <div>
+                                <div className="inline-flex flex-col items-center">
                                   <span
                                     className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}
                                   >
@@ -945,9 +1040,9 @@ export default function DealRadarDashboardPage() {
                                     {item.transaction_status}
                                   </span>
                                   {item.transaction_signal && (
-                                    <p className="text-[10px] text-gray-500 mt-1">
-                                      {item.transaction_signal}
-                                    </p>
+                                    <TransactionSignalLabel
+                                      signal={item.transaction_signal}
+                                    />
                                   )}
                                 </div>
                               </td>
@@ -1082,48 +1177,6 @@ export default function DealRadarDashboardPage() {
                                       item.linked_event.announcement_date
                                     )}
                                   </a>
-                                ) : (
-                                  <span className="text-gray-300 text-xs">—</span>
-                                )}
-                              </td>
-
-                              {/* Linked Reports */}
-                              <td className="px-3 py-3">
-                                {item.linked_reports.length > 0 ? (
-                                  <div className="flex flex-col gap-1">
-                                    {item.linked_reports.map((r) => (
-                                      <a
-                                        key={r.id}
-                                        href={`/article/${r.id}`}
-                                        onClick={(e) => {
-                                          if (
-                                            e.button !== 0 ||
-                                            e.metaKey ||
-                                            e.ctrlKey ||
-                                            e.shiftKey ||
-                                            e.altKey
-                                          )
-                                            return;
-                                          e.preventDefault();
-                                          router.push(`/article/${r.id}`);
-                                        }}
-                                        className="inline-flex items-start gap-1 text-[11px] text-blue-700 hover:text-blue-900 hover:underline leading-snug"
-                                      >
-                                        <svg
-                                          className="w-3 h-3 mt-[1px] shrink-0"
-                                          viewBox="0 0 24 24"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          aria-hidden="true"
-                                        >
-                                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                          <polyline points="14 2 14 8 20 8" />
-                                        </svg>
-                                        <span>{r.headline}</span>
-                                      </a>
-                                    ))}
-                                  </div>
                                 ) : (
                                   <span className="text-gray-300 text-xs">—</span>
                                 )}
