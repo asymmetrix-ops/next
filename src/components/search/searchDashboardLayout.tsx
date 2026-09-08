@@ -32,7 +32,7 @@ export const SEARCH_DASHBOARD_EYEBROW: CSSProperties = {
   border: "1px solid #E2E8FD",
   fontSize: 11,
   fontWeight: 800,
-  letterSpacing: "0.08em",
+  letterSpacing: "0.09em",
   textTransform: "uppercase",
   color: "#2A46EA",
   marginBottom: 6,
