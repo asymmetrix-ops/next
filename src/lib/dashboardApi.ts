@@ -366,12 +366,62 @@ class DashboardApiService {
     );
   }
 
-  async getHeroScreenStatisticEventsCount(): Promise<
-    ApiResponse<Record<string, unknown>>
-  > {
-    return this.request<Record<string, unknown>>(
-      "/hero_screen_statistic_Events_count"
+  async getHeroScreenStatisticEventsCount(): Promise<number> {
+    const token = authService.getToken();
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    const params = new URLSearchParams({
+      primary_sectors_ids: "",
+      Secondary_sectors_ids: "",
+      deal_types: "",
+      Countries: "",
+      Provinces: "",
+      Cities: "",
+      Date_start: "null",
+      Date_end: "null",
+      search_query: "",
+      show_followed: "",
+      user_id: "0",
+      new_company_id: "0",
+      target_company_id: "0",
+      investor_id: "0",
+      individual_id: "0",
+      filter_advisor_ids: "",
+      filter_company_ids: "",
+      filter_investor_ids: "",
+      filter_sector_ids: "",
+      filter_individual_ids: "",
+      Deal_Status: "null",
+      Continental_Region: "null",
+      geographical_sub_region: "null",
+      Buyer_Investor_Types: "null",
+      Funding_stage: "null",
+    });
+
+    const response = await fetch(
+      `${this.baseUrl}/corporate_events?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Data-Source": "live",
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+      }
     );
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Authentication required");
+      }
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+
+    const data: unknown = await response.json();
+    return typeof data === "number" ? data : Number(data) || 0;
   }
 
   async getHeroScreenStatisticSectors(): Promise<
@@ -382,12 +432,41 @@ class DashboardApiService {
     );
   }
 
-  async getHeroScreenStatisticAdvisorsCount(): Promise<
-    ApiResponse<Record<string, unknown>>
-  > {
-    return this.request<Record<string, unknown>>(
-      "/hero_screen_statistic_Advisors_counr"
+  async getHeroScreenStatisticAdvisorsCount(): Promise<{
+    Advisorc_companies_count: number;
+  }> {
+    const token = authService.getToken();
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    const response = await fetch(
+      `${this.baseUrl}/hero_screen_statistic_Advisors_counr`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Data-Source": "live",
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+      }
     );
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Authentication required");
+      }
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+
+    const data = (await response.json()) as {
+      Advisorc_companies_count?: number;
+    };
+
+    return {
+      Advisorc_companies_count: Number(data.Advisorc_companies_count) || 0,
+    };
   }
 
   async getHeroScreenStatisticInvestors(): Promise<

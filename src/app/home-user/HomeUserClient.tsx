@@ -1040,16 +1040,9 @@ export default function HomeUserClient({
       }
 
       if (eventsCountResponse.status === "fulfilled") {
-        const responseValue = eventsCountResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-        const eventsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.Corporate_Events_count as number) || 0
-            : 0;
+        const eventsCount = eventsCountResponse.value || 0;
 
-        if (eventsCount) {
+        if (eventsCount > 0) {
           statsData.push({
             label: "Corporate Events",
             value: eventsCount.toString(),
@@ -1132,16 +1125,10 @@ export default function HomeUserClient({
       }
 
       if (advisorsCountResponse.status === "fulfilled") {
-        const responseValue = advisorsCountResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
         const advisorsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.Advisorc_companies_count as number) || 0
-            : 0;
+          advisorsCountResponse.value.Advisorc_companies_count || 0;
 
-        if (advisorsCount) {
+        if (advisorsCount > 0) {
           statsData.push({
             label: "Advisors",
             value: advisorsCount.toString(),
