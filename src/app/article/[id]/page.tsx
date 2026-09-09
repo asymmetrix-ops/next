@@ -18,6 +18,10 @@ import {
   getLatestCorrection,
   isNewsArticle,
 } from "@/lib/contentArticleDisplay";
+import {
+  formatTransactionStatusLabel,
+  getTransactionStatusPillStyle,
+} from "@/lib/transactionStatusBadge";
 import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
 import {
   COMPANY_TABLE_DATA_URL,
@@ -1525,8 +1529,8 @@ const ArticleDetailPage = () => {
             </h1>
             {article.Transaction_status && (
               <div style={{ marginBottom: 16 }}>
-                <span style={styles.transactionStatusBadge}>
-                  {article.Transaction_status}
+                <span style={getTransactionStatusPillStyle(article.Transaction_status)}>
+                  {formatTransactionStatusLabel(article.Transaction_status)}
                 </span>
               </div>
             )}

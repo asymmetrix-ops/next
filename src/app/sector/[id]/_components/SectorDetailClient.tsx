@@ -36,6 +36,11 @@ import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { exportMarketMapBucket } from "@/lib/listExport/marketMapExport";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
+import { getContentTypeAccentColor } from "@/lib/contentTypeBadge";
+import {
+  formatTransactionStatusLabel,
+  getTransactionStatusPillStyle,
+} from "@/lib/transactionStatusBadge";
 
 // ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
 // (same convention as src/app/sectors/page.tsx)
@@ -2436,6 +2441,7 @@ const SectorDetailPage = ({
                       display: "block",
                       padding: "13px 16px",
                       borderBottom: `1px solid ${LINE_2}`,
+                      borderTop: `3px solid ${getContentTypeAccentColor(effectiveContentType)}`,
                       textDecoration: "none",
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = BLUE_50)}
@@ -2472,26 +2478,17 @@ const SectorDetailPage = ({
                       <span style={{ fontSize: 11.5, color: MUTED }}>
                         {formatDate(article.Publication_Date)}
                       </span>
-                      {article.Transaction_status && (
-                        <span
-                          style={{
-                            fontSize: 10.5,
-                            fontWeight: 700,
-                            padding: "2px 8px",
-                            borderRadius: 999,
-                            background: "#E4F5EC",
-                            color: "#0F7040",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.03em",
-                          }}
-                        >
-                          {article.Transaction_status}
-                        </span>
-                      )}
                     </div>
                     <h3 style={{ margin: "0 0 4px", fontSize: 13.5, fontWeight: 700, color: INK, lineHeight: 1.35 }}>
                       {article.Headline || "-"}
                     </h3>
+                    {article.Transaction_status && (
+                      <div style={{ marginBottom: 6 }}>
+                        <span style={getTransactionStatusPillStyle(article.Transaction_status)}>
+                          {formatTransactionStatusLabel(article.Transaction_status)}
+                        </span>
+                      </div>
+                    )}
                     {byline ? (
                       <p style={{ margin: "0 0 4px", fontSize: 12, color: MUTED, fontStyle: "italic" }}>
                         {byline}
