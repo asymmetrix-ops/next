@@ -2645,6 +2645,7 @@ const SectorDetailPage = ({
                   entityId={(sectorData as unknown as { id: number }).id}
                   label={sectorNameForDisplay}
                   showLabel
+                  icon="star"
                 />
               </div>
             )}

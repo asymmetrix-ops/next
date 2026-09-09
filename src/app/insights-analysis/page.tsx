@@ -15,6 +15,7 @@ import {
 import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 import { T } from "@/components/redesign/primitives";
 import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
+import CompactPagination from "@/components/ui/CompactPagination";
 
 const CONTENT_ARTICLES_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles";
@@ -69,7 +70,10 @@ const DEFAULT_FILTERS: InsightsAnalysisFilters = {
   user_id: null,
   portfolio_only: false,
   company_id: null,
-  show_followed: true,
+  // Off by default — this restricts results to the user's followed/portfolio
+  // entities. Previously defaulted to `true`, which silently narrowed every
+  // other filter's results to "followed only" from first load.
+  show_followed: false,
 };
 
 const PER_PAGE_OPTIONS = [10, 20, 50, 100];
@@ -137,7 +141,6 @@ function InsightsAnalysisPageContent() {
   const [companyFilterLabel, setCompanyFilterLabel] = useState(companyNameFromUrl);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
   const [contentTypes, setContentTypes] = useState<string[]>([]);
   const [primarySectors, setPrimarySectors] = useState<
     Array<{ id: number; sector_name: string }>
@@ -161,8 +164,6 @@ function InsightsAnalysisPageContent() {
   // request per type — see the isTrialActive-style fetchByType pattern below).
   const [typeCounts, setTypeCounts] = useState<Record<string, number | null>>({});
   const [allTypesCount, setAllTypesCount] = useState<number | null>(null);
-
-  const [pageInputValue, setPageInputValue] = useState("1");
 
   const fetchInsightsAnalysis = async (filters: InsightsAnalysisFilters) => {
     try {
@@ -255,7 +256,6 @@ function InsightsAnalysisPageContent() {
         perPage: filters.Per_page,
         pageTotal: data.pageTotal,
       });
-      setPageInputValue(String(data.curPage));
     } catch (error) {
       console.error("Error fetching insights analysis:", error);
       setError(
@@ -459,7 +459,10 @@ function InsightsAnalysisPageContent() {
     const updated: InsightsAnalysisFilters = {
       ...filters,
       Offset: 1,
+      // Keep both flags in sync — the API reads `show_followed` to restrict
+      // results to followed/portfolio entities; `portfolio_only` mirrors it.
       portfolio_only: checked,
+      show_followed: checked,
       user_id: null,
     };
     setFilters(updated);
@@ -719,39 +722,6 @@ function InsightsAnalysisPageContent() {
       font-size: 13px;
       color: ${T.muted};
     }
-    .ia-pgc {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .ia-pgc-btn {
-      width: 30px;
-      height: 30px;
-      border-radius: 999px;
-      border: 1px solid ${T.divider};
-      background: #fff;
-      color: ${T.ink};
-      font-size: 14px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-    }
-    .ia-pgc-btn:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-    .ia-pgc-in {
-      width: 44px;
-      height: 30px;
-      border-radius: 999px;
-      border: 1px solid ${T.divider};
-      text-align: center;
-      font-size: 13px;
-      color: ${T.ink};
-      outline: none;
-    }
     .ia-pg-count { white-space: nowrap; }
     @media (max-width: 768px) {
       .ia-grid { grid-template-columns: 1fr !important; }
@@ -822,9 +792,98 @@ function InsightsAnalysisPageContent() {
               </div>
             )}
 
-            {/* Controls card */}
+            {/* Filter control room — mirrors entity list views: type pills +
+                field filters at the top, search field below. */}
             <div className="ia-controls-card">
-              <div className="ia-search-row">
+              <div className="ia-types-row">
+                <button
+                  type="button"
+                  className={`ia-type-pill${activeContentType === "" ? " active" : ""}`}
+                  onClick={() => handleTypeSelect("")}
+                >
+                  All types
+                  {allTypesCount != null && (
+                    <span className="ia-type-count">{allTypesCount.toLocaleString()}</span>
+                  )}
+                </button>
+                {contentTypes.map((ct) => (
+                  <button
+                    key={ct}
+                    type="button"
+                    className={`ia-type-pill${activeContentType === ct ? " active" : ""}`}
+                    onClick={() => handleTypeSelect(ct)}
+                  >
+                    <span className="ia-type-dot" style={{ background: getTypeDotColor(ct) }} />
+                    {ct}
+                    {typeCounts[ct] != null && (
+                      <span className="ia-type-count">{typeCounts[ct]!.toLocaleString()}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="ia-adv-filters" style={{ borderTop: "none", paddingTop: 0 }}>
+                <div className="ia-field">
+                  <span className="ia-field-label">Primary sector</span>
+                  <select
+                    className="ia-select"
+                    value={filters.primary_sectors_ids?.[0]?.toString() || ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const updated = {
+                        ...filters,
+                        primary_sectors_ids: value === "" ? [] : [Number.parseInt(value, 10)],
+                        Offset: 1,
+                      };
+                      setFilters(updated);
+                      fetchInsightsAnalysis(updated);
+                    }}
+                  >
+                    <option value="">All primary sectors</option>
+                    {primarySectors.map((sector) => (
+                      <option key={sector.id} value={sector.id}>
+                        {sector.sector_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="ia-field">
+                  <span className="ia-field-label">Transaction status</span>
+                  <select
+                    className="ia-select"
+                    value={filters.Transaction_status || ""}
+                    onChange={(e) => {
+                      const updated = {
+                        ...filters,
+                        Transaction_status: e.target.value || undefined,
+                        Offset: 1,
+                      };
+                      setFilters(updated);
+                      fetchInsightsAnalysis(updated);
+                    }}
+                  >
+                    <option value="">All transaction statuses</option>
+                    <option value="Rumoured in Market">Rumoured in Market</option>
+                    <option value="Transaction anticipated within 18 months">
+                      Transaction anticipated within 18 months
+                    </option>
+                    <option value="Reported in Market">Reported in Market</option>
+                  </select>
+                </div>
+                <div className="ia-field">
+                  <span className="ia-field-label">View followed</span>
+                  <label className="ia-followed-pill">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(filters.portfolio_only)}
+                      onChange={(e) => handleFollowedToggle(e.target.checked)}
+                    />
+                    <span>Followed only</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="ia-search-row" style={{ borderTop: `1px solid ${T.hair}`, paddingTop: 14 }}>
                 <div className="ia-search-pill">
                   <SearchIcon />
                   <input
@@ -838,105 +897,7 @@ function InsightsAnalysisPageContent() {
                 <button type="button" className="pill-btn pill-btn-primary" onClick={handleSearch}>
                   {loading ? "Searching…" : "Search"}
                 </button>
-                <button
-                  type="button"
-                  className="pill-btn pill-btn-outline"
-                  onClick={() => setShowFilters((v) => !v)}
-                >
-                  {showFilters ? "Hide filters" : "Show filters"}
-                </button>
               </div>
-
-              {showFilters && (
-                <div className="ia-adv-filters">
-                  <div className="ia-field">
-                    <span className="ia-field-label">Primary sector</span>
-                    <select
-                      className="ia-select"
-                      value={filters.primary_sectors_ids?.[0]?.toString() || ""}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        const updated = {
-                          ...filters,
-                          primary_sectors_ids: value === "" ? [] : [Number.parseInt(value, 10)],
-                          Offset: 1,
-                        };
-                        setFilters(updated);
-                        fetchInsightsAnalysis(updated);
-                      }}
-                    >
-                      <option value="">All primary sectors</option>
-                      {primarySectors.map((sector) => (
-                        <option key={sector.id} value={sector.id}>
-                          {sector.sector_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="ia-field">
-                    <span className="ia-field-label">Transaction status</span>
-                    <select
-                      className="ia-select"
-                      value={filters.Transaction_status || ""}
-                      onChange={(e) => {
-                        const updated = {
-                          ...filters,
-                          Transaction_status: e.target.value || undefined,
-                          Offset: 1,
-                        };
-                        setFilters(updated);
-                        fetchInsightsAnalysis(updated);
-                      }}
-                    >
-                      <option value="">All transaction statuses</option>
-                      <option value="Rumoured in Market">Rumoured in Market</option>
-                      <option value="Transaction anticipated within 18 months">
-                        Transaction anticipated within 18 months
-                      </option>
-                      <option value="Reported in Market">Reported in Market</option>
-                    </select>
-                  </div>
-                  <div className="ia-field">
-                    <span className="ia-field-label">View followed</span>
-                    <label className="ia-followed-pill">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(filters.portfolio_only)}
-                        onChange={(e) => handleFollowedToggle(e.target.checked)}
-                      />
-                      <span>Followed only</span>
-                    </label>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Content-type pill filters */}
-            <div className="ia-types-row">
-              <button
-                type="button"
-                className={`ia-type-pill${activeContentType === "" ? " active" : ""}`}
-                onClick={() => handleTypeSelect("")}
-              >
-                All types
-                {allTypesCount != null && (
-                  <span className="ia-type-count">{allTypesCount.toLocaleString()}</span>
-                )}
-              </button>
-              {contentTypes.map((ct) => (
-                <button
-                  key={ct}
-                  type="button"
-                  className={`ia-type-pill${activeContentType === ct ? " active" : ""}`}
-                  onClick={() => handleTypeSelect(ct)}
-                >
-                  <span className="ia-type-dot" style={{ background: getTypeDotColor(ct) }} />
-                  {ct}
-                  {typeCounts[ct] != null && (
-                    <span className="ia-type-count">{typeCounts[ct]!.toLocaleString()}</span>
-                  )}
-                </button>
-              ))}
             </div>
           </>
         )}
@@ -957,54 +918,20 @@ function InsightsAnalysisPageContent() {
           </div>
         )}
 
-        {/* Pagination */}
+        {/* Pagination — same CompactPagination control used across all
+            other entity list views, with the per-page selector kept at the
+            bottom right. */}
         {!isTrialActive && pagination.pageTotal > 1 && (
           <div className="ia-pgrow">
             <span className="ia-pg-count">
-              {pagination.itemsReceived.toLocaleString()} reports · page {pagination.curPage} of{" "}
-              {pagination.pageTotal}
+              {pagination.itemsReceived.toLocaleString()} reports
             </span>
-            <div className="ia-pgc">
-              <button
-                type="button"
-                className="ia-pgc-btn"
-                onClick={() => handlePageChange(pagination.curPage - 1)}
-                disabled={!pagination.prevPage}
-                aria-label="Previous page"
-              >
-                ‹
-              </button>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="ia-pgc-in"
-                value={pageInputValue}
-                onChange={(e) => setPageInputValue(e.target.value.replace(/[^0-9]/g, ""))}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter") return;
-                  const page = Number.parseInt(pageInputValue, 10);
-                  if (Number.isFinite(page)) handlePageChange(page);
-                }}
-                onBlur={() => {
-                  const page = Number.parseInt(pageInputValue, 10);
-                  if (Number.isFinite(page)) {
-                    handlePageChange(page);
-                  } else {
-                    setPageInputValue(String(pagination.curPage));
-                  }
-                }}
-                aria-label="Page number"
-              />
-              <button
-                type="button"
-                className="ia-pgc-btn"
-                onClick={() => handlePageChange(pagination.curPage + 1)}
-                disabled={!pagination.nextPage}
-                aria-label="Next page"
-              >
-                ›
-              </button>
-            </div>
+            <CompactPagination
+              curPage={pagination.curPage}
+              pageTotal={pagination.pageTotal}
+              onPageChange={handlePageChange}
+              disabled={loading}
+            />
             <select
               className="ia-select"
               value={pagination.perPage}

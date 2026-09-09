@@ -57,10 +57,9 @@ interface AdvisorEntity {
 
 const LINE = "#E4E8F2";
 const INK = "#0A0E1A";
+const AZURE = "oklch(54% 0.22 258)";
 const MUTED = "#6B7488";
 const R_LG = 16;
-const SH_XS = "0 1px 2px rgba(16, 28, 70, 0.05)";
-
 function MostActiveSubTabNav({
   active,
   onChange,
@@ -72,14 +71,10 @@ function MostActiveSubTabNav({
     <div
       style={{
         display: "flex",
-        gap: 3,
-        padding: 3,
-        background: "#fff",
-        border: `1px solid ${LINE}`,
-        borderRadius: 999,
-        width: "max-content",
+        gap: 2,
+        borderBottom: `1px solid ${LINE}`,
         marginBottom: 14,
-        boxShadow: SH_XS,
+        overflowX: "auto",
       }}
     >
       {MOST_ACTIVE_SUB_TABS.map((st) => {
@@ -89,16 +84,17 @@ function MostActiveSubTabNav({
             key={st.id}
             onClick={() => onChange(st.id)}
             style={{
-              height: 34,
-              padding: "0 16px",
-              border: "none",
-              borderRadius: 999,
-              background: on ? INK : "transparent",
-              color: on ? "#fff" : MUTED,
+              padding: "10px 14px",
               fontSize: 13,
-              fontWeight: 700,
+              fontWeight: on ? 600 : 500,
+              color: on ? INK : MUTED,
+              marginBottom: "-1px",
+              border: "none",
+              borderBottom: `2px solid ${on ? AZURE : "transparent"}`,
+              background: "transparent",
               cursor: "pointer",
               whiteSpace: "nowrap",
+              transition: "color 120ms",
             }}
           >
             {st.label}
