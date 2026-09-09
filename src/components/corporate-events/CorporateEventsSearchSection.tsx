@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
@@ -19,6 +19,7 @@ import type {
 import {
   createDefaultCorporateEventFilters,
   corporateEventsExportFiltersToSearchParams,
+  parseCorporateEventsUrlFilters,
 } from "@/lib/corporateEventsFilterPayload";
 import {
   CORPORATE_EVENTS_COLUMN_CATEGORIES,
@@ -51,6 +52,7 @@ import {
 } from "@/components/corporate-events/corporateEventsTableUtils";
 import {
   extractAdvisorEntries,
+  extractAdvisorLinks,
   extractBuyerLinks,
   extractInvestorLinks,
   extractSellerLinks,
@@ -148,6 +150,7 @@ export const CorporateEventsSearchSection = ({
   isPortfolioOnlyFilter?: boolean;
 }) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const sectionRef = useRef<HTMLDivElement>(null);
   const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
@@ -466,7 +469,24 @@ export const CorporateEventsSearchSection = ({
     return <SearchEntityMultiValueCell items={items} />;
   };
 
+  const isAdvisorFilterView = useMemo(() => {
+    if ((currentFilters?.filter_advisor_ids?.length ?? 0) > 0) return true;
+    const query = searchParams.toString();
+    const urlFilters = parseCorporateEventsUrlFilters(
+      query ? `?${query}` : undefined
+    );
+    return (urlFilters.filter_advisor_ids?.length ?? 0) > 0;
+  }, [currentFilters?.filter_advisor_ids, searchParams]);
+
   const renderAdvisorsCell = (event: CorporateEventItem) => {
+    if (!isAdvisorFilterView) {
+      return (
+        <div className="company-table-advisors-cell">
+          {renderEntityLinks(extractAdvisorLinks(event), "advisor") || "-"}
+        </div>
+      );
+    }
+
     const entries = extractAdvisorEntries(event);
     if (entries.length === 0) return "-";
 
@@ -508,12 +528,25 @@ export const CorporateEventsSearchSection = ({
 
   const renderPartiesCell = (event: CorporateEventItem) => {
     const partnership = /partnership/i.test(event.deal_type || "");
+    const targets = extractTargetLinks(event);
     const buyers = extractBuyerLinks(event);
     const investors = extractInvestorLinks(event);
     const sellers = extractSellerLinks(event);
+    const targetLabel = (event as unknown as Record<string, unknown>)
+      .target_label as string | undefined;
 
     return (
       <div className="company-table-parties-cell">
+        {!isAdvisorFilterView && (
+          <div className="muted-row">
+            <strong>
+              {targetLabel || (partnership ? "Target(s)" : "Target")}:
+            </strong>{" "}
+            {targets.length > 0
+              ? renderEntityLinks(targets, "target")
+              : "-"}
+          </div>
+        )}
         {buyers.length > 0 && (
           <div className="muted-row">
             <strong>Buyer(s):</strong> {renderEntityLinks(buyers, "buyer")}
