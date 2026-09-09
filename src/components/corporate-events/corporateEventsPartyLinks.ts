@@ -483,20 +483,83 @@ export function resolveAdvisorDisplayName(advisor: AdvisorLinkSource): string {
   ).trim();
 }
 
-export function extractAdvisorLinks(event: CorporateEvent): EntityLink[] {
+export type AdvisorIndividualLink = {
+  id?: number;
+  name: string;
+  href: string | null;
+};
+
+export type AdvisorEntryWithIndividuals = {
+  id?: number;
+  name: string;
+  href: string | null;
+  individuals: AdvisorIndividualLink[];
+};
+
+type AdvisorIndividualSource = {
+  id?: number;
+  role_id?: number;
+  name?: string;
+  path?: string;
+};
+
+function resolveAdvisorIndividualHref(
+  individual: AdvisorIndividualSource
+): string | null {
+  const path = typeof individual.path === "string" ? individual.path.trim() : "";
+  if (path) return path.startsWith("/") ? path : `/${path}`;
+  if (typeof individual.id === "number" && individual.id > 0) {
+    return `/individual/${individual.id}`;
+  }
+  return null;
+}
+
+function extractAdvisorIndividuals(
+  advisor: AdvisorLinkSource & { individuals?: AdvisorIndividualSource[] }
+): AdvisorIndividualLink[] {
+  const individuals: AdvisorIndividualLink[] = [];
+  const seen = new Set<string>();
+
+  if (!Array.isArray(advisor.individuals)) return individuals;
+
+  for (const person of advisor.individuals) {
+    const name = (person.name ?? "").trim();
+    if (!name) continue;
+    const key = `${person.id ?? "na"}::${name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    individuals.push({
+      id: person.id,
+      name,
+      href: resolveAdvisorIndividualHref(person),
+    });
+  }
+
+  return individuals;
+}
+
+export function extractAdvisorEntries(
+  event: CorporateEvent
+): AdvisorEntryWithIndividuals[] {
   const e = event as LooseEvent;
-  const advisors: EntityLink[] = [];
+  const entries: AdvisorEntryWithIndividuals[] = [];
   const seen = new Set<string>();
 
   if (Array.isArray(event.advisors)) {
-    for (const advisor of event.advisors as AdvisorLinkSource[]) {
+    for (const advisor of event.advisors as Array<
+      AdvisorLinkSource & { individuals?: AdvisorIndividualSource[] }
+    >) {
       const id = resolveAdvisorRouteId(advisor);
       const name = resolveAdvisorDisplayName(advisor);
       if (!name) continue;
-      pushUniqueParty(advisors, seen, {
+      const key = `${id ?? "na"}::${name}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      entries.push({
         id,
         name,
         href: id != null ? `/advisor/${id}` : null,
+        individuals: extractAdvisorIndividuals(advisor),
       });
     }
   }
@@ -508,10 +571,14 @@ export function extractAdvisorLinks(event: CorporateEvent): EntityLink[] {
     const id = advisor._new_company?.id;
     const name = (advisor._new_company?.name || "").trim();
     if (!name) continue;
-    pushUniqueParty(advisors, seen, {
+    const key = `${id ?? "na"}::${name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    entries.push({
       id,
       name,
       href: typeof id === "number" ? `/advisor/${id}` : null,
+      individuals: [],
     });
   }
 
@@ -523,8 +590,19 @@ export function extractAdvisorLinks(event: CorporateEvent): EntityLink[] {
   for (const nameValue of advisorNames) {
     const name = typeof nameValue === "string" ? nameValue.trim() : "";
     if (!name) continue;
-    pushUniqueParty(advisors, seen, { name, href: null });
+    const key = `na::${name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    entries.push({ name, href: null, individuals: [] });
   }
 
-  return advisors;
+  return entries;
+}
+
+export function extractAdvisorLinks(event: CorporateEvent): EntityLink[] {
+  return extractAdvisorEntries(event).map((advisor) => ({
+    id: advisor.id,
+    name: advisor.name,
+    href: advisor.href,
+  }));
 }

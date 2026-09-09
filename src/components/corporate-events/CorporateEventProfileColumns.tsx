@@ -8,8 +8,6 @@ import {
   formatCorporateEventDate,
   normalizeEntityHref,
 } from "@/lib/corporateEventEntityHref";
-import { CorporateEventTargetLink } from "./CorporateEventPartyLink";
-
 type PartyLink = { id?: number; name: string; href: string | null };
 
 const titleLinkStyle = (color: string): React.CSSProperties => ({
@@ -111,101 +109,6 @@ function PartyRow({
       <PartyLinks links={links} />
     </PartyBlock>
   );
-}
-
-function extractTargetLinks(
-  event: CorporateEvent,
-  isPartnership: boolean
-): React.ReactNode {
-  const newEvent = event as {
-    targets?: Array<{
-      id: number;
-      name: string;
-      path?: string;
-      route?: string;
-      page_type?: string;
-      entity_type?: string;
-      is_investor?: boolean;
-      hq_country_iso2?: string | null;
-    }>;
-    target_company?: {
-      id?: number;
-      name?: string;
-      page_type?: string;
-      route?: string;
-      path?: string;
-      entity_type?: string;
-      is_investor?: boolean;
-    };
-    target_counterparty?: {
-      new_company_counterparty?: number;
-      new_company?: { id?: number; name?: string };
-      _new_company?: { id?: number; name?: string };
-    };
-    target_label?: string;
-  };
-  const legacyEvent = event as { target_label?: string };
-
-  const targets = newEvent.targets;
-  const legacyTarget =
-    newEvent.target_counterparty?.new_company ||
-    newEvent.target_counterparty?._new_company;
-  const legacyTargetId = newEvent.target_counterparty?.new_company_counterparty;
-
-  if (Array.isArray(targets) && targets.length > 0) {
-    const displayTargets = isPartnership ? targets : targets.slice(0, 1);
-    return displayTargets.map((tgt, i, arr) => {
-      const href =
-        normalizeEntityHref({
-          id: tgt.id,
-          route: tgt.route,
-          page_type: tgt.page_type,
-          path: tgt.path,
-          entity_type: tgt.entity_type,
-          is_investor: tgt.is_investor,
-        }) ?? "#";
-      return (
-        <span key={`tgt-${tgt.id}-${i}`}>
-          <CorporateEventTargetLink
-            name={tgt.name}
-            href={href}
-            entity={tgt as unknown as Record<string, unknown>}
-            linkStyle={entityLinkStyle}
-          />
-          {i < arr.length - 1 ? ", " : ""}
-        </span>
-      );
-    });
-  }
-  if (legacyTarget?.name && legacyTargetId) {
-    return (
-      <a href={`/company/${legacyTargetId}`} style={entityLinkStyle}>
-        {legacyTarget.name}
-      </a>
-    );
-  }
-  if (newEvent.target_company?.name) {
-    const href = normalizeEntityHref({
-      id: newEvent.target_company.id,
-      route: newEvent.target_company.route,
-      page_type: newEvent.target_company.page_type,
-      path: newEvent.target_company.path,
-      entity_type: newEvent.target_company.entity_type,
-      is_investor: newEvent.target_company.is_investor,
-    });
-    if (href) {
-      return (
-        <a href={href} style={entityLinkStyle}>
-          {newEvent.target_company.name}
-        </a>
-      );
-    }
-    return <span>{newEvent.target_company.name}</span>;
-  }
-  if (legacyEvent.target_label?.trim()) {
-    return <span>{legacyEvent.target_label}</span>;
-  }
-  return <>Not Available</>;
 }
 
 function collectBuyers(event: CorporateEvent, isInvestmentDeal: boolean): PartyLink[] {
@@ -623,10 +526,6 @@ export function CorporateEventPartiesColumn({
   const dealType = newEvent.deal_type || legacyEvent.deal_type || "";
   const isPartnership = /partnership/i.test(dealType);
   const isInvestmentDeal = dealType.toLowerCase().includes("investment");
-  const targetLabel =
-    newEvent.target_label ||
-    legacyEvent.target_label ||
-    (isPartnership ? "Target(s)" : "Target");
 
   return (
     <div
@@ -639,9 +538,6 @@ export function CorporateEventPartiesColumn({
         width: "100%",
       }}
     >
-      <PartyBlock label={targetLabel} align={align}>
-        {extractTargetLinks(event, isPartnership)}
-      </PartyBlock>
       {!isPartnership && (
         <>
           <PartyRow

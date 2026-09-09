@@ -39,4 +39,17 @@ export const CORPORATE_EVENTS_LIST_TABLE_STYLES = `
   .corporate-events-list-section .company-table-advisors-cell .search-multi-value-cell {
     font-size: inherit;
   }
+  .corporate-events-list-section .company-table-advisor-entry {
+    margin-bottom: 6px;
+  }
+  .corporate-events-list-section .company-table-advisor-entry:last-child {
+    margin-bottom: 0;
+  }
+  .corporate-events-list-section .company-table-advisor-individuals {
+    margin-top: 2px;
+    padding-left: 8px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: #64748b;
+  }
 `;

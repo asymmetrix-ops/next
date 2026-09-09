@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CorporateEventDealMetrics } from "./CorporateEventDealMetrics";
 import { normalizeEntityHref } from "@/lib/corporateEventEntityHref";
-import { CorporateEventTargetLink } from "./CorporateEventPartyLink";
 import {
   resolveAdvisorDisplayName,
   resolveAdvisorRouteId,
@@ -383,13 +382,9 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   newEvent.deal_type || legacyEvent.deal_type || ""
                 );
 
-                // Extract target info
-                const targets = newEvent.targets;
                 const legacyTarget =
                   newEvent.target_counterparty?.new_company ||
                   newEvent.target_counterparty?._new_company;
-                const legacyTargetId =
-                  newEvent.target_counterparty?.new_company_counterparty;
                 const targetCountry =
                   (typeof newEvent.target_hq_country === "string" &&
                     newEvent.target_hq_country.trim()) ||
@@ -505,88 +500,6 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         fontSize: "12px",
                       }}
                     >
-                      {/* Target */}
-                      <div style={{ marginBottom: "4px" }}>
-                        <strong>
-                          {newEvent.target_label ||
-                            (isPartnership ? "Target(s)" : "Target")}
-                          :
-                        </strong>{" "}
-                        {(() => {
-                          // Use new targets array if available
-                          if (Array.isArray(targets) && targets.length > 0) {
-                            const displayTargets = isPartnership
-                              ? targets
-                              : targets.slice(0, 1);
-                            return displayTargets.map((tgt, i, arr) => {
-                              const href =
-                                normalizeEntityHref({
-                                  id: tgt.id,
-                                  route: tgt.route,
-                                  page_type: tgt.page_type,
-                                  path: tgt.path,
-                                  entity_type: tgt.entity_type,
-                                  is_investor: tgt.is_investor,
-                                }) ?? "#";
-                              return (
-                                <span key={`tgt-${tgt.id}-${i}`}>
-                                  <CorporateEventTargetLink
-                                    name={tgt.name}
-                                    href={href}
-                                    entity={tgt as unknown as Record<string, unknown>}
-                                    linkStyle={{
-                                      color: "#3b82f6",
-                                      textDecoration: "underline",
-                                    }}
-                                  />
-                                  {i < arr.length - 1 && ", "}
-                                </span>
-                              );
-                            });
-                          }
-                          // Fallback to legacy target
-                          if (legacyTarget?.name && legacyTargetId) {
-                            return (
-                              <a
-                                href={`/company/${legacyTargetId}`}
-                                style={{
-                                  color: "#3b82f6",
-                                  textDecoration: "underline",
-                                }}
-                              >
-                                {legacyTarget.name}
-                              </a>
-                            );
-                          }
-                          // Fallback to target_company
-                          if (newEvent.target_company?.name) {
-                            const href = normalizeEntityHref({
-                              id: newEvent.target_company.id,
-                              route: newEvent.target_company.route,
-                              page_type: newEvent.target_company.page_type,
-                              path: newEvent.target_company.path,
-                              entity_type: newEvent.target_company.entity_type,
-                              is_investor: newEvent.target_company.is_investor,
-                            });
-                            if (href) {
-                              return (
-                                <a
-                                  href={href}
-                                  style={{
-                                    color: "#3b82f6",
-                                    textDecoration: "underline",
-                                  }}
-                                >
-                                  {newEvent.target_company.name}
-                                </a>
-                              );
-                            }
-                            return <span>{newEvent.target_company.name}</span>;
-                          }
-                          return "Not Available";
-                        })()}
-                      </div>
-
                       {/* Buyers (skip for partnerships) */}
                       {!isPartnership && (() => {
                         // Extract buyers separately

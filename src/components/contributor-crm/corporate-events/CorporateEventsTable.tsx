@@ -470,12 +470,9 @@ export function CorporateEventsTable({
                 newEvent.deal_type || legacyEvent.deal_type || ""
               );
 
-              const targets = newEvent.targets;
               const legacyTarget =
                 newEvent.target_counterparty?.new_company ||
                 newEvent.target_counterparty?._new_company;
-              const legacyTargetId =
-                newEvent.target_counterparty?.new_company_counterparty;
               const targetCountry =
                 (typeof newEvent.target_hq_country === "string" &&
                   newEvent.target_hq_country.trim()) ||
@@ -778,49 +775,6 @@ export function CorporateEventsTable({
                   </td>
 
                   <td style={bodyCellStyle}>
-                    <div style={{ marginBottom: "4px", fontSize: "13px", lineHeight: 1.45 }}>
-                      <strong>
-                        {newEvent.target_label || (isPartnership ? "Target(s)" : "Target")}:
-                      </strong>{" "}
-                      {Array.isArray(targets) && targets.length > 0 ? (
-                        renderLinkedNames(
-                          (isPartnership ? targets : targets.slice(0, 1)).map((target) => ({
-                            id: target.id,
-                            name: target.name,
-                            href:
-                              normalizeEntityHref({
-                                id: target.id,
-                                route: target.route,
-                                page_type: target.page_type,
-                                path: target.path,
-                              }) ?? "#",
-                          }))
-                        )
-                      ) : legacyTarget?.name && legacyTargetId ? (
-                        <a href={`/company/${legacyTargetId}`} style={{ ...linkStyle, fontSize: "13px" }}>
-                          {legacyTarget.name}
-                        </a>
-                      ) : newEvent.target_company?.name ? (
-                        (() => {
-                          const href = normalizeEntityHref({
-                            id: newEvent.target_company?.id,
-                            route: newEvent.target_company?.route,
-                            page_type: newEvent.target_company?.page_type,
-                            path: newEvent.target_company?.path,
-                          });
-                          return href ? (
-                            <a href={href} style={{ ...linkStyle, fontSize: "13px" }}>
-                              {newEvent.target_company?.name}
-                            </a>
-                          ) : (
-                            <span>{newEvent.target_company?.name}</span>
-                          );
-                        })()
-                      ) : (
-                        "Not Available"
-                      )}
-                    </div>
-
                     {!isPartnership && buyers.length > 0 && (
                       <div style={{ marginBottom: "4px", fontSize: "13px", lineHeight: 1.45 }}>
                         <strong>Buyer(s):</strong> {renderLinkedNames(buyers)}

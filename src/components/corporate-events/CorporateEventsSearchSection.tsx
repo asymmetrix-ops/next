@@ -50,7 +50,7 @@ import {
   renderSectorLinks,
 } from "@/components/corporate-events/corporateEventsTableUtils";
 import {
-  extractAdvisorLinks,
+  extractAdvisorEntries,
   extractBuyerLinks,
   extractInvestorLinks,
   extractSellerLinks,
@@ -466,25 +466,54 @@ export const CorporateEventsSearchSection = ({
     return <SearchEntityMultiValueCell items={items} />;
   };
 
+  const renderAdvisorsCell = (event: CorporateEventItem) => {
+    const entries = extractAdvisorEntries(event);
+    if (entries.length === 0) return "-";
+
+    return (
+      <div className="company-table-advisors-cell">
+        {entries.map((advisor, advisorIndex) => (
+          <div
+            key={`${advisor.id ?? advisor.name}-${advisorIndex}`}
+            className="company-table-advisor-entry"
+          >
+            {advisor.href ? (
+              <a href={advisor.href} style={SEARCH_ENTITY_LINK_STYLE}>
+                {advisor.name}
+              </a>
+            ) : (
+              <span>{advisor.name}</span>
+            )}
+            {advisor.individuals.length > 0 ? (
+              <div className="company-table-advisor-individuals">
+                {advisor.individuals.map((person, personIndex) => (
+                  <span key={`${person.id ?? person.name}-${personIndex}`}>
+                    {person.href ? (
+                      <a href={person.href} style={SEARCH_ENTITY_LINK_STYLE}>
+                        {person.name}
+                      </a>
+                    ) : (
+                      <span>{person.name}</span>
+                    )}
+                    {personIndex < advisor.individuals.length - 1 ? ", " : ""}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const renderPartiesCell = (event: CorporateEventItem) => {
     const partnership = /partnership/i.test(event.deal_type || "");
-    const targets = extractTargetLinks(event);
     const buyers = extractBuyerLinks(event);
     const investors = extractInvestorLinks(event);
     const sellers = extractSellerLinks(event);
-    const targetLabel = (event as unknown as Record<string, unknown>)
-      .target_label as string | undefined;
 
     return (
       <div className="company-table-parties-cell">
-        <div className="muted-row">
-          <strong>
-            {targetLabel || (partnership ? "Target(s)" : "Target")}:
-          </strong>{" "}
-          {targets.length > 0
-            ? renderEntityLinks(targets, "target")
-            : "-"}
-        </div>
         {buyers.length > 0 && (
           <div className="muted-row">
             <strong>Buyer(s):</strong> {renderEntityLinks(buyers, "buyer")}
@@ -605,11 +634,7 @@ export const CorporateEventsSearchSection = ({
       case "details":
         return renderDetailsCell(event);
       case "advisors":
-        return (
-          <div className="company-table-advisors-cell">
-            {renderEntityLinks(extractAdvisorLinks(event), "advisor") || "-"}
-          </div>
-        );
+        return renderAdvisorsCell(event);
       case "primary_sectors":
         return renderSectorCell(
           derivePrimaryFromCompany(target, secondaryToPrimaryMap),
