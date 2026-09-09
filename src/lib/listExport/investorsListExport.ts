@@ -1,7 +1,4 @@
-import {
-  INVESTORS_COLUMN_CATEGORIES,
-  INVESTORS_EXPORT_CATEGORIES,
-} from "@/components/investors/investorsColumnCategories";
+import { INVESTORS_COLUMN_CATEGORIES } from "@/components/investors/investorsColumnCategories";
 import { getInvestorFieldAliasesForColumn } from "@/components/investors/investorsColumnFields";
 import type { InvestorListItem } from "@/app/investors/actions";
 import {
@@ -133,14 +130,6 @@ function getInvestorCellValue(
 
   if (column.key === "description") {
     return toPlainText(investor.description);
-  }
-
-  if (column.key === "events_advised") {
-    const raw = readFieldValue(
-      row,
-      getInvestorFieldAliasesForColumn("events_advised")
-    );
-    return toPlainText(raw);
   }
 
   if (column.key === "portfolio_companies") {
@@ -381,7 +370,6 @@ export async function exportInvestorsList(
       entitySheetName: "Investors",
       filePrefix: "Investors",
       categories: INVESTORS_COLUMN_CATEGORIES,
-      allColumnsCategories: INVESTORS_EXPORT_CATEGORIES,
       visibleColumnKeys,
       extraLeadingColumns: EXTRA_INVESTOR_COLUMNS,
     },
