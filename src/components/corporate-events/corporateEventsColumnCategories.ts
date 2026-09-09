@@ -47,17 +47,17 @@ export const CORPORATE_EVENTS_COLUMN_CATEGORIES: CorporateEventColumnCategory[] 
           defaultVisible: true,
         },
         {
-          id: "target",
-          columnKey: "target",
-          label: "Target",
-          type: "text",
-          defaultVisible: true,
-        },
-        {
           id: "parties",
           columnKey: "parties",
           label: "Parties",
           type: "paragraph",
+          defaultVisible: true,
+        },
+        {
+          id: "target",
+          columnKey: "target",
+          label: "Target HQ",
+          type: "text",
           defaultVisible: true,
         },
         {
@@ -111,8 +111,8 @@ const LEGACY_COLUMN_KEY_TO_CANONICAL: Record<string, string | null> = {
 export const PROD_DEFAULT_CORPORATE_EVENT_COLUMN_KEYS = [
   "description",
   "announcement_date",
-  "target",
   "parties",
+  "target",
   "deal_status",
   "details",
   "advisors",

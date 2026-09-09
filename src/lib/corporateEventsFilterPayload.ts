@@ -8,6 +8,7 @@ import type {
   CorporateEventsFilters,
 } from "@/types/corporateEvents";
 import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
+import { parseTargetCompanyFilterValues } from "@/lib/corporateEventsTargetCompanyFilter";
 export type CorporateEventsSearchFilters = CorporateEventsFilters;
 
 type SectorRef = { id: number; sector_name: string };
@@ -163,8 +164,18 @@ function buildFiltersFromFilterBar(args: {
       filters.subRegions = v as string[];
       continue;
     }
-    if (item.id === "country" && Array.isArray(v) && v.length > 0) {
+    if (
+      (item.id === "country" || item.id === "target_hq") &&
+      Array.isArray(v) &&
+      v.length > 0
+    ) {
       filters.Countries = v as string[];
+      continue;
+    }
+    if (item.id === "target_company" && Array.isArray(v) && v.length > 0) {
+      (filters.filter_company_ids ??= []).push(
+        ...parseTargetCompanyFilterValues(v as string[])
+      );
       continue;
     }
     if (item.id === "state" && Array.isArray(v) && v.length > 0) {
@@ -207,17 +218,31 @@ function buildFiltersFromFilterBar(args: {
     }
     if (item.id === "portfolio_entity" && Array.isArray(v) && v.length > 0) {
       const parsed = parsePortfolioEntityValues(v as string[]);
-      filters.filter_advisor_ids = parsed.filter_advisor_ids;
-      filters.filter_company_ids = parsed.filter_company_ids;
-      filters.filter_investor_ids = parsed.filter_investor_ids;
-      filters.filter_sector_ids = parsed.filter_sector_ids;
-      filters.filter_individual_ids = parsed.filter_individual_ids;
+      (filters.filter_advisor_ids ??= []).push(...parsed.filter_advisor_ids);
+      (filters.filter_company_ids ??= []).push(...parsed.filter_company_ids);
+      (filters.filter_investor_ids ??= []).push(...parsed.filter_investor_ids);
+      (filters.filter_sector_ids ??= []).push(...parsed.filter_sector_ids);
+      (filters.filter_individual_ids ??= []).push(...parsed.filter_individual_ids);
       continue;
     }
     if (item.id === "product_type" && Array.isArray(v) && v.length > 0) {
       filters.Product_Types = v as string[];
     }
   }
+
+  filters.filter_advisor_ids = Array.from(
+    new Set(filters.filter_advisor_ids ?? [])
+  );
+  filters.filter_company_ids = Array.from(
+    new Set(filters.filter_company_ids ?? [])
+  );
+  filters.filter_investor_ids = Array.from(
+    new Set(filters.filter_investor_ids ?? [])
+  );
+  filters.filter_sector_ids = Array.from(new Set(filters.filter_sector_ids ?? []));
+  filters.filter_individual_ids = Array.from(
+    new Set(filters.filter_individual_ids ?? [])
+  );
 
   return filters;
 }

@@ -91,8 +91,8 @@ interface CorporateEventColumnDefinition {
 const ALL_CORPORATE_EVENT_COLUMNS: CorporateEventColumnDefinition[] = [
   { key: "description", label: "Event", wrap: true, minWidth: 140 },
   { key: "announcement_date", label: "Date", minWidth: 100 },
-  { key: "target", label: "Target", wrap: true, minWidth: 120 },
   { key: "parties", label: "Parties", wrap: true, minWidth: 150 },
+  { key: "target", label: "Target HQ", wrap: true, minWidth: 120 },
   { key: "deal_status", label: "Deal Status", minWidth: 110 },
   { key: "details", label: "Details", wrap: true, minWidth: 140 },
   { key: "advisors", label: "Advisors", wrap: true, minWidth: 120 },
@@ -122,6 +122,7 @@ export const CorporateEventsSearchSection = ({
   onColumnsCountChange,
   onRegisterExportCSV,
   isPortfolioOnlyFilter = false,
+  onApplyTargetCompanyFilter,
 }: {
   events: CorporateEventItem[];
   loading: boolean;
@@ -148,6 +149,7 @@ export const CorporateEventsSearchSection = ({
   onColumnsCountChange?: (count: number) => void;
   onRegisterExportCSV?: (fn: () => void) => void;
   isPortfolioOnlyFilter?: boolean;
+  onApplyTargetCompanyFilter?: (companyId: number, companyName: string) => void;
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -447,10 +449,25 @@ export const CorporateEventsSearchSection = ({
 
   const renderEntityLinks = (
     links: EntityLink[],
-    keyPrefix: string
+    keyPrefix: string,
+    options?: {
+      onLinkClick?: (link: EntityLink) => void;
+    }
   ): React.ReactNode => (
     <SearchEntityMultiValueCell
       items={entityLinksToMultiValueItems(links, keyPrefix)}
+      onLinkClick={
+        options?.onLinkClick
+          ? (event) => {
+              const anchor = event.currentTarget;
+              const href = anchor.getAttribute("href") ?? "";
+              const link = links.find((entry) => entry.href === href);
+              if (link?.id) {
+                options.onLinkClick?.(link);
+              }
+            }
+          : undefined
+      }
     />
   );
 
@@ -646,7 +663,19 @@ export const CorporateEventsSearchSection = ({
       case "announcement_date":
         return formatCorporateEventDate(event.announcement_date);
       case "target": {
-        const targetLinks = renderEntityLinks(extractTargetLinks(event), "target-col");
+        const targetLinks = renderEntityLinks(
+          extractTargetLinks(event),
+          "target-col",
+          onApplyTargetCompanyFilter
+            ? {
+                onLinkClick: (link) => {
+                  if (link.id) {
+                    onApplyTargetCompanyFilter(link.id, link.name);
+                  }
+                },
+              }
+            : undefined
+        );
         const hq = getTargetCountry(event);
         return (
           <div className="company-table-target-cell">

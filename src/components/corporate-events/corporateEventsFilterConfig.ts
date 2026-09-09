@@ -223,6 +223,11 @@ export function buildCorporateEventsFilterDefs({
   portfolioEntityOptions?: string[];
 }): FilterDef[] {
   const overrides: Record<string, Partial<FilterDef>> = {
+    target_company: {
+      label: "Target Name",
+      fullLabel: "Target Name",
+    },
+    target_hq: { options: countries.map((c) => c.locations_Country) },
     deal_type: { options: DEAL_TYPE_OPTIONS },
     deal_status: { options: DEAL_STATUS_OPTIONS },
     buyer_investor_type: {

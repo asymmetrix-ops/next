@@ -4,6 +4,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { FilterDef } from "@/app/financials-tsx/types";
 import { FILTER_POPOVER_SCROLL_STYLE } from "@/components/filters/AnchoredPopover";
 import {
+  formatTargetCompanyFilterValue,
+  targetCompanyFilterChipLabel,
+} from "@/lib/corporateEventsTargetCompanyFilter";
+import { searchFiCompanies } from "@/lib/financialIntelligence/apiClient";
+import {
   CITY_FILTER_PAGE_SIZE,
   locationsService,
 } from "@/lib/locationsService";
@@ -1022,4 +1027,211 @@ export function ListViewCityEnumEditor({
       </div>
     </EditorShell>
   );
+}
+
+export function TargetCompanyEnumEditor({
+  def,
+  value,
+  onApply,
+  onRemove,
+  onBack,
+  onDismiss,
+}: {
+  def: Pick<FilterDef, "label" | "fullLabel">;
+  value: unknown;
+  onApply: (picked: string[]) => void;
+  onRemove?: () => void;
+  onBack?: () => void;
+  onDismiss?: () => void;
+}) {
+  const initial = Array.isArray(value)
+    ? (value as string[])
+    : value
+      ? [String(value)]
+      : [];
+  const [selected, setSelected] = useState<string[]>(initial);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Array<{ id: number; name: string }>>(
+    []
+  );
+  const [loading, setLoading] = useState(false);
+  const debouncedQ = useDebouncedValue(query, 250);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (debouncedQ.trim().length < 2) {
+        setResults([]);
+        return;
+      }
+      setLoading(true);
+      try {
+        const hits = await searchFiCompanies(debouncedQ.trim());
+        if (!cancelled) {
+          setResults(hits.map((hit) => ({ id: hit.id, name: hit.name })));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedQ]);
+
+  const toggle = (token: string) => {
+    setSelected((current) =>
+      current.includes(token)
+        ? current.filter((entry) => entry !== token)
+        : [...current, token]
+    );
+  };
+
+  return (
+    <EditorShell
+      title={def.fullLabel || def.label}
+      hint="Search companies"
+      onDismiss={onDismiss}
+      footer={
+        <EditorFooter
+          onClear={() => setSelected([])}
+          onApply={() => onApply(selected)}
+          onRemove={onRemove}
+          onBack={onBack}
+          applyDisabled={selected.length === 0}
+        />
+      }
+    >
+      <input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Search target companies…"
+        style={{
+          width: "100%",
+          boxSizing: "border-box",
+          padding: "7px 10px",
+          border: "1px solid var(--border-1)",
+          borderRadius: "var(--r-md)",
+          fontSize: "var(--fs-13)",
+          fontFamily: "var(--font-sans)",
+          color: "var(--fg-1)",
+          marginBottom: 8,
+        }}
+      />
+      {selected.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 6,
+            marginBottom: 8,
+          }}
+        >
+          {selected.map((token) => (
+            <button
+              key={token}
+              type="button"
+              onClick={() => toggle(token)}
+              style={{
+                padding: "2px 8px",
+                borderRadius: 999,
+                border: "1px solid var(--ax-cyan-100)",
+                background: "var(--ax-cyan-50)",
+                color: "var(--ax-cyan-700)",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              {targetCompanyFilterChipLabel(token)} ×
+            </button>
+          ))}
+        </div>
+      )}
+      <div style={{ ...FILTER_POPOVER_SCROLL_STYLE, maxHeight: 240 }}>
+        {loading && (
+          <div style={{ fontSize: 12, color: "var(--fg-4)", padding: "6px 0" }}>
+            Searching…
+          </div>
+        )}
+        {!loading && debouncedQ.trim().length < 2 && (
+          <div style={{ fontSize: 12, color: "var(--fg-4)", padding: "6px 0" }}>
+            Type at least 2 characters to search.
+          </div>
+        )}
+        {!loading &&
+          debouncedQ.trim().length >= 2 &&
+          results.length === 0 && (
+            <div style={{ fontSize: 12, color: "var(--fg-4)", padding: "6px 0" }}>
+              No companies match.
+            </div>
+          )}
+        {results.map((company) => {
+          const token = formatTargetCompanyFilterValue(company.name, company.id);
+          const on = selected.includes(token);
+          return (
+            <button
+              key={company.id}
+              type="button"
+              onClick={() => toggle(token)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                width: "100%",
+                padding: "6px 8px",
+                border: "none",
+                borderRadius: "var(--r-sm)",
+                background: on ? "var(--ax-cyan-50)" : "transparent",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontSize: "var(--fs-13)",
+                color: "var(--fg-1)",
+                textAlign: "left",
+              }}
+            >
+              <span
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: 4,
+                  flexShrink: 0,
+                  background: on ? "var(--ax-cyan-700)" : "transparent",
+                  border: on
+                    ? "1px solid var(--ax-cyan-700)"
+                    : "1px solid var(--ax-gray-300)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                }}
+              >
+                {on && (
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                    <path
+                      d="M1.5 5L4 7.5L8.5 2.5"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </span>
+              <span>{company.name}</span>
+            </button>
+          );
+        })}
+      </div>
+    </EditorShell>
+  );
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
 }

@@ -253,6 +253,9 @@ export function CorporateEventsPageContent() {
     undefined
   );
   const exportCSVRef = useRef<(() => void) | null>(null);
+  const applyTargetCompanyFilterRef = useRef<
+    ((companyId: number, companyName: string) => void) | null
+  >(null);
 
   useEffect(() => {
     const urlFilters = parseCorporateEventsUrlFilters();
@@ -292,6 +295,9 @@ export function CorporateEventsPageContent() {
         onExportCSVClick={() => exportCSVRef.current?.()}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
+        onRegisterApplyTargetCompanyFilter={(fn) => {
+          applyTargetCompanyFilterRef.current = fn;
+        }}
       />
       <CorporateEventsSearchSection
         events={events}
@@ -308,6 +314,9 @@ export function CorporateEventsPageContent() {
           exportCSVRef.current = fn;
         }}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
+        onApplyTargetCompanyFilter={(companyId, companyName) => {
+          applyTargetCompanyFilterRef.current?.(companyId, companyName);
+        }}
       />
       <Footer />
     </div>

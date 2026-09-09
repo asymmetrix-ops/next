@@ -17,7 +17,11 @@ import {
   AnchoredPopover,
   FILTER_POPOVER_SCROLL_STYLE,
 } from "@/components/filters/AnchoredPopover";
-import { ListViewCityEnumEditor } from "@/components/filters/ListViewFilterEditors";
+import {
+  ListViewCityEnumEditor,
+  TargetCompanyEnumEditor,
+} from "@/components/filters/ListViewFilterEditors";
+import { targetCompanyFilterChipLabel } from "@/lib/corporateEventsTargetCompanyFilter";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -294,6 +298,9 @@ function formatRangeValue(
 }
 
 function getFilterOptionLabel(def: FilterDef, value: string): string {
+  if (def.id === "target_company" || value.includes("|")) {
+    return targetCompanyFilterChipLabel(value);
+  }
   return def.optionLabels?.[value] ?? value;
 }
 
@@ -2117,6 +2124,27 @@ function FilterEditor({
     () => getLocationScopeFromFilters(filters),
     [filters]
   );
+
+  if (def.id === "target_company" && def.editor === "enum") {
+    const initial = Array.isArray(value)
+      ? (value as string[])
+      : value
+        ? [String(value)]
+        : [];
+    return (
+      <TargetCompanyEnumEditor
+        def={def}
+        value={initial}
+        onApply={(picked) => {
+          onChange(picked);
+          onClose();
+        }}
+        onRemove={onRemove}
+        onBack={onBack}
+        onDismiss={onDismiss}
+      />
+    );
+  }
 
   if (def.id === "city" && def.editor === "enum") {
     const initial = Array.isArray(value)

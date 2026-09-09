@@ -16,8 +16,13 @@ import {
 } from "@/lib/corporateEventsFilterPayload";
 import {
   CompaniesFilterBar,
+  createFilterInstanceKey,
   FilterBarState,
 } from "@/components/companies/CompaniesFilterBar";
+import {
+  parseCorporateEventsUrlFilters,
+} from "@/lib/corporateEventsFilterPayload";
+import { formatTargetCompanyFilterValue } from "@/lib/corporateEventsTargetCompanyFilter";
 import {
   FILTER_CATEGORIES,
   buildCorporateEventsFilterDefs,
@@ -66,6 +71,9 @@ export type CorporateEventsDashboardProps = {
   onExportCSVClick?: () => void;
   columnsActive?: boolean;
   columnsCount?: number;
+  onRegisterApplyTargetCompanyFilter?: (
+    fn: (companyId: number, companyName: string) => void
+  ) => void;
 };
 
 export const CorporateEventsDashboard = ({
@@ -78,6 +86,7 @@ export const CorporateEventsDashboard = ({
   onExportCSVClick,
   columnsActive = false,
   columnsCount = 0,
+  onRegisterApplyTargetCompanyFilter,
 }: CorporateEventsDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
     filters: [],
@@ -115,6 +124,72 @@ export const CorporateEventsDashboard = ({
         : { ...state, searchText: initialSearch }
     );
   }, [initialSearch]);
+
+  useEffect(() => {
+    const urlFilters = parseCorporateEventsUrlFilters();
+    const companyIds = urlFilters.filter_company_ids ?? [];
+    if (companyIds.length === 0) return;
+
+    setFilterBarState((state) => {
+      if (state.filters.some((filter) => filter.id === "target_company")) {
+        return state;
+      }
+      return {
+        ...state,
+        filters: [
+          ...state.filters,
+          {
+            id: "target_company",
+            key: createFilterInstanceKey(),
+            value: companyIds.map((id) =>
+              formatTargetCompanyFilterValue(`Company ${id}`, id)
+            ),
+          },
+        ],
+      };
+    });
+  }, []);
+
+  const applyTargetCompanyFilter = useCallback(
+    (companyId: number, companyName: string) => {
+      const token = formatTargetCompanyFilterValue(companyName, companyId);
+      setFilterBarState((state) => {
+        const existing = state.filters.find(
+          (filter) => filter.id === "target_company"
+        );
+        if (existing) {
+          const current = Array.isArray(existing.value)
+            ? (existing.value as string[])
+            : [];
+          if (current.includes(token)) return state;
+          return {
+            ...state,
+            filters: state.filters.map((filter) =>
+              filter.key === existing.key
+                ? { ...filter, value: [...current, token] }
+                : filter
+            ),
+          };
+        }
+        return {
+          ...state,
+          filters: [
+            ...state.filters,
+            {
+              id: "target_company",
+              key: createFilterInstanceKey(),
+              value: [token],
+            },
+          ],
+        };
+      });
+    },
+    []
+  );
+
+  useEffect(() => {
+    onRegisterApplyTargetCompanyFilter?.(applyTargetCompanyFilter);
+  }, [applyTargetCompanyFilter, onRegisterApplyTargetCompanyFilter]);
 
   useEffect(() => {
     locationsService.getContinentalRegions().then(setContinentalRegions).catch(console.error);

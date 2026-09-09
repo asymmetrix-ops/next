@@ -17,7 +17,7 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
 ]);
 
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
-  country: "target",
+  target_company: "target",
   primary_sector: "primary_sectors",
   secondary_sector: "primary_sectors",
   deal_type: "details",
@@ -50,6 +50,7 @@ export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
   const locationFilterIds = new Set([
     "region",
     "sub_region",
+    "target_hq",
     "country",
     "state",
     "city",
@@ -197,6 +198,15 @@ export const EXTRA_FILTER_DEFS: Pick<
     id: "sub_region",
     label: "Sub-Region",
     fullLabel: "Sub-Region",
+    category: "location",
+    type: "Aa",
+    editor: "enum",
+    options: [],
+  },
+  {
+    id: "target_hq",
+    label: "Target HQ",
+    fullLabel: "Target HQ",
     category: "location",
     type: "Aa",
     editor: "enum",
