@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { trackLogout } from "@/lib/tracking";
 import { MCP_GUEST_ALLOWED_PATH, MCP_GUEST_OTP_LOGIN_PATH } from "@/lib/mcpGuest";
 
 const ASYMMETRIX_BLUE = "hsl(228 85% 63%)";
+const DASHBOARD_PATH = "/home-user";
 
 const getNavHref = (item: string) => {
   const label = item.replace(/\u00A0/g, " ");
@@ -102,6 +103,22 @@ const Header = () => {
     if (isMcpGuest) return href === MCP_GUEST_ALLOWED_PATH;
     if (isTrialActive) return isAllowedTrialRoute(href);
     return true;
+  };
+
+  const isOnDashboard = pathname.startsWith(DASHBOARD_PATH);
+
+  const handleLogoClick = (e: MouseEvent) => {
+    e.preventDefault();
+
+    if (isMcpGuest) {
+      if (pathname.startsWith(MCP_GUEST_ALLOWED_PATH)) return;
+      router.push(MCP_GUEST_ALLOWED_PATH);
+      return;
+    }
+
+    if (isOnDashboard) return;
+
+    router.push(DASHBOARD_PATH);
   };
 
   const handleLogout = () => {
@@ -288,19 +305,9 @@ const Header = () => {
           <div style={styles.leftSection} className="left-section">
             {/* Logo */}
             <Link
-              href="/"
+              href={isMcpGuest ? MCP_GUEST_ALLOWED_PATH : DASHBOARD_PATH}
               style={styles.logo}
-              onClick={(e) => {
-                if (isMcpGuest) {
-                  e.preventDefault();
-                  router.push(MCP_GUEST_ALLOWED_PATH);
-                  return;
-                }
-                if (isTrialActive) {
-                  e.preventDefault();
-                  router.push("/home-user");
-                }
-              }}
+              onClick={handleLogoClick}
             >
               <Image
                 src="/icons/logo.svg"
