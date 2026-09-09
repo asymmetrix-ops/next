@@ -66,3 +66,14 @@ export function buildDefaultFilters(
 
 /** @deprecated Use buildDefaultFilters */
 export const buildSuggestedFilters = buildDefaultFilters;
+
+export function filtersEqual(a: FilterState[], b: FilterState[]): boolean {
+  if (a.length !== b.length) return false;
+  const serialize = (items: FilterState[]) =>
+    JSON.stringify(
+      [...items]
+        .map((item) => ({ id: item.id, value: item.value }))
+        .sort((left, right) => left.id.localeCompare(right.id))
+    );
+  return serialize(a) === serialize(b);
+}

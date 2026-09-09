@@ -1,6 +1,7 @@
 import { ADVISORS_COLUMN_CATEGORIES } from "@/components/advisors/advisorsColumnCategories";
 import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
 import type { AdvisorListItem, AdvisorSectorItem } from "@/app/advisors/actions";
+import { extractAdvisorAreaOfFocusLabels } from "@/lib/advisorAreaOfFocus";
 import {
   advisorsFiltersToSearchParams,
   createDefaultAdvisorFilters,
@@ -129,6 +130,14 @@ function getAdvisorCellValue(
 
   if (column.key === "description") {
     return toPlainText(advisor.description);
+  }
+
+  if (column.key === "area_of_focus") {
+    const labels =
+      advisor.area_of_focus && advisor.area_of_focus.length > 0
+        ? advisor.area_of_focus
+        : extractAdvisorAreaOfFocusLabels(advisor as unknown as Record<string, unknown>);
+    return labels.length > 0 ? labels.join(", ") : EMPTY_DISPLAY;
   }
 
   if (column.key === "events_advised") {

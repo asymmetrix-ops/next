@@ -373,6 +373,7 @@ export interface FiControlBarProps {
   countryOptions: FiIdOption[];
   peerCount: number;
   isDefaultMode: boolean;
+  showApplySuggestedFilters?: boolean;
   onResetToDefault: () => void;
   onApplySuggestedFilters?: () => void;
   checkedSourceLabels: Set<FiMetricSourceType>;
@@ -404,6 +405,7 @@ export function FiControlBar({
   countryOptions,
   peerCount,
   isDefaultMode,
+  showApplySuggestedFilters = false,
   onResetToDefault,
   onApplySuggestedFilters,
   checkedSourceLabels,
@@ -908,7 +910,7 @@ export function FiControlBar({
                   gap: 12,
                 }}
               >
-                {filters.length === 0 && onApplySuggestedFilters && (
+                {showApplySuggestedFilters && onApplySuggestedFilters && (
                   <button
                     type="button"
                     disabled={loading}

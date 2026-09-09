@@ -10,6 +10,7 @@ import {
 import { mapCountsToAdvisorsRoleCounts } from "@/components/advisors/advisorsFilterConfig";
 import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
 import { readLogoFromRecord } from "@/lib/companyLogo";
+import { extractAdvisorAreaOfFocusLabels } from "@/lib/advisorAreaOfFocus";
 
 export type { AdvisorsSearchFilters };
 
@@ -24,6 +25,7 @@ export interface AdvisorListItem {
   url?: string;
   website?: string;
   description?: string;
+  area_of_focus?: string[];
   events_advised?: number;
   sectors?: AdvisorSectorItem[];
   sectors_count?: number;
@@ -49,7 +51,14 @@ const ADVISORS_API_BASE =
 
 function normalizeAdvisorListItem(item: AdvisorListItem): AdvisorListItem {
   const logo = readLogoFromRecord(item, getAdvisorFieldAliasesForColumn("logo"));
-  return logo ? { ...item, linkedin_logo: logo } : item;
+  const areaOfFocus = extractAdvisorAreaOfFocusLabels(
+    item as unknown as Record<string, unknown>
+  );
+  return {
+    ...item,
+    ...(logo ? { linkedin_logo: logo } : {}),
+    ...(areaOfFocus.length > 0 ? { area_of_focus: areaOfFocus } : {}),
+  };
 }
 
 function normalizeAdvisorsListResponse(

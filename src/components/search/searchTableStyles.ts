@@ -121,6 +121,9 @@ export const SEARCH_BULK_TOOLBAR_STYLES = `
     }
 `;
 
+export const SEARCH_TABLE_ROW_MIN_HEIGHT_PX = 56;
+export const SEARCH_TABLE_ENTITY_LOGO_SIZE_PX = 40;
+
 export const SEARCH_TABLE_STYLES = `
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     .loading-skeleton {
@@ -278,6 +281,7 @@ export const SEARCH_TABLE_STYLES = `
       align-items: center;
       gap: 10px;
       min-width: 0;
+      min-height: ${SEARCH_TABLE_ENTITY_LOGO_SIZE_PX}px;
     }
     .company-table-entity-name-text {
       min-width: 0;
@@ -332,6 +336,14 @@ export const SEARCH_TABLE_STYLES = `
       overflow-wrap: break-word;
       min-width: 120px;
       white-space: nowrap;
+      box-sizing: border-box;
+    }
+    .company-table tbody td {
+      min-height: ${SEARCH_TABLE_ROW_MIN_HEIGHT_PX}px;
+    }
+    .company-table td.company-table-cell-wrap {
+      height: auto;
+      white-space: normal;
     }
     .company-table th {
       font-weight: 800;

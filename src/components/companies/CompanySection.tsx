@@ -69,7 +69,7 @@ import { buildSectorItemsFromUnknown } from "@/components/search/searchEntityLin
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
 import { useSectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
 import type { SectorNameIdMaps } from "@/components/search/useSectorNameIdMaps";
-import CompactPagination from "@/components/ui/CompactPagination";
+import { SearchTablePagination } from "@/components/search/SearchTablePagination";
 import type { CompanyColumnCategory } from "@/components/companies/companiesColumnCategories";
 import {
   INVESTMENT_STATUS_COLUMN_KEY,
@@ -2415,20 +2415,13 @@ export const CompanySection = ({
           style: { width: tableScrollWidth, height: 1 },
         })
       ),
-    React.createElement(
-      "div",
-      { style: { display: "flex", justifyContent: "center", padding: "12px 8px" } },
-      React.createElement(CompactPagination, {
-        curPage: pagination.curPage,
-        pageTotal:
-          pagination.pageTotal ||
-          (pagination.nextPage != null
-            ? Math.max(pagination.nextPage, pagination.curPage + 1)
-            : 1),
-        onPageChange: handlePageChange,
-        disabled: loading,
-      })
-    ),
+    React.createElement(SearchTablePagination, {
+      curPage: pagination.curPage,
+      pageTotal: pagination.pageTotal,
+      nextPage: pagination.nextPage,
+      onPageChange: handlePageChange,
+      disabled: loading,
+    }),
     React.createElement(ExportLimitModal, {
       isOpen: showExportLimitModal,
       onClose: () => setShowExportLimitModal(false),
