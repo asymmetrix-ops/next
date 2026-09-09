@@ -208,6 +208,7 @@
 .dash-art {
   border: 1px solid var(--dash-line);
   border-radius: var(--dash-r-md);
+  overflow: hidden;
   transition:
     box-shadow 0.15s ease,
     border-color 0.15s ease;

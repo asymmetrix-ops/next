@@ -69,3 +69,21 @@ export function getContentTypeBadgeStyle(contentType?: string): CSSProperties {
     borderColor: "#E4E8F2",
   };
 }
+
+/** Accent color for card top borders — matches Insights & Analysis cards. */
+export function getContentTypeAccentColor(contentType?: string): string {
+  const t = (contentType || "").toLowerCase();
+  if (t === "company analysis" || t === "company update") return "#2A46EA";
+  if (t === "sector analysis") return "#523793";
+  if (t === "executive interview") return "#0F7040";
+  if (t === "news") return "#A62E22";
+  if (
+    t === "deal analysis" ||
+    t === "deal perspective" ||
+    t === "hot take" ||
+    t === "market commentary"
+  ) {
+    return "#7A5605";
+  }
+  return "#6B7488";
+}

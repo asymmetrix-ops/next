@@ -29,6 +29,10 @@ import {
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
+import {
+  formatTransactionStatusLabel,
+  getTransactionStatusPillStyle,
+} from "@/lib/transactionStatusBadge";
 
 const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 const MAX_NAMES_SHOWN = 4;
@@ -420,25 +424,8 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
 
         {/* Transaction status */}
         {article.Transaction_status && (
-          <span
-            style={{
-              alignSelf: "flex-start",
-              display: "inline-flex",
-              alignItems: "center",
-              fontSize: 10.5,
-              lineHeight: 1,
-              padding: "5px 10px",
-              borderRadius: 999,
-              border: `1.5px solid ${T.emerald}`,
-              fontWeight: 700,
-              letterSpacing: "0.03em",
-              textTransform: "uppercase" as const,
-              background: T.emeraldSoft,
-              color: T.emerald,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {article.Transaction_status}
+          <span style={getTransactionStatusPillStyle(article.Transaction_status)}>
+            {formatTransactionStatusLabel(article.Transaction_status)}
           </span>
         )}
 

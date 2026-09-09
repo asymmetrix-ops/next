@@ -4,6 +4,7 @@ import React from "react";
 import {
   COUNTRY_FLAG_INLINE_SIZE_PX,
   getCountryDisplayName,
+  getCountryFlagDimensions,
   getCountryFlagUrl,
   INLINE_COUNTRY_FLAG_CLASS,
   readHqCountryIso2,
@@ -25,19 +26,21 @@ export const CountryFlagImg: React.FC<CountryFlagImgProps> = ({
   const countryDisplayName = getCountryDisplayName(iso2);
   if (!countryFlagUrl) return null;
 
+  const { width, height } = getCountryFlagDimensions(size);
+
   return (
     <img
       src={countryFlagUrl}
       alt=""
       title={countryDisplayName ?? iso2?.toUpperCase() ?? undefined}
       aria-hidden="true"
-      width={size}
-      height={size}
+      width={width}
+      height={height}
       className={cn(INLINE_COUNTRY_FLAG_CLASS, className)}
       style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
+        width,
+        height,
+        borderRadius: 2,
         objectFit: "cover",
         verticalAlign: "middle",
       }}

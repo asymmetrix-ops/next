@@ -33,6 +33,12 @@ import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import NewsArticleCard from "@/components/NewsArticleCard";
 import { isNewsArticle } from "@/lib/contentArticleDisplay";
 import type { ContentArticle } from "@/types/insightsAnalysis";
+import { getContentTypeAccentColor } from "@/lib/contentTypeBadge";
+import {
+  formatTransactionStatusLabel,
+  getTransactionStatusPillStyle,
+  getTransactionStatusTone,
+} from "@/lib/transactionStatusBadge";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -163,54 +169,10 @@ function getInsightTransactionStatus(article: InsightArticle): string {
 function dealRadarStageStyle(
   status: string
 ): { pill: CSSProperties; dot: string } {
-  const s = status.toLowerCase();
-  if (s.includes("reported")) {
-    return {
-      pill: { backgroundColor: "#E4F5EC", color: "#0F7040" },
-      dot: "#17A05C",
-    };
-  }
-  if (s.includes("rumoured") || s.includes("rumored")) {
-    return {
-      pill: { backgroundColor: "#FEF6E0", color: "#7A5605" },
-      dot: "#E0A32E",
-    };
-  }
-  if (s.includes("hold")) {
-    return {
-      pill: { backgroundColor: "#F5F7FD", color: "#566078" },
-      dot: "#B4BCCB",
-    };
-  }
+  const { bg, fg, dot } = getTransactionStatusTone(status);
   return {
-    pill: { backgroundColor: "#F1F4FE", color: "#1F35C4" },
-    dot: "#3D5BF3",
-  };
-}
-
-function dealRadarStageLabel(status: string): string {
-  const s = status.toLowerCase();
-  if (s.includes("reported")) return "Reported in Market";
-  if (s.includes("rumoured") || s.includes("rumored")) return "Rumored in Market";
-  if (s.includes("anticipated")) return "Anticipated within\n18 months";
-  return status;
-}
-
-function transactionStatusPillStyle(status: string): CSSProperties {
-  const { pill, dot } = dealRadarStageStyle(status);
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    fontSize: 11,
-    lineHeight: 1,
-    padding: "5px 10px",
-    borderRadius: 9999,
-    fontWeight: 700,
-    letterSpacing: "0.03em",
-    textTransform: "uppercase",
-    whiteSpace: "nowrap",
-    border: `1.5px solid ${dot}`,
-    ...pill,
+    pill: { backgroundColor: bg, color: fg },
+    dot,
   };
 }
 
@@ -2207,6 +2169,9 @@ export default function HomeUserPage() {
                             <tr
                               key={item.companyId}
                               className="align-top"
+                              style={{
+                                borderTop: `3px solid ${stageStyle.dot}`,
+                              }}
                             >
                               <td className="pl-3 pr-1 py-3 min-w-0 align-top">
                                 <div className="space-y-1 min-w-0">
@@ -2314,7 +2279,9 @@ export default function HomeUserPage() {
                                     style={{ backgroundColor: stageStyle.dot }}
                                   />
                                   <span className="whitespace-pre-line">
-                                    {dealRadarStageLabel(item.transactionStatus)}
+                                    {formatTransactionStatusLabel(
+                                      item.transactionStatus
+                                    )}
                                   </span>
                                 </span>
                               </td>
@@ -2429,27 +2396,21 @@ export default function HomeUserPage() {
                     const hqCountryIso2 = getInsightHqCountryIso2(article);
 
                     return (
-                      <div
-                        key={article.id}
-                        className="dash-art p-4"
-                      >
+                      <div key={article.id} className="dash-art overflow-hidden">
+                        <div
+                          className="h-[3px] shrink-0"
+                          style={{
+                            backgroundColor: getContentTypeAccentColor(ct),
+                          }}
+                        />
+                        <div className="p-4">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="flex flex-wrap items-center gap-2 min-w-0">
-                            <span
-                              className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-lg border"
-                              style={contentTypeBadgeStyle(ct)}
-                            >
-                              {ct || "Insight"}
-                            </span>
-                            {(() => {
-                              const ts = getInsightTransactionStatus(article);
-                              return ts ? (
-                                <span style={transactionStatusPillStyle(ts)}>
-                                  {ts}
-                                </span>
-                              ) : null;
-                            })()}
-                          </div>
+                          <span
+                            className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-lg border"
+                            style={contentTypeBadgeStyle(ct)}
+                          >
+                            {ct || "Insight"}
+                          </span>
                           <span className="dash-ev-meta shrink-0">
                             {formatDate(article.Publication_Date)}
                           </span>
@@ -2478,6 +2439,17 @@ export default function HomeUserPage() {
                           </a>
                         </div>
 
+                        {(() => {
+                          const ts = getInsightTransactionStatus(article);
+                          return ts ? (
+                            <div className="mt-2">
+                              <span style={getTransactionStatusPillStyle(ts)}>
+                                {formatTransactionStatusLabel(ts)}
+                              </span>
+                            </div>
+                          ) : null;
+                        })()}
+
                         {article.Strapline ? (
                           <p className="dash-art-p mt-2 line-clamp-3">
                             {article.Strapline}
@@ -2503,6 +2475,7 @@ export default function HomeUserPage() {
                         >
                           Read full article <span aria-hidden="true">→</span>
                         </a>
+                        </div>
                       </div>
                     );
                   })}
