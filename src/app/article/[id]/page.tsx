@@ -23,6 +23,19 @@ import {
   getTransactionStatusPillStyle,
 } from "@/lib/transactionStatusBadge";
 import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import {
+  getFXRates,
+  formatCurrency,
+  type Currency,
+  type FXRates,
+} from "@/lib/fxRates";
+import { FinancialsCurrencyToggle } from "@/components/company/FinancialsCurrencyToggle";
+import {
+  currencyCodeToToggleSymbol,
+  type CurrencyDisplayMode,
+  type FxToggleConfig,
+} from "@/lib/financialsCurrencyToggle";
 import {
   COMPANY_TABLE_DATA_URL,
   extractCompanyTableItems,
@@ -572,6 +585,19 @@ const ArticleDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
+
+  // Financial Snapshot — platform vs reported currency toggle (mirrors
+  // Company Profile's FinancialsCurrencyToggle behaviour).
+  const { currency: platformCurrency } = usePlatformCurrency();
+  const [snapshotFxRates, setSnapshotFxRates] = useState<FXRates | null>(null);
+  const [snapshotCurrencyMode, setSnapshotCurrencyMode] =
+    useState<CurrencyDisplayMode>("preferred");
+
+  useEffect(() => {
+    getFXRates()
+      .then(setSnapshotFxRates)
+      .catch(() => setSnapshotFxRates(null));
+  }, []);
   const [companyOfFocus, setCompanyOfFocus] =
     useState<CompanyOfFocusApiItem | null>(null);
   const [companyOfFocusLoading, setCompanyOfFocusLoading] = useState(false);
@@ -1183,6 +1209,56 @@ const ArticleDetailPage = () => {
     const trimmed = source.toString().trim();
     if (!trimmed) return undefined;
     return `Source: ${trimmed}`;
+  };
+
+  const SUPPORTED_CURRENCIES: Currency[] = ["USD", "GBP", "EUR"];
+  const isSupportedCurrency = (code?: string | null): code is Currency =>
+    !!code && SUPPORTED_CURRENCIES.includes(code.trim().toUpperCase() as Currency);
+
+  /** Convert a value between any two of the platform's supported currencies
+   * (USD/GBP/EUR), using the USD-anchored FX table as the pivot. */
+  const convertBetweenCurrencies = (
+    value: number | null,
+    sourceCode: Currency,
+    targetCode: Currency,
+    rates: FXRates | null
+  ): number | null => {
+    if (value === null || !Number.isFinite(value)) return null;
+    if (sourceCode === targetCode) return value;
+    if (!rates) return value;
+    const usdValue = sourceCode === "USD" ? value : value / rates[sourceCode];
+    return targetCode === "USD" ? usdValue : usdValue * rates[targetCode];
+  };
+
+  /** Currency-aware money formatter for the Financial Snapshot card — shows
+   * the value in the platform or reported currency depending on `mode`. */
+  const formatSnapshotMoney = (
+    value: number | string | null | undefined,
+    reportedCode: string | null | undefined,
+    mode: CurrencyDisplayMode
+  ): string => {
+    if (value === null || value === undefined || value === "") return "-";
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "-";
+
+    const nativeCode = isSupportedCurrency(reportedCode)
+      ? reportedCode.trim().toUpperCase() as Currency
+      : null;
+
+    if (!nativeCode) {
+      // Unknown/unsupported reported currency — show the plain figure.
+      return formatPlainNumber(num);
+    }
+    if (mode === "native") {
+      return formatCurrency(num, nativeCode);
+    }
+    const converted = convertBetweenCurrencies(
+      num,
+      nativeCode,
+      platformCurrency,
+      snapshotFxRates
+    );
+    return formatCurrency(converted, platformCurrency);
   };
 
   const toDisplayString = (value: unknown): string => {
@@ -1835,30 +1911,69 @@ const ArticleDetailPage = () => {
                   ? overview.employee_count.toLocaleString("en-US")
                   : "-";
 
-              const currencyForHeader =
-                (financial?.ev_currency ||
-                  financial?.revenue_currency ||
-                  financial?.ebitda_currency ||
-                  "") || "";
+              const reportedCurrencyRaw =
+                financial?.ev_currency ||
+                financial?.revenue_currency ||
+                financial?.ebitda_currency ||
+                null;
+              const reportedCurrency = isSupportedCurrency(reportedCurrencyRaw)
+                ? (reportedCurrencyRaw!.trim().toUpperCase() as Currency)
+                : null;
 
-              const financialHeader = currencyForHeader
-                ? `Financial Snapshot (${currencyForHeader})`
+              const snapshotFxToggleConfig: FxToggleConfig | null =
+                reportedCurrency && reportedCurrency !== platformCurrency
+                  ? {
+                      preferredCode: platformCurrency,
+                      nativeCode: reportedCurrency,
+                      preferredSymbol: currencyCodeToToggleSymbol(platformCurrency),
+                      nativeSymbol: currencyCodeToToggleSymbol(reportedCurrency),
+                    }
+                  : null;
+
+              const activeSnapshotCurrency = snapshotFxToggleConfig
+                ? snapshotCurrencyMode === "native"
+                  ? snapshotFxToggleConfig.nativeCode
+                  : snapshotFxToggleConfig.preferredCode
+                : reportedCurrency || null;
+
+              const financialHeader = activeSnapshotCurrency
+                ? `Financial Snapshot (${activeSnapshotCurrency})`
                 : "Financial Snapshot";
 
+              const snapshotAsOfDate = article?.Publication_Date
+                ? formatDate(article.Publication_Date)
+                : null;
+
               const revenueDisplay = financial
-                ? formatPlainNumber(financial.revenue_m)
+                ? formatSnapshotMoney(
+                    financial.revenue_m,
+                    financial.revenue_currency,
+                    snapshotCurrencyMode
+                  )
                 : "-";
 
               const arrDisplay = financial
-                ? formatPlainNumber(financial.arr_m)
+                ? formatSnapshotMoney(
+                    financial.arr_m,
+                    financial.revenue_currency,
+                    snapshotCurrencyMode
+                  )
                 : "-";
 
               const ebitdaDisplay = financial
-                ? formatPlainNumber(financial.ebitda_m)
+                ? formatSnapshotMoney(
+                    financial.ebitda_m,
+                    financial.ebitda_currency,
+                    snapshotCurrencyMode
+                  )
                 : "-";
 
               const evDisplay = financial
-                ? formatPlainNumber(financial.enterprise_value_m)
+                ? formatSnapshotMoney(
+                    financial.enterprise_value_m,
+                    financial.ev_currency,
+                    snapshotCurrencyMode
+                  )
                 : "-";
 
               const revenueMultipleDisplay = financial
@@ -1874,15 +1989,26 @@ const ArticleDetailPage = () => {
                 : "-";
 
               return (
-                <>
+                <div
+                  style={{
+                    ...styles.section,
+                    borderRadius: 12,
+                    border: "1px solid #DCE4FA",
+                    padding: 16,
+                    backgroundColor: "#EFF3FF",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 16,
+                  }}
+                >
                   {overview && (
                     <div
                       style={{
-                        ...styles.section,
-                        borderRadius: 8,
+                        borderRadius: 10,
                         border: "1px solid #E4E8F2",
                         padding: "16px 16px 12px",
-                        backgroundColor: "#F5F7FD",
+                        backgroundColor: "#fff",
+                        boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
                       }}
                       className="article-financial-metrics"
                     >
@@ -2088,25 +2214,54 @@ const ArticleDetailPage = () => {
                       </div>
                     </div>
                   )}
+
+                  {overview && financial && (
+                    <div
+                      style={{ height: 1, background: "#DCE4FA", margin: "0 4px" }}
+                      aria-hidden="true"
+                    />
+                  )}
+
                   {financial && (
                     <div
                       className="article-financial-metrics"
                       style={{
-                        ...styles.section,
-                        borderRadius: 8,
+                        borderRadius: 10,
                         border: "1px solid #E4E8F2",
                         padding: "16px 16px 12px",
-                        backgroundColor: "#F5F7FD",
+                        backgroundColor: "#fff",
+                        boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
                       }}
                     >
-                      <h2
+                      <div
                         style={{
-                          ...styles.cardSectionTitle,
+                          display: "flex",
+                          alignItems: "flex-start",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          flexWrap: "wrap",
                           marginBottom: "12px",
                         }}
                       >
-                        {financialHeader}
-                      </h2>
+                        <div>
+                          <h2 style={{ ...styles.cardSectionTitle, marginBottom: 2 }}>
+                            {financialHeader}
+                          </h2>
+                          {snapshotAsOfDate && (
+                            <div style={{ fontSize: 12, color: "#6B7488" }}>
+                              As of {snapshotAsOfDate}
+                            </div>
+                          )}
+                        </div>
+                        {snapshotFxToggleConfig && (
+                          <FinancialsCurrencyToggle
+                            config={snapshotFxToggleConfig}
+                            mode={snapshotCurrencyMode}
+                            onChange={setSnapshotCurrencyMode}
+                            compact
+                          />
+                        )}
+                      </div>
                       <div>
                         <div style={styles.infoRow}>
                           <span style={styles.label}>Revenue (m)</span>
@@ -2153,7 +2308,7 @@ const ArticleDetailPage = () => {
                           </span>
                         </div>
                         <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue Multiple (x)</span>
+                          <span style={styles.label}>Revenue multiple</span>
                           <span
                             style={styles.value}
                             title={getFinancialSourceTooltip(
@@ -2164,7 +2319,7 @@ const ArticleDetailPage = () => {
                           </span>
                         </div>
                         <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue Growth (%)</span>
+                          <span style={styles.label}>Revenue growth</span>
                           <span
                             style={styles.value}
                             title={getFinancialSourceTooltip(
@@ -2175,7 +2330,7 @@ const ArticleDetailPage = () => {
                           </span>
                         </div>
                         <div style={styles.infoRow}>
-                          <span style={styles.label}>Rule of 40 (%)</span>
+                          <span style={styles.label}>Rule of 40</span>
                           <span
                             style={styles.value}
                             title={getFinancialSourceTooltip(
@@ -2188,7 +2343,7 @@ const ArticleDetailPage = () => {
                       </div>
                     </div>
                   )}
-                </>
+                </div>
               );
             })()}
             {/* Competitors (Company Analysis only) */}

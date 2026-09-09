@@ -176,6 +176,10 @@
   background: var(--dash-blue-50);
 }
 
+.dash-table tbody td {
+  min-height: 56px;
+}
+
 .dash-company-link {
   color: var(--dash-blue-600);
   font-weight: 700;

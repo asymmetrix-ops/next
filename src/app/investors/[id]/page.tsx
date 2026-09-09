@@ -32,14 +32,9 @@ import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import { readEntityLogo } from "@/lib/companyLogo";
 
-const INVESTOR_PROFILE_TABS = [
-  "Summary",
-  "Strategy",
-  "Portfolio",
-  "People",
-  "Deals",
-  "Market",
-] as const;
+// Only Summary + Portfolio are ready; the remaining sub-section tabs
+// (Strategy, People, Deals, Market) stay hidden until their content ships.
+const INVESTOR_PROFILE_TABS = ["Summary", "Portfolio"] as const;
 
 // Types for API integration
 interface InvestorLocation {
@@ -1490,22 +1485,18 @@ const InvestorDetailPage = () => {
         >
           {INVESTOR_PROFILE_TABS.map((tab) => {
             const active = tab === activeProfileTab;
-            const disabled = tab !== "Summary" && tab !== "Portfolio";
             return (
               <button
                 key={tab}
                 type="button"
-                disabled={disabled}
-                onClick={() => {
-                  if (!disabled) setActiveProfileTab(tab);
-                }}
+                onClick={() => setActiveProfileTab(tab)}
                 style={{
                   height: 38,
                   padding: "0 20px",
                   fontFamily: T.sans,
                   fontSize: "13px",
                   fontWeight: active ? 700 : 600,
-                  color: disabled ? T.faint : active ? T.ink : T.muted,
+                  color: active ? T.ink : T.muted,
                   borderRadius: 999,
                   whiteSpace: "nowrap" as const,
                   transition: "color 120ms, background 120ms, box-shadow 120ms",
@@ -1514,7 +1505,7 @@ const InvestorDetailPage = () => {
                     ? "0 1px 2px rgba(16, 28, 70, 0.06), 0 3px 10px rgba(16, 28, 70, 0.08)"
                     : "none",
                   border: "none",
-                  cursor: disabled ? "not-allowed" : "pointer",
+                  cursor: "pointer",
                 }}
               >
                 {tab}
