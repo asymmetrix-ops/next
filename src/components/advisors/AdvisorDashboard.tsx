@@ -219,7 +219,7 @@ export const AdvisorDashboard = ({
       primarySectors,
       secondarySectors,
       scopedPrimarySectorIds,
-      advisorRoleId: tabConfig?.roleId,
+      advisorRoleIds: tabConfig?.roleId ? [tabConfig.roleId] : [],
     });
   }, [
     filterBarState,

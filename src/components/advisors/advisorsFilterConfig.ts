@@ -3,6 +3,7 @@ import {
   buildColumnLinkedFilterDefs,
   EXTRA_FILTER_DEFS,
 } from "./advisorsColumnFilterMap";
+import { ADVISOR_AREA_OF_FOCUS_LABELS } from "@/lib/advisorAreaOfFocus";
 
 export interface Country {
   locations_Country: string;
@@ -104,6 +105,7 @@ export const ADVISOR_ROLE_TAB_CONFIG: Record<
 export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "location", name: "Location" },
   { id: "sectors", name: "Sector" },
+  { id: "area_of_focus", name: "Area of Focus" },
   { id: "portfolio", name: "Portfolio" },
 ];
 
@@ -151,6 +153,9 @@ export function buildAdvisorsFilterDefs({
         ["1k–9.9k", 1000, 9999],
         ["10k+", 10000, 100000],
       ],
+    },
+    area_of_focus: {
+      options: [...ADVISOR_AREA_OF_FOCUS_LABELS],
     },
   };
 

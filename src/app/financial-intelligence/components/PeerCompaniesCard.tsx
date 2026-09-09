@@ -48,6 +48,8 @@ export function PeerCompaniesCard({
         borderRadius: "var(--r-lg)",
         overflow: "hidden",
         width: "100%",
+        height: "100%",
+        minHeight: 0,
         display: "flex",
         flexDirection: "column",
       }}
@@ -125,7 +127,7 @@ export function PeerCompaniesCard({
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, maxHeight: 520, overflow: "auto" }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         {peers.length === 0 ? (
           <div style={{ padding: 12, color: "var(--fg-3)", fontSize: 12 }}>
             No peers in the current benchmark set.

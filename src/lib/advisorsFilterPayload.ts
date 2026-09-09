@@ -1,5 +1,8 @@
 import type { FilterBarState, FilterCombineLogic, FilterItem } from "@/components/companies/CompaniesFilterBar";
 import {
+  resolveAdvisorRoleIdsFromLabels,
+} from "@/lib/advisorAreaOfFocus";
+import {
   advisorCountsPayloadToSearchParams,
   advisorSearchPayloadToRequestBody,
   advisorSearchPayloadToSearchParams,
@@ -45,6 +48,7 @@ function buildClausesFromFilterBar(args: {
   portfolioOnly: boolean;
   primarySectorIds: number[];
   secondarySectorIds: number[];
+  areaOfFocusRoleIds: number[];
 } {
   const { state, primarySectors, secondarySectors, scopedPrimarySectorIds = [] } = args;
   const clauses: AdvisorFilterClause[] = [];
@@ -52,6 +56,7 @@ function buildClausesFromFilterBar(args: {
   let portfolioOnly = false;
   let primarySectorIds: number[] = [...scopedPrimarySectorIds];
   let secondarySectorIds: number[] = [];
+  let areaOfFocusRoleIds: number[] = [];
 
   const pushClause = (clause: AdvisorFilterClause) => {
     clauses.push(clause);
@@ -145,13 +150,17 @@ function buildClausesFromFilterBar(args: {
       });
       continue;
     }
+    if (item.id === "area_of_focus" && Array.isArray(v) && v.length > 0) {
+      areaOfFocusRoleIds = resolveAdvisorRoleIdsFromLabels(v as string[]);
+      continue;
+    }
     if (item.id === "followed" && v === true) {
       portfolioOnly = true;
       continue;
     }
   }
 
-  return { clauses, portfolioOnly, primarySectorIds, secondarySectorIds };
+  return { clauses, portfolioOnly, primarySectorIds, secondarySectorIds, areaOfFocusRoleIds };
 }
 
 export const createDefaultAdvisorFilters = (): AdvisorsSearchFilters =>
@@ -176,7 +185,7 @@ export function buildAdvisorsSearchPayload(args: {
   scopedPrimarySectorIds?: number[];
   page?: number;
   perPage?: number;
-  advisorRoleId?: number;
+  advisorRoleIds?: number[];
 }): AdvisorsSearchFilters {
   const {
     state,
@@ -185,15 +194,23 @@ export function buildAdvisorsSearchPayload(args: {
     scopedPrimarySectorIds = [],
     page = 1,
     perPage = 25,
-    advisorRoleId,
+    advisorRoleIds = [],
   } = args;
-  const { clauses, portfolioOnly, primarySectorIds, secondarySectorIds } =
-    buildClausesFromFilterBar({
-      state,
-      primarySectors,
-      secondarySectors,
-      scopedPrimarySectorIds,
-    });
+  const {
+    clauses,
+    portfolioOnly,
+    primarySectorIds,
+    secondarySectorIds,
+    areaOfFocusRoleIds,
+  } = buildClausesFromFilterBar({
+    state,
+    primarySectors,
+    secondarySectors,
+    scopedPrimarySectorIds,
+  });
+
+  const resolvedRoleIds =
+    areaOfFocusRoleIds.length > 0 ? areaOfFocusRoleIds : advisorRoleIds;
 
   const payload = advisorSearchPayloadToRequestBody(
     buildAdvisorSearchPayloadFromClauses(clauses, {
@@ -211,7 +228,9 @@ export function buildAdvisorsSearchPayload(args: {
   return {
     ...payload,
     advisor_role_ids_str:
-      advisorRoleId != null && advisorRoleId > 0 ? String(advisorRoleId) : "",
+      resolvedRoleIds.length > 0
+        ? Array.from(new Set(resolvedRoleIds)).join(",")
+        : "",
   };
 }
 

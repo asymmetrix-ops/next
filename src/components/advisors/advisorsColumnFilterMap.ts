@@ -21,6 +21,7 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   corporate_events: "events_advised",
   linkedin_members: "linkedin_members",
   followed: "follow",
+  area_of_focus: "area_of_focus",
 };
 
 export const COLUMN_KEY_TO_FILTER_ID: Record<string, string> = Object.fromEntries(
@@ -68,6 +69,7 @@ function mapColumnCategoryToFilterCategory(column: AdvisorColumnMeta): string {
   if (column.columnKey === "follow") return "portfolio";
   if (column.columnKey === "events_advised") return "portfolio";
   if (column.columnKey === "sectors") return "sectors";
+  if (column.columnKey === "area_of_focus") return "area_of_focus";
   return "location";
 }
 

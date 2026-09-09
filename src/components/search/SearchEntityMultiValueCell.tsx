@@ -171,13 +171,16 @@ export function SearchEntityMultiValueCell({
 
 export const SEARCH_MULTI_VALUE_STYLES = `
   .search-multi-value-cell {
-    display: inline;
+    display: -webkit-box;
     font-size: 12.5px;
     line-height: 1.6;
     white-space: normal;
     word-break: break-word;
     overflow-wrap: break-word;
     max-width: 320px;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   .search-multi-value-link {
     color: #0075df;

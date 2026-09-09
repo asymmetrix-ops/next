@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { LinkPanel, PctBar, T } from "@/components/redesign/primitives";
+import { LinkPanel, PctBar, T, kvValueStyle } from "@/components/redesign/primitives";
 import { mixBarColorFor } from "./investorSectorColors";
 
 export type InvestorMixRow = {
@@ -135,11 +135,9 @@ function MixBody({
             <PctBar pct={row.pct} color={color} />
             <div
               style={{
-                fontFamily: T.mono,
-                fontSize: 12,
+                ...kvValueStyle,
                 color: T.ink,
                 textAlign: "right",
-                fontVariantNumeric: "tabular-nums",
               }}
             >
               {row.pct}%
@@ -180,7 +178,7 @@ function MixFooter({
         flexWrap: "wrap",
       }}
     >
-      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.mono }}>{left}</div>
+      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.sans }}>{left}</div>
       {!expanded ? (
         <button
           type="button"

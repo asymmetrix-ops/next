@@ -66,6 +66,13 @@ export const ADVISORS_COLUMN_CATEGORIES: AdvisorColumnCategory[] = [
         defaultVisible: true,
       },
       {
+        id: "area_of_focus",
+        columnKey: "area_of_focus",
+        label: "Area of Focus",
+        type: "text",
+        defaultVisible: true,
+      },
+      {
         id: "events_advised",
         columnKey: "events_advised",
         label: "# Corporate Events Advised",
@@ -107,6 +114,7 @@ export const CANONICAL_ADVISOR_COLUMN_KEYS = ALL_ADVISORS_COLUMN_META.map(
 
 export const PROD_DEFAULT_ADVISOR_COLUMN_KEYS = [
   "name",
+  "area_of_focus",
   "description",
   "events_advised",
   "sectors",

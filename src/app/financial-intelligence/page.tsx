@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -41,7 +41,7 @@ import {
   buildPeersRequest,
   type FiFilterLookups,
 } from "@/lib/financialIntelligence/filterPayload";
-import { buildDefaultFilters } from "@/lib/financialIntelligence/defaultFilters";
+import { buildDefaultFilters, filtersEqual } from "@/lib/financialIntelligence/defaultFilters";
 import { resolveTargetPrimarySectorIds } from "@/lib/financialIntelligence/sectorFilters";
 import {
   computeCompositePercentile,
@@ -156,7 +156,6 @@ export default function FinancialIntelligencePage() {
   const [peers, setPeers] = useState<FiCompanyRow[]>([]);
   const [preferredCurrencyCode, setPreferredCurrencyCode] = useState<string>(currency);
   const [totalPeers, setTotalPeers] = useState(0);
-  const [isDefaultMode, setIsDefaultMode] = useState(true);
   const [filters, setFilters] = useState<FilterState[]>([]);
   const [companyIdsInclude, setCompanyIdsInclude] = useState<number[]>([]);
   const [companyIdsExclude, setCompanyIdsExclude] = useState<number[]>([]);
@@ -188,6 +187,7 @@ export default function FinancialIntelligencePage() {
   ]);
   const [showPeerColumnsModal, setShowPeerColumnsModal] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const skipNextSourceRefetch = useRef(false);
 
   const filterLookups: FiFilterLookups = useMemo(
     () => ({
@@ -321,7 +321,6 @@ export default function FinancialIntelligencePage() {
         setFilters(filtersToUse);
         setPeers(annotateManuallyAddedPeers(enrichedPeers, include));
         setTotalPeers(peersResult.data.total_peers);
-        setIsDefaultMode(peersResult.data.is_default_mode);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load benchmark");
       } finally {
@@ -410,6 +409,10 @@ export default function FinancialIntelligencePage() {
 
   useEffect(() => {
     if (!target) return;
+    if (skipNextSourceRefetch.current) {
+      skipNextSourceRefetch.current = false;
+      return;
+    }
 
     void loadBenchmark(
       target.company_id,
@@ -454,16 +457,27 @@ export default function FinancialIntelligencePage() {
     setCompanyIdsInclude([]);
     setCompanyIdsExclude([]);
     setExcludedPeers([]);
+    skipNextSourceRefetch.current = true;
     resetSourceFilter();
-    void loadBenchmark(target.company_id, [], [], [], false, []);
+    void loadBenchmark(target.company_id, [], [], [], true, []);
   }, [loadBenchmark, resetSourceFilter, target]);
 
   const applySuggestedFilters = useCallback(() => {
     if (!target) return;
     const suggested = buildDefaultFilters(target, filterLookups);
+    setCompanyIdsInclude([]);
+    setCompanyIdsExclude([]);
+    setExcludedPeers([]);
     setFilters(suggested);
-    refreshPeers(suggested, companyIdsInclude, companyIdsExclude);
-  }, [target, filterLookups, companyIdsInclude, companyIdsExclude, refreshPeers]);
+    void loadBenchmark(
+      target.company_id,
+      suggested,
+      [],
+      [],
+      false,
+      excludedSourceLabels
+    );
+  }, [target, filterLookups, loadBenchmark, excludedSourceLabels]);
 
   const excludePeer = useCallback(
     (companyId: number) => {
@@ -540,7 +554,33 @@ export default function FinancialIntelligencePage() {
     setShowBulkAddModal(true);
   }, [selectedCompanyIdList]);
 
-  const effectiveDefaultMode = isDefaultMode && isDefaultSourceFilter;
+  const suggestedFilters = useMemo(
+    () => (target ? buildDefaultFilters(target, filterLookups) : []),
+    [target, filterLookups]
+  );
+
+  const isAtDefaultBenchmark = useMemo(() => {
+    if (!target) return true;
+    if (companyIdsInclude.length > 0 || companyIdsExclude.length > 0) return false;
+    if (!isDefaultSourceFilter) return false;
+    if (filters.length === 0) {
+      return suggestedFilters.length === 0;
+    }
+    return filtersEqual(filters, suggestedFilters);
+  }, [
+    target,
+    companyIdsInclude,
+    companyIdsExclude,
+    isDefaultSourceFilter,
+    filters,
+    suggestedFilters,
+  ]);
+
+  const showApplySuggestedFilters =
+    Boolean(target) &&
+    suggestedFilters.length > 0 &&
+    !filtersEqual(filters, suggestedFilters);
+
   const hasActiveSourceFilter = !isDefaultSourceFilter;
 
   const displayTarget = useMemo(() => {
@@ -806,7 +846,8 @@ export default function FinancialIntelligencePage() {
           regionOptions={regionOptions}
           countryOptions={countryOptions}
           peerCount={totalPeers || peers.length}
-          isDefaultMode={effectiveDefaultMode}
+          isDefaultMode={isAtDefaultBenchmark}
+          showApplySuggestedFilters={showApplySuggestedFilters}
           onResetToDefault={resetToDefault}
           onApplySuggestedFilters={applySuggestedFilters}
           checkedSourceLabels={checked}
@@ -880,7 +921,7 @@ export default function FinancialIntelligencePage() {
                 display: "grid",
                 gridTemplateColumns: "minmax(0, 1fr) 280px",
                 gap: 12,
-                alignItems: "start",
+                alignItems: "stretch",
                 marginBottom: 16,
                 minWidth: 0,
               }}

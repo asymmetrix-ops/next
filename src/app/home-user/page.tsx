@@ -2169,9 +2169,6 @@ export default function HomeUserPage() {
                             <tr
                               key={item.companyId}
                               className="align-top"
-                              style={{
-                                borderTop: `3px solid ${stageStyle.dot}`,
-                              }}
                             >
                               <td className="pl-3 pr-1 py-3 min-w-0 align-top">
                                 <div className="space-y-1 min-w-0">
