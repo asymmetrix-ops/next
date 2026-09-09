@@ -372,36 +372,8 @@ class DashboardApiService {
       throw new Error("Authentication required");
     }
 
-    const params = new URLSearchParams({
-      primary_sectors_ids: "",
-      Secondary_sectors_ids: "",
-      deal_types: "",
-      Countries: "",
-      Provinces: "",
-      Cities: "",
-      Date_start: "null",
-      Date_end: "null",
-      search_query: "",
-      show_followed: "",
-      user_id: "0",
-      new_company_id: "0",
-      target_company_id: "0",
-      investor_id: "0",
-      individual_id: "0",
-      filter_advisor_ids: "",
-      filter_company_ids: "",
-      filter_investor_ids: "",
-      filter_sector_ids: "",
-      filter_individual_ids: "",
-      Deal_Status: "null",
-      Continental_Region: "null",
-      geographical_sub_region: "null",
-      Buyer_Investor_Types: "null",
-      Funding_stage: "null",
-    });
-
     const response = await fetch(
-      `${this.baseUrl}/corporate_events?${params.toString()}`,
+      `${this.baseUrl}/get_corporate_events_counts_home_page`,
       {
         method: "GET",
         headers: {
@@ -420,8 +392,8 @@ class DashboardApiService {
       throw new Error(`API request failed: ${response.statusText}`);
     }
 
-    const data: unknown = await response.json();
-    return typeof data === "number" ? data : Number(data) || 0;
+    const data = (await response.json()) as { total_rows?: number };
+    return Number(data.total_rows) || 0;
   }
 
   async getHeroScreenStatisticSectors(): Promise<
