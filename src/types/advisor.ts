@@ -1,9 +1,27 @@
 // Main Advisor Response Interface
+export interface AdvisorActiveMandate {
+  company_id: number;
+  company_name: string;
+  transaction_status_id: number;
+  transaction_status?: string | null;
+  process_stage?: string | null;
+  set_at?: string | null;
+  revenue_m?: number | string | null;
+  revenue_currency?: string | null;
+  revenue_year?: number | string | null;
+  revenue_source?: string | null;
+  ev?: number | string | null;
+  ev_currency?: string | null;
+  ev_year?: number | string | null;
+  ev_source?: string | null;
+}
+
 export interface AdvisorResponse {
   Advisor: Advisor;
   Advised_DA_sectors: AdvisedSector[];
   Portfolio_companies_count: number;
   Advisors_individuals: AdvisorIndividual[];
+  Active_Mandates?: AdvisorActiveMandate[];
   // Optional split lists if backend provides them
   Advisors_individuals_current?: AdvisorIndividual[];
   Advisors_individuals_past?: AdvisorIndividual[];
