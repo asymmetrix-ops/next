@@ -64,7 +64,7 @@ function mapIndividualsListResponse(
   const rawOffset = data.offset;
   const curPage =
     rawOffset != null && perPage > 0
-      ? Math.floor((rawOffset - 1) / perPage) + 1
+      ? Math.floor(rawOffset / perPage) + 1
       : (data.currentPage ?? fallbackPage);
 
   const hasNext =

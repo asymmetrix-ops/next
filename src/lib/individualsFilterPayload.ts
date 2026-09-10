@@ -228,8 +228,9 @@ export function individualsFiltersToSearchParams(
   const params = new URLSearchParams();
   const page = Math.max(1, filters.page || 1);
   const perPage = filters.per_page > 0 ? filters.per_page : 50;
+  const itemOffset = (page - 1) * perPage;
 
-  params.append("Offset", String(page));
+  params.append("Offset", String(itemOffset));
   params.append("Per_page", String(perPage));
   appendIndividualsFilterParams(params, filters);
   return params;
@@ -277,7 +278,7 @@ export function individualsFiltersToRequestBody(
   const page = Math.max(1, filters.page || 1);
   const perPage = filters.per_page > 0 ? filters.per_page : 50;
 
-  const itemOffset = (page - 1) * perPage + 1;
+  const itemOffset = (page - 1) * perPage;
 
   return {
     search_query: filters.Search_Query || "",

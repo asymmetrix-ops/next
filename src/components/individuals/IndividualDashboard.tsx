@@ -66,6 +66,8 @@ export type IndividualDashboardProps = {
   columnsCount?: number;
   onExport?: (mode: ListExportMode) => void | Promise<void>;
   exporting?: boolean;
+  /** Total rows for the current list query (`totalItems` from get_all_individuals). */
+  listTotalCount?: number;
 };
 
 export const IndividualDashboard = ({
@@ -79,6 +81,7 @@ export const IndividualDashboard = ({
   columnsCount = 0,
   onExport,
   exporting = false,
+  listTotalCount,
 }: IndividualDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
     filters: [],
@@ -349,7 +352,7 @@ export const IndividualDashboard = ({
             filterCategories={FILTER_CATEGORIES}
             state={filterBarState}
             onStateChange={setFilterBarState}
-            totalCount={matchCount}
+            totalCount={listTotalCount}
             entityLabel="individuals"
             portfolioOnlyChipLabel="My Portfolio only"
             portfolioBooleanDescription="Show only individuals in My Portfolio (followed)"

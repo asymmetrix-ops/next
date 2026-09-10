@@ -80,7 +80,7 @@ export const INDIVIDUAL_ROLE_TAB_CONFIG: Record<
     label: "CEOs",
     dot: "#3b82f6",
     countKey: "ceos",
-    jobTitleIds: [4],
+    jobTitleIds: [4, 56],
   },
   current_roles: {
     label: "Current roles",
@@ -92,7 +92,7 @@ export const INDIVIDUAL_ROLE_TAB_CONFIG: Record<
     label: "Chair",
     dot: "#8b5cf6",
     countKey: "chairs",
-    jobTitleIds: [5],
+    jobTitleIds: [5, 6, 18, 63],
   },
   past_roles: {
     label: "Past roles",
@@ -104,7 +104,7 @@ export const INDIVIDUAL_ROLE_TAB_CONFIG: Record<
     label: "Founder",
     dot: "#f59e0b",
     countKey: "founders",
-    jobTitleIds: [21],
+    jobTitleIds: [9, 21],
   },
 };
 

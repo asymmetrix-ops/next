@@ -251,6 +251,7 @@ function IndividualsPageInner() {
         onFilterColumnsChange={handleFilterColumnsChange}
         initialSearch={initialSearch}
         summaryCounts={summaryCounts}
+        listTotalCount={pagination.itemsTotal}
         jobTitles={jobTitles}
         onColumnsClick={() => setShowColumnsModal((value) => !value)}
         onExport={(mode) =>
