@@ -17,6 +17,8 @@ export type AdvisorOverviewCardProps = {
   status?: string | null;
   transactionsAdvised?: number | null;
   fillGridCell?: boolean;
+  /** Tighter layout for narrow grid columns (e.g. advisor profile top row). */
+  compact?: boolean;
 };
 
 const EM = EMPTY_DISPLAY;
@@ -32,13 +34,21 @@ function displayText(value: string | number | null | undefined): React.ReactNode
   return normalized === EM ? faintDash() : normalized;
 }
 
-function FocusTags({ items }: { items: string[] }) {
+function FocusTags({ items, compact }: { items: string[]; compact?: boolean }) {
   if (items.length === 0) return faintDash();
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: compact ? 3 : 4, alignItems: "center" }}>
       {items.map((label) => (
-        <Pill key={label} tone="coral">
+        <Pill
+          key={label}
+          tone="coral"
+          style={
+            compact
+              ? { fontSize: 10, height: 20, padding: "0 7px", gap: 4 }
+              : undefined
+          }
+        >
           {label}
         </Pill>
       ))}
@@ -96,10 +106,11 @@ export function AdvisorOverviewCard({
   status,
   transactionsAdvised,
   fillGridCell = false,
+  compact = false,
 }: AdvisorOverviewCardProps) {
   const rows: { k: string; v: React.ReactNode }[] = [
     { k: "Type", v: displayText(type) },
-    { k: "Focus", v: <FocusTags items={focus} /> },
+    { k: "Focus", v: <FocusTags items={focus} compact={compact} /> },
     { k: "Year founded", v: displayText(yearFounded) },
     { k: "HQ", v: displayText(hq) },
     {
@@ -141,7 +152,7 @@ export function AdvisorOverviewCard({
       v: <StatusTag label={status?.trim() || "Active"} />,
     },
     {
-      k: "D&A transactions advised",
+      k: compact ? "Transactions" : "D&A transactions advised",
       v:
         transactionsAdvised != null ? (
           <span style={{ fontFamily: T.mono }}>{transactionsAdvised.toLocaleString("en-US")}</span>
@@ -156,7 +167,7 @@ export function AdvisorOverviewCard({
       <LinkedH showArrow>Overview</LinkedH>
       <div
         style={{
-          padding: "2px 14px 8px",
+          padding: compact ? "0 10px 6px" : "2px 14px 8px",
           ...(fillGridCell
             ? {
                 flex: 1,
@@ -169,7 +180,23 @@ export function AdvisorOverviewCard({
         }}
       >
         {rows.map((row, i) => (
-          <KV key={row.k} k={row.k} v={row.v} last={i === rows.length - 1} />
+          <KV
+            key={row.k}
+            k={row.k}
+            v={row.v}
+            last={i === rows.length - 1}
+            style={
+              compact
+                ? {
+                    fontSize: 11.5,
+                    lineHeight: 1.4,
+                    padding: "2px 0",
+                    gap: 6,
+                    gridTemplateColumns: "minmax(0, 92px) 1fr",
+                  }
+                : undefined
+            }
+          />
         ))}
       </div>
     </LinkPanel>

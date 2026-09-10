@@ -16,7 +16,6 @@ import {
   formatDate,
   getAdvisorYearFoundedDisplay,
 } from "../../../utils/advisorHelpers";
-import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
@@ -28,7 +27,8 @@ import {
   AdvisorDealsProfilePanel,
   type AdvisorDealEvent,
 } from "@/components/advisors/AdvisorDealsProfilePanel";
-import type { Advisor, AdvisorRoleRef } from "../../../types/advisor";
+import { AdvisorActiveMandatesProfilePanel } from "@/components/advisors/AdvisorActiveMandatesProfilePanel";
+import type { Advisor, AdvisorActiveMandate, AdvisorRoleRef } from "../../../types/advisor";
 
 interface LinkedInHistory {
   date: string;
@@ -50,49 +50,6 @@ function formatWebsiteDisplayLabel(raw: string): string {
       .replace(/^www\./i, "")
       .replace(/\/$/, "");
   }
-}
-
-function computeEmployeeYoYFromMonthly(data: LinkedInHistory[]): string | null {
-  if (!Array.isArray(data) || data.length < 2) return null;
-  const sorted = [...data].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-  const latest = sorted[sorted.length - 1];
-  const latestCount = latest?.employees_count;
-  if (typeof latestCount !== "number" || latestCount <= 0) return null;
-  const latestT = new Date(latest.date).getTime();
-  const yearMs = 365 * 86_400_000;
-  let best: LinkedInHistory | null = null;
-  let bestDiff = Infinity;
-  for (let i = sorted.length - 2; i >= 0; i--) {
-    const row = sorted[i];
-    const t = new Date(row.date).getTime();
-    const diff = latestT - t;
-    if (diff >= yearMs * 0.85 && diff <= yearMs * 1.15) {
-      const d = Math.abs(diff - yearMs);
-      if (d < bestDiff) {
-        bestDiff = d;
-        best = row;
-      }
-    }
-  }
-  if (!best || typeof best.employees_count !== "number" || best.employees_count <= 0) {
-    return null;
-  }
-  const pct = ((latestCount - best.employees_count) / best.employees_count) * 100;
-  const rounded = Math.round(pct * 10) / 10;
-  const sign = rounded > 0 ? "+" : "";
-  return `${sign}${rounded}% YoY`;
-}
-
-function resolveChartEmployeeCount(data: LinkedInHistory[]): number {
-  if (!Array.isArray(data) || data.length === 0) return 0;
-  const numericData = data.map((e) => e.employees_count);
-  const hasAnyNonZero = numericData.some((v) => v > 0);
-  const filtered = hasAnyNonZero ? numericData.filter((v) => v > 0) : numericData;
-  const lastNonZero = filtered.length > 0 ? filtered[filtered.length - 1]! : 0;
-  const last = numericData[numericData.length - 1] ?? 0;
-  return last > 0 ? last : lastNonZero;
 }
 
 export default function AdvisorProfilePage() {
@@ -410,6 +367,9 @@ export default function AdvisorProfilePage() {
           employees_count: x.employees_count,
         })),
       },
+      active_mandates: Array.isArray(advisorData?.Active_Mandates)
+        ? advisorData.Active_Mandates
+        : [],
       advisor_people: {
         current,
         past,
@@ -685,9 +645,10 @@ export default function AdvisorProfilePage() {
     }
     return [];
   })();
-  const currentHeadcount = resolveChartEmployeeCount(linkedInHistory);
-  const headcountYoY = computeEmployeeYoYFromMonthly(linkedInHistory);
   const linkedinUrl = normalizeLinkedInProfileUrl(Advisor.linkedin_data?.LinkedIn_URL);
+  const activeMandates: AdvisorActiveMandate[] = Array.isArray(advisorData.Active_Mandates)
+    ? advisorData.Active_Mandates
+    : [];
 
   const WIDE_ROW_START = 2;
   const dealsGridRow = WIDE_ROW_START;
@@ -711,7 +672,8 @@ export default function AdvisorProfilePage() {
     },
     responsiveGrid: {
       display: "grid",
-      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+      gridTemplateColumns:
+        "minmax(0, 0.66fr) minmax(0, 0.96fr) minmax(0, 1.22fr)",
       gap: "12px",
       flex: 1,
       maxWidth: "100%",
@@ -724,7 +686,7 @@ export default function AdvisorProfilePage() {
     .advisor-detail-page { overflow-x: hidden; }
     .responsiveGrid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 0.66fr) minmax(0, 0.96fr) minmax(0, 1.22fr);
       gap: 12px;
       max-width: 100%;
       align-items: stretch;
@@ -732,7 +694,7 @@ export default function AdvisorProfilePage() {
     .responsiveGrid > * { min-width: 0; min-height: 0; }
     .advisor-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .advisor-grid-description { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .advisor-grid-headcount { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .advisor-grid-active-mandates { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .advisor-grid-people { grid-column: 3; grid-row: ${dealsGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .advisor-grid-deals { grid-column: 1 / span 2; grid-row: ${dealsGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
     .advisor-grid-deals > * { min-width: 0; max-width: 100%; width: 100%; }
@@ -741,7 +703,7 @@ export default function AdvisorProfilePage() {
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .advisor-grid-overview,
       .advisor-grid-description,
-      .advisor-grid-headcount,
+      .advisor-grid-active-mandates,
       .advisor-grid-people,
       .advisor-grid-deals {
         grid-column: 1 / -1 !important;
@@ -854,6 +816,7 @@ export default function AdvisorProfilePage() {
             <div className="advisor-grid-overview">
               <AdvisorOverviewCard
                 fillGridCell
+                compact
                 type={extractAdvisorType(Advisor)}
                 focus={extractAdvisorFocus(Advisor)}
                 yearFounded={getAdvisorYearFoundedDisplay(Advisor)}
@@ -890,31 +853,13 @@ export default function AdvisorProfilePage() {
               />
             </div>
 
-            <div className="advisor-grid-headcount">
-              <HeadcountCard
-                fillGridCell
-                data={linkedInHistory.map((e) => e.employees_count)}
-                dates={linkedInHistory.map((e) => e.date)}
-                count={currentHeadcount}
-                yoyLabel={headcountYoY || undefined}
-                asOf={(() => {
-                  const nonZero = linkedInHistory.filter((e) => e.employees_count > 0);
-                  const ref =
-                    nonZero.length > 0
-                      ? nonZero[nonZero.length - 1]
-                      : linkedInHistory[linkedInHistory.length - 1];
-                  if (!ref?.date) return undefined;
-                  try {
-                    return new Date(ref.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      year: "numeric",
-                    });
-                  } catch {
-                    return undefined;
-                  }
-                })()}
-                linkedinUrl={linkedinUrl}
-              />
+            <div className="advisor-grid-active-mandates">
+              <LinkPanel fillGridCell className="advisor-active-mandates-v3-card">
+                <AdvisorActiveMandatesProfilePanel
+                  fillGridCell
+                  mandates={activeMandates}
+                />
+              </LinkPanel>
             </div>
 
             <div className="advisor-grid-deals">
