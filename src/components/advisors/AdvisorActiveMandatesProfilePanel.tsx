@@ -2,7 +2,17 @@
 
 import React from "react";
 import Link from "next/link";
-import { LinkedH, Pill, T, profileTableCellStyle } from "@/components/redesign/primitives";
+import {
+  LinkedH,
+  Pill,
+  T,
+  PROFILE_EVENTS_ROW_GAP,
+  PROFILE_EVENTS_ROW_PAD,
+  profileTableCellStyle,
+  profileTableColAlign,
+  tableColHeaderBarStyle,
+  tableColHeaderStyle,
+} from "@/components/redesign/primitives";
 import { HoverTooltip } from "@/components/ui/HoverTooltip";
 import { formatCurrency } from "@/utils/advisorHelpers";
 import type { AdvisorActiveMandate } from "@/types/advisor";
@@ -12,33 +22,23 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-const COL_WIDTHS = ["19%", "27%", "14%", "20%", "20%"] as const;
+const COL_GAP = PROFILE_EVENTS_ROW_GAP;
 
-const thBase: React.CSSProperties = {
-  fontFamily: T.sans,
-  fontSize: 8.5,
-  fontWeight: 600,
-  color: T.muted,
-  textTransform: "uppercase",
-  letterSpacing: 0.3,
-  lineHeight: 1.2,
-  padding: "5px 4px",
-  borderBottom: `1px solid ${T.hair}`,
-  borderRight: `1px solid ${T.divider}`,
-  background: T.paper,
-  verticalAlign: "middle",
-  textAlign: "center",
-};
+const ROW_GRID =
+  "minmax(0, 1fr) minmax(0, 1.15fr) minmax(84px, auto) minmax(0, 0.9fr) minmax(84px, auto) minmax(0, 0.9fr)";
 
-const tdBase: React.CSSProperties = {
-  padding: "6px 4px",
-  borderBottom: `1px solid ${T.hair}`,
-  borderRight: `1px solid ${T.divider}`,
-  verticalAlign: "middle",
-  fontSize: 11,
-  lineHeight: 1.3,
-  textAlign: "center",
-};
+const HEADERS = [
+  "Company",
+  "Status",
+  "Revenue",
+  "Rev. source",
+  "EV",
+  "EV source",
+] as const;
+
+function colAlign(colIndex: number) {
+  return profileTableColAlign(colIndex);
+}
 
 function isInvalidSource(source: string | null | undefined): boolean {
   if (!source) return true;
@@ -60,83 +60,82 @@ function formatMetricValue(
   return yr ? `${base} (${yr})` : base;
 }
 
-function SourceBadge({ source }: { source: string | null | undefined }) {
-  if (isInvalidSource(source)) return null;
-  const src = source!.trim();
-  const isEstimate = src.startsWith("http");
-  const label = isEstimate ? "Est." : "Src";
-  const title = isEstimate ? `Estimate — source: ${src}` : `Source: ${src}`;
+function sourceDisplayLabel(source: string): string {
+  const src = source.trim();
+  if (src.startsWith("http")) return "Estimate";
+  if (src.length > 22) return `${src.slice(0, 20)}…`;
+  return src;
+}
 
-  const badge = (
+function sourceTooltip(source: string): string {
+  const src = source.trim();
+  if (src.startsWith("http")) return `Estimate — source: ${src}`;
+  return src;
+}
+
+function SourceCell({ source }: { source: string | null | undefined }) {
+  if (isInvalidSource(source)) {
+    return <span style={{ color: T.faint }}>—</span>;
+  }
+
+  const full = source!.trim();
+  const label = sourceDisplayLabel(full);
+  const tooltip = sourceTooltip(full);
+  const needsTooltip = tooltip !== label;
+
+  const text = (
     <span
-      tabIndex={0}
       style={{
-        fontSize: 8.5,
-        fontWeight: 600,
-        lineHeight: 1.2,
-        padding: "1px 4px",
-        borderRadius: 3,
-        cursor: "help",
-        color: isEstimate ? "#b45309" : T.azure,
-        border: `1px solid ${isEstimate ? "#fcd34d" : T.azureSoft}`,
-        background: isEstimate ? "#fffbeb" : T.azureSoft,
+        color: T.body,
+        fontSize: 12,
+        lineHeight: 1.35,
+        display: "block",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        maxWidth: "100%",
       }}
     >
       {label}
     </span>
   );
 
-  return <HoverTooltip content={title}>{badge}</HoverTooltip>;
+  if (!needsTooltip && !full.startsWith("http")) {
+    return text;
+  }
+
+  return <HoverTooltip content={tooltip}>{text}</HoverTooltip>;
 }
 
 function MetricCell({
   value,
   currency,
   year,
-  source,
 }: {
   value: number | string | null | undefined;
   currency: string | null | undefined;
   year: number | string | null | undefined;
-  source: string | null | undefined;
 }) {
   const formatted = formatMetricValue(value, currency, year);
   if (!formatted) {
     return <span style={{ color: T.faint }}>—</span>;
   }
-  const badge = <SourceBadge source={source} />;
+
   return (
-    <div
+    <span
       style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 3,
-        width: "100%",
+        color: T.body,
+        fontVariantNumeric: "tabular-nums",
+        whiteSpace: "nowrap",
       }}
     >
-      <span
-        style={{
-        fontSize: 10.5,
-        fontWeight: 600,
-          color: T.ink,
-          fontFamily: T.mono,
-          fontVariantNumeric: "tabular-nums",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {formatted}
-      </span>
-      {badge}
-    </div>
+      {formatted}
+    </span>
   );
 }
 
 export function AdvisorActiveMandatesProfilePanel({ mandates, fillGridCell }: Props) {
   const count = mandates.length;
-
-  const headers = ["Company", "Status", "Stage", "Revenue", "EV"];
 
   return (
     <div
@@ -166,17 +165,14 @@ export function AdvisorActiveMandatesProfilePanel({ mandates, fillGridCell }: Pr
           flex: 1,
           minHeight: 0,
           overflow: "auto",
-          marginTop: 4,
-          padding: "0 2px 2px",
-          ...profileTableCellStyle,
         }}
       >
         {count === 0 ? (
           <div
             style={{
-              padding: "20px 12px",
+              padding: "24px 16px",
               color: T.muted,
-              fontSize: 12.5,
+              fontSize: "12.5px",
               textAlign: "center",
               fontFamily: T.sans,
             }}
@@ -184,133 +180,114 @@ export function AdvisorActiveMandatesProfilePanel({ mandates, fillGridCell }: Pr
             No active mandates on Deal Radar
           </div>
         ) : (
-          <table
-            style={{
-              width: "100%",
-              tableLayout: "fixed",
-              borderCollapse: "collapse",
-              border: `1px solid ${T.divider}`,
-              borderRadius: 6,
-              overflow: "hidden",
-            }}
-          >
-            <colgroup>
-              {COL_WIDTHS.map((w) => (
-                <col key={w} style={{ width: w }} />
+          <div style={{ width: "100%", minWidth: 0, ...profileTableCellStyle }}>
+            <div
+              style={{
+                ...tableColHeaderBarStyle,
+                gridTemplateColumns: ROW_GRID,
+                gap: COL_GAP,
+                padding: PROFILE_EVENTS_ROW_PAD.header,
+              }}
+            >
+              {HEADERS.map((h, colIndex) => (
+                <div
+                  key={h}
+                  style={{
+                    ...tableColHeaderStyle,
+                    textAlign: colAlign(colIndex),
+                  }}
+                >
+                  {h}
+                </div>
               ))}
-            </colgroup>
-            <thead>
-              <tr>
-                {headers.map((h, i) => (
-                  <th
-                    key={h}
-                    scope="col"
-                    style={{
-                      ...thBase,
-                      borderRight:
-                        i === headers.length - 1 ? "none" : `1px solid ${T.divider}`,
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {mandates.map((row) => {
-                const statusLabel =
-                  (row.transaction_status || "").trim() ||
-                  (row.transaction_status_id != null
-                    ? String(row.transaction_status_id)
-                    : "—");
+            </div>
 
-                return (
-                  <tr key={`${row.company_id}-${row.transaction_status_id}`}>
-                    <td
+            {mandates.map((row, rowIndex) => {
+              const isLastRow = rowIndex === mandates.length - 1;
+              const statusLabel =
+                (row.transaction_status || "").trim() ||
+                (row.transaction_status_id != null
+                  ? String(row.transaction_status_id)
+                  : "—");
+
+              return (
+                <div
+                  key={`${row.company_id}-${row.transaction_status_id}`}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: ROW_GRID,
+                    gap: COL_GAP,
+                    alignItems: "center",
+                    padding: PROFILE_EVENTS_ROW_PAD.body,
+                    borderBottom: isLastRow ? "none" : `1px solid ${T.hair}`,
+                  }}
+                >
+                  <div style={{ textAlign: colAlign(0), minWidth: 0 }}>
+                    <Link
+                      href={`/company/${row.company_id}`}
+                      prefetch={false}
+                      title={(row.company_name || "").trim()}
                       style={{
-                        ...tdBase,
-                        textAlign: "left",
-                        paddingLeft: 8,
-                        paddingRight: 4,
+                        color: T.azure,
+                        textDecoration: "underline",
+                        fontWeight: 500,
+                        display: "block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      <Link
-                        href={`/company/${row.company_id}`}
-                        prefetch={false}
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: T.azure,
-                          textDecoration: "underline",
-                          display: "block",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                        title={(row.company_name || "").trim()}
-                      >
-                        {(row.company_name || "").trim() || `Company ${row.company_id}`}
-                      </Link>
-                    </td>
-                    <td style={tdBase}>
-                      <Pill
-                        tone="neutral"
-                        style={{
-                          fontSize: 9,
-                          height: "auto",
-                          minHeight: 18,
-                          maxWidth: "100%",
-                          padding: "2px 5px",
-                          lineHeight: 1.25,
-                          whiteSpace: "normal",
-                          display: "inline-flex",
-                          justifyContent: "center",
-                          textAlign: "center",
-                        }}
-                      >
-                        {statusLabel}
-                      </Pill>
-                    </td>
-                    <td style={tdBase}>
-                      {row.process_stage ? (
-                        <Pill
-                          tone="lavender"
-                          style={{
-                            fontSize: 9,
-                            height: "auto",
-                            padding: "2px 5px",
-                            lineHeight: 1.25,
-                            maxWidth: "100%",
-                            whiteSpace: "normal",
-                          }}
-                        >
-                          {row.process_stage}
-                        </Pill>
-                      ) : (
-                        <span style={{ color: T.faint }}>—</span>
-                      )}
-                    </td>
-                    <td style={tdBase}>
-                      <MetricCell
-                        value={row.revenue_m}
-                        currency={row.revenue_currency}
-                        year={row.revenue_year}
-                        source={row.revenue_source}
-                      />
-                    </td>
-                    <td style={{ ...tdBase, borderRight: "none" }}>
-                      <MetricCell
-                        value={row.ev}
-                        currency={row.ev_currency}
-                        year={row.ev_year}
-                        source={row.ev_source}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      {(row.company_name || "").trim() || `Company ${row.company_id}`}
+                    </Link>
+                  </div>
+
+                  <div style={{ textAlign: colAlign(1), minWidth: 0 }}>
+                    <Pill
+                      tone="neutral"
+                      style={{
+                        fontSize: 12,
+                        height: "auto",
+                        minHeight: 24,
+                        maxWidth: "100%",
+                        padding: "0 10px",
+                        lineHeight: 1.3,
+                        whiteSpace: "normal",
+                        display: "inline-flex",
+                        justifyContent: "center",
+                        textAlign: "center",
+                      }}
+                    >
+                      {statusLabel}
+                    </Pill>
+                  </div>
+
+                  <div style={{ textAlign: colAlign(2), minWidth: 0 }}>
+                    <MetricCell
+                      value={row.revenue_m}
+                      currency={row.revenue_currency}
+                      year={row.revenue_year}
+                    />
+                  </div>
+
+                  <div style={{ textAlign: colAlign(3), minWidth: 0 }}>
+                    <SourceCell source={row.revenue_source} />
+                  </div>
+
+                  <div style={{ textAlign: colAlign(4), minWidth: 0 }}>
+                    <MetricCell
+                      value={row.ev}
+                      currency={row.ev_currency}
+                      year={row.ev_year}
+                    />
+                  </div>
+
+                  <div style={{ textAlign: colAlign(5), minWidth: 0 }}>
+                    <SourceCell source={row.ev_source} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
