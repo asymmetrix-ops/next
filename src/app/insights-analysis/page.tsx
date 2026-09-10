@@ -12,7 +12,10 @@ import {
   InsightsAnalysisFilters,
 } from "../../types/insightsAnalysis";
 import { locationsService } from "@/lib/locationsService";
-import { parseCompanyIdFromSearch } from "@/lib/fetchAllContentArticles";
+import {
+  parseCompanyIdFromSearch,
+  parseContentTypeFromSearch,
+} from "@/lib/fetchAllContentArticles";
 import {
   fetchInsightsAnalysisDisplayPage,
   INSIGHTS_DISPLAY_PAGE_SIZE,
@@ -264,6 +267,10 @@ const InsightsAnalysisPageContent = () => {
   );
 
   const dealNameFromUrl = searchParams.get("deal_name")?.trim() || "";
+  const contentTypeFromUrl = useMemo(
+    () => parseContentTypeFromSearch(searchParams),
+    [searchParams]
+  );
   const isSectorDealBrowseAll =
     typeof corporateEventIdFromUrl === "number" &&
     primarySectorIdsFromUrl.length > 0;
@@ -430,11 +437,28 @@ const InsightsAnalysisPageContent = () => {
     const initialFilters = applyCompanyFilter({
       ...DEFAULT_INSIGHTS_FILTERS,
       Offset: 1,
+      ...(contentTypeFromUrl
+        ? {
+            Content_Type: contentTypeFromUrl,
+            content_type: contentTypeFromUrl,
+          }
+        : {}),
     });
 
     setFilters(initialFilters);
+    if (contentTypeFromUrl) {
+      setShowFilters(true);
+    }
     void fetchInsightsAnalysis(initialFilters);
-  }, [companyIdFromUrl, corporateEventIdFromUrl, primarySectorIdsFromUrl, searchParams, applyCompanyFilter, fetchInsightsAnalysis]);
+  }, [
+    companyIdFromUrl,
+    contentTypeFromUrl,
+    corporateEventIdFromUrl,
+    primarySectorIdsFromUrl,
+    searchParams,
+    applyCompanyFilter,
+    fetchInsightsAnalysis,
+  ]);
 
   // Fetch content type options and primary sectors (cached via locationsService)
   useEffect(() => {
@@ -1076,6 +1100,21 @@ const InsightsAnalysisPageContent = () => {
                   <strong style={{ color: "#1a202c" }}>
                     {companyFilterName || `Company #${activeCompanyId}`}
                   </strong>
+                </p>
+              ) : contentTypeFromUrl ? (
+                <p
+                  style={{
+                    margin: "0 0 16px",
+                    fontSize: "14px",
+                    color: "#4a5568",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Showing{" "}
+                  <strong style={{ color: "#1a202c" }}>
+                    {contentTypeFromUrl}
+                  </strong>{" "}
+                  reports
                 </p>
               ) : null}
 

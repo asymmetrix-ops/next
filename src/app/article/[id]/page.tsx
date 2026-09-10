@@ -28,6 +28,7 @@ import {
   isNewsArticle,
 } from "@/lib/contentArticleDisplay";
 import { getContentTypeBadgeStyle } from "@/lib/contentTypeBadge";
+import { buildInsightsAnalysisContentTypeHref } from "@/lib/fetchAllContentArticles";
 import { XANO_CONTENT_URL } from "@/lib/contentApiBase";
 import { getNewsSubTypeBadgeStyle } from "@/lib/newsSubTypeBadge";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
@@ -1979,7 +1980,17 @@ const ArticleDetailPage = () => {
               ).trim();
               return ct ? (
                 <div style={styles.contentTypeRow}>
-                  <span style={getContentTypeBadgeStyle(ct)}>{ct}</span>
+                  <Link
+                    href={buildInsightsAnalysisContentTypeHref(ct)}
+                    style={{
+                      ...getContentTypeBadgeStyle(ct),
+                      cursor: "pointer",
+                      textDecoration: "none",
+                    }}
+                    title={`View all ${ct} on Insights & Analysis`}
+                  >
+                    {ct}
+                  </Link>
                   {newsSubType ? (
                     <span style={getNewsSubTypeBadgeStyle(newsSubType)}>
                       {newsSubType}

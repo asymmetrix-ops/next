@@ -30,6 +30,35 @@ export function parseCompanyIdFromSearch(
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+/** Parse `content_type` from URL search params (Insights & Analysis deep links). */
+export function parseContentTypeFromSearch(
+  search?: string | URLSearchParams | null
+): string | undefined {
+  let params: URLSearchParams;
+
+  if (search instanceof URLSearchParams) {
+    params = search;
+  } else if (typeof search === "string") {
+    const normalized = search.startsWith("?") ? search.slice(1) : search;
+    params = new URLSearchParams(normalized);
+  } else if (typeof window !== "undefined") {
+    params = new URLSearchParams(window.location.search);
+  } else {
+    return undefined;
+  }
+
+  const raw = params.get("content_type")?.trim();
+  return raw || undefined;
+}
+
+export function buildInsightsAnalysisContentTypeHref(contentType: string): string {
+  const trimmed = contentType.trim();
+  if (!trimmed) return "/insights-analysis";
+  const params = new URLSearchParams();
+  params.set("content_type", trimmed);
+  return `/insights-analysis?${params.toString()}`;
+}
+
 export function resolveContentArticlesCompanyId(
   filters: InsightsAnalysisFilters,
   search?: string | URLSearchParams | null
