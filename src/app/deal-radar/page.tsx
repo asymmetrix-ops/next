@@ -12,6 +12,10 @@ import {
   getTransactionSignalTone,
   ENTITY_TONES,
 } from "@/lib/tagColors";
+import {
+  formatTransactionStatusLabel,
+  getTransactionStatusPillStyle,
+} from "@/lib/transactionStatusBadge";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -899,9 +903,6 @@ export default function DealRadarDashboardPage() {
                         </tr>
                       )
                       : items.map((item) => {
-                          const statusStyle = getStatusStyle(
-                            item.transaction_status
-                          );
                           const isReportedInMarket = item.transaction_status
                             .toLowerCase()
                             .includes("reported");
@@ -1036,18 +1037,14 @@ export default function DealRadarDashboardPage() {
                               <td className="px-3 py-3">
                                 <div className="inline-flex flex-col items-center">
                                   <span
-                                    className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium"
-                                    style={{
-                                      backgroundColor: statusStyle.bg,
-                                      color: statusStyle.text,
-                                      borderColor: "transparent",
-                                    }}
+                                    className="inline-block max-w-[11rem]"
+                                    style={getTransactionStatusPillStyle(
+                                      item.transaction_status
+                                    )}
                                   >
-                                    <span
-                                      className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-                                      style={{ backgroundColor: statusStyle.dot }}
-                                    />
-                                    {item.transaction_status}
+                                    {formatTransactionStatusLabel(
+                                      item.transaction_status
+                                    )}
                                   </span>
                                   {item.transaction_signal && (
                                     <TransactionSignalLabel

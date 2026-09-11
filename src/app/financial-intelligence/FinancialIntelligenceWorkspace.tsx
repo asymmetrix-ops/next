@@ -983,7 +983,7 @@ export function FinancialIntelligenceWorkspace({
                     onClick={() => setShowPeerColumnsModal((open) => !open)}
                   />
                   <Link
-                    href={`/new_company/${target.company_id}`}
+                    href={`/company/${target.company_id}`}
                     style={{ fontSize: 12, color: "var(--ax-cyan-700)", fontWeight: 600, flexShrink: 0 }}
                   >
                     View target profile →

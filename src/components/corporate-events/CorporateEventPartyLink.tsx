@@ -56,6 +56,8 @@ type CorporateEventPartyLinkProps = {
   entity?: Record<string, unknown> | null;
   hqIso2?: string | null;
   flagSize?: number;
+  /** Keeps comma on the name line when lists wrap in narrow columns. */
+  trailingComma?: boolean;
 };
 
 export const CorporateEventPartyLink: React.FC<CorporateEventPartyLinkProps> = ({
@@ -66,6 +68,7 @@ export const CorporateEventPartyLink: React.FC<CorporateEventPartyLinkProps> = (
   entity,
   hqIso2: hqIso2Prop,
   flagSize = COUNTRY_FLAG_INLINE_SIZE_PX,
+  trailingComma = false,
 }) => {
   const resolvedIso2 =
     hqIso2Prop ?? (entity ? readHqCountryIso2(entity) : null);
@@ -91,6 +94,7 @@ export const CorporateEventPartyLink: React.FC<CorporateEventPartyLinkProps> = (
         }}
       >
         {name}
+        {trailingComma ? ",\u00a0" : null}
       </span>
       {flagEl}
     </span>
@@ -118,6 +122,9 @@ type CorporateEventTargetLinkProps = {
   linkClassName?: string;
   linkStyle?: React.CSSProperties;
   flagClassName?: string;
+  trailingComma?: boolean;
+  /** When false, flag sits beside the name (better for multi-target lists). */
+  stackFlag?: boolean;
 };
 
 export const CorporateEventTargetLink: React.FC<CorporateEventTargetLinkProps> = ({
@@ -127,22 +134,43 @@ export const CorporateEventTargetLink: React.FC<CorporateEventTargetLinkProps> =
   linkClassName,
   linkStyle,
   flagClassName,
+  trailingComma = false,
+  stackFlag = true,
 }) => {
   const hqCountryIso2 = entity ? readHqCountryIso2(entity) : null;
   const flagEl = hqCountryIso2 ? (
     <CountryFlagImg iso2={hqCountryIso2} className={flagClassName} />
   ) : null;
 
+  const useHorizontalFlag = Boolean(flagEl && !stackFlag);
+
   const stackClassName = cn(
     linkClassName,
-    flagEl
-      ? "inline-flex flex-col items-start gap-0.5 max-w-full align-middle"
-      : "inline-block max-w-full align-middle"
+    useHorizontalFlag
+      ? "inline align-middle"
+      : flagEl
+        ? "inline-flex flex-col items-start gap-0.5 max-w-full align-middle"
+        : "inline-block max-w-full align-middle"
   );
 
-  const content = (
+  const nameEl = (
+    <span className="leading-snug break-words">
+      {name}
+      {trailingComma ? ",\u00a0" : null}
+    </span>
+  );
+
+  const content = useHorizontalFlag ? (
+    <span
+      className="inline-flex items-center gap-1 min-w-0 align-middle"
+      style={{ verticalAlign: "middle" }}
+    >
+      {nameEl}
+      {flagEl}
+    </span>
+  ) : (
     <>
-      <span className="leading-snug break-words">{name}</span>
+      {nameEl}
       {flagEl}
     </>
   );

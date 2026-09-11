@@ -88,12 +88,12 @@
 }
 
 .dash-stat-v {
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.028em;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--dash-ink);
   font-variant-numeric: tabular-nums;
-  line-height: 1.05;
+  line-height: 1.2;
 }
 
 /* ---------------- cards ---------------- */
@@ -316,6 +316,21 @@
   color: var(--dash-ink-2);
 }
 
+.dash-ev-investors-inline {
+  display: inline;
+  min-width: 0;
+}
+
+.dash-ev-investors-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
 .dash-ev-more-tag {
   display: inline-block;
   padding: 1px 6px;
@@ -327,6 +342,8 @@
   font-size: 11px;
   line-height: 1.5;
   cursor: default;
+  white-space: nowrap;
+  vertical-align: baseline;
 }
 
 .dash-chip-neutral {
