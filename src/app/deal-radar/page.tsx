@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
+import {
+  getTransactionStatusTone,
+  getProcessStageTone,
+  getIntermediaryTone,
+  getTransactionSignalTone,
+  ENTITY_TONES,
+} from "@/lib/tagColors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -170,46 +177,19 @@ const TRANSACTION_SIGNAL_DESCRIPTIONS: Record<string, string> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Exact hexes from tags.txt §2 — fixed platform-wide, do not re-map per page. */
 function getStatusStyle(status: string): {
   bg: string;
   text: string;
   dot: string;
   border: string;
 } {
-  const s = status.toLowerCase();
-  if (s.includes("reported"))
-    return {
-      bg: "bg-emerald-50",
-      text: "text-emerald-700",
-      dot: "bg-emerald-500",
-      border: "border-emerald-200",
-    };
-  if (s.includes("rumoured") || s.includes("rumored"))
-    return {
-      bg: "bg-amber-50",
-      text: "text-amber-700",
-      dot: "bg-amber-400",
-      border: "border-amber-200",
-    };
-  if (s.includes("anticipated"))
-    return {
-      bg: "bg-blue-50",
-      text: "text-blue-700",
-      dot: "bg-blue-400",
-      border: "border-blue-200",
-    };
-  if (s.includes("hold"))
-    return {
-      bg: "bg-gray-100",
-      text: "text-gray-600",
-      dot: "bg-gray-400",
-      border: "border-gray-200",
-    };
+  const tone = getTransactionStatusTone(status);
   return {
-    bg: "bg-gray-100",
-    text: "text-gray-600",
-    dot: "bg-gray-400",
-    border: "border-gray-200",
+    bg: tone.fill,
+    text: tone.text,
+    dot: tone.dot || tone.text,
+    border: tone.border,
   };
 }
 
@@ -327,9 +307,19 @@ function countActiveFilters(filters: DealRadarFilters): number {
 // ─── Skeleton Row ─────────────────────────────────────────────────────────────
 
 function TransactionSignalLabel({ signal }: { signal: string }) {
+  const tone = getTransactionSignalTone(signal);
   return (
     <div className="group relative mt-1 w-full text-center">
-      <p className="cursor-help text-[10px] text-gray-500">{signal}</p>
+      <p
+        className="cursor-help inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold border"
+        style={{
+          backgroundColor: tone.fill,
+          color: tone.text,
+          borderColor: tone.border,
+        }}
+      >
+        {signal}
+      </p>
       <div
         role="tooltip"
         className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg group-hover:block"
@@ -813,22 +803,36 @@ export default function DealRadarDashboardPage() {
                       ?.label ?? ""
                   )
                 : null;
+            const pillStyle: React.CSSProperties =
+              active && style
+                ? {
+                    backgroundColor: style.bg,
+                    color: style.text,
+                    borderColor: style.border,
+                  }
+                : active
+                  ? {
+                      backgroundColor: "#2A46EA",
+                      color: "#FFFFFF",
+                      borderColor: "#2A46EA",
+                    }
+                  : {};
             return (
               <button
                 key={f.statusId ?? "all"}
                 type="button"
                 onClick={() => handleStatusBubbleClick(f.statusId)}
+                style={pillStyle}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                   active
-                    ? style
-                      ? `${style.bg} ${style.text} ${style.border} shadow-sm`
-                      : "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    ? "shadow-sm"
                     : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                 }`}
               >
                 {f.statusId !== null && style && (
                   <span
-                    className={`inline-block w-1.5 h-1.5 rounded-full ${active ? style.dot : "bg-gray-300"}`}
+                    className="inline-block w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: active ? style.dot : "#D1D5DB" }}
                   />
                 )}
                 {f.label}
@@ -1032,10 +1036,16 @@ export default function DealRadarDashboardPage() {
                               <td className="px-3 py-3">
                                 <div className="inline-flex flex-col items-center">
                                   <span
-                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}
+                                    className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                                    style={{
+                                      backgroundColor: statusStyle.bg,
+                                      color: statusStyle.text,
+                                      borderColor: "transparent",
+                                    }}
                                   >
                                     <span
-                                      className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${statusStyle.dot}`}
+                                      className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                                      style={{ backgroundColor: statusStyle.dot }}
                                     />
                                     {item.transaction_status}
                                   </span>
@@ -1047,51 +1057,116 @@ export default function DealRadarDashboardPage() {
                                 </div>
                               </td>
 
-                              {/* Process Stage */}
+                              {/* Process Stage — hue varies by value, tags.txt §5 */}
                               <td className="px-3 py-3 text-xs text-gray-700">
                                 {item.process_stage ? (
-                                  <span className="inline-block rounded bg-purple-50 border border-purple-200 text-purple-700 text-[11px] font-medium px-2 py-0.5">
-                                    {item.process_stage}
-                                  </span>
+                                  (() => {
+                                    const tone = getProcessStageTone(item.process_stage);
+                                    return (
+                                      <span
+                                        className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
+                                        style={{
+                                          backgroundColor: tone.fill,
+                                          color: tone.text,
+                                          borderColor: tone.border,
+                                        }}
+                                      >
+                                        {item.process_stage}
+                                      </span>
+                                    );
+                                  })()
                                 ) : (
                                   <span className="text-gray-300">—</span>
                                 )}
                               </td>
 
-                              {/* Intermediary */}
+                              {/* Intermediary — tags.txt §6 */}
                               <td className="px-3 py-3 text-xs text-gray-700">
-                                {item.intermediary_type &&
-                                item.intermediary_type !== "No Intermediary" ? (
-                                  <div>
-                                    <span className="text-gray-500 text-[10px]">
-                                      {item.intermediary_type}
-                                    </span>
-                                    {item.intermediary && (
-                                      <p className="mt-0.5 text-[11px] font-medium text-gray-800">
+                                {item.intermediary && item.intermediary.name ? (
+                                  (() => {
+                                    const tone = getIntermediaryTone(undefined);
+                                    return (
+                                      <a
+                                        href={`/advisor/${item.intermediary.id}`}
+                                        className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
+                                        style={{
+                                          backgroundColor: tone.fill,
+                                          color: tone.text,
+                                          borderColor: tone.border,
+                                        }}
+                                      >
                                         {item.intermediary.name}
-                                      </p>
-                                    )}
-                                  </div>
+                                      </a>
+                                    );
+                                  })()
+                                ) : item.intermediary_type &&
+                                  item.intermediary_type !== "No Intermediary" ? (
+                                  (() => {
+                                    const tone = getIntermediaryTone(item.intermediary_type);
+                                    return (
+                                      <span
+                                        className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
+                                        style={{
+                                          backgroundColor: tone.fill,
+                                          color: tone.text,
+                                          borderColor: tone.border,
+                                        }}
+                                      >
+                                        {item.intermediary_type}
+                                      </span>
+                                    );
+                                  })()
                                 ) : item.intermediary_type === "No Intermediary" ? (
-                                  <span className="text-[10px] text-gray-400 italic">
-                                    No Intermediary
-                                  </span>
+                                  (() => {
+                                    const tone = getIntermediaryTone("No Intermediary");
+                                    return (
+                                      <span
+                                        className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
+                                        style={{
+                                          backgroundColor: tone.fill,
+                                          color: tone.text,
+                                          borderColor: tone.border,
+                                        }}
+                                      >
+                                        No Intermediary
+                                      </span>
+                                    );
+                                  })()
                                 ) : (
-                                  <span className="text-gray-300">—</span>
+                                  (() => {
+                                    const tone = getIntermediaryTone("Unknown");
+                                    return (
+                                      <span
+                                        className="inline-block rounded-full text-[11px] font-medium px-2 py-0.5"
+                                        style={{
+                                          backgroundColor: tone.fill,
+                                          color: tone.text,
+                                          border: `1px dashed ${tone.border}`,
+                                        }}
+                                      >
+                                        Unknown
+                                      </span>
+                                    );
+                                  })()
                                 )}
                               </td>
 
-                              {/* Bidders */}
+                              {/* Bidders — entity chip, tags.txt §10 (Companies · green) */}
                               <td className="px-3 py-3">
                                 {item.bidders.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
                                     {item.bidders.map((b) => (
-                                      <span
+                                      <a
                                         key={b.id}
-                                        className="inline-block rounded bg-orange-50 border border-orange-200 text-orange-700 text-[10px] font-medium px-1.5 py-0.5"
+                                        href={`/company/${b.id}`}
+                                        className="entity-chip-company inline-block rounded-full text-[10.5px] font-semibold px-2 py-0.5 transition-colors"
+                                        style={{
+                                          backgroundColor: ENTITY_TONES.company.fill,
+                                          color: ENTITY_TONES.company.text,
+                                        }}
                                       >
                                         {b.name}
-                                      </span>
+                                      </a>
                                     ))}
                                   </div>
                                 ) : (
@@ -1129,7 +1204,11 @@ export default function DealRadarDashboardPage() {
                                           e.preventDefault();
                                           router.push(`/company/${acq.id}`);
                                         }}
-                                        className="inline-block rounded bg-teal-50 border border-teal-200 text-teal-700 text-[10px] font-medium px-1.5 py-0.5 hover:bg-teal-100 transition-colors"
+                                        className="entity-chip-company inline-block rounded-full text-[10.5px] font-semibold px-2 py-0.5 transition-colors"
+                                        style={{
+                                          backgroundColor: ENTITY_TONES.company.fill,
+                                          color: ENTITY_TONES.company.text,
+                                        }}
                                       >
                                         {acq.name}
                                       </a>

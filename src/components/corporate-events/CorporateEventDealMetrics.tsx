@@ -107,7 +107,7 @@ export const CorporateEventDealMetrics: React.FC<
           >
             {isNonEmptyString(dealType) && <DealTypeBadge dealType={dealType} />}
             {isNonEmptyString(fundingStage) && (
-              <span style={fundingStageBadgeStyle()}>{fundingStage}</span>
+              <span style={fundingStageBadgeStyle(fundingStage)}>{fundingStage}</span>
             )}
           </span>
         ) : (

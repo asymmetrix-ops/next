@@ -154,3 +154,11 @@ All colors MUST be HSL.
     @apply px-3 py-2 w-full rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent;
   }
 }
+
+/* ── Entity chip hover — tags.txt §10: hover darkens fill only, no border/lift/underline ── */
+.entity-chip-company:hover { background-color: #D3EEE0 !important; }
+.entity-chip-investor:hover { background-color: #D5F1FE !important; }
+.entity-chip-advisor:hover { background-color: #F8D4BC !important; }
+.entity-chip-individual:hover { background-color: #D5CFF0 !important; }
+.entity-chip-sector:hover { background-color: #E5DAF9 !important; }
+.entity-chip-subsector:hover { background-color: #F2ECFC !important; }
