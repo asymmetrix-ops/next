@@ -9,6 +9,7 @@ import Link from "next/link";
 import { LinkPanel, LinkedH, KV, Delta, Pill, T } from "./primitives";
 import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 import { normalizeHoldingPeriodDisplay } from "@/lib/holdingPeriod";
+import { getTransactionStatusTone } from "@/lib/tagColors";
 
 export type OverviewSector = {
   name: string;
@@ -104,12 +105,12 @@ function SectorTags({
 }
 
 function transactionStatusTone(label: string): { bg: string; fg: string; dot: string } {
-  const s = label.toLowerCase();
-  if (s.includes("reported")) return { bg: "#E4F5EC", fg: "#0F7040", dot: "#17A05C" };
-  if (s.includes("rumoured") || s.includes("rumored"))
-    return { bg: "#FEF6E0", fg: "#7A5605", dot: "#E0A32E" };
-  if (s.includes("hold")) return { bg: "#F5F7FD", fg: "#566078", dot: "#B4BCCB" };
-  return { bg: "#F1F4FE", fg: "#1F35C4", dot: "#3D5BF3" };
+  const tone = getTransactionStatusTone(label);
+  return {
+    bg: tone.fill,
+    fg: tone.text,
+    dot: tone.dot || tone.text,
+  };
 }
 
 function TransactionStatusHighlight({ label }: { label: string }) {

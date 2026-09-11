@@ -6,10 +6,7 @@ import type { ContentArticle } from "@/types/insightsAnalysis";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
-import {
-  formatTransactionStatusLabel,
-  getTransactionStatusPillStyle,
-} from "@/lib/transactionStatusBadge";
+import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 
 const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
@@ -139,9 +136,7 @@ export function SeriesArticleCard({
 
       {article.Transaction_status && (
         <div className="article-transaction-status-row">
-          <span style={getTransactionStatusPillStyle(article.Transaction_status)}>
-            {formatTransactionStatusLabel(article.Transaction_status)}
-          </span>
+          <TransactionStatusPill status={article.Transaction_status} />
         </div>
       )}
 

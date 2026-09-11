@@ -12,10 +12,7 @@ import {
   getTransactionSignalTone,
   ENTITY_TONES,
 } from "@/lib/tagColors";
-import {
-  formatTransactionStatusLabel,
-  getTransactionStatusPillStyle,
-} from "@/lib/transactionStatusBadge";
+import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1036,16 +1033,11 @@ export default function DealRadarDashboardPage() {
                               {/* Transaction Status + Signal */}
                               <td className="px-3 py-3">
                                 <div className="inline-flex flex-col items-center">
-                                  <span
+                                  <TransactionStatusPill
+                                    status={item.transaction_status}
                                     className="inline-block max-w-[11rem]"
-                                    style={getTransactionStatusPillStyle(
-                                      item.transaction_status
-                                    )}
-                                  >
-                                    {formatTransactionStatusLabel(
-                                      item.transaction_status
-                                    )}
-                                  </span>
+                                    allowWrap
+                                  />
                                   {item.transaction_signal && (
                                     <TransactionSignalLabel
                                       signal={item.transaction_signal}

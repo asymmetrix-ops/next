@@ -38,10 +38,7 @@ import {
   getContentTypeAccentColor,
   getContentTypeBadgeStyle,
 } from "@/lib/contentTypeBadge";
-import {
-  formatTransactionStatusLabel,
-  getTransactionStatusPillStyle,
-} from "@/lib/transactionStatusBadge";
+import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -325,12 +322,10 @@ function DealStageInfoTooltip() {
                           : undefined
                       }
                     >
-                      <span
+                      <TransactionStatusPill
+                        status={item.label}
                         className="inline-block max-w-full"
-                        style={getTransactionStatusPillStyle(item.label)}
-                      >
-                        {item.label}
-                      </span>
+                      />
                       <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
                         {item.description}
                       </p>
@@ -2179,16 +2174,11 @@ export default function HomeUserPage() {
                                 )}
                               </td>
                               <td className="px-2 py-3 text-center align-top">
-                                <span
+                                <TransactionStatusPill
+                                  status={item.transactionStatus}
                                   className="inline-block max-w-[11rem]"
-                                  style={getTransactionStatusPillStyle(
-                                    item.transactionStatus
-                                  )}
-                                >
-                                  {formatTransactionStatusLabel(
-                                    item.transactionStatus
-                                  )}
-                                </span>
+                                  allowWrap
+                                />
                               </td>
                             </tr>
                           );
@@ -2327,9 +2317,7 @@ export default function HomeUserPage() {
                           const ts = getInsightTransactionStatus(article);
                           return ts ? (
                             <div className="mt-2">
-                              <span style={getTransactionStatusPillStyle(ts)}>
-                                {formatTransactionStatusLabel(ts)}
-                              </span>
+                              <TransactionStatusPill status={ts} />
                             </div>
                           ) : null;
                         })()}
