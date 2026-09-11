@@ -556,6 +556,36 @@ export function EmailAnalyticsTab() {
 
   return (
     <div className="space-y-4">
+      {tab === "event" ? (
+        <div className="bg-white rounded border">
+          <div className="flex border-b border-gray-200 px-4 pt-3">
+            {(
+              [
+                ["all", "All users"],
+                ["dcp", "DCP Outreach"],
+                ["event", "Event Email Analytics"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTab(value)}
+                className={`text-sm py-2 px-3 border-b-2 mr-1 -mb-px ${
+                  tab === value
+                    ? "border-gray-900 text-gray-900 font-medium"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <EventEmailAnalyticsTab />
+        </div>
+      ) : null}
+
+      {tab !== "event" ? (
+      <>
       <div className="sticky top-0 z-10 bg-white rounded border px-4 py-3 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           <select
@@ -758,17 +788,13 @@ export function EmailAnalyticsTab() {
       <div className="bg-white rounded border">
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <h2 className="text-sm font-medium">
-            {tab === "dcp"
-              ? "DCP outreach tracker"
-              : tab === "event"
-                ? "Event email analytics"
-                : "Per-user engagement"}
+            {tab === "dcp" ? "DCP outreach tracker" : "Per-user engagement"}
           </h2>
           {tab === "dcp" ? (
             <span className="text-xs text-gray-500">
               {dcpCompanyCount.toLocaleString()} companies
             </span>
-          ) : tab === "event" ? null : (
+          ) : (
             <span className="text-xs text-gray-500">
               {filteredUsers.length.toLocaleString()} users
               {periodRangeLabel ? ` · ${periodRangeLabel}` : ""}
@@ -811,11 +837,6 @@ export function EmailAnalyticsTab() {
           <DcpOutreachTab
             companyId={companyId}
             onCompanyCountChange={setDcpCompanyCount}
-          />
-        ) : tab === "event" ? (
-          <EventEmailAnalyticsTab
-            auditDate={auditDate}
-            emailSearch={searchQuery}
           />
         ) : (
           <>
@@ -967,6 +988,8 @@ export function EmailAnalyticsTab() {
           </>
         )}
       </div>
+      </>
+      ) : null}
     </div>
   );
 }

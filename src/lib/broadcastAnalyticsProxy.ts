@@ -1,23 +1,21 @@
 import { NextResponse } from "next/server";
 import { analyticsUpstream } from "@/lib/emailAlertsServer";
 
-export const BROADCAST_QUERY_KEYS = [
+export const BROADCAST_DASHBOARD_QUERY_KEYS = [
   "date",
   "timezone",
   "campaign_key",
-  "campaign_id",
-  "sort_by",
-  "sort_order",
+  "search",
   "period",
-  "from_date",
-  "to_date",
+  "limit",
+  "offset",
 ] as const;
 
-export function copyBroadcastQueryParams(
+export function copyBroadcastDashboardQueryParams(
   searchParams: URLSearchParams
 ): URLSearchParams {
   const query = new URLSearchParams();
-  for (const key of BROADCAST_QUERY_KEYS) {
+  for (const key of BROADCAST_DASHBOARD_QUERY_KEYS) {
     const value = searchParams.get(key);
     if (value) query.set(key, value);
   }
@@ -27,13 +25,13 @@ export function copyBroadcastQueryParams(
   return query;
 }
 
-export async function proxyBroadcastGet(
+export async function proxyBroadcastDashboardGet(
   pathSuffix: string,
   searchParams: URLSearchParams
 ): Promise<Response> {
-  const query = copyBroadcastQueryParams(searchParams);
+  const query = copyBroadcastDashboardQueryParams(searchParams);
   const qs = query.toString();
-  const upstreamPath = `/analytics/broadcast${pathSuffix}${
+  const upstreamPath = `/analytics/broadcast/dashboard${pathSuffix}${
     qs ? `?${qs}` : ""
   }`;
   const upstreamResp = await analyticsUpstream(upstreamPath, { method: "GET" });
