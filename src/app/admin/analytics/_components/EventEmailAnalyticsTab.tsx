@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { BreakdownDonutChart } from "./analyticsCharts";
 import type {
   BroadcastDashboardListResponse,
   BroadcastDashboardPeriod,
@@ -46,6 +47,24 @@ function formatRate(value: number): string {
   if (!Number.isFinite(value)) return "0%";
   return `${value % 1 === 0 ? Math.round(value) : value.toFixed(1)}%`;
 }
+
+function openRateOfSent(summary: BroadcastDashboardSummary): number {
+  if (summary.open_rate > 0) return summary.open_rate;
+  if (summary.total_sent <= 0) return 0;
+  return (summary.total_opened / summary.total_sent) * 100;
+}
+
+function clickRateOfSent(summary: BroadcastDashboardSummary): number {
+  if (summary.click_rate > 0) return summary.click_rate;
+  if (summary.total_sent <= 0) return 0;
+  return (summary.total_clicked / summary.total_sent) * 100;
+}
+
+const DONUT_COLORS = {
+  clicked: "#059669",
+  openedOnly: "#6366f1",
+  notOpened: "#e5e7eb",
+} as const;
 
 function normalizeSummary(raw: unknown): BroadcastDashboardSummary | null {
   if (!raw || typeof raw !== "object") return null;
@@ -99,24 +118,23 @@ function normalizeListResponse(raw: unknown): BroadcastDashboardListResponse {
   };
 }
 
+function todayDateString(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
 function dashboardQueryParams(options: {
-  date: string;
   period: BroadcastDashboardPeriod;
-  campaignKey: string;
   search: string;
   limit: number;
   offset: number;
 }): URLSearchParams {
   const params = new URLSearchParams({
-    date: options.date,
+    date: todayDateString(),
     timezone: DEFAULT_TIMEZONE,
     period: options.period,
     limit: String(options.limit),
     offset: String(options.offset),
   });
-  if (options.campaignKey.trim()) {
-    params.set("campaign_key", options.campaignKey.trim());
-  }
   if (options.search.trim()) {
     params.set("search", options.search.trim());
   }
@@ -145,10 +163,6 @@ function StatCard({
 
 export function EventEmailAnalyticsTab() {
   const [period, setPeriod] = useState<BroadcastDashboardPeriod>("30d");
-  const [date, setDate] = useState(
-    () => new Date().toISOString().split("T")[0]
-  );
-  const [campaignKey, setCampaignKey] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [listTab, setListTab] = useState<BroadcastDashboardTab>("sent");
@@ -174,18 +188,16 @@ export function EventEmailAnalyticsTab() {
 
   useEffect(() => {
     setOffset(0);
-  }, [period, date, campaignKey, listTab]);
+  }, [period, listTab]);
 
   const queryBase = useMemo(
     () => ({
-      date,
       period,
-      campaignKey,
       search,
       limit: PAGE_SIZE,
       offset,
     }),
-    [date, period, campaignKey, search, offset]
+    [period, search, offset]
   );
 
   const fetchSummary = useCallback(async () => {
@@ -252,6 +264,37 @@ export function EventEmailAnalyticsTab() {
       ? `${summary.from_date} → ${summary.to_date}`
       : null;
 
+  const engagementDonutItems = useMemo(() => {
+    if (!summary || summary.total_sent <= 0) return [];
+    const sent = summary.total_sent;
+    const clicked = summary.total_clicked;
+    const openedOnly = Math.max(0, summary.total_opened - clicked);
+    const notOpened = Math.max(0, sent - summary.total_opened);
+    return [
+      {
+        key: "clicked",
+        label: "Clicked link",
+        count: clicked,
+        pct: (clicked / sent) * 100,
+        color: DONUT_COLORS.clicked,
+      },
+      {
+        key: "opened_only",
+        label: "Opened only",
+        count: openedOnly,
+        pct: (openedOnly / sent) * 100,
+        color: DONUT_COLORS.openedOnly,
+      },
+      {
+        key: "not_opened",
+        label: "Not opened",
+        count: notOpened,
+        pct: (notOpened / sent) * 100,
+        color: DONUT_COLORS.notOpened,
+      },
+    ].filter((item) => item.count > 0);
+  }, [summary]);
+
   return (
     <div className="p-4 space-y-6">
       <div className="flex flex-wrap items-end gap-3">
@@ -273,27 +316,6 @@ export function EventEmailAnalyticsTab() {
               </button>
             ))}
           </div>
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">End date</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="text-sm border border-gray-200 rounded-md px-2 py-1.5"
-          />
-        </div>
-        <div className="min-w-[180px]">
-          <label className="block text-xs text-gray-500 mb-1">
-            Campaign key
-          </label>
-          <input
-            type="text"
-            value={campaignKey}
-            onChange={(e) => setCampaignKey(e.target.value)}
-            placeholder="All campaigns"
-            className="text-sm border border-gray-200 rounded-md px-2 py-1.5 w-full"
-          />
         </div>
         <div className="min-w-[220px] flex-1">
           <label className="block text-xs text-gray-500 mb-1">
@@ -332,36 +354,53 @@ export function EventEmailAnalyticsTab() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard
-          label="Total sent"
-          value={
-            summaryLoading && !summary
-              ? "—"
-              : (summary?.total_sent ?? 0).toLocaleString()
-          }
-          sub={
-            summary ? `${formatRate(summary.open_rate)} open rate` : undefined
-          }
-        />
-        <StatCard
-          label="Total opened"
-          value={
-            summaryLoading && !summary
-              ? "—"
-              : (summary?.total_opened ?? 0).toLocaleString()
-          }
-        />
-        <StatCard
-          label="Total clicked"
-          value={
-            summaryLoading && !summary
-              ? "—"
-              : (summary?.total_clicked ?? 0).toLocaleString()
-          }
-          sub={
-            summary ? `${formatRate(summary.click_rate)} click rate` : undefined
-          }
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(240px,320px)] gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <StatCard
+            label="Total sent"
+            value={
+              summaryLoading && !summary
+                ? "—"
+                : (summary?.total_sent ?? 0).toLocaleString()
+            }
+          />
+          <StatCard
+            label="Total opened"
+            value={
+              summaryLoading && !summary
+                ? "—"
+                : (summary?.total_opened ?? 0).toLocaleString()
+            }
+            sub={
+              summary
+                ? `${formatRate(openRateOfSent(summary))} of sent`
+                : undefined
+            }
+          />
+          <StatCard
+            label="Total clicked"
+            value={
+              summaryLoading && !summary
+                ? "—"
+                : (summary?.total_clicked ?? 0).toLocaleString()
+            }
+            sub={
+              summary
+                ? `${formatRate(clickRateOfSent(summary))} of sent`
+                : undefined
+            }
+          />
+        </div>
+        <BreakdownDonutChart
+          title="Engagement breakdown"
+          items={engagementDonutItems}
+          loading={summaryLoading && !summary}
+          emptyMessage="No sends in this period"
+          colorForLabel={(label) => {
+            if (label === "Clicked link") return DONUT_COLORS.clicked;
+            if (label === "Opened only") return DONUT_COLORS.openedOnly;
+            return DONUT_COLORS.notOpened;
+          }}
         />
       </div>
 
@@ -401,7 +440,6 @@ export function EventEmailAnalyticsTab() {
             <thead className="bg-gray-50 text-left text-xs text-gray-500">
               <tr>
                 <th className="px-4 py-2 font-medium">Email</th>
-                <th className="px-4 py-2 font-medium">Campaign</th>
                 <th className="px-4 py-2 font-medium">Subject</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">Sent at</th>
@@ -415,9 +453,6 @@ export function EventEmailAnalyticsTab() {
                 >
                   <td className="px-4 py-2.5 font-medium text-gray-900">
                     {row.email}
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-600 font-mono text-xs">
-                    {row.campaign_key || "—"}
                   </td>
                   <td className="px-4 py-2.5 text-gray-700 max-w-xs truncate">
                     {row.subject || "—"}
