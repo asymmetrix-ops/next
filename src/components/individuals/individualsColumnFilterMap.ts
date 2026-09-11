@@ -42,7 +42,10 @@ export function getFilterIdForColumnKey(columnKey: string): string | undefined {
   return COLUMN_KEY_TO_FILTER_ID[columnKey];
 }
 
-export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
+export function getColumnKeysForActiveFilters(
+  filterIds: string[],
+  roleTabActive = false
+): string[] {
   const keys = new Set<string>();
   const locationFilterIds = new Set([
     "region",
@@ -63,6 +66,10 @@ export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
     if (columnKey) keys.add(columnKey);
     if (locationFilterIds.has(filterId)) keys.add("location");
     if (roleFilterIds.has(filterId)) keys.add("current_roles");
+  }
+
+  if (roleTabActive) {
+    keys.add("current_roles");
   }
 
   return Array.from(keys).filter((key) =>

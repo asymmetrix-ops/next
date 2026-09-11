@@ -23,6 +23,25 @@ export const PORTFOLIO_INVESTMENT_STATUS_FILTER_DEF: FilterDef = {
   options: ["All", "Current", "Past"],
 };
 
+export const PORTFOLIO_HOLDING_PERIOD_FILTER_ID = "holding_period";
+
+export const PORTFOLIO_HOLDING_PERIOD_FILTER_DEF: FilterDef = {
+  id: PORTFOLIO_HOLDING_PERIOD_FILTER_ID,
+  label: "Holding period",
+  fullLabel: "Holding period",
+  category: PORTFOLIO_FILTER_CATEGORY.id,
+  type: "#",
+  editor: "range",
+  unit: "yrs",
+  min: 0,
+  max: 20,
+};
+
+/** Filters available on the Investor Profile → Portfolio tab only. */
+export const PORTFOLIO_EXTRA_FILTER_DEFS: FilterDef[] = [
+  PORTFOLIO_HOLDING_PERIOD_FILTER_DEF,
+];
+
 export function parseInvestmentStatusFilter(
   value: unknown
 ): "all" | "current" | "past" {

@@ -86,6 +86,22 @@ function parsePortfolioEntityValues(values: string[]): {
   return result;
 }
 
+export type FollowedEntityIds = {
+  companies: number[];
+  sectors: number[];
+  individuals: number[];
+  investors: number[];
+  advisors: number[];
+};
+
+const EMPTY_FOLLOWED_ENTITY_IDS: FollowedEntityIds = {
+  companies: [],
+  sectors: [],
+  individuals: [],
+  investors: [],
+  advisors: [],
+};
+
 function buildFiltersFromFilterBar(args: {
   state: FilterBarState;
   primarySectors: SectorRef[];
@@ -93,9 +109,20 @@ function buildFiltersFromFilterBar(args: {
   userId?: number | null;
   page?: number;
   perPage?: number;
+  /** All entities the current user follows — used to resolve the generic
+   * "Followed Only" toggle into explicit entity id filters, since the
+   * backend doesn't reliably scope `show_followed` on its own. */
+  followedEntityIds?: FollowedEntityIds;
 }): CorporateEventsSearchFilters {
-  const { state, primarySectors, secondarySectors, userId = null, page = 1, perPage = 50 } =
-    args;
+  const {
+    state,
+    primarySectors,
+    secondarySectors,
+    userId = null,
+    page = 1,
+    perPage = 50,
+    followedEntityIds = EMPTY_FOLLOWED_ENTITY_IDS,
+  } = args;
 
   const filters: CorporateEventsSearchFilters = {
     Countries: [],
@@ -204,6 +231,39 @@ function buildFiltersFromFilterBar(args: {
     }
     if (item.id === "followed" && v === true) {
       filters.show_followed = true;
+      // Resolve "Followed Only" into explicit entity id filters (in addition
+      // to the show_followed flag) so the filter reliably narrows results
+      // even if the backend doesn't scope show_followed by itself.
+      filters.filter_advisor_ids = Array.from(
+        new Set([
+          ...(filters.filter_advisor_ids ?? []),
+          ...followedEntityIds.advisors,
+        ])
+      );
+      filters.filter_company_ids = Array.from(
+        new Set([
+          ...(filters.filter_company_ids ?? []),
+          ...followedEntityIds.companies,
+        ])
+      );
+      filters.filter_investor_ids = Array.from(
+        new Set([
+          ...(filters.filter_investor_ids ?? []),
+          ...followedEntityIds.investors,
+        ])
+      );
+      filters.filter_sector_ids = Array.from(
+        new Set([
+          ...(filters.filter_sector_ids ?? []),
+          ...followedEntityIds.sectors,
+        ])
+      );
+      filters.filter_individual_ids = Array.from(
+        new Set([
+          ...(filters.filter_individual_ids ?? []),
+          ...followedEntityIds.individuals,
+        ])
+      );
       continue;
     }
     if (item.id === "portfolio_entity" && Array.isArray(v) && v.length > 0) {
@@ -264,6 +324,7 @@ export function buildCorporateEventsSearchPayload(args: {
   page?: number;
   perPage?: number;
   dealTabTypes?: readonly string[];
+  followedEntityIds?: FollowedEntityIds;
 }): CorporateEventsSearchFilters {
   const filters = buildFiltersFromFilterBar(args);
   if (args.scopedPrimarySectorIds && args.scopedPrimarySectorIds.length > 0) {
@@ -288,6 +349,7 @@ export function buildCorporateEventsCountsSearchPayload(args: {
   scopedPrimarySectorIds?: number[];
   page?: number;
   perPage?: number;
+  followedEntityIds?: FollowedEntityIds;
 }): CorporateEventsSearchFilters {
   const filters = buildFiltersFromFilterBar(args);
   if (args.scopedPrimarySectorIds && args.scopedPrimarySectorIds.length > 0) {

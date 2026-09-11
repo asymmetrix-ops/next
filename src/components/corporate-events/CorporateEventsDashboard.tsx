@@ -8,11 +8,15 @@ import React, {
   useRef,
 } from "react";
 import { locationsService } from "@/lib/locationsService";
-import { fetchUserPortfolioData } from "@/lib/portfolioData";
+import {
+  fetchUserPortfolioData,
+  portfolioDataToUserPortfolioRecord,
+} from "@/lib/portfolioData";
 import {
   buildCorporateEventsCountsSearchPayload,
   buildCorporateEventsSearchPayload,
   type CorporateEventsSearchFilters,
+  type FollowedEntityIds,
 } from "@/lib/corporateEventsFilterPayload";
 import {
   CompaniesFilterBar,
@@ -56,7 +60,10 @@ export type CorporateEventsDashboardProps = {
     portfolioOnly?: boolean,
     refreshCounts?: boolean
   ) => void;
-  onFilterColumnsChange?: (payload: { filterIds: string[] }) => void;
+  onFilterColumnsChange?: (payload: {
+    filterIds: string[];
+    dealTabActive: boolean;
+  }) => void;
   initialSearch?: string;
   summaryStats?: CorporateEventsSummaryStats;
   userId?: number | null;
@@ -115,6 +122,14 @@ export const CorporateEventsDashboard = ({
   const [portfolioEntityOptions, setPortfolioEntityOptions] = useState<string[]>(
     []
   );
+  const [followedEntityIds, setFollowedEntityIds] =
+    useState<FollowedEntityIds>({
+      companies: [],
+      sectors: [],
+      individuals: [],
+      investors: [],
+      advisors: [],
+    });
   const [activeDealTab, setActiveDealTab] = useState<CorporateEventDealTab>("all");
 
   const selectedCountries = useMemo(() => {
@@ -167,7 +182,7 @@ export const CorporateEventsDashboard = ({
       })
       .catch(console.error);
     fetchUserPortfolioData()
-      .then(({ items }) => {
+      .then((portfolioData) => {
         const typeLabel: Record<string, string> = {
           advisor: "Advisor",
           company: "Company",
@@ -176,11 +191,12 @@ export const CorporateEventsDashboard = ({
           sector: "Sector",
         };
         setPortfolioEntityOptions(
-          items.map(
+          portfolioData.items.map(
             (item) =>
               `${item.name} (${typeLabel[item.entity] ?? item.entity})|${item.entity}-${item.id}`
           )
         );
+        setFollowedEntityIds(portfolioDataToUserPortfolioRecord(portfolioData));
       })
       .catch(console.error);
   }, []);
@@ -247,8 +263,9 @@ export const CorporateEventsDashboard = ({
   useEffect(() => {
     onFilterColumnsChangeRef.current?.({
       filterIds: filterBarState.filters.map((filter) => filter.id),
+      dealTabActive: activeDealTab !== "all",
     });
-  }, [filterBarState.filters]);
+  }, [filterBarState.filters, activeDealTab]);
 
   const buildSearchFilters = useCallback((): CorporateEventsSearchFilters => {
     const tabConfig =
@@ -262,6 +279,7 @@ export const CorporateEventsDashboard = ({
       userId,
       scopedPrimarySectorIds,
       dealTabTypes: tabConfig?.dealTypes,
+      followedEntityIds,
     });
   }, [
     filterBarState,
@@ -270,6 +288,7 @@ export const CorporateEventsDashboard = ({
     userId,
     scopedPrimarySectorIds,
     activeDealTab,
+    followedEntityIds,
   ]);
 
   const buildCountsSearchFilters = useCallback(
@@ -280,6 +299,7 @@ export const CorporateEventsDashboard = ({
         secondarySectors,
         userId,
         scopedPrimarySectorIds,
+        followedEntityIds,
       }),
     [
       filterBarState,
@@ -287,6 +307,7 @@ export const CorporateEventsDashboard = ({
       secondarySectors,
       userId,
       scopedPrimarySectorIds,
+      followedEntityIds,
     ]
   );
 

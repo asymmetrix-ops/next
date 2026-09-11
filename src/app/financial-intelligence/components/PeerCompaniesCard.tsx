@@ -49,6 +49,10 @@ export function PeerCompaniesCard({
         overflow: "hidden",
         width: "100%",
         height: "100%",
+        // Cap the card's height independently of the (often much taller)
+        // financial metrics table it sits next to — beyond this, the peers
+        // list scrolls internally instead of stretching the whole card.
+        maxHeight: 640,
         minHeight: 0,
         display: "flex",
         flexDirection: "column",

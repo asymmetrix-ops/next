@@ -37,6 +37,8 @@ import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProv
 import {
   PORTFOLIO_COLUMN_CATEGORIES,
   PORTFOLIO_DEFAULT_VISIBLE_COLUMN_KEYS,
+  PORTFOLIO_EXTRA_FILTER_DEFS,
+  PORTFOLIO_FILTER_CATEGORY,
   getPortfolioProdDefaultColumnKeys,
 } from "@/components/investors/investorPortfolioColumns";
 
@@ -474,6 +476,8 @@ export function InvestorPortfolioTab({
           onSearch={handleSearch}
           onFilterColumnsChange={handleFilterColumnsChange}
           ownershipCounts={ownershipCounts}
+          extraFilterDefs={PORTFOLIO_EXTRA_FILTER_DEFS}
+          extraFilterCategories={[PORTFOLIO_FILTER_CATEGORY]}
           onColumnsClick={() => setShowColumnsModal((v) => !v)}
           onExport={(mode) => exportCSVRef.current?.({ mode, scope: "full_list" })}
           exporting={exporting}

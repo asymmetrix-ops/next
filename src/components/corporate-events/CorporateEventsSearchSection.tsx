@@ -140,7 +140,7 @@ export const CorporateEventsSearchSection = ({
     offset: number;
     perPage: number;
     pageTotal: number;
-    itemTotal: number;
+    itemsTotal: number;
   };
   fetchCorporateEvents: (
     page?: number,
@@ -404,7 +404,7 @@ export const CorporateEventsSearchSection = ({
           return;
         }
 
-        const exportTotalCount = pagination.itemTotal || events.length;
+        const exportTotalCount = pagination.itemsTotal || events.length;
         if (exportTotalCount <= 0) return;
 
         await exportCorporateEventsList(
@@ -420,7 +420,7 @@ export const CorporateEventsSearchSection = ({
         setExporting(false);
       }
     },
-    [currentFilters, events.length, pagination.itemTotal, selectedColumnKeys]
+    [currentFilters, events.length, pagination.itemsTotal, selectedColumnKeys]
   );
 
   useEffect(() => {
@@ -473,23 +473,18 @@ export const CorporateEventsSearchSection = ({
 
   const renderPartiesCell = (event: CorporateEventItem) => {
     const partnership = /partnership/i.test(event.deal_type || "");
-    const targets = extractTargetLinks(event);
     const buyers = extractBuyerLinks(event);
     const investors = extractInvestorLinks(event);
     const sellers = extractSellerLinks(event);
-    const targetLabel = (event as unknown as Record<string, unknown>)
-      .target_label as string | undefined;
+
+    // Partnerships have no Seller(s) row, so guard against an empty cell
+    // when there are also no buyers/investors to display.
+    if (partnership && buyers.length === 0 && investors.length === 0) {
+      return "-";
+    }
 
     return (
       <div>
-        <div className="muted-row">
-          <strong>
-            {targetLabel || (partnership ? "Target(s)" : "Target")}:
-          </strong>{" "}
-          {targets.length > 0
-            ? renderEntityLinks(targets, "target")
-            : "-"}
-        </div>
         {buyers.length > 0 && (
           <div className="muted-row">
             <strong>Buyer(s):</strong> {renderEntityLinks(buyers, "buyer")}

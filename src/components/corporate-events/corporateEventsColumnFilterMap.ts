@@ -41,7 +41,10 @@ export function getFilterIdForColumnKey(columnKey: string): string | undefined {
   return COLUMN_KEY_TO_FILTER_ID[columnKey];
 }
 
-export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
+export function getColumnKeysForActiveFilters(
+  filterIds: string[],
+  dealTabActive = false
+): string[] {
   const keys = new Set<string>();
   const locationFilterIds = new Set([
     "region",
@@ -61,6 +64,10 @@ export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
     if (locationFilterIds.has(filterId)) {
       keys.add("target_hq");
     }
+  }
+
+  if (dealTabActive) {
+    keys.add("deal_type");
   }
 
   return Array.from(keys).filter((key) =>

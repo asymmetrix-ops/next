@@ -20,6 +20,20 @@ import {
 } from "@/lib/portfolioEntity";
 import { toast } from "react-hot-toast";
 
+// Design tokens mirrored from src/components/redesign/primitives.tsx `T`
+// (the "Claude Design CompanyProfile" reference) so this button matches the
+// pill-shaped Follow/Unfollow/Following states used there.
+const FOLLOW_TOKENS = {
+  azure: "#2A46EA",
+  azureSoft: "#F1F4FE",
+  azureBorder: "#C6D1FB",
+  coral: "#A62E22",
+  coralSoft: "#FCEAE7",
+  coralBorder: "#F0C4BC",
+  sans:
+    "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+} as const;
+
 type FollowButtonProps = {
   followKey: PortfolioFollowKey;
   entityId: number;
@@ -41,6 +55,7 @@ export function FollowButton({
   icon,
 }: FollowButtonProps) {
   const [loading, setLoading] = useState(false);
+  const [followHovered, setFollowHovered] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [togglingListId, setTogglingListId] = useState<number | null>(null);
   const [membershipMap, setMembershipMap] = useState<Record<number, boolean>>({});
@@ -187,11 +202,36 @@ export function FollowButton({
 
   const isLoading = loading || portfolioLoading;
 
+  // Three visual states, matching the Claude Design CompanyProfile reference:
+  // not followed -> azure "Follow X"; followed (resting) -> azure "Following";
+  // followed + hovered -> coral "Unfollow X" (reveals the destructive intent).
+  const showUnfollow = isFollowed && followHovered;
+  const tone = showUnfollow
+    ? {
+        fg: FOLLOW_TOKENS.coral,
+        bg: FOLLOW_TOKENS.coralSoft,
+        border: FOLLOW_TOKENS.coralBorder,
+      }
+    : {
+        fg: FOLLOW_TOKENS.azure,
+        bg: FOLLOW_TOKENS.azureSoft,
+        border: FOLLOW_TOKENS.azureBorder,
+      };
+  const buttonLabel = isLoading
+    ? "Updating..."
+    : showUnfollow
+    ? `Unfollow ${label}`
+    : isFollowed
+    ? "Following"
+    : `Follow ${label}`;
+
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
       <button
         type="button"
         onClick={handleFollowClick}
+        onMouseEnter={() => setFollowHovered(true)}
+        onMouseLeave={() => setFollowHovered(false)}
         disabled={isLoading}
         title={
           isLoading
@@ -201,27 +241,26 @@ export function FollowButton({
             : `Follow ${label}`
         }
         style={{
-          padding: "8px 14px",
-          color: "white",
-          border: "none",
-          borderRadius: "6px",
+          padding: "8px 16px",
+          border: `1px solid ${tone.border}`,
+          borderRadius: 999,
           cursor: isLoading ? "not-allowed" : "pointer",
+          fontFamily: FOLLOW_TOKENS.sans,
           fontSize: "12.5px",
-          fontWeight: 600,
+          fontWeight: 700,
           display: "inline-flex",
           alignItems: "center",
-          gap: "5px",
+          gap: "6px",
+          transition: "background-color 120ms, border-color 120ms, color 120ms",
           ...style,
-          backgroundColor: isFollowed ? "#ef4444" : "#7c3aed",
+          backgroundColor: tone.bg,
+          color: tone.fg,
+          opacity: isLoading ? 0.65 : 1,
         }}
         className={className}
       >
         {icon}
-        {isLoading
-          ? "Updating..."
-          : isFollowed
-          ? `Unfollow ${label}`
-          : `Follow ${label}`}
+        {buttonLabel}
       </button>
 
       {entityType && (

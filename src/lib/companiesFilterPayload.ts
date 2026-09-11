@@ -374,6 +374,15 @@ export function buildCompaniesSearchPayload(args: {
       });
       continue;
     }
+    if (item.id === "holding_period" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "holding_period_years",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
     if (item.id === "transaction" && Array.isArray(v)) {
       (v as string[]).forEach((status, i) => {
         pushClause({

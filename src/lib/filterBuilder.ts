@@ -46,6 +46,7 @@ export type FilterType =
   | "no_employees"
   | "rev_per_employee"
   | "years_since_investment"
+  | "holding_period_years"
   | "financial_year_range"
   | "linkedin_growth_range"
   | "has_mcp";
@@ -146,6 +147,22 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
         }
         if (hasMin) return `(ysli.days_since >= ${minDays})`;
         if (hasMax) return `(ysli.days_since <= ${maxDays})`;
+        return null;
+      }
+      // Investor Profile → Portfolio tab only. `hp.holding_days` is the same
+      // per-row holding-period figure already hydrated via `holding_days`
+      // (see HOLDING_PERIOD_REQUEST_COLUMNS / HOLDING_PERIOD_SERVER_SORT_COLUMN)
+      // — filtered here in days for BETWEEN precision, exposed to users in years.
+      case "holding_period_years": {
+        const minDays = min != null ? min * 365 : undefined;
+        const maxDays = max != null ? max * 365 : undefined;
+        const hasMin = minDays != null && !Number.isNaN(minDays);
+        const hasMax = maxDays != null && !Number.isNaN(maxDays);
+        if (hasMin && hasMax) {
+          return `(hp.holding_days BETWEEN ${minDays} AND ${maxDays})`;
+        }
+        if (hasMin) return `(hp.holding_days >= ${minDays})`;
+        if (hasMax) return `(hp.holding_days <= ${maxDays})`;
         return null;
       }
       default:

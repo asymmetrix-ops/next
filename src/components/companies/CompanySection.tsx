@@ -351,7 +351,9 @@ const OWNERSHIP_CHIP_STYLES: Record<
   subsidiary: { bg: "#E2E8FD", fg: "#182A9B", dot: "#5C77F2" },
   acquired: { bg: "#FCEAE7", fg: "#A62E22", dot: "#D24534" },
 };
-const OWNERSHIP_CHIP_FALLBACK = { bg: "#F5F7FD", fg: "#566078", dot: "#B4BCCB" };
+// Fallback tone matches the "Other" ownership tab dot (#8A93A8) for consistency
+// with the ownership quick-filter tabs above the table.
+const OWNERSHIP_CHIP_FALLBACK = { bg: "#EEF0F4", fg: "#4A5468", dot: "#8A93A8" };
 
 const OwnershipChip = ({ value }: { value: string }) => {
   const label = value.trim();
@@ -668,7 +670,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         label: "Investors",
         group: "Overview",
         wrap: true,
-        minWidth: 220,
+        minWidth: 150,
         render: (company, { readOnlyGuestMode, onGuestConversionClick }) =>
           renderInvestorLinks(
             readInvestorsFromCompany(company),

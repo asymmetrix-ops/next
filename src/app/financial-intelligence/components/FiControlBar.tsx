@@ -373,9 +373,7 @@ export interface FiControlBarProps {
   countryOptions: FiIdOption[];
   peerCount: number;
   isDefaultMode: boolean;
-  showApplySuggestedFilters?: boolean;
   onResetToDefault: () => void;
-  onApplySuggestedFilters?: () => void;
   checkedSourceLabels: Set<FiMetricSourceType>;
   onToggleSourceLabel: (label: FiMetricSourceType) => void;
   addQuery: string;
@@ -405,9 +403,7 @@ export function FiControlBar({
   countryOptions,
   peerCount,
   isDefaultMode,
-  showApplySuggestedFilters = false,
   onResetToDefault,
-  onApplySuggestedFilters,
   checkedSourceLabels,
   onToggleSourceLabel,
   addQuery,
@@ -462,11 +458,13 @@ export function FiControlBar({
     const dismiss = options?.onDismiss ?? (() => {});
 
     if (ID_FILTER_IDS.has(def.id)) {
+      const initialIds = initialIdFilterValues(options?.initial);
       return (
         <ListViewIdEnumEditor
+          key={`${def.id}-${initialIds.join(",")}`}
           def={def}
           options={idOptionsForDef(def)}
-          value={initialIdFilterValues(options?.initial)}
+          value={initialIds}
           onApply={(values) => onApply(values)}
           onBack={options?.onBack}
           onRemove={options?.onRemove}
@@ -475,13 +473,15 @@ export function FiControlBar({
       );
     }
     if (def.editor === "enum") {
+      const initialValues = Array.isArray(options?.initial)
+        ? (options.initial as string[])
+        : [];
       return (
         <ListViewEnumEditor
+          key={`${def.id}-${initialValues.join(",")}`}
           def={def}
           options={optionsForDef(def)}
-          value={
-            Array.isArray(options?.initial) ? (options.initial as string[]) : []
-          }
+          value={initialValues}
           onApply={(values) => onApply(values)}
           onBack={options?.onBack}
           onRemove={options?.onRemove}
@@ -525,8 +525,18 @@ export function FiControlBar({
   };
 
   const idOptionsForDef = (def: FilterDef): FiIdOption[] => {
-    if (def.id === "country") return countryOptions;
-    return [];
+    if (def.id !== "country") return [];
+    // Defensive: de-dupe by id and drop invalid ids so a single click can't
+    // ever end up "matching" (and visually checking) more than one option.
+    const seen = new Set<number>();
+    const deduped: FiIdOption[] = [];
+    for (const option of countryOptions) {
+      const id = Number(option.id);
+      if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      deduped.push({ id, name: option.name });
+    }
+    return deduped;
   };
 
   const initialIdFilterValues = (value: unknown): number[] => {
@@ -910,24 +920,6 @@ export function FiControlBar({
                   gap: 12,
                 }}
               >
-                {showApplySuggestedFilters && onApplySuggestedFilters && (
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={onApplySuggestedFilters}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      color: "var(--fg-link)",
-                      fontSize: "var(--fs-12)",
-                      fontWeight: 600,
-                      cursor: loading ? "default" : "pointer",
-                      fontFamily: "var(--font-sans)",
-                    }}
-                  >
-                    Apply suggested filters
-                  </button>
-                )}
                 <button
                   type="button"
                   disabled={isDefaultMode || loading}

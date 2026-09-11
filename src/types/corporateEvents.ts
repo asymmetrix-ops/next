@@ -156,7 +156,11 @@ export interface CorporateEventsResponse {
   nextPage: number | null;
   prevPage: number | null;
   offset: number;
+  /** Real ceil(itemsTotal / Per_page), minimum 1 — reliable even on empty/out-of-range pages. */
   pageTotal: number;
+  /** Canonical total match count. Use this for "N results". */
+  itemsTotal: number;
+  /** @deprecated Legacy alias of itemsTotal, kept for backward compatibility. Use itemsTotal. */
   itemTotal: number;
   items: CorporateEvent[];
   acquisitions: number;

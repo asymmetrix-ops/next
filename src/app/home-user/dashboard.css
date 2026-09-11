@@ -316,6 +316,19 @@
   color: var(--dash-ink-2);
 }
 
+.dash-ev-more-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-left: 2px;
+  border-radius: 999px;
+  background: var(--dash-blue-50, #eff6ff);
+  color: var(--dash-blue-600);
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 1.5;
+  cursor: default;
+}
+
 .dash-chip-neutral {
   display: inline-flex;
   align-items: center;

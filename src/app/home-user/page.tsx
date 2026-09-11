@@ -3077,7 +3077,7 @@ export default function HomeUserPage() {
                                   })()}
                                 </div>
                                 <div className="mb-1 dash-ev-meta">
-                                  Date: {formatDate(
+                                  {formatDate(
                                     ev.date || event.announcement_date
                                   )}
                                 </div>
@@ -3199,21 +3199,45 @@ export default function HomeUserPage() {
                                         </div>
                                       )}
 
-                                      {investorsArr.length > 0 && (
-                                        <div className="dash-ev-kv">
-                                          <strong>Investor(s):</strong>{" "}
-                                          {dedupeById(investorsArr).map(
-                                            (inv, i, arr) => {
-                                              return (
-                                                <span key={`investor-${i}`}>
-                                                  {renderPartyEntityInline(inv)}
-                                                  {i < arr.length - 1 && ", "}
-                                                </span>
-                                              );
-                                            }
-                                          )}
-                                        </div>
-                                      )}
+                                      {investorsArr.length > 0 && (() => {
+                                        const dedupedInvestors =
+                                          dedupeById(investorsArr);
+                                        const visibleInvestors =
+                                          dedupedInvestors.slice(0, 3);
+                                        const remainingInvestors =
+                                          dedupedInvestors.length -
+                                          visibleInvestors.length;
+                                        return (
+                                          <div className="dash-ev-kv">
+                                            <strong>Investor(s):</strong>{" "}
+                                            {visibleInvestors.map(
+                                              (inv, i, arr) => {
+                                                return (
+                                                  <span key={`investor-${i}`}>
+                                                    {renderPartyEntityInline(
+                                                      inv
+                                                    )}
+                                                    {i < arr.length - 1 && ", "}
+                                                  </span>
+                                                );
+                                              }
+                                            )}
+                                            {remainingInvestors > 0 && (
+                                              <span
+                                                className="dash-ev-more-tag"
+                                                title={dedupedInvestors
+                                                  .slice(3)
+                                                  .map((inv) => inv?.name || "")
+                                                  .filter(Boolean)
+                                                  .join(", ")}
+                                              >
+                                                {" "}
+                                                +{remainingInvestors}
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
 
                                       {buyersArr.length === 0 &&
                                         investorsArr.length === 0 &&

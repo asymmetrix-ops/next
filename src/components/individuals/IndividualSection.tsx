@@ -74,7 +74,7 @@ interface IndividualColumnDefinition {
 const ALL_INDIVIDUAL_COLUMNS: IndividualColumnDefinition[] = [
   { key: "name", label: "Name", minWidth: 220 },
   { key: "current_company", label: "Current Companies", minWidth: 180 },
-  { key: "current_roles", label: "Current Roles", wrap: true, minWidth: 180 },
+  { key: "current_roles", label: "Current Roles", wrap: true, minWidth: 150 },
   { key: "location", label: "Location", wrap: true, minWidth: 200 },
   { key: "follow", label: "My Portfolio", minWidth: 120 },
 ];
@@ -322,12 +322,9 @@ export const IndividualSection = ({
       case "name": {
         const id = individual.id;
         const name = individual.advisor_individuals || "-";
-        const location = formatIndividualLocation(individual._locations_individual);
-        const subtitle = location !== "-" ? location : undefined;
         return (
           <SearchEntityIdentityCell
             name={name}
-            subtitle={subtitle}
             href={id ? `/individual/${id}` : undefined}
             onClick={(e) => {
               if (

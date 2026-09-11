@@ -9,6 +9,7 @@ export interface ArticleSeriesPart {
 
 export interface ArticleSeries {
   series_id: number;
+  /** part_number of the tile shown (oldest/highest-priority part among items that passed filters). */
   current_part: number;
   total_parts: number;
   parts: ArticleSeriesPart[];
@@ -75,8 +76,9 @@ export interface ContentArticle {
     meta: any;
     url?: string;
   }>;
-  is_series?: boolean;
-  series?: ArticleSeries;
+  /** Always present as of the Get_All_Content_Articles series-collapse update. */
+  is_series: boolean;
+  series: ArticleSeries | null;
   /** News byline — plain string, list of names, or nested arrays from API */
   byline?: string | string[] | Array<string | string[]> | null;
   right_to_reply?: boolean;
@@ -86,12 +88,23 @@ export interface ContentArticle {
 }
 
 export interface InsightsAnalysisResponse {
+  /**
+   * Items returned in this response only. Equal to Per_page on every page
+   * except the last (server dedupes series into one tile before slicing,
+   * so this no longer under-counts mid-list pages).
+   */
   itemsReceived: number;
   curPage: number;
   nextPage: number | null;
   prevPage: number | null;
   offset: number;
+  /** ceil(itemsTotal / Per_page) — computed on tiles, not raw Content rows. */
   pageTotal: number;
+  /** Total number of tiles (after series collapse) — use this for "N results". */
+  itemsTotal: number;
+  /** Total raw Content rows before series collapse — rarely needed on the frontend. */
+  itemsTotalRaw?: number;
+  /** @deprecated Alias of itemsTotal, kept for backward compatibility. Use itemsTotal. */
   totalItems?: number;
   items: ContentArticle[];
 }
