@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ClientCompanyOption } from "@/app/api/admin/client-companies/route";
 import { DcpOutreachTab } from "./DcpOutreachTab";
+import { EventEmailAnalyticsTab } from "./EventEmailAnalyticsTab";
 import type {
   DailyAnalyticsResponse,
   PeriodKey,
@@ -17,7 +18,7 @@ const DEFAULT_TIMEZONE = "Europe/London";
 const LIST_PER_PAGE = 25;
 
 type SortDirection = "asc" | "desc";
-type EATab = "all" | "dcp";
+type EATab = "all" | "dcp" | "event";
 type ItemTypeFilter = "" | "digest";
 
 const PERIOD_LABELS: Record<PeriodKey, string> = {
@@ -757,13 +758,17 @@ export function EmailAnalyticsTab() {
       <div className="bg-white rounded border">
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <h2 className="text-sm font-medium">
-            {tab === "dcp" ? "DCP outreach tracker" : "Per-user engagement"}
+            {tab === "dcp"
+              ? "DCP outreach tracker"
+              : tab === "event"
+                ? "Event email analytics"
+                : "Per-user engagement"}
           </h2>
           {tab === "dcp" ? (
             <span className="text-xs text-gray-500">
               {dcpCompanyCount.toLocaleString()} companies
             </span>
-          ) : (
+          ) : tab === "event" ? null : (
             <span className="text-xs text-gray-500">
               {filteredUsers.length.toLocaleString()} users
               {periodRangeLabel ? ` · ${periodRangeLabel}` : ""}
@@ -777,6 +782,7 @@ export function EmailAnalyticsTab() {
             [
               ["all", "All users"],
               ["dcp", "DCP Outreach"],
+              ["event", "Event Email Analytics"],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -805,6 +811,11 @@ export function EmailAnalyticsTab() {
           <DcpOutreachTab
             companyId={companyId}
             onCompanyCountChange={setDcpCompanyCount}
+          />
+        ) : tab === "event" ? (
+          <EventEmailAnalyticsTab
+            auditDate={auditDate}
+            emailSearch={searchQuery}
           />
         ) : (
           <>
