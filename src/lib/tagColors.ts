@@ -63,31 +63,31 @@ export const TRANSACTION_STATUS_TONES: Record<string, TagTone> = {
     text: "#0F7040",
     fill: "#E4F5EC",
     dot: "#17A05C",
-    border: "transparent",
+    border: "#C3E7D3",
   },
   "rumoured in market": {
     text: "#7A5605",
     fill: "#FEF6E0",
     dot: "#E0A32E",
-    border: "transparent",
+    border: "#F6E3B4",
   },
   "anticipated within 6 months": {
     text: "#182A9B",
     fill: "#E2E8FD",
     dot: "#2A46EA",
-    border: "transparent",
+    border: "#C6D1FB",
   },
   "anticipated within 18 months": {
     text: "#1F35C4",
     fill: "#F1F4FE",
     dot: "#3D5BF3",
-    border: "transparent",
+    border: "#C6D1FB",
   },
   "process on hold": {
     text: "#3D4657",
     fill: "#F5F7FD",
     dot: "#8A93A8",
-    border: "transparent",
+    border: "#E4E8F2",
   },
 };
 

@@ -1,8 +1,8 @@
 import type { CSSProperties } from "react";
 import {
-  dotPillStyleFromTone,
   formatTransactionStatusLabel as formatLabel,
   getTransactionStatusTone as getTone,
+  researchPillStyleFromTone,
 } from "@/lib/tagColors";
 
 export type TransactionStatusTone = {
@@ -23,15 +23,15 @@ export function formatTransactionStatusLabel(status: string): string {
 }
 
 /**
- * Dotted pill, no visible border — matches tags.txt §2 / .lp-chip.lp-chip-dot.
- * Fill alone separates the statuses; border is intentionally transparent.
+ * Bordered pill — same visual language as Insights content-type badges (tags.txt §3).
  */
 export function getTransactionStatusPillStyle(status: string): CSSProperties {
   const tone = getTone(status);
   return {
-    ...dotPillStyleFromTone(tone),
-    fontSize: 10.5,
-    padding: "5px 10px",
-    letterSpacing: "0.01em",
+    ...researchPillStyleFromTone(tone),
+    padding: "6px 10px",
+    lineHeight: 1.4,
+    whiteSpace: "normal",
+    textAlign: "center",
   };
 }

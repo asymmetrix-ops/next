@@ -2,6 +2,7 @@
 
 import "./dashboard.css";
 import {
+  Fragment,
   useState,
   useEffect,
   useLayoutEffect,
@@ -33,11 +34,13 @@ import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import NewsArticleCard from "@/components/NewsArticleCard";
 import { isNewsArticle } from "@/lib/contentArticleDisplay";
 import type { ContentArticle } from "@/types/insightsAnalysis";
-import { getContentTypeAccentColor } from "@/lib/contentTypeBadge";
+import {
+  getContentTypeAccentColor,
+  getContentTypeBadgeStyle,
+} from "@/lib/contentTypeBadge";
 import {
   formatTransactionStatusLabel,
   getTransactionStatusPillStyle,
-  getTransactionStatusTone,
 } from "@/lib/transactionStatusBadge";
 // import { useRightClick } from "@/hooks/useRightClick";
 
@@ -164,16 +167,6 @@ function getInsightTransactionStatus(article: InsightArticle): string {
     "";
   if (!raw) return "";
   return raw.replace(/^transaction\s+/i, "").trim() || raw;
-}
-
-function dealRadarStageStyle(
-  status: string
-): { pill: CSSProperties; dot: string } {
-  const { bg, fg, dot } = getTransactionStatusTone(status);
-  return {
-    pill: { backgroundColor: bg, color: fg },
-    dot,
-  };
 }
 
 const DEAL_STAGE_DEFINITIONS = [
@@ -323,7 +316,6 @@ function DealStageInfoTooltip() {
             <div className="px-4 py-3">
               <div className="space-y-4">
                 {DEAL_STAGE_DEFINITIONS.map((item, index) => {
-                  const stageStyle = dealRadarStageStyle(item.styleKey);
                   return (
                     <div
                       key={item.label}
@@ -334,14 +326,10 @@ function DealStageInfoTooltip() {
                       }
                     >
                       <span
-                        className="inline-flex max-w-full items-center gap-1.5 rounded-2xl px-2.5 py-1 text-[11px] font-semibold leading-snug"
-                        style={stageStyle.pill}
+                        className="inline-block max-w-full"
+                        style={getTransactionStatusPillStyle(item.label)}
                       >
-                        <span
-                          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: stageStyle.dot }}
-                        />
-                        <span>{item.label}</span>
+                        {item.label}
                       </span>
                       <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
                         {item.description}
@@ -370,71 +358,6 @@ import {
   SEARCH_PAGE_TYPES,
   SEARCH_PAGE_TYPE_LABELS,
 } from "@/lib/globalSearch";
-
-function contentTypeBadgeStyle(contentType?: string) {
-  const t = (contentType || "").toLowerCase().trim();
-  if (t === "company analysis") {
-    return {
-      backgroundColor: "#ecfdf5",
-      color: "#065f46",
-      borderColor: "#a7f3d0",
-    };
-  }
-  if (t === "deal analysis") {
-    return {
-      backgroundColor: "#eff6ff",
-      color: "#1e40af",
-      borderColor: "#bfdbfe",
-    };
-  }
-  if (t === "deal perspective") {
-    return {
-      backgroundColor: "#ecfeff",
-      color: "#155e75",
-      borderColor: "#a5f3fc",
-    };
-  }
-  if (t === "market commentary") {
-    return {
-      backgroundColor: "#fefce8",
-      color: "#854d0e",
-      borderColor: "#fde68a",
-    };
-  }
-  if (t === "sector analysis") {
-    return {
-      backgroundColor: "#f5f3ff",
-      color: "#5b21b6",
-      borderColor: "#ddd6fe",
-    };
-  }
-  if (t === "hot take") {
-    return {
-      backgroundColor: "#fff7ed",
-      color: "#9a3412",
-      borderColor: "#fed7aa",
-    };
-  }
-  if (t === "executive interview") {
-    return {
-      backgroundColor: "#f0fdf4",
-      color: "#166534",
-      borderColor: "#bbf7d0",
-    };
-  }
-  if (t === "news") {
-    return {
-      backgroundColor: "#fff1f2",
-      color: "#9f1239",
-      borderColor: "#fecdd3",
-    };
-  }
-  return {
-    backgroundColor: "#f3f4f6",
-    color: "#374151",
-    borderColor: "#e5e7eb",
-  };
-}
 
 // Removed NewCompany interface along with the related UI section
 
@@ -579,7 +502,10 @@ export default function HomeUserPage() {
 
   const partyLinkClassName = "dash-ev-link";
 
-  const renderPartyEntityInline = (entity: EntityRef): React.ReactNode => {
+  const renderPartyEntityInline = (
+    entity: EntityRef,
+    opts?: { trailingComma?: boolean }
+  ): React.ReactNode => {
     const href = normalizeEntityHref(entity);
     const name = entity?.name || "Unknown";
     return (
@@ -588,11 +514,15 @@ export default function HomeUserPage() {
         href={href || undefined}
         linkClassName={partyLinkClassName}
         linkStyle={{ fontWeight: "500" }}
+        trailingComma={opts?.trailingComma}
       />
     );
   };
 
-  const renderTargetEntityInline = (entity: EntityRef): React.ReactNode => {
+  const renderTargetEntityInline = (
+    entity: EntityRef,
+    opts?: { trailingComma?: boolean; stackFlag?: boolean }
+  ): React.ReactNode => {
     const href = normalizeEntityHref(entity);
     const name = entity?.name || "Unknown";
 
@@ -603,6 +533,8 @@ export default function HomeUserPage() {
         entity={entity as unknown as Record<string, unknown>}
         linkClassName={partyLinkClassName}
         linkStyle={{ fontWeight: "500" }}
+        trailingComma={opts?.trailingComma}
+        stackFlag={opts?.stackFlag}
       />
     );
   };
@@ -2074,22 +2006,6 @@ export default function HomeUserPage() {
           >
             <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="dash-card-icon flex items-center justify-center w-9 h-9 shrink-0">
-                  <svg
-                    className="w-[18px] h-[18px]"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <circle cx="12" cy="12" r="2" />
-                    <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
-                    <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
-                  </svg>
-                </div>
                 <NewFeatureCallout
                   featureKey="dashboard-deal-radar"
                   launchedAt="2026-05-26T00:00:00.000Z"
@@ -2161,10 +2077,6 @@ export default function HomeUserPage() {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-100">
                         {dealRadarItems.map((item) => {
-                          const stageStyle = dealRadarStageStyle(
-                            item.transactionStatus
-                          );
-
                           return (
                             <tr
                               key={item.companyId}
@@ -2268,18 +2180,14 @@ export default function HomeUserPage() {
                               </td>
                               <td className="px-2 py-3 text-center align-top">
                                 <span
-                                  className="dash-chip items-start px-2.5 py-1.5 leading-snug text-center"
-                                  style={stageStyle.pill}
+                                  className="inline-block max-w-[11rem]"
+                                  style={getTransactionStatusPillStyle(
+                                    item.transactionStatus
+                                  )}
                                 >
-                                  <span
-                                    className="dot shrink-0 mt-1"
-                                    style={{ backgroundColor: stageStyle.dot }}
-                                  />
-                                  <span className="whitespace-pre-line">
-                                    {formatTransactionStatusLabel(
-                                      item.transactionStatus
-                                    )}
-                                  </span>
+                                  {formatTransactionStatusLabel(
+                                    item.transactionStatus
+                                  )}
                                 </span>
                               </td>
                             </tr>
@@ -2330,24 +2238,6 @@ export default function HomeUserPage() {
           >
             <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="dash-card-icon flex items-center justify-center w-9 h-9 shrink-0">
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M9 21h6M10 17h4M8.5 14.6c-1.9-1.3-3.1-3.4-3.1-5.7C5.4 5.6 8.4 3 12 3s6.6 2.6 6.6 5.9c0 2.3-1.2 4.4-3.1 5.7-.8.5-1.3 1.4-1.3 2.4V18H9.8v-1c0-1-.5-1.9-1.3-2.4Z"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
                 <a
                   href="/insights-analysis"
                   className="dash-card-title flex items-center gap-2"
@@ -2402,10 +2292,7 @@ export default function HomeUserPage() {
                         />
                         <div className="p-4">
                         <div className="flex items-center justify-between gap-3">
-                          <span
-                            className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-lg border"
-                            style={contentTypeBadgeStyle(ct)}
-                          >
+                          <span style={getContentTypeBadgeStyle(ct)}>
                             {ct || "Insight"}
                           </span>
                           <span className="dash-ev-meta shrink-0">
@@ -2492,24 +2379,6 @@ export default function HomeUserPage() {
           >
             <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="dash-card-icon is-purple flex items-center justify-center w-9 h-9 shrink-0">
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
                 <a
                   href="/corporate-events"
                   className="dash-card-title flex items-center gap-2"
@@ -2578,15 +2447,14 @@ export default function HomeUserPage() {
                               );
                             })()}
                           </div>
+                          <div className="dash-ev-meta">
+                            {(() => {
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              const ev: any = event as any;
+                              return formatDate(ev.date || event.announcement_date);
+                            })()}
+                          </div>
                           <div className="space-y-1 dash-ev-kv">
-                            <div>
-                              <strong>Date:</strong>{" "}
-                              {(() => {
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const ev: any = event as any;
-                                return formatDate(ev.date || event.announcement_date);
-                              })()}
-                            </div>
                             <div>
                               <strong>Target:</strong>{" "}
                               {(() => {
@@ -2622,14 +2490,14 @@ export default function HomeUserPage() {
                                 if (displayTargets.length > 0) {
                                   return (
                                     <>
-                                      {displayTargets.map((tgt, i, arr) => {
-                                        return (
-                                          <span key={`m-tgt-${tgt?.id ?? i}`}>
-                                            {renderTargetEntityInline(tgt)}
-                                            {i < arr.length - 1 && ", "}
-                                          </span>
-                                        );
-                                      })}
+                                      {displayTargets.map((tgt, i, arr) => (
+                                        <Fragment key={`m-tgt-${tgt?.id ?? i}`}>
+                                          {renderTargetEntityInline(tgt, {
+                                            trailingComma: i < arr.length - 1,
+                                            stackFlag: arr.length < 2,
+                                          })}
+                                        </Fragment>
+                                      ))}
                                     </>
                                   );
                                 } else if (targetName) {
@@ -2657,14 +2525,13 @@ export default function HomeUserPage() {
 
                                 return (
                                   <>
-                                    {dedupeById(sellersNew).map((s, i, arr) => {
-                                      return (
-                                        <span key={`m-seller-${s?.id ?? i}`}>
-                                          {renderPartyEntityInline(s)}
-                                          {i < arr.length - 1 && ", "}
-                                        </span>
-                                      );
-                                    })}
+                                    {dedupeById(sellersNew).map((s, i, arr) => (
+                                      <Fragment key={`m-seller-${s?.id ?? i}`}>
+                                        {renderPartyEntityInline(s, {
+                                          trailingComma: i < arr.length - 1,
+                                        })}
+                                      </Fragment>
+                                    ))}
                                   </>
                                 );
                               })()}
@@ -3159,14 +3026,14 @@ export default function HomeUserPage() {
                                               ? "Target(s):"
                                               : "Target:"}
                                           </strong>{" "}
-                                          {displayTargets.map((tgt, i, arr) => {
-                                            return (
-                                              <span key={`tgt-${tgt?.id ?? i}`}>
-                                                {renderTargetEntityInline(tgt)}
-                                                {i < arr.length - 1 && ", "}
-                                              </span>
-                                            );
-                                          })}
+                                          {displayTargets.map((tgt, i, arr) => (
+                                            <Fragment key={`tgt-${tgt?.id ?? i}`}>
+                                              {renderTargetEntityInline(tgt, {
+                                                trailingComma: i < arr.length - 1,
+                                                stackFlag: arr.length < 2,
+                                              })}
+                                            </Fragment>
+                                          ))}
                                         </div>
                                       ) : targetName ? (
                                         <div className="dash-ev-kv">
@@ -3187,14 +3054,14 @@ export default function HomeUserPage() {
                                         <div className="dash-ev-kv">
                                           <strong>Buyer(s):</strong>{" "}
                                           {dedupeById(buyersArr).map(
-                                            (b, i, arr) => {
-                                              return (
-                                                <span key={`buyer-${i}`}>
-                                                  {renderPartyEntityInline(b)}
-                                                  {i < arr.length - 1 && ", "}
-                                                </span>
-                                              );
-                                            }
+                                            (b, i, arr) => (
+                                              <Fragment key={`buyer-${i}`}>
+                                                {renderPartyEntityInline(b, {
+                                                  trailingComma:
+                                                    i < arr.length - 1,
+                                                })}
+                                              </Fragment>
+                                            )
                                           )}
                                         </div>
                                       )}
@@ -3202,39 +3069,53 @@ export default function HomeUserPage() {
                                       {investorsArr.length > 0 && (() => {
                                         const dedupedInvestors =
                                           dedupeById(investorsArr);
+                                        const maxInlineInvestors = 12;
                                         const visibleInvestors =
-                                          dedupedInvestors.slice(0, 3);
+                                          dedupedInvestors.slice(
+                                            0,
+                                            maxInlineInvestors
+                                          );
                                         const remainingInvestors =
                                           dedupedInvestors.length -
                                           visibleInvestors.length;
                                         return (
                                           <div className="dash-ev-kv">
                                             <strong>Investor(s):</strong>{" "}
-                                            {visibleInvestors.map(
-                                              (inv, i, arr) => {
-                                                return (
-                                                  <span key={`investor-${i}`}>
-                                                    {renderPartyEntityInline(
-                                                      inv
-                                                    )}
-                                                    {i < arr.length - 1 && ", "}
-                                                  </span>
-                                                );
-                                              }
-                                            )}
-                                            {remainingInvestors > 0 && (
-                                              <span
-                                                className="dash-ev-more-tag"
-                                                title={dedupedInvestors
-                                                  .slice(3)
-                                                  .map((inv) => inv?.name || "")
-                                                  .filter(Boolean)
-                                                  .join(", ")}
-                                              >
-                                                {" "}
-                                                +{remainingInvestors}
+                                            <span className="dash-ev-investors-inline">
+                                              <span className="dash-ev-investors-clamp">
+                                                {visibleInvestors.map(
+                                                  (inv, i) => (
+                                                    <Fragment
+                                                      key={`investor-${inv?.id ?? i}`}
+                                                    >
+                                                      {renderPartyEntityInline(
+                                                        inv,
+                                                        {
+                                                          trailingComma:
+                                                            i <
+                                                            visibleInvestors.length -
+                                                              1,
+                                                        }
+                                                      )}
+                                                    </Fragment>
+                                                  )
+                                                )}
                                               </span>
-                                            )}
+                                              {remainingInvestors > 0 && (
+                                                <span
+                                                  className="dash-ev-more-tag"
+                                                  title={dedupedInvestors
+                                                    .slice(visibleInvestors.length)
+                                                    .map(
+                                                      (inv) => inv?.name || ""
+                                                    )
+                                                    .filter(Boolean)
+                                                    .join(", ")}
+                                                >
+                                                  +{remainingInvestors}
+                                                </span>
+                                              )}
+                                            </span>
                                           </div>
                                         );
                                       })()}
@@ -3250,14 +3131,14 @@ export default function HomeUserPage() {
                                             {buyersInvestorsCombined.length > 0
                                               ? dedupeById(
                                                   buyersInvestorsCombined
-                                                ).map((b, i, arr) => {
-                                                  return (
-                                                    <span key={`bi-${i}`}>
-                                                      {renderPartyEntityInline(b)}
-                                                      {i < arr.length - 1 && ", "}
-                                                    </span>
-                                                  );
-                                                })
+                                                ).map((b, i, arr) => (
+                                                  <Fragment key={`bi-${i}`}>
+                                                    {renderPartyEntityInline(b, {
+                                                      trailingComma:
+                                                        i < arr.length - 1,
+                                                    })}
+                                                  </Fragment>
+                                                ))
                                               : legacyCombinedNames.join(", ")}
                                           </div>
                                         )}
@@ -3266,14 +3147,14 @@ export default function HomeUserPage() {
                                         <div className="dash-ev-kv">
                                           <strong>Seller(s):</strong>{" "}
                                           {dedupeById(sellersNew).map(
-                                            (s, i, arr) => {
-                                              return (
-                                                <span key={`seller-${i}`}>
-                                                  {renderPartyEntityInline(s)}
-                                                  {i < arr.length - 1 && ", "}
-                                                </span>
-                                              );
-                                            }
+                                            (s, i, arr) => (
+                                              <Fragment key={`seller-${i}`}>
+                                                {renderPartyEntityInline(s, {
+                                                  trailingComma:
+                                                    i < arr.length - 1,
+                                                })}
+                                              </Fragment>
+                                            )
                                           )}
                                         </div>
                                       )}
