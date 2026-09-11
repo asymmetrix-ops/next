@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
-import Link from "next/link";
+import { EntityChip } from "@/components/ui/EntityChip";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { readHqCountryIso2, COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
@@ -4098,23 +4098,20 @@ const CompanyDetail = () => {
                           const id = getSectorId(sector);
                           if (id) {
                             return (
-                              <Link
+                              <EntityChip
                                 key={`sector-${id}`}
+                                kind="sector"
                                 href={`/sector/${id}`}
-                                style={styles.sectorTag}
-                                prefetch={false}
-                              >
-                                {sector.sector_name}
-                              </Link>
+                                label={sector.sector_name}
+                              />
                             );
                           }
                           return (
-                            <span
+                            <EntityChip
                               key={`sector-${sector.sector_name}`}
-                              style={styles.sectorTag}
-                            >
-                              {sector.sector_name}
-                            </span>
+                              kind="sector"
+                              label={sector.sector_name}
+                            />
                           );
                         })}
                         {!showAllPrimarySectors &&
@@ -4181,23 +4178,20 @@ const CompanyDetail = () => {
                           const id = getSectorId(sector);
                           if (id) {
                             return (
-                              <Link
+                              <EntityChip
                                 key={`sub-sector-${id}`}
+                                kind="subsector"
                                 href={`/sub-sector/${id}`}
-                                style={styles.sectorTagSecondary}
-                                prefetch={false}
-                              >
-                                {sector.sector_name}
-                              </Link>
+                                label={sector.sector_name}
+                              />
                             );
                           }
                           return (
-                            <span
+                            <EntityChip
                               key={`sub-sector-${sector.sector_name}`}
-                              style={styles.sectorTagSecondary}
-                            >
-                              {sector.sector_name}
-                            </span>
+                              kind="subsector"
+                              label={sector.sector_name}
+                            />
                           );
                         })}
                         {!showAllSecondarySectors &&
@@ -4373,13 +4367,11 @@ const CompanyDetail = () => {
                       if (parentId && parentName) {
                         return (
                           <div style={styles.tagContainer}>
-                            <Link
+                            <EntityChip
+                              kind="company"
                               href={`/company/${parentId}`}
-                              style={styles.companyTag}
-                              prefetch={false}
-                            >
-                              {parentName}
-                            </Link>
+                              label={parentName}
+                            />
                           </div>
                         );
                       }
@@ -4411,14 +4403,12 @@ const CompanyDetail = () => {
                             return (
                               <div style={styles.tagContainer}>
                                 {validApiInvestors.map((investor) => (
-                                  <Link
+                                  <EntityChip
                                     key={`api-investor-${investor.investor_id}`}
+                                    kind="investor"
                                     href={`/investors/${investor.investor_id}`}
-                                    style={styles.companyTag}
-                                    prefetch={false}
-                                  >
-                                    {investor.investor_name}
-                                  </Link>
+                                    label={investor.investor_name}
+                                  />
                                 ))}
                               </div>
                             );

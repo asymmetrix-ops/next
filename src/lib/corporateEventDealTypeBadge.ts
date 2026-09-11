@@ -1,15 +1,16 @@
 import type { CSSProperties } from "react";
+import { DEAL_TYPE_TONE, getFundingStageTone, pillStyleFromTone } from "@/lib/tagColors";
 
 export type DealTypeBadgeColors = { bg: string; fg: string; bd: string };
 
-/** Email lambda — single grey style for all deal types. */
+/** Deal type — always the neutral grey, whatever the value (tags.txt §1). */
 export const DEAL_TYPE_BADGE_COLORS: DealTypeBadgeColors = {
-  bg: "#F1F5F9",
-  fg: "#64748B",
-  bd: "#CBD5E1",
+  bg: DEAL_TYPE_TONE.fill,
+  fg: DEAL_TYPE_TONE.text,
+  bd: DEAL_TYPE_TONE.border,
 };
 
-/** Funding stage reuses investment palette. */
+/** @deprecated single flat colour — kept for legacy callers. Use fundingStageBadgeStyle(value) for the real per-stage ramp. */
 export const FUNDING_STAGE_BADGE_COLORS: DealTypeBadgeColors = {
   bg: "#d1fae5",
   fg: "#065f46",
@@ -36,6 +37,11 @@ export function dealTypeBadgeStyle(): CSSProperties {
   return badgeStyleFromColors(DEAL_TYPE_BADGE_COLORS);
 }
 
-export function fundingStageBadgeStyle(): CSSProperties {
-  return badgeStyleFromColors(FUNDING_STAGE_BADGE_COLORS);
+/**
+ * Funding stage — colour steps by group and darkens as the stage advances
+ * (tags.txt §1). Pass the stage value (e.g. "Series A", "Buyout", "Grant").
+ */
+export function fundingStageBadgeStyle(value?: string): CSSProperties {
+  if (!value) return badgeStyleFromColors(FUNDING_STAGE_BADGE_COLORS);
+  return pillStyleFromTone(getFundingStageTone(value));
 }

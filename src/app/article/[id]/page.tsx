@@ -23,6 +23,7 @@ import {
   getTransactionStatusPillStyle,
 } from "@/lib/transactionStatusBadge";
 import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
+import { EntityChip } from "@/components/ui/EntityChip";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   getFXRates,
@@ -2033,26 +2034,19 @@ const ArticleDetailPage = () => {
                                 gap: "6px",
                               }}
                             >
-                              <Link
+                              <EntityChip
+                                kind="company"
                                 href={`/company/${companyOfFocus.id}`}
-                                style={{
-                                  ...styles.companyTag,
-                                  textDecoration: "none",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 6,
-                                  marginBottom: 4,
-                                }}
-                                prefetch={false}
+                                style={{ marginBottom: 4 }}
+                                label={companyOfFocus.name}
                               >
-                                {companyOfFocus.name}
                                 {hqCountryIso2 ? (
                                   <CountryFlagImg
                                     iso2={hqCountryIso2}
                                     size={ARTICLE_FLAG_SIZE_PX}
                                   />
                                 ) : null}
-                              </Link>
+                              </EntityChip>
                             </span>
                           </div>
                         )}
@@ -2089,46 +2083,15 @@ const ArticleDetailPage = () => {
                                   const internalHref =
                                     id && id > 0 ? `/investors/${id}` : "";
                                   const href = internalHref || inv.url || "";
-                                  const baseStyle = {
-                                    ...styles.companyTag,
-                                    textDecoration: "none",
-                                    display: "inline-block",
-                                    marginBottom: 4,
-                                  } as React.CSSProperties;
-                                  if (!href) {
-                                    return (
-                                      <span
-                                        key={`${name}-${idx}`}
-                                        style={baseStyle}
-                                      >
-                                        {name}
-                                      </span>
-                                    );
-                                  }
-
-                                  if (internalHref) {
-                                    return (
-                                      <Link
-                                        key={`${name}-${idx}`}
-                                        href={internalHref}
-                                        style={baseStyle}
-                                        prefetch={false}
-                                      >
-                                        {name}
-                                      </Link>
-                                    );
-                                  }
-
                                   return (
-                                    <a
+                                    <EntityChip
                                       key={`${name}-${idx}`}
-                                      href={href}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      style={baseStyle}
-                                    >
-                                      {name}
-                                    </a>
+                                      kind="investor"
+                                      href={href || null}
+                                      external={!internalHref && !!href}
+                                      style={{ marginBottom: 4 }}
+                                      label={name}
+                                    />
                                   );
                                 })
                             ) : (
@@ -2159,47 +2122,15 @@ const ArticleDetailPage = () => {
                                   ? `/individual/${individualId}`
                                   : "";
                                 const href = internalHref || m.linkedin_url || "";
-                                const baseStyle = {
-                                  ...styles.companyTag,
-                                  textDecoration: "none",
-                                  display: "inline-block",
-                                  marginBottom: 4,
-                                } as React.CSSProperties;
-                                if (!href) {
-                                  return (
-                                    <span
-                                      key={`${name}-${idx}`}
-                                      style={baseStyle}
-                                    >
-                                      {label}
-                                    </span>
-                                  );
-                                }
-
-                                // Prefer internal dynamic individual page when possible
-                                if (internalHref) {
-                                  return (
-                                    <Link
-                                      key={`${name}-${idx}`}
-                                      href={internalHref}
-                                      style={baseStyle}
-                                      prefetch={false}
-                                    >
-                                      {label}
-                                    </Link>
-                                  );
-                                }
-
                                 return (
-                                  <a
+                                  <EntityChip
                                     key={`${name}-${idx}`}
-                                    href={href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={baseStyle}
-                                  >
-                                    {label}
-                                  </a>
+                                    kind="individual"
+                                    href={href || null}
+                                    external={!internalHref && !!href}
+                                    style={{ marginBottom: 4 }}
+                                    label={label}
+                                  />
                                 );
                               })
                             ) : (
@@ -2365,26 +2296,12 @@ const ArticleDetailPage = () => {
                         </div>
                         <div style={styles.tagContainer}>
                           {competitors.peers_and_competitors.map((c) => (
-                            <Link
+                            <EntityChip
                               key={`peer-${c.id}`}
+                              kind="company"
                               href={`/company/${c.id}`}
-                              prefetch={false}
-                              style={{
-                                ...styles.companyTag,
-                                textDecoration: "none",
-                                display: "inline-block",
-                              }}
-                              onMouseEnter={(e) => {
-                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#E4F5EC";
-                              }}
-                              onMouseLeave={(e) => {
-                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#E4F5EC";
-                              }}
-                            >
-                              {c.name}
-                            </Link>
+                              label={c.name}
+                            />
                           ))}
                         </div>
                       </div>
@@ -2402,26 +2319,12 @@ const ArticleDetailPage = () => {
                         </div>
                         <div style={styles.tagContainer}>
                           {competitors.potential_acquirers.map((c) => (
-                            <Link
+                            <EntityChip
                               key={`acq-${c.id}`}
+                              kind="company"
                               href={`/company/${c.id}`}
-                              prefetch={false}
-                              style={{
-                                ...styles.companyTag,
-                                textDecoration: "none",
-                                display: "inline-block",
-                              }}
-                              onMouseEnter={(e) => {
-                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#E4F5EC";
-                              }}
-                              onMouseLeave={(e) => {
-                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#E4F5EC";
-                              }}
-                            >
-                              {c.name}
-                            </Link>
+                              label={c.name}
+                            />
                           ))}
                         </div>
                       </div>
@@ -2439,26 +2342,12 @@ const ArticleDetailPage = () => {
                         </div>
                         <div style={styles.tagContainer}>
                           {competitors.acquisition_targets.map((c) => (
-                            <Link
+                            <EntityChip
                               key={`tgt-${c.id}`}
+                              kind="company"
                               href={`/company/${c.id}`}
-                              prefetch={false}
-                              style={{
-                                ...styles.companyTag,
-                                textDecoration: "none",
-                                display: "inline-block",
-                              }}
-                              onMouseEnter={(e) => {
-                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#E4F5EC";
-                              }}
-                              onMouseLeave={(e) => {
-                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                  "#E4F5EC";
-                              }}
-                            >
-                              {c.name}
-                            </Link>
+                              label={c.name}
+                            />
                           ))}
                         </div>
                       </div>
@@ -2516,28 +2405,12 @@ const ArticleDetailPage = () => {
                   article.companies_mentioned.length > 0 && (
                     <div style={{ ...styles.tagContainer, marginTop: 12 }}>
                       {article.companies_mentioned.map((company) => (
-                        <Link
+                        <EntityChip
                           key={company.id}
+                          kind="company"
                           href={`/company/${company.id}`}
-                          style={{
-                            ...styles.companyTag,
-                            textDecoration: "none",
-                            display: "inline-block",
-                          }}
-                          onMouseEnter={(e) => {
-                            (
-                              e.currentTarget as HTMLAnchorElement
-                            ).style.backgroundColor = "#E4F5EC";
-                          }}
-                          onMouseLeave={(e) => {
-                            (
-                              e.currentTarget as HTMLAnchorElement
-                            ).style.backgroundColor = "#E4F5EC";
-                          }}
-                          prefetch={false}
-                        >
-                          {company.name}
-                        </Link>
+                          label={company.name}
+                        />
                       ))}
                     </div>
                   )}
@@ -2553,31 +2426,18 @@ const ArticleDetailPage = () => {
                     const sid = getSectorId(sector);
                     if (!sid) return null;
                     return (
-                      <Link
+                      <EntityChip
                         key={sid}
+                        kind="sector"
                         href={`/sector/${sid}`}
-                        style={{
-                          ...styles.sectorTag,
-                          cursor: "pointer",
-                          textDecoration: "none",
-                          display: "inline-block",
-                        }}
-                        onMouseEnter={(e) => {
-                          (
-                            e.currentTarget as HTMLAnchorElement
-                          ).style.backgroundColor = "#F1EBFC";
-                        }}
-                        onMouseLeave={(e) => {
-                          (
-                            e.currentTarget as HTMLAnchorElement
-                          ).style.backgroundColor = "#F1EBFC";
-                        }}
                         title="Open sector page"
-                        prefetch={false}
-                      >
-                        {sector.sector_name}
-                        {sector.Sector_importance === "Primary" && " (Primary)"}
-                      </Link>
+                        label={
+                          <>
+                            {sector.sector_name}
+                            {sector.Sector_importance === "Primary" && " (Primary)"}
+                          </>
+                        }
+                      />
                     );
                   })}
                 </div>
