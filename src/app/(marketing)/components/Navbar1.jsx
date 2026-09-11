@@ -8,6 +8,9 @@ import { openCalendlyPopup } from "@/lib/calendlyWidget";
 
 const LANDING_HOME = "";
 
+const EVENTS_LONDON_2026_URL =
+  "https://events.asymmetrixintelligence.com/london-2026";
+
 const NAV_LINK_CLASS =
   "landing-text-secondary block py-3 text-md transition-colors first:pt-7 hover:text-text-alternative lg:px-4 lg:py-2 lg:text-base first:lg:pt-2";
 
@@ -149,6 +152,15 @@ export function Navbar1() {
           >
             Press Releases
           </Link>
+          <a
+            href={EVENTS_LONDON_2026_URL}
+            className={NAV_LINK_CLASS}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={closeMobileMenu}
+          >
+            Events
+          </a>
           <Link
             href={`${LANDING_HOME}/contact-us`}
             className={NAV_LINK_CLASS}
