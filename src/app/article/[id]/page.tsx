@@ -18,10 +18,7 @@ import {
   getLatestCorrection,
   isNewsArticle,
 } from "@/lib/contentArticleDisplay";
-import {
-  formatTransactionStatusLabel,
-  getTransactionStatusPillStyle,
-} from "@/lib/transactionStatusBadge";
+import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
 import { EntityChip } from "@/components/ui/EntityChip";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
@@ -1606,9 +1603,7 @@ const ArticleDetailPage = () => {
             </h1>
             {article.Transaction_status && (
               <div style={{ marginBottom: 16 }}>
-                <span style={getTransactionStatusPillStyle(article.Transaction_status)}>
-                  {formatTransactionStatusLabel(article.Transaction_status)}
-                </span>
+                <TransactionStatusPill status={article.Transaction_status} />
               </div>
             )}
             <p style={styles.strapline}>{article.Strapline}</p>

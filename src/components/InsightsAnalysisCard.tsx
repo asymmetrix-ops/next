@@ -29,38 +29,17 @@ import {
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
-import {
-  formatTransactionStatusLabel,
-  getTransactionStatusPillStyle,
-} from "@/lib/transactionStatusBadge";
+import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
+import { getInsightsTypeTone } from "@/lib/tagColors";
 
 const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 const MAX_NAMES_SHOWN = 4;
 
-// ── Content-type → accent color/dot/verb (mirrors src/lib/contentTypeBadge.ts) ──
 type AccentSet = { fg: string; bg: string; border: string };
 
-const ACCENT_AZURE: AccentSet = { fg: T.azure, bg: T.azureSoft, border: "#E2E8FD" };
-const ACCENT_LAVENDER: AccentSet = { fg: T.lavender, bg: T.lavenderSoft, border: "#E2D5F8" };
-const ACCENT_EMERALD: AccentSet = { fg: T.emerald, bg: T.emeraldSoft, border: "#C8EBD9" };
-const ACCENT_CORAL: AccentSet = { fg: T.coral, bg: T.coralSoft, border: "#F8D4CD" };
-const ACCENT_WARN: AccentSet = { fg: T.warn, bg: T.warnSoft, border: "#FBE8B8" };
-const ACCENT_NEUTRAL: AccentSet = { fg: T.muted, bg: T.inset, border: T.divider };
-
 function getAccentSet(contentType?: string): AccentSet {
-  const t = (contentType || "").toLowerCase();
-  if (t === "company analysis" || t === "company update") return ACCENT_AZURE;
-  if (t === "sector analysis") return ACCENT_LAVENDER;
-  if (t === "executive interview") return ACCENT_EMERALD;
-  if (t === "news") return ACCENT_CORAL;
-  if (
-    t === "deal analysis" ||
-    t === "deal perspective" ||
-    t === "hot take" ||
-    t === "market commentary"
-  )
-    return ACCENT_WARN;
-  return ACCENT_NEUTRAL;
+  const tone = getInsightsTypeTone(contentType || "");
+  return { fg: tone.text, bg: tone.fill, border: tone.border };
 }
 
 function getReadMoreVerb(contentType?: string): string {
@@ -424,9 +403,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
 
         {/* Transaction status */}
         {article.Transaction_status && (
-          <span style={getTransactionStatusPillStyle(article.Transaction_status)}>
-            {formatTransactionStatusLabel(article.Transaction_status)}
-          </span>
+          <TransactionStatusPill status={article.Transaction_status} />
         )}
 
         {/* Summary */}

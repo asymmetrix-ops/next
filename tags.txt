@@ -10,6 +10,7 @@ Deal type
 Deal type	#343C46	#ECEFF3	#DDE2E8
 Early · blue
 Pre-seed△	
+Pre-seed△	
 Pre-seed	#5B7FC9	#EEF3FC	#DCE6F6
 Seed	
 Seed	#2A5DB5	#E4ECFA	#CCDBF3

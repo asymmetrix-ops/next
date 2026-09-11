@@ -37,11 +37,12 @@ import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { exportMarketMapBucket } from "@/lib/listExport/marketMapExport";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
-import { getContentTypeAccentColor } from "@/lib/contentTypeBadge";
 import {
-  formatTransactionStatusLabel,
-  getTransactionStatusPillStyle,
-} from "@/lib/transactionStatusBadge";
+  getContentTypeAccentColor,
+  getContentTypeBadgeStyle,
+} from "@/lib/contentTypeBadge";
+import { getInsightsTypeTone } from "@/lib/tagColors";
+import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 
 // ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
 // (same convention as src/app/sectors/page.tsx)
@@ -72,41 +73,9 @@ const OWNERSHIP_DOT: Record<string, string> = {
   private: "#E0A32E",
 };
 
-// Content-type dot colors (matches redesign/InsightsCard.tsx badgeTone semantics)
-const CONTENT_TYPE_DOT: Record<string, string> = {
-  news: "#A62E22",
-  "company analysis": "#2A46EA",
-  "sector analysis": "#523793",
-  "sector report": "#523793",
-  "executive interview": "#0F7040",
-  "deal analysis": "#7A5605",
-  "deal perspective": "#7A5605",
-  "hot take": "#7A5605",
-  "market commentary": "#7A5605",
-};
-
-function contentTypeDot(contentType?: string): string {
-  const key = (contentType || "").toLowerCase().trim();
-  return CONTENT_TYPE_DOT[key] || MUTED_SOFT;
-}
-
-function contentTypeBadgeStyle(contentType?: string): React.CSSProperties {
-  const t = (contentType || "").toLowerCase();
-  if (t === "company analysis" || t === "company update")
-    return { background: BLUE_50, color: BLUE_700 };
-  if (t === "sector analysis" || t === "sector report")
-    return { background: "#F1EBFC", color: "#523793" };
-  if (t === "executive interview")
-    return { background: "#E4F5EC", color: "#0F7040" };
-  if (
-    t === "deal analysis" ||
-    t === "deal perspective" ||
-    t === "hot take" ||
-    t === "market commentary"
-  )
-    return { background: "#FEF6E0", color: "#7A5605" };
-  if (t === "news") return { background: "#FCEAE7", color: "#A62E22" };
-  return { background: TINT, color: INK_3 };
+function contentTypeFilterDot(contentType: string): string {
+  const tone = getInsightsTypeTone(contentType);
+  return tone.dot || tone.text;
 }
 
 // Types for API integration
@@ -790,14 +759,8 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
                   {article.Content_Type && (
                     <span
                       style={{
-                        display: "inline-block",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: "2px 8px",
-                        borderRadius: 999,
-                        lineHeight: 1.5,
                         flexShrink: 0,
-                        ...contentTypeBadgeStyle(article.Content_Type),
+                        ...getContentTypeBadgeStyle(article.Content_Type),
                       }}
                     >
                       {article.Content_Type}
@@ -2399,7 +2362,7 @@ const SectorDetailPage = ({
                         width: 7,
                         height: 7,
                         borderRadius: "50%",
-                        background: contentTypeDot(ct),
+                        background: contentTypeFilterDot(ct),
                         flexShrink: 0,
                       }}
                     />
@@ -2465,16 +2428,7 @@ const SectorDetailPage = ({
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 5 }}>
                       {effectiveContentType && (
-                        <span
-                          style={{
-                            display: "inline-block",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            padding: "2px 8px",
-                            borderRadius: 999,
-                            ...contentTypeBadgeStyle(effectiveContentType),
-                          }}
-                        >
+                        <span style={getContentTypeBadgeStyle(effectiveContentType)}>
                           {effectiveContentType}
                         </span>
                       )}
@@ -2487,9 +2441,7 @@ const SectorDetailPage = ({
                     </h3>
                     {article.Transaction_status && (
                       <div style={{ marginBottom: 6 }}>
-                        <span style={getTransactionStatusPillStyle(article.Transaction_status)}>
-                          {formatTransactionStatusLabel(article.Transaction_status)}
-                        </span>
+                        <TransactionStatusPill status={article.Transaction_status} />
                       </div>
                     )}
                     {byline ? (
