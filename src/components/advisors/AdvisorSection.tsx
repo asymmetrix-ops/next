@@ -84,7 +84,7 @@ const ALL_ADVISOR_COLUMNS: AdvisorColumnDefinition[] = [
   { key: "area_of_focus", label: "Area of Focus", wrap: true, minWidth: 180 },
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "events_advised", label: "# Corporate Events Advised", minWidth: 150 },
-  { key: "sectors", label: "Advised D&A Sectors", wrap: true, minWidth: 180 },
+  { key: "sectors", label: "Advised D&A Sectors", wrap: true, minWidth: 150 },
   { key: "linkedin_members", label: "LinkedIn Members", minWidth: 130 },
   { key: "country", label: "Country", minWidth: 120 },
   { key: "follow", label: "My Portfolio", minWidth: 120 },

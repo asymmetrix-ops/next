@@ -46,6 +46,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
     offset: 0,
     perPage: 50,
     pageTotal: 0,
+    itemsTotal: 0,
     itemTotal: 0,
   });
   const [summaryStats, setSummaryStats] =
@@ -136,17 +137,18 @@ const useCorporateEventsAPI = (userId: number | null) => {
             offset: data.offset,
             perPage: data.perPage,
             pageTotal: data.pageTotal,
-            itemTotal: data.itemTotal,
+            itemsTotal: data.itemsTotal,
+            itemTotal: data.itemsTotal,
           });
           if (
             page === 1 &&
             filtersToUse.deal_types.length === 0 &&
-            data.itemTotal > 0
+            data.itemsTotal > 0
           ) {
             setSummaryStats((current) => ({
               ...current,
               totalCount:
-                current.totalCount > 0 ? current.totalCount : data.itemTotal,
+                current.totalCount > 0 ? current.totalCount : data.itemsTotal,
             }));
           }
         }
@@ -251,8 +253,16 @@ function CorporateEventsPageInner() {
   }, [preferredCurrencyId, fetchCorporateEvents]);
 
   const handleFilterColumnsChange = useCallback(
-    ({ filterIds }: { filterIds: string[] }) => {
-      setFilterPinnedColumnKeys(getColumnKeysForActiveFilters(filterIds));
+    ({
+      filterIds,
+      dealTabActive,
+    }: {
+      filterIds: string[];
+      dealTabActive: boolean;
+    }) => {
+      setFilterPinnedColumnKeys(
+        getColumnKeysForActiveFilters(filterIds, dealTabActive)
+      );
     },
     []
   );

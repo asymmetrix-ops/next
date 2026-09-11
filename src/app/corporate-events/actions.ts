@@ -27,6 +27,8 @@ export interface CorporateEventsListResponse {
   offset: number;
   perPage: number;
   pageTotal: number;
+  itemsTotal: number;
+  /** @deprecated Alias of itemsTotal, kept for backward compatibility. Use itemsTotal. */
   itemTotal: number;
   summaryStats: ReturnType<typeof mapResponseToCorporateEventsSummaryStats>;
 }
@@ -39,11 +41,11 @@ function normalizeCorporateEventsResponse(
   filters: CorporateEventsSearchFilters
 ): Omit<CorporateEventsListResponse, "summaryStats"> {
   const items = Array.isArray(raw.items) ? raw.items : [];
-  const itemTotal = raw.itemTotal ?? items.length;
+  const itemsTotal = raw.itemsTotal ?? raw.itemTotal ?? items.length;
   const pageTotal =
     raw.pageTotal ??
-    (itemTotal && filters.Per_page > 0
-      ? Math.ceil(itemTotal / filters.Per_page)
+    (itemsTotal && filters.Per_page > 0
+      ? Math.ceil(itemsTotal / filters.Per_page)
       : 0);
 
   return {
@@ -55,7 +57,8 @@ function normalizeCorporateEventsResponse(
     offset: raw.offset ?? 0,
     perPage: filters.Per_page,
     pageTotal: Number(pageTotal) || 0,
-    itemTotal: Number(itemTotal) || 0,
+    itemsTotal: Number(itemsTotal) || 0,
+    itemTotal: Number(itemsTotal) || 0,
   };
 }
 
@@ -100,7 +103,7 @@ export async function fetchCorporateEventsServer(
     const list = normalizeCorporateEventsResponse(raw, payload);
     return {
       ...list,
-      summaryStats: mapResponseToCorporateEventsSummaryStats(raw, list.itemTotal),
+      summaryStats: mapResponseToCorporateEventsSummaryStats(raw, list.itemsTotal),
     };
   } catch (error) {
     console.error("fetchCorporateEventsServer error:", error);

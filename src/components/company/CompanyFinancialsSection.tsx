@@ -285,16 +285,6 @@ function FinancialsMetricsCard({
           }}
         >
           <span style={CARD_TITLE_STYLE}>{card.title}</span>
-          <span
-            style={{
-              fontFamily: T.sans,
-              fontSize: 12,
-              color: T.muted,
-              fontWeight: 500,
-            }}
-          >
-            {card.metrics.length} metrics
-          </span>
         </div>
       </div>
 

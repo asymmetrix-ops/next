@@ -237,6 +237,7 @@ export function buildCorporateEventsFilterDefs({
 
 export function mapResponseToCorporateEventsSummaryStats(
   data: {
+    itemsTotal?: number;
     itemTotal?: number;
     total_rows?: number;
     acquisitions?: number;
@@ -253,9 +254,11 @@ export function mapResponseToCorporateEventsSummaryStats(
   const totalCount =
     typeof data.total_rows === "number" && Number.isFinite(data.total_rows) && data.total_rows > 0
       ? data.total_rows
-      : typeof data.itemTotal === "number" && Number.isFinite(data.itemTotal) && data.itemTotal > 0
-        ? data.itemTotal
-        : fallbackTotal;
+      : typeof data.itemsTotal === "number" && Number.isFinite(data.itemsTotal) && data.itemsTotal > 0
+        ? data.itemsTotal
+        : typeof data.itemTotal === "number" && Number.isFinite(data.itemTotal) && data.itemTotal > 0
+          ? data.itemTotal
+          : fallbackTotal;
 
   return {
     totalCount,

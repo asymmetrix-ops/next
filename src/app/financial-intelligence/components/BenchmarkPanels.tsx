@@ -978,17 +978,6 @@
                     ›
                   </span>
                   <span>{section.label}</span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 500,
-                      letterSpacing: "normal",
-                      textTransform: "none",
-                      color: "var(--fg-4)",
-                    }}
-                  >
-                    {sectionRows.length} metrics
-                  </span>
                 </div>
                 {!isCollapsed &&
                   sectionRows.map((row, index) =>
@@ -1017,9 +1006,9 @@
                 width: 10,
                 height: 10,
                 borderRadius: "50%",
-                background: "var(--ax-positive)",
-                border: "2px solid white",
-                boxShadow: "0 0 0 1px var(--ax-positive)",
+                background: "white",
+                border: "2.5px solid var(--ax-cyan-600)",
+                boxShadow: "var(--shadow-xs)",
               }}
             />
             Target
@@ -1031,7 +1020,7 @@
                 height: 8,
                 borderRadius: 4,
                 background:
-                  "linear-gradient(90deg, #EAF6F0 0%, #BEE4D2 28%, #79C9A5 56%, #2C9970 82%, #0E7A50 100%)",
+                  "linear-gradient(90deg, var(--ax-gray-100) 0%, var(--ax-cyan-200) 40%, var(--ax-cyan-500) 100%)",
               }}
             />
             0th → 100th percentile

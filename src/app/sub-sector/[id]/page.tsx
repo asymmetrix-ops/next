@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
 import { locationsService } from "@/lib/locationsService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import CompactPagination from "@/components/ui/CompactPagination";
 import {
   CorporateEvent,
   CorporateEventsResponse,
@@ -433,110 +434,6 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
         `sub_sector_${subSectorId}_transactions`
       );
     }
-  };
-
-  const generatePaginationButtons = () => {
-    const buttons = [];
-    const currentPage = pagination.curPage;
-    const totalPages = pagination.pageTotal;
-
-    buttons.push(
-      <button
-        key="prev"
-        className="pagination-button"
-        onClick={() => handlePageChange(currentPage - 1)}
-        disabled={!pagination.prevPage}
-      >
-        &lt;
-      </button>
-    );
-
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) {
-        buttons.push(
-          <button
-            key={i}
-            className={`pagination-button ${
-              i === currentPage ? "active" : ""
-            }`}
-            onClick={() => handlePageChange(i)}
-          >
-            {i.toString()}
-          </button>
-        );
-      }
-    } else {
-      buttons.push(
-        <button
-          key={1}
-          className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
-          onClick={() => handlePageChange(1)}
-        >
-          1
-        </button>
-      );
-
-      if (currentPage > 3) {
-        buttons.push(
-          <span key="ellipsis1" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-
-      for (
-        let i = Math.max(2, currentPage - 1);
-        i <= Math.min(totalPages - 1, currentPage + 1);
-        i++
-      ) {
-        if (i > 1 && i < totalPages) {
-          buttons.push(
-            <button
-              key={i}
-              className={`pagination-button ${
-                i === currentPage ? "active" : ""
-              }`}
-              onClick={() => handlePageChange(i)}
-            >
-              {i.toString()}
-            </button>
-          );
-        }
-      }
-
-      if (currentPage < totalPages - 2) {
-        buttons.push(
-          <span key="ellipsis2" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-
-      buttons.push(
-        <button
-          key={totalPages}
-          className={`pagination-button ${
-            currentPage === totalPages ? "active" : ""
-          }`}
-          onClick={() => handlePageChange(totalPages)}
-        >
-          {totalPages.toString()}
-        </button>
-      );
-    }
-
-    buttons.push(
-      <button
-        key="next"
-        className="pagination-button"
-        onClick={() => handlePageChange(currentPage + 1)}
-        disabled={!pagination.nextPage}
-      >
-        &gt;
-      </button>
-    );
-
-    return buttons;
   };
 
   const formatDate = (dateString: string) => {
@@ -1466,41 +1363,14 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
 
       {/* Pagination */}
       {pagination.pageTotal > 1 && (
-        <div className="flex gap-2 justify-center items-center mt-6">
-          {generatePaginationButtons()}
+        <div className="flex justify-center items-center mt-6">
+          <CompactPagination
+            curPage={pagination.curPage}
+            pageTotal={pagination.pageTotal}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
-
-      {/* Scoped styles for pagination */}
-      <style jsx>{`
-        .pagination-button {
-          padding: 8px 12px;
-          border: none;
-          background: none;
-          color: #000;
-          cursor: pointer;
-          font-size: 14px;
-          transition: color 0.2s;
-        }
-        .pagination-button:hover {
-          color: #0075df;
-        }
-        .pagination-button.active {
-          color: #0075df;
-          text-decoration: underline;
-          font-weight: 500;
-        }
-        .pagination-button:disabled {
-          opacity: 0.3;
-          cursor: not-allowed;
-          color: #666;
-        }
-        .pagination-ellipsis {
-          padding: 8px 12px;
-          color: #000;
-          font-size: 14px;
-        }
-      `}</style>
     </div>
   );
 }
@@ -1553,6 +1423,7 @@ const SubSectorPage = () => {
   const [insightsError, setInsightsError] = useState<string | null>(null);
   const [insightsPagination, setInsightsPagination] = useState({
     itemsReceived: 0,
+    itemsTotal: 0,
     curPage: 1,
     nextPage: null as number | null,
     prevPage: null as number | null,
@@ -1592,6 +1463,7 @@ const SubSectorPage = () => {
         setArticles(data.items || []);
         setInsightsPagination({
           itemsReceived: data.itemsReceived,
+          itemsTotal: data.itemsTotal,
           curPage: data.curPage,
           nextPage: data.nextPage,
           prevPage: data.prevPage,
@@ -1759,31 +1631,12 @@ const SubSectorPage = () => {
               </div>
             </div>
             {insightsPagination.pageTotal > 1 && (
-              <div className="flex gap-2 justify-center items-center">
-                <button
-                  disabled={!insightsPagination.prevPage}
-                  onClick={() =>
-                    insightsPagination.prevPage &&
-                    fetchInsights(insightsPagination.prevPage)
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm text-slate-600">
-                  Page {insightsPagination.curPage} of{" "}
-                  {insightsPagination.pageTotal}
-                </span>
-                <button
-                  disabled={!insightsPagination.nextPage}
-                  onClick={() =>
-                    insightsPagination.nextPage &&
-                    fetchInsights(insightsPagination.nextPage)
-                  }
-                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
-                >
-                  Next →
-                </button>
+              <div className="flex justify-center items-center">
+                <CompactPagination
+                  curPage={insightsPagination.curPage}
+                  pageTotal={insightsPagination.pageTotal}
+                  onPageChange={(page) => fetchInsights(page)}
+                />
               </div>
             )}
           </div>

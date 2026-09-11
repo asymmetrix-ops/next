@@ -29,6 +29,7 @@ import {
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
 import { SEARCH_MULTI_VALUE_STYLES } from "@/components/search/SearchEntityMultiValueCell";
+import { SearchTablePagination } from "@/components/search/SearchTablePagination";
 import {
   getScreenerCellValue,
   getOwnershipPillStyle,
@@ -637,60 +638,15 @@ export const FinancialScreenerSection = ({
           </table>
         </div>
 
-        {!loading && pagination.totalPages > 1 ? (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: 16,
-              color: "#64748b",
-              fontSize: 13,
-            }}
-          >
-            <span>
-              Page {pagination.page} of {pagination.totalPages} ·{" "}
-              {pagination.total.toLocaleString()} companies
-            </span>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                disabled={!pagination.prevPage}
-                onClick={() =>
-                  pagination.prevPage &&
-                  fetchPage(pagination.prevPage, currentFilters)
-                }
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #e2e8f0",
-                  background: "#fff",
-                  cursor: pagination.prevPage ? "pointer" : "not-allowed",
-                  opacity: pagination.prevPage ? 1 : 0.5,
-                }}
-              >
-                Previous
-              </button>
-              <button
-                disabled={!pagination.nextPage}
-                onClick={() =>
-                  pagination.nextPage &&
-                  fetchPage(pagination.nextPage, currentFilters)
-                }
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #e2e8f0",
-                  background: "#fff",
-                  cursor: pagination.nextPage ? "pointer" : "not-allowed",
-                  opacity: pagination.nextPage ? 1 : 0.5,
-                }}
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        ) : null}
       </div>
+
+      <SearchTablePagination
+        curPage={pagination.page}
+        pageTotal={pagination.totalPages}
+        nextPage={pagination.nextPage ?? undefined}
+        onPageChange={(page) => fetchPage(page, currentFilters)}
+        disabled={loading}
+      />
 
       <ExportLimitModal
         isOpen={showExportLimitModal}

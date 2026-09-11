@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import CompanyLogo from "@/components/investor/CompanyLogo";
+import CompactPagination from "@/components/ui/CompactPagination";
 import {
   LinkPanel,
   T,
@@ -413,49 +414,14 @@ export function InvestorPortfolioProfilePanel({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 8,
             padding: "0 16px 14px",
           }}
         >
-          <button
-            type="button"
-            onClick={() => onPageChange(pagination.curPage - 1)}
-            disabled={pagination.curPage <= 1}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 6,
-              border: `1px solid ${T.divider}`,
-              background: pagination.curPage > 1 ? T.panel : T.inset,
-              color: pagination.curPage > 1 ? T.body : T.faint,
-              fontSize: 12.5,
-              fontWeight: 500,
-              cursor: pagination.curPage > 1 ? "pointer" : "not-allowed",
-              fontFamily: T.sans,
-            }}
-          >
-            Previous
-          </button>
-          <span style={{ fontSize: 12.5, color: T.muted }}>
-            Page {pagination.curPage} of {pagination.pageTotal}
-          </span>
-          <button
-            type="button"
-            onClick={() => onPageChange(pagination.curPage + 1)}
-            disabled={pagination.curPage >= pagination.pageTotal}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 6,
-              border: `1px solid ${T.divider}`,
-              background: pagination.curPage < pagination.pageTotal ? T.panel : T.inset,
-              color: pagination.curPage < pagination.pageTotal ? T.body : T.faint,
-              fontSize: 12.5,
-              fontWeight: 500,
-              cursor: pagination.curPage < pagination.pageTotal ? "pointer" : "not-allowed",
-              fontFamily: T.sans,
-            }}
-          >
-            Next
-          </button>
+          <CompactPagination
+            curPage={pagination.curPage}
+            pageTotal={pagination.pageTotal}
+            onPageChange={onPageChange}
+          />
         </div>
       ) : null}
     </LinkPanel>

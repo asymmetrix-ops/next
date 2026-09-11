@@ -12,6 +12,7 @@ import {
 } from "@/components/search/searchEntityLinkUtils";
 import { AdvisedEntitiesList } from "@/components/advisors/AdvisedEntitiesList";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
+import CompactPagination from "@/components/ui/CompactPagination";
 import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
 import {
   advisorSearchPayloadToSearchParams,
@@ -154,9 +155,7 @@ function MostActiveFullTable({
               <tr>
                 <th className="w-10">#</th>
                 <th>{columnOneLabel}</th>
-                <th className="text-center" style={{ minWidth: 80 }}>
-                  Deals
-                </th>
+                <th style={{ minWidth: 80, textAlign: "center" }}>Deals</th>
                 <th>{mostRecentHeader}</th>
                 <th style={{ minWidth: 120 }}>Date</th>
               </tr>
@@ -183,9 +182,10 @@ function MostActiveFullTable({
                         onClick={(e) => e.stopPropagation()}
                       />
                     </td>
-                    <td className="text-center">
+                    <td style={{ textAlign: "center" }}>
                       <span
                         className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold ${cls.countBg}`}
+                        style={{ margin: "0 auto" }}
                       >
                         {formatNumber(it.count)}
                       </span>
@@ -232,7 +232,7 @@ function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
                 <th className="w-10">#</th>
                 <th>Advisor Name</th>
                 <th>Country</th>
-                <th className="text-center" style={{ minWidth: 160 }}>
+                <th style={{ minWidth: 160, textAlign: "center" }}>
                   Total No. Deals Advised
                 </th>
                 <th className="company-table-cell-wrap">Companies Advised</th>
@@ -252,8 +252,11 @@ function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
                       />
                     </td>
                     <td>{it.country || "-"}</td>
-                    <td className="text-center">
-                      <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-amber-50 text-amber-700">
+                    <td style={{ textAlign: "center" }}>
+                      <span
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-amber-50 text-amber-700"
+                        style={{ margin: "0 auto" }}
+                      >
                         {formatNumber(it.totalDealsAdvised)}
                       </span>
                     </td>
@@ -340,26 +343,12 @@ function MostActivePagination({
 }) {
   if (totalPages <= 1) return null;
   return (
-    <div className="flex items-center justify-between pt-4 mt-2 border-t border-slate-100">
-      <p className="text-sm text-slate-500">
-        Page {currentPage} of {totalPages}
-      </p>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="px-3 py-1.5 text-sm rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          Previous
-        </button>
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="px-3 py-1.5 text-sm rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          Next
-        </button>
-      </div>
+    <div className="flex items-center justify-center pt-4 mt-2 border-t border-slate-100">
+      <CompactPagination
+        curPage={currentPage}
+        pageTotal={totalPages}
+        onPageChange={onPageChange}
+      />
     </div>
   );
 }

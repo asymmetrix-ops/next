@@ -104,6 +104,7 @@ import {
   type CompanyFinancialMetricsCardRow,
 } from "@/lib/companyFinancialMetricsCard";
 import { CompanyFinancialsSection } from "@/components/company/CompanyFinancialsSection";
+import { FinancialIntelligenceWorkspace } from "@/app/financial-intelligence/FinancialIntelligenceWorkspace";
 import {
   isCompanyMcpPopulated,
   readCompanyMcpStatus,
@@ -1329,9 +1330,9 @@ const CompanyDetail = () => {
     useState<CompanyHoldingPeriodResponse | null>(null);
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [activeProfileTab, setActiveProfileTab] = useState<"Summary" | "Financials">(
-    "Summary"
-  );
+  const [activeProfileTab, setActiveProfileTab] = useState<
+    "Summary" | "Financials" | "Financial Intelligence"
+  >("Summary");
   const [financialMetricsCardRows, setFinancialMetricsCardRows] = useState<
     CompanyFinancialMetricsCardRow[]
   >([]);
@@ -2167,7 +2168,11 @@ const CompanyDetail = () => {
   }, [company?.id, fetchIncomeStatementCard, fetchFinancialMetricsCard]);
 
   useEffect(() => {
-    if (!showFinancialsTab && activeProfileTab === "Financials") {
+    if (
+      !showFinancialsTab &&
+      (activeProfileTab === "Financials" ||
+        activeProfileTab === "Financial Intelligence")
+    ) {
       setActiveProfileTab("Summary");
     }
   }, [showFinancialsTab, activeProfileTab]);
@@ -3952,7 +3957,7 @@ const CompanyDetail = () => {
           }}
         >
           {(showFinancialsTab
-            ? (["Summary", "Financials"] as const)
+            ? (["Summary", "Financials", "Financial Intelligence"] as const)
             : (["Summary"] as const)
           ).map((tab) => {
             const active = tab === activeProfileTab;
@@ -3996,6 +4001,11 @@ const CompanyDetail = () => {
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementHistoryRows={normalizedIncomeStatementHistory}
               employeeHistory={employeeData}
+            />
+          ) : activeProfileTab === "Financial Intelligence" ? (
+            <FinancialIntelligenceWorkspace
+              initialCompanyId={company?.id ?? null}
+              embedded
             />
           ) : (
           <>

@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
 import { ScopedCorporateEventsPanel } from "@/components/corporate-events/ScopedCorporateEventsPanel";
+import CompactPagination from "@/components/ui/CompactPagination";
 import {
   SectorMostActiveTab,
   type MostActiveSubTabId,
@@ -2101,6 +2102,7 @@ const SectorDetailPage = ({
     const [articles, setArticles] = useState<ContentArticle[]>([]);
     const [pagination, setPagination] = useState({
       itemsReceived: 0,
+      itemsTotal: 0,
       curPage: 1,
       nextPage: null as number | null,
       prevPage: null as number | null,
@@ -2165,6 +2167,7 @@ const SectorDetailPage = ({
         setArticles(normalizeContentArticles(data.items || []));
         setPagination({
           itemsReceived: data.itemsReceived,
+          itemsTotal: data.itemsTotal,
           curPage: data.curPage,
           nextPage: data.nextPage,
           prevPage: data.prevPage,
@@ -2266,7 +2269,7 @@ const SectorDetailPage = ({
     const rangeStart = pagination.pageTotal > 0 ? pagination.offset + 1 : 0;
     const rangeEnd = Math.min(
       pagination.offset + pagination.perPage,
-      pagination.itemsReceived
+      pagination.itemsTotal
     );
 
     return (
@@ -2527,48 +2530,14 @@ const SectorDetailPage = ({
               }}
             >
               <div>
-                Showing {rangeStart}–{rangeEnd} of {pagination.itemsReceived} · Page{" "}
-                {pagination.curPage} of {pagination.pageTotal}
+                Showing {rangeStart}–{rangeEnd} of {pagination.itemsTotal}
               </div>
-              <div style={{ display: "flex", gap: 6, justifySelf: "center" }}>
-                <button
-                  type="button"
-                  onClick={() => handlePageChange(pagination.curPage - 1)}
-                  disabled={!pagination.prevPage}
-                  style={{
-                    height: 32,
-                    padding: "0 14px",
-                    borderRadius: 999,
-                    border: `1px solid ${LINE}`,
-                    background: "#fff",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: INK_3,
-                    cursor: pagination.prevPage ? "pointer" : "not-allowed",
-                    opacity: pagination.prevPage ? 1 : 0.5,
-                  }}
-                >
-                  ← Previous
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePageChange(pagination.curPage + 1)}
-                  disabled={!pagination.nextPage}
-                  style={{
-                    height: 32,
-                    padding: "0 14px",
-                    borderRadius: 999,
-                    border: `1px solid ${LINE}`,
-                    background: "#fff",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: INK_3,
-                    cursor: pagination.nextPage ? "pointer" : "not-allowed",
-                    opacity: pagination.nextPage ? 1 : 0.5,
-                  }}
-                >
-                  Next →
-                </button>
+              <div style={{ justifySelf: "center" }}>
+                <CompactPagination
+                  curPage={pagination.curPage}
+                  pageTotal={pagination.pageTotal}
+                  onPageChange={handlePageChange}
+                />
               </div>
               <div />
             </div>

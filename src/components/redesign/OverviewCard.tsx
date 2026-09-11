@@ -59,6 +59,15 @@ export type OverviewCardProps = {
 
 const EM = EMPTY_DISPLAY;
 
+// `KV`'s default label column is `minmax(118px, auto)`, and each KV row is
+// its own independent grid — so a long label like "Time since last
+// investment" auto-widens only *that* row, leaving every other row's value
+// column starting at a different x position. Pin a single fixed width wide
+// enough for the longest label so every value in this card starts flush.
+const OVERVIEW_KV_STYLE: React.CSSProperties = {
+  gridTemplateColumns: "192px 1fr",
+};
+
 function faintDash() {
   return <span style={{ color: T.faint }}>{EM}</span>;
 }
@@ -75,7 +84,7 @@ function SectorTags({
   tone,
 }: {
   sectors: OverviewSector[];
-  tone: "azure" | "neutral";
+  tone: "coral" | "lavender";
 }) {
   if (sectors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
 
@@ -196,13 +205,13 @@ export function OverviewCard({
     {
       k: "Primary sector(s)",
       v: (
-        <SectorTags sectors={primarySectors} tone="azure" />
+        <SectorTags sectors={primarySectors} tone="coral" />
       ),
     },
     {
       k: "Secondary sector(s)",
       v: (
-        <SectorTags sectors={secondarySectors} tone="neutral" />
+        <SectorTags sectors={secondarySectors} tone="lavender" />
       ),
     },
     {
@@ -339,6 +348,7 @@ export function OverviewCard({
             k={row.k}
             v={row.v}
             last={i === visible.length - 1}
+            style={OVERVIEW_KV_STYLE}
           />
         ))}
       </div>

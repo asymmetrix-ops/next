@@ -50,6 +50,7 @@ function useScopedCorporateEventsSearch(userId: number | null) {
     offset: 0,
     perPage: 50,
     pageTotal: 0,
+    itemsTotal: 0,
     itemTotal: 0,
   });
   const [summaryStats, setSummaryStats] =
@@ -148,7 +149,8 @@ function useScopedCorporateEventsSearch(userId: number | null) {
             offset: data.offset,
             perPage: data.perPage,
             pageTotal: data.pageTotal,
-            itemTotal: data.itemTotal,
+            itemsTotal: data.itemsTotal,
+            itemTotal: data.itemsTotal,
           });
         }
       } catch (err) {
@@ -270,8 +272,16 @@ export function ScopedCorporateEventsPanel({
   );
 
   const handleFilterColumnsChange = useCallback(
-    ({ filterIds }: { filterIds: string[] }) => {
-      setFilterPinnedColumnKeys(getColumnKeysForActiveFilters(filterIds));
+    ({
+      filterIds,
+      dealTabActive,
+    }: {
+      filterIds: string[];
+      dealTabActive: boolean;
+    }) => {
+      setFilterPinnedColumnKeys(
+        getColumnKeysForActiveFilters(filterIds, dealTabActive)
+      );
     },
     []
   );
@@ -306,7 +316,7 @@ export function ScopedCorporateEventsPanel({
           exporting={exporting}
           excludeFilterIds={["primary_sector"]}
           scopedPrimarySectorIds={scopedPrimarySectorIds}
-          matchCountOverride={pagination.itemTotal}
+          matchCountOverride={pagination.itemsTotal}
         />
         <CorporateEventsSearchSection
           events={events}

@@ -150,6 +150,7 @@ function InsightsAnalysisPageContent() {
   const [articles, setArticles] = useState<ContentArticle[]>([]);
   const [pagination, setPagination] = useState({
     itemsReceived: 0,
+    itemsTotal: 0,
     curPage: 1,
     nextPage: null as number | null,
     prevPage: null as number | null,
@@ -218,6 +219,7 @@ function InsightsAnalysisPageContent() {
         setArticles(combined);
         setPagination({
           itemsReceived: combined.length,
+          itemsTotal: combined.length,
           curPage: 1,
           nextPage: null,
           prevPage: null,
@@ -249,6 +251,7 @@ function InsightsAnalysisPageContent() {
       setArticles(normalizeContentArticles(data.items || []));
       setPagination({
         itemsReceived: data.itemsReceived,
+        itemsTotal: data.itemsTotal,
         curPage: data.curPage,
         nextPage: data.nextPage,
         prevPage: data.prevPage,
@@ -377,7 +380,9 @@ function InsightsAnalysisPageContent() {
           });
           if (!res.ok) return null;
           const json: InsightsAnalysisResponse = await res.json();
-          return typeof json.itemsReceived === "number" ? json.itemsReceived : null;
+          // `itemsReceived` is always 1 here (Per_page: 1) — read the real
+          // total-match field instead.
+          return typeof json.itemsTotal === "number" ? json.itemsTotal : null;
         } catch {
           return null;
         }
@@ -754,7 +759,7 @@ function InsightsAnalysisPageContent() {
                 ? `Insights & Analysis — ${companyFilterLabel || `Company #${filters.company_id}`}`
                 : "Insights & Analysis"}
               <span className="ia-title-count">
-                {pagination.itemsReceived.toLocaleString()} reports
+                {pagination.itemsTotal.toLocaleString()} reports
               </span>
             </h1>
           </div>
@@ -924,7 +929,7 @@ function InsightsAnalysisPageContent() {
         {!isTrialActive && pagination.pageTotal > 1 && (
           <div className="ia-pgrow">
             <span className="ia-pg-count">
-              {pagination.itemsReceived.toLocaleString()} reports
+              {pagination.itemsTotal.toLocaleString()} reports
             </span>
             <CompactPagination
               curPage={pagination.curPage}
