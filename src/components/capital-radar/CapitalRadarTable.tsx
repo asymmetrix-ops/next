@@ -13,19 +13,39 @@ const thStyle: React.CSSProperties = {
   background: T.paper,
   borderBottom: `1px solid ${T.hair}`,
   whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
   position: "sticky",
   top: 0,
   zIndex: 1,
 };
 
-/** Fixed layout so every row aligns and long text truncates instead of wrapping. */
-const COLUMNS_BASE = [
-  { key: "name", label: "Name", width: "22%" },
-  { key: "type", label: "Type", width: "13%" },
-  { key: "score", label: "Score", width: "9%" },
-  { key: "overlap", label: "Overlap", width: "10%" },
-  { key: "sector", label: "Sector fit", width: "14%" },
-  { key: "hq", label: "HQ", width: "14%" },
+/**
+ * Explicit widths (must sum to 100) for the two column-count variants of the
+ * table so table-layout:fixed never over/under-allocates and columns can't
+ * bleed into each other.
+ */
+const COLUMNS_WITH_TIMING = [
+  { key: "name", label: "Name", width: 19 },
+  { key: "type", label: "Type", width: 10 },
+  { key: "score", label: "Score", width: 6 },
+  { key: "overlap", label: "Overlap", width: 8 },
+  { key: "sector", label: "Sector fit", width: 11 },
+  { key: "hq", label: "HQ", width: 11 },
+  { key: "timing", label: "Last inv.", width: 9 },
+  { key: "confidence", label: "Confidence", width: 12 },
+  { key: "why", label: "Why selected", width: 14 },
+] as const;
+
+const COLUMNS_WITHOUT_TIMING = [
+  { key: "name", label: "Name", width: 21 },
+  { key: "type", label: "Type", width: 11 },
+  { key: "score", label: "Score", width: 7 },
+  { key: "overlap", label: "Overlap", width: 9 },
+  { key: "sector", label: "Sector fit", width: 12 },
+  { key: "hq", label: "HQ", width: 12 },
+  { key: "confidence", label: "Confidence", width: 13 },
+  { key: "why", label: "Why selected", width: 15 },
 ] as const;
 
 export function CapitalRadarTable({
@@ -35,6 +55,8 @@ export function CapitalRadarTable({
   rows: RowData[];
   showTimingColumn: boolean;
 }) {
+  const columns = showTimingColumn ? COLUMNS_WITH_TIMING : COLUMNS_WITHOUT_TIMING;
+
   return (
     <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 320 }}>
       <table
@@ -47,23 +69,17 @@ export function CapitalRadarTable({
         }}
       >
         <colgroup>
-          {COLUMNS_BASE.map((col) => (
-            <col key={col.key} style={{ width: col.width }} />
+          {columns.map((col) => (
+            <col key={col.key} style={{ width: `${col.width}%` }} />
           ))}
-          {showTimingColumn && <col style={{ width: "10%" }} />}
-          <col style={{ width: showTimingColumn ? "9%" : "12%" }} />
-          <col />
         </colgroup>
         <thead>
           <tr>
-            {COLUMNS_BASE.map((col) => (
+            {columns.map((col) => (
               <th key={col.key} style={thStyle}>
                 {col.label}
               </th>
             ))}
-            {showTimingColumn && <th style={thStyle}>Last inv.</th>}
-            <th style={thStyle}>Confidence</th>
-            <th style={thStyle}>Why selected</th>
           </tr>
         </thead>
         <tbody>
