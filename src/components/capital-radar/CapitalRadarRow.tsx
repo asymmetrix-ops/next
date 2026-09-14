@@ -103,7 +103,7 @@ export function CapitalRadarRow({
       {showTimingColumn && (
         <td style={cellStyle}>{row.time_since_last_investment ?? "—"}</td>
       )}
-      <td style={{ ...cellStyle, overflow: "visible" }}>
+      <td style={cellStyle}>
         <ConfidenceBadge level={row.confidence} />
       </td>
       <td style={cellStyle}>
