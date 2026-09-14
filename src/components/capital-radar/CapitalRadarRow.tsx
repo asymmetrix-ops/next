@@ -5,6 +5,7 @@ import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { T } from "@/components/redesign/primitives";
 import type { CapitalRadarRow as RowData } from "@/types/capital-radar";
 import { ConfidenceBadge } from "./ConfidenceBadge";
+import { WhySelectedCell } from "./WhySelectedCell";
 
 const cellStyle: React.CSSProperties = {
   fontFamily: T.sans,
@@ -105,8 +106,8 @@ export function CapitalRadarRow({
       <td style={{ ...cellStyle, overflow: "visible" }}>
         <ConfidenceBadge level={row.confidence} />
       </td>
-      <td style={cellStyle} title={row.why_selected || undefined}>
-        {row.why_selected || "—"}
+      <td style={cellStyle}>
+        <WhySelectedCell text={row.why_selected} />
       </td>
     </tr>
   );
