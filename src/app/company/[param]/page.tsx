@@ -90,6 +90,7 @@ import {
 } from "@/lib/linkedinUrl";
 import { individualService } from "@/lib/individualService";
 import { AIRiskCard } from "@/components/redesign/AIRiskCard";
+import { CapitalRadarSection } from "@/components/capital-radar/CapitalRadarSection";
 import {
   fetchCompanyAiRisksV2,
   type CompanyAiRiskData,
@@ -4704,6 +4705,10 @@ const CompanyDetail = () => {
 
             {/* Market Overview removed */}
           </div>
+
+          {company?.id != null && (
+            <CapitalRadarSection companyId={company.id} />
+          )}
 
           {/* Mobile Financial Metrics */}
           <div
