@@ -73,6 +73,8 @@ export type DealRadarApiItem = {
     headline: string;
     content_type: string;
     publication_date: string;
+    is_news?: boolean;
+    cta_label?: string;
   } | null;
 };
 

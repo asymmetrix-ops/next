@@ -8,6 +8,7 @@ export type DealRadarLatestContent = {
   headline: string;
   contentType: string;
   publicationDate: string;
+  ctaLabel: string;
 };
 
 export type DealRadarItem = {
@@ -178,6 +179,16 @@ const mapDealRadarLatestContent = (
       record.publicationDate ||
       ""
   ).trim();
+  const explicitCtaLabel = String(
+    record.cta_label || record.ctaLabel || ""
+  ).trim();
+  const isNews =
+    record.is_news === true ||
+    record.isNews === true ||
+    contentType.toLowerCase() === "news";
+  const ctaLabel =
+    explicitCtaLabel ||
+    (isNews ? "Read our News" : "Read our research");
 
   if (!Number.isFinite(id) || id <= 0 || !headline) {
     return null;
@@ -188,6 +199,7 @@ const mapDealRadarLatestContent = (
     headline,
     contentType,
     publicationDate,
+    ctaLabel,
   };
 };
 

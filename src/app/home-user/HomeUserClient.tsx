@@ -2141,7 +2141,7 @@ export default function HomeUserClient({
                                         );
                                       }}
                                     >
-                                      Read our research
+                                      {item.latestContent.ctaLabel}
                                     </a>
                                   )}
                                 </div>
