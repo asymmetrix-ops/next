@@ -495,35 +495,44 @@ function InsightsAnalysisPageContent() {
   const style = `
     * { box-sizing: border-box; }
     .ia-shell {
-      padding: 20px 20px 56px;
+      padding: 20px 28px 56px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 18px;
       width: 100%;
       box-sizing: border-box;
       overflow-x: hidden;
       font-family: ${T.sans};
     }
     .ia-eyebrow {
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: #F1F4FE;
+      border: 1px solid #E2E8FD;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.09em;
       text-transform: uppercase;
       color: ${T.azure};
-      margin: 0 0 4px 0;
+      margin: 0 0 6px 0;
     }
     .ia-title {
-      font-size: 26px;
-      font-weight: 700;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.026em;
       color: ${T.ink};
       margin: 0;
       display: flex;
       align-items: baseline;
-      gap: 10px;
+      gap: 11px;
       flex-wrap: wrap;
+      line-height: 1.2;
     }
     .ia-title-count {
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 600;
       color: ${T.muted};
     }
