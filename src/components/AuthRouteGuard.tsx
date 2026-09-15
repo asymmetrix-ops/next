@@ -23,6 +23,7 @@ const PUBLIC_PATHS = [
   GET_ACCESS_PATH,
   "/access-denied",
   "/contributor-crm",
+  "/events",
   ...MCP_GUEST_PUBLIC_PATHS,
 ];
 
