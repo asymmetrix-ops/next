@@ -289,7 +289,11 @@ export async function generateArticlePdfBlobUrl(
 
     if (res.ok) {
       const blob = await res.blob();
-      return URL.createObjectURL(blob);
+      const pdfBlob =
+        blob.type && blob.type !== "application/octet-stream"
+          ? blob
+          : new Blob([await blob.arrayBuffer()], { type: "application/pdf" });
+      return URL.createObjectURL(pdfBlob);
     }
   } catch (err) {
     console.error("[PDF Export] Service error:", err);
@@ -301,14 +305,9 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
   // Prefer external PDF service; fallback to client-side html2pdf on failure.
   const blobUrl = await generateArticlePdfBlobUrl(article);
   if (blobUrl) {
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    
-    a.download = getArticlePdfFilename(article);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+    const { downloadPdfFromUrl } = await import("@/utils/downloadPdf");
+    await downloadPdfFromUrl(blobUrl, getArticlePdfFilename(article));
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
     return;
   }
   // Fallback to client-side generation if service failed

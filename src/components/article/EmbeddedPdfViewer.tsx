@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { downloadPdfFromUrl, sanitizePdfFilename } from "@/utils/downloadPdf";
 
 interface EmbeddedPdfViewerProps {
   pdfUrl: string | null;
@@ -20,6 +21,7 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
   onDownload,
 }) => {
   const isModal = variant === "modal";
+  const [downloading, setDownloading] = useState(false);
 
   // Handle escape key to close (modal only)
   useEffect(() => {
@@ -41,17 +43,13 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
   }, [isModal]);
 
   const handleDownload = () => {
-    if (!pdfUrl) return;
+    if (!pdfUrl || downloading) return;
     onDownload?.();
-    const a = document.createElement("a");
-    a.href = pdfUrl;
-    const safeName = String(articleTitle)
-      .replace(/[\\/:*?"<>|]/g, " ")
-      .slice(0, 180);
-    a.download = `${safeName}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const safeName = sanitizePdfFilename(articleTitle);
+    setDownloading(true);
+    void downloadPdfFromUrl(pdfUrl, safeName).finally(() => {
+      setDownloading(false);
+    });
   };
 
   return (
@@ -67,10 +65,10 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
               type="button"
               className="pdf-icon-btn"
               onClick={handleDownload}
-              disabled={!pdfUrl || isLoading}
-              title="Download"
+              disabled={!pdfUrl || isLoading || downloading}
+              title={downloading ? "Preparing download…" : "Download"}
             >
-              ⤓
+              {downloading ? "…" : "⤓"}
             </button>
             {isModal && (
               <button
