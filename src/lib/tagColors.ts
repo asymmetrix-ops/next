@@ -254,9 +254,24 @@ export const TRANSACTION_SIGNAL_TONES: Record<string, TagTone> = {
   "long hold": { text: "#3D4657", fill: "#F5F7FD", border: "#E4E8F2" },
 };
 
+/** User-facing copy for Deal Radar transaction-signal tooltips (tags.txt §8). */
+export const TRANSACTION_SIGNAL_DESCRIPTIONS: Record<string, string> = {
+  "long hold":
+    "An observation only — no active transaction signal. Indicates where the call came from, not where the deal is in its process.",
+  "asymmetrix assessment":
+    "Asymmetrix's own view on the anticipated transaction — house assessment, not sourced externally.",
+  "proprietary intel":
+    "Sourced intelligence from proprietary channels, not inferred from public signals.",
+};
+
 export function getTransactionSignalTone(value: string): TagTone {
   const key = String(value || "").trim().toLowerCase();
   return TRANSACTION_SIGNAL_TONES[key] ?? TRANSACTION_SIGNAL_TONES["long hold"];
+}
+
+export function getTransactionSignalDescription(value: string): string {
+  const key = String(value || "").trim().toLowerCase();
+  return TRANSACTION_SIGNAL_DESCRIPTIONS[key] ?? "";
 }
 
 /* -------------------------------------------------------------------------
