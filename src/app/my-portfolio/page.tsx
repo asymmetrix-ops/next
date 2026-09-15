@@ -734,24 +734,27 @@ export default function MyPortfolioPage() {
 
       <div className="w-full px-6 py-8">
         {/* Page header */}
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold text-gray-900 mb-2">My Portfolio</h1>
-            <p className="text-gray-600">
-              Companies, Advisors, Investors, Sectors, and Individuals you follow.
+            <span className="inline-flex items-center h-[26px] px-3 rounded-full bg-blue-50 border border-blue-100 text-[11px] font-extrabold uppercase tracking-wide text-blue-600">
+              Account
+            </span>
+            <h1 className="mt-1.5 text-2xl font-extrabold text-gray-900">My Portfolio</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Companies, advisors, investors, sectors and individuals you follow.
             </p>
           </div>
           <Button
             variant="outline"
             size="sm"
-            className="shrink-0 mt-1"
+            className="shrink-0 rounded-full"
             onClick={() => {
               setShowNewListInput((v) => !v);
               setNewListName("");
             }}
           >
             <PlusIcon className="size-4 mr-1.5" />
-            New List
+            New list
           </Button>
         </div>
 
@@ -794,7 +797,7 @@ export default function MyPortfolioPage() {
         )}
 
         {/* Tab bar */}
-        <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1 border-b border-gray-200">
+        <div className="flex flex-wrap items-center gap-2 mb-6">
           {/* All Followed tab */}
           <TabButton
             label="All Followed"
@@ -888,7 +891,7 @@ export default function MyPortfolioPage() {
                   value={portfolioSearch}
                   onChange={(e) => setPortfolioSearch(e.target.value)}
                   placeholder="Search your followed entities..."
-                  className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                  className="w-full rounded-full border border-gray-300 pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                 />
               </div>
             </div>
@@ -924,6 +927,9 @@ export default function MyPortfolioPage() {
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Type</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700">Sector / Focus</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700">Location</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700">Followed</th>
                     <th className="text-right px-4 py-3 font-medium text-gray-700">Actions</th>
                   </tr>
                 </thead>
@@ -949,6 +955,9 @@ export default function MyPortfolioPage() {
                             {formatEntityType(String(r.entity))}
                           </Badge>
                         </td>
+                        <td className="px-4 py-3 text-gray-400">—</td>
+                        <td className="px-4 py-3 text-gray-400">—</td>
+                        <td className="px-4 py-3 text-gray-400">—</td>
                         <td className="px-4 py-3 text-right">
                           <Button
                             variant="outline"
@@ -999,8 +1008,8 @@ export default function MyPortfolioPage() {
                 <input
                   value={followSearch}
                   onChange={(e) => setFollowSearch(e.target.value)}
-                  placeholder="Search for entities to follow..."
-                  className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                  placeholder="Follow more entities — search companies, investors, advisors, sectors, individuals"
+                  className="w-full rounded-full border border-gray-300 pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                 />
               </div>
             </div>
@@ -1115,31 +1124,31 @@ function PortfolioTabWithActions({
   return (
     <div
       className={[
-        "group/tab flex items-center shrink-0 rounded-t-lg border-b-2 transition-colors",
+        "group/tab flex items-center shrink-0 rounded-full border transition-colors",
         active
-          ? "border-violet-600 bg-violet-50"
-          : "border-transparent hover:bg-gray-100",
+          ? "border-blue-600 bg-blue-600"
+          : "border-gray-200 bg-white hover:border-blue-200",
       ].join(" ")}
     >
       <button
         type="button"
         onClick={onSelect}
         className={[
-          "flex items-center gap-2 pl-4 pr-2 py-2.5 text-sm font-medium whitespace-nowrap",
-          active ? "text-violet-700" : "text-gray-600 group-hover/tab:text-gray-900",
+          "flex items-center gap-2 pl-4 pr-2 py-2 text-sm font-semibold whitespace-nowrap",
+          active ? "text-white" : "text-gray-700 group-hover/tab:text-gray-900",
         ].join(" ")}
       >
         {label}
         <span
           className={[
-            "inline-flex items-center justify-center min-w-[20px] h-5 rounded-full text-xs px-1.5 font-medium",
-            active ? "bg-violet-600 text-white" : "bg-gray-200 text-gray-600",
+            "text-xs font-bold tabular-nums",
+            active ? "text-white/75" : "text-gray-400",
           ].join(" ")}
         >
           {count}
         </span>
       </button>
-      <div className="flex items-center gap-0.5 pr-2 opacity-0 group-hover/tab:opacity-100 transition-opacity">
+      <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover/tab:opacity-100 transition-opacity">
         <button
           type="button"
           title="Rename portfolio"
@@ -1147,7 +1156,7 @@ function PortfolioTabWithActions({
             e.stopPropagation();
             onRename();
           }}
-          className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+          className={`p-1 rounded-full ${active ? "text-white/70 hover:text-white hover:bg-white/10" : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"}`}
         >
           <PencilIcon className="size-3.5" />
         </button>
@@ -1158,7 +1167,7 @@ function PortfolioTabWithActions({
             e.stopPropagation();
             onDelete();
           }}
-          className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50"
+          className={`p-1 rounded-full ${active ? "text-white/70 hover:text-white hover:bg-white/10" : "text-gray-400 hover:text-red-600 hover:bg-red-50"}`}
         >
           <TrashIcon className="size-3.5" />
         </button>
@@ -1186,17 +1195,17 @@ function TabButton({
       onClick={onClick}
       disabled={loading}
       className={[
-        "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 whitespace-nowrap transition-colors",
+        "flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-full border whitespace-nowrap transition-colors",
         active
-          ? "border-violet-600 text-violet-700 bg-violet-50"
-          : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-100",
+          ? "border-blue-600 bg-blue-600 text-white"
+          : "border-gray-200 bg-white text-gray-700 hover:border-blue-200",
       ].join(" ")}
     >
       {label}
       <span
         className={[
-          "inline-flex items-center justify-center min-w-[20px] h-5 rounded-full text-xs px-1.5 font-medium",
-          active ? "bg-violet-600 text-white" : "bg-gray-200 text-gray-600",
+          "text-xs font-bold tabular-nums",
+          active ? "text-white/75" : "text-gray-400",
         ].join(" ")}
       >
         {loading ? "…" : count}

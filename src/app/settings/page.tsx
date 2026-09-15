@@ -9,26 +9,6 @@ import { AlertCard } from "@/components/settings/AlertCard";
 import { EditAlertModal } from "@/components/settings/EditAlertModal";
 import { PlatformCurrencySettings } from "@/components/settings/PlatformCurrencySettings";
 import Header from "@/components/Header";
-import { toast } from "react-hot-toast";
-import {
-  authService,
-  PASSWORD_RESET_PERMISSION_DENIED_MESSAGE,
-  PASSWORD_RESET_SUPPORT_EMAIL,
-} from "@/lib/auth";
-
-type AuthMeResponse = {
-  id: number;
-  created_at?: number;
-  name?: string;
-  email?: string;
-  Company?: number | string | null;
-  Status?: string;
-  status?: string;
-  _new_company?: {
-    id: number;
-    name?: string;
-  } | null;
-};
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -39,56 +19,6 @@ export default function SettingsPage() {
   const [editingAlert, setEditingAlert] = useState<EmailAlert | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [sendTogether, setSendTogether] = useState(true);
-  const [me, setMe] = useState<AuthMeResponse | null>(null);
-  const [meLoading, setMeLoading] = useState(true);
-  const [meError, setMeError] = useState<string | null>(null);
-  const [isSendingResetLink, setIsSendingResetLink] = useState(false);
-  const [resetPasswordError, setResetPasswordError] = useState<string | null>(
-    null
-  );
-
-  useEffect(() => {
-    if (!user?.id) {
-      setMe(null);
-      setMeLoading(false);
-      setMeError(null);
-      return;
-    }
-
-    const controller = new AbortController();
-
-    (async () => {
-      try {
-        setMeLoading(true);
-        setMeError(null);
-
-        const resp = await fetch("/api/auth-me", {
-          method: "GET",
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        if (!resp.ok) {
-          const body = (await resp.json().catch(() => null)) as
-            | { error?: string; message?: string }
-            | null;
-          throw new Error(body?.error || body?.message || "Failed to load user info");
-        }
-
-        const data = (await resp.json()) as AuthMeResponse;
-        setMe(data);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        console.error("Error loading auth/me:", err);
-        setMeError(err instanceof Error ? err.message : "Failed to load user info");
-        setMe(null);
-      } finally {
-        setMeLoading(false);
-      }
-    })();
-
-    return () => controller.abort();
-  }, [user?.id]);
 
   const loadAlerts = useCallback(async (showLoading = true) => {
     if (!user?.id) {
@@ -214,117 +144,29 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSendResetPasswordLink = async () => {
-    const email = (me?.email || user?.email || "").trim();
-    if (!email) {
-      toast.error("No email address found for your account.");
-      return;
-    }
-
-    setIsSendingResetLink(true);
-    setResetPasswordError(null);
-    try {
-      await authService.requestPasswordReset(email);
-      toast.success("Password reset link sent. Check your email.");
-    } catch (err) {
-      if (
-        err instanceof Error &&
-        err.message === PASSWORD_RESET_PERMISSION_DENIED_MESSAGE
-      ) {
-        setResetPasswordError(PASSWORD_RESET_PERMISSION_DENIED_MESSAGE);
-      } else {
-        toast.error("Could not send reset link. Please try again.");
-      }
-    } finally {
-      setIsSendingResetLink(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <div className="w-full px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Notification Preferences
-          </h1>
-          <p className="text-gray-600">
-            Manage your email notification preferences for corporate events and
-            insights.
-          </p>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Your Info</h2>
-            {meLoading && (
-              <span className="text-sm text-gray-500">Loading…</span>
-            )}
+      <div className="max-w-[1080px] mx-auto px-4 py-8">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <span className="inline-flex items-center h-[26px] px-3 rounded-full bg-blue-50 border border-blue-100 text-[11px] font-extrabold uppercase tracking-wide text-blue-600">
+              Account
+            </span>
+            <h1 className="mt-1.5 text-2xl font-extrabold text-gray-900">
+              Settings
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Platform-wide preferences and the email alerts that reach your
+              inbox.
+            </p>
           </div>
-
-          {meError && (
-            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4">
-              <p className="font-semibold">Error</p>
-              <p>{meError}</p>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm text-gray-500">Name</p>
-              <p className="text-gray-900">
-                {me?.name || user?.name || "-"}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Email Address</p>
-              <p className="text-gray-900">
-                {me?.email || user?.email || "-"}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Company</p>
-              <p className="text-gray-900">
-                {me?._new_company?.name ||
-                  (me?.Company != null ? String(me.Company) : null) ||
-                  "-"}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-gray-900">Password</p>
-              <p className="text-sm text-gray-600">
-                Send yourself a password reset link.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleSendResetPasswordLink}
-              disabled={
-                isSendingResetLink || !((me?.email || user?.email || "").trim())
-              }
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSendingResetLink ? "Sending…" : "Reset password"}
-            </button>
-          </div>
-          {resetPasswordError && (
-            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="font-medium text-amber-900">{resetPasswordError}</p>
-              <p className="mt-2 text-sm text-gray-600">
-                Please reach out to{" "}
-                <a
-                  href={`mailto:${PASSWORD_RESET_SUPPORT_EMAIL}`}
-                  className="font-medium text-blue-600 hover:text-blue-700"
-                >
-                  {PASSWORD_RESET_SUPPORT_EMAIL}
-                </a>
-                .
-              </p>
-            </div>
-          )}
+          <a
+            href="/my-info"
+            className="shrink-0 px-4 py-2 text-sm font-semibold text-blue-600 bg-white border border-blue-200 rounded-full hover:bg-blue-50 transition-colors"
+          >
+            My Info
+          </a>
         </div>
 
         <PlatformCurrencySettings />
@@ -339,34 +181,48 @@ export default function SettingsPage() {
         )}
 
         {!isLoading && !error && (
-          <>
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
+            <div className="flex items-baseline gap-3 px-6 py-4 border-b border-gray-100">
+              <h2 className="text-[15px] font-bold text-gray-900">
+                Email alerts
+              </h2>
+              <span className="text-xs text-gray-500">
+                {alerts.length} active
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsCreating(true)}
+                className="ml-auto px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+              >
+                New alert
+              </button>
+            </div>
+
             {canSendTogether && (
-              <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                    checked={sendTogether}
-                    onChange={(e) => setSendTogether(e.target.checked)}
-                  />
-                  <div>
-                    <p className="text-gray-900 font-medium">
-                      Send Corporate Events and Insights &amp; Analysis together
-                    </p>
-                    <p className="text-gray-600 text-sm">
-                      Available because both are set to{" "}
-                      <span className="font-medium">
-                        {corporateAlert?.email_frequency}
-                      </span>
-                      . Default is on.
-                    </p>
-                  </div>
-                </label>
-              </div>
+              <label className="flex items-start gap-3 cursor-pointer px-6 py-4 border-b border-gray-100">
+                <input
+                  type="checkbox"
+                  className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  checked={sendTogether}
+                  onChange={(e) => setSendTogether(e.target.checked)}
+                />
+                <div>
+                  <p className="text-gray-900 font-medium text-sm">
+                    Send Corporate Events and Insights &amp; Analysis together
+                  </p>
+                  <p className="text-gray-500 text-xs mt-0.5">
+                    Available because both are set to{" "}
+                    <span className="font-medium">
+                      {corporateAlert?.email_frequency}
+                    </span>
+                    . Default is on.
+                  </p>
+                </div>
+              </label>
             )}
 
             {alerts.length === 0 ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+              <div className="p-12 text-center">
                 <p className="text-gray-600 mb-4">
                   You don&apos;t have any email alerts configured yet.
                 </p>
@@ -378,16 +234,25 @@ export default function SettingsPage() {
                 </button>
               </div>
             ) : (
-              <>
-                <div className="mb-4 flex justify-end">
-                  <button
-                    onClick={() => setIsCreating(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Add Email Alert
-                  </button>
-                </div>
-                <div className="space-y-4">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="text-left text-[10px] font-extrabold uppercase tracking-wider text-gray-400 py-2.5 px-4">
+                      Alert
+                    </th>
+                    <th className="text-left text-[10px] font-extrabold uppercase tracking-wider text-gray-400 py-2.5 px-4">
+                      Frequency
+                    </th>
+                    <th className="text-left text-[10px] font-extrabold uppercase tracking-wider text-gray-400 py-2.5 px-4">
+                      Filter
+                    </th>
+                    <th className="text-left text-[10px] font-extrabold uppercase tracking-wider text-gray-400 py-2.5 px-4">
+                      Status
+                    </th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
                   {alerts.map((alert) => (
                     <AlertCard
                       key={alert.id}
@@ -398,10 +263,10 @@ export default function SettingsPage() {
                       onToggleActive={handleToggleActive}
                     />
                   ))}
-                </div>
-              </>
+                </tbody>
+              </table>
             )}
-          </>
+          </div>
         )}
 
         {(editingAlert || isCreating) && meta && (

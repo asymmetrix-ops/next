@@ -1,6 +1,5 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
 import type { EmailAlert, EmailAlertsMeta } from "@/types/emailAlerts";
 import {
   isCeDealTypeFilterActive,
@@ -74,80 +73,34 @@ export function AlertCard({
     }
   };
 
-  const buildDescription = () => {
-    const parts: string[] = [];
-    parts.push(getItemTypeLabel());
-    parts.push("-");
-    
-    // Build frequency part with optional details
+  const getFrequencyDetail = (): string => {
     if (alert.email_frequency === "as_added") {
-      parts.push(getFrequencyLabel());
-      
-      // For insights_analysis + as_added, add content type
-      if (
-        alert.item_type === "insights_analysis" &&
-        alert.content_type
-      ) {
+      if (alert.item_type === "insights_analysis" && alert.content_type) {
         const contentTypeLabel = getContentTypeLabel();
-        if (contentTypeLabel) {
-          parts.push("-");
-          parts.push(contentTypeLabel);
-        }
+        return contentTypeLabel || "";
       }
-    } else if (alert.email_frequency === "daily") {
-      parts.push(getFrequencyLabel());
-      
-      // For daily, add time and timezone in parentheses
-      const timeDetails: string[] = [];
-      if (alert.send_time_local) {
-        const time = formatTime(alert.send_time_local);
-        if (time) {
-          timeDetails.push(time);
-        }
-      }
-      if (alert.timezone) {
-        timeDetails.push(alert.timezone);
-      }
-      
-      if (timeDetails.length > 0) {
-        parts.push(`(${timeDetails.join(" ")})`);
-      }
-    } else if (alert.email_frequency === "weekly") {
-      // For weekly, format: "Weekly (Mon 10:00 Europe/London)"
-      const weeklyDetails: string[] = [];
-      
-      if (alert.day_of_week) {
-        const dayLabel = getDayOfWeekLabel();
-        if (dayLabel) {
-          // Abbreviate day name (e.g., "Monday" -> "Mon")
-          const dayAbbr = dayLabel.slice(0, 3);
-          weeklyDetails.push(dayAbbr);
-        }
-      }
-      
-      if (alert.send_time_local) {
-        const time = formatTime(alert.send_time_local);
-        if (time) {
-          weeklyDetails.push(time);
-        }
-      }
-      
-      if (alert.timezone) {
-        weeklyDetails.push(alert.timezone);
-      }
-      
-      if (weeklyDetails.length > 0) {
-        parts.push(`${getFrequencyLabel()} (${weeklyDetails.join(" ")})`);
-      } else {
-        parts.push(getFrequencyLabel());
-      }
-    } else {
-      parts.push(getFrequencyLabel());
+      return "";
     }
+    if (alert.email_frequency === "daily") {
+      const timeDetails: string[] = [];
+      const time = formatTime(alert.send_time_local);
+      if (time) timeDetails.push(time);
+      if (alert.timezone) timeDetails.push(alert.timezone);
+      return timeDetails.join(" ");
+    }
+    if (alert.email_frequency === "weekly") {
+      const weeklyDetails: string[] = [];
+      const dayLabel = getDayOfWeekLabel();
+      if (dayLabel) weeklyDetails.push(dayLabel.slice(0, 3));
+      const time = formatTime(alert.send_time_local);
+      if (time) weeklyDetails.push(time);
+      if (alert.timezone) weeklyDetails.push(alert.timezone);
+      return weeklyDetails.join(" ");
+    }
+    return "";
+  };
 
-    parts.push("-");
-    parts.push(alert.is_active ? "Active" : "Inactive");
-
+  const getFilterSummary = (): { label: string; hasFilter: boolean } => {
     const f = alert.filters;
     const filterParts: string[] = [];
     if (f?.companies?.length) filterParts.push(`${f.companies.length} companies`);
@@ -163,51 +116,81 @@ export function AlertCard({
         filterParts.push(`${f!.funding_stages!.length} funding stages`);
       }
     }
-    parts.push("-");
-    parts.push(
-      filterParts.length === 0 ? "Filter: All" : `Filter: ${filterParts.join(", ")}`
-    );
-
-    return parts.join(" ");
+    return filterParts.length === 0
+      ? { label: "No filter", hasFilter: false }
+      : { label: filterParts.join(", "), hasFilter: true };
   };
 
+  const frequencyDetail = getFrequencyDetail();
+  const filterSummary = getFilterSummary();
+
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="text-gray-900 font-medium mb-1">
-              {buildDescription()}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 ml-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={alert.is_active}
-                onChange={() => onToggleActive(alert)}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-600">
-                {alert.is_active ? "Active" : "Inactive"}
-              </span>
-            </label>
-            <button
-              onClick={() => onEdit(alert)}
-              className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => onDelete(alert.id)}
-              className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <tr className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+      <td className="py-3.5 px-4 align-middle">
+        <span className="block text-sm font-semibold text-gray-900">
+          {getItemTypeLabel()}
+        </span>
+        <span className="block text-xs text-gray-500 mt-0.5">
+          {alert.item_type === "corporate_events"
+            ? "M&A, investments, partnerships"
+            : "Everything you follow"}
+        </span>
+      </td>
+      <td className="py-3.5 px-4 align-middle">
+        <span className="block text-sm text-gray-900">
+          {getFrequencyLabel()}
+        </span>
+        {frequencyDetail && (
+          <span className="block text-xs text-gray-500 mt-0.5">
+            {frequencyDetail}
+          </span>
+        )}
+      </td>
+      <td className="py-3.5 px-4 align-middle">
+        <span
+          className={`inline-flex items-center h-[22px] px-2.5 rounded-full text-xs font-semibold whitespace-nowrap ${
+            filterSummary.hasFilter
+              ? "bg-blue-50 text-blue-700"
+              : "bg-gray-100 text-gray-500"
+          }`}
+        >
+          {filterSummary.label}
+        </span>
+      </td>
+      <td className="py-3.5 px-4 align-middle">
+        <label className="inline-flex items-center gap-2 cursor-pointer">
+          <span className="relative inline-flex h-5 w-9 items-center">
+            <input
+              type="checkbox"
+              checked={alert.is_active}
+              onChange={() => onToggleActive(alert)}
+              className="peer sr-only"
+            />
+            <span className="absolute inset-0 rounded-full bg-gray-300 transition-colors peer-checked:bg-blue-600" />
+            <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+          </span>
+          <span className="text-xs text-gray-600">
+            {alert.is_active ? "Active" : "Inactive"}
+          </span>
+        </label>
+      </td>
+      <td className="py-3.5 px-4 align-middle text-right whitespace-nowrap">
+        <button
+          type="button"
+          onClick={() => onEdit(alert)}
+          className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(alert.id)}
+          className="ml-3.5 text-sm font-semibold text-red-600 hover:text-red-700"
+        >
+          Delete
+        </button>
+      </td>
+    </tr>
   );
 }
 
