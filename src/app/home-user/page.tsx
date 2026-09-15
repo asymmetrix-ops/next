@@ -7,6 +7,7 @@ import {
   useEffect,
   useLayoutEffect,
   useCallback,
+  useMemo,
   useRef,
   type CSSProperties,
 } from "react";
@@ -14,9 +15,12 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
-import { trackEvent } from "@/lib/tracking";
-import Header from "@/components/Header";
+import { trackEvent, trackLogout } from "@/lib/tracking";
 import Footer from "@/components/Footer";
+import DashboardLeftNav, {
+  type DashboardNavCounts,
+} from "@/components/dashboard/DashboardLeftNav";
+import { fetchUserPortfolioRecord } from "@/lib/portfolioFollow";
 import AsymIQButton from "@/components/AsymIQButton";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
@@ -364,8 +368,17 @@ export default function HomeUserPage() {
     loading: authLoading,
     isTrialActive,
     trialDaysLeft,
+    logout,
   } = useAuth();
   // Right-click handled via native anchors now
+
+  const [leftNavOpen, setLeftNavOpen] = useState(true);
+  const handleDashboardLogout = useCallback(() => {
+    const userId = user?.id ? Number.parseInt(user.id, 10) : 0;
+    trackLogout(Number.isFinite(userId) ? userId : 0);
+    logout();
+    router.push("/login");
+  }, [user?.id, logout, router]);
 
   // Helper function to format dates consistently
   const formatDate = (dateString?: string) => {
@@ -381,16 +394,25 @@ export default function HomeUserPage() {
     }
   };
 
-  const resolveAsymmetrixStatHref = (label: string): string => {
-    const key = String(label || "").toLowerCase().trim();
-    if (key === "companies") return "/companies";
-    if (key === "corporate events") return "/corporate-events";
-    if (key === "individuals") return "/individuals";
-    if (key === "primary sectors" || key === "secondary sectors") return "/sectors";
-    if (key === "pe investors") return "/investors?investorTypeId=23699";
-    if (key === "vc investors") return "/investors?investorTypeId=23877";
-    if (key === "advisors") return "/advisors";
-    return "";
+  const formatRelativeTime = (
+    dateString?: string,
+    createdAtMs?: number
+  ): string => {
+    const ms = dateString
+      ? new Date(dateString).getTime()
+      : typeof createdAtMs === "number"
+      ? createdAtMs
+      : NaN;
+    if (!Number.isFinite(ms)) return "";
+    const diffMs = Date.now() - ms;
+    if (diffMs < 0) return "now";
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) return "now";
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `${days}d`;
   };
 
   // Resolve corporate event id from inconsistent API shapes
@@ -708,6 +730,18 @@ export default function HomeUserPage() {
   const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>([]);
   const [dealRadarNextOffset, setDealRadarNextOffset] = useState<number | null>(
     null
+  );
+  const [dealRadarTotalCount, setDealRadarTotalCount] = useState<
+    number | null
+  >(null);
+  const [insightsTotalCount, setInsightsTotalCount] = useState<number | null>(
+    null
+  );
+  const [followedCompanyIds, setFollowedCompanyIds] = useState<Set<number>>(
+    new Set()
+  );
+  const [newsTab, setNewsTab] = useState<"all" | "radar" | "portfolio">(
+    "all"
   );
   const [dealRadarLoading, setDealRadarLoading] = useState(true);
   const [dealRadarLoadingMore, setDealRadarLoadingMore] = useState(false);
@@ -1221,6 +1255,10 @@ export default function HomeUserPage() {
       });
       if (generation !== dealRadarFetchGenerationRef.current) return;
 
+      setDealRadarTotalCount(
+        typeof res.total_items === "number" ? res.total_items : null
+      );
+
       const mappedItems = res.items.map((item) =>
         mapDealRadarItem(item as unknown as Record<string, unknown>)
       );
@@ -1510,6 +1548,108 @@ export default function HomeUserPage() {
     fetchInsightsArticles();
   }, [authLoading, isAuthenticated, fetchInsightsArticles]);
 
+  // Lightweight Per_page=1 request for a real total count (same pattern
+  // used on the Insights & Analysis page) — left unset rather than faked
+  // if the request fails.
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    let cancelled = false;
+    const run = async () => {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) return;
+      try {
+        const params = new URLSearchParams({
+          Offset: "0",
+          Per_page: "1",
+          portfolio_only: "false",
+        });
+        const res = await fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+              "X-Data-Source": "live",
+            },
+          }
+        );
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as { itemsTotal?: number };
+        if (!cancelled && typeof json.itemsTotal === "number") {
+          setInsightsTotalCount(json.itemsTotal);
+        }
+      } catch {
+        // Leave unset rather than show a fake count.
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    let cancelled = false;
+    fetchUserPortfolioRecord()
+      .then((record) => {
+        if (cancelled) return;
+        setFollowedCompanyIds(new Set(record?.companies || []));
+      })
+      .catch(() => {
+        // Leave empty — the "My portfolio" news tab just shows nothing.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated]);
+
+  const getStatValue = (label: string): number | undefined => {
+    const item = asymmetrixData.find((d) => d.label === label);
+    if (!item) return undefined;
+    const n = parseInt(item.value, 10);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  const leftNavCounts: DashboardNavCounts = useMemo(() => {
+    const pe = getStatValue("PE Investors") ?? 0;
+    const vc = getStatValue("VC Investors") ?? 0;
+    const investorsTotal = pe + vc;
+    return {
+      companies: getStatValue("Companies"),
+      corporateEvents: getStatValue("Corporate Events"),
+      investors: investorsTotal > 0 ? investorsTotal : undefined,
+      advisors: getStatValue("Advisors"),
+      individuals: getStatValue("Individuals"),
+      sectors: getStatValue("Primary Sectors"),
+      insightsAnalysis: insightsTotalCount ?? undefined,
+      dealRadar: dealRadarTotalCount ?? undefined,
+      // financialIntelligence intentionally omitted — no real count exists.
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asymmetrixData, insightsTotalCount, dealRadarTotalCount]);
+
+  const dealRadarCompanyIdSet = useMemo(
+    () => new Set(dealRadarItems.map((i) => i.companyId).filter(Boolean)),
+    [dealRadarItems]
+  );
+
+  const allNewsArticles = useMemo(
+    () => insightsArticles.filter(isNewsArticle),
+    [insightsArticles]
+  );
+
+  const newsForTab = useMemo(() => {
+    if (newsTab === "all") return allNewsArticles;
+    const idSet =
+      newsTab === "radar" ? dealRadarCompanyIdSet : followedCompanyIds;
+    return allNewsArticles.filter((a) =>
+      (a.companies_mentioned || []).some((c) => idSet.has(c.id))
+    );
+  }, [allNewsArticles, newsTab, dealRadarCompanyIdSet, followedCompanyIds]);
+
+  const visibleNews = newsForTab.slice(0, 4);
+
   if (authLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
@@ -1560,9 +1700,14 @@ export default function HomeUserPage() {
   };
 
   return (
-    <div className="dash min-h-screen">
-      <Header />
-
+    <div className="dash min-h-screen flex">
+      <DashboardLeftNav
+        open={leftNavOpen}
+        onToggleOpen={() => setLeftNavOpen((v) => !v)}
+        counts={leftNavCounts}
+        onLogout={handleDashboardLogout}
+      />
+      <div className="flex-1 min-w-0">
       {/* Main Content */}
       <main
         className="px-2 py-4 mx-auto w-full sm:px-4 sm:py-8"
@@ -1734,60 +1879,94 @@ export default function HomeUserPage() {
           </div>
         </div>
 
-        {asymmetrixData.length > 0 && (
-          <div className="dash-stats mb-4 sm:mb-6 overflow-x-auto">
-            <div className="flex min-w-max w-full">
-              {asymmetrixData.map((item, index) => {
-                const href = resolveAsymmetrixStatHref(item.label);
-                const RowTag = href ? "a" : "div";
-                const formattedValue = parseInt(item.value, 10)
-                  ? parseInt(item.value, 10).toLocaleString()
-                  : item.value;
-
-                return (
-                  <RowTag
-                    // eslint-disable-next-line react/no-array-index-key
-                    key={`${item.label}-${index}`}
-                    href={href || undefined}
-                    className={`group flex flex-1 flex-col items-start justify-center min-w-[7.5rem] px-4 py-3.5 sm:min-w-0 sm:px-5 sm:py-4 transition-colors ${
-                      href
-                        ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-200"
-                        : ""
-                    }`}
-                    onClick={(e: React.MouseEvent<HTMLElement>) => {
-                      if (!href) return;
-                      if (
-                        e.defaultPrevented ||
-                        e.button !== 0 ||
-                        e.metaKey ||
-                        e.ctrlKey ||
-                        e.shiftKey ||
-                        e.altKey
-                      ) {
-                        return;
-                      }
-                      e.preventDefault();
-                      router.push(href);
-                    }}
-                  >
-                    <span
-                      className={`dash-stat-k transition-colors ${
-                        href ? "group-hover:text-blue-600" : ""
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                    <span
-                      className={`dash-stat-v mt-1 transition-colors ${
-                        href ? "group-hover:text-blue-700" : ""
-                      }`}
-                    >
-                      {formattedValue}
-                    </span>
-                  </RowTag>
-                );
-              })}
+        {!isTrialActive && (
+          <div className="dash-card mb-4 sm:mb-6 overflow-hidden">
+            <div className="dash-card-header flex flex-wrap items-center gap-3 p-3 sm:p-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="dash-card-icon flex items-center justify-center w-7 h-7 shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
+                    <path d="M18 14h-8" />
+                    <path d="M15 18h-5" />
+                    <path d="M10 6h8v4h-8V6Z" />
+                  </svg>
+                </span>
+                <span className="dash-card-title">News</span>
+                <span className="dash-eyebrow">Today</span>
+              </div>
+              <div className="dash-news-tabs shrink-0">
+                <button
+                  type="button"
+                  className={newsTab === "all" ? "on" : ""}
+                  onClick={() => setNewsTab("all")}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className={newsTab === "radar" ? "on" : ""}
+                  onClick={() => setNewsTab("radar")}
+                >
+                  Radar companies
+                </button>
+                <button
+                  type="button"
+                  className={newsTab === "portfolio" ? "on" : ""}
+                  onClick={() => setNewsTab("portfolio")}
+                >
+                  My portfolio
+                </button>
+              </div>
+              <span className="text-xs text-gray-500 ml-auto sm:ml-0">
+                {newsForTab.length} this week
+              </span>
+              <a href="/insights-analysis" className="dash-view-all px-3 py-1.5 text-xs whitespace-nowrap">
+                View all
+              </a>
             </div>
+            {insightsArticlesLoading ? (
+              <div className="p-4 text-center">
+                <p className="text-sm text-gray-500">Loading news...</p>
+              </div>
+            ) : visibleNews.length > 0 ? (
+              <div className="dash-news-lane">
+                {visibleNews.map((article) => {
+                  const href = `/article/${article.id}?from=home`;
+                  const firstCompany = article.companies_mentioned?.[0];
+                  const contentType = (
+                    article.Content_Type ||
+                    article.content_type ||
+                    article.Content?.Content_type ||
+                    article.Content?.Content_Type ||
+                    "News"
+                  ).trim();
+                  return (
+                    <a key={article.id} href={href} className="dash-news-item">
+                      <span className="ago">
+                        {formatRelativeTime(article.Publication_Date, article.created_at)}
+                      </span>
+                      <span className="h">{article.Headline}</span>
+                      {article.Strapline && (
+                        <span className="d">{article.Strapline}</span>
+                      )}
+                      <span className="tg">
+                        <span className="dash-tag dash-tag-lead">
+                          <i />
+                          {contentType}
+                        </span>
+                        {firstCompany && (
+                          <span className="dash-co-pill">{firstCompany.name}</span>
+                        )}
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-4 text-center">
+                <p className="text-sm text-gray-500">No news to show</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -1994,9 +2173,9 @@ export default function HomeUserPage() {
         )}
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 lg:items-start">
-          {/* Deal Radar - last on mobile, first on lg+ */}
+          {/* Deal Radar - last on mobile, last on lg+ */}
           <div
-            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden order-3 lg:order-1"
+            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden order-3 lg:order-3"
             style={sideColumnHeightStyle}
           >
             <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
@@ -2360,9 +2539,9 @@ export default function HomeUserPage() {
             </div>
           </div>
 
-          {/* Corporate Events - second on mobile */}
+          {/* Corporate Events - second on mobile, first on lg+ */}
           <div
-            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden order-2 lg:order-3"
+            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden order-2 lg:order-1"
             style={sideColumnHeightStyle}
           >
             <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
@@ -2482,7 +2661,7 @@ export default function HomeUserPage() {
                                         <Fragment key={`m-tgt-${tgt?.id ?? i}`}>
                                           {renderTargetEntityInline(tgt, {
                                             trailingComma: i < arr.length - 1,
-                                            stackFlag: arr.length < 2,
+                                            stackFlag: false,
                                           })}
                                         </Fragment>
                                       ))}
@@ -2490,7 +2669,9 @@ export default function HomeUserPage() {
                                   );
                                 } else if (targetName) {
                                   return targetObj ? (
-                                    renderTargetEntityInline(targetObj)
+                                    renderTargetEntityInline(targetObj, {
+                                      stackFlag: false,
+                                    })
                                   ) : (
                                     <span>{targetName}</span>
                                   );
@@ -3018,7 +3199,7 @@ export default function HomeUserPage() {
                                             <Fragment key={`tgt-${tgt?.id ?? i}`}>
                                               {renderTargetEntityInline(tgt, {
                                                 trailingComma: i < arr.length - 1,
-                                                stackFlag: arr.length < 2,
+                                                stackFlag: false,
                                               })}
                                             </Fragment>
                                           ))}
@@ -3031,7 +3212,9 @@ export default function HomeUserPage() {
                                               : "Target:"}
                                           </strong>{" "}
                                           {targetObj ? (
-                                            renderTargetEntityInline(targetObj)
+                                            renderTargetEntityInline(targetObj, {
+                                      stackFlag: false,
+                                    })
                                           ) : (
                                             <span>{targetName}</span>
                                           )}
@@ -3431,6 +3614,7 @@ export default function HomeUserPage() {
         </div>
       </main>
       <Footer />
+      </div>
     </div>
   );
 }
