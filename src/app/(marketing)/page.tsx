@@ -62,9 +62,9 @@ export default async function LandingTestVersion1Page() {
       <main>
         <PlatformHero topViewedArticles={topViewedArticles} />
         <Logo3 />
+        <Testimonial1 />
         <Layout184 />
         <Coverage />
-        <Testimonial1 />
         <Logo3 id="clients-2" showHeading={false} />
         <Blog16Section />
         <Cta15 />
