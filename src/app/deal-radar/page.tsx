@@ -10,6 +10,7 @@ import {
   getProcessStageTone,
   getIntermediaryTone,
   getTransactionSignalTone,
+  getTransactionSignalDescription,
   ENTITY_TONES,
 } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
@@ -170,12 +171,6 @@ const TRANSACTION_SIGNAL_OPTIONS = [
   { value: "Proprietary Intel", label: "Proprietary Intel" },
 ];
 
-const TRANSACTION_SIGNAL_DESCRIPTIONS: Record<string, string> = {
-  "Long Hold": "",
-  "Asymmetrix Assessment": "",
-  "Proprietary Intel": "",
-};
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Exact hexes from tags.txt §2 — fixed platform-wide, do not re-map per page. */
@@ -309,6 +304,7 @@ function countActiveFilters(filters: DealRadarFilters): number {
 
 function TransactionSignalLabel({ signal }: { signal: string }) {
   const tone = getTransactionSignalTone(signal);
+  const description = getTransactionSignalDescription(signal);
   return (
     <div className="group relative mt-1 w-full text-center">
       <p
@@ -321,32 +317,17 @@ function TransactionSignalLabel({ signal }: { signal: string }) {
       >
         {signal}
       </p>
-      <div
-        role="tooltip"
-        className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg group-hover:block"
-      >
-        <p className="mb-2 text-[11px] font-semibold text-gray-900">
-          Transaction signals
-        </p>
-        <ul className="space-y-2">
-          {TRANSACTION_SIGNAL_OPTIONS.map((opt) => (
-            <li key={opt.value}>
-              <p
-                className={`text-[11px] font-medium ${
-                  opt.value === signal ? "text-blue-700" : "text-gray-800"
-                }`}
-              >
-                {opt.label}
-              </p>
-              {TRANSACTION_SIGNAL_DESCRIPTIONS[opt.value] && (
-                <p className="mt-0.5 text-[10px] leading-snug text-gray-500">
-                  {TRANSACTION_SIGNAL_DESCRIPTIONS[opt.value]}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {description ? (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg group-hover:block"
+        >
+          <p className="text-[11px] font-semibold text-gray-900">{signal}</p>
+          <p className="mt-1.5 text-[10px] leading-snug text-gray-600">
+            {description}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
