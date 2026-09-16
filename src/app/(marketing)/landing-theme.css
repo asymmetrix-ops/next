@@ -865,5 +865,25 @@
 .landing-rebrand .landing-press-contact {
   border: 1px solid hsla(228, 85%, 63%, 0.2);
   background-color: var(--asymmetrix-blue-light);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.landing-rebrand .landing-press-contact a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.landing-rebrand .landing-legal-prose {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.landing-rebrand .landing-legal-panel {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 

@@ -105,11 +105,13 @@ const SECTIONS = [
 
 export function TermsAndConditionsContent() {
   return (
-    <section className="landing-navy-bg px-[5%] pb-16 pt-16 md:pb-24 md:pt-24 lg:pb-28 lg:pt-28">
-      <div className="container">
-        <div className="mx-auto w-full max-w-5xl">
-          <article className="landing-panel overflow-hidden rounded-xl">
-            <header className="border-b border-[var(--asymmetrix-divider)] px-6 py-8 md:px-10 md:py-10">
+    <section
+      className="landing-navy-bg box-border min-w-0 overflow-x-clip px-[5%] pb-[max(5rem,env(safe-area-inset-bottom,0px))] pt-16 md:pb-24 md:pt-24 lg:pb-28 lg:pt-28"
+    >
+      <div className="container min-w-0 max-w-full">
+        <div className="mx-auto w-full min-w-0 max-w-5xl">
+          <article className="landing-panel landing-legal-panel rounded-xl">
+            <header className="border-b border-[var(--asymmetrix-divider)] px-4 py-8 sm:px-6 md:px-10 md:py-10">
               <span className="landing-text-muted text-xs font-medium md:text-sm">
                 Last updated {LAST_UPDATED}
               </span>
@@ -142,7 +144,7 @@ export function TermsAndConditionsContent() {
               </p>
             </header>
 
-            <div className="px-6 py-8 md:px-10 md:py-10">
+            <div className="landing-legal-prose px-4 py-8 sm:px-6 md:px-10 md:py-10">
               {SECTIONS.map((section, index) => (
                 <div key={section.heading} className={index === 0 ? "" : "mt-8"}>
                   <h2 className="mb-3 text-lg font-bold text-text-alternative md:text-xl">
@@ -162,7 +164,7 @@ export function TermsAndConditionsContent() {
                 </p>
                 <a
                   href={`mailto:${EVENTS_EMAIL}`}
-                  className="mt-1 inline-block text-base font-medium text-[var(--asymmetrix-blue-deep)] transition-colors hover:text-[var(--asymmetrix-blue)]"
+                  className="mt-1 block max-w-full text-base font-medium text-[var(--asymmetrix-blue-deep)] transition-colors hover:text-[var(--asymmetrix-blue)]"
                 >
                   {EVENTS_EMAIL}
                 </a>
@@ -170,7 +172,7 @@ export function TermsAndConditionsContent() {
                   href={SUMMIT_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 block text-base font-medium text-[var(--asymmetrix-blue-deep)] transition-colors hover:text-[var(--asymmetrix-blue)]"
+                  className="mt-2 block max-w-full text-base font-medium text-[var(--asymmetrix-blue-deep)] transition-colors hover:text-[var(--asymmetrix-blue)]"
                 >
                   events.asymmetrixintelligence.com/london-2026
                 </a>

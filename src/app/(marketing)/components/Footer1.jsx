@@ -12,12 +12,12 @@ export function Footer1() {
   return (
     <footer
       id="relume"
-      className="landing-near-black-bg px-[5%] py-12 text-text-alternative md:py-18 lg:py-20"
+      className="landing-near-black-bg box-border min-w-0 overflow-x-clip px-[5%] py-12 pb-[max(3rem,env(safe-area-inset-bottom,0px))] text-text-alternative md:py-18 lg:py-20"
     >
       <div className="container">
         <div className="grid grid-cols-1 gap-x-[8vw] gap-y-12 pb-12 md:gap-y-16 md:pb-18 lg:grid-cols-[0.75fr_1fr] lg:gap-y-4 lg:pb-20">
           <div className="flex flex-col">
-            <div className="w-full max-w-md">
+            <div className="w-full min-w-0 max-w-md">
               <SubstackSubscribeWidget />
               <p className="landing-text-secondary mt-3 text-xs">
                 We respect your inbox and your privacy.

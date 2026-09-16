@@ -10,7 +10,7 @@ export default function MarketingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="landing-rebrand">
+    <div className="landing-rebrand min-w-0 overflow-x-clip">
       <LandingCalendlyPrefetch />
       <LandingHashScroll />
       {children}
