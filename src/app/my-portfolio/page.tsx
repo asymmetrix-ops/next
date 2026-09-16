@@ -927,9 +927,6 @@ export default function MyPortfolioPage() {
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Type</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-700">Sector / Focus</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-700">Location</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-700">Followed</th>
                     <th className="text-right px-4 py-3 font-medium text-gray-700">Actions</th>
                   </tr>
                 </thead>
@@ -955,9 +952,6 @@ export default function MyPortfolioPage() {
                             {formatEntityType(String(r.entity))}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-gray-400">—</td>
-                        <td className="px-4 py-3 text-gray-400">—</td>
-                        <td className="px-4 py-3 text-gray-400">—</td>
                         <td className="px-4 py-3 text-right">
                           <Button
                             variant="outline"
