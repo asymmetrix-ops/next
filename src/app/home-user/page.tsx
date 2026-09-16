@@ -1950,8 +1950,7 @@ export default function HomeUserPage() {
                         <span className="d">{article.Strapline}</span>
                       )}
                       <span className="tg">
-                        <span className="dash-tag dash-tag-lead">
-                          <i />
+                        <span style={getContentTypeBadgeStyle(contentType)}>
                           {contentType}
                         </span>
                         {firstCompany && (
