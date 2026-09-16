@@ -134,6 +134,14 @@ export function Footer1() {
                 Privacy policy
               </a>
             </li>
+            <li className="underline">
+              <a
+                href={`${LANDING_HOME}/terms-and-conditions`}
+                className="transition-colors hover:text-[var(--asymmetrix-blue)]"
+              >
+                Terms &amp; Conditions
+              </a>
+            </li>
           </ul>
         </div>
       </div>

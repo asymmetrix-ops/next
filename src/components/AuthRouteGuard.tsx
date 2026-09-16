@@ -15,6 +15,7 @@ const PUBLIC_PATHS = [
   "/contact-us",
   "/press-releases",
   "/privacy-policy",
+  "/terms-and-conditions",
   "/login",
   "/trial-expired",
   "/forgot-password",
