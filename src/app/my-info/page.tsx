@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useAuthMe } from "@/hooks/useAuthMe";
 import { getInitials } from "@/lib/userDisplay";
@@ -158,8 +158,8 @@ export default function MyInfoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
+    <AppShell>
+      <div className="min-h-screen bg-gray-50">
       <div className="max-w-[900px] mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-6">
           <span className="flex items-center justify-center w-[60px] h-[60px] rounded-full bg-blue-600 text-white text-xl font-bold shrink-0">
@@ -270,6 +270,7 @@ export default function MyInfoPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </AppShell>
   );
 }

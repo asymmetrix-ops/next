@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { locationsService } from "@/lib/locationsService";
 // import { useRightClick } from "@/hooks/useRightClick";
@@ -708,11 +708,12 @@ const SectorsSection = () => {
 
 const SectorsPage = () => {
   return (
+    <AppShell>
     <div className="min-h-screen">
-      <Header />
       <SectorsSection />
       <Footer />
     </div>
+    </AppShell>
   );
 };
 

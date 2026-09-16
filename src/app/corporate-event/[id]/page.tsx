@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { PlusIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { corporateEventsService } from "../../../lib/corporateEventsService";
@@ -1219,6 +1219,7 @@ const CorporateEventDetailPage = () => {
 
   if (loading) {
     return (
+      <AppShell>
       <div
         style={{
           minHeight: "100vh",
@@ -1228,7 +1229,6 @@ const CorporateEventDetailPage = () => {
           fontFamily: T.sans,
         }}
       >
-        <Header />
         <div
           style={{
             flex: 1,
@@ -1242,11 +1242,13 @@ const CorporateEventDetailPage = () => {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
   if (error) {
     return (
+      <AppShell>
       <div
         style={{
           minHeight: "100vh",
@@ -1256,7 +1258,6 @@ const CorporateEventDetailPage = () => {
           fontFamily: T.sans,
         }}
       >
-        <Header />
         <div
           style={{
             flex: 1,
@@ -1270,11 +1271,13 @@ const CorporateEventDetailPage = () => {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
   if (!data) {
     return (
+      <AppShell>
       <div
         style={{
           minHeight: "100vh",
@@ -1284,7 +1287,6 @@ const CorporateEventDetailPage = () => {
           fontFamily: T.sans,
         }}
       >
-        <Header />
         <div
           style={{
             flex: 1,
@@ -1299,10 +1301,12 @@ const CorporateEventDetailPage = () => {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
   return (
+    <AppShell>
     <div
       style={{
         minHeight: "100vh",
@@ -1312,10 +1316,10 @@ const CorporateEventDetailPage = () => {
         fontFamily: T.sans,
       }}
     >
-      <Header />
       <CorporateEventDetail data={data} />
       <Footer />
     </div>
+    </AppShell>
   );
 };
 

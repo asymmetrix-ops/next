@@ -16,13 +16,13 @@ interface InlineFollowButtonProps {
   label?: string;
   /** When true, shows a text label alongside the icon. */
   showLabel?: boolean;
-  /** Icon style — star for companies table, heart elsewhere. */
+  /** Icon style — star everywhere by default; heart is opt-in. */
   icon?: "heart" | "star";
   className?: string;
 }
 
 /**
- * Compact heart-icon follow toggle for table cells and list rows.
+ * Compact star-icon follow toggle for table cells and list rows.
  * Uses global portfolio store for followed state.
  */
 export function InlineFollowButton({
@@ -30,7 +30,7 @@ export function InlineFollowButton({
   entityId,
   label,
   showLabel = false,
-  icon = "heart",
+  icon = "star",
   className,
 }: InlineFollowButtonProps) {
   const [busy, setBusy] = useState(false);

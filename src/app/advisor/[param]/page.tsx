@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
 import {
@@ -499,40 +499,43 @@ export default function AdvisorProfilePage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
-        <Header />
-        <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center", color: T.muted }}>
-          Loading advisor data…
+      <AppShell>
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
+          <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center", color: T.muted }}>
+            Loading advisor data…
+          </div>
+          <Footer />
         </div>
-        <Footer />
-      </div>
+      </AppShell>
     );
   }
 
   if (error) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
-        <Header />
-        <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <div style={{ textAlign: "center" }}>
-            <h2 style={{ color: T.ink, fontFamily: T.sans }}>Error Loading Advisor</h2>
-            <p style={{ color: T.muted }}>{error}</p>
+      <AppShell>
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
+          <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center" }}>
+            <div style={{ textAlign: "center" }}>
+              <h2 style={{ color: T.ink, fontFamily: T.sans }}>Error Loading Advisor</h2>
+              <p style={{ color: T.muted }}>{error}</p>
+            </div>
           </div>
+          <Footer />
         </div>
-        <Footer />
-      </div>
+      </AppShell>
     );
   }
 
   if (!advisorData) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
-        <Header />
-        <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center", color: T.muted }}>
-          Advisor not found
+      <AppShell>
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
+          <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center", color: T.muted }}>
+            Advisor not found
+          </div>
+          <Footer />
         </div>
-        <Footer />
-      </div>
+      </AppShell>
     );
   }
 
@@ -720,9 +723,8 @@ export default function AdvisorProfilePage() {
   )}`;
 
   return (
+    <AppShell>
     <div className="advisor-detail-page" style={styles.container}>
-      <Header />
-
       <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
         <div
           style={{
@@ -886,5 +888,6 @@ export default function AdvisorProfilePage() {
 
       <Footer />
     </div>
+    </AppShell>
   );
 }

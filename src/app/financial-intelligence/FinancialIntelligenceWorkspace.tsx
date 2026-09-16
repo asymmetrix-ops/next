@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import type { FilterState } from "@/app/financials-tsx/types";
@@ -731,9 +731,11 @@ export function FinancialIntelligenceWorkspace({
   const showBenchmarkContent = target && !showBenchmarkSkeleton;
   const isRefreshingBenchmark = loading && peers.length > 0;
 
+  const Shell = embedded ? React.Fragment : AppShell;
+
   return (
+    <Shell>
     <div className="min-h-screen" style={{ background: "var(--ax-gray-50)", fontFamily: "var(--font-sans)" }}>
-      {!embedded && <Header />}
       <main
         style={
           embedded
@@ -1052,5 +1054,6 @@ export function FinancialIntelligenceWorkspace({
         </>
       )}
     </div>
+    </Shell>
   );
 }

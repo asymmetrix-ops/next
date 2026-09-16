@@ -8,7 +8,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { AlertCard } from "@/components/settings/AlertCard";
 import { EditAlertModal } from "@/components/settings/EditAlertModal";
 import { PlatformCurrencySettings } from "@/components/settings/PlatformCurrencySettings";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -145,8 +145,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
+    <AppShell>
+      <div className="min-h-screen bg-gray-50">
       <div className="max-w-[1080px] mx-auto px-4 py-8">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
@@ -310,7 +310,8 @@ export default function SettingsPage() {
           />
         )}
       </div>
-    </div>
+      </div>
+    </AppShell>
   );
 }
 

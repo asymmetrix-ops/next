@@ -223,6 +223,20 @@ export const finMetricValueStyle: React.CSSProperties = {
 /** CSS class for fin-metric value cells (page-level typography guard). */
 export const FIN_METRIC_VALUE_CLASS = "fin-metric-value";
 
+/** Text color for a fin-metric value, keyed off its data-source label (Public/Estimate/…). */
+export function finMetricValueColorForSource(source?: string): string {
+  switch ((source || "").trim().toLowerCase()) {
+    case "estimate":
+      return T.muted;
+    case "proprietary":
+    case "linkedin":
+      return T.body;
+    case "public":
+    default:
+      return T.ink;
+  }
+}
+
 /** Value column in Financial Metrics — centered under the period header. */
 export const finMetricValueColStyle: React.CSSProperties = {
   ...finMetricValueStyle,

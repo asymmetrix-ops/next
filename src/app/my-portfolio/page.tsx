@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import {
   type GlobalSearchResult,
   fetchGlobalSearchProgressive,
@@ -718,9 +718,8 @@ export default function MyPortfolioPage() {
       : allFollowedTotal ?? rows.length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
+    <AppShell>
+      <div className="min-h-screen bg-gray-50">
       {deletingPortfolio && (
         <DeleteListModal
           portfolio={deletingPortfolio}
@@ -1092,7 +1091,8 @@ export default function MyPortfolioPage() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </AppShell>
   );
 }
 

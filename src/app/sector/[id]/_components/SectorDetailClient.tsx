@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 // import Image from "next/image";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
 import { ScopedCorporateEventsPanel } from "@/components/corporate-events/ScopedCorporateEventsPanel";
@@ -1953,8 +1953,8 @@ const SectorDetailPage = ({
   // Only block rendering for critical errors (auth/not found)
   if (error) {
     return (
+      <AppShell>
       <div className="min-h-screen">
-        <Header />
         <div style={{ padding: "40px", textAlign: "center" }}>
           <div style={{ fontSize: "18px", color: "#e53e3e" }}>
             {error === "Authentication required" ? (
@@ -2018,6 +2018,7 @@ const SectorDetailPage = ({
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
@@ -2511,8 +2512,8 @@ const SectorDetailPage = ({
   };
 
   return (
+    <AppShell>
     <div style={{ minHeight: "100vh", background: TINT }}>
-      <Header />
       <div style={{ background: "#fff", borderBottom: `1px solid ${LINE}`, padding: "18px 20px 16px" }}>
         <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>
           <a href="/sectors" style={{ fontWeight: 600, color: BLUE_600, textDecoration: "none" }}>
@@ -2909,6 +2910,7 @@ const SectorDetailPage = ({
       />
       <Footer />
     </div>
+    </AppShell>
   );
 };
 

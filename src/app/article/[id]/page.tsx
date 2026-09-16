@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
@@ -1495,20 +1495,21 @@ const ArticleDetailPage = () => {
 
   if (loading) {
     return (
+      <AppShell>
       <div style={styles.container}>
-        <Header />
         <div style={styles.maxWidth}>
           <div style={styles.loading}>Loading article...</div>
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
   if (error) {
     return (
+      <AppShell>
       <div style={styles.container}>
-        <Header />
         <div style={styles.maxWidth}>
           <div style={styles.error}>
             {fromHome
@@ -1518,13 +1519,14 @@ const ArticleDetailPage = () => {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
   if (!article) {
     return (
+      <AppShell>
       <div style={styles.container}>
-        <Header />
         <div style={styles.maxWidth}>
           <div style={styles.error}>
             {fromHome
@@ -1534,6 +1536,7 @@ const ArticleDetailPage = () => {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
@@ -1568,8 +1571,8 @@ const ArticleDetailPage = () => {
   const latestCorrection = getLatestCorrection(contentArticle);
 
   return (
+    <AppShell>
     <div style={styles.container}>
-      <Header />
       <div style={styles.maxWidth}>
         <button onClick={handleBackClick} style={styles.backButton}>
           ← Back to Insights & Analysis
@@ -2999,6 +3002,7 @@ const ArticleDetailPage = () => {
         }}
       />
     </div>
+    </AppShell>
   );
 };
 

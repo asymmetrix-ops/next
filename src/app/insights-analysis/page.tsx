@@ -2,7 +2,7 @@
 
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
@@ -67,7 +67,6 @@ const DEFAULT_FILTERS: InsightsAnalysisFilters = {
   Cities: [],
   Offset: 1,
   Per_page: 20,
-  user_id: null,
   portfolio_only: false,
   company_id: null,
   // Off by default — this restricts results to the user's followed/portfolio
@@ -465,10 +464,10 @@ function InsightsAnalysisPageContent() {
       ...filters,
       Offset: 1,
       // Keep both flags in sync — the API reads `show_followed` to restrict
-      // results to followed/portfolio entities; `portfolio_only` mirrors it.
+      // results to followed/portfolio entities (resolved server-side from
+      // $auth.id, not a client-supplied user_id); `portfolio_only` mirrors it.
       portfolio_only: checked,
       show_followed: checked,
-      user_id: null,
     };
     setFilters(updated);
     fetchInsightsAnalysis(updated);
@@ -754,9 +753,9 @@ function InsightsAnalysisPageContent() {
   `;
 
   return (
+    <AppShell>
     <div className="min-h-screen" style={{ width: "100%", background: T.paper }}>
       <style dangerouslySetInnerHTML={{ __html: style }} />
-      <Header />
 
       <div className="ia-shell">
         {/* Title row */}
@@ -964,6 +963,7 @@ function InsightsAnalysisPageContent() {
 
       <Footer />
     </div>
+    </AppShell>
   );
 }
 
@@ -971,8 +971,8 @@ export default function InsightsAnalysisPage() {
   return (
     <Suspense
       fallback={
+        <AppShell>
         <div className="min-h-screen" style={{ width: "100%", maxWidth: "100vw" }}>
-          <Header />
           <div
             style={{
               padding: "32px 16px",
@@ -984,6 +984,7 @@ export default function InsightsAnalysisPage() {
           </div>
           <Footer />
         </div>
+        </AppShell>
       }
     >
       <InsightsAnalysisPageContent />

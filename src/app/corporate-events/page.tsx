@@ -6,7 +6,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
@@ -268,8 +268,8 @@ function CorporateEventsPageInner() {
   );
 
   return (
+    <AppShell>
     <div className="min-h-screen">
-      <Header />
       <CorporateEventsDashboard
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
@@ -303,6 +303,7 @@ function CorporateEventsPageInner() {
       />
       <Footer />
     </div>
+    </AppShell>
   );
 }
 

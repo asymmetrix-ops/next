@@ -76,6 +76,7 @@ interface InvestorColumnDefinition {
   label: string;
   wrap?: boolean;
   minWidth?: number;
+  maxWidth?: number;
 }
 
 const readInvestorValue = (
@@ -119,7 +120,7 @@ const formatTimeSinceLastInvestment = (investor: Investor): string => {
 };
 
 const ALL_INVESTOR_COLUMNS: InvestorColumnDefinition[] = [
-  { key: "name", label: "Name", minWidth: 220 },
+  { key: "name", label: "Name", minWidth: 220, maxWidth: 260 },
   { key: "type", label: "Type", minWidth: 140 },
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "portfolio_companies", label: "Current D&A Portfolio Companies", minWidth: 160 },
@@ -718,6 +719,7 @@ export const InvestorSection = ({
                     ])}
                     style={{
                       minWidth: column.minWidth,
+                      maxWidth: column.maxWidth,
                       ...getStickyColumnStyle(
                         column.key,
                         stickyColumnOffsets,
@@ -847,6 +849,7 @@ export const InvestorSection = ({
                       className={getSearchTableColumnClassName(column, frozenColumnKeys)}
                       style={{
                         minWidth: column.minWidth,
+                        maxWidth: column.maxWidth,
                         ...getStickyColumnStyle(
                           column.key,
                           stickyColumnOffsets,

@@ -7,7 +7,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { AdvisorDashboard } from "@/components/advisors/AdvisorDashboard";
 import {
@@ -289,8 +289,8 @@ function AdvisorsPageInner() {
   } = useEntitySelection(filtersKey);
 
   return (
+    <AppShell>
     <div className="min-h-screen">
-      <Header />
       <AdvisorDashboard
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
@@ -331,6 +331,7 @@ function AdvisorsPageInner() {
       />
       <Footer />
     </div>
+    </AppShell>
   );
 }
 

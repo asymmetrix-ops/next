@@ -2794,7 +2794,7 @@ export default function HomeUserPage() {
                                   fromNew ||
                                   (event.investment_data?.investment_amount_m &&
                                   event.investment_data?.currrency?.Currency
-                                    ? `${event.investment_data.currrency.Currency}${event.investment_data.investment_amount_m}`
+                                    ? `${event.investment_data.currrency.Currency} ${event.investment_data.investment_amount_m}m`
                                     : "");
 
                                 return amount || "Not Available";
@@ -2840,7 +2840,7 @@ export default function HomeUserPage() {
                                 const valuationFallback =
                                   event.ev_data?.enterprise_value_m &&
                                   event.ev_data?.Currency
-                                    ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
+                                    ? `${event.ev_data.Currency} ${event.ev_data.enterprise_value_m}m`
                                     : "";
                                 const valuation =
                                   valuationFromDetails || valuationFallback;
@@ -2985,9 +2985,9 @@ export default function HomeUserPage() {
                   <div className="hidden lg:block min-w-full">
                     <table className="dash-table w-full min-w-max table-fixed">
                       <colgroup>
-                        <col />
-                        <col style={{ width: "22%" }} />
-                        <col />
+                        <col style={leftNavOpen ? { width: "32%" } : undefined} />
+                        <col style={{ width: leftNavOpen ? "36%" : "22%" }} />
+                        <col style={leftNavOpen ? { width: "32%" } : undefined} />
                         {!leftNavOpen && <col />}
                       </colgroup>
                       <thead className="sticky top-0 z-10">
@@ -3380,10 +3380,10 @@ export default function HomeUserPage() {
                                     event.investment_data?.currrency?.Currency
                                       ? `${String(
                                           event.investment_data.currrency.Currency
-                                        )}${String(
+                                        )} ${String(
                                           event.investment_data
                                             .investment_amount_m
-                                        )}`
+                                        )}m`
                                       : "");
 
                                   const valuationFromDetails =
@@ -3393,7 +3393,7 @@ export default function HomeUserPage() {
                                   const valuationFallback =
                                     event.ev_data?.enterprise_value_m &&
                                     event.ev_data?.Currency
-                                      ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
+                                      ? `${event.ev_data.Currency} ${event.ev_data.enterprise_value_m}m`
                                       : "";
                                   const valuation =
                                     valuationFromDetails || valuationFallback;
@@ -3418,7 +3418,7 @@ export default function HomeUserPage() {
                                       )}
                                       {amount && (
                                         <div className="dash-ev-kv">
-                                          <strong>Amount</strong>{" "}
+                                          <strong>Amount (m)</strong>{" "}
                                           <span className="dash-ev-num">
                                             {amount}
                                           </span>
@@ -3426,7 +3426,7 @@ export default function HomeUserPage() {
                                       )}
                                       {valuation && (
                                         <div className="dash-ev-kv">
-                                          <strong>EV</strong>{" "}
+                                          <strong>EV (m)</strong>{" "}
                                           <span className="dash-ev-num">
                                             {valuation}
                                           </span>

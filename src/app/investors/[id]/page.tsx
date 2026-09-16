@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
 import {
@@ -1136,20 +1136,21 @@ const InvestorDetailPage = () => {
 
   if (loading) {
     return (
+      <AppShell>
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
-        <Header />
         <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center", color: T.muted }}>
           Loading investor data…
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
   if (error) {
     return (
+      <AppShell>
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
-        <Header />
         <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center" }}>
           <div style={{ textAlign: "center" }}>
             <h2 style={{ color: T.ink, fontFamily: T.sans }}>Error Loading Investor</h2>
@@ -1175,18 +1176,20 @@ const InvestorDetailPage = () => {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
   if (!investorData) {
     return (
+      <AppShell>
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
-        <Header />
         <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center", color: T.muted }}>
           Investor not found
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
@@ -1339,8 +1342,8 @@ const InvestorDetailPage = () => {
   `;
 
   return (
+    <AppShell>
     <div className="investor-detail-page" style={styles.container}>
-      <Header />
 
       <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
         <div
@@ -1695,6 +1698,7 @@ const InvestorDetailPage = () => {
 
       <Footer />
     </div>
+    </AppShell>
   );
 };
 
