@@ -8,7 +8,7 @@ import React, {
   useRef,
 } from "react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
@@ -310,8 +310,8 @@ function CompaniesPageInner() {
   } = useEntitySelection(filtersKey);
 
   return (
+    <AppShell>
     <div className="min-h-screen">
-      <Header />
       <CompanyDashboard
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
@@ -368,6 +368,7 @@ function CompaniesPageInner() {
       />
       {!isMcpGuest && <Footer />}
     </div>
+    </AppShell>
   );
 }
 

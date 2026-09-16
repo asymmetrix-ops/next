@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useState, useEffect, useRef, useMemo } from "react";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
 import { PlusIcon, BellIcon } from "@heroicons/react/24/outline";
@@ -126,6 +126,7 @@ export default function IndividualProfilePage() {
 
   if (loading) {
     return (
+      <AppShell>
       <div
         style={{
           minHeight: "100vh",
@@ -135,7 +136,6 @@ export default function IndividualProfilePage() {
           fontFamily: T.sans,
         }}
       >
-        <Header />
         <div
           style={{
             flex: 1,
@@ -149,11 +149,13 @@ export default function IndividualProfilePage() {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
   if (error) {
     return (
+      <AppShell>
       <div
         style={{
           minHeight: "100vh",
@@ -163,7 +165,6 @@ export default function IndividualProfilePage() {
           fontFamily: T.sans,
         }}
       >
-        <Header />
         <div
           style={{
             flex: 1,
@@ -177,11 +178,13 @@ export default function IndividualProfilePage() {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
   if (!profileData) {
     return (
+      <AppShell>
       <div
         style={{
           minHeight: "100vh",
@@ -191,7 +194,6 @@ export default function IndividualProfilePage() {
           fontFamily: T.sans,
         }}
       >
-        <Header />
         <div
           style={{
             flex: 1,
@@ -206,6 +208,7 @@ export default function IndividualProfilePage() {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
@@ -289,9 +292,8 @@ export default function IndividualProfilePage() {
   )}`;
 
   return (
+    <AppShell>
     <div className="individual-detail-page" style={styles.container}>
-      <Header />
-
       <div
         style={{
           backgroundColor: T.paper,
@@ -450,5 +452,6 @@ export default function IndividualProfilePage() {
 
       <Footer />
     </div>
+    </AppShell>
   );
 }

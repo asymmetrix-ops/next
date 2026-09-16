@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
 import { locationsService } from "@/lib/locationsService";
@@ -1487,8 +1487,8 @@ const SubSectorPage = () => {
   }, [activeTab, fetchInsights]);
 
   return (
+    <AppShell>
     <div className="min-h-screen bg-gradient-to-br to-blue-50 from-slate-50">
-      <Header />
       <header className="bg-white border-b shadow-sm border-slate-200/60">
         <div className="px-6 py-4 w-full">
           <div className="flex justify-between items-center">
@@ -1644,6 +1644,7 @@ const SubSectorPage = () => {
       </main>
       <Footer />
     </div>
+    </AppShell>
   );
 };
 

@@ -550,18 +550,6 @@ export function CompanyFinancialsSection({
         </div>
       ) : null}
 
-      {hasIncomeStatement && alignedIncomeStatementModel ? (
-        <IncomeStatementFinancialsCard
-          model={alignedIncomeStatementModel}
-          showYoyColumn={incomeStatementShowYoy}
-          reserveYoyColumn={
-            !incomeStatementUsesHistory && showTableYoyColumn
-          }
-          allowedSources={allowedSources}
-          currencyMode={currencyMode}
-        />
-      ) : null}
-
       {!hasMetrics
         ? null
         : model.cards.map((card) => (
@@ -575,6 +563,18 @@ export function CompanyFinancialsSection({
               currencyMode={currencyMode}
             />
           ))}
+
+      {hasIncomeStatement && alignedIncomeStatementModel ? (
+        <IncomeStatementFinancialsCard
+          model={alignedIncomeStatementModel}
+          showYoyColumn={incomeStatementShowYoy}
+          reserveYoyColumn={
+            !incomeStatementUsesHistory && showTableYoyColumn
+          }
+          allowedSources={allowedSources}
+          currencyMode={currencyMode}
+        />
+      ) : null}
     </div>
   );
 }

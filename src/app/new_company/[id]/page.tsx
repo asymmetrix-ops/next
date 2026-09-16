@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { EntityChip } from "@/components/ui/EntityChip";
 import { useParams } from "next/navigation";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
 import {
@@ -2211,8 +2211,8 @@ const CompanyDetail = () => {
 
   if (loading) {
     return (
+      <AppShell>
       <div className="min-h-screen">
-        <Header />
         <div style={{ padding: "40px", textAlign: "center" }}>
           <div style={{ fontSize: "18px", color: "#666" }}>
             Loading company data...
@@ -2223,13 +2223,14 @@ const CompanyDetail = () => {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
   if (error) {
     return (
+      <AppShell>
       <div className="min-h-screen">
-        <Header />
         <div style={{ padding: "40px", textAlign: "center" }}>
           <div style={{ fontSize: "18px", color: "#e53e3e" }}>
             {error === "Company not found" ? (
@@ -2274,6 +2275,7 @@ const CompanyDetail = () => {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
@@ -3523,8 +3525,8 @@ const CompanyDetail = () => {
   `;
 
   return (
+    <AppShell>
     <div className="company-detail-page" style={styles.container}>
-      <Header />
 
       {/* ── Company profile header bar ── */}
       <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
@@ -4446,6 +4448,7 @@ const CompanyDetail = () => {
       </main>
       <Footer />
     </div>
+    </AppShell>
   );
 };
 

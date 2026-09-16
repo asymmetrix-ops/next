@@ -18,7 +18,8 @@ export function revenueBracket(rev: number): { min: number; max: number } {
 }
 
 /**
- * Default peer-set filters: Region, Sector, Revenue bucket.
+ * Default peer-set filters: Sector, Revenue bucket.
+ * Region/geography is intentionally left unset (defaults to "All").
  * Derived from the target row (pure FE).
  */
 export function buildDefaultFilters(
@@ -26,11 +27,6 @@ export function buildDefaultFilters(
   args: FiDefaultFilterLookups
 ): FilterState[] {
   const filters: FilterState[] = [];
-
-  const region = (target.location_region || "").trim();
-  if (region) {
-    filters.push({ id: "region", value: [region] });
-  }
 
   const primaryNames =
     target.primary_sector_names?.filter((name) => name.trim()) ??

@@ -14,6 +14,7 @@ import {
   finMetricPeriodColStyle,
   FIN_METRIC_VALUE_CLASS,
   finMetricValueColStyle,
+  finMetricValueColorForSource,
   finMetricSourceColStyle,
   finMetricPeriodSourceColStyle,
   finMetricsContentXPad,
@@ -89,7 +90,13 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
       >
         {row.label}
       </span>
-      <span className={FIN_METRIC_VALUE_CLASS} style={finMetricValueColStyle}>
+      <span
+        className={FIN_METRIC_VALUE_CLASS}
+        style={{
+          ...finMetricValueColStyle,
+          color: finMetricValueColorForSource(row.source),
+        }}
+      >
         {row.value}
       </span>
       <span className="fin-metric-source-col" style={finMetricSourceColStyle}>

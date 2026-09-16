@@ -7,7 +7,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { FinancialScreenerDashboard } from "@/components/financial-screener/FinancialScreenerDashboard";
 import {
@@ -264,8 +264,8 @@ export default function FinancialsPage() {
   );
 
   return (
+    <AppShell>
     <div className="min-h-screen">
-      <Header />
       <FinancialScreenerDashboard
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
@@ -299,5 +299,6 @@ export default function FinancialsPage() {
       />
       <Footer />
     </div>
+    </AppShell>
   );
 }

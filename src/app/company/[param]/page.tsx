@@ -6,7 +6,7 @@ import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { readHqCountryIso2, COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { useParams } from "next/navigation";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
 import {
@@ -1333,7 +1333,7 @@ const CompanyDetail = () => {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [activeProfileTab, setActiveProfileTab] = useState<
     "Summary" | "Financials" | "Financial Intelligence"
-  >("Summary");
+  >("Financials");
   const [financialMetricsCardRows, setFinancialMetricsCardRows] = useState<
     CompanyFinancialMetricsCardRow[]
   >([]);
@@ -2430,8 +2430,8 @@ const CompanyDetail = () => {
 
   if (loading) {
     return (
+      <AppShell>
       <div className="min-h-screen">
-        <Header />
         <div style={{ padding: "40px", textAlign: "center" }}>
           <div style={{ fontSize: "18px", color: "#666" }}>
             Loading company data...
@@ -2442,13 +2442,14 @@ const CompanyDetail = () => {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
   if (error) {
     return (
+      <AppShell>
       <div className="min-h-screen">
-        <Header />
         <div style={{ padding: "40px", textAlign: "center" }}>
           <div style={{ fontSize: "18px", color: "#e53e3e" }}>
             {error === "Company not found" ? (
@@ -2493,6 +2494,7 @@ const CompanyDetail = () => {
         </div>
         <Footer />
       </div>
+      </AppShell>
     );
   }
 
@@ -3815,9 +3817,8 @@ const CompanyDetail = () => {
   `;
 
   return (
+    <AppShell>
     <div className="company-detail-page" style={styles.container}>
-      <Header />
-
       {/* ── Company profile header bar ── */}
       <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
         {/* Top row: logo + name + badges + actions */}
@@ -4783,6 +4784,7 @@ const CompanyDetail = () => {
       </main>
       <Footer />
     </div>
+    </AppShell>
   );
 };
 

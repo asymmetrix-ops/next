@@ -121,7 +121,6 @@ export interface InsightsAnalysisFilters {
   Cities: string[];
   Offset: number;
   Per_page: number;
-  user_id?: number | null;
   portfolio_only?: boolean;
   show_followed?: boolean;
   /** When set, filters articles to this company (Get_All_Content_Articles company_id). */

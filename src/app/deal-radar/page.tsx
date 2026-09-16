@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/Header";
+import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
 import {
@@ -556,8 +556,8 @@ export default function DealRadarDashboardPage() {
   const activeFilterCount = countActiveFilters(filters);
 
   return (
+    <AppShell>
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header />
       <main className="flex-1 w-full px-4 py-6 sm:px-6 lg:px-8">
         {/* Page header */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -1316,5 +1316,6 @@ export default function DealRadarDashboardPage() {
       </main>
       <Footer />
     </div>
+    </AppShell>
   );
 }
