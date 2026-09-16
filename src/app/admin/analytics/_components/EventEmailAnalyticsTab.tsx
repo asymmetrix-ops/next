@@ -3,16 +3,40 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BreakdownDonutChart } from "./analyticsCharts";
 import type {
+  BroadcastAudience,
   BroadcastDashboardListResponse,
   BroadcastDashboardPeriod,
   BroadcastDashboardSendRow,
   BroadcastDashboardSummary,
   BroadcastDashboardTab,
+  SummitLondon2026BroadcastAudience,
 } from "@/types/broadcast-analytics";
+import { SUMMIT_LONDON_2026_BROADCAST_CAMPAIGNS as CAMPAIGNS } from "@/types/broadcast-analytics";
 
-const DASHBOARD_BASE = "/api/admin/email-analytics/broadcast/dashboard";
 const DEFAULT_TIMEZONE = "Europe/London";
 const PAGE_SIZE = 50;
+
+const AUDIENCE_TABS: {
+  value: SummitLondon2026BroadcastAudience;
+  label: string;
+  sub: string;
+}[] = [
+  {
+    value: "clients",
+    label: CAMPAIGNS.clients.label,
+    sub: CAMPAIGNS.clients.description,
+  },
+  {
+    value: "open",
+    label: CAMPAIGNS.open.label,
+    sub: CAMPAIGNS.open.description,
+  },
+];
+
+function broadcastApiBase(audience: SummitLondon2026BroadcastAudience): string {
+  const campaignKey = CAMPAIGNS[audience].campaignKey;
+  return `/api/admin/email-analytics/broadcast/${campaignKey}`;
+}
 
 const PERIOD_OPTIONS: { value: BroadcastDashboardPeriod; label: string }[] = [
   { value: "today", label: "Today" },
@@ -80,6 +104,8 @@ function normalizeSummary(raw: unknown): BroadcastDashboardSummary | null {
     to_date: String(row.to_date ?? ""),
     period,
     search: String(row.search ?? ""),
+    audience: (row.audience as BroadcastAudience | undefined) ?? undefined,
+    campaign_key: row.campaign_key != null ? String(row.campaign_key) : undefined,
   };
 }
 
@@ -114,6 +140,8 @@ function normalizeListResponse(raw: unknown): BroadcastDashboardListResponse {
     limit: num(row.limit) || PAGE_SIZE,
     offset: num(row.offset),
     search: String(row.search ?? ""),
+    audience: (row.audience as BroadcastAudience | undefined) ?? undefined,
+    campaign_key: row.campaign_key != null ? String(row.campaign_key) : undefined,
     items,
   };
 }
@@ -162,6 +190,8 @@ function StatCard({
 }
 
 export function EventEmailAnalyticsTab() {
+  const [audience, setAudience] =
+    useState<SummitLondon2026BroadcastAudience>("clients");
   const [period, setPeriod] = useState<BroadcastDashboardPeriod>("30d");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -188,7 +218,9 @@ export function EventEmailAnalyticsTab() {
 
   useEffect(() => {
     setOffset(0);
-  }, [period, listTab]);
+  }, [period, listTab, audience]);
+
+  const apiBase = useMemo(() => broadcastApiBase(audience), [audience]);
 
   const queryBase = useMemo(
     () => ({
@@ -209,7 +241,7 @@ export function EventEmailAnalyticsTab() {
         limit: PAGE_SIZE,
         offset: 0,
       });
-      const res = await fetch(`${DASHBOARD_BASE}/summary?${params}`, {
+      const res = await fetch(`${apiBase}/summary?${params}`, {
         headers: authHeaders(),
       });
       if (!res.ok) {
@@ -225,14 +257,14 @@ export function EventEmailAnalyticsTab() {
     } finally {
       setSummaryLoading(false);
     }
-  }, [queryBase]);
+  }, [apiBase, queryBase]);
 
   const fetchList = useCallback(async () => {
     setListLoading(true);
     setListError(null);
     try {
       const params = dashboardQueryParams(queryBase);
-      const res = await fetch(`${DASHBOARD_BASE}/${listTab}?${params}`, {
+      const res = await fetch(`${apiBase}/${listTab}?${params}`, {
         headers: authHeaders(),
       });
       if (!res.ok) {
@@ -246,7 +278,7 @@ export function EventEmailAnalyticsTab() {
     } finally {
       setListLoading(false);
     }
-  }, [queryBase, listTab]);
+  }, [apiBase, queryBase, listTab]);
 
   useEffect(() => {
     fetchSummary();
@@ -297,6 +329,26 @@ export function EventEmailAnalyticsTab() {
 
   return (
     <div className="p-4 space-y-6">
+      <div className="border-b border-gray-200 flex flex-wrap gap-1 -mt-1 mb-2">
+        {AUDIENCE_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => setAudience(tab.value)}
+            className={`text-sm py-2 px-3 border-b-2 -mb-px text-left ${
+              audience === tab.value
+                ? "border-gray-900 text-gray-900 font-medium"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span className="block">{tab.label}</span>
+            <span className="block text-xs font-normal text-gray-400 mt-0.5">
+              {tab.sub}
+            </span>
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Period</label>
