@@ -56,3 +56,6 @@ export const SUMMIT_LONDON_2026_BROADCAST_CAMPAIGNS = {
 
 export type SummitLondon2026BroadcastAudience =
   keyof typeof SUMMIT_LONDON_2026_BROADCAST_CAMPAIGNS;
+
+/** Combined dashboard vs per-campaign audience tabs */
+export type EventEmailAnalyticsView = SummitLondon2026BroadcastAudience | "all";

@@ -9,15 +9,16 @@ import type {
   BroadcastDashboardSendRow,
   BroadcastDashboardSummary,
   BroadcastDashboardTab,
-  SummitLondon2026BroadcastAudience,
+  EventEmailAnalyticsView,
 } from "@/types/broadcast-analytics";
 import { SUMMIT_LONDON_2026_BROADCAST_CAMPAIGNS as CAMPAIGNS } from "@/types/broadcast-analytics";
 
 const DEFAULT_TIMEZONE = "Europe/London";
 const PAGE_SIZE = 50;
+const DASHBOARD_API_BASE = "/api/admin/email-analytics/broadcast/dashboard";
 
-const AUDIENCE_TABS: {
-  value: SummitLondon2026BroadcastAudience;
+const EVENT_EMAIL_VIEW_TABS: {
+  value: EventEmailAnalyticsView;
   label: string;
   sub: string;
 }[] = [
@@ -31,10 +32,16 @@ const AUDIENCE_TABS: {
     label: CAMPAIGNS.open.label,
     sub: CAMPAIGNS.open.description,
   },
+  {
+    value: "all",
+    label: "All event emails",
+    sub: "Combined totals across registration campaigns",
+  },
 ];
 
-function broadcastApiBase(audience: SummitLondon2026BroadcastAudience): string {
-  const campaignKey = CAMPAIGNS[audience].campaignKey;
+function eventEmailApiBase(view: EventEmailAnalyticsView): string {
+  if (view === "all") return DASHBOARD_API_BASE;
+  const campaignKey = CAMPAIGNS[view].campaignKey;
   return `/api/admin/email-analytics/broadcast/${campaignKey}`;
 }
 
@@ -190,8 +197,7 @@ function StatCard({
 }
 
 export function EventEmailAnalyticsTab() {
-  const [audience, setAudience] =
-    useState<SummitLondon2026BroadcastAudience>("clients");
+  const [view, setView] = useState<EventEmailAnalyticsView>("all");
   const [period, setPeriod] = useState<BroadcastDashboardPeriod>("30d");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -218,9 +224,9 @@ export function EventEmailAnalyticsTab() {
 
   useEffect(() => {
     setOffset(0);
-  }, [period, listTab, audience]);
+  }, [period, listTab, view]);
 
-  const apiBase = useMemo(() => broadcastApiBase(audience), [audience]);
+  const apiBase = useMemo(() => eventEmailApiBase(view), [view]);
 
   const queryBase = useMemo(
     () => ({
@@ -330,13 +336,13 @@ export function EventEmailAnalyticsTab() {
   return (
     <div className="p-4 space-y-6">
       <div className="border-b border-gray-200 flex flex-wrap gap-1 -mt-1 mb-2">
-        {AUDIENCE_TABS.map((tab) => (
+        {EVENT_EMAIL_VIEW_TABS.map((tab) => (
           <button
             key={tab.value}
             type="button"
-            onClick={() => setAudience(tab.value)}
+            onClick={() => setView(tab.value)}
             className={`text-sm py-2 px-3 border-b-2 -mb-px text-left ${
-              audience === tab.value
+              view === tab.value
                 ? "border-gray-900 text-gray-900 font-medium"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
