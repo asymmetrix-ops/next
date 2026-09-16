@@ -20,7 +20,6 @@ import Footer from "@/components/Footer";
 import DashboardLeftNav, {
   type DashboardNavCounts,
 } from "@/components/dashboard/DashboardLeftNav";
-import { fetchUserPortfolioRecord } from "@/lib/portfolioFollow";
 import AsymIQButton from "@/components/AsymIQButton";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
@@ -736,12 +735,6 @@ export default function HomeUserPage() {
   >(null);
   const [insightsTotalCount, setInsightsTotalCount] = useState<number | null>(
     null
-  );
-  const [followedCompanyIds, setFollowedCompanyIds] = useState<Set<number>>(
-    new Set()
-  );
-  const [newsTab, setNewsTab] = useState<"all" | "radar" | "portfolio">(
-    "all"
   );
   const [dealRadarLoading, setDealRadarLoading] = useState(true);
   const [dealRadarLoadingMore, setDealRadarLoadingMore] = useState(false);
@@ -1588,22 +1581,6 @@ export default function HomeUserPage() {
     };
   }, [authLoading, isAuthenticated]);
 
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-    let cancelled = false;
-    fetchUserPortfolioRecord()
-      .then((record) => {
-        if (cancelled) return;
-        setFollowedCompanyIds(new Set(record?.companies || []));
-      })
-      .catch(() => {
-        // Leave empty — the "My portfolio" news tab just shows nothing.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, isAuthenticated]);
-
   const getStatValue = (label: string): number | undefined => {
     const item = asymmetrixData.find((d) => d.label === label);
     if (!item) return undefined;
@@ -1629,26 +1606,12 @@ export default function HomeUserPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asymmetrixData, insightsTotalCount, dealRadarTotalCount]);
 
-  const dealRadarCompanyIdSet = useMemo(
-    () => new Set(dealRadarItems.map((i) => i.companyId).filter(Boolean)),
-    [dealRadarItems]
-  );
-
   const allNewsArticles = useMemo(
     () => insightsArticles.filter(isNewsArticle),
     [insightsArticles]
   );
 
-  const newsForTab = useMemo(() => {
-    if (newsTab === "all") return allNewsArticles;
-    const idSet =
-      newsTab === "radar" ? dealRadarCompanyIdSet : followedCompanyIds;
-    return allNewsArticles.filter((a) =>
-      (a.companies_mentioned || []).some((c) => idSet.has(c.id))
-    );
-  }, [allNewsArticles, newsTab, dealRadarCompanyIdSet, followedCompanyIds]);
-
-  const visibleNews = newsForTab.slice(0, 4);
+  const visibleNews = allNewsArticles.slice(0, 4);
 
   if (authLoading) {
     return (
@@ -1894,31 +1857,8 @@ export default function HomeUserPage() {
                 <span className="dash-card-title">News</span>
                 <span className="dash-eyebrow">Today</span>
               </div>
-              <div className="dash-news-tabs shrink-0">
-                <button
-                  type="button"
-                  className={newsTab === "all" ? "on" : ""}
-                  onClick={() => setNewsTab("all")}
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  className={newsTab === "radar" ? "on" : ""}
-                  onClick={() => setNewsTab("radar")}
-                >
-                  Radar companies
-                </button>
-                <button
-                  type="button"
-                  className={newsTab === "portfolio" ? "on" : ""}
-                  onClick={() => setNewsTab("portfolio")}
-                >
-                  My portfolio
-                </button>
-              </div>
               <span className="text-xs text-gray-500 ml-auto sm:ml-0">
-                {newsForTab.length} this week
+                {allNewsArticles.length} this week
               </span>
               <a href="/insights-analysis" className="dash-view-all px-3 py-1.5 text-xs whitespace-nowrap">
                 View all
@@ -3048,7 +2988,7 @@ export default function HomeUserPage() {
                         <col />
                         <col style={{ width: "22%" }} />
                         <col />
-                        <col />
+                        {!leftNavOpen && <col />}
                       </colgroup>
                       <thead className="sticky top-0 z-10">
                         <tr>
@@ -3061,9 +3001,11 @@ export default function HomeUserPage() {
                           <th className="px-4 py-4 text-left">
                             Deal Details
                           </th>
-                          <th className="px-4 py-4 text-left">
-                            Sectors
-                          </th>
+                          {!leftNavOpen && (
+                            <th className="px-4 py-4 text-left">
+                              Sectors
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-100">
@@ -3494,106 +3436,108 @@ export default function HomeUserPage() {
                                   );
                                 })()}
                               </td>
-                              <td className="px-4 py-4">
-                                {/* Sectors column */}
-                                {(() => {
-                                  const sectors = safeParseJson<{
-                                    Primary?: string[];
-                                    Secondary?: string[];
-                                  }>(ev.sectors);
+                              {!leftNavOpen && (
+                                <td className="px-4 py-4">
+                                  {/* Sectors column */}
+                                  {(() => {
+                                    const sectors = safeParseJson<{
+                                      Primary?: string[];
+                                      Secondary?: string[];
+                                    }>(ev.sectors);
 
-                                  const primaryNewArr = Array.isArray(sectors?.Primary)
-                                    ? (sectors!.Primary as string[]).filter(Boolean)
-                                    : [];
-                                  const secondaryNewArr = Array.isArray(sectors?.Secondary)
-                                    ? (sectors!.Secondary as string[]).filter(Boolean)
-                                    : [];
+                                    const primaryNewArr = Array.isArray(sectors?.Primary)
+                                      ? (sectors!.Primary as string[]).filter(Boolean)
+                                      : [];
+                                    const secondaryNewArr = Array.isArray(sectors?.Secondary)
+                                      ? (sectors!.Secondary as string[]).filter(Boolean)
+                                      : [];
 
-                                  const primaryRefs = parseSectorRefs(ev.primary);
-                                  const secondaryRefs = parseSectorRefs(ev.secondary);
+                                    const primaryRefs = parseSectorRefs(ev.primary);
+                                    const secondaryRefs = parseSectorRefs(ev.secondary);
 
-                                  const primaryFromNew = primaryNewArr.join(", ");
-                                  const secondaryFromNew = secondaryNewArr.slice(0, 3);
+                                    const primaryFromNew = primaryNewArr.join(", ");
+                                    const secondaryFromNew = secondaryNewArr.slice(0, 3);
 
-                                  const primary =
-                                    primaryFromNew ||
-                                    (primaryRefs.length > 0
-                                      ? primaryRefs.map((s) => s.name).join(", ")
-                                      : "") ||
-                                    getEventPrimarySectors(event);
-                                  const list =
-                                    event.Target_Counterparty?.new_company
-                                      ?._sectors_objects?.sectors_id || [];
-                                  const secondaryLegacy = list
-                                    .filter(
-                                      (sector) =>
-                                        sector &&
-                                        sector.Sector_importance !== "Primary"
-                                    )
-                                    .map((sector) => sector.sector_name)
-                                    .filter(Boolean)
-                                    .slice(0, 3);
-                                  const secondary =
-                                    secondaryFromNew.length > 0
-                                      ? secondaryFromNew
-                                      : secondaryRefs.length > 0
-                                      ? secondaryRefs.slice(0, 3).map((s) => s.name)
-                                      : secondaryLegacy;
-                                  return (
-                                    <div className="space-y-1">
-                                      {primary && primary !== "Not Available" && (
-                                        <div className="dash-ev-kv">
-                                          <strong>Primary:</strong>{" "}
-                                          {primaryRefs.length > 0
-                                            ? primaryRefs.map((s, idx, arr) => (
-                                                <span key={`primary-${s.id}`}>
-                                                  <a
-                                                    href={`/sector/${s.id}`}
-                                                    className="dash-ev-link"
-                                                  >
-                                                    {s.name}
-                                                  </a>
-                                                  {idx < arr.length - 1 && ", "}
-                                                </span>
-                                              ))
-                                            : primary.split(",").map((name, idx, arr) => {
-                                                const trimmed = name.trim();
-                                                return (
-                                                  <span key={`primary-${idx}`}>
-                                                    {trimmed}
+                                    const primary =
+                                      primaryFromNew ||
+                                      (primaryRefs.length > 0
+                                        ? primaryRefs.map((s) => s.name).join(", ")
+                                        : "") ||
+                                      getEventPrimarySectors(event);
+                                    const list =
+                                      event.Target_Counterparty?.new_company
+                                        ?._sectors_objects?.sectors_id || [];
+                                    const secondaryLegacy = list
+                                      .filter(
+                                        (sector) =>
+                                          sector &&
+                                          sector.Sector_importance !== "Primary"
+                                      )
+                                      .map((sector) => sector.sector_name)
+                                      .filter(Boolean)
+                                      .slice(0, 3);
+                                    const secondary =
+                                      secondaryFromNew.length > 0
+                                        ? secondaryFromNew
+                                        : secondaryRefs.length > 0
+                                        ? secondaryRefs.slice(0, 3).map((s) => s.name)
+                                        : secondaryLegacy;
+                                    return (
+                                      <div className="space-y-1">
+                                        {primary && primary !== "Not Available" && (
+                                          <div className="dash-ev-kv">
+                                            <strong>Primary:</strong>{" "}
+                                            {primaryRefs.length > 0
+                                              ? primaryRefs.map((s, idx, arr) => (
+                                                  <span key={`primary-${s.id}`}>
+                                                    <a
+                                                      href={`/sector/${s.id}`}
+                                                      className="dash-ev-link"
+                                                    >
+                                                      {s.name}
+                                                    </a>
                                                     {idx < arr.length - 1 && ", "}
                                                   </span>
-                                                );
-                                              })}
-                                        </div>
-                                      )}
-                                      {secondary.length > 0 && (
-                                        <div className="dash-ev-kv">
-                                          <strong>Secondary:</strong>{" "}
-                                          {secondaryRefs.length > 0
-                                            ? secondaryRefs.slice(0, 3).map((s, idx, arr) => (
-                                                <span key={`secondary-${s.id}`}>
-                                                  <a
-                                                    href={`/sub-sector/${s.id}`}
-                                                    className="dash-ev-link"
-                                                  >
-                                                    {s.name}
-                                                  </a>
-                                                  {idx < arr.length - 1 && ", "}
-                                                </span>
-                                              ))
-                                            : secondary.map((name, idx, arr) => (
-                                                <span key={`secondary-${idx}`}>
-                                                  {name}
-                                                  {idx < arr.length - 1 && ", "}
-                                                </span>
-                                              ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })()}
-                              </td>
+                                                ))
+                                              : primary.split(",").map((name, idx, arr) => {
+                                                  const trimmed = name.trim();
+                                                  return (
+                                                    <span key={`primary-${idx}`}>
+                                                      {trimmed}
+                                                      {idx < arr.length - 1 && ", "}
+                                                    </span>
+                                                  );
+                                                })}
+                                          </div>
+                                        )}
+                                        {secondary.length > 0 && (
+                                          <div className="dash-ev-kv">
+                                            <strong>Secondary:</strong>{" "}
+                                            {secondaryRefs.length > 0
+                                              ? secondaryRefs.slice(0, 3).map((s, idx, arr) => (
+                                                  <span key={`secondary-${s.id}`}>
+                                                    <a
+                                                      href={`/sub-sector/${s.id}`}
+                                                      className="dash-ev-link"
+                                                    >
+                                                      {s.name}
+                                                    </a>
+                                                    {idx < arr.length - 1 && ", "}
+                                                  </span>
+                                                ))
+                                              : secondary.map((name, idx, arr) => (
+                                                  <span key={`secondary-${idx}`}>
+                                                    {name}
+                                                    {idx < arr.length - 1 && ", "}
+                                                  </span>
+                                                ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                                </td>
+                              )}
                             </tr>
                           );
                         })}
