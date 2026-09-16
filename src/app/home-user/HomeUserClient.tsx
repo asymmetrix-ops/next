@@ -2002,7 +2002,7 @@ export default function HomeUserClient({
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 lg:items-start">
           {/* Deal Radar - last on mobile, first on lg+ */}
           <div
-            className="grid grid-rows-[auto_1fr] overflow-hidden bg-white rounded-lg shadow order-3 lg:order-1"
+            className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-white rounded-lg shadow order-3 lg:order-1"
             style={sideColumnHeightStyle}
           >
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4 shrink-0">
@@ -2041,7 +2041,7 @@ export default function HomeUserClient({
             </div>
             <div
               ref={dealRadarScrollRef}
-              className="min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
+              className="min-h-0 min-w-0 h-full overflow-y-auto overflow-x-hidden overscroll-y-contain"
             >
               {dealRadarLoading ? (
                 <div className="p-4 space-y-3">
@@ -2391,7 +2391,7 @@ export default function HomeUserClient({
 
           {/* Corporate Events - second on mobile */}
           <div
-            className="grid grid-rows-[auto_1fr] overflow-hidden bg-white rounded-lg shadow order-2 lg:order-3"
+            className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-white rounded-lg shadow order-2 lg:order-3"
             style={sideColumnHeightStyle}
           >
             <div className="flex items-center p-3 border-b border-gray-200 sm:p-4 shrink-0">
@@ -2423,7 +2423,7 @@ export default function HomeUserClient({
                 </a>
               </div>
             </div>
-            <div className="min-h-0 min-w-0 overflow-y-auto overflow-x-auto">
+            <div className="min-h-0 min-w-0 h-full overflow-y-auto overflow-x-auto overscroll-y-contain">
               {corporateEventsLoading ? (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">
