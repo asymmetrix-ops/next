@@ -1,28 +1,51 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import {
+  LONDON_2026_EVENT,
+  LONDON_2026_SCHEDULE,
+} from "@/lib/events/london-2026-calendar";
 
 export const metadata: Metadata = {
-  title: "You're confirmed | Asymmetrix Summit London 2026",
+  title: "Registration confirmed | Asymmetrix London Summit 2026",
   robots: { index: false, follow: false },
 };
 
+const sectionLabelStyle: React.CSSProperties = {
+  margin: "0 0 12px 0",
+  fontSize: "13px",
+  fontWeight: 600,
+  color: "#5A6272",
+  textTransform: "uppercase",
+  letterSpacing: "0.5px",
+};
+
+const bodyStyle: React.CSSProperties = {
+  fontSize: "16px",
+  lineHeight: "25px",
+  color: "#000B29",
+  margin: 0,
+};
+
 export default function PaymentSuccessPage() {
-  const eventTitle = "Asymmetrix Summit London 2026";
-  const venue = "Nobu Hotel London Portman Square";
-  const address = "22 Portman Square, London W1H 7BG";
-  const dateLabel = "Tuesday 3 November 2026";
+  const {
+    title: eventTitle,
+    venue,
+    address,
+    dateLabel,
+    startLocal: startISO,
+    endLocal: endISO,
+    description: eventDetails,
+    icsFilename,
+  } = LONDON_2026_EVENT;
 
-  // TODO(Ivan): confirm actual event start/end time — placeholder 09:00–18:00 UK
-  const startISO = "20261103T090000";
-  const endISO = "20261103T180000";
-
-  const eventDetails = "Your confirmed place at the Asymmetrix Summit London 2026.";
+  const locationLine = `${venue}, ${address}`;
+  const icsUrl = "/events/london-2026/calendar.ics";
 
   const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
     eventTitle
   )}&dates=${startISO}/${endISO}&details=${encodeURIComponent(
     eventDetails
-  )}&location=${encodeURIComponent(address)}&ctz=Europe/London`;
+  )}&location=${encodeURIComponent(locationLine)}&ctz=Europe/London`;
 
   const toDeeplinkDateTime = (dt: string) =>
     `${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)}T${dt.slice(
@@ -34,27 +57,8 @@ export default function PaymentSuccessPage() {
     eventTitle
   )}&startdt=${toDeeplinkDateTime(startISO)}&enddt=${toDeeplinkDateTime(
     endISO
-  )}&location=${encodeURIComponent(address)}&body=${encodeURIComponent(
+  )}&location=${encodeURIComponent(locationLine)}&body=${encodeURIComponent(
     eventDetails
-  )}`;
-
-  const mapsUrl = "https://maps.app.goo.gl/R6UJtqZYuSrAsUdg7";
-
-  const icsContent = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "BEGIN:VEVENT",
-    `DTSTART:${startISO}`,
-    `DTEND:${endISO}`,
-    `SUMMARY:${eventTitle}`,
-    `LOCATION:${address}`,
-    `DESCRIPTION:${eventDetails}`,
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ].join("\r\n");
-
-  const icsDataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(
-    icsContent
   )}`;
 
   return (
@@ -105,38 +109,17 @@ export default function PaymentSuccessPage() {
           </span>
         </div>
 
-        <h1
-          style={{
-            fontSize: "22px",
-            fontWeight: 600,
-            color: "#000B29",
-            margin: "0 0 12px 0",
-          }}
-        >
-          You&rsquo;re confirmed
-        </h1>
-        <p
-          style={{
-            fontSize: "16px",
-            lineHeight: "25px",
-            color: "#000B29",
-            margin: "0 0 8px 0",
-          }}
-        >
-          Payment received — your place at the {eventTitle} is booked.
+        <p style={{ ...bodyStyle, marginBottom: "12px" }}>
+          Thank you for registering for the {eventTitle}.
         </p>
-        <p
-          style={{
-            fontSize: "14px",
-            lineHeight: "22px",
-            color: "#5A6272",
-            margin: "0 0 28px 0",
-          }}
-        >
-          A confirmation email with your booking details will be sent to you
-          shortly.
+        <p style={{ ...bodyStyle, marginBottom: "28px" }}>
+          Your registration is now confirmed and we are looking forward to
+          welcoming you.
         </p>
 
+        <p style={{ ...sectionLabelStyle, marginBottom: "16px" }}>
+          Event details
+        </p>
         <div
           style={{
             background: "#F5F8FF",
@@ -148,7 +131,17 @@ export default function PaymentSuccessPage() {
         >
           <p
             style={{
-              margin: "0 0 4px 0",
+              margin: "0 0 8px 0",
+              fontSize: "15px",
+              fontWeight: 600,
+              color: "#000B29",
+            }}
+          >
+            {eventTitle}
+          </p>
+          <p
+            style={{
+              margin: "0 0 16px 0",
               fontSize: "15px",
               fontWeight: 600,
               color: "#000B29",
@@ -156,31 +149,39 @@ export default function PaymentSuccessPage() {
           >
             {dateLabel}
           </p>
-          <p style={{ margin: 0, fontSize: "14px", color: "#5A6272" }}>
+          <ul
+            style={{
+              margin: "0 0 16px 0",
+              padding: "0 0 0 18px",
+              fontSize: "14px",
+              lineHeight: "22px",
+              color: "#5A6272",
+            }}
+          >
+            {LONDON_2026_SCHEDULE.map((item) => (
+              <li key={item.time} style={{ marginBottom: "4px" }}>
+                <span style={{ fontWeight: 600, color: "#000B29" }}>
+                  {item.time}
+                </span>
+                {" — "}
+                {item.label}
+              </li>
+            ))}
+          </ul>
+          <p style={{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#5A6272" }}>
             {venue}
             <br />
             {address}
           </p>
         </div>
 
-        <p
-          style={{
-            margin: "0 0 12px 0",
-            fontSize: "13px",
-            fontWeight: 600,
-            color: "#5A6272",
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-          }}
-        >
-          Add to calendar
-        </p>
+        <p style={sectionLabelStyle}>Add to calendar</p>
         <div
           style={{
             display: "flex",
             gap: "12px",
             flexWrap: "wrap",
-            marginBottom: "20px",
+            marginBottom: "28px",
           }}
         >
           <a
@@ -202,8 +203,8 @@ export default function PaymentSuccessPage() {
             Google Calendar
           </a>
           <a
-            href={icsDataUrl}
-            download="asymmetrix-summit-london-2026.ics"
+            href={icsUrl}
+            download={icsFilename}
             style={{
               display: "inline-block",
               padding: "13px 24px",
@@ -236,28 +237,37 @@ export default function PaymentSuccessPage() {
           </a>
         </div>
 
-        <a
-          href={mapsUrl}
-          target="_blank"
-          rel="noreferrer"
+        <p
           style={{
-            display: "inline-block",
             fontSize: "14px",
-            fontWeight: 600,
-            color: "#1138D4",
-            textDecoration: "none",
-            marginBottom: "28px",
+            lineHeight: "22px",
+            color: "#5A6272",
+            margin: "0 0 24px 0",
           }}
         >
-          Get directions →
-        </a>
-
-        <p style={{ fontSize: "14px", lineHeight: "22px", color: "#5A6272", margin: 0 }}>
-          Any questions, reach us at{" "}
-          <a href="mailto:events@asymmetrixintelligence.com" style={{ color: "#1138D4" }}>
+          We&rsquo;ll be in touch with further details in due course. If you have
+          any questions in the meantime, please feel free to reach out to our
+          team at{" "}
+          <a
+            href="mailto:events@asymmetrixintelligence.com"
+            style={{ color: "#1138D4" }}
+          >
             events@asymmetrixintelligence.com
           </a>
           .
+        </p>
+
+        <p
+          style={{
+            fontSize: "14px",
+            lineHeight: "22px",
+            color: "#5A6272",
+            margin: 0,
+          }}
+        >
+          Kind regards,
+          <br />
+          Asymmetrix team
         </p>
       </div>
     </div>
