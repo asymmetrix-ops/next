@@ -5,7 +5,6 @@ import {
   Fragment,
   useState,
   useEffect,
-  useLayoutEffect,
   useCallback,
   useMemo,
   useRef,
@@ -16,7 +15,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
 import { trackEvent, trackLogout } from "@/lib/tracking";
-import Footer from "@/components/Footer";
 import DashboardLeftNav, {
   type DashboardNavCounts,
 } from "@/components/dashboard/DashboardLeftNav";
@@ -744,8 +742,6 @@ export default function HomeUserPage() {
   const dealRadarNextOffsetRef = useRef<number | null>(null);
   const dealRadarLoadingMoreRef = useRef(false);
   const dealRadarLoadedOffsetsRef = useRef<Set<number>>(new Set());
-  const insightsCardRef = useRef<HTMLDivElement | null>(null);
-  const [sideColumnHeight, setSideColumnHeight] = useState<number | null>(null);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
@@ -1326,7 +1322,6 @@ export default function HomeUserPage() {
   const tryLoadMoreDealRadarIfNearBottom = useCallback(() => {
     if (
       dealRadarLoading ||
-      sideColumnHeight == null ||
       dealRadarNextOffsetRef.current == null ||
       dealRadarLoadingMoreRef.current
     ) {
@@ -1335,12 +1330,7 @@ export default function HomeUserPage() {
     if (isDealRadarNearBottom()) {
       void loadMoreDealRadar();
     }
-  }, [
-    dealRadarLoading,
-    isDealRadarNearBottom,
-    loadMoreDealRadar,
-    sideColumnHeight,
-  ]);
+  }, [dealRadarLoading, isDealRadarNearBottom, loadMoreDealRadar]);
 
   const scheduleDealRadarScrollCheck = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -1448,69 +1438,12 @@ export default function HomeUserPage() {
     fetchDealRadar();
   }, [authLoading, isAuthenticated, fetchDealRadar]);
 
-  // I&A sets the row height; Deal Radar + CE match it and scroll inside.
-  const syncInsightsColumnHeight = useCallback(() => {
-    const el = insightsCardRef.current;
-    if (!el) return;
-    const h = Math.round(el.offsetHeight);
-    if (h > 0) {
-      setSideColumnHeight((prev) => (prev === h ? prev : h));
-    }
-  }, []);
-
-  useLayoutEffect(() => {
-    if (insightsArticlesLoading) return;
-    syncInsightsColumnHeight();
-    const raf = requestAnimationFrame(syncInsightsColumnHeight);
-    const el = insightsCardRef.current;
-    if (!el) return () => cancelAnimationFrame(raf);
-
-    const ro = new ResizeObserver(syncInsightsColumnHeight);
-    ro.observe(el);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
-  }, [
-    insightsArticlesLoading,
-    insightsArticles.length,
-    dealRadarLoading,
-    corporateEventsLoading,
-    syncInsightsColumnHeight,
-  ]);
-
-  // Re-sync after side columns paint so height stays locked to I&A.
-  useLayoutEffect(() => {
-    if (
-      insightsArticlesLoading ||
-      dealRadarLoading ||
-      corporateEventsLoading
-    ) {
-      return;
-    }
-    syncInsightsColumnHeight();
-  }, [
-    dealRadarLoading,
-    dealRadarItems.length,
-    corporateEventsLoading,
-    corporateEvents.length,
-    insightsArticlesLoading,
-    syncInsightsColumnHeight,
-  ]);
-
-  const sideColumnHeightStyle: React.CSSProperties | undefined =
-    sideColumnHeight != null
-      ? {
-          height: sideColumnHeight,
-          maxHeight: sideColumnHeight,
-          minHeight: sideColumnHeight,
-        }
-      : undefined;
-
+  // All 3 columns fill the same CSS-grid row (bounded by the flex-1 min-h-0
+  // row inside the h-screen shell) and scroll their own content internally —
+  // no JS height measurement needed now that the shell itself is fixed-height.
   useEffect(() => {
     const scrollRoot = dealRadarScrollRef.current;
-    // Only paginate inside the fixed-height scroll area (never while unconstrained).
-    if (!scrollRoot || dealRadarLoading || sideColumnHeight == null) {
+    if (!scrollRoot || dealRadarLoading) {
       return;
     }
 
@@ -1527,7 +1460,6 @@ export default function HomeUserPage() {
     dealRadarLoadingMore,
     dealRadarNextOffset,
     scheduleDealRadarScrollCheck,
-    sideColumnHeight,
     tryLoadMoreDealRadarIfNearBottom,
   ]);
 
@@ -1663,22 +1595,23 @@ export default function HomeUserPage() {
   };
 
   return (
-    <div className="dash min-h-screen flex">
+    <div className="dash h-screen overflow-hidden flex">
       <DashboardLeftNav
         open={leftNavOpen}
         onToggleOpen={() => setLeftNavOpen((v) => !v)}
         counts={leftNavCounts}
+        userName={user?.name}
         onLogout={handleDashboardLogout}
       />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 h-full overflow-hidden">
       {/* Main Content */}
       <main
-        className="px-2 py-4 mx-auto w-full sm:px-4 sm:py-8"
+        className="h-full flex flex-col px-2 py-4 mx-auto w-full sm:px-4 sm:py-8"
         style={{ position: "relative" }}
         onClickCapture={handleClickCapture}
       >
         {isTrialActive && (
-          <div className="px-4 py-3 mb-4 text-yellow-900 bg-yellow-50 rounded-lg border border-yellow-300 sm:mb-6">
+          <div className="shrink-0 px-4 py-3 mb-4 text-yellow-900 bg-yellow-50 rounded-lg border border-yellow-300 sm:mb-6">
             <div className="font-semibold">Trial access</div>
             <div className="text-sm">
               You have limited navigation.{" "}
@@ -1690,7 +1623,7 @@ export default function HomeUserPage() {
           </div>
         )}
         {/* Dashboard Subheader */}
-        <div className="dash-searchrow flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
+        <div className="dash-searchrow shrink-0 flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
           <div
             ref={searchWrapRef}
             className={`dash-searchwrap relative w-full min-w-0 rounded-full border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
@@ -1843,7 +1776,7 @@ export default function HomeUserPage() {
         </div>
 
         {!isTrialActive && (
-          <div className="dash-card mb-4 sm:mb-6 overflow-hidden">
+          <div className="dash-card shrink-0 mb-4 sm:mb-6 overflow-hidden">
             <div className="dash-card-header flex flex-wrap items-center gap-3 p-3 sm:p-4">
               <div className="flex items-center gap-3 min-w-0">
                 <span className="dash-card-icon flex items-center justify-center w-7 h-7 shrink-0">
@@ -2111,11 +2044,10 @@ export default function HomeUserPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 lg:items-start">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 flex-1 min-h-0">
           {/* Deal Radar - last on mobile, last on lg+ */}
           <div
-            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden order-3 lg:order-3"
-            style={sideColumnHeightStyle}
+            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-3 lg:order-3"
           >
             <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
@@ -2341,10 +2273,9 @@ export default function HomeUserPage() {
 
           {/* Insights & Analysis - first on mobile */}
           <div
-            ref={insightsCardRef}
-            className="dash-card flex flex-col order-1 lg:order-2"
+            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-1 lg:order-2"
           >
-            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4">
+            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <a
                   href="/insights-analysis"
@@ -2361,7 +2292,7 @@ export default function HomeUserPage() {
                 View all
               </a>
             </div>
-            <div className="p-3 sm:p-4">
+            <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-4">
               {insightsArticlesLoading ? (
                 <div className="py-6 text-center sm:py-8">
                   <p className="text-sm text-gray-500">
@@ -2480,8 +2411,7 @@ export default function HomeUserPage() {
 
           {/* Corporate Events - second on mobile, first on lg+ */}
           <div
-            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden order-2 lg:order-1"
-            style={sideColumnHeightStyle}
+            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-2 lg:order-1"
           >
             <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
@@ -3556,7 +3486,6 @@ export default function HomeUserPage() {
           </div>
         </div>
       </main>
-      <Footer />
       </div>
     </div>
   );
