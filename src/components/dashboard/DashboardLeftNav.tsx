@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { getInitials } from "@/lib/userDisplay";
 import {
   Bars3Icon,
   HomeIcon,
@@ -58,16 +59,18 @@ export default function DashboardLeftNav({
   open,
   onToggleOpen,
   counts,
+  userName,
   onLogout,
 }: {
   open: boolean;
   onToggleOpen: () => void;
   counts: DashboardNavCounts;
+  userName?: string | null;
   onLogout: () => void;
 }) {
   return (
     <aside
-      className={`dash-leftnav sticky top-0 h-screen shrink-0 flex flex-col border-r border-gray-200 bg-white transition-[width] duration-200 ease-out ${
+      className={`dash-leftnav h-full shrink-0 flex flex-col border-r border-gray-200 bg-white transition-[width] duration-200 ease-out ${
         open ? "w-[240px]" : "w-[64px]"
       }`}
     >
@@ -129,6 +132,14 @@ export default function DashboardLeftNav({
           className="flex items-center justify-center w-9 h-9 rounded-full text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors shrink-0"
         >
           <Cog6ToothIcon className="w-[18px] h-[18px]" />
+        </Link>
+        <Link
+          href="/my-info"
+          title="Your info"
+          aria-label="Your info"
+          className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0 hover:bg-blue-700 transition-colors"
+        >
+          {getInitials(userName)}
         </Link>
         {open && (
           <button
