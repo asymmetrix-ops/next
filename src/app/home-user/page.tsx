@@ -1788,7 +1788,6 @@ export default function HomeUserPage() {
                   </svg>
                 </span>
                 <span className="dash-card-title">News</span>
-                <span className="dash-eyebrow">Today</span>
               </div>
               <span className="text-xs text-gray-500 ml-auto sm:ml-0">
                 {allNewsArticles.length} this week

@@ -717,6 +717,37 @@ export default function MyPortfolioPage() {
       ? rows.length
       : allFollowedTotal ?? rows.length;
 
+  // ---- Which lists each followed entity belongs to (for the "Lists" column) ----
+  const listsByEntityKey = useMemo(() => {
+    const map = new Map<string, string[]>();
+    const addAll = (ids: number[], entityType: string, label: string) => {
+      for (const id of ids) {
+        const key = entityResultKey(entityType, id);
+        const existing = map.get(key);
+        if (existing) existing.push(label);
+        else map.set(key, [label]);
+      }
+    };
+    for (const p of namedPortfolios) {
+      const label = getDisplayLabel(p);
+      addAll(p.followed_companies, "company", label);
+      addAll(p.followed_advisors, "advisor", label);
+      addAll(p.followed_investors, "investor", label);
+      addAll(p.followed_sectors, "sector", label);
+      addAll(p.followed_individuals, "individual", label);
+    }
+    return map;
+  }, [namedPortfolios]);
+
+  const getListLabelsForRow = useCallback(
+    (row: PortfolioEntityRow): string[] => {
+      const entityType = getEntityTypeFromRowEntity(String(row.entity));
+      if (!entityType) return [];
+      return listsByEntityKey.get(entityResultKey(entityType, row.id)) ?? [];
+    },
+    [listsByEntityKey]
+  );
+
   return (
     <AppShell>
       <div className="min-h-screen bg-gray-50">
@@ -866,123 +897,8 @@ export default function MyPortfolioPage() {
           </div>
         )}
 
-        {/* Search Portfolio Section */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {activeTabId === ALL_FOLLOWED_TAB
-                ? "Search Portfolio"
-                : `Search in "${activePortfolio ? getDisplayLabel(activePortfolio) : ""}"`}
-            </h2>
-            <span className="text-sm text-gray-500">
-              {loading
-                ? "Loading…"
-                : `${filteredRows.length} ${filteredRows.length === 1 ? "result" : "results"}`}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-                <input
-                  value={portfolioSearch}
-                  onChange={(e) => setPortfolioSearch(e.target.value)}
-                  placeholder="Search your followed entities..."
-                  className="w-full rounded-full border border-gray-300 pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Entity Type</label>
-              <select
-                value={portfolioEntityType}
-                onChange={(e) => setPortfolioEntityType(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
-              >
-                {ENTITY_TYPE_FILTER_OPTIONS.map((opt) => (
-                  <option key={opt.value || "all"} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4">
-              <p className="font-semibold">Error</p>
-              <p>{error}</p>
-            </div>
-          )}
-
-          {loading ? (
-            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
-              Loading…
-            </div>
-          ) : filteredRows.length > 0 ? (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Type</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredRows.map((r, idx) => {
-                    const href = getEntityHref(r);
-                    const unfollowKey = `${r.entity}-${r.id}`;
-                    const isUnfollowing = unfollowingId === unfollowKey;
-                    return (
-                      <tr key={`${r.entity}:${r.id}:${idx}`} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3">
-                          {href ? (
-                            <Link href={href} className="font-medium text-blue-600 hover:text-blue-700 hover:underline underline-offset-2">
-                              {r.name}
-                            </Link>
-                          ) : (
-                            <span className="font-medium text-gray-900">{r.name}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(String(r.entity))}`}>
-                            {getEntityIcon(String(r.entity))}
-                            {formatEntityType(String(r.entity))}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isUnfollowing}
-                            onClick={() => handleUnfollow(r)}
-                          >
-                            {isUnfollowing ? "Removing…" : "Unfollow"}
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
-              {activeTabId !== ALL_FOLLOWED_TAB && activePortfolio
-                ? getTabCount(activePortfolio) === 0
-                  ? "This portfolio has no entities yet."
-                  : "No entities match your current filters."
-                : rows.length === 0
-                ? "No followed entities found."
-                : "No entities match the selected filter."}
-              {portfolioSearch && " Try adjusting your search criteria."}
-            </div>
-          )}
-        </div>
-
         {/* Follow More Entities Section */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Follow More Entities</h2>
             {effectiveFollowSearch.length >= 2 && !searchLoading && (
@@ -1087,6 +1003,139 @@ export default function MyPortfolioPage() {
             <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
               No entities found.
               {followSearch && " Try adjusting your search criteria."}
+            </div>
+          )}
+        </div>
+
+        {/* Search Portfolio Section */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {activeTabId === ALL_FOLLOWED_TAB
+                ? "Search Portfolio"
+                : `Search in "${activePortfolio ? getDisplayLabel(activePortfolio) : ""}"`}
+            </h2>
+            <span className="text-sm text-gray-500">
+              {loading
+                ? "Loading…"
+                : `${filteredRows.length} ${filteredRows.length === 1 ? "result" : "results"}`}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                <input
+                  value={portfolioSearch}
+                  onChange={(e) => setPortfolioSearch(e.target.value)}
+                  placeholder="Search your followed entities..."
+                  className="w-full rounded-full border border-gray-300 pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Entity Type</label>
+              <select
+                value={portfolioEntityType}
+                onChange={(e) => setPortfolioEntityType(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
+              >
+                {ENTITY_TYPE_FILTER_OPTIONS.map((opt) => (
+                  <option key={opt.value || "all"} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4">
+              <p className="font-semibold">Error</p>
+              <p>{error}</p>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+              Loading…
+            </div>
+          ) : filteredRows.length > 0 ? (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Type</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700">List</th>
+                    <th className="text-right px-4 py-3 font-medium text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredRows.map((r, idx) => {
+                    const href = getEntityHref(r);
+                    const unfollowKey = `${r.entity}-${r.id}`;
+                    const isUnfollowing = unfollowingId === unfollowKey;
+                    const listLabels = getListLabelsForRow(r);
+                    return (
+                      <tr key={`${r.entity}:${r.id}:${idx}`} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3">
+                          {href ? (
+                            <Link href={href} className="font-medium text-blue-600 hover:text-blue-700 hover:underline underline-offset-2">
+                              {r.name}
+                            </Link>
+                          ) : (
+                            <span className="font-medium text-gray-900">{r.name}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(String(r.entity))}`}>
+                            {getEntityIcon(String(r.entity))}
+                            {formatEntityType(String(r.entity))}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {listLabels.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {listLabels.map((label) => (
+                                <span
+                                  key={label}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200"
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isUnfollowing}
+                            onClick={() => handleUnfollow(r)}
+                          >
+                            {isUnfollowing ? "Removing…" : "Unfollow"}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+              {activeTabId !== ALL_FOLLOWED_TAB && activePortfolio
+                ? getTabCount(activePortfolio) === 0
+                  ? "This portfolio has no entities yet."
+                  : "No entities match your current filters."
+                : rows.length === 0
+                ? "No followed entities found."
+                : "No entities match the selected filter."}
+              {portfolioSearch && " Try adjusting your search criteria."}
             </div>
           )}
         </div>

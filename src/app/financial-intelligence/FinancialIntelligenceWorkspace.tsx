@@ -926,7 +926,7 @@ export function FinancialIntelligenceWorkspace({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) 280px",
+                gridTemplateColumns: "minmax(0, 1fr) minmax(300px, 380px)",
                 gap: 12,
                 alignItems: "stretch",
                 marginBottom: 16,
