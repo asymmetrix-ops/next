@@ -9,6 +9,8 @@ export const LONDON_2026_EVENT = {
   title: "Asymmetrix London Summit 2026",
   venue: "Nobu Hotel London",
   address: "22 Portman Square, London W1H 7BG",
+  directionsUrl:
+    "https://www.google.com/maps/place/Nobu+Hotel+London+Portman+Square/@51.5161336,-0.1605545,17z/data=!3m2!4b1!5s0x48761acc97fcc2e1:0xd89f2e83c750c735!4m9!3m8!1s0x48761b72fce172d5:0xb71885cd632c60b8!5m2!4m1!1i2!8m2!3d51.5161336!4d-0.1579796!16s%2Fg%2F11h_9w64hd?entry=ttu",
   dateLabel: "Tuesday 3rd November 2026",
   /** Full-day block for calendar entries (registration through closing reception) */
   startLocal: "20261103T090000",

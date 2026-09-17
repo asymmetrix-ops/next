@@ -36,6 +36,7 @@ export default function PaymentSuccessPage() {
     endLocal: endISO,
     description: eventDetails,
     icsFilename,
+    directionsUrl,
   } = LONDON_2026_EVENT;
 
   const locationLine = `${venue}, ${address}`;
@@ -168,11 +169,40 @@ export default function PaymentSuccessPage() {
               </li>
             ))}
           </ul>
-          <p style={{ margin: 0, fontSize: "14px", lineHeight: "22px", color: "#5A6272" }}>
-            {venue}
+          <a
+            href={directionsUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "block",
+              margin: 0,
+              fontSize: "14px",
+              lineHeight: "22px",
+              color: "#5A6272",
+              textDecoration: "none",
+              cursor: "pointer",
+            }}
+          >
+            <span style={{ color: "#000B29", fontWeight: 600 }}>{venue}</span>
             <br />
             {address}
-          </p>
+          </a>
+          <a
+            href={directionsUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "inline-block",
+              marginTop: "12px",
+              fontSize: "14px",
+              fontWeight: 600,
+              color: "#1138D4",
+              textDecoration: "none",
+              cursor: "pointer",
+            }}
+          >
+            Get directions →
+          </a>
         </div>
 
         <p style={sectionLabelStyle}>Add to calendar</p>
