@@ -87,7 +87,7 @@ interface CorporateEventColumnDefinition {
 }
 
 const ALL_CORPORATE_EVENT_COLUMNS: CorporateEventColumnDefinition[] = [
-  { key: "description", label: "Event", minWidth: 220 },
+  { key: "description", label: "Event", wrap: true, minWidth: 220 },
   { key: "announcement_date", label: "Date", minWidth: 130 },
   { key: "target", label: "Target", minWidth: 160 },
   { key: "target_hq", label: "Target HQ", minWidth: 120 },
@@ -675,7 +675,7 @@ export const CorporateEventsSearchSection = ({
   }
 
   return (
-    <div className={sectionClassName}>
+    <div className={`${sectionClassName} ce-search-table`}>
       <div className="company-table-scroll">
         <table className="company-table">
           <thead>
@@ -818,6 +818,21 @@ export const CorporateEventsSearchSection = ({
       />
       {columnsModalLayer}
       <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
+      {/* Clamp every wrap-enabled cell (Event, Parties, Advisors, Sectors…) to
+          2 lines so row height stays consistent regardless of how much a
+          given cell would otherwise wrap to. */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .ce-search-table .company-table-cell-wrap {
+              display: -webkit-box;
+              -webkit-line-clamp: 2;
+              -webkit-box-orient: vertical;
+              overflow: hidden;
+            }
+          `,
+        }}
+      />
     </div>
   );
 };

@@ -52,7 +52,7 @@ export function PeerCompaniesCard({
         // Cap the card's height independently of the (often much taller)
         // financial metrics table it sits next to — beyond this, the peers
         // list scrolls internally instead of stretching the whole card.
-        maxHeight: 640,
+        maxHeight: "min(80vh, 900px)",
         minHeight: 0,
         display: "flex",
         flexDirection: "column",
@@ -131,7 +131,17 @@ export function PeerCompaniesCard({
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflow: "auto",
+          display: peers.length === 0 ? undefined : "grid",
+          gridTemplateColumns:
+            peers.length === 0 ? undefined : "repeat(auto-fill, minmax(190px, 1fr))",
+          alignItems: "start",
+        }}
+      >
         {peers.length === 0 ? (
           <div style={{ padding: 12, color: "var(--fg-3)", fontSize: 12 }}>
             No peers in the current benchmark set.

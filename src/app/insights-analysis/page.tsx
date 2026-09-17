@@ -77,6 +77,14 @@ const DEFAULT_FILTERS: InsightsAnalysisFilters = {
 
 const PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
+// DEV still returns the deprecated `totalItems` field on some builds instead
+// of `itemsTotal` — fall back so pagination doesn't crash on `undefined`.
+function getItemsTotal(json: InsightsAnalysisResponse): number {
+  if (typeof json.itemsTotal === "number") return json.itemsTotal;
+  if (typeof json.totalItems === "number") return json.totalItems;
+  return 0;
+}
+
 function parseCompanyIdFromParam(value: string | null): number | null {
   if (!value) return null;
   const parsed = Number(value);
@@ -250,7 +258,7 @@ function InsightsAnalysisPageContent() {
       setArticles(normalizeContentArticles(data.items || []));
       setPagination({
         itemsReceived: data.itemsReceived,
-        itemsTotal: data.itemsTotal,
+        itemsTotal: getItemsTotal(data),
         curPage: data.curPage,
         nextPage: data.nextPage,
         prevPage: data.prevPage,
@@ -356,6 +364,11 @@ function InsightsAnalysisPageContent() {
     if (contentTypes.length === 0) return;
 
     let cancelled = false;
+    // Abort the in-flight fan-out when filters change again before it
+    // resolves — without this, rapid filter changes (e.g. checking several
+    // sectors in a row) pile up N+1 requests per change instead of
+    // superseding the previous batch.
+    const ac = new AbortController();
 
     const run = async () => {
       const token = localStorage.getItem("asymmetrix_auth_token");
@@ -376,12 +389,16 @@ function InsightsAnalysisPageContent() {
           const res = await fetch(`${CONTENT_ARTICLES_URL}?${params.toString()}`, {
             method: "GET",
             headers,
+            signal: ac.signal,
           });
           if (!res.ok) return null;
           const json: InsightsAnalysisResponse = await res.json();
           // `itemsReceived` is always 1 here (Per_page: 1) — read the real
           // total-match field instead.
-          return typeof json.itemsTotal === "number" ? json.itemsTotal : null;
+          if (typeof json.itemsTotal !== "number" && typeof json.totalItems !== "number") {
+            return null;
+          }
+          return getItemsTotal(json);
         } catch {
           return null;
         }
@@ -404,9 +421,14 @@ function InsightsAnalysisPageContent() {
       }
     };
 
-    run();
+    // Small debounce so a burst of filter changes (e.g. toggling several
+    // sector checkboxes) collapses into a single fan-out instead of one
+    // full batch of N+1 requests per change.
+    const t = window.setTimeout(run, 250);
     return () => {
       cancelled = true;
+      window.clearTimeout(t);
+      ac.abort();
     };
     // Intentionally excludes filters.Content_Type / filters.content_type so
     // toggling the active type pill doesn't refire this effect.
@@ -767,7 +789,7 @@ function InsightsAnalysisPageContent() {
                 ? `Insights & Analysis — ${companyFilterLabel || `Company #${filters.company_id}`}`
                 : "Insights & Analysis"}
               <span className="ia-title-count">
-                {pagination.itemsTotal.toLocaleString()} reports
+                {(pagination.itemsTotal ?? 0).toLocaleString()} reports
               </span>
             </h1>
           </div>
@@ -937,7 +959,7 @@ function InsightsAnalysisPageContent() {
         {!isTrialActive && pagination.pageTotal > 1 && (
           <div className="ia-pgrow">
             <span className="ia-pg-count">
-              {pagination.itemsTotal.toLocaleString()} reports
+              {(pagination.itemsTotal ?? 0).toLocaleString()} reports
             </span>
             <CompactPagination
               curPage={pagination.curPage}
