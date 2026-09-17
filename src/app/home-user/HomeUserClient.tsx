@@ -774,8 +774,11 @@ export default function HomeUserClient({
   const [isLoading, setIsLoading] = useState(true);
   const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
 
-  const DEAL_RADAR_PAGE_LIMIT = 25;
+  const DEAL_RADAR_PAGE_LIMIT = 20;
   const DEAL_RADAR_SCROLL_THRESHOLD_PX = 48;
+  // Fallback height so the Deal Radar list is always scrollable even before
+  // the Insights & Analysis column has finished measuring its own height.
+  const DEAL_RADAR_FALLBACK_HEIGHT_PX = 640;
 
   const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>(
     initialDealRadar?.items ?? []
@@ -1272,7 +1275,6 @@ export default function HomeUserClient({
   const tryLoadMoreDealRadarIfNearBottom = useCallback(() => {
     if (
       dealRadarLoading ||
-      sideColumnHeight == null ||
       dealRadarNextOffsetRef.current == null ||
       dealRadarLoadingMoreRef.current
     ) {
@@ -1281,12 +1283,7 @@ export default function HomeUserClient({
     if (isDealRadarNearBottom()) {
       void loadMoreDealRadar();
     }
-  }, [
-    dealRadarLoading,
-    isDealRadarNearBottom,
-    loadMoreDealRadar,
-    sideColumnHeight,
-  ]);
+  }, [dealRadarLoading, isDealRadarNearBottom, loadMoreDealRadar]);
 
   const scheduleDealRadarScrollCheck = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -1485,19 +1482,18 @@ export default function HomeUserClient({
     syncInsightsColumnHeight,
   ]);
 
-  const sideColumnHeightStyle: React.CSSProperties | undefined =
-    sideColumnHeight != null
-      ? {
-          height: sideColumnHeight,
-          maxHeight: sideColumnHeight,
-          minHeight: sideColumnHeight,
-        }
-      : undefined;
+  const sideColumnHeightValue =
+    sideColumnHeight ?? DEAL_RADAR_FALLBACK_HEIGHT_PX;
+  const sideColumnHeightStyle: React.CSSProperties = {
+    height: sideColumnHeightValue,
+    maxHeight: sideColumnHeightValue,
+    minHeight: sideColumnHeightValue,
+  };
 
   useEffect(() => {
     const scrollRoot = dealRadarScrollRef.current;
     // Only paginate inside the fixed-height scroll area (never while unconstrained).
-    if (!scrollRoot || dealRadarLoading || sideColumnHeight == null) {
+    if (!scrollRoot || dealRadarLoading) {
       return;
     }
 
