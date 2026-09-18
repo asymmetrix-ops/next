@@ -139,11 +139,22 @@ function InsightsAnalysisPageContent() {
       return raw.trim();
     }
   }, [searchParams]);
+  const contentTypeFromUrl = useMemo(() => {
+    const raw = searchParams.get("content_type");
+    if (!raw) return "";
+    try {
+      return decodeURIComponent(raw).trim();
+    } catch {
+      return raw.trim();
+    }
+  }, [searchParams]);
 
   // State for filters
   const [filters, setFilters] = useState<InsightsAnalysisFilters>({
     ...DEFAULT_FILTERS,
     company_id: companyIdFromUrl,
+    Content_Type: contentTypeFromUrl || undefined,
+    content_type: contentTypeFromUrl || undefined,
   });
   const [companyFilterLabel, setCompanyFilterLabel] = useState(companyNameFromUrl);
 
@@ -298,8 +309,13 @@ function InsightsAnalysisPageContent() {
 
     if (!hasFetchedRef.current) {
       hasFetchedRef.current = true;
-      setFilters(DEFAULT_FILTERS);
-      fetchInsightsAnalysis(DEFAULT_FILTERS);
+      const initialFilters: InsightsAnalysisFilters = {
+        ...DEFAULT_FILTERS,
+        Content_Type: contentTypeFromUrl || undefined,
+        content_type: contentTypeFromUrl || undefined,
+      };
+      setFilters(initialFilters);
+      fetchInsightsAnalysis(initialFilters);
       return;
     }
 
@@ -310,7 +326,7 @@ function InsightsAnalysisPageContent() {
       fetchInsightsAnalysis(next);
       return next;
     });
-  }, [companyIdFromUrl, companyNameFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [companyIdFromUrl, companyNameFromUrl, contentTypeFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch content type options and primary sectors
   useEffect(() => {

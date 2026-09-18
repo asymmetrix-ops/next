@@ -10,6 +10,7 @@ import React, {
 import { locationsService } from "@/lib/locationsService";
 import { buildIndividualsSearchPayload } from "@/lib/individualsFilterPayload";
 import type { IndividualsSearchFilters } from "@/app/individuals/actions";
+import { fetchIndividualsCountsServer } from "@/app/individuals/actions";
 import {
   CompaniesFilterBar,
   FilterBarState,
@@ -20,6 +21,7 @@ import {
   EMPTY_INDIVIDUALS_SUMMARY_COUNTS,
   INDIVIDUAL_ROLE_TAB_CONFIG,
   INDIVIDUAL_ROLE_TAB_ORDER,
+  findJobTitleId,
   type IndividualRoleTab,
   type IndividualsSummaryCounts,
   type Country,
@@ -211,15 +213,15 @@ export const IndividualDashboard = ({
   const buildSearchFilters = useCallback((): IndividualsSearchFilters => {
     const tabConfig =
       activeRoleTab !== "all" ? INDIVIDUAL_ROLE_TAB_CONFIG[activeRoleTab] : null;
+    const tabJobTitleId = tabConfig
+      ? findJobTitleId(jobTitles, tabConfig.jobTitle)
+      : null;
     return buildIndividualsSearchPayload({
       state: filterBarState,
       primarySectors,
       secondarySectors,
       jobTitles,
-      roleTabJobTitleIds: tabConfig?.jobTitleIds
-        ? [...tabConfig.jobTitleIds]
-        : undefined,
-      roleTabStatuses: tabConfig?.statuses ? [...tabConfig.statuses] : undefined,
+      roleTabJobTitleIds: tabJobTitleId != null ? [tabJobTitleId] : undefined,
     });
   }, [filterBarState, primarySectors, secondarySectors, jobTitles, activeRoleTab]);
 
@@ -278,6 +280,69 @@ export const IndividualDashboard = ({
     );
   }, [activeRoleTab]);
 
+  // Per-tab counts: the backend's get_individuals_counts endpoint only ever
+  // returned fixed fields (ceos/chairs/founders/...), so each role tab's
+  // count is fetched independently here — same filter-bar state as "All",
+  // plus that tab's own job title — mirroring the counts pattern used for
+  // Insights & Analysis content-type pills.
+  const [roleTabCounts, setRoleTabCounts] = useState<
+    Record<Exclude<IndividualRoleTab, "all">, number | null>
+  >({
+    ceo: null,
+    cfo: null,
+    partner: null,
+    founder: null,
+    co_founder: null,
+    executive_director: null,
+    non_executive_director: null,
+  });
+
+  const filterBarStateRef = useRef(filterBarState);
+  filterBarStateRef.current = filterBarState;
+
+  useEffect(() => {
+    if (jobTitles.length === 0) return;
+    let cancelled = false;
+
+    const run = async () => {
+      const results = await Promise.all(
+        INDIVIDUAL_ROLE_TAB_ORDER.map(async (id) => {
+          const jobTitleId = findJobTitleId(
+            jobTitles,
+            INDIVIDUAL_ROLE_TAB_CONFIG[id].jobTitle
+          );
+          if (jobTitleId == null) return [id, null] as const;
+          const filters = buildIndividualsSearchPayload({
+            state: filterBarStateRef.current,
+            primarySectors,
+            secondarySectors,
+            jobTitles,
+            roleTabJobTitleIds: [jobTitleId],
+          });
+          try {
+            const counts = await fetchIndividualsCountsServer(filters);
+            return [id, counts?.totalCount ?? 0] as const;
+          } catch {
+            return [id, null] as const;
+          }
+        })
+      );
+      if (cancelled) return;
+      setRoleTabCounts(
+        Object.fromEntries(results) as Record<
+          Exclude<IndividualRoleTab, "all">,
+          number | null
+        >
+      );
+    };
+
+    const t = setTimeout(run, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [filterSearchKey, jobTitles, primarySectors, secondarySectors]);
+
   const roleTabs: {
     id: IndividualRoleTab;
     label: string;
@@ -288,7 +353,7 @@ export const IndividualDashboard = ({
     ...INDIVIDUAL_ROLE_TAB_ORDER.map((id) => ({
       id,
       label: INDIVIDUAL_ROLE_TAB_CONFIG[id].label,
-      count: summaryCounts[INDIVIDUAL_ROLE_TAB_CONFIG[id].countKey],
+      count: roleTabCounts[id] ?? 0,
       dot: INDIVIDUAL_ROLE_TAB_CONFIG[id].dot,
     })),
   ];

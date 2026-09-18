@@ -1,5 +1,4 @@
 import type { FilterCategory, FilterDef } from "@/components/companies/CompaniesFilterBar";
-import type { IndividualsResponse } from "@/types/individuals";
 import {
   buildColumnLinkedFilterDefs,
   EXTRA_FILTER_DEFS,
@@ -34,79 +33,71 @@ export interface JobTitleOption {
 
 export type IndividualsSummaryCounts = {
   totalCount: number;
-  currentRoles: number;
-  pastRoles: number;
-  ceos: number;
-  chairs: number;
-  founders: number;
 };
 
 export const EMPTY_INDIVIDUALS_SUMMARY_COUNTS: IndividualsSummaryCounts = {
   totalCount: 0,
-  currentRoles: 0,
-  pastRoles: 0,
-  ceos: 0,
-  chairs: 0,
-  founders: 0,
 };
 
 export type IndividualRoleTab =
   | "all"
-  | "ceos"
-  | "current_roles"
-  | "chair"
-  | "past_roles"
-  | "founder";
+  | "ceo"
+  | "cfo"
+  | "partner"
+  | "founder"
+  | "co_founder"
+  | "executive_director"
+  | "non_executive_director";
 
 export const INDIVIDUAL_ROLE_TAB_ORDER: Exclude<IndividualRoleTab, "all">[] = [
-  "ceos",
-  "current_roles",
-  "chair",
-  "past_roles",
+  "ceo",
+  "cfo",
+  "partner",
   "founder",
+  "co_founder",
+  "executive_director",
+  "non_executive_director",
 ];
 
+// Role tabs are resolved by job title NAME against the runtime job-titles
+// list (see JobTitleOption / fetchJobTitlesServer) rather than hardcoded ids,
+// since the id-per-tab list this replaced was brittle to look up and verify.
 export const INDIVIDUAL_ROLE_TAB_CONFIG: Record<
   Exclude<IndividualRoleTab, "all">,
   {
     label: string;
     dot: string;
-    countKey: keyof IndividualsSummaryCounts;
-    jobTitleIds?: readonly number[];
-    statuses?: readonly string[];
+    jobTitle: string;
   }
 > = {
-  ceos: {
-    label: "CEOs",
-    dot: "#3b82f6",
-    countKey: "ceos",
-    jobTitleIds: [4],
+  ceo: { label: "CEO", dot: "#3b82f6", jobTitle: "CEO" },
+  cfo: { label: "CFO", dot: "#10b981", jobTitle: "CFO" },
+  partner: { label: "Partner", dot: "#8b5cf6", jobTitle: "Partner" },
+  founder: { label: "Founder", dot: "#f59e0b", jobTitle: "Founder" },
+  co_founder: { label: "Co-Founder", dot: "#ec4899", jobTitle: "Co-Founder" },
+  executive_director: {
+    label: "Executive Director",
+    dot: "#0ea5e9",
+    jobTitle: "Executive Director",
   },
-  current_roles: {
-    label: "Current roles",
-    dot: "#10b981",
-    countKey: "currentRoles",
-    statuses: ["Current"],
-  },
-  chair: {
-    label: "Chair",
-    dot: "#8b5cf6",
-    countKey: "chairs",
-    jobTitleIds: [5],
-  },
-  past_roles: {
-    label: "Past roles",
+  non_executive_director: {
+    label: "Non-Executive Director",
     dot: "#64748b",
-    countKey: "pastRoles",
-    statuses: ["Past"],
-  },
-  founder: {
-    label: "Founder",
-    dot: "#f59e0b",
-    countKey: "founders",
-    jobTitleIds: [21],
+    jobTitle: "Non-Executive Director",
   },
 };
+
+/** Resolve a role tab's job title name to its runtime id (case/whitespace-insensitive). */
+export function findJobTitleId(
+  jobTitles: JobTitleOption[],
+  jobTitleName: string
+): number | null {
+  const target = jobTitleName.trim().toLowerCase();
+  const match = jobTitles.find(
+    (title) => title.job_title.trim().toLowerCase() === target
+  );
+  return match ? match.id : null;
+}
 
 export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "location", name: "Location" },
@@ -164,20 +155,6 @@ export function buildIndividualsFilterDefs({
   });
 }
 
-export function mapResponseToIndividualsSummaryCounts(
-  data: IndividualsResponse | null | undefined
-): IndividualsSummaryCounts {
-  if (!data) return EMPTY_INDIVIDUALS_SUMMARY_COUNTS;
-  return {
-    totalCount: data.totalIndividuals || 0,
-    currentRoles: data.currentRoles || 0,
-    pastRoles: data.pastRoles || 0,
-    ceos: data.ceos || 0,
-    chairs: data.chairs || 0,
-    founders: data.founders || 0,
-  };
-}
-
 function readCount(raw: Record<string, unknown>, ...keys: string[]): number {
   for (const key of keys) {
     const value = raw[key];
@@ -190,7 +167,7 @@ function readCount(raw: Record<string, unknown>, ...keys: string[]): number {
   return 0;
 }
 
-/** Map get_individuals_counts API response to tab summary counts. */
+/** Map get_individuals_counts API response to a total-count summary. */
 export function mapIndividualsCountsResponse(
   raw: Record<string, unknown> | null | undefined
 ): IndividualsSummaryCounts {
@@ -203,10 +180,5 @@ export function mapIndividualsCountsResponse(
       "totalCount",
       "total_count"
     ),
-    currentRoles: readCount(raw, "currentRoles", "current_roles"),
-    pastRoles: readCount(raw, "pastRoles", "past_roles"),
-    ceos: readCount(raw, "ceos"),
-    chairs: readCount(raw, "chairs"),
-    founders: readCount(raw, "founders"),
   };
 }
