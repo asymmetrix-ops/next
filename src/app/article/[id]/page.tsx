@@ -38,6 +38,7 @@ import {
   COMPANY_TABLE_DATA_URL,
   extractCompanyTableItems,
 } from "@/lib/companyTableData";
+import { T as REDESIGN_T } from "@/components/redesign/primitives";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
@@ -304,8 +305,10 @@ const styles = {
   },
   card: {
     backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+    borderRadius: `${REDESIGN_T.rLg}px`,
+    border: `1px solid ${REDESIGN_T.divider}`,
+    boxShadow:
+      "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)",
     padding: "32px 24px",
     marginBottom: "0",
   },
@@ -346,7 +349,10 @@ const styles = {
     fontSize: "19px",
     fontWeight: "800",
     color: "#0A0E1A",
+    marginTop: "26px",
     marginBottom: "16px",
+    paddingBottom: "9px",
+    borderBottom: "2px solid #0A0E1A",
     letterSpacing: "-0.02em",
   },
   // Sidebar card headers ("Published", "Company overview", "Companies",
@@ -359,17 +365,6 @@ const styles = {
     color: "#0A0E1A",
     marginBottom: "16px",
     letterSpacing: "-0.014em",
-  },
-  // Nested card used inside the sidebar for standalone sections (Companies,
-  // Sectors, ...) — matches the Company Overview / Financial cards' framing
-  // so every sidebar section reads as its own boxed card, not just text
-  // floating inside the outer sidebar card.
-  sidebarSubCard: {
-    borderRadius: 10,
-    border: "1px solid #E4E8F2",
-    padding: "16px 16px 12px",
-    backgroundColor: "#fff",
-    boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
   },
   tagContainer: {
     display: "flex",
@@ -436,9 +431,16 @@ const styles = {
     fontWeight: 600,
   },
   contentTypeMetaCount: {
-    fontSize: "13px",
-    color: "#6B7488",
-    fontWeight: 500,
+    display: "inline-flex",
+    alignItems: "center",
+    height: "24px",
+    fontSize: "12px",
+    color: "#3D4657",
+    backgroundColor: "#F5F7FD",
+    border: "1px solid #E4E8F2",
+    padding: "0 10px",
+    borderRadius: "9999px",
+    fontWeight: 600,
   },
   transactionStatusBadge: {
     display: "inline-flex",
@@ -469,36 +471,20 @@ const styles = {
     fontSize: "16px",
   },
   backButton: {
-    backgroundColor: "#2A46EA",
-    color: "white",
-    fontWeight: "700",
-    padding: "12px 24px",
-    borderRadius: "6px",
-    border: "none",
+    backgroundColor: "#fff",
+    color: "#3D4657",
+    fontWeight: "600" as const,
+    padding: "0 14px 0 11px",
+    height: "30px",
+    borderRadius: "999px",
+    border: "1px solid #E4E8F2",
+    boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
     cursor: "pointer",
-    fontSize: "14px",
-    marginBottom: "24px",
+    fontSize: "12.5px",
+    marginBottom: "14px",
     display: "inline-flex",
     alignItems: "center",
-    gap: "8px",
-  },
-  infoRow: {
-    display: "grid",
-    gridTemplateColumns: "minmax(140px, 1.4fr) 2fr",
-    alignItems: "center",
-    columnGap: "8px",
-    padding: "8px 0",
-    borderBottom: "1px solid #E4E8F2",
-    fontSize: "12.5px",
-  },
-  label: {
-    fontWeight: 600,
-    color: "#3D4657",
-  },
-  value: {
-    textAlign: "right" as const,
-    color: "#0A0E1A",
-    fontWeight: 500,
+    gap: "6px",
   },
 };
 
@@ -1703,16 +1689,22 @@ const ArticleDetailPage = () => {
                     aria-expanded={summaryOpen}
                   >
                     <span className="summary-title">Summary</span>
-                    <span className="summary-toggle">
-                      <span className="summary-toggle-label">
-                        {summaryOpen ? "Collapse summary" : "Expand summary"}
-                      </span>
-                      <span
-                        className={`summary-chevron ${summaryOpen ? "open" : ""}`}
-                        aria-hidden="true"
+                    <span
+                      className={`summary-chevron ${summaryOpen ? "open" : ""}`}
+                      aria-hidden="true"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       >
-                        ▾
-                      </span>
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
                     </span>
                   </button>
                   <ul className="summary-list">
@@ -1815,59 +1807,46 @@ const ArticleDetailPage = () => {
           </div>
 
           {/* Right: Metadata (1/3) */}
-          <div style={styles.card} className="article-meta">
+          <div
+            className="article-meta"
+            style={{ display: "flex", flexDirection: "column", gap: 16 }}
+          >
             {/* Publication Date */}
-            <div style={styles.section}>
-              <h2 style={styles.cardSectionTitle}>Published</h2>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  flexWrap: "wrap",
-                }}
-              >
-                <p style={{ ...styles.date, marginBottom: 0 }}>
-                  {formatDate(article.Publication_Date)}
-                </p>
+            <div className="card">
+              <div className="pub">
+                <span className="k">Published</span>
+                <span className="v">{formatDate(article.Publication_Date)}</span>
                 {latestCorrection?.updated_at ? (
-                  <p
+                  <span
                     style={{
-                      ...styles.date,
-                      marginBottom: 0,
-                      fontSize: 14,
+                      fontSize: 12.5,
+                      fontWeight: 600,
                       color: "#7A5605",
                     }}
                   >
                     Updated {formatCorrectionTimestamp(latestCorrection.updated_at)}
-                  </p>
+                  </span>
                 ) : null}
                 {/* Export PDF Button */}
                 {ENABLE_PDF_EXPORT && (
                   <button
                     onClick={() => openArticlePdfWindow(article)}
-                    style={{
-                      backgroundColor: "#0F7040",
-                      color: "white",
-                      fontWeight: 700,
-                      padding: "10px 14px",
-                      borderRadius: 6,
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      textAlign: "center",
-                      whiteSpace: "nowrap",
-                    }}
-                    onMouseOver={(e) =>
-                      ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#0F7040")
-                    }
-                    onMouseOut={(e) =>
-                      ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#0F7040")
-                    }
+                    className="side-pill-btn b"
                   >
-                    Export PDF
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+                      <path d="M14 3v5h5" />
+                    </svg>
+                    Generate PDF
                   </button>
                 )}
               </div>
@@ -1913,13 +1892,6 @@ const ArticleDetailPage = () => {
                 overview?.ownership_type || "-";
 
               const investorItems = overview?.investors_owners || [];
-              const investors =
-                investorItems && investorItems.length
-                  ? investorItems
-                      .map((inv) => inv.name)
-                      .filter(Boolean)
-                      .join(", ")
-                  : "-";
 
               const managementEntries =
                 overview?.management && overview.management.length
@@ -1934,14 +1906,6 @@ const ArticleDetailPage = () => {
                       return hasTitle && isCurrent;
                     })
                   : [];
-
-              const management =
-                managementEntries.length > 0
-                  ? managementEntries
-                      .map((m) => m.name)
-                      .filter(Boolean)
-                      .join(", ")
-                  : "-";
 
               const employeeCount =
                 typeof overview?.employee_count === "number"
@@ -1967,19 +1931,11 @@ const ArticleDetailPage = () => {
                     }
                   : null;
 
-              const activeSnapshotCurrency = snapshotFxToggleConfig
-                ? snapshotCurrencyMode === "native"
-                  ? snapshotFxToggleConfig.nativeCode
-                  : snapshotFxToggleConfig.preferredCode
-                : reportedCurrency || null;
-
-              const financialHeader = activeSnapshotCurrency
-                ? `Financial Snapshot (${activeSnapshotCurrency})`
-                : "Financial Snapshot";
-
-              const snapshotAsOfDate = article?.Publication_Date
-                ? formatDate(article.Publication_Date)
+              const pubYear = article?.Publication_Date
+                ? new Date(article.Publication_Date).getFullYear()
                 : null;
+              const fyLabel =
+                pubYear && Number.isFinite(pubYear) ? `FY${pubYear}F` : null;
 
               const revenueDisplay = financial
                 ? formatSnapshotMoney(
@@ -2017,6 +1973,13 @@ const ArticleDetailPage = () => {
                 ? formatMultiple(financial.revenue_multiple)
                 : "-";
 
+              const evNum = financial ? Number(financial.enterprise_value_m) : NaN;
+              const ebitdaNum = financial ? Number(financial.ebitda_m) : NaN;
+              const evEbitdaMultipleDisplay =
+                Number.isFinite(evNum) && Number.isFinite(ebitdaNum) && ebitdaNum !== 0
+                  ? formatMultiple(evNum / ebitdaNum)
+                  : "-";
+
               const revenueGrowthDisplay = financial
                 ? formatPercent(financial.revenue_growth_pc)
                 : "-";
@@ -2025,45 +1988,22 @@ const ArticleDetailPage = () => {
                 ? formatPercent(financial.rule_of_40)
                 : "-";
 
+              const isEmptyVal = (v: string) => !v || v === "-";
+
               return (
-                <div
-                  style={{
-                    ...styles.section,
-                    borderRadius: 12,
-                    border: "1px solid #DCE4FA",
-                    padding: 16,
-                    backgroundColor: "#EFF3FF",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 16,
-                  }}
-                >
+                <>
                   {overview && (
-                    <div
-                      style={{
-                        borderRadius: 10,
-                        border: "1px solid #E4E8F2",
-                        padding: "16px 16px 12px",
-                        backgroundColor: "#fff",
-                        boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
-                      }}
-                      className="article-financial-metrics"
-                    >
-                      <h2
-                        style={{
-                          ...styles.cardSectionTitle,
-                          marginBottom: "12px",
-                        }}
-                      >
-                        Company Overview
-                      </h2>
-                      <div>
+                    <div className="card">
+                      <header>
+                        <h2>Company overview</h2>
+                      </header>
+                      <div className="rows">
                         {companyOfFocus?.id && companyOfFocus?.name && (
-                          <div style={styles.infoRow}>
-                            <span style={styles.label}>Company</span>
+                          <div className="r">
+                            <span className="k">Company</span>
                             <span
+                              className="v"
                               style={{
-                                ...styles.value,
                                 display: "flex",
                                 flexWrap: "wrap",
                                 justifyContent: "flex-end",
@@ -2086,23 +2026,29 @@ const ArticleDetailPage = () => {
                             </span>
                           </div>
                         )}
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>HQ Location</span>
-                          <span style={styles.value}>{hqLocation}</span>
+                        <div className="r">
+                          <span className="k">HQ location</span>
+                          <span className={`v${isEmptyVal(hqLocation) ? " none" : ""}`}>
+                            {isEmptyVal(hqLocation) ? "Not available" : hqLocation}
+                          </span>
                         </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Year Founded</span>
-                          <span style={styles.value}>{yearFounded}</span>
+                        <div className="r">
+                          <span className="k">Year founded</span>
+                          <span className={`v${isEmptyVal(yearFounded) ? " none" : ""}`}>
+                            {isEmptyVal(yearFounded) ? "Not available" : yearFounded}
+                          </span>
                         </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Ownership Type</span>
-                          <span style={styles.value}>{ownership}</span>
+                        <div className="r">
+                          <span className="k">Ownership type</span>
+                          <span className={`v${isEmptyVal(ownership) ? " none" : ""}`}>
+                            {isEmptyVal(ownership) ? "Not available" : ownership}
+                          </span>
                         </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Investor(s) / Owner(s)</span>
+                        <div className="r">
+                          <span className="k">Investor(s) / owner(s)</span>
                           <span
+                            className={`v${investorItems.length ? "" : " none"}`}
                             style={{
-                              ...styles.value,
                               display: "flex",
                               flexWrap: "wrap",
                               justifyContent: "flex-end",
@@ -2131,15 +2077,15 @@ const ArticleDetailPage = () => {
                                   );
                                 })
                             ) : (
-                              <span>{investors}</span>
+                              <span>Not available</span>
                             )}
                           </span>
                         </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Management</span>
+                        <div className="r">
+                          <span className="k">Management</span>
                           <span
+                            className={`v${managementEntries.length ? "" : " none"}`}
                             style={{
-                              ...styles.value,
                               display: "flex",
                               flexWrap: "wrap",
                               justifyContent: "flex-end",
@@ -2170,189 +2116,173 @@ const ArticleDetailPage = () => {
                                 );
                               })
                             ) : (
-                              <span>{management}</span>
+                              <span>Not available</span>
                             )}
                           </span>
                         </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Number of Employees</span>
-                          <span style={styles.value}>{employeeCount}</span>
+                        <div className="r">
+                          <span className="k">Number of employees</span>
+                          <span className={`v${isEmptyVal(employeeCount) ? " none" : ""}`}>
+                            {isEmptyVal(employeeCount) ? "Not available" : employeeCount}
+                          </span>
                         </div>
                       </div>
                     </div>
-                  )}
-
-                  {overview && financial && (
-                    <div
-                      style={{ height: 1, background: "#DCE4FA", margin: "0 4px" }}
-                      aria-hidden="true"
-                    />
                   )}
 
                   {financial && (
-                    <div
-                      className="article-financial-metrics"
-                      style={{
-                        borderRadius: 10,
-                        border: "1px solid #E4E8F2",
-                        padding: "16px 16px 12px",
-                        backgroundColor: "#fff",
-                        boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          flexWrap: "wrap",
-                          marginBottom: "12px",
-                        }}
-                      >
-                        <div>
-                          <h2 style={{ ...styles.cardSectionTitle, marginBottom: 2 }}>
-                            {financialHeader}
-                          </h2>
-                          {snapshotAsOfDate && (
-                            <div style={{ fontSize: 12, color: "#6B7488" }}>
-                              As of {snapshotAsOfDate}
-                            </div>
+                    <div className="card" id="fincard" style={{ overflow: "visible" }}>
+                      <div className="tabhead">
+                        <div className="ctabs" role="tablist">
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={financialTab === "overview"}
+                            className={`ctab ${
+                              financialTab === "overview" ? "on" : ""
+                            }`}
+                            onClick={() => setFinancialTab("overview")}
+                          >
+                            Financial Overview
+                          </button>
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={financialTab === "comps"}
+                            className={`ctab ${
+                              financialTab === "comps" ? "on" : ""
+                            }`}
+                            onClick={() => setFinancialTab("comps")}
+                          >
+                            Transaction comps
+                          </button>
+                        </div>
+                        <div
+                          style={{
+                            marginLeft: "auto",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          {fyLabel && (
+                            <span className="lp-chip lp-chip-neutral">{fyLabel}</span>
+                          )}
+                          {snapshotFxToggleConfig && (
+                            <FinancialsCurrencyToggle
+                              config={snapshotFxToggleConfig}
+                              mode={snapshotCurrencyMode}
+                              onChange={setSnapshotCurrencyMode}
+                              compact
+                            />
                           )}
                         </div>
-                        {snapshotFxToggleConfig && (
-                          <FinancialsCurrencyToggle
-                            config={snapshotFxToggleConfig}
-                            mode={snapshotCurrencyMode}
-                            onChange={setSnapshotCurrencyMode}
-                            compact
-                          />
-                        )}
-                      </div>
-
-                      <div className="financial-tabs" role="tablist">
-                        <button
-                          type="button"
-                          role="tab"
-                          aria-selected={financialTab === "overview"}
-                          className={`financial-tab ${
-                            financialTab === "overview" ? "active" : ""
-                          }`}
-                          onClick={() => setFinancialTab("overview")}
-                        >
-                          Financial Overview
-                        </button>
-                        <button
-                          type="button"
-                          role="tab"
-                          aria-selected={financialTab === "comps"}
-                          className={`financial-tab ${
-                            financialTab === "comps" ? "active" : ""
-                          }`}
-                          onClick={() => setFinancialTab("comps")}
-                        >
-                          Transaction comps
-                        </button>
                       </div>
 
                       {financialTab === "overview" ? (
-                        <table className="financial-table">
-                          <thead>
-                            <tr>
-                              <th>Metric</th>
-                              <th>Value</th>
-                              <th>Source</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td>Revenue (m)</td>
-                              <td>{revenueDisplay}</td>
-                              <td>{getFinancialSourceLabel(financial.revenue_source)}</td>
-                            </tr>
-                            <tr>
-                              <td>ARR (m)</td>
-                              <td>{arrDisplay}</td>
-                              <td>{getFinancialSourceLabel(financial.arr_source)}</td>
-                            </tr>
-                            <tr>
-                              <td>EBITDA (m)</td>
-                              <td>{ebitdaDisplay}</td>
-                              <td>{getFinancialSourceLabel(financial.ebitda_source)}</td>
-                            </tr>
-                            <tr>
-                              <td>Enterprise value (m)</td>
-                              <td>{evDisplay}</td>
-                              <td>{getFinancialSourceLabel(financial.ev_source)}</td>
-                            </tr>
-                            <tr>
-                              <td>Revenue growth</td>
-                              <td>{revenueGrowthDisplay}</td>
-                              <td>
-                                {getFinancialSourceLabel(financial.revenue_growth_source)}
-                              </td>
-                            </tr>
-                            <tr>
-                              <td>Rule of 40</td>
-                              <td>{ruleOf40Display}</td>
-                              <td>{getFinancialSourceLabel(financial.rule_of_40_source)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
+                        <div className="rows src">
+                          <div className="r hd">
+                            <span>Metric</span>
+                            <span>Value</span>
+                            <span>Source</span>
+                          </div>
+                          <div className="r">
+                            <span className="k">Revenue (m)</span>
+                            <span className="v">{revenueDisplay}</span>
+                            <span className="s">
+                              {getFinancialSourceLabel(financial.revenue_source)}
+                            </span>
+                          </div>
+                          <div className="r">
+                            <span className="k">ARR (m)</span>
+                            <span className="v">{arrDisplay}</span>
+                            <span className="s">
+                              {getFinancialSourceLabel(financial.arr_source)}
+                            </span>
+                          </div>
+                          <div className="r">
+                            <span className="k">EBITDA (m)</span>
+                            <span className="v">{ebitdaDisplay}</span>
+                            <span className="s">
+                              {getFinancialSourceLabel(financial.ebitda_source)}
+                            </span>
+                          </div>
+                          <div className="r">
+                            <span className="k">Enterprise value (m)</span>
+                            <span className="v">{evDisplay}</span>
+                            <span className="s">
+                              {getFinancialSourceLabel(financial.ev_source)}
+                            </span>
+                          </div>
+                          <div className="r">
+                            <span className="k">Revenue growth</span>
+                            <span className="v">{revenueGrowthDisplay}</span>
+                            <span className="s">
+                              {getFinancialSourceLabel(financial.revenue_growth_source)}
+                            </span>
+                          </div>
+                          <div className="r">
+                            <span className="k">Rule of 40</span>
+                            <span className="v">{ruleOf40Display}</span>
+                            <span className="s">
+                              {getFinancialSourceLabel(financial.rule_of_40_source)}
+                            </span>
+                          </div>
+                        </div>
                       ) : (
-                        <table className="financial-table">
-                          <thead>
-                            <tr>
-                              <th>Multiple</th>
-                              <th>Value</th>
-                              <th>Source</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td>EV / Revenue</td>
-                              <td>{revenueMultipleDisplay}</td>
-                              <td>
-                                {getFinancialSourceLabel(
-                                  financial.revenue_multiple_source
-                                )}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
+                        <div className="rows src">
+                          <div className="r hd">
+                            <span>Multiple</span>
+                            <span>{fyLabel || "Value"}</span>
+                            <span>Source</span>
+                          </div>
+                          <div className="r">
+                            <span className="k">EV / Revenue</span>
+                            <span className="v">{revenueMultipleDisplay}</span>
+                            <span className="s">
+                              {getFinancialSourceLabel(
+                                financial.revenue_multiple_source
+                              )}
+                            </span>
+                          </div>
+                          <div className="r">
+                            <span className="k">EV / EBITDA</span>
+                            <span className="v">{evEbitdaMultipleDisplay}</span>
+                            <span className="s">
+                              {getFinancialSourceLabel(
+                                financial.ev_source || financial.ebitda_source
+                              )}
+                            </span>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
-                </div>
+                </>
               );
             })()}
             {/* Competitors (Company Analysis only) */}
             {(isCompanyAnalysis && (competitorsLoading || hasCompetitorsData)) && (
-              <div style={styles.section}>
+              <div className="card">
+                <header>
+                  <h2>{peersTitle}</h2>
+                </header>
                 {competitorsLoading ? (
-                  <div style={{ color: "#6B7488", fontSize: 14 }}>Loading...</div>
+                  <div style={{ color: "#6B7488", fontSize: 14, padding: "14px 16px" }}>
+                    Loading...
+                  </div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <>
                     {competitors?.peers_and_competitors?.length ? (
-                      <div>
-                        <div
-                          style={{
-                            ...styles.cardSectionTitle,
-                            marginBottom: 8,
-                          }}
-                        >
-                          {peersTitle}
-                        </div>
-                        <div style={styles.tagContainer}>
-                          {competitors.peers_and_competitors.map((c) => (
-                            <EntityChip
-                              key={`peer-${c.id}`}
-                              kind="company"
-                              href={`/company/${c.id}`}
-                              label={c.name}
-                            />
-                          ))}
-                        </div>
+                      <div className="chipset">
+                        {competitors.peers_and_competitors.map((c) => (
+                          <EntityChip
+                            key={`peer-${c.id}`}
+                            kind="company"
+                            href={`/company/${c.id}`}
+                            label={c.name}
+                          />
+                        ))}
                       </div>
                     ) : null}
 
@@ -2360,13 +2290,15 @@ const ArticleDetailPage = () => {
                       <div>
                         <div
                           style={{
-                            ...styles.cardSectionTitle,
-                            marginBottom: 8,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "#6B7488",
+                            padding: "10px 16px 0",
                           }}
                         >
                           Potential Acquirers
                         </div>
-                        <div style={styles.tagContainer}>
+                        <div className="chipset">
                           {competitors.potential_acquirers.map((c) => (
                             <EntityChip
                               key={`acq-${c.id}`}
@@ -2383,13 +2315,15 @@ const ArticleDetailPage = () => {
                       <div>
                         <div
                           style={{
-                            ...styles.cardSectionTitle,
-                            marginBottom: 8,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "#6B7488",
+                            padding: "10px 16px 0",
                           }}
                         >
                           Acquisition Targets
                         </div>
-                        <div style={styles.tagContainer}>
+                        <div className="chipset">
                           {competitors.acquisition_targets.map((c) => (
                             <EntityChip
                               key={`tgt-${c.id}`}
@@ -2401,28 +2335,15 @@ const ArticleDetailPage = () => {
                         </div>
                       </div>
                     ) : null}
-                  </div>
+                  </>
                 )}
               </div>
             )}
             {/* Companies + Generate Table (sidebar) */}
             {canOpenCompanyTable && (
-              <div style={{ ...styles.section, ...styles.sidebarSubCard }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <h2
-                    style={{
-                      ...styles.cardSectionTitle,
-                      marginBottom: 0,
-                    }}
-                  >
+              <div className="card">
+                <header>
+                  <h2>
                     {article.companies_mentioned &&
                     article.companies_mentioned.length > 0
                       ? "Companies"
@@ -2430,29 +2351,16 @@ const ArticleDetailPage = () => {
                   </h2>
                   <button
                     type="button"
+                    className="side-pill-btn r"
                     onClick={handleOpenGenerateTable}
-                    style={{
-                      backgroundColor: "#fff",
-                      color: "#2A46EA",
-                      fontWeight: 700,
-                      padding: "0 16px",
-                      borderRadius: 999,
-                      border: "1px solid #C6D1FB",
-                      boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      whiteSpace: "nowrap",
-                      minHeight: 34,
-                      touchAction: "manipulation",
-                    }}
                   >
                     Generate table
                   </button>
-                </div>
+                </header>
                 {!showMarketLandscape &&
                   article.companies_mentioned &&
                   article.companies_mentioned.length > 0 && (
-                    <div style={{ ...styles.tagContainer, marginTop: 12, marginBottom: 0 }}>
+                    <div className="chipset">
                       {article.companies_mentioned.map((company) => (
                         <EntityChip
                           key={company.id}
@@ -2468,9 +2376,11 @@ const ArticleDetailPage = () => {
 
             {/* Sectors Section */}
             {article.sectors && article.sectors.length > 0 && (
-              <div style={{ ...styles.section, ...styles.sidebarSubCard }}>
-                <h2 style={styles.cardSectionTitle}>Sectors</h2>
-                <div style={{ ...styles.tagContainer, marginBottom: 0 }}>
+              <div className="card">
+                <header>
+                  <h2>Sectors</h2>
+                </header>
+                <div className="chipset">
                   {article.sectors.map((sector) => {
                     const sid = getSectorId(sector);
                     if (!sid) return null;
@@ -2506,9 +2416,11 @@ const ArticleDetailPage = () => {
                 return null;
               }
               return (
-                <div style={styles.section}>
-                  <h2 style={styles.cardSectionTitle}>Related Corporate Event</h2>
-                  <div style={styles.tagContainer}>
+                <div className="card">
+                  <header>
+                    <h2>Related Corporate Event</h2>
+                  </header>
+                  <div className="chipset">
                     {events.map((ev, idx) => {
                       const id = ev?.id;
                       const label = (ev?.description || "View event").trim();
@@ -2516,17 +2428,13 @@ const ArticleDetailPage = () => {
                         <Link
                           key={id}
                           href={`/corporate-event/${id}`}
-                          style={{
-                            ...styles.tag,
-                            textDecoration: "none",
-                            display: "inline-block",
-                          }}
+                          className="lp-chip"
                           prefetch={false}
                         >
                           {label}
                         </Link>
                       ) : (
-                        <span key={`ev-${idx}`} style={styles.tag}>
+                        <span key={`ev-${idx}`} className="lp-chip">
                           {label}
                         </span>
                       );
@@ -2951,14 +2859,15 @@ const ArticleDetailPage = () => {
       <style
         dangerouslySetInnerHTML={{
           __html: `
-          .article-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+          .article-layout { display: grid; grid-template-columns: minmax(0, 1250px) 420px; align-items: start; gap: 16px; }
+          .article-meta { position: sticky; top: 24px; }
           @media (max-width: 1024px) { .article-layout { grid-template-columns: 1fr; } }
           /* Summary accordion */
           .article-summary {
-            border: 1px solid #E4E8F2;
-            background: #F5F7FD;
+            border: 1px solid #E2E8FD;
+            background: #F1F4FE;
             border-radius: 12px;
-            padding: 14px 16px;
+            padding: 15px 18px;
             margin-bottom: 24px;
           }
           .summary-header {
@@ -2974,27 +2883,17 @@ const ArticleDetailPage = () => {
             text-align: left;
           }
           .summary-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: #0A0E1A;
-          }
-          .summary-toggle {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-shrink: 0;
-          }
-          .summary-toggle-label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #2A46EA;
+            font-size: 11px;
+            font-weight: 800;
+            color: #1F35C4;
+            letter-spacing: 1.1px;
+            text-transform: uppercase;
           }
           .summary-chevron {
-            font-size: 18px;
-            color: #6B7488;
-            line-height: 1;
+            display: inline-flex;
+            flex-shrink: 0;
+            color: #1F35C4;
             transition: transform 0.2s ease;
-            user-select: none;
           }
           .summary-chevron.open {
             transform: rotate(180deg);
@@ -3017,6 +2916,13 @@ const ArticleDetailPage = () => {
           .article-body ol { list-style: decimal; margin: 0 0 1rem 1.25rem; padding-left: 1.25rem; }
           .article-body li { margin-bottom: 0.5rem; }
           .article-body h1, .article-body h2, .article-body h3, .article-body h4, .article-body h5, .article-body h6 { margin: 1.25rem 0 0.75rem; font-weight: 700; }
+          .article-body h2 { font-size: 19px; font-weight: 800; color: #0A0E1A; letter-spacing: -0.02em; margin: 26px 0 16px; padding-bottom: 9px; border-bottom: 2px solid #0A0E1A; }
+          .article-body h3 { font-size: 15px; font-weight: 700; color: #0A0E1A; margin: 22px 0 10px; }
+          .article-body h4 { font-size: 11px; font-weight: 800; color: #6B7488; letter-spacing: 0.06em; text-transform: uppercase; margin: 18px 0 8px; }
+          .article-body dl { margin: 0 0 1rem; }
+          .article-body dt { float: left; clear: left; width: 214px; font-weight: 700; color: #0A0E1A; padding: 8px 12px 8px 0; }
+          .article-body dd { margin-left: 214px; padding: 8px 0; border-top: 1px solid #EFF2F8; color: #3D4657; }
+          .article-body dd:first-of-type { border-top: none; }
           .article-body a { color: #2A46EA; text-decoration: underline; }
           .article-body blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid #E4E8F2; color: #3D4657; }
           .article-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
@@ -3026,59 +2932,200 @@ const ArticleDetailPage = () => {
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6B7488; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
-          /* Financial Overview / Transaction comps tabs */
-          .financial-tabs {
-            display: flex;
-            gap: 20px;
-            border-bottom: 1px solid #E4E8F2;
-            margin-bottom: 12px;
+          /* ---- Sidebar rail: card shell + rows/tabs/chips (verbatim from
+             New Design/ReportDetail.html's right-rail handoff) ---- */
+          .article-meta .card {
+            background: #fff;
+            border: 1px solid #E4E8F2;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04);
+            overflow: hidden;
           }
-          .financial-tab {
-            background: transparent;
+          .article-meta .card > header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 13px 16px;
+            border-bottom: 1px solid #EFF2F8;
+          }
+          .article-meta .card > header h2 {
+            margin: 0;
+            font-size: 14.5px;
+            font-weight: 700;
+            letter-spacing: -0.014em;
+            color: #0A0E1A;
+          }
+          .article-meta .card > header .r {
+            margin-left: auto;
+          }
+          /* Published strip (headerless first card) */
+          .article-meta .pub {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 13px 16px;
+            flex-wrap: wrap;
+          }
+          .article-meta .pub .k {
+            font-size: 10.5px;
+            font-weight: 800;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: #6B7488;
+          }
+          .article-meta .pub .v {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #0A0E1A;
+            font-variant-numeric: tabular-nums;
+          }
+          .article-meta .pub .b {
+            margin-left: auto;
+          }
+          /* Key / value rows (Company overview) */
+          .article-meta .rows {
+            display: flex;
+            flex-direction: column;
+          }
+          .article-meta .rows .r {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 9px 16px;
+            border-top: 1px solid #EFF2F8;
+            font-size: 12.5px;
+          }
+          .article-meta .rows .r:first-child {
+            border-top: none;
+          }
+          .article-meta .rows .k {
+            color: #6B7488;
+            font-weight: 500;
+            flex-shrink: 0;
+          }
+          .article-meta .rows .v {
+            margin-left: auto;
+            text-align: right;
+            font-weight: 700;
+            color: #1E2536;
+            font-variant-numeric: tabular-nums;
+          }
+          .article-meta .rows .v.none {
+            color: #6B7488;
+            font-weight: 500;
+          }
+          .article-meta .rows .r:hover {
+            background: #F1F4FE;
+          }
+          /* Financial snapshot: 3-column rows with a Source column */
+          .article-meta .rows.src .r {
+            display: grid;
+            grid-template-columns: 1fr auto 84px;
+            gap: 0 14px;
+            align-items: baseline;
+            border-top: 1px solid #EFF2F8;
+          }
+          .article-meta .rows.src .v {
+            margin-left: 0;
+            text-align: left;
+          }
+          .article-meta .rows.src .s {
+            text-align: right;
+            font-size: 11px;
+            font-weight: 500;
+            color: #6B7488;
+            white-space: nowrap;
+          }
+          .article-meta .rows.src .hd {
+            padding: 8px 16px;
+            background: #F5F7FD;
+            border-bottom: 1px solid #E4E8F2;
+            border-top: none;
+          }
+          .article-meta .rows.src .hd span {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: #6B7488;
+          }
+          .article-meta .rows.src .hd:hover {
+            background: #F5F7FD;
+          }
+          /* In-card tab strip (Financial Overview / Transaction comps) */
+          .article-meta .tabhead {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 16px;
+            border-bottom: 1px solid #EFF2F8;
+            flex-wrap: wrap;
+          }
+          .article-meta .ctabs {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+          }
+          .article-meta .ctab {
+            background: none;
             border: none;
-            border-bottom: 2px solid transparent;
-            padding: 8px 2px 10px;
-            font-size: 14px;
+            padding: 0 0 3px;
+            font-family: inherit;
+            font-size: 14.5px;
             font-weight: 600;
             color: #6B7488;
             cursor: pointer;
+            border-bottom: 2px solid transparent;
           }
-          .financial-tab.active {
-            color: #2A46EA;
-            border-bottom-color: #2A46EA;
-          }
-          .financial-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-          }
-          .financial-table th {
-            text-align: left;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.03em;
-            text-transform: uppercase;
-            color: #6B7488;
-            padding: 6px 4px;
-            border-bottom: 1px solid #E4E8F2;
-          }
-          .financial-table td {
-            padding: 8px 4px;
-            border-bottom: 1px solid #F1F4FE;
+          .article-meta .ctab:hover {
             color: #3D4657;
           }
-          .financial-table td:first-child {
+          .article-meta .ctab.on {
             color: #0A0E1A;
-            font-weight: 600;
-          }
-          .financial-table td:nth-child(2) {
             font-weight: 700;
-            color: #0A0E1A;
+            border-bottom-color: #2A46EA;
           }
-          .financial-table tr:last-child td {
-            border-bottom: none;
+          /* Chip sets (Companies, Sectors, Related Corporate Event) */
+          .article-meta .chipset {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            padding: 14px 16px;
           }
-          .article-financial-metrics {
+          .article-meta .lp-chip {
+            display: inline-flex;
+            align-items: center;
+            height: 24px;
+            padding: 0 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            background: #F1F4FE;
+            color: #1F35C4;
+            text-decoration: none;
+          }
+          .article-meta .lp-chip-neutral {
+            background: #F5F7FD;
+            border: 1px solid #E4E8F2;
+            color: #3D4657;
+          }
+          .article-meta .side-pill-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: #fff;
+            color: #2A46EA;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 7px 14px;
+            border-radius: 999px;
+            border: 1px solid #C6D1FB;
+            box-shadow: 0 1px 2px rgba(16, 28, 70, 0.05);
+            cursor: pointer;
+            white-space: nowrap;
+          }
+          #fincard {
             overflow: visible !important;
           }
         `,
