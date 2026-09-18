@@ -38,7 +38,10 @@ export function getFilterIdForColumnKey(columnKey: string): string | undefined {
   return COLUMN_KEY_TO_FILTER_ID[columnKey];
 }
 
-export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
+export function getColumnKeysForActiveFilters(
+  filterIds: string[],
+  roleTabActive = false
+): string[] {
   const keys = new Set<string>();
   const locationFilterIds = new Set([
     "region",
@@ -57,6 +60,10 @@ export function getColumnKeysForActiveFilters(filterIds: string[]): string[] {
     if (locationFilterIds.has(filterId)) {
       keys.add("country");
     }
+  }
+
+  if (roleTabActive) {
+    keys.add("area_of_focus");
   }
 
   return Array.from(keys).filter((key) =>
