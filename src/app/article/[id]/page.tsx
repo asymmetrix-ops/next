@@ -360,6 +360,17 @@ const styles = {
     marginBottom: "16px",
     letterSpacing: "-0.014em",
   },
+  // Nested card used inside the sidebar for standalone sections (Companies,
+  // Sectors, ...) — matches the Company Overview / Financial cards' framing
+  // so every sidebar section reads as its own boxed card, not just text
+  // floating inside the outer sidebar card.
+  sidebarSubCard: {
+    borderRadius: 10,
+    border: "1px solid #E4E8F2",
+    padding: "16px 16px 12px",
+    backgroundColor: "#fff",
+    boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
+  },
   tagContainer: {
     display: "flex",
     flexWrap: "wrap" as const,
@@ -2396,7 +2407,7 @@ const ArticleDetailPage = () => {
             )}
             {/* Companies + Generate Table (sidebar) */}
             {canOpenCompanyTable && (
-              <div style={styles.section}>
+              <div style={{ ...styles.section, ...styles.sidebarSubCard }}>
                 <div
                   style={{
                     display: "flex",
@@ -2435,13 +2446,13 @@ const ArticleDetailPage = () => {
                       touchAction: "manipulation",
                     }}
                   >
-                    Generate Table
+                    Generate table
                   </button>
                 </div>
                 {!showMarketLandscape &&
                   article.companies_mentioned &&
                   article.companies_mentioned.length > 0 && (
-                    <div style={{ ...styles.tagContainer, marginTop: 12 }}>
+                    <div style={{ ...styles.tagContainer, marginTop: 12, marginBottom: 0 }}>
                       {article.companies_mentioned.map((company) => (
                         <EntityChip
                           key={company.id}
@@ -2457,9 +2468,9 @@ const ArticleDetailPage = () => {
 
             {/* Sectors Section */}
             {article.sectors && article.sectors.length > 0 && (
-              <div style={styles.section}>
+              <div style={{ ...styles.section, ...styles.sidebarSubCard }}>
                 <h2 style={styles.cardSectionTitle}>Sectors</h2>
-                <div style={styles.tagContainer}>
+                <div style={{ ...styles.tagContainer, marginBottom: 0 }}>
                   {article.sectors.map((sector) => {
                     const sid = getSectorId(sector);
                     if (!sid) return null;

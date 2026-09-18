@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
 import { trackLogout } from "@/lib/tracking";
+import { useNavOpen } from "./NavOpenContext";
 
 type NavCounts = {
   companies?: number;
@@ -123,8 +124,13 @@ export default function AppLeftNav() {
   const pathname = usePathname() || "";
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [open, setOpen] = useState(true);
+  // Shared via context (not local state) so page content — e.g. the
+  // Insights & Analysis grid — can read open/collapsed too, and so it
+  // persists across navigations instead of resetting on every page mount.
+  const { open, setOpen } = useNavOpen();
   const [counts, setCounts] = useState<NavCounts>({});
+
+  const toggleOpen = () => setOpen((v) => !v);
 
   useEffect(() => {
     let cancelled = false;
@@ -255,30 +261,36 @@ export default function AppLeftNav() {
         open ? "w-[240px]" : "w-[64px]"
       }`}
     >
-      <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-100 shrink-0">
+      <div
+        className={`flex items-center gap-2 px-3 py-3 border-b border-gray-100 shrink-0 ${
+          open ? "" : "justify-center px-0"
+        }`}
+      >
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={toggleOpen}
           aria-label={open ? "Collapse navigation" : "Expand navigation"}
           aria-expanded={open}
           className="flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors shrink-0"
         >
           <Bars3Icon className="w-[18px] h-[18px]" />
         </button>
-        <Link
-          href={DASHBOARD_HREF}
-          className="flex items-center justify-center w-7 h-7 shrink-0"
-          aria-label="Asymmetrix Dashboard"
-        >
-          <Image
-            src="/icons/logo.svg"
-            alt="Asymmetrix"
-            width={28}
-            height={28}
-            style={{ width: 28, height: 28, objectFit: "contain" }}
-            priority
-          />
-        </Link>
+        {open && (
+          <Link
+            href={DASHBOARD_HREF}
+            className="flex items-center justify-center w-7 h-7 shrink-0"
+            aria-label="Asymmetrix Dashboard"
+          >
+            <Image
+              src="/icons/logo.svg"
+              alt="Asymmetrix"
+              width={28}
+              height={28}
+              style={{ width: 28, height: 28, objectFit: "contain" }}
+              priority
+            />
+          </Link>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">

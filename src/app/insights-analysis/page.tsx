@@ -3,6 +3,7 @@
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
+import { useNavOpen } from "@/components/layout/NavOpenContext";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
@@ -123,6 +124,7 @@ function buildContentArticlesParams(
 // Main Insights Analysis Page Component
 function InsightsAnalysisPageContent() {
   const { isTrialActive } = useAuth();
+  const { open: navOpen } = useNavOpen();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -782,11 +784,12 @@ function InsightsAnalysisPageContent() {
     @media (min-width: 769px) and (max-width: 1024px) {
       .ia-grid { grid-template-columns: repeat(3, 1fr) !important; }
     }
-    @media (min-width: 1025px) and (max-width: 1399px) {
-      .ia-grid { grid-template-columns: repeat(4, 1fr) !important; }
-    }
-    @media (min-width: 1400px) {
-      .ia-grid { grid-template-columns: repeat(5, 1fr) !important; }
+    /* Above tablet width, column count follows the left nav's open/collapsed
+       state (see useNavOpen) rather than the viewport alone — collapsing the
+       nav reclaims enough width for a 5th column. */
+    @media (min-width: 1025px) {
+      .ia-grid.ia-grid-nav-open { grid-template-columns: repeat(4, 1fr) !important; }
+      .ia-grid.ia-grid-nav-collapsed { grid-template-columns: repeat(5, 1fr) !important; }
     }
   `;
 
@@ -962,7 +965,7 @@ function InsightsAnalysisPageContent() {
           <div className="ia-empty">No reports found.</div>
         )}
         {articles.length > 0 && (
-          <div className="ia-grid">
+          <div className={`ia-grid ${navOpen ? "ia-grid-nav-open" : "ia-grid-nav-collapsed"}`}>
             {articles.map((article, index) => (
               <InsightsAnalysisCard key={article.id ?? index} article={article} />
             ))}

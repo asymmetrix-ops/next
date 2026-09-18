@@ -46,12 +46,15 @@ export function BulkPortfolioActionToolbar({
   onClearSelection,
   onExport,
   exporting = false,
+  exportSingleMode,
 }: {
   entityType: PortfolioEntityType;
   entityIds: number[];
   onClearSelection: () => void;
   onExport?: (mode: ListExportMode) => void | Promise<void>;
   exporting?: boolean;
+  /** When set, the export button always exports in this mode (no dropdown). */
+  exportSingleMode?: ListExportMode;
 }) {
   const fetchPortfolio = usePortfolioStore((s) => s.fetchPortfolio);
   const count = entityIds.length;
@@ -240,6 +243,7 @@ export function BulkPortfolioActionToolbar({
               exporting={exporting}
               disabled={submitting}
               onExport={onExport}
+              singleMode={exportSingleMode}
             />
           </div>
         )}

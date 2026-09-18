@@ -389,6 +389,7 @@ export const IndividualDashboard = ({
               onExport={(mode) => onExport?.(mode)}
               exporting={exporting}
               disabled={!onExport}
+              singleMode="all_columns"
             />
             <RequestDataResearchButton
               label="Request Individual Profile"

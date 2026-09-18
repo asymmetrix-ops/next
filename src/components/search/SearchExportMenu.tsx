@@ -59,12 +59,15 @@ export function SearchExportMenu({
   exporting = false,
   label = "Export",
   compact = false,
+  singleMode,
 }: {
   onExport: (mode: ListExportMode) => void | Promise<void>;
   disabled?: boolean;
   exporting?: boolean;
   label?: string;
   compact?: boolean;
+  /** When set, renders a plain button (no dropdown) that always exports in this mode. */
+  singleMode?: ListExportMode;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -87,6 +90,24 @@ export function SearchExportMenu({
     },
     [onExport]
   );
+
+  if (singleMode) {
+    return (
+      <button
+        type="button"
+        style={{
+          ...SEARCH_HEADER_ACTION_BUTTON_STYLE,
+          ...(compact ? { height: 32, padding: "0 12px", fontSize: 12 } : {}),
+          opacity: disabled ? 0.6 : 1,
+        }}
+        onClick={() => void handleSelect(singleMode)}
+        disabled={disabled || exporting}
+      >
+        <SearchExportCsvIcon />
+        {exporting ? "Exporting..." : label}
+      </button>
+    );
+  }
 
   return (
     <>
@@ -118,7 +139,7 @@ export function SearchExportMenu({
             >
               Export all columns
               <span className="search-export-menu-item-desc">
-                Two-sheet XLSX with Directory
+                Full workbook with every field, plus a directory tab describing each one.
               </span>
             </button>
             <button
@@ -128,9 +149,9 @@ export function SearchExportMenu({
               disabled={exporting}
               onClick={() => void handleSelect("visible_columns")}
             >
-              Export visible columns only
+              Export visible columns
               <span className="search-export-menu-item-desc">
-                Single-sheet XLSX
+                Matches your current view — same columns, order and sorting on screen.
               </span>
             </button>
           </div>

@@ -39,7 +39,7 @@ export const INDIVIDUALS_COLUMN_CATEGORIES: IndividualColumnCategory[] = [
         columnKey: "follow",
         label: "My Portfolio",
         type: "follow",
-        defaultVisible: false,
+        defaultVisible: true,
       },
     ],
   },
@@ -82,6 +82,7 @@ export const CANONICAL_INDIVIDUAL_COLUMN_KEYS = ALL_INDIVIDUALS_COLUMN_META.map(
 
 export const PROD_DEFAULT_INDIVIDUAL_COLUMN_KEYS = [
   "name",
+  "follow",
   "current_company",
   "current_roles",
   "location",

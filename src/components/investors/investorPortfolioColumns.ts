@@ -33,8 +33,6 @@ export const PORTFOLIO_HOLDING_PERIOD_FILTER_DEF: FilterDef = {
   type: "#",
   editor: "range",
   unit: "yrs",
-  min: 0,
-  max: 20,
 };
 
 /** Filters available on the Investor Profile → Portfolio tab only. */

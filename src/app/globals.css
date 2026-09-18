@@ -120,9 +120,13 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  /* overflow-x: hidden lives on html only. Setting it on both html and body
+     makes overflow-y auto-compute to `auto` on both, turning body into a
+     second scroll container — that breaks `position: sticky` (e.g. the left
+     nav sidebar) for anything inside body, since sticky resolves against the
+     nearest scrolling ancestor. */
   body {
     @apply bg-background text-foreground;
-    overflow-x: hidden;
     max-width: 100%;
   }
 
