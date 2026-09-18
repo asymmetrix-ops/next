@@ -271,8 +271,16 @@ function AdvisorsPageInner() {
   }, [currentFilters, fetchAdvisors]);
 
   const handleFilterColumnsChange = useCallback(
-    ({ filterIds }: { filterIds: string[] }) => {
-      setFilterPinnedColumnKeys(getColumnKeysForActiveFilters(filterIds));
+    ({
+      filterIds,
+      roleTabActive,
+    }: {
+      filterIds: string[];
+      roleTabActive: boolean;
+    }) => {
+      setFilterPinnedColumnKeys(
+        getColumnKeysForActiveFilters(filterIds, roleTabActive)
+      );
     },
     []
   );

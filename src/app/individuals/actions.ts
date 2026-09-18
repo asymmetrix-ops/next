@@ -8,10 +8,7 @@ import {
   individualsFiltersToRequestBody,
   type IndividualsSearchFilters,
 } from "@/lib/individualsFilterPayload";
-import {
-  mapResponseToIndividualsSummaryCounts,
-  mapIndividualsCountsResponse,
-} from "@/components/individuals/individualsFilterConfig";
+import { mapIndividualsCountsResponse } from "@/components/individuals/individualsFilterConfig";
 import { normalizeIndividualFromApi } from "@/lib/normalizeIndividual";
 
 export type { IndividualsSearchFilters };
@@ -24,7 +21,6 @@ export interface IndividualsListResponse {
   perPage: number;
   pageTotal: number;
   itemsTotal: number;
-  summaryCounts: ReturnType<typeof mapResponseToIndividualsSummaryCounts>;
 }
 
 type IndividualsApiListResponse = {
@@ -37,11 +33,6 @@ type IndividualsApiListResponse = {
   totalIndividuals?: number;
   totalPages?: number;
   nextOffset?: number | null;
-  currentRoles?: number;
-  pastRoles?: number;
-  ceos?: number;
-  chairs?: number;
-  founders?: number;
 };
 
 function mapIndividualsListResponse(
@@ -80,18 +71,6 @@ function mapIndividualsListResponse(
     perPage,
     pageTotal,
     itemsTotal,
-    summaryCounts: mapResponseToIndividualsSummaryCounts({
-      individuals: items,
-      totalIndividuals: itemsTotal,
-      currentPage: curPage,
-      perPage,
-      totalPages: pageTotal,
-      currentRoles: data.currentRoles ?? 0,
-      pastRoles: data.pastRoles ?? 0,
-      ceos: data.ceos ?? 0,
-      chairs: data.chairs ?? 0,
-      founders: data.founders ?? 0,
-    }),
   };
 }
 

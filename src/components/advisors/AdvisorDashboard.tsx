@@ -55,7 +55,10 @@ export type AdvisorDashboardProps = {
     portfolioOnly?: boolean,
     refreshCounts?: boolean
   ) => void;
-  onFilterColumnsChange?: (payload: { filterIds: string[] }) => void;
+  onFilterColumnsChange?: (payload: {
+    filterIds: string[];
+    roleTabActive: boolean;
+  }) => void;
   initialSearch?: string;
   roleCounts?: AdvisorsRoleCounts;
   onColumnsClick?: () => void;
@@ -206,8 +209,9 @@ export const AdvisorDashboard = ({
   useEffect(() => {
     onFilterColumnsChangeRef.current?.({
       filterIds: filterBarState.filters.map((filter) => filter.id),
+      roleTabActive: activeAdvisorRoleTab !== "all",
     });
-  }, [filterBarState.filters]);
+  }, [filterBarState.filters, activeAdvisorRoleTab]);
 
   const buildSearchFilters = useCallback((): AdvisorsSearchFilters => {
     const tabConfig =

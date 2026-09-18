@@ -40,6 +40,8 @@ import {
   getContentTypeBadgeStyle,
 } from "@/lib/contentTypeBadge";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
+import { locationsService } from "@/lib/locationsService";
+import { normalizeSectorName } from "@/components/corporate-events/corporateEventsTableUtils";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -744,6 +746,16 @@ export default function HomeUserPage() {
   const dealRadarLoadedOffsetsRef = useRef<Set<number>>(new Set());
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
+  // Name -> id lookups so Corporate Events sector text (which the home
+  // events endpoint often returns as plain names, unlike Deal Radar's
+  // already-linked sector refs) can still render as links to /sector and
+  // /sub-sector profiles.
+  const [primarySectorNameToId, setPrimarySectorNameToId] = useState<
+    Record<string, number>
+  >({});
+  const [secondarySectorNameToId, setSecondarySectorNameToId] = useState<
+    Record<string, number>
+  >({});
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
@@ -1468,6 +1480,40 @@ export default function HomeUserPage() {
     fetchCorporateEvents();
   }, [authLoading, isAuthenticated, fetchCorporateEvents]);
 
+  // Sector name -> id maps for linking Corporate Events sector text.
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [primaries, secondaries] = await Promise.all([
+          locationsService.getPrimarySectors(),
+          locationsService.getAllSecondarySectorsWithPrimary(),
+        ]);
+        if (cancelled) return;
+        const primaryMap: Record<string, number> = {};
+        for (const p of primaries) {
+          if (p?.sector_name && typeof p.id === "number") {
+            primaryMap[normalizeSectorName(p.sector_name)] = p.id;
+          }
+        }
+        setPrimarySectorNameToId(primaryMap);
+        const secondaryMap: Record<string, number> = {};
+        for (const s of secondaries) {
+          if (s?.sector_name && typeof s.id === "number") {
+            secondaryMap[normalizeSectorName(s.sector_name)] = s.id;
+          }
+        }
+        setSecondarySectorNameToId(secondaryMap);
+      } catch {
+        // Leave maps empty — sector text still renders, just without links.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated]);
+
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
     fetchInsightsArticles();
@@ -1792,7 +1838,7 @@ export default function HomeUserPage() {
               <span className="text-xs text-gray-500 ml-auto sm:ml-0">
                 {allNewsArticles.length} this week
               </span>
-              <a href="/insights-analysis" className="dash-view-all px-3 py-1.5 text-xs whitespace-nowrap">
+              <a href="/insights-analysis?content_type=News" className="dash-view-all px-3 py-1.5 text-xs whitespace-nowrap">
                 View all
               </a>
             </div>
@@ -2825,9 +2871,23 @@ export default function HomeUserPage() {
                                   <>
                                     {primary.split(",").map((name, idx, arr) => {
                                       const trimmed = name.trim();
+                                      const sectorId =
+                                        primarySectorNameToId[
+                                          normalizeSectorName(trimmed)
+                                        ];
                                       return (
                                         <span key={`m-primary-str-${idx}`}>
-                                          {trimmed}
+                                          {sectorId ? (
+                                            <a
+                                              href={`/sector/${sectorId}`}
+                                              className="dash-ev-link"
+                                              style={{ fontWeight: "500" }}
+                                            >
+                                              {trimmed}
+                                            </a>
+                                          ) : (
+                                            trimmed
+                                          )}
                                           {idx < arr.length - 1 && ", "}
                                         </span>
                                       );
@@ -2894,12 +2954,28 @@ export default function HomeUserPage() {
                                   </>
                                 ) : (
                                   <>
-                                    {secondary.map((name, idx, arr) => (
-                                      <span key={`m-secondary-str-${idx}`}>
-                                        {name}
-                                        {idx < arr.length - 1 && ", "}
-                                      </span>
-                                    ))}
+                                    {secondary.map((name, idx, arr) => {
+                                      const sectorId =
+                                        secondarySectorNameToId[
+                                          normalizeSectorName(name)
+                                        ];
+                                      return (
+                                        <span key={`m-secondary-str-${idx}`}>
+                                          {sectorId ? (
+                                            <a
+                                              href={`/sub-sector/${sectorId}`}
+                                              className="dash-ev-link"
+                                              style={{ fontWeight: "500" }}
+                                            >
+                                              {name}
+                                            </a>
+                                          ) : (
+                                            name
+                                          )}
+                                          {idx < arr.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    })}
                                   </>
                                 );
                               })()}
@@ -3430,9 +3506,22 @@ export default function HomeUserPage() {
                                                 ))
                                               : primary.split(",").map((name, idx, arr) => {
                                                   const trimmed = name.trim();
+                                                  const sectorId =
+                                                    primarySectorNameToId[
+                                                      normalizeSectorName(trimmed)
+                                                    ];
                                                   return (
                                                     <span key={`primary-${idx}`}>
-                                                      {trimmed}
+                                                      {sectorId ? (
+                                                        <a
+                                                          href={`/sector/${sectorId}`}
+                                                          className="dash-ev-link"
+                                                        >
+                                                          {trimmed}
+                                                        </a>
+                                                      ) : (
+                                                        trimmed
+                                                      )}
                                                       {idx < arr.length - 1 && ", "}
                                                     </span>
                                                   );
@@ -3454,12 +3543,27 @@ export default function HomeUserPage() {
                                                     {idx < arr.length - 1 && ", "}
                                                   </span>
                                                 ))
-                                              : secondary.map((name, idx, arr) => (
-                                                  <span key={`secondary-${idx}`}>
-                                                    {name}
-                                                    {idx < arr.length - 1 && ", "}
-                                                  </span>
-                                                ))}
+                                              : secondary.map((name, idx, arr) => {
+                                                  const sectorId =
+                                                    secondarySectorNameToId[
+                                                      normalizeSectorName(name)
+                                                    ];
+                                                  return (
+                                                    <span key={`secondary-${idx}`}>
+                                                      {sectorId ? (
+                                                        <a
+                                                          href={`/sub-sector/${sectorId}`}
+                                                          className="dash-ev-link"
+                                                        >
+                                                          {name}
+                                                        </a>
+                                                      ) : (
+                                                        name
+                                                      )}
+                                                      {idx < arr.length - 1 && ", "}
+                                                    </span>
+                                                  );
+                                                })}
                                           </div>
                                         )}
                                       </div>

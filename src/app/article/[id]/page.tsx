@@ -408,6 +408,10 @@ const styles = {
   contentTypeRow: {
     marginTop: "-8px",
     marginBottom: "24px",
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap" as const,
+    gap: "10px",
   },
   contentTypeBadge: {
     display: "inline-block",
@@ -419,6 +423,11 @@ const styles = {
     borderRadius: "9999px",
     border: "1px solid #C6D1FB",
     fontWeight: 600,
+  },
+  contentTypeMetaCount: {
+    fontSize: "13px",
+    color: "#6B7488",
+    fontWeight: 500,
   },
   transactionStatusBadge: {
     display: "inline-flex",
@@ -582,7 +591,10 @@ const ArticleDetailPage = () => {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(true);
+  const [financialTab, setFinancialTab] = useState<"overview" | "comps">(
+    "overview"
+  );
 
   // Financial Snapshot — platform vs reported currency toggle (mirrors
   // Company Profile's FinancialsCurrencyToggle behaviour).
@@ -741,7 +753,8 @@ const ArticleDetailPage = () => {
 
   useEffect(() => {
     if (articleId) {
-      setSummaryOpen(false);
+      setSummaryOpen(true);
+      setFinancialTab("overview");
       fetchArticle();
     }
   }, [articleId]);
@@ -1200,13 +1213,10 @@ const ArticleDetailPage = () => {
     return `${Math.round(num)}%`;
   };
 
-  const getFinancialSourceTooltip = (
-    source?: string | null
-  ): string | undefined => {
-    if (!source) return undefined;
-    const trimmed = source.toString().trim();
-    if (!trimmed) return undefined;
-    return `Source: ${trimmed}`;
+  // Visible "Source" table cell text.
+  const getFinancialSourceLabel = (source?: string | null): string => {
+    const trimmed = (source || "").toString().trim();
+    return trimmed || "-";
   };
 
   const SUPPORTED_CURRENCIES: Currency[] = ["USD", "GBP", "EUR"];
@@ -1621,9 +1631,21 @@ const ArticleDetailPage = () => {
                 article.Content?.Content_Type ||
                 ""
               ).trim();
+              const companiesCount = article.companies_mentioned?.length || 0;
+              const sectorsCount = article.sectors?.length || 0;
               return ct ? (
                 <div style={styles.contentTypeRow}>
                   <span style={styles.contentTypeBadge}>{ct}</span>
+                  {companiesCount > 0 && (
+                    <span style={styles.contentTypeMetaCount}>
+                      {companiesCount} {companiesCount === 1 ? "company" : "companies"}
+                    </span>
+                  )}
+                  {sectorsCount > 0 && (
+                    <span style={styles.contentTypeMetaCount}>
+                      {sectorsCount} {sectorsCount === 1 ? "sector" : "sectors"}
+                    </span>
+                  )}
                 </div>
               ) : null;
             })()}
@@ -1670,11 +1692,16 @@ const ArticleDetailPage = () => {
                     aria-expanded={summaryOpen}
                   >
                     <span className="summary-title">Summary</span>
-                    <span
-                      className={`summary-chevron ${summaryOpen ? "open" : ""}`}
-                      aria-hidden="true"
-                    >
-                      ▾
+                    <span className="summary-toggle">
+                      <span className="summary-toggle-label">
+                        {summaryOpen ? "Collapse summary" : "Expand summary"}
+                      </span>
+                      <span
+                        className={`summary-chevron ${summaryOpen ? "open" : ""}`}
+                        aria-hidden="true"
+                      >
+                        ▾
+                      </span>
                     </span>
                   </button>
                   <ul className="summary-list">
@@ -2191,85 +2218,98 @@ const ArticleDetailPage = () => {
                           />
                         )}
                       </div>
-                      <div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.revenue_source
-                            )}
-                          >
-                            {revenueDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>ARR (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.arr_source
-                            )}
-                          >
-                            {arrDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>EBITDA (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.ebitda_source
-                            )}
-                          >
-                            {ebitdaDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Enterprise Value (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.ev_source
-                            )}
-                          >
-                            {evDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue multiple</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.revenue_multiple_source
-                            )}
-                          >
-                            {revenueMultipleDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue growth</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.revenue_growth_source
-                            )}
-                          >
-                            {revenueGrowthDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Rule of 40</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.rule_of_40_source
-                            )}
-                          >
-                            {ruleOf40Display}
-                          </span>
-                        </div>
+
+                      <div className="financial-tabs" role="tablist">
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={financialTab === "overview"}
+                          className={`financial-tab ${
+                            financialTab === "overview" ? "active" : ""
+                          }`}
+                          onClick={() => setFinancialTab("overview")}
+                        >
+                          Financial Overview
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={financialTab === "comps"}
+                          className={`financial-tab ${
+                            financialTab === "comps" ? "active" : ""
+                          }`}
+                          onClick={() => setFinancialTab("comps")}
+                        >
+                          Transaction comps
+                        </button>
                       </div>
+
+                      {financialTab === "overview" ? (
+                        <table className="financial-table">
+                          <thead>
+                            <tr>
+                              <th>Metric</th>
+                              <th>Value</th>
+                              <th>Source</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>Revenue (m)</td>
+                              <td>{revenueDisplay}</td>
+                              <td>{getFinancialSourceLabel(financial.revenue_source)}</td>
+                            </tr>
+                            <tr>
+                              <td>ARR (m)</td>
+                              <td>{arrDisplay}</td>
+                              <td>{getFinancialSourceLabel(financial.arr_source)}</td>
+                            </tr>
+                            <tr>
+                              <td>EBITDA (m)</td>
+                              <td>{ebitdaDisplay}</td>
+                              <td>{getFinancialSourceLabel(financial.ebitda_source)}</td>
+                            </tr>
+                            <tr>
+                              <td>Enterprise value (m)</td>
+                              <td>{evDisplay}</td>
+                              <td>{getFinancialSourceLabel(financial.ev_source)}</td>
+                            </tr>
+                            <tr>
+                              <td>Revenue growth</td>
+                              <td>{revenueGrowthDisplay}</td>
+                              <td>
+                                {getFinancialSourceLabel(financial.revenue_growth_source)}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Rule of 40</td>
+                              <td>{ruleOf40Display}</td>
+                              <td>{getFinancialSourceLabel(financial.rule_of_40_source)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      ) : (
+                        <table className="financial-table">
+                          <thead>
+                            <tr>
+                              <th>Multiple</th>
+                              <th>Value</th>
+                              <th>Source</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>EV / Revenue</td>
+                              <td>{revenueMultipleDisplay}</td>
+                              <td>
+                                {getFinancialSourceLabel(
+                                  financial.revenue_multiple_source
+                                )}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2927,6 +2967,17 @@ const ArticleDetailPage = () => {
             font-weight: 700;
             color: #0A0E1A;
           }
+          .summary-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+          }
+          .summary-toggle-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #2A46EA;
+          }
           .summary-chevron {
             font-size: 18px;
             color: #6B7488;
@@ -2964,39 +3015,60 @@ const ArticleDetailPage = () => {
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6B7488; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
-          /* Hover tooltips for metric values using title attribute (align like company page) */
+          /* Financial Overview / Transaction comps tabs */
+          .financial-tabs {
+            display: flex;
+            gap: 20px;
+            border-bottom: 1px solid #E4E8F2;
+            margin-bottom: 12px;
+          }
+          .financial-tab {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 8px 2px 10px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6B7488;
+            cursor: pointer;
+          }
+          .financial-tab.active {
+            color: #2A46EA;
+            border-bottom-color: #2A46EA;
+          }
+          .financial-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+          }
+          .financial-table th {
+            text-align: left;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            color: #6B7488;
+            padding: 6px 4px;
+            border-bottom: 1px solid #E4E8F2;
+          }
+          .financial-table td {
+            padding: 8px 4px;
+            border-bottom: 1px solid #F1F4FE;
+            color: #3D4657;
+          }
+          .financial-table td:first-child {
+            color: #0A0E1A;
+            font-weight: 600;
+          }
+          .financial-table td:nth-child(2) {
+            font-weight: 700;
+            color: #0A0E1A;
+          }
+          .financial-table tr:last-child td {
+            border-bottom: none;
+          }
           .article-financial-metrics {
             overflow: visible !important;
-          }
-          .article-financial-metrics span[title] {
-            position: relative;
-            cursor: help;
-          }
-          .article-financial-metrics span[title]:hover::after {
-            content: attr(title);
-            position: absolute;
-            right: 0;
-            bottom: 100%;
-            transform: translateY(-6px);
-            background: rgba(17, 24, 39, 0.95);
-            color: #fff;
-            font-size: 12px;
-            line-height: 1.2;
-            padding: 6px 8px;
-            border-radius: 4px;
-            white-space: nowrap;
-            z-index: 20;
-            pointer-events: none;
-          }
-          .article-financial-metrics span[title]:hover::before {
-            content: '';
-            position: absolute;
-            right: 8px;
-            bottom: calc(100% - 2px);
-            border: 6px solid transparent;
-            border-top-color: rgba(17, 24, 39, 0.95);
-            z-index: 21;
-            pointer-events: none;
           }
         `,
         }}

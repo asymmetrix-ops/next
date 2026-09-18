@@ -53,7 +53,14 @@ const EMPTY = "#6B7488";
 const BLUE_50 = "#F1F4FE";
 const BLUE_100 = "#E2E8FD";
 const BLUE_600 = "#2A46EA";
-const BLUE_700 = "#1F35C4";
+// Matches badgeClassForSearchType's company (emerald) / sector (gray) tag
+// colors used for entity-type tags across the app (global search, portfolio, etc.)
+const GREEN_50 = "#ECFDF5";
+const GREEN_200 = "#A7F3D0";
+const GREEN_700 = "#047857";
+const GRAY_50 = "#F9FAFB";
+const GRAY_200 = "#E5E7EB";
+const GRAY_700 = "#374151";
 const R_LG = 16;
 const SH_SM = "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)";
 const SH_CARD = "0 2px 6px rgba(16, 28, 70, 0.05), 0 12px 32px rgba(16, 28, 70, 0.07)";
@@ -182,11 +189,11 @@ const SectorCard = ({
             height: 24,
             padding: "0 10px",
             borderRadius: 999,
-            background: BLUE_50,
-            border: `1px solid ${BLUE_100}`,
+            background: GREEN_50,
+            border: `1px solid ${GREEN_200}`,
             fontSize: 12,
             fontWeight: 600,
-            color: BLUE_700,
+            color: GREEN_700,
           }}
         >
           {formatNumber(sector.Number_of_Companies)} companies
@@ -198,11 +205,11 @@ const SectorCard = ({
             height: 24,
             padding: "0 10px",
             borderRadius: 999,
-            background: "#F5F7FD",
-            border: `1px solid ${LINE}`,
+            background: GRAY_50,
+            border: `1px solid ${GRAY_200}`,
             fontSize: 12,
             fontWeight: 600,
-            color: "#3D4657",
+            color: GRAY_700,
           }}
         >
           {formatNumber(sector.Number_of_Sub_Sectors || 0)} secondary
