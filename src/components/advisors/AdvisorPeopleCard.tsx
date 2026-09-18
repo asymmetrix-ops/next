@@ -177,7 +177,7 @@ export function AdvisorPeopleCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH showArrow>People</LinkedH>
+      <LinkedH>People</LinkedH>
 
       <div
         style={{

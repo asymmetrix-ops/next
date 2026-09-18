@@ -1017,6 +1017,7 @@ export default function AdvisorProfilePage() {
                 yoyLabel={headcountYoY || undefined}
                 asOf={employeeCountAsOf}
                 linkedinUrl={linkedinUrl}
+                showHeaderArrow={false}
               />
             </div>
             )}

@@ -85,6 +85,8 @@ type Props = {
   /** LinkedIn company URL for the footer icon. */
   linkedinUrl?: string;
   fillGridCell?: boolean;
+  /** Decorative header arrow (off when the card is not a navigation target). */
+  showHeaderArrow?: boolean;
 };
 
 export function HeadcountCard({
@@ -96,6 +98,7 @@ export function HeadcountCard({
   historyLabel,
   linkedinUrl,
   fillGridCell = false,
+  showHeaderArrow = true,
 }: Props) {
   const id = React.useId().replace(/:/g, "");
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
@@ -215,7 +218,7 @@ export function HeadcountCard({
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH
         right={yoyLabel ? <Delta value={yoyLabel} /> : undefined}
-        showArrow
+        showArrow={showHeaderArrow}
         leftSlot={linkedinIcon}
       >
         LinkedIn employee count
