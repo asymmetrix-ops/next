@@ -553,6 +553,7 @@ export const IndividualSection = ({
           onClearSelection={onClearSelection}
           exporting={exporting}
           onExport={handleSelectedListExport}
+          exportSingleMode="all_columns"
         />
       )}
       <div className="company-table-scroll">

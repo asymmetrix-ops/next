@@ -168,21 +168,27 @@ const SectorCard = ({
         >
           {sector.sector_name || "-"}
         </a>
-        <span
+        <a
+          href={href}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Open ${sector.sector_name || "sector"} profile`}
           style={{
             marginLeft: "auto",
             color: hover ? BLUE_600 : "#8A93A8",
             flexShrink: 0,
             marginTop: 2,
             transition: "color 180ms",
+            display: "inline-flex",
           }}
         >
           <ArrowIcon />
-        </span>
+        </a>
       </h2>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 13 }}>
-        <span
+        <a
+          href={`/sector/${sector.id}?tab=all`}
+          onClick={(e) => e.stopPropagation()}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -194,11 +200,14 @@ const SectorCard = ({
             fontSize: 12,
             fontWeight: 600,
             color: GREEN_700,
+            textDecoration: "none",
           }}
         >
           {formatNumber(sector.Number_of_Companies)} companies
-        </span>
-        <span
+        </a>
+        <a
+          href={`/sector/${sector.id}?tab=subsectors`}
+          onClick={(e) => e.stopPropagation()}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -210,10 +219,11 @@ const SectorCard = ({
             fontSize: 12,
             fontWeight: 600,
             color: GRAY_700,
+            textDecoration: "none",
           }}
         >
           {formatNumber(sector.Number_of_Sub_Sectors || 0)} secondary
-        </span>
+        </a>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: "auto" }}>

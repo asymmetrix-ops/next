@@ -390,7 +390,15 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
         >
           {displayHeadline || "-"}
           {hqCountryIso2 ? (
-            <span style={{ display: "inline-block", marginLeft: 8, verticalAlign: "middle" }}>
+            <span
+              style={{
+                display: "inline-block",
+                marginLeft: 8,
+                verticalAlign: "middle",
+                position: "relative",
+                top: -3,
+              }}
+            >
               <CountryFlagImg iso2={hqCountryIso2} size={INSIGHT_FLAG_SIZE_PX} />
             </span>
           ) : null}

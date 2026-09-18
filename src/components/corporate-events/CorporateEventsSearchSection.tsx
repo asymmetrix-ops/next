@@ -824,7 +824,7 @@ export const CorporateEventsSearchSection = ({
       <style
         dangerouslySetInnerHTML={{
           __html: `
-            .ce-search-table .company-table-cell-wrap {
+            .ce-search-table td.company-table-cell-wrap {
               display: -webkit-box;
               -webkit-line-clamp: 2;
               -webkit-box-orient: vertical;

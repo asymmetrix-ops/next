@@ -371,13 +371,25 @@ function summarize(
     if (value.length === 1) return String(value[0]);
     return `${String(value[0])} +${value.length - 1}`;
   }
-  if (def.editor === "range")
+  if (def.editor === "range") {
+    if (def.id === "holding_period") {
+      const v = value as { min?: number } | null | undefined;
+      if (!v?.min) return "";
+      const years = Math.floor(v.min);
+      const months = Math.round((v.min - years) * 12);
+      const parts = [
+        years > 0 ? `${years}y` : null,
+        months > 0 ? `${months}m` : null,
+      ].filter(Boolean);
+      return `More than ${parts.join(" ") || "0y"}`;
+    }
     return formatRangeValue(
       value as { min?: number; max?: number },
       def.unit,
       def.type,
       currencySymbol
     );
+  }
   if (def.editor === "date_range") {
     const v = value as { from?: string; to?: string };
     const fmt = (raw: string) => {
@@ -1471,6 +1483,23 @@ function RangeEditor({
     v.max !== undefined && !isUnboundedMax(v.max) ? String(v.max) : ""
   );
 
+  // Holding period is a single "more than X years Y months" threshold, not a
+  // from/to range — no upper bound, and months give sub-year precision that
+  // a whole-years min/max pair can't express.
+  const isYearsMonthsMin = def.id === "holding_period";
+  const initialMinYears =
+    v.min !== undefined ? Math.floor(v.min) : undefined;
+  const initialMinMonths =
+    v.min !== undefined
+      ? Math.round((v.min - Math.floor(v.min)) * 12)
+      : undefined;
+  const [minYears, setMinYears] = useState<string>(
+    initialMinYears !== undefined ? String(initialMinYears) : ""
+  );
+  const [minMonths, setMinMonths] = useState<string>(
+    initialMinMonths ? String(initialMinMonths) : ""
+  );
+
   const applyPreset = ([, mn, mx]: [string, number, number]) => {
     setLo(String(mn));
     setHi(isUnboundedMax(mx) ? "" : String(mx));
@@ -1487,6 +1516,73 @@ function RangeEditor({
   const unitHint = def.unit
     ? `unit: ${localizeCurrencyFilterUnit(def.unit, currencySymbol)}`
     : undefined;
+
+  if (isYearsMonthsMin) {
+    const hasValue = minYears !== "" || minMonths !== "";
+    return (
+      <EditorShell
+        title={def.fullLabel}
+        compact
+        onDismiss={onDismiss}
+        footer={
+          <EditorFooter
+            onClear={
+              hasValue
+                ? () => {
+                    setMinYears("");
+                    setMinMonths("");
+                  }
+                : null
+            }
+            onRemove={onRemove}
+            onBack={onBack}
+            onApply={() => {
+              const years = minYears !== "" ? Number(minYears) : 0;
+              const months = minMonths !== "" ? Number(minMonths) : 0;
+              const min = years + months / 12;
+              onChange(hasValue && min > 0 ? { min } : null);
+              onClose();
+            }}
+            applyDisabled={!hasValue}
+          />
+        }
+        width={248}
+      >
+        <div
+          style={{
+            fontSize: "var(--fs-12)",
+            color: "var(--fg-3)",
+            marginBottom: 8,
+          }}
+        >
+          More than
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+          }}
+        >
+          <NumberInput
+            value={minYears}
+            onChange={setMinYears}
+            placeholder="0"
+            unit="yrs"
+            compact
+          />
+          <NumberInput
+            value={minMonths}
+            onChange={setMinMonths}
+            placeholder="0"
+            unit="mos"
+            compact
+          />
+        </div>
+      </EditorShell>
+    );
+  }
 
   return (
     <EditorShell

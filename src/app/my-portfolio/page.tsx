@@ -1067,7 +1067,9 @@ export default function MyPortfolioPage() {
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Type</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-700">List</th>
+                    {activeTabId === ALL_FOLLOWED_TAB && (
+                      <th className="text-left px-4 py-3 font-medium text-gray-700">List</th>
+                    )}
                     <th className="text-right px-4 py-3 font-medium text-gray-700">Actions</th>
                   </tr>
                 </thead>
@@ -1094,22 +1096,24 @@ export default function MyPortfolioPage() {
                             {formatEntityType(String(r.entity))}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3">
-                          {listLabels.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {listLabels.map((label) => (
-                                <span
-                                  key={label}
-                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200"
-                                >
-                                  {label}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400">—</span>
-                          )}
-                        </td>
+                        {activeTabId === ALL_FOLLOWED_TAB && (
+                          <td className="px-4 py-3">
+                            {listLabels.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {listLabels.map((label) => (
+                                  <span
+                                    key={label}
+                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200"
+                                  >
+                                    {label}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-right">
                           <Button
                             variant="outline"

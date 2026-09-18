@@ -309,15 +309,13 @@ function PrimaryFinCard({
     return list;
   }, [hasIncomeStatement, incomeTabLabel]);
 
-  const [activeTab, setActiveTab] = useState<PrimaryFinTab>(() =>
-    hasIncomeStatement ? "income" : "metrics"
-  );
+  const [activeTab, setActiveTab] = useState<PrimaryFinTab>("metrics");
 
   useEffect(() => {
     if (!tabs.some((t) => t.id === activeTab)) {
-      setActiveTab(hasIncomeStatement ? "income" : "metrics");
+      setActiveTab("metrics");
     }
-  }, [tabs, activeTab, hasIncomeStatement]);
+  }, [tabs, activeTab]);
 
   return (
     <LinkPanel fillGridCell={fillGridCell} className="fin-metrics-card--primary">
