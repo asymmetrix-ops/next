@@ -1319,7 +1319,7 @@ function MarketMapGrid({
         display: "grid",
         gridTemplateColumns: "repeat(4, 1fr)",
         gap: 14,
-        alignItems: "start",
+        alignItems: "stretch",
       }}
     >
       {bucketOrder.map((type) => {
@@ -1336,6 +1336,8 @@ function MarketMapGrid({
               padding: "0 14px",
               display: "flex",
               flexDirection: "column",
+              height: "100%",
+              minHeight: 0,
             }}
           >
             <div
@@ -1400,7 +1402,15 @@ function MarketMapGrid({
                 </a>
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingBottom: 14 }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                paddingBottom: 14,
+                flex: 1,
+              }}
+            >
               {list.length === 0 ? (
                 <div style={{ padding: "10px 8px", fontSize: 12.5, color: EMPTY }}>
                   No companies
@@ -2513,7 +2523,15 @@ const SectorDetailPage = ({
 
   return (
     <AppShell>
-    <div style={{ minHeight: "100vh", background: TINT }}>
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100%",
+        background: TINT,
+      }}
+    >
       <div style={{ background: "#fff", borderBottom: `1px solid ${LINE}`, padding: "18px 20px 16px" }}>
         <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>
           <a href="/sectors" style={{ fontWeight: 600, color: BLUE_600, textDecoration: "none" }}>
@@ -2577,7 +2595,7 @@ const SectorDetailPage = ({
 
       <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} counts={tabCounts} />
 
-      <main style={{ padding: "18px 20px 40px" }}>
+      <main style={{ flex: 1, padding: "18px 20px 40px" }}>
         {activeTab === "overview" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* Top row: Recent Insights + Recent Transactions */}
