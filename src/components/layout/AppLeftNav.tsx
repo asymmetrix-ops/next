@@ -341,7 +341,11 @@ export default function AppLeftNav() {
         />
       </nav>
 
-      <div className="flex shrink-0 items-center gap-1 border-t border-gray-100 p-2">
+      <div
+        className={`flex shrink-0 border-t border-gray-100 p-2 ${
+          open ? "flex-row items-center gap-1" : "flex-col items-center gap-2"
+        }`}
+      >
         <Link
           href="/settings"
           title="Settings"
