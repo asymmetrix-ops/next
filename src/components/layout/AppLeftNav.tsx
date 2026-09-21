@@ -256,11 +256,26 @@ export default function AppLeftNav() {
           aria-hidden="true"
         />
       )}
+      {/* Mobile-only floating trigger — on a phone the collapsed rail isn't
+          shown at all (no permanent strip eating into content width), so
+          this is the only way to open the drawer. Desktop keeps the icon
+          rail's own button inside the aside below, hence `md:hidden`. */}
+      {!open && (
+        <button
+          type="button"
+          onClick={toggleOpen}
+          aria-label="Expand navigation"
+          aria-expanded={false}
+          className="fixed left-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 md:hidden"
+        >
+          <Bars3Icon className="h-[18px] w-[18px]" />
+        </button>
+      )}
       <aside
-        className={`flex h-screen shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white motion-reduce:transition-none ${
+        className={`h-screen shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white motion-reduce:transition-none ${
           open
-            ? "fixed inset-y-0 left-0 z-50 md:sticky md:inset-auto md:top-0 md:z-auto"
-            : "sticky top-0 z-auto"
+            ? "fixed inset-y-0 left-0 z-50 flex md:sticky md:inset-auto md:top-0 md:z-auto"
+            : "hidden md:sticky md:top-0 md:z-auto md:flex"
         }`}
         style={{
           width: open ? NAV_WIDTH_EXPANDED_PX : NAV_WIDTH_COLLAPSED_PX,

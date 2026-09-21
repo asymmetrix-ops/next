@@ -78,13 +78,26 @@ export default function DashboardLeftNav({
           aria-hidden="true"
         />
       )}
+      {/* Mobile-only floating trigger — on a phone the collapsed rail isn't
+          shown at all, so this is the only way to open the drawer. */}
+      {!open && (
+        <button
+          type="button"
+          onClick={onToggleOpen}
+          aria-label="Expand navigation"
+          aria-expanded={false}
+          className="fixed left-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 md:hidden"
+        >
+          <Bars3Icon className="w-[18px] h-[18px]" />
+        </button>
+      )}
       <aside
-        className={`dash-leftnav h-full shrink-0 flex flex-col border-r border-gray-200 bg-white transition-[width,transform] duration-200 ease-out ${
+        className={`dash-leftnav h-full shrink-0 flex-col border-r border-gray-200 bg-white transition-[width,transform] duration-200 ease-out ${
           open ? "w-[240px]" : "w-[64px]"
         } ${
           open
-            ? "fixed inset-y-0 left-0 z-50 md:static md:inset-auto md:z-auto"
-            : "static"
+            ? "fixed inset-y-0 left-0 z-50 flex md:static md:inset-auto md:z-auto"
+            : "hidden md:static md:z-auto md:flex"
         }`}
       >
       <div
