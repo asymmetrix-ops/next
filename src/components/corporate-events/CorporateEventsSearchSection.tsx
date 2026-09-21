@@ -793,7 +793,13 @@ export const CorporateEventsSearchSection = ({
                         ),
                       }}
                     >
-                      {renderEventCell(column.key, event)}
+                      {column.wrap ? (
+                        <div className="company-table-cell-wrap-inner">
+                          {renderEventCell(column.key, event)}
+                        </div>
+                      ) : (
+                        renderEventCell(column.key, event)
+                      )}
                     </td>
                   ))}
                 </tr>
@@ -818,17 +824,24 @@ export const CorporateEventsSearchSection = ({
       />
       {columnsModalLayer}
       <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
-      {/* Clamp every wrap-enabled cell (Event, Parties, Advisors, Sectors…) to
-          2 lines so row height stays consistent regardless of how much a
-          given cell would otherwise wrap to. */}
+      {/* Clamp wrap-enabled cells to 2 lines — inner div only; never set
+          display:-webkit-box on <td> or table column layout breaks. */}
       <style
         dangerouslySetInnerHTML={{
           __html: `
             .ce-search-table td.company-table-cell-wrap {
+              white-space: normal;
+              height: auto;
+              vertical-align: top;
+            }
+            .ce-search-table .company-table-cell-wrap-inner {
               display: -webkit-box;
               -webkit-line-clamp: 2;
               -webkit-box-orient: vertical;
               overflow: hidden;
+              word-break: break-word;
+              overflow-wrap: break-word;
+              max-width: 320px;
             }
           `,
         }}
