@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
+const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R";
 
 async function fetchWithAuth(
   url: string,

@@ -15,7 +15,6 @@ import {
   UserGroupIcon,
   CalendarDaysIcon,
   LightBulbIcon,
-  Squares2X2Icon,
   BookmarkIcon,
   Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
@@ -112,7 +111,6 @@ const SECTIONS: NavSection[] = [
   },
 ];
 
-const FINANCIAL_INTELLIGENCE_HREF = "/financial-intelligence";
 const MY_PORTFOLIO_HREF = "/my-portfolio";
 const DASHBOARD_HREF = "/home-user";
 
@@ -234,7 +232,7 @@ export default function AppLeftNav() {
           portfolio_only: "false",
         });
         const res = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -323,14 +321,8 @@ export default function AppLeftNav() {
             active={s.isActive(pathname)}
           />
         ))}
-        <NavRow
-          open={open}
-          href={FINANCIAL_INTELLIGENCE_HREF}
-          label="Financial Intelligence"
-          icon={Squares2X2Icon}
-          count={null}
-          active={pathname.startsWith(FINANCIAL_INTELLIGENCE_HREF)}
-        />
+        {/* Financial Intelligence intentionally hidden from nav — page still
+            exists/updates, just not linked to yet. */}
         <NavRow
           open={open}
           href={MY_PORTFOLIO_HREF}

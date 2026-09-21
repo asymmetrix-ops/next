@@ -9,7 +9,7 @@ import {
   readPlatformCurrencyIdClient,
 } from "@/lib/platformCurrency";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
 
 class CorporateEventsService {
   private getAuthHeaders() {

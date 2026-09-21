@@ -19,9 +19,9 @@ import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 import CompactPagination from "@/components/ui/CompactPagination";
 
 const CONTENT_ARTICLES_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles";
 const CONTENT_ARTICLES_TYPE_COUNTS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_Content_Articles_Type_Counts";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_Content_Articles_Type_Counts";
 
 // ── Design tokens local to this page (mirrors src/app/sectors/page.tsx) ──────
 const SH_SM = "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)";
@@ -386,7 +386,7 @@ function InsightsAnalysisPageContent() {
 
         const [resp, sectors] = await Promise.all([
           fetch(
-            "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/content_types_for_articles",
+            "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/content_types_for_articles",
             {
               method: "GET",
               headers: {

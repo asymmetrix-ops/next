@@ -1385,7 +1385,7 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${id}`;
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${id}`;
 
       // Attempt 1: Standard GET
       const getResponse = await fetch(endpoint, {
@@ -1452,7 +1452,7 @@ const CompanyDetail = () => {
         params.append("new_company_id", String(companyIdForContent));
         params.append("page", String(page));
         params.append("per_page", String(INSIGHTS_PREVIEW_COUNT));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/companies_articles?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/companies_articles?${params.toString()}`;
         const response = await fetch(url, { method: "GET" });
         if (!response.ok) {
           setCompanyArticles([]);
@@ -1600,7 +1600,7 @@ const CompanyDetail = () => {
         Accept: "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
-      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_products_services`;
+      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_products_services`;
       const params = new URLSearchParams({ new_company_id: String(id) });
       const res = await fetch(`${base}?${params.toString()}`, {
         method: "GET",
@@ -1666,7 +1666,7 @@ const CompanyDetail = () => {
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
       const res = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_transaction_status?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_transaction_status?${params.toString()}`,
         { method: "GET" }
       );
       if (!res.ok) return;

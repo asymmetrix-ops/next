@@ -141,7 +141,6 @@ const Header = () => {
     "Corporate Events",
     "Insights & Analysis",
     "Financials",
-    "Financial Intelligence",
     "My Portfolio",
     "Settings",
   ];

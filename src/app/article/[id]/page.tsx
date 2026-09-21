@@ -647,7 +647,7 @@ const ArticleDetailPage = () => {
       }
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/content/${articleId}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${articleId}`,
         {
           method: "GET",
           headers: {
@@ -800,7 +800,7 @@ const ArticleDetailPage = () => {
         }
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/aritcle_company_of_focus?content_id=${encodeURIComponent(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/aritcle_company_of_focus?content_id=${encodeURIComponent(
             articleId
           )}`,
           {
@@ -955,7 +955,7 @@ const ArticleDetailPage = () => {
         const params = new URLSearchParams();
         params.append("new_company_id", String(companyOfFocusCompanyId));
         const res = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_competitors?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_competitors?${params.toString()}`,
           { method: "GET", headers, credentials: "include" }
         );
 

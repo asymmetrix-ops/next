@@ -116,7 +116,7 @@ export interface CompaniesCountsResponse {
 }
 
 const COMPANIES_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
 
 async function getServerToken(): Promise<string | null> {
   const cookieStore = await cookies();

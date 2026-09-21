@@ -3959,7 +3959,7 @@ const CompanyDetail = () => {
           }}
         >
           {(showFinancialsTab
-            ? (["Summary", "Financials", "Financial Intelligence"] as const)
+            ? (["Summary", "Financials"] as const)
             : (["Summary"] as const)
           ).map((tab) => {
             const active = tab === activeProfileTab;

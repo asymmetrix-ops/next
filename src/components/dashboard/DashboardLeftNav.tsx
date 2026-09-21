@@ -14,7 +14,6 @@ import {
   UserGroupIcon,
   CalendarDaysIcon,
   LightBulbIcon,
-  Squares2X2Icon,
   BookmarkIcon,
   Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
@@ -47,7 +46,8 @@ const SECTIONS: NavSection[] = [
   { key: "individuals", label: "Individuals", href: "/individuals", icon: UserGroupIcon },
   { key: "corporateEvents", label: "Corporate Events", href: "/corporate-events", icon: CalendarDaysIcon },
   { key: "insightsAnalysis", label: "Insights & Analysis", href: "/insights-analysis", icon: LightBulbIcon },
-  { key: "financialIntelligence", label: "Financial Intelligence", href: "/financial-intelligence", icon: Squares2X2Icon },
+  // Financial Intelligence intentionally hidden from nav — page still
+  // exists/updates, just not linked to yet.
 ];
 
 function formatCount(n: number | undefined): string | null {

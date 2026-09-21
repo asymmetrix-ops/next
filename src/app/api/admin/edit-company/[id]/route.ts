@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 const XANO_EDIT_COMPANY_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I";
 
 function getToken(request: Request) {
   const authHeader = request.headers.get("authorization");

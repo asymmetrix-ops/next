@@ -40,7 +40,7 @@ const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
 
 const CORPORATE_EVENTS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
 
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;

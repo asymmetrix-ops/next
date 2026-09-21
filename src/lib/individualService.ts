@@ -16,7 +16,7 @@ import {
 } from "./normalizeCounterpartyCorporateEvents";
 import { readPlatformCurrencyIdClient } from "./platformCurrency";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
 
 const PLACEHOLDER_INDIVIDUAL_NAME = /^Individual \d+$/;
 

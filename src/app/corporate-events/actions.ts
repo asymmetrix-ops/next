@@ -34,7 +34,7 @@ export interface CorporateEventsListResponse {
 }
 
 const CORPORATE_EVENTS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
 
 function normalizeCorporateEventsResponse(
   raw: CorporateEventsResponse,

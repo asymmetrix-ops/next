@@ -28,7 +28,7 @@ export const DEFAULT_COMPANY_UNIVERSE_COUNTS: CompanyUniverseCounts = {
 };
 
 const COMPANIES_COUNTS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/companies_counts";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/companies_counts";
 
 export const DEFAULT_COMPANIES_COUNTS_FILTERS = {
   filters_sql: null,

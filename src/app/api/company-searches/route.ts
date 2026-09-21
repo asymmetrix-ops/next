@@ -12,7 +12,7 @@ type CompanySearchedRow = {
 
 const XANO_ENDPOINT =
   process.env.XANO_COMPANY_SEARCHES_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0:develop/get_company_searched";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/get_company_searched";
 
 export async function GET() {
   try {

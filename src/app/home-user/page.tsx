@@ -1535,7 +1535,7 @@ export default function HomeUserPage() {
           portfolio_only: "false",
         });
         const res = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

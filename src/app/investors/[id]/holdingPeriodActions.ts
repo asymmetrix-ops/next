@@ -7,7 +7,7 @@ import type {
 } from "@/lib/holdingPeriod";
 
 const HOLDING_PERIOD_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:OWf5rLk9:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:OWf5rLk9";
 
 async function getServerToken(): Promise<string | null> {
   const cookieStore = await cookies();

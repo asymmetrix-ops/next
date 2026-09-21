@@ -5,7 +5,7 @@ import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency"
 import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 
 const INVESTOR_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm";
 
 export interface InvestorPortfolioIdsResponse {
   all_ids: number[];

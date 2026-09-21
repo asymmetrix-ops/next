@@ -76,7 +76,7 @@ class AuthService {
 
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
     let user: AuthUser;
     try {
@@ -142,7 +142,7 @@ class AuthService {
     const normalizedEmail = (email || "").trim().toLowerCase();
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
     const response = await fetch(`${apiUrl}/auth/login`, {
       method: "POST",
@@ -265,7 +265,7 @@ class AuthService {
     const normalizedEmail = (email || "").trim().toLowerCase();
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
     const response = await fetch(`${apiUrl}/auth/signup`, {
       method: "POST",
@@ -319,7 +319,7 @@ class AuthService {
     if (!token) return null;
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
     try {
       const userResponse = await fetch(`${apiUrl}/auth/me`, {
         method: "GET",
@@ -346,7 +346,7 @@ class AuthService {
   ): Promise<LoginResponse> {
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
     const response = await fetch(`${apiUrl}/auth/signup`, {
       method: "POST",
@@ -369,7 +369,7 @@ class AuthService {
   async requestPasswordReset(email: string): Promise<void> {
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
     const response = await fetch(`${apiUrl}/request_password_reset`, {
       method: "POST",
@@ -410,7 +410,7 @@ class AuthService {
   ): Promise<void> {
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
     const response = await fetch(`${apiUrl}/update_password`, {
       method: "POST",
