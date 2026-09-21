@@ -2615,19 +2615,20 @@ export function CompaniesFilterBar({
           background: "white",
           border: "1px solid var(--border-1)",
           borderRadius: "var(--r-lg)",
-          padding: 12,
+          padding: "8px 12px",
           display: "flex",
           flexDirection: "column",
-          gap: 8,
+          gap: 4,
         }}
       >
-        {/* Row 1: search + chips + add */}
+        {/* Row 1: search + chips + add + status (wraps to its own line only when needed) */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             flexWrap: "wrap",
-            gap: 6,
+            rowGap: 6,
+            columnGap: 6,
           }}
         >
           {/* Search */}
@@ -2805,46 +2806,38 @@ export function CompaniesFilterBar({
             onApply={commitFilter}
             boundaryRef={filterBarRef}
           />
-        </div>
 
-        {/* Row 2: status bar */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            paddingTop: 8,
-            borderTop: "1px dashed var(--ax-gray-100)",
-          }}
-        >
-          {hasRemovableFilters && (
-            <button
-              type="button"
-              onClick={clearAll}
-              style={{
-                padding: "4px 8px",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                fontSize: "var(--fs-13)",
-                fontWeight: 500,
-                color: "var(--fg-3)",
-              }}
-            >
-              Reset filters
-            </button>
-          )}
-          <span style={{ flex: 1 }} />
+          {/* Status: pushed to the far right, wraps below only on narrow/heavily-filtered rows */}
+          <span style={{ flex: "1 0 auto", minWidth: 12 }} />
           <span
             style={{
+              marginLeft: "auto",
               fontSize: "var(--fs-13)",
               color: "var(--fg-3)",
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
+              whiteSpace: "nowrap",
             }}
           >
+            {hasRemovableFilters && (
+              <button
+                type="button"
+                onClick={clearAll}
+                style={{
+                  padding: "4px 6px",
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "var(--fs-13)",
+                  fontWeight: 500,
+                  color: "var(--fg-3)",
+                }}
+              >
+                Reset filters
+              </button>
+            )}
             {filters.length > 0 && (
               <>
                 <strong
@@ -2863,14 +2856,10 @@ export function CompaniesFilterBar({
                 >
                   {filters.length} filter{filters.length === 1 ? "" : "s"} active
                 </strong>
-                {filters.length > 0 && (
-                  <>
-                    <span>·</span>
-                    <span style={{ textTransform: "uppercase", fontWeight: 600 }}>
-                      {describeActiveFilterLogic(filters, filterLogic)} logic
-                    </span>
-                  </>
-                )}
+                <span>·</span>
+                <span style={{ textTransform: "uppercase", fontWeight: 600 }}>
+                  {describeActiveFilterLogic(filters, filterLogic)} logic
+                </span>
                 <span>·</span>
               </>
             )}

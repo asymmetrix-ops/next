@@ -413,7 +413,7 @@ export const CorporateEventsDashboard = ({
         <div
           style={{
             ...SEARCH_DASHBOARD_HEADER_ROW,
-            marginBottom: embedded ? 12 : 18,
+            marginBottom: embedded ? 12 : 16,
             width: embedded ? "100%" : undefined,
           }}
         >
@@ -466,7 +466,7 @@ export const CorporateEventsDashboard = ({
         </div>
         )}
 
-        <div style={{ marginBottom: embedded ? 10 : 0 }}>
+        <div style={{ marginBottom: embedded ? 4 : 2 }}>
           <SearchListTabs
             tabs={dealTabs}
             activeTabId={activeDealTab}
@@ -483,7 +483,7 @@ export const CorporateEventsDashboard = ({
           borderBottom: "1px solid #e2e8f0",
         }}
       >
-        <div style={{ width: "100%", padding: `10px ${horizontalPad} 12px` }}>
+        <div style={{ width: "100%", padding: `8px ${horizontalPad} 8px` }}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={FILTER_CATEGORIES}

@@ -19,7 +19,7 @@ export const SEARCH_DASHBOARD_HEADER_ROW: CSSProperties = {
   alignItems: "flex-start",
   gap: 16,
   flexWrap: "wrap",
-  marginBottom: 18,
+  marginBottom: 16,
 };
 
 export const SEARCH_DASHBOARD_EYEBROW: CSSProperties = {
@@ -70,7 +70,7 @@ export const SEARCH_DASHBOARD_TABS_ROW: CSSProperties = {
   display: "flex",
   gap: 4,
   flexWrap: "wrap",
-  marginBottom: 18,
+  marginBottom: 4,
 };
 
 export const SEARCH_DASHBOARD_FILTER_SHELL: CSSProperties = {
@@ -81,7 +81,7 @@ export const SEARCH_DASHBOARD_FILTER_SHELL: CSSProperties = {
 
 export const SEARCH_DASHBOARD_FILTER_INNER: CSSProperties = {
   width: "100%",
-  padding: `10px ${SEARCH_DASHBOARD_HORIZONTAL_PAD} 12px`,
+  padding: `8px ${SEARCH_DASHBOARD_HORIZONTAL_PAD} 8px`,
 };
 
 export function getSearchTabButtonStyle(active: boolean): CSSProperties {
