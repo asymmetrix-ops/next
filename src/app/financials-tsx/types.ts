@@ -130,6 +130,8 @@ export interface Tweaks {
   peerAggregateMode?: "median" | "mean";
   /** Omit outer card chrome when nested inside another panel (Financial Intelligence). */
   chromeless?: boolean;
+  /** Full benchmark peer count for aggregate row copy (paginated peer tables). */
+  aggregatePeerCount?: number;
 }
 
 export interface SectorMedian {

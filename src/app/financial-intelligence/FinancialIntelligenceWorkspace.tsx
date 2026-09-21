@@ -314,32 +314,22 @@ export function FinancialIntelligenceWorkspace({
         }
 
         const total = peersResult.data.total_peers;
-        let fullPeerRows = peersResult.data.peers;
-        if (total > FI_PEERS_PER_PAGE) {
-          const fullPeersResult = await fetchFiPeers({
-            ...request,
-            page: 1,
-            per_page: total,
-          });
-          if (fullPeersResult.ok) {
-            fullPeerRows = fullPeersResult.data.peers;
-          }
-        }
+        const pagePeerRows = peersResult.data.peers;
 
         const responsePreferredCurrencyCode =
           peersResult.data.preferred_currency_code ?? currency;
         setPreferredCurrencyCode(responsePreferredCurrencyCode);
 
-        const missingLogoIds = [
+        const pageMissingLogoIds = [
           ...(targetResult.data.company_logo ? [] : [targetResult.data.company_id]),
-          ...fullPeerRows
+          ...pagePeerRows
             .filter((peer) => !peer.company_logo)
             .map((peer) => peer.company_id),
         ];
-        const logoMap = await fetchFiCompanyLogosByIds(missingLogoIds);
-        const enrichedTarget = applyFiCompanyLogos([targetResult.data], logoMap)[0];
-        const enrichedFullPeers = applyFiCompanyLogos(fullPeerRows, logoMap);
-        const enrichedPagePeers = applyFiCompanyLogos(peersResult.data.peers, logoMap);
+        const pageLogoMap = await fetchFiCompanyLogosByIds(pageMissingLogoIds);
+        const enrichedTarget = applyFiCompanyLogos([targetResult.data], pageLogoMap)[0];
+        const enrichedPagePeers = applyFiCompanyLogos(pagePeerRows, pageLogoMap);
+        const annotatedPagePeers = annotateManuallyAddedPeers(enrichedPagePeers, include);
 
         setTarget((prev) => ({
           ...enrichedTarget,
@@ -350,12 +340,35 @@ export function FinancialIntelligenceWorkspace({
             null,
         }));
         setFilters(filtersToUse);
-        setBenchmarkPeers(
-          annotateManuallyAddedPeers(enrichedFullPeers, include)
-        );
-        setPeers(annotateManuallyAddedPeers(enrichedPagePeers, include));
+        setPeers(annotatedPagePeers);
         setPeersPage(1);
         setTotalPeers(total);
+        setBenchmarkPeers(annotatedPagePeers);
+
+        if (total > FI_PEERS_PER_PAGE) {
+          void (async () => {
+            try {
+              const fullPeersResult = await fetchFiPeers({
+                ...request,
+                page: 1,
+                per_page: total,
+              });
+              if (!fullPeersResult.ok) return;
+
+              const fullPeerRows = fullPeersResult.data.peers;
+              const missingLogoIds = fullPeerRows
+                .filter((peer) => !peer.company_logo)
+                .map((peer) => peer.company_id);
+              const logoMap = await fetchFiCompanyLogosByIds(missingLogoIds);
+              const enrichedFullPeers = applyFiCompanyLogos(fullPeerRows, logoMap);
+              setBenchmarkPeers(
+                annotateManuallyAddedPeers(enrichedFullPeers, include)
+              );
+            } catch {
+              /* keep page-limited benchmark peers if full fetch fails */
+            }
+          })();
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load benchmark");
       } finally {
@@ -1060,7 +1073,12 @@ export function FinancialIntelligenceWorkspace({
                 preferredCurrencyCode={preferredCurrencyCode}
               />
               <PeerCompaniesCard
-                peers={benchmarkPeers}
+                peers={displayTablePeers}
+                totalPeerCount={totalPeers}
+                peersPage={peersPage}
+                peersPageTotal={peersPageTotal}
+                onPeersPageChange={(page) => void loadPeersPage(page)}
+                peersPaginationDisabled={loading}
                 target={target}
                 excludedPeers={excludedPeers}
                 excludedIds={companyIdsExclude}
@@ -1143,6 +1161,7 @@ export function FinancialIntelligenceWorkspace({
                     hideCompanyAvatars: false,
                     peerAggregateMode,
                     chromeless: true,
+                    aggregatePeerCount: displayBenchmarkPeers.length,
                   }}
                   sortId={sortId}
                   sortDir={sortDir}

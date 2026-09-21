@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Squares2X2Icon } from "@heroicons/react/24/outline";
 
 const STEPS = [
   "Search for a company in the target field above.",
@@ -50,15 +51,7 @@ export function FiTargetEmptyState() {
           }}
           aria-hidden
         >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M4 19V5M4 19h16M8 15V9M12 15V7M16 15v-4"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Squares2X2Icon className="h-7 w-7" strokeWidth={1.75} />
         </div>
 
         <p

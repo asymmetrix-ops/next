@@ -3,12 +3,20 @@
 import React from "react";
 import { DroppedPeersBar } from "./DroppedPeersBar";
 import type { FiCompanySearchHit } from "@/lib/financialIntelligence/apiClient";
+import { FI_PEERS_PER_PAGE } from "@/lib/financialIntelligence/filterPayload";
+import { SearchTablePagination } from "@/components/search/SearchTablePagination";
 import { yearMismatchTooltip, hasFinancialPeriodMismatch, companyColor } from "@/lib/financialIntelligence/mappers";
 import type { FiCompanyRow } from "@/lib/financialIntelligence/types";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 
 interface PeerCompaniesCardProps {
   peers: FiCompanyRow[];
+  /** Total peers in the benchmark (all pages). */
+  totalPeerCount: number;
+  peersPage: number;
+  peersPageTotal: number;
+  onPeersPageChange: (page: number) => void;
+  peersPaginationDisabled?: boolean;
   target: FiCompanyRow | null;
   excludedPeers: FiCompanyRow[];
   excludedIds: number[];
@@ -25,6 +33,11 @@ interface PeerCompaniesCardProps {
 
 export function PeerCompaniesCard({
   peers,
+  totalPeerCount,
+  peersPage,
+  peersPageTotal,
+  onPeersPageChange,
+  peersPaginationDisabled = false,
   target,
   excludedPeers,
   excludedIds,
@@ -68,7 +81,11 @@ export function PeerCompaniesCard({
           Companies in this benchmark
         </div>
         <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>
-          {peers.length} {peers.length === 1 ? "company" : "companies"}
+          {totalPeerCount.toLocaleString()}{" "}
+          {totalPeerCount === 1 ? "company" : "companies"}
+          {peersPageTotal > 1
+            ? ` · page ${peersPage} of ${peersPageTotal} (${FI_PEERS_PER_PAGE} per page)`
+            : ""}
           {excludedIds.length > 0 ? ` · ${excludedIds.length} dropped` : ""}
         </div>
         <input
@@ -239,6 +256,23 @@ export function PeerCompaniesCard({
         onRestorePeer={onRestorePeer}
         onRestoreAll={onRestoreAll}
       />
+
+      {peersPageTotal > 1 && (
+        <div
+          style={{
+            borderTop: "1px solid var(--border-1)",
+            background: "var(--ax-gray-25)",
+            flexShrink: 0,
+          }}
+        >
+          <SearchTablePagination
+            curPage={peersPage}
+            pageTotal={peersPageTotal}
+            onPageChange={onPeersPageChange}
+            disabled={peersPaginationDisabled}
+          />
+        </div>
+      )}
     </div>
   );
 }

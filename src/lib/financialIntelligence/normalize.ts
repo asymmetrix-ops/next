@@ -643,9 +643,26 @@ export function normalizePeersResponse(
       ? safeInt(preferredCurrencyIdRaw, 0) || undefined
       : undefined;
 
+  const pagination =
+    obj.pagination && typeof obj.pagination === "object"
+      ? (obj.pagination as Record<string, unknown>)
+      : null;
+  const totalPeersRaw =
+    obj.total_peers ??
+    obj.total_count ??
+    obj.totalCount ??
+    obj.total ??
+    pagination?.total ??
+    pagination?.total_count;
+
+  let total_peers = Number(totalPeersRaw);
+  if (!Number.isFinite(total_peers) || total_peers < peers.length) {
+    total_peers = peers.length;
+  }
+
   return {
     peers,
-    total_peers: Number(obj.total_peers ?? peers.length),
+    total_peers,
     is_default_mode: Boolean(obj.is_default_mode ?? false),
     target_logo: normalizeLogo(obj.target_logo),
     preferred_currency_id: preferredCurrencyId,

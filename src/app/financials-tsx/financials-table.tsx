@@ -355,10 +355,15 @@ export function FinancialsTable({
   const aggregateRowLabel =
     tweaks.peerAggregateMode === "mean" ? "Sector mean" : "Sector median";
 
+  const aggregatePeerCount =
+    tweaks.aggregatePeerCount != null && tweaks.aggregatePeerCount > 0
+      ? tweaks.aggregatePeerCount
+      : rows.length;
+
   const medianRow: FinRow = useMemo(() => ({
     name: aggregateRowLabel,
     primary: '— Comparable group —',
-    secondary: `${rows.length} companies`,
+    secondary: `${aggregatePeerCount} companies`,
     country: '', hq: '', ownership: 'Public', color: 'var(--ax-cyan-700)',
     fte: sectorMedian.fte,
     revenue: sectorMedian.revenue,
@@ -372,7 +377,7 @@ export function FinancialsTable({
     ev_ebit: sectorMedian.ev_ebit,
     rev_multiple: sectorMedian.rev_multiple,
     trend: [],
-  }), [rows.length, sectorMedian, aggregateRowLabel]);
+  }), [aggregatePeerCount, sectorMedian, aggregateRowLabel]);
 
   const sortedRows = useMemo(() => {
     if (!sortId) return rows;
@@ -463,7 +468,7 @@ export function FinancialsTable({
                       )}
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ax-cyan-800)' }}>{aggregateRowLabel}</div>
-                        <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--ax-cyan-700)' }}>across {rows.length} matching companies</div>
+                        <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--ax-cyan-700)' }}>across {aggregatePeerCount} matching companies</div>
                       </div>
                     </div>
                   ) : c.id === 'sector' ? (
