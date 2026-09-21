@@ -117,6 +117,8 @@ export interface FiPeersRequest {
   company_ids_exclude: number[];
   preferred_currency_id?: number;
   excluded_source_labels?: string[];
+  page?: number;
+  per_page?: number;
 }
 
 export interface FiBenchmarkState {

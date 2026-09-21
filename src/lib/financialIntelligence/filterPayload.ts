@@ -1,4 +1,7 @@
 import type { FilterState } from "@/app/financials-tsx/types";
+
+/** Peer list page size — matches companies search default. */
+export const FI_PEERS_PER_PAGE = 20;
 import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
 import type { FiPeersRequest, FiSecondarySectorLookup, FiSectorLookup, SavedBenchmark } from "./types";
 
@@ -332,6 +335,9 @@ export function peersRequestToSearchParams(request: FiPeersRequest): URLSearchPa
     "preferred_currency_id",
     String(request.preferred_currency_id ?? DEFAULT_PLATFORM_CURRENCY_ID)
   );
+
+  params.set("page", String(request.page ?? 1));
+  params.set("per_page", String(request.per_page ?? FI_PEERS_PER_PAGE));
 
   return params;
 }

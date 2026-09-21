@@ -40,8 +40,10 @@ import {
 } from "@/lib/financialIntelligence/mappers";
 import {
   buildPeersRequest,
+  FI_PEERS_PER_PAGE,
   type FiFilterLookups,
 } from "@/lib/financialIntelligence/filterPayload";
+import { SearchTablePagination } from "@/components/search/SearchTablePagination";
 import { buildDefaultFilters, filtersEqual } from "@/lib/financialIntelligence/defaultFilters";
 import { resolveTargetPrimarySectorIds } from "@/lib/financialIntelligence/sectorFilters";
 import {
@@ -163,6 +165,8 @@ export function FinancialIntelligenceWorkspace({
   const { currencyId: preferredCurrencyId, currency } = usePlatformCurrency();
   const [target, setTarget] = useState<FiCompanyRow | null>(null);
   const [peers, setPeers] = useState<FiCompanyRow[]>([]);
+  const [benchmarkPeers, setBenchmarkPeers] = useState<FiCompanyRow[]>([]);
+  const [peersPage, setPeersPage] = useState(1);
   const [preferredCurrencyCode, setPreferredCurrencyCode] = useState<string>(currency);
   const [totalPeers, setTotalPeers] = useState(0);
   const [filters, setFilters] = useState<FilterState[]>([]);
@@ -300,9 +304,26 @@ export function FinancialIntelligenceWorkspace({
           ),
         });
 
-        const peersResult = await fetchFiPeers(request);
+        const peersResult = await fetchFiPeers({
+          ...request,
+          page: 1,
+          per_page: FI_PEERS_PER_PAGE,
+        });
         if (!peersResult.ok) {
           throw new Error(peersResult.error);
+        }
+
+        const total = peersResult.data.total_peers;
+        let fullPeerRows = peersResult.data.peers;
+        if (total > FI_PEERS_PER_PAGE) {
+          const fullPeersResult = await fetchFiPeers({
+            ...request,
+            page: 1,
+            per_page: total,
+          });
+          if (fullPeersResult.ok) {
+            fullPeerRows = fullPeersResult.data.peers;
+          }
         }
 
         const responsePreferredCurrencyCode =
@@ -311,13 +332,14 @@ export function FinancialIntelligenceWorkspace({
 
         const missingLogoIds = [
           ...(targetResult.data.company_logo ? [] : [targetResult.data.company_id]),
-          ...peersResult.data.peers
+          ...fullPeerRows
             .filter((peer) => !peer.company_logo)
             .map((peer) => peer.company_id),
         ];
         const logoMap = await fetchFiCompanyLogosByIds(missingLogoIds);
         const enrichedTarget = applyFiCompanyLogos([targetResult.data], logoMap)[0];
-        const enrichedPeers = applyFiCompanyLogos(peersResult.data.peers, logoMap);
+        const enrichedFullPeers = applyFiCompanyLogos(fullPeerRows, logoMap);
+        const enrichedPagePeers = applyFiCompanyLogos(peersResult.data.peers, logoMap);
 
         setTarget((prev) => ({
           ...enrichedTarget,
@@ -328,8 +350,12 @@ export function FinancialIntelligenceWorkspace({
             null,
         }));
         setFilters(filtersToUse);
-        setPeers(annotateManuallyAddedPeers(enrichedPeers, include));
-        setTotalPeers(peersResult.data.total_peers);
+        setBenchmarkPeers(
+          annotateManuallyAddedPeers(enrichedFullPeers, include)
+        );
+        setPeers(annotateManuallyAddedPeers(enrichedPagePeers, include));
+        setPeersPage(1);
+        setTotalPeers(total);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load benchmark");
       } finally {
@@ -347,6 +373,63 @@ export function FinancialIntelligenceWorkspace({
       excludedSourceLabels,
       preferredCurrencyId,
       currency,
+    ]
+  );
+
+  const loadPeersPage = useCallback(
+    async (page: number) => {
+      if (!target) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const request = buildPeersRequest({
+          targetCompanyId: target.company_id,
+          filters,
+          companyIdsInclude,
+          companyIdsExclude,
+          primarySectors,
+          secondarySectors,
+          regionOptions,
+          preferredCurrencyId,
+          excludedSourceLabels,
+          targetPrimarySectorIds: resolveTargetPrimarySectorIds(
+            target,
+            primarySectors,
+            secondarySectors
+          ),
+        });
+        const peersResult = await fetchFiPeers({
+          ...request,
+          page,
+          per_page: FI_PEERS_PER_PAGE,
+        });
+        if (!peersResult.ok) {
+          throw new Error(peersResult.error);
+        }
+        const missingLogoIds = peersResult.data.peers
+          .filter((peer) => !peer.company_logo)
+          .map((peer) => peer.company_id);
+        const logoMap = await fetchFiCompanyLogosByIds(missingLogoIds);
+        const enrichedPeers = applyFiCompanyLogos(peersResult.data.peers, logoMap);
+        setPeers(annotateManuallyAddedPeers(enrichedPeers, companyIdsInclude));
+        setPeersPage(page);
+        setTotalPeers(peersResult.data.total_peers);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load peers");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      target,
+      filters,
+      companyIdsInclude,
+      companyIdsExclude,
+      primarySectors,
+      secondarySectors,
+      regionOptions,
+      excludedSourceLabels,
+      preferredCurrencyId,
     ]
   );
 
@@ -369,6 +452,8 @@ export function FinancialIntelligenceWorkspace({
       setCompanyIdsExclude([]);
       setExcludedPeers([]);
       setPeers([]);
+      setBenchmarkPeers([]);
+      setPeersPage(1);
       setTotalPeers(0);
       resetSourceFilter();
       setTarget(placeholderTarget(companyId, meta));
@@ -388,6 +473,8 @@ export function FinancialIntelligenceWorkspace({
   const clearTarget = useCallback(() => {
     setTarget(null);
     setPeers([]);
+    setBenchmarkPeers([]);
+    setPeersPage(1);
     setTotalPeers(0);
     setFilters([]);
     setCompanyIdsInclude([]);
@@ -548,11 +635,11 @@ export function FinancialIntelligenceWorkspace({
   const selectedCompanyIdList = useMemo(() => {
     if (!target) return [];
     const ids = new Set<number>([target.company_id]);
-    for (const peer of peers) {
+    for (const peer of benchmarkPeers) {
       ids.add(peer.company_id);
     }
     return Array.from(ids);
-  }, [target, peers]);
+  }, [target, benchmarkPeers]);
 
   const handleSaveBenchmark = useCallback(() => {
     if (selectedCompanyIdList.length === 0) return;
@@ -588,7 +675,12 @@ export function FinancialIntelligenceWorkspace({
     return filterCompanyRowByAllowedSources(target, allowedSourceTypes);
   }, [target, allowedSourceTypes]);
 
-  const displayPeers = useMemo(
+  const displayBenchmarkPeers = useMemo(
+    () => filterCompanyRowsByAllowedSources(benchmarkPeers, allowedSourceTypes),
+    [benchmarkPeers, allowedSourceTypes]
+  );
+
+  const displayTablePeers = useMemo(
     () => filterCompanyRowsByAllowedSources(peers, allowedSourceTypes),
     [peers, allowedSourceTypes]
   );
@@ -597,14 +689,14 @@ export function FinancialIntelligenceWorkspace({
     if (!displayTarget) return [];
     return buildHeadlineMetrics(
       displayTarget,
-      displayPeers,
+      displayBenchmarkPeers,
       peerAggregateMode,
       preferredCurrencyCode,
       allowedSourceTypes
     );
   }, [
     displayTarget,
-    displayPeers,
+    displayBenchmarkPeers,
     peerAggregateMode,
     preferredCurrencyCode,
     allowedSourceTypes,
@@ -614,14 +706,14 @@ export function FinancialIntelligenceWorkspace({
     if (!displayTarget) return [];
     return buildBenchmarkMetricRows(
       displayTarget,
-      displayPeers,
+      displayBenchmarkPeers,
       peerAggregateMode,
       preferredCurrencyCode,
       allowedSourceTypes
     );
   }, [
     displayTarget,
-    displayPeers,
+    displayBenchmarkPeers,
     peerAggregateMode,
     preferredCurrencyCode,
     allowedSourceTypes,
@@ -629,15 +721,19 @@ export function FinancialIntelligenceWorkspace({
 
   const compositePercentile = useMemo(() => {
     if (!displayTarget) return null;
-    return computeCompositePercentile(displayTarget, displayPeers, allowedSourceTypes);
-  }, [displayTarget, displayPeers, allowedSourceTypes]);
+    return computeCompositePercentile(
+      displayTarget,
+      displayBenchmarkPeers,
+      allowedSourceTypes
+    );
+  }, [displayTarget, displayBenchmarkPeers, allowedSourceTypes]);
 
   const peerFinRows = useMemo(
     () =>
-      displayPeers.map((peer) =>
+      displayTablePeers.map((peer) =>
         mapCompanyToFinRow(peer, primarySectors, secondarySectors, preferredCurrencyCode)
       ),
-    [displayPeers, primarySectors, secondarySectors, preferredCurrencyCode]
+    [displayTablePeers, primarySectors, secondarySectors, preferredCurrencyCode]
   );
 
   const handleExport = useCallback(async () => {
@@ -652,7 +748,7 @@ export function FinancialIntelligenceWorkspace({
         preferredCurrencyCode
       );
       const aggregateRow = buildPeerAggregateFinRow(
-        displayPeers,
+        displayBenchmarkPeers,
         primarySectors,
         secondarySectors,
         peerAggregateMode,
@@ -660,7 +756,11 @@ export function FinancialIntelligenceWorkspace({
         allowedSourceTypes
       );
 
-      const sortedPeerRows = [...peerFinRows].sort((a, b) => {
+      const allPeerFinRows = displayBenchmarkPeers.map((peer) =>
+        mapCompanyToFinRow(peer, primarySectors, secondarySectors, preferredCurrencyCode)
+      );
+
+      const sortedPeerRows = [...allPeerFinRows].sort((a, b) => {
         if (!sortId) return 0;
         const av = finRowValueForSort(a, sortId);
         const bv = finRowValueForSort(b, sortId);
@@ -692,11 +792,8 @@ export function FinancialIntelligenceWorkspace({
       setExporting(false);
     }
   }, [
-    target,
     displayTarget,
-    peers,
-    displayPeers,
-    peerFinRows,
+    displayBenchmarkPeers,
     primarySectors,
     secondarySectors,
     peerAggregateMode,
@@ -704,11 +801,19 @@ export function FinancialIntelligenceWorkspace({
     sortDir,
     peerColumnIds,
     preferredCurrencyCode,
+    allowedSourceTypes,
+    currency,
   ]);
 
   const sectorMedian = useMemo(
-    () => buildPeerSectorMedian(displayPeers, peerAggregateMode, allowedSourceTypes),
-    [displayPeers, peerAggregateMode, allowedSourceTypes]
+    () =>
+      buildPeerSectorMedian(displayBenchmarkPeers, peerAggregateMode, allowedSourceTypes),
+    [displayBenchmarkPeers, peerAggregateMode, allowedSourceTypes]
+  );
+
+  const peersPageTotal = useMemo(
+    () => Math.max(1, Math.ceil(totalPeers / FI_PEERS_PER_PAGE)),
+    [totalPeers]
   );
 
   const visibleColumnIds = peerColumnIds.filter(
@@ -728,17 +833,20 @@ export function FinancialIntelligenceWorkspace({
     []
   );
 
-  const showBenchmarkSkeleton = loading && peers.length === 0;
+  const showBenchmarkSkeleton = loading && benchmarkPeers.length === 0;
   const showBenchmarkContent = target && !showBenchmarkSkeleton;
-  const isRefreshingBenchmark = loading && peers.length > 0;
+  const isRefreshingBenchmark = loading && benchmarkPeers.length > 0;
 
   const Shell = embedded ? React.Fragment : AppShell;
 
   return (
     <Shell>
     <div
-      className="flex min-h-0 w-full flex-1 flex-col"
-      style={{ background: "var(--ax-gray-50)", fontFamily: "var(--font-sans)" }}
+      className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden"
+      style={{
+        background: "var(--ax-gray-50)",
+        fontFamily: "var(--font-sans)",
+      }}
     >
       <main
         style={
@@ -749,14 +857,18 @@ export function FinancialIntelligenceWorkspace({
                 display: "flex",
                 flexDirection: "column",
                 flex: 1,
+                minHeight: 0,
               }
             : {
                 width: "100%",
-                padding: "20px 28px 48px",
+                padding: "20px 28px 24px",
                 boxSizing: "border-box",
                 display: "flex",
                 flexDirection: "column",
                 flex: 1,
+                minHeight: 0,
+                overflowY: "auto",
+                overflowX: "hidden",
               }
         }
       >
@@ -803,14 +915,14 @@ export function FinancialIntelligenceWorkspace({
               <button
                 type="button"
                 onClick={() => void handleExport()}
-                disabled={loading || peers.length === 0 || exporting}
+                disabled={loading || totalPeers === 0 || exporting}
                 style={{
                   ...SEARCH_HEADER_ACTION_BUTTON_STYLE,
                   height: 32,
                   padding: "0 12px",
                   fontSize: 12,
-                  opacity: loading || peers.length === 0 ? 0.5 : 1,
-                  cursor: loading || peers.length === 0 || exporting ? "default" : "pointer",
+                  opacity: loading || totalPeers === 0 ? 0.5 : 1,
+                  cursor: loading || totalPeers === 0 || exporting ? "default" : "pointer",
                   fontFamily: "var(--font-sans)",
                 }}
               >
@@ -917,7 +1029,7 @@ export function FinancialIntelligenceWorkspace({
               <CompositeHero
                 compositePercentile={compositePercentile}
                 targetName={target.company_name}
-                peerCount={peers.length}
+                peerCount={totalPeers}
               />
               <HeadlineMetricCards
                 metrics={headlineMetrics}
@@ -941,14 +1053,14 @@ export function FinancialIntelligenceWorkspace({
                 rows={benchmarkRows}
                 targetName={target.company_name}
                 target={displayTarget ?? target}
-                peers={displayPeers}
+                peers={displayBenchmarkPeers}
                 peerAggregateMode={peerAggregateMode}
                 hasActiveSourceFilter={hasActiveSourceFilter}
                 allowedSourceTypes={allowedSourceTypes}
                 preferredCurrencyCode={preferredCurrencyCode}
               />
               <PeerCompaniesCard
-                peers={peers}
+                peers={benchmarkPeers}
                 target={target}
                 excludedPeers={excludedPeers}
                 excludedIds={companyIdsExclude}
@@ -964,20 +1076,35 @@ export function FinancialIntelligenceWorkspace({
               />
             </div>
 
-            <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                minWidth: 0,
+                background: "white",
+                border: "1px solid var(--border-1)",
+                borderRadius: "var(--r-lg)",
+                overflow: "hidden",
+              }}
+            >
               <div
                 style={{
-                  marginBottom: 8,
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
                   gap: 12,
+                  padding: "10px 12px",
+                  borderBottom: "1px solid var(--border-1)",
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 700, color: "var(--fg-1)" }}>Peer financials table</div>
+                  <div style={{ fontWeight: 700, color: "var(--fg-1)", fontSize: 13 }}>
+                    Peer financials table
+                  </div>
                   <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
-                    {peers.length} {peers.length === 1 ? "company" : "companies"}
+                    {totalPeers.toLocaleString()}{" "}
+                    {totalPeers === 1 ? "company" : "companies"}
+                    {peersPageTotal > 1
+                      ? ` · page ${peersPage} of ${peersPageTotal} (${FI_PEERS_PER_PAGE} per page)`
+                      : ""}
                     {companyIdsExclude.length > 0 ? ` · ${companyIdsExclude.length} dropped` : ""}
                   </div>
                 </div>
@@ -997,31 +1124,54 @@ export function FinancialIntelligenceWorkspace({
                 </div>
               </div>
 
-              <FiPeerFinancialsTable
-                rows={peerFinRows}
-                preferredCurrencyCode={preferredCurrencyCode}
-                tweaks={{
-                  sectionName: "Financial Intelligence",
-                  showMedian: true,
-                  colorMultiples: true,
-                  chipStyle: "cyan",
-                  chipIcon: true,
-                  density: "comfortable",
-                  hideCompanyAvatars: false,
-                  peerAggregateMode,
+              <div
+                style={{
+                  maxHeight: "min(52vh, 560px)",
+                  overflow: "auto",
                 }}
-                sortId={sortId}
-                sortDir={sortDir}
-                onSort={(id) => {
-                  if (sortId === id) setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
-                  else {
-                    setSortId(id);
-                    setSortDir("desc");
-                  }
-                }}
-                visibleColumnIds={visibleColumnIds}
-                sectorMedian={sectorMedian}
-              />
+              >
+                <FiPeerFinancialsTable
+                  rows={peerFinRows}
+                  preferredCurrencyCode={preferredCurrencyCode}
+                  tweaks={{
+                    sectionName: "Financial Intelligence",
+                    showMedian: true,
+                    colorMultiples: true,
+                    chipStyle: "cyan",
+                    chipIcon: true,
+                    density: "comfortable",
+                    hideCompanyAvatars: false,
+                    peerAggregateMode,
+                    chromeless: true,
+                  }}
+                  sortId={sortId}
+                  sortDir={sortDir}
+                  onSort={(id) => {
+                    if (sortId === id) setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+                    else {
+                      setSortId(id);
+                      setSortDir("desc");
+                    }
+                  }}
+                  visibleColumnIds={visibleColumnIds}
+                  sectorMedian={sectorMedian}
+                />
+              </div>
+              {peersPageTotal > 1 && (
+                <div
+                  style={{
+                    borderTop: "1px solid var(--border-1)",
+                    background: "var(--ax-gray-25)",
+                  }}
+                >
+                  <SearchTablePagination
+                    curPage={peersPage}
+                    pageTotal={peersPageTotal}
+                    onPageChange={(page) => void loadPeersPage(page)}
+                    disabled={loading}
+                  />
+                </div>
+              )}
             </div>
             </>
           </FiBenchmarkRefreshing>

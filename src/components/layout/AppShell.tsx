@@ -11,9 +11,9 @@ export default function AppShell({
 }) {
   return (
     <NavOpenProvider>
-      <div className="min-h-screen flex">
+      <div className="flex h-screen min-h-0 overflow-hidden">
         <AppLeftNav />
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col">{children}</div>
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">{children}</div>
       </div>
     </NavOpenProvider>
   );
