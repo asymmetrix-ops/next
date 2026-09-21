@@ -791,6 +791,7 @@ export default function HomeUserClient({
   const dealRadarFetchAbortRef = useRef<AbortController | null>(null);
   const dealRadarFetchGenerationRef = useRef(0);
   const dealRadarScrollRef = useRef<HTMLDivElement | null>(null);
+  const dealRadarSentinelRef = useRef<HTMLDivElement | null>(null);
   const dealRadarNextOffsetRef = useRef<number | null>(null);
   const dealRadarLoadingMoreRef = useRef(false);
   const dealRadarLoadedOffsetsRef = useRef<Set<number>>(new Set());
@@ -1514,6 +1515,42 @@ export default function HomeUserClient({
     tryLoadMoreDealRadarIfNearBottom,
   ]);
 
+  // Manual scroll-position math above can miss the "near bottom" moment when
+  // late-loading content (flags, sticky header reflow, height re-sync after
+  // refresh) shifts the scrollable height without a fresh scroll event firing.
+  // An IntersectionObserver watching a sentinel row is immune to that: it
+  // fires whenever the sentinel enters the viewport, regardless of *why*
+  // it became visible (user scroll, layout shift, or container resize).
+  useEffect(() => {
+    const scrollRoot = dealRadarScrollRef.current;
+    const sentinel = dealRadarSentinelRef.current;
+    if (!scrollRoot || !sentinel || dealRadarLoading) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          tryLoadMoreDealRadarIfNearBottom();
+        }
+      },
+      {
+        root: scrollRoot,
+        rootMargin: `0px 0px ${DEAL_RADAR_SCROLL_THRESHOLD_PX}px 0px`,
+        threshold: 0,
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [
+    dealRadarLoading,
+    dealRadarItems.length,
+    dealRadarNextOffset,
+    tryLoadMoreDealRadarIfNearBottom,
+  ]);
+
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
     if (initialCorporateEvents) return;
@@ -2202,6 +2239,10 @@ export default function HomeUserClient({
                         })}
                       </tbody>
                     </table>
+                    {/* Sentinel: intersecting this row (rather than tracking
+                        scroll math) is what actually triggers loading the
+                        next page — see the IntersectionObserver effect. */}
+                    <div ref={dealRadarSentinelRef} aria-hidden="true" className="h-px" />
                     {dealRadarLoadingMore && (
                       <div className="flex justify-center px-4 py-3 border-t border-gray-100">
                         <span className="flex items-center gap-1.5 text-xs text-gray-500">
