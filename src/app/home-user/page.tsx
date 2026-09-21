@@ -8,9 +8,7 @@ import {
   useCallback,
   useMemo,
   useRef,
-  type CSSProperties,
 } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
@@ -18,14 +16,12 @@ import { trackEvent, trackLogout } from "@/lib/tracking";
 import DashboardLeftNav, {
   type DashboardNavCounts,
 } from "@/components/dashboard/DashboardLeftNav";
-import AsymIQButton from "@/components/AsymIQButton";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
 import {
   appendDealRadarItems,
   applyHqCountryIso2ToDealRadarItems,
-  getDealRadarContentCtaLabel,
   mapDealRadarItem,
   readHqCountryIso2,
   type DealRadarItem,
@@ -169,180 +165,6 @@ function getInsightTransactionStatus(article: InsightArticle): string {
   return raw.replace(/^transaction\s+/i, "").trim() || raw;
 }
 
-const DEAL_STAGE_DEFINITIONS = [
-  {
-    label: "Reported in Market",
-    description:
-      "Substantiated by credible media outlets or company press releases that a sale process is actively underway.",
-    styleKey: "reported",
-  },
-  {
-    label: "Rumored in Market",
-    description:
-      "Based on proprietary intelligence obtained by Asymmetrix suggesting the asset is in market and a sale process has begun or will commence imminently.",
-    styleKey: "rumored",
-  },
-  {
-    label: "Anticipated within 18 months",
-    description:
-      "Asymmetrix assessment that a transaction is expected in the near- to medium-term based on factors such as sponsor fund lifecycle, ownership hold period, increase in transaction activity in company's sector or market chatter.",
-    styleKey: "anticipated",
-  },
-  {
-    label: "Process on Hold",
-    description:
-      "A sale process was launched but has been paused or failed. The transaction may resume later but is not actively progressing at present.",
-    styleKey: "hold",
-  },
-] as const;
-
-function DealStageInfoTooltip() {
-  const [open, setOpen] = useState(false);
-  const anchorRef = useRef<HTMLButtonElement | null>(null);
-  const popoverRef = useRef<HTMLDivElement | null>(null);
-  const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({});
-
-  const updatePosition = useCallback(() => {
-    const anchor = anchorRef.current;
-    const popover = popoverRef.current;
-    if (!anchor) return;
-
-    const rect = anchor.getBoundingClientRect();
-    const padding = 16;
-    const gap = 10;
-    const viewportW = window.innerWidth;
-    const viewportH = window.innerHeight;
-    const popoverW = popover?.offsetWidth ?? 360;
-    const popoverH = popover?.offsetHeight ?? 420;
-    const spaceRight = viewportW - rect.right - padding;
-    const spaceLeft = rect.left - padding;
-    const showLeft = spaceRight < popoverW + gap && spaceLeft > spaceRight;
-
-    let left = showLeft ? rect.left - gap - popoverW : rect.right + gap;
-    left = Math.max(padding, Math.min(left, viewportW - popoverW - padding));
-
-    // Anchor below the icon so it clears the table header.
-    let top = rect.bottom + gap + 6;
-    if (top + popoverH > viewportH - padding) {
-      top = Math.max(padding, viewportH - popoverH - padding);
-    }
-
-    setPopoverStyle({ left, top });
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    updatePosition();
-    const frame = requestAnimationFrame(() => {
-      updatePosition();
-      requestAnimationFrame(updatePosition);
-    });
-    window.addEventListener("scroll", updatePosition, true);
-    window.addEventListener("resize", updatePosition);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", updatePosition, true);
-      window.removeEventListener("resize", updatePosition);
-    };
-  }, [open, updatePosition]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (e: PointerEvent) => {
-      const anchor = anchorRef.current;
-      const popover = popoverRef.current;
-      if (!(e.target instanceof Node)) return;
-      if (anchor?.contains(e.target)) return;
-      if (popover?.contains(e.target)) return;
-      setOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  const show = () => {
-    updatePosition();
-    setOpen(true);
-  };
-
-  return (
-    <>
-      <button
-        ref={anchorRef}
-        type="button"
-        aria-label="Deal stage definitions"
-        aria-expanded={open}
-        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
-        onMouseEnter={show}
-        onMouseLeave={() => setOpen(false)}
-        onClick={() => {
-          updatePosition();
-          setOpen((prev) => !prev);
-        }}
-      >
-        <svg
-          className="w-3.5 h-3.5"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 16v-4" />
-          <path d="M12 8h.01" />
-        </svg>
-      </button>
-      {open &&
-        createPortal(
-          <div
-            ref={popoverRef}
-            role="tooltip"
-            className="fixed z-[9999] w-[min(22.5rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white shadow-xl"
-            style={popoverStyle}
-            onMouseEnter={show}
-            onMouseLeave={() => setOpen(false)}
-          >
-            <div className="border-b border-gray-100 px-4 py-3">
-              <div className="text-sm font-semibold text-gray-900">Deal stage</div>
-            </div>
-            <div className="px-4 py-3">
-              <div className="space-y-4">
-                {DEAL_STAGE_DEFINITIONS.map((item, index) => {
-                  return (
-                    <div
-                      key={item.label}
-                      className={
-                        index < DEAL_STAGE_DEFINITIONS.length - 1
-                          ? "border-b border-gray-100 pb-4"
-                          : undefined
-                      }
-                    >
-                      <TransactionStatusPill
-                        status={item.label}
-                        className="inline-block max-w-full"
-                      />
-                      <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
-                        {item.description}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-    </>
-  );
-}
 
 import {
   type GlobalSearchResult,
@@ -726,7 +548,7 @@ export default function HomeUserPage() {
   const DEAL_RADAR_PAGE_LIMIT = 25;
   const DEAL_RADAR_SCROLL_THRESHOLD_PX = 48;
 
-  const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>([]);
+  const [, setDealRadarItems] = useState<DealRadarItem[]>([]);
   const [dealRadarNextOffset, setDealRadarNextOffset] = useState<number | null>(
     null
   );
@@ -1801,10 +1623,6 @@ export default function HomeUserPage() {
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2 ml-auto sm:gap-3">
-            <AsymIQButton
-              disabled={isTrialActive}
-              initialQuery={searchQuery}
-            />
             <NewFeatureCallout
               featureKey="dashboard-request-data-research"
               launchedAt="2026-05-26T00:00:00.000Z"
@@ -2089,233 +1907,7 @@ export default function HomeUserPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 flex-1 min-h-0">
-          {/* Deal Radar - last on mobile, last on lg+ */}
-          <div
-            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-3 lg:order-3"
-          >
-            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <NewFeatureCallout
-                  featureKey="dashboard-deal-radar"
-                  launchedAt="2026-05-26T00:00:00.000Z"
-                  durationDays={30}
-                  persistDismissal
-                  side="right"
-                >
-                  <span className="flex items-center gap-2">
-                    <h2 className="dash-card-title">Deal Radar</h2>
-                    <span className="dash-eyebrow">Live</span>
-                  </span>
-                </NewFeatureCallout>
-              </div>
-              <div className="hidden sm:flex items-center gap-3 shrink-0">
-                {dealRadarItems.length > 0 && (
-                  <span className="text-xs text-gray-500 tabular-nums whitespace-nowrap">
-                    {dealRadarItems.length} companies
-                  </span>
-                )}
-                <a
-                  href="/deal-radar"
-                  className="dash-view-all px-3 py-1.5 text-xs whitespace-nowrap"
-                >
-                  View all
-                </a>
-              </div>
-            </div>
-            <div
-              ref={dealRadarScrollRef}
-              className="min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
-            >
-              {dealRadarLoading ? (
-                <div className="p-4 space-y-3">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <div key={i} className="grid grid-cols-3 gap-3 py-2 animate-pulse">
-                      <div className="space-y-1.5 col-span-1">
-                        <div className="h-3.5 bg-gray-200 rounded w-3/4" />
-                        <div className="h-3 bg-gray-200 rounded w-1/2" />
-                      </div>
-                      <div className="h-3.5 bg-gray-200 rounded col-span-1" />
-                      <div className="h-5 bg-gray-200 rounded-full col-span-1 w-20" />
-                    </div>
-                  ))}
-                </div>
-              ) : dealRadarItems.length > 0 ? (
-                <div className="min-w-0 w-full">
-                    <table className="dash-table w-full table-fixed">
-                      <colgroup>
-                        <col style={{ width: "30%" }} />
-                        <col style={{ width: "34%" }} />
-                        <col style={{ width: "36%" }} />
-                      </colgroup>
-                      <thead className="sticky top-0 z-10">
-                        <tr>
-                          <th className="pl-3 pr-1 py-3 text-left">
-                            Company
-                          </th>
-                          <th className="px-2 py-3 text-center">
-                            Sector
-                          </th>
-                          <th className="pl-3 pr-2 py-3 text-center">
-                            <span className="inline-flex items-center gap-1.5">
-                              Stage
-                              <DealStageInfoTooltip />
-                            </span>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-100">
-                        {dealRadarItems.map((item) => {
-                          return (
-                            <tr
-                              key={item.companyId}
-                              className="align-top"
-                            >
-                              <td className="pl-3 pr-1 py-3 min-w-0 align-top">
-                                <div className="space-y-1 min-w-0">
-                                  <div className="min-w-0">
-                                    <a
-                                      href={`/company/${item.companyId}`}
-                                      className="dash-company-link break-words hover:underline"
-                                      onClick={(
-                                        e: React.MouseEvent<HTMLAnchorElement>
-                                      ) => {
-                                        if (
-                                          e.defaultPrevented ||
-                                          e.button !== 0 ||
-                                          e.metaKey ||
-                                          e.ctrlKey ||
-                                          e.shiftKey ||
-                                          e.altKey
-                                        ) {
-                                          return;
-                                        }
-                                        e.preventDefault();
-                                        router.push(`/company/${item.companyId}`);
-                                      }}
-                                    >
-                                      {item.companyName}
-                                      <CountryFlagImg iso2={item.hqCountryIso2} />
-                                    </a>
-                                  </div>
-                                  {item.contentCta && (
-                                    <a
-                                      href={`/article/${item.contentCta.id}?from=home`}
-                                      className="dash-rr"
-                                      onClick={(
-                                        e: React.MouseEvent<HTMLAnchorElement>
-                                      ) => {
-                                        if (
-                                          e.defaultPrevented ||
-                                          e.button !== 0 ||
-                                          e.metaKey ||
-                                          e.ctrlKey ||
-                                          e.shiftKey ||
-                                          e.altKey
-                                        ) {
-                                          return;
-                                        }
-                                        e.preventDefault();
-                                        router.push(
-                                          `/article/${item.contentCta!.id}?from=home`
-                                        );
-                                      }}
-                                    >
-                                      {getDealRadarContentCtaLabel(item.contentCta)}
-                                    </a>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="pl-3 pr-2 py-3 min-w-0 text-xs text-gray-700 align-top text-center">
-                                {item.primarySectors.length > 0 ? (
-                                  <div className="flex flex-col items-center gap-0.5">
-                                    {item.primarySectors.map((sector, idx) => (
-                                      <div
-                                        key={`${sector.id}-${sector.name}-${idx}`}
-                                        className="leading-snug break-normal text-xs"
-                                      >
-                                        {sector.id > 0 ? (
-                                          <a
-                                            href={`/sector/${sector.id}`}
-                                            className="text-blue-700 hover:text-blue-900 hover:underline"
-                                            onClick={(
-                                              e: React.MouseEvent<HTMLAnchorElement>
-                                            ) => {
-                                              if (
-                                                e.defaultPrevented ||
-                                                e.button !== 0 ||
-                                                e.metaKey ||
-                                                e.ctrlKey ||
-                                                e.shiftKey ||
-                                                e.altKey
-                                              ) {
-                                                return;
-                                              }
-                                              e.preventDefault();
-                                              router.push(`/sector/${sector.id}`);
-                                            }}
-                                          >
-                                            {sector.name}
-                                          </a>
-                                        ) : (
-                                          sector.name
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  "—"
-                                )}
-                              </td>
-                              <td className="px-2 py-3 text-center align-top">
-                                <TransactionStatusPill
-                                  status={item.transactionStatus}
-                                  className="inline-block max-w-[11rem]"
-                                  allowWrap
-                                />
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    {dealRadarLoadingMore && (
-                      <div className="flex justify-center px-4 py-3 border-t border-gray-100">
-                        <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                          <svg
-                            className="w-3 h-3 animate-spin"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            aria-hidden="true"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8v8H4z"
-                            />
-                          </svg>
-                          Loading more…
-                        </span>
-                      </div>
-                    )}
-                </div>
-              ) : (
-                <div className="p-4 py-6 text-center sm:py-8">
-                  <p className="text-sm text-gray-500">No active transactions</p>
-                </div>
-              )}
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 flex-1 min-h-0">
           {/* Insights & Analysis - first on mobile */}
           <div
             className="dash-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-1 lg:order-2"
