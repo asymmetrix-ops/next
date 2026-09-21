@@ -51,7 +51,7 @@ export function PeerCompaniesCard({
         borderRadius: "var(--r-lg)",
         overflow: "hidden",
         width: "100%",
-        maxHeight: "min(80vh, 900px)",
+        height: "100%",
         minHeight: 0,
         display: "flex",
         flexDirection: "column",
