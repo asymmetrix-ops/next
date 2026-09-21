@@ -12,11 +12,11 @@ const Footer = () => {
     footer: {
       background: "var(--ax-gray-50)",
       color: "var(--fg-2)",
-      minHeight: 80,
+      minHeight: 40,
       display: "flex",
       alignItems: "center",
-      padding: "0 24px",
-      paddingBottom: "max(16px, env(safe-area-inset-bottom, 0px))",
+      padding: "10px 24px",
+      paddingBottom: "max(10px, env(safe-area-inset-bottom, 0px))",
       position: "relative" as const,
       width: "100%",
       maxWidth: "100%",
@@ -40,8 +40,8 @@ const Footer = () => {
       gap: "12px",
     },
     logoImage: {
-      width: "28px",
-      height: "28px",
+      width: "20px",
+      height: "20px",
       borderRadius: "50%",
     },
     logoText: {
@@ -67,7 +67,7 @@ const Footer = () => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      padding: 6,
+      padding: 4,
       borderRadius: "var(--r-md)",
       textDecoration: "none",
       transition: "background var(--dur-fast) var(--ease-out)",
@@ -142,7 +142,7 @@ const Footer = () => {
             aria-label="YouTube"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/youtube.svg" alt="" width={18} height={18} />
+            <img src="/icons/youtube.svg" alt="" width={14} height={14} />
           </a>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
@@ -154,7 +154,7 @@ const Footer = () => {
             aria-label="Spotify"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/spotify.svg" alt="" width={18} height={18} />
+            <img src="/icons/spotify.svg" alt="" width={14} height={14} />
           </a>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
@@ -166,7 +166,7 @@ const Footer = () => {
             aria-label="Apple Podcasts"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/podcast.svg" alt="" width={18} height={18} />
+            <img src="/icons/podcast.svg" alt="" width={14} height={14} />
           </a>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
@@ -178,7 +178,7 @@ const Footer = () => {
             aria-label="LinkedIn"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/linkedin.svg" alt="" width={18} height={18} />
+            <img src="/icons/linkedin.svg" alt="" width={14} height={14} />
           </a>
         </div>
       </div>

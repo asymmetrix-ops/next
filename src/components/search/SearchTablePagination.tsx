@@ -30,7 +30,7 @@ export function SearchTablePagination({
       style={{
         display: "flex",
         justifyContent: "center",
-        padding: "12px 8px",
+        padding: "6px 8px",
       }}
     >
       <CompactPagination

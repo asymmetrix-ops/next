@@ -513,7 +513,7 @@ export const CompanyDashboard = ({
         <div
           style={{
             ...SEARCH_DASHBOARD_HEADER_ROW,
-            marginBottom: embedded ? 12 : 18,
+            marginBottom: embedded ? 12 : 16,
             width: embedded ? "100%" : undefined,
           }}
         >
@@ -601,7 +601,7 @@ export const CompanyDashboard = ({
               display: "flex",
               flexDirection: "column",
               gap: showListTabs && showOwnershipTabs ? 6 : 0,
-              marginBottom: embedded ? 12 : 18,
+              marginBottom: embedded ? 2 : 4,
             }}
           >
             {showListTabs && listTabs && (
@@ -630,18 +630,6 @@ export const CompanyDashboard = ({
             )}
             {showOwnershipTabs && (
               <>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: "#8A93A8",
-                    paddingLeft: 2,
-                  }}
-                >
-                  Filter by current ownership
-                </div>
                 <SearchListTabs
                   tabs={ownershipTabs}
                   activeTabId={activeOwnershipTab}
@@ -677,7 +665,7 @@ export const CompanyDashboard = ({
           borderBottom: "1px solid #E4E8F2",
         }}
       >
-        <div style={{ width: "100%", padding: `14px ${horizontalPad} 14px` }}>
+        <div style={{ width: "100%", padding: `8px ${horizontalPad} 8px` }}>
           <CompaniesFilterBar
             filterDefs={filterDefs}
             filterCategories={filterCategories}
