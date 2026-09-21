@@ -852,6 +852,23 @@ export function FinancialIntelligenceWorkspace({
   const showBenchmarkContent = target && !showBenchmarkSkeleton;
   const isRefreshingBenchmark = loading && benchmarkPeers.length > 0;
 
+  // Keep "Companies in this benchmark" the same height as the Metric
+  // scorecard beside it, whatever that height ends up being (varies with
+  // number of expanded metric sections, etc).
+  const benchmarkTableWrapRef = useRef<HTMLDivElement | null>(null);
+  const [benchmarkTableHeight, setBenchmarkTableHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = benchmarkTableWrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const next = entries[0]?.contentRect.height;
+      if (typeof next === "number") setBenchmarkTableHeight(next);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [showBenchmarkContent]);
+
   const Shell = embedded ? React.Fragment : AppShell;
 
   return (
@@ -1079,32 +1096,41 @@ export function FinancialIntelligenceWorkspace({
                 minWidth: 0,
               }}
             >
-              <BenchmarkTable
-                rows={benchmarkRows}
-                targetName={target.company_name}
-                target={displayTarget ?? target}
-                peers={displayBenchmarkPeers}
-                peerAggregateMode={peerAggregateMode}
-                hasActiveSourceFilter={hasActiveSourceFilter}
-                allowedSourceTypes={allowedSourceTypes}
-                preferredCurrencyCode={preferredCurrencyCode}
-              />
-              <PeerCompaniesCard
-                peers={displayBenchmarkPeers}
-                totalPeerCount={totalPeers}
-                target={target}
-                excludedPeers={excludedPeers}
-                excludedIds={companyIdsExclude}
-                manuallyAddedIds={companyIdsInclude}
-                onExclude={excludePeer}
-                onRestorePeer={restorePeer}
-                onRestoreAll={restoreAllPeers}
-                onAddCompany={addPeerCompany}
-                addQuery={addQuery}
-                onAddQueryChange={setAddQuery}
-                addResults={addResults}
-                onPickAddResult={() => setAddQuery("")}
-              />
+              <div ref={benchmarkTableWrapRef} style={{ minWidth: 0 }}>
+                <BenchmarkTable
+                  rows={benchmarkRows}
+                  targetName={target.company_name}
+                  target={displayTarget ?? target}
+                  peers={displayBenchmarkPeers}
+                  peerAggregateMode={peerAggregateMode}
+                  hasActiveSourceFilter={hasActiveSourceFilter}
+                  allowedSourceTypes={allowedSourceTypes}
+                  preferredCurrencyCode={preferredCurrencyCode}
+                />
+              </div>
+              <div
+                style={{
+                  height: benchmarkTableHeight != null ? `${benchmarkTableHeight}px` : "100%",
+                  minHeight: 0,
+                }}
+              >
+                <PeerCompaniesCard
+                  peers={displayBenchmarkPeers}
+                  totalPeerCount={totalPeers}
+                  target={target}
+                  excludedPeers={excludedPeers}
+                  excludedIds={companyIdsExclude}
+                  manuallyAddedIds={companyIdsInclude}
+                  onExclude={excludePeer}
+                  onRestorePeer={restorePeer}
+                  onRestoreAll={restoreAllPeers}
+                  onAddCompany={addPeerCompany}
+                  addQuery={addQuery}
+                  onAddQueryChange={setAddQuery}
+                  addResults={addResults}
+                  onPickAddResult={() => setAddQuery("")}
+                />
+              </div>
             </div>
 
             <div
@@ -1206,15 +1232,23 @@ export function FinancialIntelligenceWorkspace({
                     borderTop: "1px solid var(--border-1)",
                     background: "var(--ax-gray-25)",
                     flexShrink: 0,
+                    position: "relative",
                     display: "flex",
-                    flexWrap: "wrap",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
+                    justifyContent: "center",
                     padding: "4px 12px",
                   }}
                 >
-                  <div style={{ fontSize: 12, color: "var(--fg-2)", lineHeight: 1.45 }}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 12,
+                      fontSize: 12,
+                      color: "var(--fg-2)",
+                      lineHeight: 1.45,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {totalPeers.toLocaleString()}{" "}
                     {totalPeers === 1 ? "company" : "companies"}
                     {` · page ${peersPage} of ${peersPageTotal} (${FI_PEERS_PER_PAGE} per page)`}
