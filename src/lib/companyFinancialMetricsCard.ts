@@ -719,13 +719,45 @@ function formatMetricValue(
   }
 
   const dual = buildDualCurrencyDisplay(primaryDisplay, fx, fxFormat);
+  if (dual.nativeDisplay != null || fx?.native_value != null) {
+    return {
+      display: dual.display,
+      raw: preferredRaw,
+      sourceType,
+      nativeDisplay: dual.nativeDisplay,
+      nativeRaw: fx?.native_value ?? null,
+      fxTooltip: dual.fxTooltip,
+    };
+  }
+
+  if (
+    currencyPair?.preferredCurrency?.trim() &&
+    (metric.format === "money_millions" || metric.format === "money_whole")
+  ) {
+    const filingCurrency = currencyPair.preferredCurrency;
+    const filingDisplay =
+      metric.format === "money_millions"
+        ? formatMillions(preferredRaw, filingCurrency)
+        : formatMoneyWhole(
+            preferredRaw,
+            metric.key === "rev_per_client" || !metric.formattedField
+              ? null
+              : row[metric.formattedField],
+            filingCurrency
+          );
+    return {
+      display: primaryDisplay,
+      raw: preferredRaw,
+      sourceType,
+      nativeDisplay: filingDisplay,
+      nativeRaw: preferredRaw,
+    };
+  }
+
   return {
-    display: dual.display,
+    display: primaryDisplay,
     raw: preferredRaw,
     sourceType,
-    nativeDisplay: dual.nativeDisplay,
-    nativeRaw: fx?.native_value ?? null,
-    fxTooltip: dual.fxTooltip,
   };
 }
 

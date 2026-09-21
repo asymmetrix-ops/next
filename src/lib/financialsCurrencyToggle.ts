@@ -5,6 +5,7 @@ import {
 } from "@/lib/currencyField";
 import { FINANCIAL_METRICS_FIELDS } from "@/lib/financialFieldMaps";
 import type { NormalizedIncomeStatementRow } from "@/lib/incomeStatement";
+import { platformCurrencyIdToCode } from "@/lib/platformCurrency";
 
 export type CurrencyDisplayMode = "preferred" | "native";
 
@@ -27,6 +28,11 @@ export function currencyCodeToToggleSymbol(code: string): string {
   return TOGGLE_CURRENCY_SYMBOLS[normalized] ?? normalized;
 }
 
+function normalizeCurrencyCode(value: string | null | undefined): string | null {
+  const normalized = value?.trim().toUpperCase();
+  return normalized || null;
+}
+
 function resolveReportedCurrencyFromMetricRows(
   metricRows: CompanyFinancialMetricsCardRow[],
   preferred: string
@@ -41,10 +47,41 @@ function resolveReportedCurrencyFromMetricRows(
         extracted.preferredCurrency?.trim().toUpperCase() ??
         null;
       if (reported && reported !== preferred) return reported;
+      if (reported) return reported;
     }
   }
 
   return null;
+}
+
+/** Source / filing currency from display fields or native_currency_id (live API shape). */
+function resolveSourceCurrencyFromMetricRows(
+  metricRows: CompanyFinancialMetricsCardRow[]
+): string | null {
+  for (const row of metricRows) {
+    const record = row as Record<string, unknown>;
+    for (const [field, displayField] of Object.entries(FINANCIAL_METRICS_FIELDS)) {
+      const fromReported = normalizeCurrencyCode(
+        readCurrencyDisplay(record[`${field}_reported_currency_display`])
+      );
+      if (fromReported) return fromReported;
+
+      const extracted = extractCurrencyField(record, field, displayField);
+      const fromDisplay = normalizeCurrencyCode(extracted.preferredCurrency);
+      if (fromDisplay) return fromDisplay;
+
+      const nativeId = record[`${field}_native_currency_id`];
+      const fromNativeId = platformCurrencyIdToCode(Number(nativeId));
+      if (fromNativeId) return fromNativeId;
+    }
+  }
+  return null;
+}
+
+function readCurrencyDisplay(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (value == null) return null;
+  return String(value);
 }
 
 export function resolveFxToggleConfig(
@@ -54,6 +91,10 @@ export function resolveFxToggleConfig(
 ): FxToggleConfig | null {
   const preferred = preferredCode.trim().toUpperCase();
   if (!preferred) return null;
+
+  const hasFinancialsData =
+    metricRows.length > 0 || incomeRows.length > 0;
+  if (!hasFinancialsData) return null;
 
   let nativeCode: string | null = resolveReportedCurrencyFromMetricRows(
     metricRows,
@@ -89,11 +130,17 @@ export function resolveFxToggleConfig(
     }
   }
 
-  if (!nativeCode || nativeCode === preferred) return null;
+  if (!nativeCode) {
+    nativeCode = resolveSourceCurrencyFromMetricRows(metricRows);
+  }
+
+  if (!nativeCode) {
+    nativeCode = preferred;
+  }
 
   return {
     preferredCode: preferred,
-    nativeCode,
+    nativeCode: nativeCode.trim().toUpperCase(),
     preferredSymbol: currencyCodeToToggleSymbol(preferred),
     nativeSymbol: currencyCodeToToggleSymbol(nativeCode),
   };

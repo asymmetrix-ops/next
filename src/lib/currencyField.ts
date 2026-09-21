@@ -54,6 +54,12 @@ export function hasReportedCurrencyToggle(
 
   for (const [field, displayField] of Object.entries(fieldMap)) {
     const extracted = extractCurrencyField(row, field, displayField);
+    if (
+      extracted.reportedValue != null &&
+      extracted.reportedCurrency?.trim()
+    ) {
+      return true;
+    }
     if (!extracted.converted) continue;
 
     const reportedCurrency =
