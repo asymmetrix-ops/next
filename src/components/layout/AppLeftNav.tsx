@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
 import { trackLogout } from "@/lib/tracking";
+import { getInitials } from "@/lib/userDisplay";
 import { useNavOpen } from "./NavOpenContext";
 
 type NavCounts = {
@@ -331,7 +332,11 @@ export default function AppLeftNav() {
         />
       </nav>
 
-      <div className="border-t border-gray-100 p-2 shrink-0 flex items-center gap-1">
+      <div
+        className={`border-t border-gray-100 p-2 shrink-0 flex items-center gap-1 ${
+          open ? "" : "flex-col gap-2"
+        }`}
+      >
         <Link
           href="/settings"
           title="Settings"
@@ -343,6 +348,14 @@ export default function AppLeftNav() {
           }`}
         >
           <Cog6ToothIcon className="w-[18px] h-[18px]" />
+        </Link>
+        <Link
+          href="/my-info"
+          title="Your info"
+          aria-label="Your info"
+          className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0 hover:bg-blue-700 transition-colors"
+        >
+          {getInitials(user?.name)}
         </Link>
         {open && (
           <button
