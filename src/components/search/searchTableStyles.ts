@@ -147,6 +147,19 @@ export const SEARCH_TABLE_STYLES = `
       max-width: 100%;
       min-width: 0;
       overflow-x: hidden;
+      /* Per spec, declaring overflow-x: hidden forces the OTHER axis's used
+         value to "auto" even if overflow-y is explicitly "visible" (same
+         pitfall documented for html/body in globals.css) — that part can't
+         be avoided. The real problem: this section sits inside a flex
+         column (the sticky-footer wrapper, .min-h-screen:has(> footer...)),
+         and a flex item whose overflow isn't "visible" on either axis gets
+         its automatic minimum size treated as 0 instead of its content
+         size — so instead of growing to fit the results table/cards, it was
+         shrinking to whatever space was left in the viewport and clipping
+         the rest behind a near-invisible internal scrollbar. flex-shrink: 0
+         opts it out of that shrink-to-fit behavior entirely, so it always
+         renders at its natural content height and the page scrolls normally. */
+      flex-shrink: 0;
       padding: 16px 28px;
     }
     .company-section-embedded {
