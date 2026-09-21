@@ -74,7 +74,11 @@ export default function DashboardLeftNav({
         open ? "w-[240px]" : "w-[64px]"
       }`}
     >
-      <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-100 shrink-0">
+      <div
+        className={`flex items-center gap-2 px-3 py-3 border-b border-gray-100 shrink-0 ${
+          open ? "" : "justify-center px-0"
+        }`}
+      >
         <button
           type="button"
           onClick={onToggleOpen}
@@ -84,16 +88,18 @@ export default function DashboardLeftNav({
         >
           <Bars3Icon className="w-[18px] h-[18px]" />
         </button>
-        <Link href="/home-user" className="flex items-center justify-center w-7 h-7 shrink-0" aria-label="Asymmetrix Dashboard">
-          <Image
-            src="/icons/logo.svg"
-            alt="Asymmetrix"
-            width={28}
-            height={28}
-            style={{ width: 28, height: 28, objectFit: "contain" }}
-            priority
-          />
-        </Link>
+        {open && (
+          <Link href="/home-user" className="flex items-center justify-center w-7 h-7 shrink-0" aria-label="Asymmetrix Dashboard">
+            <Image
+              src="/icons/logo.svg"
+              alt="Asymmetrix"
+              width={28}
+              height={28}
+              style={{ width: 28, height: 28, objectFit: "contain" }}
+              priority
+            />
+          </Link>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
@@ -124,7 +130,11 @@ export default function DashboardLeftNav({
         />
       </nav>
 
-      <div className="border-t border-gray-100 p-2 shrink-0 flex items-center gap-1">
+      <div
+        className={`border-t border-gray-100 p-2 shrink-0 flex items-center gap-1 ${
+          open ? "" : "flex-col gap-2"
+        }`}
+      >
         <Link
           href="/settings"
           title="Settings"
