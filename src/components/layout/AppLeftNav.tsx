@@ -7,7 +7,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Bars3Icon,
   HomeIcon,
-  ViewfinderCircleIcon,
   BuildingOfficeIcon,
   ChartBarIcon,
   UsersIcon,
@@ -32,7 +31,6 @@ type NavCounts = {
   individuals?: number;
   sectors?: number;
   insightsAnalysis?: number;
-  dealRadar?: number;
 };
 
 type NavSection = {
@@ -44,13 +42,7 @@ type NavSection = {
 };
 
 const SECTIONS: NavSection[] = [
-  {
-    key: "dealRadar",
-    label: "Deal Radar",
-    href: "/deal-radar",
-    icon: ViewfinderCircleIcon,
-    isActive: (p) => p.startsWith("/deal-radar"),
-  },
+  // Deal Radar intentionally hidden from nav — page still exists, just not linked.
   {
     key: "companies",
     label: "Companies",
@@ -205,22 +197,6 @@ export default function AppLeftNav() {
     run().catch(() => {
       // Leave counts unset — nav renders without a number rather than a fake one.
     });
-
-    const runDealRadarCount = async () => {
-      try {
-        const res = await dashboardApiService.getDealRadar({
-          limit: 1,
-          offset: 0,
-        });
-        if (cancelled) return;
-        if (typeof res.total_items === "number") {
-          setCounts((prev) => ({ ...prev, dealRadar: res.total_items }));
-        }
-      } catch {
-        // Leave unset.
-      }
-    };
-    runDealRadarCount();
 
     const runInsightsCount = async () => {
       const token = localStorage.getItem("asymmetrix_auth_token");

@@ -6,7 +6,6 @@ import { getInitials } from "@/lib/userDisplay";
 import {
   Bars3Icon,
   HomeIcon,
-  ViewfinderCircleIcon,
   BuildingOfficeIcon,
   ChartBarIcon,
   UsersIcon,
@@ -38,7 +37,7 @@ type NavSection = {
 };
 
 const SECTIONS: NavSection[] = [
-  { key: "dealRadar", label: "Deal Radar", href: "/deal-radar", icon: ViewfinderCircleIcon },
+  // Deal Radar intentionally hidden from nav — page still exists, just not linked.
   { key: "companies", label: "Companies", href: "/companies", icon: BuildingOfficeIcon },
   { key: "sectors", label: "Sectors", href: "/sectors", icon: ChartBarIcon },
   { key: "investors", label: "Investors", href: "/investors", icon: UsersIcon },

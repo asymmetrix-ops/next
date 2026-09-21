@@ -132,7 +132,6 @@ const Header = () => {
     ? []
     : [
     "Dashboard",
-    "Deal Radar",
     "Companies",
     "Sectors",
     "Investors",
