@@ -116,6 +116,19 @@ const FINANCIAL_INTELLIGENCE_HREF = "/financial-intelligence";
 const MY_PORTFOLIO_HREF = "/my-portfolio";
 const DASHBOARD_HREF = "/home-user";
 
+/** Expanded / collapsed widths — keep in sync with Tailwind width transition. */
+const NAV_WIDTH_EXPANDED_PX = 240;
+const NAV_WIDTH_COLLAPSED_PX = 64;
+
+const NAV_SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
+const NAV_SLIDE_MS = 320;
+
+const navRevealClass = (open: boolean) =>
+  [
+    "min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity] motion-reduce:transition-none",
+    open ? "max-w-[168px] opacity-100" : "max-w-0 opacity-0",
+  ].join(" ");
+
 function formatCount(n: number | undefined): string | null {
   if (typeof n !== "number" || !Number.isFinite(n) || n < 0) return null;
   return n.toLocaleString();
@@ -258,18 +271,16 @@ export default function AppLeftNav() {
 
   return (
     <aside
-      className={`sticky top-0 h-screen shrink-0 flex flex-col border-r border-gray-200 bg-white transition-[width] duration-200 ease-out ${
-        open ? "w-[240px]" : "w-[64px]"
-      }`}
+      className="sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white motion-reduce:transition-none"
+      style={{
+        width: open ? NAV_WIDTH_EXPANDED_PX : NAV_WIDTH_COLLAPSED_PX,
+        transition: `width ${NAV_SLIDE_MS}ms ${NAV_SLIDE_EASE}`,
+      }}
     >
-      <div
-        className={`flex shrink-0 flex-col border-b border-gray-100 py-3 ${
-          open ? "items-start gap-2 px-3" : "items-center gap-2 px-0"
-        }`}
-      >
+      <div className="flex shrink-0 flex-col items-start gap-2 border-b border-gray-100 px-3 py-3">
         <Link
           href={DASHBOARD_HREF}
-          className="flex shrink-0 items-center justify-center w-8 h-8"
+          className="flex h-8 w-8 shrink-0 items-center justify-center"
           aria-label="Asymmetrix Dashboard"
         >
           <Image
@@ -330,40 +341,40 @@ export default function AppLeftNav() {
         />
       </nav>
 
-      <div
-        className={`border-t border-gray-100 p-2 shrink-0 flex items-center gap-1 ${
-          open ? "" : "flex-col gap-2"
-        }`}
-      >
+      <div className="flex shrink-0 items-center gap-1 border-t border-gray-100 p-2">
         <Link
           href="/settings"
           title="Settings"
           aria-label="Settings"
-          className={`flex items-center justify-center w-9 h-9 rounded-full transition-colors shrink-0 ${
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
             pathname.startsWith("/settings")
               ? "bg-blue-50 text-blue-600"
               : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
           }`}
         >
-          <Cog6ToothIcon className="w-[18px] h-[18px]" />
+          <Cog6ToothIcon className="h-[18px] w-[18px]" />
         </Link>
         <Link
           href="/my-info"
           title="Your info"
           aria-label="Your info"
-          className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0 hover:bg-blue-700 transition-colors"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white transition-colors hover:bg-blue-700"
         >
           {getInitials(user?.name)}
         </Link>
-        {open && (
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="ml-auto text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors px-2 whitespace-nowrap"
-          >
-            Log out
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleLogout}
+          className={`ml-auto px-2 text-sm font-medium text-gray-500 transition-[max-width,opacity] hover:text-blue-600 motion-reduce:transition-none ${navRevealClass(open)}`}
+          style={{
+            transitionDuration: `${NAV_SLIDE_MS}ms`,
+            transitionTimingFunction: NAV_SLIDE_EASE,
+          }}
+          tabIndex={open ? 0 : -1}
+          aria-hidden={!open}
+        >
+          Log out
+        </button>
       </div>
     </aside>
   );
@@ -388,27 +399,34 @@ function NavRow({
     <Link
       href={href}
       title={!open ? label : undefined}
-      className={`group flex items-center gap-3 rounded-full px-2.5 py-2 text-sm font-medium transition-colors ${
+      className={`group flex min-h-[40px] items-center rounded-full py-2 pl-2 pr-2.5 text-sm font-medium transition-colors ${
         active
           ? "bg-blue-50 text-blue-600"
           : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
-      } ${open ? "" : "justify-center"}`}
+      }`}
     >
-      <Icon
-        className={`w-[18px] h-[18px] shrink-0 ${
-          active ? "opacity-100" : "opacity-60 group-hover:opacity-100"
-        }`}
-      />
-      {open && (
-        <span className="flex items-center flex-1 min-w-0 gap-2">
-          <span className="truncate">{label}</span>
-          {count && (
-            <span className="ml-auto text-[10.5px] font-bold text-gray-400 group-hover:text-blue-600 tabular-nums shrink-0">
-              {count}
-            </span>
-          )}
-        </span>
-      )}
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+        <Icon
+          className={`h-[18px] w-[18px] shrink-0 ${
+            active ? "opacity-100" : "opacity-60 group-hover:opacity-100"
+          }`}
+        />
+      </span>
+      <span
+        className={`flex min-w-0 flex-1 items-center gap-2 ${navRevealClass(open)}`}
+        style={{
+          transitionDuration: `${NAV_SLIDE_MS}ms`,
+          transitionTimingFunction: NAV_SLIDE_EASE,
+        }}
+        aria-hidden={!open}
+      >
+        <span className="truncate">{label}</span>
+        {count && (
+          <span className="ml-auto shrink-0 text-[10.5px] font-bold tabular-nums text-gray-400 group-hover:text-blue-600">
+            {count}
+          </span>
+        )}
+      </span>
     </Link>
   );
 }
