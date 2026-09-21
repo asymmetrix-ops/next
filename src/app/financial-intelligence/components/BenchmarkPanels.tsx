@@ -17,9 +17,7 @@
   } from "@/lib/financialIntelligence/calculations";
   import type { FiPeerAggregateMode } from "@/lib/financialIntelligence/types";
   import {
-    FI_SOURCE_TYPES_UI_ORDER,
     getMetricSourceType,
-    sourceTypeColor,
     type FiMetricSourceType,
   } from "@/lib/financialIntelligence/sourceTypes";
   import { PercentileBar, PctPill } from "./benchmark-viz";
@@ -888,7 +886,8 @@
           background: "white",
           border: "1px solid var(--border-1)",
           borderRadius: "var(--r-lg)",
-          overflow: "auto",
+          overflowX: "auto",
+          overflowY: "visible",
           fontFamily: FONT,
         }}
       >
@@ -1027,29 +1026,6 @@
           </span>
           <span style={{ flexBasis: "100%", fontSize: 11, color: "var(--fg-4)" }}>
             Pure ranking read — higher values rank higher (rank #1 = best in peer set).
-          </span>
-          <span
-            style={{
-              marginLeft: "auto",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 14,
-              flexWrap: "wrap",
-            }}
-          >
-            {FI_SOURCE_TYPES_UI_ORDER.map((type) => (
-              <span key={type} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <span
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: "50%",
-                    background: sourceTypeColor(type),
-                  }}
-                />
-                {type}
-              </span>
-            ))}
           </span>
         </div>
       </div>

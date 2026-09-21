@@ -586,7 +586,9 @@ export function FinancialIntelligenceWorkspace({
 
   const excludePeer = useCallback(
     (companyId: number) => {
-      const peer = peers.find((row) => row.company_id === companyId);
+      const peer =
+        peers.find((row) => row.company_id === companyId) ??
+        benchmarkPeers.find((row) => row.company_id === companyId);
       const wasManuallyAdded =
         companyIdsInclude.includes(companyId) || Boolean(peer?.is_manually_added);
       if (peer) {
@@ -601,7 +603,7 @@ export function FinancialIntelligenceWorkspace({
       setCompanyIdsInclude(nextInclude);
       refreshPeers(filters, nextInclude, nextExclude);
     },
-    [companyIdsExclude, companyIdsInclude, filters, peers, refreshPeers]
+    [companyIdsExclude, companyIdsInclude, filters, peers, benchmarkPeers, refreshPeers]
   );
 
   const restorePeer = useCallback(
@@ -1029,14 +1031,30 @@ export function FinancialIntelligenceWorkspace({
         {!target && !loading && <FiTargetEmptyState />}
 
         {showBenchmarkContent && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              minHeight: 0,
+            }}
+          >
           <FiBenchmarkRefreshing active={isRefreshingBenchmark}>
-            <>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+                flex: 1,
+                minHeight: 0,
+              }}
+            >
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "260px repeat(3, minmax(0, 1fr))",
                 gap: 12,
-                marginBottom: 16,
+                flexShrink: 0,
               }}
             >
               <CompositeHero
@@ -1057,8 +1075,7 @@ export function FinancialIntelligenceWorkspace({
                 display: "grid",
                 gridTemplateColumns: "minmax(0, 1fr) minmax(300px, 380px)",
                 gap: 12,
-                alignItems: "stretch",
-                marginBottom: 16,
+                alignItems: "start",
                 minWidth: 0,
               }}
             >
@@ -1073,12 +1090,8 @@ export function FinancialIntelligenceWorkspace({
                 preferredCurrencyCode={preferredCurrencyCode}
               />
               <PeerCompaniesCard
-                peers={displayTablePeers}
+                peers={displayBenchmarkPeers}
                 totalPeerCount={totalPeers}
-                peersPage={peersPage}
-                peersPageTotal={peersPageTotal}
-                onPeersPageChange={(page) => void loadPeersPage(page)}
-                peersPaginationDisabled={loading}
                 target={target}
                 excludedPeers={excludedPeers}
                 excludedIds={companyIdsExclude}
@@ -1101,23 +1114,34 @@ export function FinancialIntelligenceWorkspace({
                 border: "1px solid var(--border-1)",
                 borderRadius: "var(--r-lg)",
                 overflow: "hidden",
+                flexShrink: 0,
+                display: "flex",
+                flexDirection: "column",
               }}
             >
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center",
+                  alignItems: "flex-start",
                   gap: 12,
                   padding: "10px 12px",
                   borderBottom: "1px solid var(--border-1)",
+                  flexShrink: 0,
                 }}
               >
-                <div>
+                <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 700, color: "var(--fg-1)", fontSize: 13 }}>
                     Peer financials table
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--fg-2)",
+                      marginTop: 4,
+                      lineHeight: 1.45,
+                    }}
+                  >
                     {totalPeers.toLocaleString()}{" "}
                     {totalPeers === 1 ? "company" : "companies"}
                     {peersPageTotal > 1
@@ -1181,8 +1205,20 @@ export function FinancialIntelligenceWorkspace({
                   style={{
                     borderTop: "1px solid var(--border-1)",
                     background: "var(--ax-gray-25)",
+                    flexShrink: 0,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    padding: "4px 12px",
                   }}
                 >
+                  <div style={{ fontSize: 12, color: "var(--fg-2)", lineHeight: 1.45 }}>
+                    {totalPeers.toLocaleString()}{" "}
+                    {totalPeers === 1 ? "company" : "companies"}
+                    {` · page ${peersPage} of ${peersPageTotal} (${FI_PEERS_PER_PAGE} per page)`}
+                  </div>
                   <SearchTablePagination
                     curPage={peersPage}
                     pageTotal={peersPageTotal}
@@ -1192,8 +1228,9 @@ export function FinancialIntelligenceWorkspace({
                 </div>
               )}
             </div>
-            </>
+            </div>
           </FiBenchmarkRefreshing>
+          </div>
         )}
       </main>
       <BulkAddToPortfolioModal
