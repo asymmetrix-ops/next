@@ -9,12 +9,8 @@ interface SearchableSelectProps {
   options: Option[];
   value: string | number;
   onChange: (value: string | number) => void;
-  onSearchTermChange?: (term: string) => void;
   placeholder?: string;
   disabled?: boolean;
-  loading?: boolean;
-  loadingText?: string;
-  noOptionsText?: string;
   style?: React.CSSProperties;
 }
 
@@ -22,12 +18,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   options,
   value,
   onChange,
-  onSearchTermChange,
   placeholder = "Select an option",
   disabled = false,
-  loading = false,
-  loadingText = "Loading…",
-  noOptionsText = "No options found",
   style = {},
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -50,14 +42,13 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
       ) {
         setIsOpen(false);
         setSearchTerm("");
-        onSearchTermChange?.("");
         setHighlightedIndex(-1);
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [onSearchTermChange]);
+  }, []);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -83,14 +74,12 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
           onChange(filteredOptions[highlightedIndex].value);
           setIsOpen(false);
           setSearchTerm("");
-          onSearchTermChange?.("");
           setHighlightedIndex(-1);
         }
         break;
       case "Escape":
         setIsOpen(false);
         setSearchTerm("");
-        onSearchTermChange?.("");
         setHighlightedIndex(-1);
         break;
     }
@@ -100,14 +89,11 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     onChange(option.value);
     setIsOpen(false);
     setSearchTerm("");
-    onSearchTermChange?.("");
     setHighlightedIndex(-1);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const next = e.target.value;
-    setSearchTerm(next);
-    onSearchTermChange?.(next);
+    setSearchTerm(e.target.value);
     setHighlightedIndex(-1);
   };
 
@@ -191,7 +177,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
             overflowY: "auto",
           }}
         >
-          {loading ? (
+          {filteredOptions.length === 0 ? (
             <div
               style={{
                 padding: "12px 16px",
@@ -199,17 +185,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                 fontSize: "14px",
               }}
             >
-              {loadingText}
-            </div>
-          ) : filteredOptions.length === 0 ? (
-            <div
-              style={{
-                padding: "12px 16px",
-                color: "#a0aec0",
-                fontSize: "14px",
-              }}
-            >
-              {noOptionsText}
+              No options found
             </div>
           ) : (
             filteredOptions.map((option, index) => (

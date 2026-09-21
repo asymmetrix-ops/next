@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { MCP_TRACKER_ENTRY_PATH } from "@/lib/mcpGuest";
 
 export default function HomeHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -75,12 +74,6 @@ export default function HomeHeader() {
             style={{ color: "#fff", textDecoration: "none" }}
           >
             About Us
-          </Link>
-          <Link
-            href={MCP_TRACKER_ENTRY_PATH}
-            style={{ color: "#fff", textDecoration: "none" }}
-          >
-            MCP Tracker
           </Link>
           <Link
             href="/login"
@@ -159,17 +152,6 @@ export default function HomeHeader() {
             onClick={() => setIsMenuOpen(false)}
           >
             About Us
-          </Link>
-          <Link
-            href={MCP_TRACKER_ENTRY_PATH}
-            style={{
-              color: "#fff",
-              textDecoration: "none",
-              padding: "10px 4px",
-            }}
-            onClick={() => setIsMenuOpen(false)}
-          >
-            MCP Tracker
           </Link>
           <Link
             href="/login"

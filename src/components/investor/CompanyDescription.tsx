@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ExpandableText } from "@/components/common/ExpandableText";
+import { truncateDescription } from "@/utils/investorHelpers";
 
 interface CompanyDescriptionProps {
   description: string;
@@ -9,20 +9,31 @@ const CompanyDescription: React.FC<CompanyDescriptionProps> = ({
   description,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { text, isLong } = truncateDescription(description);
 
-  if (!description?.trim()) {
-    return <span>-</span>;
-  }
+  const toggleDescription = () => {
+    setIsExpanded(!isExpanded);
+  };
 
   return (
-    <ExpandableText
-      text={description}
-      expanded={isExpanded}
-      onToggle={() => setIsExpanded((prev) => !prev)}
-      expandLabel="Expand description"
-      clampLines={3}
-      buttonStyle={{ marginLeft: "8px", textDecoration: "none" }}
-    />
+    <div>
+      <span>{isExpanded ? description : text}</span>
+      {isLong && (
+        <button
+          onClick={toggleDescription}
+          style={{
+            background: "none",
+            border: "none",
+            color: "#3b82f6",
+            cursor: "pointer",
+            fontSize: "12px",
+            marginLeft: "8px",
+          }}
+        >
+          {isExpanded ? "Show less" : "Expand description"}
+        </button>
+      )}
+    </div>
   );
 };
 

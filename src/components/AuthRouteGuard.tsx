@@ -1,54 +1,30 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { GET_ACCESS_PATH } from "@/lib/prospect";
-import { MCP_GUEST_PUBLIC_PATHS } from "@/lib/mcpGuest";
-import { isContributorCrmPath } from "@/lib/userStatus";
 
-// Routes that should remain accessible even when the user is not authenticated
-// or their token has expired.
-const PUBLIC_PATHS = [
-  "/",
-  "/about-us",
-  "/contact-us",
-  "/press-releases",
-  "/privacy-policy",
-  "/terms-and-conditions",
-  "/login",
-  "/trial-expired",
-  "/forgot-password",
-  "/reset-password",
-  "/auth/sso-complete",
-  GET_ACCESS_PATH,
-  "/access-denied",
-  "/contributor-crm",
-  "/events",
-  ...MCP_GUEST_PUBLIC_PATHS,
+const protectedPatterns: RegExp[] = [
+  /^\/company\//,
+  /^\/investors\//,
+  /^\/individual\//,
+  /^\/corporate-event\//,
+  /^\/sector\//,
+  /^\/article\//,
 ];
 
 export default function AuthRouteGuard() {
-  const { isAuthenticated, isContributor, isProspect, loading, setShowLoginModal } =
-    useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     if (!pathname || loading) return;
-
-    const isPublicPath =
-      isContributorCrmPath(pathname) ||
-      PUBLIC_PATHS.some(
-        (p) => pathname === p || pathname.startsWith(p + "/")
-      );
-
-    // Show the login modal overlay instead of redirecting, so the user stays
-    // on the page they came from (e.g. via an email alert link) and can sign
-    // in without losing their context.
-    setShowLoginModal(
-      !isPublicPath && !isAuthenticated && !isContributor && !isProspect
-    );
-  }, [pathname, isAuthenticated, isContributor, isProspect, loading, setShowLoginModal]);
+    const requiresAuth = protectedPatterns.some((re) => re.test(pathname));
+    if (requiresAuth && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [pathname, isAuthenticated, loading, router]);
 
   return null;
 }

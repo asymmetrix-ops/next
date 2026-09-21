@@ -27,8 +27,6 @@ export interface IndividualRole {
   new_company: RoleCompany;
 }
 
-export type CompanyPageType = "advisor" | "company" | "investor";
-
 // Role Company
 export interface RoleCompany {
   id: number;
@@ -36,7 +34,6 @@ export interface RoleCompany {
   linkedin_data: {
     linkedin_logo: string;
   };
-  _page_type?: CompanyPageType;
   _is_that_investor: boolean;
   _linkedin_data_of_new_company: {
     linkedin_logo: string; // Base64 encoded
@@ -60,7 +57,6 @@ export interface Location {
 // API 2: Get Individual Events Response
 export interface IndividualEventsResponse {
   events: CorporateEvent[];
-  items?: CorporateEvent[];
   all_related_individuals: RelatedIndividual[];
 }
 
@@ -70,19 +66,6 @@ export interface CorporateEvent {
   description: string;
   announcement_date: string;
   deal_type: string;
-  investment_data?: {
-    investment_amount_m?: string | number;
-    currency_id?: number;
-    currency?: string;
-    Funding_stage?: string;
-    _currency?: Currency;
-  };
-  /** Platform-currency formatted amount when API converts deal values. */
-  investment_display?: string | null;
-  /** Platform-currency formatted EV when API converts deal values. */
-  ev_display?: string | null;
-  /** Preferred / converted currency code from API (e.g. GBP). */
-  currency_name?: string | null;
   ev_data: EnterpriseValueData;
   _other_advisors_of_corporate_event: OtherAdvisor[];
   _target_counterparty_of_corporate_events?: TargetCounterparty;
@@ -180,7 +163,6 @@ export interface RelatedIndividual {
     linkedin_data: {
       linkedin_logo: string;
     };
-    _page_type?: CompanyPageType;
     _is_that_investor: boolean;
     _linkedin_data_of_new_company: {
       linkedin_logo: string;
