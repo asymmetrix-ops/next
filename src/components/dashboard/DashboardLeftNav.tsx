@@ -68,11 +68,25 @@ export default function DashboardLeftNav({
   onLogout: () => void;
 }) {
   return (
-    <aside
-      className={`dash-leftnav h-full shrink-0 flex flex-col border-r border-gray-200 bg-white transition-[width] duration-200 ease-out ${
-        open ? "w-[240px]" : "w-[64px]"
-      }`}
-    >
+    <>
+      {/* Mobile-only backdrop — tapping it collapses the drawer back down.
+          `md:hidden` keeps this inert on desktop. */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={onToggleOpen}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={`dash-leftnav h-full shrink-0 flex flex-col border-r border-gray-200 bg-white transition-[width,transform] duration-200 ease-out ${
+          open ? "w-[240px]" : "w-[64px]"
+        } ${
+          open
+            ? "fixed inset-y-0 left-0 z-50 md:static md:inset-auto md:z-auto"
+            : "static"
+        }`}
+      >
       <div
         className={`flex items-center gap-2 px-3 py-3 border-b border-gray-100 shrink-0 ${
           open ? "" : "justify-center px-0"
@@ -160,7 +174,8 @@ export default function DashboardLeftNav({
           </button>
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 

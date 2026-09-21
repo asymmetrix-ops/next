@@ -244,13 +244,29 @@ export default function AppLeftNav() {
   );
 
   return (
-    <aside
-      className="sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white motion-reduce:transition-none"
-      style={{
-        width: open ? NAV_WIDTH_EXPANDED_PX : NAV_WIDTH_COLLAPSED_PX,
-        transition: `width ${NAV_SLIDE_MS}ms ${NAV_SLIDE_EASE}`,
-      }}
-    >
+    <>
+      {/* Mobile-only backdrop — tapping it collapses the drawer back down.
+          `md:hidden` keeps this inert on desktop, where the sidebar never
+          leaves the flow, so this can safely key off the same `open` state
+          as the desktop expanded/collapsed toggle. */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={() => setOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={`flex h-screen shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white motion-reduce:transition-none ${
+          open
+            ? "fixed inset-y-0 left-0 z-50 md:sticky md:inset-auto md:top-0 md:z-auto"
+            : "sticky top-0 z-auto"
+        }`}
+        style={{
+          width: open ? NAV_WIDTH_EXPANDED_PX : NAV_WIDTH_COLLAPSED_PX,
+          transition: `width ${NAV_SLIDE_MS}ms ${NAV_SLIDE_EASE}`,
+        }}
+      >
       <div className="flex shrink-0 flex-col items-start gap-2 border-b border-gray-100 px-3 py-3">
         <Link
           href={DASHBOARD_HREF}
@@ -348,7 +364,8 @@ export default function AppLeftNav() {
           Log out
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 
