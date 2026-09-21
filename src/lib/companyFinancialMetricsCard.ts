@@ -621,12 +621,10 @@ function formatMetricValue(
     metric.sourceCodeField ? row[metric.sourceCodeField] : undefined
   );
   const currencyPair = resolveMetricCurrencyPair(row, metric);
-  const filingCurrency =
-    currencyPair?.reportedCurrency?.trim() ||
-    currencyPair?.preferredCurrency?.trim() ||
-    (metric.currencyField ? resolveRowCurrency(row, metric.currencyField) : null);
   const platformCurrency =
-    platformCurrencyCode?.trim() || filingCurrency || null;
+    currencyPair?.preferredCurrency?.trim() ||
+    platformCurrencyCode?.trim() ||
+    (metric.currencyField ? resolveRowCurrency(row, metric.currencyField) : null);
   const fx = row.metric_fx?.[metric.key] ?? null;
   const fxFormat = resolveMetricFxFormat(metric.format);
 
@@ -692,33 +690,33 @@ function formatMetricValue(
     return { display: primaryDisplay, raw: preferredRaw, sourceType };
   }
 
-  const reportedRaw = currencyPair?.reportedValue ?? preferredRaw;
-  const reportedCurrency = filingCurrency || platformCurrency;
-  const reportedDisplay =
-    metric.format === "money_millions"
-      ? formatMillions(reportedRaw, reportedCurrency)
-      : metric.format === "money_whole"
-        ? formatMoneyWhole(
-            reportedRaw,
-            metric.key === "rev_per_client" || !metric.formattedField
-              ? null
-              : row[metric.formattedField],
-            reportedCurrency
-          )
-        : null;
-
-  if (currencyPair?.converted || currencyPair?.reportedValue != null) {
-    const fxTooltip = currencyPair.converted
-      ? "Converted to platform currency"
-      : null;
+  // "Reported" (native/filing currency) is only shown when the API gives us an
+  // actual reported number + currency, or a numeric FX rate to derive one from.
+  // A `*_converted` flag with only `*_native_currency_id` (no reported value, no
+  // numeric rate) is NOT enough to compute a native-currency amount.
+  if (currencyPair?.reportedValue != null) {
+    const reportedCurrency =
+      currencyPair.reportedCurrency ?? currencyPair.preferredCurrency;
+    const reportedDisplay =
+      metric.format === "money_millions"
+        ? formatMillions(currencyPair.reportedValue, reportedCurrency)
+        : metric.format === "money_whole"
+          ? formatMoneyWhole(
+              currencyPair.reportedValue,
+              metric.key === "rev_per_client" || !metric.formattedField
+                ? null
+                : row[metric.formattedField],
+              reportedCurrency
+            )
+          : null;
 
     return {
       display: primaryDisplay,
       raw: preferredRaw,
       sourceType,
       nativeDisplay: reportedDisplay ?? primaryDisplay,
-      nativeRaw: reportedRaw,
-      fxTooltip,
+      nativeRaw: currencyPair.reportedValue,
+      fxTooltip: currencyPair.converted ? "Converted to platform currency" : null,
     };
   }
 
@@ -731,16 +729,6 @@ function formatMetricValue(
       nativeDisplay: dual.nativeDisplay,
       nativeRaw: fx?.native_value ?? null,
       fxTooltip: dual.fxTooltip,
-    };
-  }
-
-  if (reportedDisplay != null) {
-    return {
-      display: primaryDisplay,
-      raw: preferredRaw,
-      sourceType,
-      nativeDisplay: reportedDisplay,
-      nativeRaw: reportedRaw,
     };
   }
 
