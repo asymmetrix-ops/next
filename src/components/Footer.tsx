@@ -4,22 +4,25 @@ import Link from "next/link";
 
 const Footer = () => {
   const navItems = [
-    { label: "Terms of Use", href: "#" },
+    { label: "Terms of Use", href: "/terms" },
     { label: "Privacy Policy", href: "/privacy" },
   ];
 
   const styles = {
     footer: {
-      background: "#0f172a",
-      color: "#e5e7eb",
+      background: "var(--ax-gray-50)",
+      color: "var(--fg-2)",
       minHeight: 80,
       display: "flex",
       alignItems: "center",
       padding: "0 24px",
+      paddingBottom: "max(16px, env(safe-area-inset-bottom, 0px))",
       position: "relative" as const,
       width: "100%",
       maxWidth: "100%",
       boxSizing: "border-box" as const,
+      borderTop: "1px solid var(--border-1)",
+      fontFamily: "var(--font-sans)",
     },
     container: {
       display: "flex",
@@ -29,7 +32,7 @@ const Footer = () => {
       width: "100%",
       margin: "0 auto",
       gap: "20px",
-      maxWidth: 1280,
+      maxWidth: "var(--container-wide)",
     },
     leftSection: {
       display: "flex",
@@ -42,8 +45,8 @@ const Footer = () => {
       borderRadius: "50%",
     },
     logoText: {
-      fontSize: "14px",
-      color: "#cbd5e1",
+      fontSize: "var(--fs-14)",
+      color: "var(--fg-3)",
     },
     centerSection: {
       display: "flex",
@@ -51,8 +54,8 @@ const Footer = () => {
       gap: "24px",
     },
     navLink: {
-      color: "#cbd5e1",
-      fontSize: "14px",
+      color: "var(--fg-2)",
+      fontSize: "var(--fs-14)",
       textDecoration: "none",
     },
     rightSection: {
@@ -61,14 +64,18 @@ const Footer = () => {
       gap: "12px",
     },
     socialIcon: {
-      color: "#cbd5e1",
-      fontSize: "18px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 6,
+      borderRadius: "var(--r-md)",
       textDecoration: "none",
+      transition: "background var(--dur-fast) var(--ease-out)",
     },
   } as const;
 
   return (
-    <footer style={styles.footer}>
+    <footer className="ax-site-footer" style={styles.footer}>
       <style jsx>{`
         @media (max-width: 767px) {
           .footer-container {
@@ -91,9 +98,14 @@ const Footer = () => {
             justify-content: center !important;
           }
         }
+        .footer-nav-link:hover {
+          color: var(--ax-cyan-700);
+        }
+        .footer-social-link:hover {
+          background: var(--ax-gray-100);
+        }
       `}</style>
       <div style={styles.container} className="footer-container">
-        {/* Left Section: Logo and Text */}
         <div style={styles.leftSection} className="footer-left">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -106,16 +118,19 @@ const Footer = () => {
           </span>
         </div>
 
-        {/* Center Section: Navigation Links */}
         <div style={styles.centerSection} className="footer-center">
           {navItems.map((item) => (
-            <Link key={item.label} href={item.href} style={styles.navLink}>
+            <Link
+              key={item.label}
+              href={item.href}
+              style={styles.navLink}
+              className="footer-nav-link"
+            >
               {item.label}
             </Link>
           ))}
         </div>
 
-        {/* Right Section: Social Media Icons */}
         <div style={styles.rightSection} className="footer-right">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
@@ -123,14 +138,11 @@ const Footer = () => {
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
+            className="footer-social-link"
+            aria-label="YouTube"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/icons/youtube.svg"
-              alt="YouTube"
-              width={18}
-              height={18}
-            />
+            <img src="/icons/youtube.svg" alt="" width={18} height={18} />
           </a>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
@@ -138,14 +150,11 @@ const Footer = () => {
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
+            className="footer-social-link"
+            aria-label="Spotify"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/icons/spotify.svg"
-              alt="Spotify"
-              width={18}
-              height={18}
-            />
+            <img src="/icons/spotify.svg" alt="" width={18} height={18} />
           </a>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
@@ -153,14 +162,11 @@ const Footer = () => {
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
+            className="footer-social-link"
+            aria-label="Apple Podcasts"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/icons/podcast.svg"
-              alt="Podcast"
-              width={18}
-              height={18}
-            />
+            <img src="/icons/podcast.svg" alt="" width={18} height={18} />
           </a>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
@@ -168,14 +174,11 @@ const Footer = () => {
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
+            className="footer-social-link"
+            aria-label="LinkedIn"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/icons/linkedin.svg"
-              alt="LinkedIn"
-              width={18}
-              height={18}
-            />
+            <img src="/icons/linkedin.svg" alt="" width={18} height={18} />
           </a>
         </div>
       </div>

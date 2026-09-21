@@ -29,6 +29,7 @@ import {
   HeadlineMetricCards,
 } from "./components/BenchmarkPanels";
 import { PeerCompaniesCard } from "./components/PeerCompaniesCard";
+import { FiTargetEmptyState } from "./components/FiTargetEmptyState";
 import { locationsService } from "@/lib/locationsService";
 import {
   buildBenchmarkMetricRows,
@@ -735,12 +736,28 @@ export function FinancialIntelligenceWorkspace({
 
   return (
     <Shell>
-    <div className="min-h-screen" style={{ background: "var(--ax-gray-50)", fontFamily: "var(--font-sans)" }}>
+    <div
+      className="flex min-h-0 w-full flex-1 flex-col"
+      style={{ background: "var(--ax-gray-50)", fontFamily: "var(--font-sans)" }}
+    >
       <main
         style={
           embedded
-            ? { width: "100%", boxSizing: "border-box" }
-            : { width: "100%", padding: "20px 28px 48px", boxSizing: "border-box" }
+            ? {
+                width: "100%",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+                flex: 1,
+              }
+            : {
+                width: "100%",
+                padding: "20px 28px 48px",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+                flex: 1,
+              }
         }
       >
         {!embedded && (
@@ -884,20 +901,7 @@ export function FinancialIntelligenceWorkspace({
           </div>
         )}
 
-        {!target && !loading && (
-          <div
-            style={{
-              padding: 32,
-              borderRadius: "var(--r-lg)",
-              border: "1px dashed var(--border-1)",
-              background: "white",
-              color: "var(--fg-3)",
-              fontSize: 14,
-            }}
-          >
-            Select a target company to load its financial profile and default peer set.
-          </div>
-        )}
+        {!target && !loading && <FiTargetEmptyState />}
 
         {showBenchmarkContent && (
           <FiBenchmarkRefreshing active={isRefreshingBenchmark}>

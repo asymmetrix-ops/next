@@ -1,5 +1,7 @@
 @config "../../tailwind.config.js";
 
+@import "./financials-tsx/colors_and_type.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -156,6 +158,23 @@ All colors MUST be HSL.
 
   .input-field {
     @apply px-3 py-2 w-full rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent;
+  }
+
+  /* Sticky site footer when a page shell uses min-h-screen + Footer */
+  .min-h-screen:has(> footer.ax-site-footer) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .min-h-screen:has(> footer.ax-site-footer) > main {
+    flex: 1 1 auto;
+  }
+
+  footer.ax-site-footer {
+    margin-top: auto;
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
 }
 
