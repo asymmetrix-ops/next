@@ -394,8 +394,19 @@ export function FinancialsTable({
   };
 
   return (
-    <div style={{ background: 'white', border: '1px solid var(--border-1)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
-      <div style={{ overflow: 'auto' }}>
+    <div
+      style={
+        tweaks.chromeless
+          ? { overflow: "hidden" }
+          : {
+              background: "white",
+              border: "1px solid var(--border-1)",
+              borderRadius: "var(--r-lg)",
+              overflow: "hidden",
+            }
+      }
+    >
+      <div style={{ overflow: tweaks.chromeless ? "visible" : "auto" }}>
         <table
           style={{
             width: '100%',

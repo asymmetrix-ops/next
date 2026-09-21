@@ -263,38 +263,36 @@ export default function AppLeftNav() {
       }`}
     >
       <div
-        className={`flex items-center gap-2 px-3 py-3 border-b border-gray-100 shrink-0 ${
-          open ? "" : "justify-center px-0"
+        className={`flex shrink-0 flex-col border-b border-gray-100 py-3 ${
+          open ? "items-start gap-2 px-3" : "items-center gap-2 px-0"
         }`}
       >
+        <Link
+          href={DASHBOARD_HREF}
+          className="flex shrink-0 items-center justify-center w-8 h-8"
+          aria-label="Asymmetrix Dashboard"
+        >
+          <Image
+            src="/icons/logo.svg"
+            alt="Asymmetrix"
+            width={28}
+            height={28}
+            style={{ width: 28, height: 28, objectFit: "contain" }}
+            priority
+          />
+        </Link>
         <button
           type="button"
           onClick={toggleOpen}
           aria-label={open ? "Collapse navigation" : "Expand navigation"}
           aria-expanded={open}
-          className="flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors shrink-0"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
         >
-          <Bars3Icon className="w-[18px] h-[18px]" />
+          <Bars3Icon className="h-[18px] w-[18px]" />
         </button>
-        {open && (
-          <Link
-            href={DASHBOARD_HREF}
-            className="flex items-center justify-center w-7 h-7 shrink-0"
-            aria-label="Asymmetrix Dashboard"
-          >
-            <Image
-              src="/icons/logo.svg"
-              alt="Asymmetrix"
-              width={28}
-              height={28}
-              style={{ width: 28, height: 28, objectFit: "contain" }}
-              priority
-            />
-          </Link>
-        )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-2 pt-3">
         <NavRow
           open={open}
           href={DASHBOARD_HREF}

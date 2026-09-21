@@ -128,6 +128,8 @@ export interface Tweaks {
   showPeerActions?: boolean;
   /** Peer-set aggregate row uses median or mean (Financial Intelligence). */
   peerAggregateMode?: "median" | "mean";
+  /** Omit outer card chrome when nested inside another panel (Financial Intelligence). */
+  chromeless?: boolean;
 }
 
 export interface SectorMedian {
