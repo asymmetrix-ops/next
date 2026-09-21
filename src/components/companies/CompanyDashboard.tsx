@@ -581,6 +581,7 @@ export const CompanyDashboard = ({
                 color: "#fff",
                 border: "none", borderRadius: 999,
                 fontSize: 13, fontWeight: 700,
+                whiteSpace: "nowrap",
                 fontFamily:
                   "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                 cursor: selectedCount > 0 ? "pointer" : "not-allowed",

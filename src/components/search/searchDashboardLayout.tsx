@@ -64,6 +64,7 @@ export const SEARCH_DASHBOARD_ACTIONS: CSSProperties = {
   gap: 8,
   alignItems: "center",
   paddingTop: 6,
+  flexWrap: "wrap",
 };
 
 export const SEARCH_DASHBOARD_TABS_ROW: CSSProperties = {

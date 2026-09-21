@@ -13,7 +13,7 @@ export default function AppShell({
     <NavOpenProvider>
       <div className="flex h-screen min-h-0 overflow-hidden">
         <AppLeftNav />
-        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">{children}</div>
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden pt-14 md:pt-0">{children}</div>
       </div>
     </NavOpenProvider>
   );

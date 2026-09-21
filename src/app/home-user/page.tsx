@@ -1651,7 +1651,7 @@ export default function HomeUserPage() {
       <div className="flex-1 min-w-0 h-full overflow-hidden">
       {/* Main Content */}
       <main
-        className="h-full flex flex-col px-2 py-4 mx-auto w-full sm:px-4 sm:py-8"
+        className="h-full flex flex-col px-2 pt-14 pb-4 mx-auto w-full sm:px-4 md:pt-8 md:pb-8"
         style={{ position: "relative" }}
         onClickCapture={handleClickCapture}
       >
