@@ -290,6 +290,19 @@ function parsePositiveScopedId(value: string | null): number | undefined {
   return parsed;
 }
 
+export function parseScopedNewCompanyIdFromQuery(
+  search: string | URLSearchParams
+): number | undefined {
+  const params =
+    typeof search === "string"
+      ? new URLSearchParams(search.startsWith("?") ? search.slice(1) : search)
+      : search;
+  return (
+    parsePositiveScopedId(params.get("new_company_id")) ??
+    parsePositiveScopedId(params.get("target_company_id"))
+  );
+}
+
 /** Applies deep-link query params (e.g. ?new_company_id=7733) onto API filters. */
 export function applyCorporateEventsUrlScope(
   filters: CorporateEventsSearchFilters,
@@ -299,9 +312,7 @@ export function applyCorporateEventsUrlScope(
   if (!query) return filters;
 
   const params = new URLSearchParams(query);
-  const newCompanyId =
-    parsePositiveScopedId(params.get("new_company_id")) ??
-    parsePositiveScopedId(params.get("target_company_id"));
+  const newCompanyId = parseScopedNewCompanyIdFromQuery(params);
   const individualId = parsePositiveScopedId(params.get("individual_id"));
   const investorId = parsePositiveScopedId(params.get("investor_id"));
 

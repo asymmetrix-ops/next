@@ -5,7 +5,9 @@ import React, {
   useEffect,
   useCallback,
   useRef,
+  Suspense,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -18,6 +20,7 @@ import {
 import {
   applyCorporateEventsUrlScope,
   createDefaultCorporateEventFilters,
+  parseScopedNewCompanyIdFromQuery,
 } from "@/lib/corporateEventsFilterPayload";
 import { DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS } from "@/components/corporate-events/corporateEventsColumnCategories";
 import { getColumnKeysForActiveFilters } from "@/components/corporate-events/corporateEventsColumnFilterMap";
@@ -29,7 +32,10 @@ import { fetchCorporateEventsServer, fetchCorporateEventsCountsServer } from "./
 import type { CorporateEventListItem } from "./actions";
 import type { ListExportRequest } from "@/lib/listExport/types";
 
-const useCorporateEventsAPI = (userId: number | null) => {
+const useCorporateEventsAPI = (
+  userId: number | null,
+  scopedNewCompanyId: number | null
+) => {
   const [events, setEvents] = useState<CorporateEventListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,30 +61,43 @@ const useCorporateEventsAPI = (userId: number | null) => {
   const [summaryStats, setSummaryStats] =
     useState<CorporateEventsSummaryStats>(EMPTY_CORPORATE_EVENTS_SUMMARY_STATS);
 
+  const scopedNewCompanyIdRef = useRef(scopedNewCompanyId);
+  scopedNewCompanyIdRef.current = scopedNewCompanyId;
+
+  const withCompanyScope = useCallback((filters: Filters): Filters => {
+    const scopedId = scopedNewCompanyIdRef.current;
+    if (scopedId != null && scopedId > 0) {
+      return { ...filters, new_company_id: scopedId };
+    }
+    if (typeof window === "undefined") return filters;
+    return applyCorporateEventsUrlScope(filters, window.location.search);
+  }, []);
+
   const scheduleCountsFetch = useCallback((countsFilters: Filters) => {
     if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
     countsTimeoutRef.current = setTimeout(() => {
       const countsRequestId = ++lastCountsRequestIdRef.current;
-      void fetchCorporateEventsCountsServer({
-        ...countsFilters,
-        user_id: userId,
-        deal_types: [],
-      })
+      void fetchCorporateEventsCountsServer(
+        withCompanyScope({
+          ...countsFilters,
+          user_id: userId,
+          deal_types: [],
+        })
+      )
         .then((countsData) => {
           if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
             return;
           }
           setSummaryStats((current) => ({
             ...countsData,
-            totalCount:
-              countsData.totalCount > 0 ? countsData.totalCount : current.totalCount,
+            totalCount: Math.max(countsData.totalCount, current.totalCount),
           }));
         })
         .catch((countsError) => {
           console.error("Error fetching corporate event counts:", countsError);
         });
     }, 400);
-  }, [userId]);
+  }, [userId, withCompanyScope]);
 
   const fetchCorporateEvents = useCallback(
     async (
@@ -99,14 +118,16 @@ const useCorporateEventsAPI = (userId: number | null) => {
         currentCountsFiltersRef.current = countsFilters;
       }
 
-      const filtersToUse =
+      const filtersToUse = withCompanyScope(
         filters !== undefined
           ? filters
-          : currentFiltersRef.current ?? createDefaultCorporateEventFilters();
-      const countsFiltersToUse =
+          : currentFiltersRef.current ?? createDefaultCorporateEventFilters()
+      );
+      const countsFiltersToUse = withCompanyScope(
         countsFilters ??
-        currentCountsFiltersRef.current ??
-        filtersToUse;
+          currentCountsFiltersRef.current ??
+          filtersToUse
+      );
       const resolvedFilters: Filters = {
         ...filtersToUse,
         user_id: userId,
@@ -143,15 +164,10 @@ const useCorporateEventsAPI = (userId: number | null) => {
             itemsTotal: data.itemsTotal,
             itemTotal: data.itemsTotal,
           });
-          if (
-            page === 1 &&
-            filtersToUse.deal_types.length === 0 &&
-            data.itemsTotal > 0
-          ) {
+          if (page === 1 && filtersToUse.deal_types.length === 0) {
             setSummaryStats((current) => ({
               ...current,
-              totalCount:
-                current.totalCount > 0 ? current.totalCount : data.itemsTotal,
+              totalCount: data.itemsTotal,
             }));
           }
         }
@@ -170,19 +186,14 @@ const useCorporateEventsAPI = (userId: number | null) => {
         }
       }
     },
-    [userId, scheduleCountsFetch]
+    [userId, scheduleCountsFetch, withCompanyScope]
   );
 
   useEffect(() => {
-    const search =
-      typeof window !== "undefined" ? window.location.search : "";
-    const defaults = applyCorporateEventsUrlScope(
-      createDefaultCorporateEventFilters(),
-      search
-    );
+    const defaults = withCompanyScope(createDefaultCorporateEventFilters());
     fetchCorporateEvents(1, defaults, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, scopedNewCompanyId]);
 
   return {
     events,
@@ -196,6 +207,9 @@ const useCorporateEventsAPI = (userId: number | null) => {
 };
 
 function CorporateEventsPageInner() {
+  const searchParams = useSearchParams();
+  const scopedNewCompanyId = parseScopedNewCompanyIdFromQuery(searchParams) ?? null;
+
   const { user } = useAuth();
   const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const preferredCurrencyReadyRef = useRef(false);
@@ -212,7 +226,7 @@ function CorporateEventsPageInner() {
     summaryStats,
     fetchCorporateEvents,
     currentFilters,
-  } = useCorporateEventsAPI(userId);
+  } = useCorporateEventsAPI(userId, scopedNewCompanyId);
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
@@ -236,11 +250,6 @@ function CorporateEventsPageInner() {
     setInitialSearch(params.get("search") || undefined);
   }, []);
 
-  const mergeUrlScopeIntoFilters = useCallback((filters: Filters): Filters => {
-    if (typeof window === "undefined") return filters;
-    return applyCorporateEventsUrlScope(filters, window.location.search);
-  }, []);
-
   const handleSearch = useCallback(
     (
       listFilters: Filters,
@@ -249,14 +258,9 @@ function CorporateEventsPageInner() {
       refreshCounts: boolean = true
     ) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      void fetchCorporateEvents(
-        1,
-        mergeUrlScopeIntoFilters(listFilters),
-        mergeUrlScopeIntoFilters(countsFilters),
-        refreshCounts
-      );
+      void fetchCorporateEvents(1, listFilters, countsFilters, refreshCounts);
     },
-    [fetchCorporateEvents, mergeUrlScopeIntoFilters]
+    [fetchCorporateEvents]
   );
 
   useEffect(() => {
@@ -294,6 +298,9 @@ function CorporateEventsPageInner() {
         initialSearch={initialSearch}
         summaryStats={summaryStats}
         userId={userId}
+        matchCountOverride={
+          pagination.itemsTotal > 0 ? pagination.itemsTotal : undefined
+        }
         onColumnsClick={() => setShowColumnsModal((value) => !value)}
         onExport={(mode) =>
           exportCSVRef.current?.({ mode, scope: "full_list" })
@@ -326,5 +333,9 @@ function CorporateEventsPageInner() {
 }
 
 export default function CorporateEventsPage() {
-  return <CorporateEventsPageInner />;
+  return (
+    <Suspense fallback={null}>
+      <CorporateEventsPageInner />
+    </Suspense>
+  );
 }

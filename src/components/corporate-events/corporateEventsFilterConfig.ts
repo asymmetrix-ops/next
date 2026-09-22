@@ -239,6 +239,7 @@ export function mapResponseToCorporateEventsSummaryStats(
   data: {
     itemsTotal?: number;
     itemTotal?: number;
+    itemsReceived?: number;
     total_rows?: number;
     acquisitions?: number;
     investments?: number;
@@ -258,7 +259,11 @@ export function mapResponseToCorporateEventsSummaryStats(
         ? data.itemsTotal
         : typeof data.itemTotal === "number" && Number.isFinite(data.itemTotal) && data.itemTotal > 0
           ? data.itemTotal
-          : fallbackTotal;
+          : typeof data.itemsReceived === "number" &&
+              Number.isFinite(data.itemsReceived) &&
+              data.itemsReceived > 0
+            ? data.itemsReceived
+            : fallbackTotal;
 
   return {
     totalCount,
