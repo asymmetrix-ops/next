@@ -7,6 +7,7 @@ import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPart
 import { readHqCountryIso2, COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
+import { useNavOpen } from "@/components/layout/NavOpenContext";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
 import {
@@ -1281,6 +1282,7 @@ const CompanyDetail = () => {
     loading: timeSinceLastInvestmentLoading,
   } = useTimeSinceLastInvestment(companyId);
   const globalSectorNameToId = useGlobalSectorNameLookup();
+  const { open: navOpen } = useNavOpen();
 
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
@@ -2925,6 +2927,7 @@ const CompanyDetail = () => {
     maxWidth: {
       width: "100%",
       maxWidth: "100%",
+      minWidth: 0,
       padding: "18px",
       flex: "1",
       display: "flex",
@@ -3479,7 +3482,17 @@ const CompanyDetail = () => {
   }
 
   const responsiveCss = `
-    .company-detail-page { overflow-x: hidden; }
+    .company-detail-page { overflow-x: hidden; min-width: 0; }
+    /* Expanded nav: keep 3 columns; give Overview a bit less width */
+    .company-detail-page.company-nav-open .responsiveGrid {
+      grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.11fr) minmax(0, 1.11fr);
+    }
+    .company-detail-page.company-nav-open .company-overview-kv > div {
+      grid-template-columns: minmax(92px, 148px) minmax(0, 1fr) !important;
+    }
+    .company-detail-page.company-nav-open .company-overview-kv > div > div:first-child {
+      white-space: normal !important;
+    }
     .responsiveGrid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3818,7 +3831,10 @@ const CompanyDetail = () => {
 
   return (
     <AppShell>
-    <div className="company-detail-page" style={styles.container}>
+    <div
+      className={`company-detail-page${navOpen ? " company-nav-open" : ""}`}
+      style={styles.container}
+    >
       {/* ── Company profile header bar ── */}
       <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
         {/* Top row: logo + name + badges + actions */}

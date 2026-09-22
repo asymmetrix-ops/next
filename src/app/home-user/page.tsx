@@ -760,6 +760,10 @@ export default function HomeUserPage() {
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
+  const [homeNewsArticles, setHomeNewsArticles] = useState<InsightArticle[]>(
+    []
+  );
+  const [homeNewsCount, setHomeNewsCount] = useState<number | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
@@ -1392,8 +1396,25 @@ export default function HomeUserPage() {
     try {
       setInsightsArticlesLoading(true);
 
-      const insightsResponse =
-        await dashboardApiService.getAllContentArticlesHome();
+      const [insightsResponse, newsResponse] = await Promise.all([
+        dashboardApiService.getAllContentArticlesHome(),
+        dashboardApiService.getHomeNewsArticles(16),
+      ]);
+
+      const newsSorted = (newsResponse.items as unknown as InsightArticle[]).sort(
+        (a, b) =>
+          Date.parse(b.Publication_Date || "0") -
+          Date.parse(a.Publication_Date || "0")
+      );
+      const weekMs = 7 * 24 * 60 * 60 * 1000;
+      const newsThisWeek = newsSorted.filter((article) => {
+        const t = Date.parse(article.Publication_Date || "");
+        return !Number.isNaN(t) && t >= Date.now() - weekMs;
+      });
+      setHomeNewsCount(newsThisWeek.length);
+      setHomeNewsArticles(
+        (newsThisWeek.length >= 4 ? newsThisWeek : newsSorted).slice(0, 4)
+      );
 
       let insightsData: InsightArticle[] = [];
       if (Array.isArray(insightsResponse)) {
@@ -1417,6 +1438,8 @@ export default function HomeUserPage() {
         return;
       }
       setInsightsArticles([]);
+      setHomeNewsArticles([]);
+      setHomeNewsCount(null);
     } finally {
       setInsightsArticlesLoading(false);
     }
@@ -1583,13 +1606,6 @@ export default function HomeUserPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asymmetrixData, insightsTotalCount, dealRadarTotalCount]);
-
-  const allNewsArticles = useMemo(
-    () => insightsArticles.filter(isNewsArticle),
-    [insightsArticles]
-  );
-
-  const visibleNews = allNewsArticles.slice(0, 4);
 
   if (authLoading) {
     return (
@@ -1832,7 +1848,7 @@ export default function HomeUserPage() {
                 <span className="dash-card-title">News</span>
               </div>
               <span className="text-xs text-gray-500 ml-auto sm:ml-0">
-                {allNewsArticles.length} this week
+                {(homeNewsCount ?? homeNewsArticles.length).toLocaleString()} this week
               </span>
               <a href="/insights-analysis?content_type=News" className="dash-view-all px-3 py-1.5 text-xs whitespace-nowrap">
                 View all
@@ -1842,9 +1858,9 @@ export default function HomeUserPage() {
               <div className="p-4 text-center">
                 <p className="text-sm text-gray-500">Loading news...</p>
               </div>
-            ) : visibleNews.length > 0 ? (
+            ) : homeNewsArticles.length > 0 ? (
               <div className="dash-news-lane">
-                {visibleNews.map((article) => {
+                {homeNewsArticles.map((article) => {
                   const href = `/article/${article.id}?from=home`;
                   const firstCompany = article.companies_mentioned?.[0];
                   return (
@@ -2075,12 +2091,12 @@ export default function HomeUserPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 flex-1 min-h-0">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3 flex-1 min-h-0">
           {/* Deal Radar - last on mobile, last on lg+ */}
           <div
-            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-3 lg:order-3"
+            className="dash-card dash-triplet-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-3 lg:order-3"
           >
-            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
+            <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <NewFeatureCallout
                   featureKey="dashboard-deal-radar"
@@ -2089,7 +2105,9 @@ export default function HomeUserPage() {
                   persistDismissal
                   side="right"
                 >
-                  <h2 className="dash-card-title">Deal Radar</h2>
+                  <a href={buildDealRadarCompaniesViewAllHref()} className="dash-card-title">
+                    Deal Radar
+                  </a>
                 </NewFeatureCallout>
               </div>
               <a
@@ -2127,13 +2145,13 @@ export default function HomeUserPage() {
                       </colgroup>
                       <thead className="sticky top-0 z-10">
                         <tr>
-                          <th className="pl-3 pr-1 py-3 text-left">
+                          <th className="text-left">
                             Company
                           </th>
-                          <th className="px-2 py-3 text-center">
+                          <th className="text-center">
                             Sector
                           </th>
-                          <th className="pl-3 pr-2 py-3 text-center">
+                          <th className="text-center">
                             <span className="inline-flex items-center gap-1.5">
                               Stage
                               <DealStageInfoTooltip />
@@ -2294,9 +2312,9 @@ export default function HomeUserPage() {
 
           {/* Insights & Analysis - first on mobile */}
           <div
-            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-1 lg:order-2"
+            className="dash-card dash-triplet-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-1 lg:order-2"
           >
-            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
+            <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <a href="/insights-analysis" className="dash-card-title">
                   Insights &amp; Analysis
@@ -2309,7 +2327,9 @@ export default function HomeUserPage() {
                 View all
               </a>
             </div>
-            <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-4">
+            <div className="min-h-0 min-w-0 overflow-y-auto">
+              <div className="dash-card-subhead" aria-hidden="true" />
+              <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-3 sm:pt-4 lg:pt-0">
               {insightsArticlesLoading ? (
                 <div className="py-6 text-center sm:py-8">
                   <p className="text-sm text-gray-500">
@@ -2423,14 +2443,15 @@ export default function HomeUserPage() {
                   <p className="text-sm text-gray-500">No insights available</p>
                 </div>
               )}
+              </div>
             </div>
           </div>
 
           {/* Corporate Events - second on mobile, first on lg+ */}
           <div
-            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-2 lg:order-1"
+            className="dash-card dash-triplet-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-2 lg:order-1"
           >
-            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
+            <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <a href="/corporate-events" className="dash-card-title">
                   Corporate Events
@@ -2965,17 +2986,17 @@ export default function HomeUserPage() {
                       </colgroup>
                       <thead className="sticky top-0 z-10">
                         <tr>
-                          <th className="px-4 py-4 text-left">
+                          <th className="text-left">
                             Event Details
                           </th>
-                          <th className="px-4 py-4 text-left">
+                          <th className="text-left">
                             Parties
                           </th>
-                          <th className="px-4 py-4 text-left">
+                          <th className="text-left">
                             Deal Details
                           </th>
                           {!leftNavOpen && (
-                            <th className="px-4 py-4 text-left">
+                            <th className="text-left">
                               Sectors
                             </th>
                           )}

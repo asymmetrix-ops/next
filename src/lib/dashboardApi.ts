@@ -1,4 +1,5 @@
 import { authService } from "./auth";
+import type { ContentArticle } from "@/types/insightsAnalysis";
 
 interface ApiResponse<T> {
   data: T;
@@ -232,6 +233,56 @@ class DashboardApiService {
     }
 
     return response.json();
+  }
+
+  /** Latest News tiles for the home dashboard lane (4-up grid). */
+  async getHomeNewsArticles(perPage = 4): Promise<{
+    items: ContentArticle[];
+    itemsTotal: number;
+  }> {
+    const params = new URLSearchParams();
+    params.append("Offset", "1");
+    params.append("Per_page", String(perPage));
+    params.append("content_type", "News");
+    params.append("portfolio_only", "false");
+    params.append("show_followed", "false");
+
+    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
+
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Data-Source": "live",
+      ...authService.getAuthHeaders(),
+    };
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Authentication required");
+      }
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+
+    const data = (await response.json()) as {
+      items?: ContentArticle[];
+      itemsTotal?: number;
+      totalItems?: number;
+    };
+
+    const items = Array.isArray(data.items) ? data.items : [];
+    const itemsTotal =
+      typeof data.itemsTotal === "number"
+        ? data.itemsTotal
+        : typeof data.totalItems === "number"
+          ? data.totalItems
+          : items.length;
+
+    return { items, itemsTotal };
   }
 
   async getCorporateEvents(filters?: {

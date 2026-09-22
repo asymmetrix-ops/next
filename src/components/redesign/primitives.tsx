@@ -329,10 +329,13 @@ const PILL_TONES: Record<PillTone, { bg: string; fg: string; bd: string }> = {
 export function Pill({
   children,
   tone = "neutral",
+  wrap = false,
   style,
 }: {
   children: React.ReactNode;
   tone?: PillTone;
+  /** Allow multi-line label (sector names in narrow columns). */
+  wrap?: boolean;
   style?: React.CSSProperties;
 }) {
   const t = PILL_TONES[tone];
@@ -341,9 +344,12 @@ export function Pill({
       style={{
         display: "inline-flex",
         alignItems: "center",
+        justifyContent: "center",
         gap: 6,
-        height: 24,
-        padding: "0 10px",
+        height: wrap ? "auto" : 24,
+        minHeight: wrap ? 24 : undefined,
+        maxWidth: wrap ? "100%" : undefined,
+        padding: wrap ? "4px 10px" : "0 10px",
         borderRadius: 999,
         background: t.bg,
         color: t.fg,
@@ -351,8 +357,10 @@ export function Pill({
         fontFamily: T.sans,
         fontSize: 12,
         fontWeight: 600,
-        lineHeight: 1.5,
-        whiteSpace: "nowrap",
+        lineHeight: wrap ? 1.35 : 1.5,
+        whiteSpace: wrap ? "normal" : "nowrap",
+        textAlign: wrap ? ("center" as const) : undefined,
+        overflowWrap: wrap ? "anywhere" : undefined,
         ...style,
       }}
     >
@@ -622,7 +630,14 @@ export function KV({
       }}
     >
       <div style={{ ...kvLabelStyle, whiteSpace: "nowrap" }}>{k}</div>
-      <div style={{ ...kvValueStyle, fontFamily: mono ? T.mono : T.sans }}>
+      <div
+        style={{
+          ...kvValueStyle,
+          fontFamily: mono ? T.mono : T.sans,
+          minWidth: 0,
+          overflowWrap: "anywhere",
+        }}
+      >
         {v}
       </div>
     </div>

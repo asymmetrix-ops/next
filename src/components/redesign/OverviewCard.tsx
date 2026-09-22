@@ -90,14 +90,34 @@ function SectorTags({
   if (sectors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 4,
+        alignItems: "flex-start",
+        minWidth: 0,
+        width: "100%",
+      }}
+    >
       {sectors.map((s) =>
         s.href ? (
-          <Link key={s.name} href={s.href} prefetch={false} style={{ textDecoration: "none" }}>
-            <Pill tone={tone}>{s.name}</Pill>
+          <Link
+            key={s.name}
+            href={s.href}
+            prefetch={false}
+            style={{
+              textDecoration: "none",
+              maxWidth: "100%",
+              minWidth: 0,
+            }}
+          >
+            <Pill tone={tone} wrap>{s.name}</Pill>
           </Link>
         ) : (
-          <Pill key={s.name} tone={tone}>{s.name}</Pill>
+          <Pill key={s.name} tone={tone} wrap style={{ maxWidth: "100%" }}>
+            {s.name}
+          </Pill>
         )
       )}
     </div>
@@ -165,10 +185,24 @@ function TransactionStatusHighlight({ label }: { label: string }) {
 function InvestorTags({ investors }: { investors: OverviewInvestor[] }) {
   if (investors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 4,
+        alignItems: "flex-start",
+        minWidth: 0,
+        width: "100%",
+      }}
+    >
       {investors.map((inv) => (
-        <Link key={inv.id} href={`/investors/${inv.id}`} prefetch={false} style={{ textDecoration: "none" }}>
-          <Pill tone="azure">{inv.name}</Pill>
+        <Link
+          key={inv.id}
+          href={`/investors/${inv.id}`}
+          prefetch={false}
+          style={{ textDecoration: "none", maxWidth: "100%", minWidth: 0 }}
+        >
+          <Pill tone="azure" wrap>{inv.name}</Pill>
         </Link>
       ))}
     </div>
@@ -343,15 +377,17 @@ export function OverviewCard({
         {transactionStatus ? (
           <TransactionStatusHighlight label={transactionStatus} />
         ) : null}
-        {visible.map((row, i) => (
-          <KV
-            key={row.k}
-            k={row.k}
-            v={row.v}
-            last={i === visible.length - 1}
-            style={OVERVIEW_KV_STYLE}
-          />
-        ))}
+        <div className="company-overview-kv">
+          {visible.map((row, i) => (
+            <KV
+              key={row.k}
+              k={row.k}
+              v={row.v}
+              last={i === visible.length - 1}
+              style={OVERVIEW_KV_STYLE}
+            />
+          ))}
+        </div>
       </div>
     </LinkPanel>
   );

@@ -106,6 +106,37 @@
 
 .dash-card > .dash-card-header {
   border-bottom: 1px solid var(--dash-line-2);
+  box-sizing: border-box;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+/* Home dashboard: Corporate Events / Insights / Deal Radar — equal title bars */
+.dash-triplet-card > .dash-card-header .dash-card-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Matches .dash-table thead th row height so content lines up across columns */
+.dash-triplet-card .dash-card-subhead {
+  display: none;
+  flex-shrink: 0;
+  height: 41px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--dash-line-2);
+  background: var(--dash-tint);
+}
+
+@media (min-width: 1024px) {
+  .dash-triplet-card .dash-card-subhead {
+    display: block;
+  }
 }
 
 .dash-card-icon {
@@ -170,6 +201,10 @@
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--dash-muted);
+  padding: 12px 16px;
+  box-sizing: border-box;
+  height: 41px;
+  vertical-align: middle;
 }
 
 .dash-table tbody tr:hover {
