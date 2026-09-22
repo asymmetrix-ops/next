@@ -1424,9 +1424,11 @@ function HomeUserPageContent() {
   };
 
   return (
-    <div className="dash h-screen overflow-hidden flex">
+    <div className="flex h-screen overflow-hidden">
       <AppLeftNav />
-      <div className="flex-1 min-w-0 h-full overflow-hidden">
+      {/* `.dash` sets its own font-family/background — scoped to this content
+          column only, so it can't leak into the shared sidebar. */}
+      <div className="dash flex-1 min-w-0 h-full overflow-hidden">
       {/* Main Content */}
       <main
         className="h-full flex flex-col px-2 pt-14 pb-4 mx-auto w-full sm:px-4 md:pt-8 md:pb-8"
