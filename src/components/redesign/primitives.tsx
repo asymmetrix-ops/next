@@ -7,6 +7,10 @@
  * real data via props. The token values match page.tsx's `T` object.
  */
 import React from "react";
+import Link from "next/link";
+
+/** Default max visible entity tags before a "+N" overflow control. */
+export const DEFAULT_TAG_CAP = 3;
 
 // ── Design tokens (mirrors page.tsx T and redesign/tokens.jsx) ──────────────
 // Exact values from the Asymmetrix design system (ui_kits/landing/landing.css
@@ -537,68 +541,135 @@ export function MiniKV({
   );
 }
 
-// ── TagRow — pills with "+N more" overflow tooltip ───────────────────────────
+export type CappedPillTagItem = {
+  key: string;
+  label: string;
+  href?: string;
+};
+
+const cappedTagRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 4,
+  alignItems: "flex-start",
+  minWidth: 0,
+  width: "100%",
+};
+
+const overflowButtonReset: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: 0,
+  margin: 0,
+  border: "none",
+  background: "none",
+  cursor: "pointer",
+  font: "inherit",
+};
+
+function CappedPillTag({
+  item,
+  tone,
+  wrap,
+}: {
+  item: CappedPillTagItem;
+  tone: PillTone;
+  wrap: boolean;
+}) {
+  if (item.href) {
+    return (
+      <Link
+        key={item.key}
+        href={item.href}
+        prefetch={false}
+        style={{
+          textDecoration: "none",
+          maxWidth: "100%",
+          minWidth: 0,
+        }}
+      >
+        <Pill tone={tone} wrap={wrap}>{item.label}</Pill>
+      </Link>
+    );
+  }
+  return (
+    <Pill key={item.key} tone={tone} wrap={wrap} style={{ maxWidth: "100%" }}>
+      {item.label}
+    </Pill>
+  );
+}
+
+// ── CappedPillTags — linked or static pills with "+N" click-to-expand ───────
+export function CappedPillTags({
+  items,
+  tone = "neutral",
+  max = DEFAULT_TAG_CAP,
+  wrap = true,
+}: {
+  items: CappedPillTagItem[];
+  tone?: PillTone;
+  max?: number;
+  wrap?: boolean;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  const overflowCount = Math.max(0, items.length - max);
+  const visibleItems = expanded ? items : items.slice(0, max);
+
+  return (
+    <div style={{ minWidth: 0, width: "100%" }}>
+      <div style={cappedTagRowStyle}>
+        {visibleItems.map((item) => (
+          <CappedPillTag key={item.key} item={item} tone={tone} wrap={wrap} />
+        ))}
+        {!expanded && overflowCount > 0 ? (
+          <button
+            type="button"
+            aria-expanded={false}
+            aria-label={`Show ${overflowCount} more`}
+            onClick={() => setExpanded(true)}
+            style={overflowButtonReset}
+          >
+            <Pill tone="ghost">+{overflowCount}</Pill>
+          </button>
+        ) : null}
+      </div>
+      {expanded && overflowCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          style={{
+            background: "none",
+            border: "none",
+            color: T.azure,
+            cursor: "pointer",
+            fontSize: 11.5,
+            marginTop: 4,
+            padding: 0,
+            fontFamily: T.sans,
+          }}
+        >
+          Show less
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// ── TagRow — plain-label pills with "+N" click-to-expand ───────────────────
 export function TagRow({
   items,
   tone = "neutral",
-  max = 3,
+  max = DEFAULT_TAG_CAP,
 }: {
   items: string[];
   tone?: PillTone;
   max?: number;
 }) {
-  const [hover, setHover] = React.useState(false);
-  const visible = items.slice(0, max);
-  const hidden = items.slice(max);
-  return (
-    <span
-      style={{
-        display: "flex",
-        gap: 4,
-        flexWrap: "nowrap",
-        alignItems: "center",
-        minWidth: 0,
-      }}
-    >
-      {visible.map((s) => (
-        <Pill key={s} tone={tone}>
-          {s}
-        </Pill>
-      ))}
-      {hidden.length > 0 && (
-        <span
-          onMouseEnter={() => setHover(true)}
-          onMouseLeave={() => setHover(false)}
-          style={{ position: "relative", cursor: "default" }}
-        >
-          <Pill tone="ghost">+{hidden.length}</Pill>
-          {hover && (
-            <span
-              style={{
-                position: "absolute",
-                top: "calc(100% + 6px)",
-                right: 0,
-                background: T.ink,
-                color: "#fff",
-                fontFamily: T.sans,
-                fontSize: 11.5,
-                padding: "6px 10px",
-                borderRadius: 6,
-                boxShadow: "0 4px 18px rgba(0,0,0,0.18)",
-                whiteSpace: "nowrap",
-                zIndex: 20,
-                lineHeight: 1.55,
-              }}
-            >
-              {hidden.map((h) => (
-                <div key={h}>{h}</div>
-              ))}
-            </span>
-          )}
-        </span>
-      )}
-    </span>
-  );
+  const cappedItems = items.map((label, i) => ({
+    key: `${label}-${i}`,
+    label,
+  }));
+  return <CappedPillTags items={cappedItems} tone={tone} max={max} wrap={false} />;
 }
 
 // ── KV — overview-style key / value row ─────────────────────────────────────
