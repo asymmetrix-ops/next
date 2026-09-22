@@ -42,6 +42,7 @@ import {
   getContentTypeBadgeStyle,
 } from "@/lib/contentTypeBadge";
 import { getInsightsTypeTone } from "@/lib/tagColors";
+import { fetchSectorProfileInsightsArticles } from "@/lib/sectorInsightsArticles";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 
 // ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
@@ -624,7 +625,13 @@ function TabNavigation({
   );
 }
 
-function RecentInsightsCard({ sectorId }: { sectorId: string }) {
+function RecentInsightsCard({
+  sectorId,
+  sectorImportance,
+}: {
+  sectorId: string;
+  sectorImportance?: string;
+}) {
   const [articles, setArticles] = useState<ContentArticle[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -636,25 +643,17 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
         const sectorIdNum = Number(sectorId);
         if (Number.isNaN(sectorIdNum)) return;
 
-        const params = new URLSearchParams();
-        params.append("primary_sectors_ids[]", String(sectorIdNum));
-
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors?${params.toString()}`;
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+        const fetched = await fetchSectorProfileInsightsArticles({
+          sectorId: sectorIdNum,
+          sectorImportance,
+          token,
+          page: 1,
+          perPage: 5,
         });
-
-        if (!response.ok) return;
-
-        const data = await response.json();
-        const arr: ContentArticle[] = Array.isArray(data) ? data : [];
-        const sorted = arr.sort((a, b) =>
-          new Date(b.Publication_Date).getTime() -
-          new Date(a.Publication_Date).getTime()
+        const sorted = [...fetched].sort(
+          (a, b) =>
+            new Date(b.Publication_Date).getTime() -
+            new Date(a.Publication_Date).getTime()
         );
         setArticles(sorted);
       } catch {
@@ -665,7 +664,7 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
     };
 
     if (sectorId) fetchArticles();
-  }, [sectorId]);
+  }, [sectorId, sectorImportance]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "";
@@ -2607,7 +2606,16 @@ const SectorDetailPage = ({
                 alignItems: "start",
               }}
             >
-              <RecentInsightsCard sectorId={sectorId} />
+              <RecentInsightsCard
+                sectorId={sectorId}
+                sectorImportance={
+                  sectorData?.Sector?.Sector_importance ||
+                  toStringSafe(
+                    (sectorData as unknown as { Sector_importance?: unknown })
+                      ?.Sector_importance
+                  )
+                }
+              />
               {recentTransactions.length > 0 ? (
                 <RecentTransactionsCard transactions={recentTransactions} />
               ) : (

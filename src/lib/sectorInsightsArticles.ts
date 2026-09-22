@@ -200,8 +200,11 @@ export async function fetchSectorProfileInsightsArticles(args: {
   sectorImportance?: string;
   token?: string | null;
   page?: number;
+  /** Page size for `articles_based_on_sectors` (overview cards). */
+  perPage?: number;
 }): Promise<ContentArticle[]> {
   const page = Math.max(1, args.page ?? 1);
+  const perPage = Math.max(1, args.perPage ?? 5);
   const params = new URLSearchParams();
 
   if ((args.sectorImportance || "").toLowerCase().includes("secondary")) {
@@ -210,6 +213,7 @@ export async function fetchSectorProfileInsightsArticles(args: {
     params.append("primary_sectors_ids[]", String(args.sectorId));
   }
   params.append("page", String(page));
+  params.append("per_page", String(perPage));
 
   const url = `${SECTOR_INSIGHTS_ARTICLES_API}?${params.toString()}`;
   const res = await fetch(url, {
@@ -225,7 +229,7 @@ export async function fetchSectorProfileInsightsArticles(args: {
   }
 
   const data = (await res.json()) as ContentArticle[] | PaginatedArticlesPayload;
-  return parseInsightsArticlesPage(data, page).articles;
+  return parseInsightsArticlesPage(data, page, perPage).articles;
 }
 
 export async function fetchSectorInsightsArticles(args: {
