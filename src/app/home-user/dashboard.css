@@ -530,14 +530,6 @@
   background: var(--dash-blue-50);
 }
 
-.dash-news-item .ago {
-  font-size: 11.5px;
-  color: var(--dash-faint);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  margin-bottom: 7px;
-}
-
 .dash-news-item .h {
   display: block;
   font-size: 13.5px;

@@ -11,6 +11,10 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
+import {
+  CalendarDaysIcon,
+  LightBulbIcon,
+} from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
@@ -20,13 +24,10 @@ import DashboardLeftNav, {
 } from "@/components/dashboard/DashboardLeftNav";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
-import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
 import {
   appendDealRadarItems,
-  applyHqCountryIso2ToDealRadarItems,
   getDealRadarContentCtaLabel,
   mapDealRadarItem,
-  readHqCountryIso2,
   type DealRadarItem,
 } from "@/lib/dealRadar";
 import { CorporateEventPartyLink, CorporateEventTargetLink, CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
@@ -394,27 +395,6 @@ export default function HomeUserPage() {
     }
   };
 
-  const formatRelativeTime = (
-    dateString?: string,
-    createdAtMs?: number
-  ): string => {
-    const ms = dateString
-      ? new Date(dateString).getTime()
-      : typeof createdAtMs === "number"
-      ? createdAtMs
-      : NaN;
-    if (!Number.isFinite(ms)) return "";
-    const diffMs = Date.now() - ms;
-    if (diffMs < 0) return "now";
-    const minutes = Math.floor(diffMs / 60000);
-    if (minutes < 1) return "now";
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h`;
-    const days = Math.floor(hours / 24);
-    return `${days}d`;
-  };
-
   // Resolve corporate event id from inconsistent API shapes
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getCorporateEventId = (ev: any): number | undefined => {
@@ -531,6 +511,7 @@ export default function HomeUserPage() {
         href={href || undefined}
         linkClassName={partyLinkClassName}
         linkStyle={{ fontWeight: "500" }}
+        entity={entity as unknown as Record<string, unknown>}
         trailingComma={opts?.trailingComma}
       />
     );
@@ -1214,33 +1195,6 @@ export default function HomeUserPage() {
     }
   }, []);
 
-  const enrichDealRadarCountryFlags = useCallback(
-    async (items: DealRadarItem[]): Promise<DealRadarItem[]> => {
-      const missingCompanyIds = items
-        .filter((item) => !item.hqCountryIso2 && item.companyId > 0)
-        .map((item) => item.companyId);
-      if (missingCompanyIds.length === 0) return items;
-
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) return items;
-
-      try {
-        const rows = await fetchCompanyTableDataByIds(missingCompanyIds, token);
-        const isoByCompanyId = new Map<number, string | null>(
-          Array.from(rows.entries()).map(([companyId, row]) => [
-            companyId,
-            readHqCountryIso2(row),
-          ])
-        );
-        return applyHqCountryIso2ToDealRadarItems(items, isoByCompanyId);
-      } catch (error) {
-        console.error("Error enriching Deal Radar country flags:", error);
-        return items;
-      }
-    },
-    []
-  );
-
   const fetchDealRadar = useCallback(async () => {
     dealRadarFetchAbortRef.current?.abort();
     const controller = new AbortController();
@@ -1268,10 +1222,9 @@ export default function HomeUserPage() {
       const mappedItems = res.items.map((item) =>
         mapDealRadarItem(item as unknown as Record<string, unknown>)
       );
-      const enrichedItems = await enrichDealRadarCountryFlags(mappedItems);
       if (generation !== dealRadarFetchGenerationRef.current) return;
 
-      setDealRadarItems(enrichedItems);
+      setDealRadarItems(mappedItems);
       dealRadarLoadedOffsetsRef.current.add(initialOffset);
       const nextOffset = res.has_next_page ? res.next_offset : null;
       setDealRadarNextOffset(nextOffset);
@@ -1284,7 +1237,7 @@ export default function HomeUserPage() {
         setDealRadarLoading(false);
       }
     }
-  }, [enrichDealRadarCountryFlags]);
+  }, []);
 
   const isDealRadarNearBottom = useCallback((): boolean => {
     const scrollRoot = dealRadarScrollRef.current;
@@ -1319,10 +1272,8 @@ export default function HomeUserPage() {
       const incoming = res.items.map((item) =>
         mapDealRadarItem(item as unknown as Record<string, unknown>)
       );
-      const enrichedIncoming = await enrichDealRadarCountryFlags(incoming);
-
       setDealRadarItems((prev) =>
-        appendDealRadarItems(prev, enrichedIncoming)
+        appendDealRadarItems(prev, incoming)
       );
       const nextOffset = res.has_next_page ? res.next_offset : null;
       setDealRadarNextOffset(nextOffset);
@@ -1334,7 +1285,7 @@ export default function HomeUserPage() {
       dealRadarLoadingMoreRef.current = false;
       setDealRadarLoadingMore(false);
     }
-  }, [enrichDealRadarCountryFlags]);
+  }, []);
 
   const tryLoadMoreDealRadarIfNearBottom = useCallback(() => {
     if (
@@ -1865,9 +1816,6 @@ export default function HomeUserPage() {
                   const href = `/article/${article.id}?from=home`;
                   return (
                     <a key={article.id} href={href} className="dash-news-item">
-                      <span className="ago">
-                        {formatRelativeTime(article.Publication_Date, article.created_at)}
-                      </span>
                       <span className="h">{article.Headline}</span>
                       {article.Strapline && (
                         <span className="d">{article.Strapline}</span>
@@ -2093,6 +2041,23 @@ export default function HomeUserPage() {
           >
             <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
+                <span className="dash-card-icon flex items-center justify-center w-7 h-7 shrink-0">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="2" />
+                    <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
+                    <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
+                  </svg>
+                </span>
                 <NewFeatureCallout
                   featureKey="dashboard-deal-radar"
                   launchedAt="2026-05-26T00:00:00.000Z"
@@ -2294,6 +2259,9 @@ export default function HomeUserPage() {
           >
             <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
+                <span className="dash-card-icon flex items-center justify-center w-7 h-7 shrink-0">
+                  <LightBulbIcon className="w-4 h-4" aria-hidden="true" />
+                </span>
                 <a href="/insights-analysis" className="dash-card-title">
                   Insights &amp; Analysis
                 </a>
@@ -2431,6 +2399,9 @@ export default function HomeUserPage() {
           >
             <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
+                <span className="dash-card-icon flex items-center justify-center w-7 h-7 shrink-0">
+                  <CalendarDaysIcon className="w-4 h-4" aria-hidden="true" />
+                </span>
                 <a href="/corporate-events" className="dash-card-title">
                   Corporate Events
                 </a>

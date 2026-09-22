@@ -30,13 +30,17 @@ export async function POST(req: NextRequest) {
         ? String(body.id)
         : null;
 
-  const invalidateList = body.invalidate_list !== false; // default true
   const invalidated: string[] = [];
 
   if (sectorId) {
     await invalidateCachedSectorData(sectorId);
     invalidated.push(`sector:${sectorId}:overview`);
   }
+
+  // Wiping the browse list breaks /sectors for everyone — only when explicitly requested.
+  const invalidateList =
+    body.invalidate_list === true ||
+    (!sectorId && body.invalidate_list !== false);
 
   if (invalidateList) {
     await invalidateCachedSectorsList();
@@ -45,7 +49,10 @@ export async function POST(req: NextRequest) {
 
   if (invalidated.length === 0) {
     return NextResponse.json(
-      { success: false, error: 'Provide sector_id and/or set invalidate_list=true' },
+      {
+        success: false,
+        error: 'Provide sector_id and/or invalidate_list=true',
+      },
       { status: 400 }
     );
   }

@@ -23,5 +23,14 @@ export function getInsightHqCountryIso2(article: unknown): string | null {
     }
   }
 
+  const mentioned = record.companies_mentioned;
+  if (Array.isArray(mentioned)) {
+    for (const company of mentioned) {
+      if (!company || typeof company !== "object") continue;
+      const iso2 = readHqCountryIso2(company as Record<string, unknown>);
+      if (iso2) return iso2;
+    }
+  }
+
   return null;
 }
