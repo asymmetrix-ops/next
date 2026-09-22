@@ -57,7 +57,7 @@ function normalizeAdvisorListItem(item: AdvisorListItem): AdvisorListItem {
   return {
     ...item,
     ...(logo ? { linkedin_logo: logo } : {}),
-    ...(areaOfFocus.length > 0 ? { area_of_focus: areaOfFocus } : {}),
+    area_of_focus: areaOfFocus,
   };
 }
 

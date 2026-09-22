@@ -466,12 +466,9 @@ export const AdvisorSection = ({
       case "description":
         return <SearchEntityLongText text={advisor.description || "-"} />;
       case "area_of_focus": {
-        const labels =
-          advisor.area_of_focus && advisor.area_of_focus.length > 0
-            ? advisor.area_of_focus
-            : extractAdvisorAreaOfFocusLabels(
-                advisor as unknown as Record<string, unknown>
-              );
+        const labels = extractAdvisorAreaOfFocusLabels(
+          advisor as unknown as Record<string, unknown>
+        );
         if (labels.length > 0) return labels.join(", ");
         if (filteredRoleLabels.length > 0) return filteredRoleLabels.join(", ");
         return "-";

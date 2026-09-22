@@ -83,19 +83,21 @@ export function extractAdvisorAreaOfFocusLabels(
 ): string[] {
   const labels = new Set<string>();
 
-  const addRawLabel = (value: unknown) => {
+  const addDisplayLabel = (value: unknown) => {
     if (typeof value !== "string") return;
-    const matched = matchAdvisorAreaOfFocusLabel(value);
-    if (matched) labels.add(matched);
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    const matched = matchAdvisorAreaOfFocusLabel(trimmed);
+    labels.add(matched ?? trimmed);
   };
 
   const addRoleObject = (role: unknown) => {
     if (!role || typeof role !== "object") return;
     const obj = role as Record<string, unknown>;
-    addRawLabel(obj.role_name);
-    addRawLabel(obj.advisor_role);
-    addRawLabel(obj.name);
-    addRawLabel(obj.label);
+    addDisplayLabel(obj.role_name);
+    addDisplayLabel(obj.advisor_role);
+    addDisplayLabel(obj.name);
+    addDisplayLabel(obj.label);
     const roleId = coerceRoleId(obj.role_id ?? obj.advisor_role_id ?? obj.id);
     if (roleId != null) {
       resolveAdvisorAreaOfFocusLabelsFromRoleIds([roleId]).forEach((label) =>
@@ -116,7 +118,7 @@ export function extractAdvisorAreaOfFocusLabels(
   for (const source of roleSources) {
     if (Array.isArray(source)) {
       for (const entry of source) {
-        if (typeof entry === "string") addRawLabel(entry);
+        if (typeof entry === "string") addDisplayLabel(entry);
         else addRoleObject(entry);
       }
       continue;
@@ -126,7 +128,7 @@ export function extractAdvisorAreaOfFocusLabels(
         .split(/[,;|]/)
         .map((part) => part.trim())
         .filter(Boolean)
-        .forEach(addRawLabel);
+        .forEach(addDisplayLabel);
     }
   }
 
