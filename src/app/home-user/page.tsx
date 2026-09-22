@@ -786,8 +786,6 @@ export default function HomeUserPage() {
   const [homeNewsArticles, setHomeNewsArticles] = useState<InsightArticle[]>(
     []
   );
-  const [homeNewsCount, setHomeNewsCount] = useState<number | null>(null);
-
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -1404,7 +1402,6 @@ export default function HomeUserPage() {
         const t = Date.parse(article.Publication_Date || "");
         return !Number.isNaN(t) && t >= Date.now() - weekMs;
       });
-      setHomeNewsCount(newsThisWeek.length);
       setHomeNewsArticles(
         (newsThisWeek.length >= 4 ? newsThisWeek : newsSorted).slice(0, 4)
       );
@@ -1432,7 +1429,6 @@ export default function HomeUserPage() {
       }
       setInsightsArticles([]);
       setHomeNewsArticles([]);
-      setHomeNewsCount(null);
     } finally {
       setInsightsArticlesLoading(false);
     }
@@ -1840,10 +1836,7 @@ export default function HomeUserPage() {
                 </span>
                 <span className="dash-card-title">News</span>
               </div>
-              <span className="text-xs text-gray-500 ml-auto sm:ml-0">
-                {(homeNewsCount ?? homeNewsArticles.length).toLocaleString()} this week
-              </span>
-              <a href="/insights-analysis?content_type=News" className="dash-view-all px-3 py-1.5 text-xs whitespace-nowrap">
+              <a href="/insights-analysis?content_type=News" className="dash-view-all ml-auto px-3 py-1.5 text-xs whitespace-nowrap">
                 View all
               </a>
             </div>
