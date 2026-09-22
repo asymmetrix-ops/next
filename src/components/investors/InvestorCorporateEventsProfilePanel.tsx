@@ -7,6 +7,7 @@ import {
   LinkedH,
   Pill,
   T,
+  CappedPillTags,
   profileTableCellStyle,
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
@@ -325,49 +326,19 @@ function renderTargetCell(event: CorporateEvent): React.ReactNode {
 }
 
 function CoinvestorChips({ coinvestors }: { coinvestors: Coinvestor[] }) {
-  const [expanded, setExpanded] = useState(false);
-  const maxVisible = 2;
-  const visible = expanded ? coinvestors : coinvestors.slice(0, maxVisible);
-  const hiddenCount = coinvestors.length - maxVisible;
-
   if (coinvestors.length === 0) {
     return <span style={{ color: T.muted }}>-</span>;
   }
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", minWidth: 0 }}>
-      {visible.map((cp) =>
-        cp.href ? (
-          <Link
-            key={`${cp.name}-${cp.id ?? "na"}`}
-            href={cp.href}
-            prefetch={false}
-            style={{ textDecoration: "none" }}
-          >
-            <Pill tone="ghost">{cp.name}</Pill>
-          </Link>
-        ) : (
-          <Pill key={`${cp.name}-${cp.id ?? "na"}`} tone="ghost">
-            {cp.name}
-          </Pill>
-        )
-      )}
-      {!expanded && hiddenCount > 0 ? (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            fontFamily: T.sans,
-          }}
-        >
-          <Pill tone="ghost">+ {hiddenCount}</Pill>
-        </button>
-      ) : null}
-    </div>
+    <CappedPillTags
+      tone="ghost"
+      items={coinvestors.map((cp, i) => ({
+        key: `${cp.name}-${cp.id ?? i}`,
+        label: cp.name,
+        href: cp.href,
+      }))}
+    />
   );
 }
 

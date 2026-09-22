@@ -14,6 +14,7 @@ import {
   ENTITY_TONES,
 } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
+import { CappedPillTags } from "@/components/redesign/primitives";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -970,45 +971,19 @@ export default function DealRadarDashboardPage() {
 
                               {/* Sectors */}
                               <td className="px-3 py-3">
-                                <div className="flex flex-wrap gap-1">
-                                  {sectors.length > 0 ? (
-                                    sectors.map((s) => (
-                                      <a
-                                        key={`${s.id}-${s.name}`}
-                                        href={
-                                          s.id > 0 ? `/sector/${s.id}` : undefined
-                                        }
-                                        onClick={
-                                          s.id > 0
-                                            ? (e) => {
-                                                if (
-                                                  e.button !== 0 ||
-                                                  e.metaKey ||
-                                                  e.ctrlKey ||
-                                                  e.shiftKey ||
-                                                  e.altKey
-                                                )
-                                                  return;
-                                                e.preventDefault();
-                                                router.push(`/sector/${s.id}`);
-                                              }
-                                            : undefined
-                                        }
-                                        className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                                          s.id > 0
-                                            ? "bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer"
-                                            : "bg-gray-100 text-gray-600 cursor-default"
-                                        }`}
-                                      >
-                                        {s.name}
-                                      </a>
-                                    ))
-                                  ) : (
-                                    <span className="text-gray-300 text-xs">
-                                      —
-                                    </span>
-                                  )}
-                                </div>
+                                {sectors.length > 0 ? (
+                                  <CappedPillTags
+                                    tone="azure"
+                                    items={sectors.map((s) => ({
+                                      key: `${s.id}-${s.name}`,
+                                      label: s.name,
+                                      href:
+                                        s.id > 0 ? `/sector/${s.id}` : undefined,
+                                    }))}
+                                  />
+                                ) : (
+                                  <span className="text-gray-300 text-xs">—</span>
+                                )}
                               </td>
 
                               {/* Transaction Status + Signal */}

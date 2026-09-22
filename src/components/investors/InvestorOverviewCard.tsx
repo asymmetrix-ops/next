@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { LinkPanel, LinkedH, KV, T, Pill, Delta } from "@/components/redesign/primitives";
+import { LinkPanel, LinkedH, KV, T, Pill, Delta, CappedPillTags } from "@/components/redesign/primitives";
 import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 import { normalizeHoldingPeriodDisplay } from "@/lib/holdingPeriod";
 
@@ -48,17 +47,14 @@ function FocusTags({ sectors }: { sectors: InvestorFocusSector[] }) {
   if (sectors.length === 0) return faintDash();
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-      {sectors.map((s) =>
-        s.href ? (
-          <Link key={`${s.name}-${s.href}`} href={s.href} prefetch={false} style={{ textDecoration: "none" }}>
-            <Pill tone="lavender">{s.name}</Pill>
-          </Link>
-        ) : (
-          <Pill key={s.name} tone="lavender">{s.name}</Pill>
-        )
-      )}
-    </div>
+    <CappedPillTags
+      tone="lavender"
+      items={sectors.map((s, i) => ({
+        key: s.href ?? `${s.name}-${i}`,
+        label: s.name,
+        href: s.href,
+      }))}
+    />
   );
 }
 

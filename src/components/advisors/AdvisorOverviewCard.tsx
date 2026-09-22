@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { LinkPanel, LinkedH, KV, T, Pill } from "@/components/redesign/primitives";
+import { LinkPanel, LinkedH, KV, T, Pill, CappedPillTags } from "@/components/redesign/primitives";
 import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 
 export type AdvisorOverviewCardProps = {
@@ -37,22 +37,20 @@ function displayText(value: string | number | null | undefined): React.ReactNode
 function FocusTags({ items, compact }: { items: string[]; compact?: boolean }) {
   if (items.length === 0) return faintDash();
 
+  const compactPillStyle = compact
+    ? { fontSize: 10, height: 20, padding: "0 7px", gap: 4 }
+    : undefined;
+
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: compact ? 3 : 4, alignItems: "center" }}>
-      {items.map((label) => (
-        <Pill
-          key={label}
-          tone="coral"
-          style={
-            compact
-              ? { fontSize: 10, height: 20, padding: "0 7px", gap: 4 }
-              : undefined
-          }
-        >
-          {label}
-        </Pill>
-      ))}
-    </div>
+    <CappedPillTags
+      tone="coral"
+      items={items.map((label, i) => ({
+        key: `${label}-${i}`,
+        label,
+      }))}
+      wrap={!compact}
+      pillStyle={compactPillStyle}
+    />
   );
 }
 

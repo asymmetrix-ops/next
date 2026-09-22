@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { LinkPanel, LinkedH, KV, T, Pill } from "@/components/redesign/primitives";
+import { LinkPanel, LinkedH, KV, T, Pill, CappedPillTags } from "@/components/redesign/primitives";
 import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 
 export type CorporateEventSector = {
@@ -41,34 +40,28 @@ function displayText(value: string | null | undefined): React.ReactNode {
 function SectorTags({ sectors, tone }: { sectors: CorporateEventSector[]; tone: "coral" | "lavender" }) {
   if (sectors.length === 0) return faintDash();
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-      {sectors.map((s) =>
-        s.id ? (
-          <Link key={`${s.name}-${s.id}`} href={`/sector/${s.id}`} prefetch={false} style={{ textDecoration: "none" }}>
-            <Pill tone={tone}>{s.name}</Pill>
-          </Link>
-        ) : (
-          <Pill key={s.name} tone={tone}>{s.name}</Pill>
-        )
-      )}
-    </div>
+    <CappedPillTags
+      tone={tone}
+      items={sectors.map((s, i) => ({
+        key: `${s.id ?? s.name}-${i}`,
+        label: s.name,
+        href: s.id ? `/sector/${s.id}` : undefined,
+      }))}
+    />
   );
 }
 
 function SubSectorTags({ sectors }: { sectors: CorporateEventSector[] }) {
   if (sectors.length === 0) return faintDash();
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-      {sectors.map((s) =>
-        s.id ? (
-          <Link key={`${s.name}-${s.id}`} href={`/sub-sector/${s.id}`} prefetch={false} style={{ textDecoration: "none" }}>
-            <Pill tone="neutral">{s.name}</Pill>
-          </Link>
-        ) : (
-          <Pill key={s.name} tone="neutral">{s.name}</Pill>
-        )
-      )}
-    </div>
+    <CappedPillTags
+      tone="lavender"
+      items={sectors.map((s, i) => ({
+        key: `${s.id ?? s.name}-${i}`,
+        label: s.name,
+        href: s.id ? `/sub-sector/${s.id}` : undefined,
+      }))}
+    />
   );
 }
 

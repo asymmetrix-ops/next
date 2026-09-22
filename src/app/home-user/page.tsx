@@ -42,6 +42,7 @@ import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { locationsService } from "@/lib/locationsService";
 import { normalizeSectorName } from "@/components/corporate-events/corporateEventsTableUtils";
 import { buildDealRadarCompaniesViewAllHref } from "@/lib/companiesSearchUrl";
+import { CappedMultiValueLinks } from "@/components/search/CappedMultiValueLinks";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -2217,41 +2218,24 @@ export default function HomeUserPage() {
                               </td>
                               <td className="pl-3 pr-2 py-3 min-w-0 text-xs text-gray-700 align-top text-center">
                                 {item.primarySectors.length > 0 ? (
-                                  <div className="flex flex-col items-center gap-0.5">
-                                    {item.primarySectors.map((sector, idx) => (
-                                      <div
-                                        key={`${sector.id}-${sector.name}-${idx}`}
-                                        className="leading-snug break-normal text-xs"
-                                      >
-                                        {sector.id > 0 ? (
-                                          <a
-                                            href={`/sector/${sector.id}`}
-                                            className="text-blue-700 hover:text-blue-900 hover:underline"
-                                            onClick={(
-                                              e: React.MouseEvent<HTMLAnchorElement>
-                                            ) => {
-                                              if (
-                                                e.defaultPrevented ||
-                                                e.button !== 0 ||
-                                                e.metaKey ||
-                                                e.ctrlKey ||
-                                                e.shiftKey ||
-                                                e.altKey
-                                              ) {
-                                                return;
-                                              }
-                                              e.preventDefault();
-                                              router.push(`/sector/${sector.id}`);
-                                            }}
-                                          >
-                                            {sector.name}
-                                          </a>
-                                        ) : (
-                                          sector.name
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
+                                  <CappedMultiValueLinks
+                                    layout="stack"
+                                    items={item.primarySectors.map((sector, idx) => ({
+                                      key: `${sector.id}-${sector.name}-${idx}`,
+                                      name: sector.name,
+                                      href:
+                                        sector.id > 0
+                                          ? `/sector/${sector.id}`
+                                          : undefined,
+                                    }))}
+                                    linkClassName="text-blue-700 hover:text-blue-900 hover:underline text-xs"
+                                    overflowClassName="inline-flex items-center rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold px-1.5 py-0.5 cursor-pointer border-0"
+                                    showLessClassName="text-[11px] font-semibold text-blue-700 hover:underline cursor-pointer border-0 bg-transparent p-0 mt-0.5"
+                                    onLinkClick={(e) => {
+                                      const href = e.currentTarget.getAttribute("href");
+                                      if (href) void router.push(href);
+                                    }}
+                                  />
                                 ) : (
                                   "—"
                                 )}

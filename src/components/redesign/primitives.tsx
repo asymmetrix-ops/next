@@ -571,11 +571,18 @@ function CappedPillTag({
   item,
   tone,
   wrap,
+  pillStyle,
 }: {
   item: CappedPillTagItem;
   tone: PillTone;
   wrap: boolean;
+  pillStyle?: React.CSSProperties;
 }) {
+  const pillProps = {
+    tone,
+    wrap,
+    style: { maxWidth: "100%", ...pillStyle },
+  };
   if (item.href) {
     return (
       <Link
@@ -588,28 +595,33 @@ function CappedPillTag({
           minWidth: 0,
         }}
       >
-        <Pill tone={tone} wrap={wrap}>{item.label}</Pill>
+        <Pill {...pillProps}>{item.label}</Pill>
       </Link>
     );
   }
   return (
-    <Pill key={item.key} tone={tone} wrap={wrap} style={{ maxWidth: "100%" }}>
+    <Pill key={item.key} {...pillProps}>
       {item.label}
     </Pill>
   );
 }
 
-// ── CappedPillTags — linked or static pills with "+N" click-to-expand ───────
+/**
+ * Entity tag row: show up to `max` pills, then a clickable `+N` that expands
+ * to reveal the rest. Items with `href` render as Next.js links (clickable).
+ */
 export function CappedPillTags({
   items,
   tone = "neutral",
   max = DEFAULT_TAG_CAP,
   wrap = true,
+  pillStyle,
 }: {
   items: CappedPillTagItem[];
   tone?: PillTone;
   max?: number;
   wrap?: boolean;
+  pillStyle?: React.CSSProperties;
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const overflowCount = Math.max(0, items.length - max);
@@ -619,7 +631,13 @@ export function CappedPillTags({
     <div style={{ minWidth: 0, width: "100%" }}>
       <div style={cappedTagRowStyle}>
         {visibleItems.map((item) => (
-          <CappedPillTag key={item.key} item={item} tone={tone} wrap={wrap} />
+          <CappedPillTag
+            key={item.key}
+            item={item}
+            tone={tone}
+            wrap={wrap}
+            pillStyle={pillStyle}
+          />
         ))}
         {!expanded && overflowCount > 0 ? (
           <button
@@ -629,7 +647,7 @@ export function CappedPillTags({
             onClick={() => setExpanded(true)}
             style={overflowButtonReset}
           >
-            <Pill tone="ghost">+{overflowCount}</Pill>
+            <Pill tone="ghost" style={{ cursor: "pointer" }}>+{overflowCount}</Pill>
           </button>
         ) : null}
       </div>
