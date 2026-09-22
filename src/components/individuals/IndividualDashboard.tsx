@@ -26,7 +26,6 @@ import {
   type IndividualsSummaryCounts,
   type Country,
   type Province,
-  type City,
   type PrimarySector,
   type SecondarySector,
   type JobTitleOption,
@@ -95,7 +94,6 @@ export const IndividualDashboard = ({
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
@@ -103,11 +101,6 @@ export const IndividualDashboard = ({
 
   const selectedCountries = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
-  const selectedProvinces = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "state");
     return Array.isArray(item?.value) ? (item.value as string[]) : [];
   }, [filterBarState.filters]);
 
@@ -147,17 +140,6 @@ export const IndividualDashboard = ({
   }, [selectedCountries]);
 
   useEffect(() => {
-    if (selectedCountries.length === 0) {
-      setCities([]);
-      return;
-    }
-    locationsService
-      .getCities(selectedCountries, selectedProvinces)
-      .then(setCities)
-      .catch(console.error);
-  }, [selectedCountries, selectedProvinces]);
-
-  useEffect(() => {
     if (selectedPrimaryNames.length === 0) return;
     const ids = selectedPrimaryNames
       .map((name) => primarySectors.find((s) => s.sector_name === name)?.id)
@@ -174,7 +156,7 @@ export const IndividualDashboard = ({
         subRegions,
         countries,
         provinces,
-        cities,
+        cities: [],
         primarySectors,
         secondarySectors,
         jobTitles,
@@ -184,7 +166,6 @@ export const IndividualDashboard = ({
       subRegions,
       countries,
       provinces,
-      cities,
       primarySectors,
       secondarySectors,
       jobTitles,

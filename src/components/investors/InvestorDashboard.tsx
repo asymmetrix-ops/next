@@ -24,7 +24,6 @@ import {
   type InvestorsTypeCounts,
   type Country,
   type Province,
-  type City,
   type PrimarySector,
   type SecondarySector,
   type InvestorTypeOption,
@@ -117,7 +116,6 @@ export const InvestorDashboard = ({
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
@@ -125,11 +123,6 @@ export const InvestorDashboard = ({
 
   const selectedCountries = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
-  const selectedProvinces = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "state");
     return Array.isArray(item?.value) ? (item.value as string[]) : [];
   }, [filterBarState.filters]);
 
@@ -169,17 +162,6 @@ export const InvestorDashboard = ({
   }, [selectedCountries]);
 
   useEffect(() => {
-    if (selectedCountries.length === 0) {
-      setCities([]);
-      return;
-    }
-    locationsService
-      .getCities(selectedCountries, selectedProvinces)
-      .then(setCities)
-      .catch(console.error);
-  }, [selectedCountries, selectedProvinces]);
-
-  useEffect(() => {
     if (selectedPrimaryNames.length === 0) return;
     const ids = selectedPrimaryNames
       .map((name) => primarySectors.find((s) => s.sector_name === name)?.id)
@@ -217,7 +199,7 @@ export const InvestorDashboard = ({
         subRegions,
         countries,
         provinces,
-        cities,
+        cities: [],
         primarySectors,
         secondarySectors,
         investorTypes,
@@ -227,7 +209,6 @@ export const InvestorDashboard = ({
       subRegions,
       countries,
       provinces,
-      cities,
       primarySectors,
       secondarySectors,
       investorTypes,

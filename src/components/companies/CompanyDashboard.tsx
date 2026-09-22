@@ -31,7 +31,6 @@ import {
   type CompaniesOwnershipCounts,
   type Country,
   type Province,
-  type City,
   type PrimarySector,
   type SecondarySector,
   type OwnershipType,
@@ -147,7 +146,6 @@ export const CompanyDashboard = ({
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
@@ -157,11 +155,6 @@ export const CompanyDashboard = ({
   // ── Derived selected values for dependent fetches ───────────────────────
   const selectedCountries = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
-  const selectedProvinces = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "state");
     return Array.isArray(item?.value) ? (item.value as string[]) : [];
   }, [filterBarState.filters]);
 
@@ -202,12 +195,6 @@ export const CompanyDashboard = ({
     if (selectedCountries.length === 0) { setProvinces([]); return; }
     locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
   }, [selectedCountries]);
-
-  // Cities depend on selected countries + provinces
-  useEffect(() => {
-    if (selectedCountries.length === 0) { setCities([]); return; }
-    locationsService.getCities(selectedCountries, selectedProvinces).then(setCities).catch(console.error);
-  }, [selectedCountries, selectedProvinces]);
 
   // When specific primary sectors are selected, narrow the secondary sector list.
   // When none are selected we keep the full list loaded on mount.
@@ -265,7 +252,7 @@ export const CompanyDashboard = ({
       subRegions,
       countries,
       provinces,
-      cities,
+      cities: [],
       primarySectors,
       secondarySectors,
       ownershipTypes,
@@ -279,7 +266,6 @@ export const CompanyDashboard = ({
     subRegions,
     countries,
     provinces,
-    cities,
     primarySectors,
     secondarySectors,
     ownershipTypes,

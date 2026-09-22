@@ -22,7 +22,16 @@ interface City {
   City: string;
 }
 
-export const CITY_FILTER_PAGE_SIZE = 100;
+/** Default paging for `locations_get_city` (matches API defaults). */
+export const CITY_FILTER_PAGE_SIZE = 25;
+
+export const CITY_SEARCH_DEFAULTS = {
+  countries: [] as string[],
+  Provinces: [] as string[],
+  query: "",
+  page: 1,
+  per_page: 25,
+} as const;
 
 export type CitySearchResult = {
   cities: City[];
@@ -203,18 +212,24 @@ class LocationsService {
     page?: number;
     perPage?: number;
   }): Promise<CitySearchResult> {
-    const page = Math.max(1, args.page ?? 1);
-    const perPage = Math.max(1, args.perPage ?? CITY_FILTER_PAGE_SIZE);
+    const page = Math.max(1, args.page ?? CITY_SEARCH_DEFAULTS.page);
+    const perPage = Math.max(1, args.perPage ?? CITY_SEARCH_DEFAULTS.per_page);
     const queryParams = new URLSearchParams();
+    const countries = (args.countries ?? CITY_SEARCH_DEFAULTS.countries).filter(
+      (c) => c?.trim()
+    );
+    const provinces = (args.provinces ?? CITY_SEARCH_DEFAULTS.Provinces).filter(
+      (p) => p?.trim()
+    );
 
-    (args.countries ?? []).forEach((country) => {
+    countries.forEach((country) => {
       queryParams.append("countries", country);
     });
-    (args.provinces ?? []).forEach((province) => {
+    provinces.forEach((province) => {
       queryParams.append("Provinces", province);
     });
 
-    queryParams.append("query", (args.query ?? "").trim());
+    queryParams.append("query", (args.query ?? CITY_SEARCH_DEFAULTS.query).trim());
     queryParams.append("page", String(page));
     queryParams.append("per_page", String(perPage));
 
