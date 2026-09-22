@@ -17,6 +17,19 @@ import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 import { T } from "@/components/redesign/primitives";
 import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 import CompactPagination from "@/components/ui/CompactPagination";
+import {
+  IA_DEFAULT_PER_PAGE,
+  alignPerPageToGrid,
+  getAdaptiveDefaultPerPage,
+  getInsightsGridColumns,
+  getInsightsPerPageOptions,
+  isPerPageAlignedWithGrid,
+  snapInsightsPerPage,
+} from "@/lib/insightsAnalysisGrid";
+import {
+  fetchInsightsLogicalPage,
+  type InsightsApiPageCache,
+} from "@/lib/fetchInsightsLogicalPage";
 
 const CONTENT_ARTICLES_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles";
@@ -69,7 +82,7 @@ const DEFAULT_FILTERS: InsightsAnalysisFilters = {
   Provinces: [],
   Cities: [],
   Offset: 1,
-  Per_page: 20,
+  Per_page: IA_DEFAULT_PER_PAGE,
   portfolio_only: false,
   company_id: null,
   // Off by default — this restricts results to the user's followed/portfolio
@@ -77,8 +90,6 @@ const DEFAULT_FILTERS: InsightsAnalysisFilters = {
   // other filter's results to "followed only" from first load.
   show_followed: false,
 };
-
-const PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 // DEV still returns the deprecated `totalItems` field on some builds instead
 // of `itemsTotal` — fall back so pagination doesn't crash on `undefined`.
@@ -175,6 +186,24 @@ function InsightsAnalysisPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1280
+  );
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const gridColumns = useMemo(
+    () => getInsightsGridColumns(navOpen, viewportWidth),
+    [navOpen, viewportWidth]
+  );
+  const perPageOptions = useMemo(
+    () => getInsightsPerPageOptions(gridColumns),
+    [gridColumns]
+  );
+
   const companyIdFromUrl = useMemo(
     () => parseCompanyIdFromParam(searchParams.get("company_id")),
     [searchParams]
@@ -222,7 +251,7 @@ function InsightsAnalysisPageContent() {
     nextPage: null as number | null,
     prevPage: null as number | null,
     offset: 0,
-    perPage: 20,
+    perPage: IA_DEFAULT_PER_PAGE,
     pageTotal: 0,
   });
   const [loading, setLoading] = useState(false);
@@ -297,25 +326,24 @@ function InsightsAnalysisPageContent() {
         return;
       }
 
-      const params = buildContentArticlesParams(filters);
-      const url = `${CONTENT_ARTICLES_URL}?${params.toString()}`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "X-Data-Source": "live",
-        },
+      const filterKeyForCache = JSON.stringify({
+        ...filters,
+        Offset: 0,
+        Per_page: 0,
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (filterKeyForCache !== insightsCacheFilterKeyRef.current) {
+        insightsApiPageCacheRef.current.clear();
+        insightsCacheFilterKeyRef.current = filterKeyForCache;
       }
 
-      const data: InsightsAnalysisResponse = await response.json();
+      const { items, meta: data } = await fetchInsightsLogicalPage(filters, {
+        token,
+        url: CONTENT_ARTICLES_URL,
+        buildParams: buildContentArticlesParams,
+        cache: insightsApiPageCacheRef.current,
+      });
 
-      setArticles(normalizeContentArticles(data.items || []));
+      setArticles(items);
       setPagination({
         itemsReceived: data.itemsReceived,
         itemsTotal: getItemsTotal(data),
@@ -339,14 +367,41 @@ function InsightsAnalysisPageContent() {
   };
 
   const hasFetchedRef = useRef(false);
+  const gridSnapRef = useRef<number | null>(null);
+  const insightsApiPageCacheRef = useRef<InsightsApiPageCache>(new Map());
+  const insightsCacheFilterKeyRef = useRef<string>("");
+
+  // Adapt Per_page when the grid column count changes (3 tablet / 4 nav open /
+  // 5 nav collapsed) so each page fills complete rows (e.g. 21 on tablet).
+  useEffect(() => {
+    if (isTrialActive) return;
+
+    const target = isPerPageAlignedWithGrid(filters.Per_page, gridColumns)
+      ? filters.Per_page
+      : snapInsightsPerPage(
+          alignPerPageToGrid(filters.Per_page, gridColumns),
+          gridColumns,
+          perPageOptions
+        );
+
+    if (target === filters.Per_page) return;
+    if (gridSnapRef.current === target) return;
+    gridSnapRef.current = target;
+
+    const updated = { ...filters, Per_page: target, Offset: 1 };
+    setFilters(updated);
+    fetchInsightsAnalysis(updated);
+  }, [gridColumns, perPageOptions, filters.Per_page, isTrialActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync company filter from URL and fetch
   useEffect(() => {
     setCompanyFilterLabel(companyNameFromUrl);
 
     if (companyIdFromUrl != null) {
+      const cols = getInsightsGridColumns(navOpen, viewportWidth);
       const nextFilters: InsightsAnalysisFilters = {
         ...DEFAULT_FILTERS,
+        Per_page: getAdaptiveDefaultPerPage(cols),
         company_id: companyIdFromUrl,
       };
       setSearchTerm("");
@@ -358,8 +413,11 @@ function InsightsAnalysisPageContent() {
 
     if (!hasFetchedRef.current) {
       hasFetchedRef.current = true;
+      const cols = getInsightsGridColumns(navOpen, viewportWidth);
+      const perPage = getAdaptiveDefaultPerPage(cols);
       const initialFilters: InsightsAnalysisFilters = {
         ...DEFAULT_FILTERS,
+        Per_page: perPage,
         Content_Type: contentTypeFromUrl || undefined,
         content_type: contentTypeFromUrl || undefined,
       };
@@ -509,7 +567,11 @@ function InsightsAnalysisPageContent() {
   };
 
   const handlePerPageChange = (perPage: number) => {
-    const updatedFilters = { ...filters, Per_page: perPage, Offset: 1 };
+    const aligned = perPageOptions.includes(perPage)
+      ? perPage
+      : snapInsightsPerPage(perPage, gridColumns, perPageOptions);
+    gridSnapRef.current = aligned;
+    const updatedFilters = { ...filters, Per_page: aligned, Offset: 1 };
     setFilters(updatedFilters);
     fetchInsightsAnalysis(updatedFilters);
   };
@@ -1001,24 +1063,30 @@ function InsightsAnalysisPageContent() {
         {/* Pagination — same CompactPagination control used across all
             other entity list views, with the per-page selector kept at the
             bottom right. */}
-        {!isTrialActive && pagination.pageTotal > 1 && (
+        {!isTrialActive && (pagination.itemsTotal ?? 0) > 0 && (
           <div className="ia-pgrow">
             <span className="ia-pg-count">
+              Showing {articles.length.toLocaleString()} of{" "}
               {(pagination.itemsTotal ?? 0).toLocaleString()} reports
+              {pagination.pageTotal > 1
+                ? ` · page ${pagination.curPage} of ${pagination.pageTotal}`
+                : ""}
             </span>
-            <CompactPagination
-              curPage={pagination.curPage}
-              pageTotal={pagination.pageTotal}
-              onPageChange={handlePageChange}
-              disabled={loading}
-            />
+            {pagination.pageTotal > 1 && (
+              <CompactPagination
+                curPage={pagination.curPage}
+                pageTotal={pagination.pageTotal}
+                onPageChange={handlePageChange}
+                disabled={loading}
+              />
+            )}
             <select
               className="ia-select"
               value={pagination.perPage}
               onChange={(e) => handlePerPageChange(Number.parseInt(e.target.value, 10))}
               aria-label="Reports per page"
             >
-              {PER_PAGE_OPTIONS.map((n) => (
+              {perPageOptions.map((n) => (
                 <option key={n} value={n}>
                   {n} / page
                 </option>
