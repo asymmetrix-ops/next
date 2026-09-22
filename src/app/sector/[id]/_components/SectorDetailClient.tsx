@@ -42,7 +42,12 @@ import {
   getContentTypeBadgeStyle,
 } from "@/lib/contentTypeBadge";
 import { getInsightsTypeTone } from "@/lib/tagColors";
-import { fetchSectorProfileInsightsArticles } from "@/lib/sectorInsightsArticles";
+import {
+  buildGetAllContentArticlesParams,
+  buildSectorInsightsFilters,
+  fetchSectorRecentContentArticles,
+} from "@/lib/sectorInsightsArticles";
+import { getInsightsListItemsTotal } from "@/lib/fetchInsightsLogicalPage";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 
 // ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
@@ -643,11 +648,15 @@ function RecentInsightsCard({
         const sectorIdNum = Number(sectorId);
         if (Number.isNaN(sectorIdNum)) return;
 
-        const fetched = await fetchSectorProfileInsightsArticles({
+        if (!token) {
+          setArticles([]);
+          return;
+        }
+
+        const fetched = await fetchSectorRecentContentArticles({
           sectorId: sectorIdNum,
           sectorImportance,
           token,
-          page: 1,
           perPage: 5,
         });
         const sorted = [...fetched].sort(
@@ -2057,18 +2066,17 @@ const SectorDetailPage = ({
 
   // Removed statistics card; keep totals only when needed elsewhere
 
-  function SectorInsightsTab({ sectorId }: { sectorId: string }) {
+  function SectorInsightsTab({
+    sectorId,
+    sectorImportance,
+  }: {
+    sectorId: string;
+    sectorImportance?: string;
+  }) {
     const router = useRouter();
-    const [filters, setFilters] = useState<InsightsAnalysisFilters>({
-      search_query: "",
-      primary_sectors_ids: [],
-      Secondary_sectors_ids: [],
-      Countries: [],
-      Provinces: [],
-      Cities: [],
-      Offset: 1,
-      Per_page: 10,
-    });
+    const [filters, setFilters] = useState<InsightsAnalysisFilters>(() =>
+      buildSectorInsightsFilters(Number.parseInt(sectorId, 10) || 0, sectorImportance)
+    );
 
     const [searchTerm, setSearchTerm] = useState("");
     const [contentTypes, setContentTypes] = useState<string[]>([]);
@@ -2097,30 +2105,7 @@ const SectorDetailPage = ({
           return;
         }
 
-        const params = new URLSearchParams();
-        params.append("Offset", String(filters.Offset));
-        params.append("Per_page", String(filters.Per_page));
-        if (filters.search_query)
-          params.append("search_query", filters.search_query);
-        if (filters.Countries?.length)
-          params.append("Countries", filters.Countries.join(","));
-        if (filters.Provinces?.length)
-          params.append("Provinces", filters.Provinces.join(","));
-        if (filters.Cities?.length)
-          params.append("Cities", filters.Cities.join(","));
-        if (filters.primary_sectors_ids?.length)
-          params.append(
-            "primary_sectors_ids",
-            filters.primary_sectors_ids.join(",")
-          );
-        if (filters.Secondary_sectors_ids?.length)
-          params.append(
-            "Secondary_sectors_ids",
-            filters.Secondary_sectors_ids.join(",")
-          );
-        const ct = (filters.Content_Type || filters.content_type || "").trim();
-        if (ct) params.append("content_type", ct);
-
+        const params = buildGetAllContentArticlesParams(filters);
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
 
         const response = await fetch(url, {
@@ -2128,6 +2113,7 @@ const SectorDetailPage = ({
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
+            "X-Data-Source": "live",
           },
         });
 
@@ -2140,7 +2126,7 @@ const SectorDetailPage = ({
         setArticles(normalizeContentArticles(data.items || []));
         setPagination({
           itemsReceived: data.itemsReceived,
-          itemsTotal: data.itemsTotal,
+          itemsTotal: getInsightsListItemsTotal(data),
           curPage: data.curPage,
           nextPage: data.nextPage,
           prevPage: data.prevPage,
@@ -2162,17 +2148,17 @@ const SectorDetailPage = ({
 
     // Initial data fetch with sector pre-filter
     useEffect(() => {
-      const sectorIdNum = parseInt(sectorId);
-      if (!isNaN(sectorIdNum)) {
-        const initialFilters = {
-          ...filters,
-          primary_sectors_ids: [sectorIdNum],
-        };
+      const sectorIdNum = parseInt(sectorId, 10);
+      if (!Number.isNaN(sectorIdNum) && sectorIdNum > 0) {
+        const initialFilters = buildSectorInsightsFilters(
+          sectorIdNum,
+          sectorImportance
+        );
         setFilters(initialFilters);
         fetchInsightsAnalysis(initialFilters);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sectorId]);
+    }, [sectorId, sectorImportance]);
 
     // Fetch content types (cached via locationsService)
     useEffect(() => {
@@ -2188,13 +2174,12 @@ const SectorDetailPage = ({
     }, []);
 
     const handleSearch = () => {
-      const sectorIdNum = parseInt(sectorId);
-      const updatedFilters = {
-        ...filters,
-        search_query: searchTerm,
-        primary_sectors_ids: !isNaN(sectorIdNum) ? [sectorIdNum] : [],
-        Offset: 1,
-      };
+      const sectorIdNum = parseInt(sectorId, 10);
+      const updatedFilters = buildSectorInsightsFilters(
+        Number.isNaN(sectorIdNum) ? 0 : sectorIdNum,
+        sectorImportance,
+        { ...filters, search_query: searchTerm, Offset: 1 }
+      );
       setFilters(updatedFilters);
       fetchInsightsAnalysis(updatedFilters);
     };
@@ -2218,15 +2203,17 @@ const SectorDetailPage = ({
       }
     };
 
-    const formatSectors = (
-      sectors: Array<Array<{ sector_name: string }>> | undefined
-    ) => {
-      if (!sectors || sectors.length === 0) return "-";
-      const allSectors = sectors
-        .flat()
+    const formatSectors = (sectors: unknown) => {
+      if (!sectors || !Array.isArray(sectors) || sectors.length === 0) {
+        return "-";
+      }
+      const flat = Array.isArray(sectors[0])
+        ? (sectors as Array<Array<{ sector_name?: string }>>).flat()
+        : (sectors as Array<{ sector_name?: string }>);
+      const names = flat
         .filter((s) => s && s.sector_name)
-        .map((s) => s.sector_name);
-      return allSectors.length > 0 ? allSectors.join(", ") : "-";
+        .map((s) => s.sector_name as string);
+      return names.length > 0 ? names.join(", ") : "-";
     };
 
     const formatCompanies = (
@@ -2904,7 +2891,16 @@ const SectorDetailPage = ({
         ) : activeTab === "transactions" ? (
           <ScopedCorporateEventsPanel primarySectorId={Number(sectorId)} embedded />
         ) : activeTab === "insights" ? (
-          <SectorInsightsTab sectorId={sectorId} />
+          <SectorInsightsTab
+            sectorId={sectorId}
+            sectorImportance={
+              sectorData?.Sector?.Sector_importance ||
+              toStringSafe(
+                (sectorData as unknown as { Sector_importance?: unknown })
+                  ?.Sector_importance
+              )
+            }
+          />
         ) : (
           <div
             style={{

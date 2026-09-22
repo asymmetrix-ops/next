@@ -1,8 +1,94 @@
-import type { ContentArticle } from "@/types/insightsAnalysis";
+import type {
+  ContentArticle,
+  InsightsAnalysisFilters,
+  InsightsAnalysisResponse,
+} from "@/types/insightsAnalysis";
 import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
-
 export const SECTOR_INSIGHTS_ARTICLES_API =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors";
+
+export const CONTENT_ARTICLES_API =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles";
+
+export function isSecondarySectorImportance(sectorImportance?: string): boolean {
+  return (sectorImportance || "").toLowerCase().includes("secondary");
+}
+
+/** Sector-scoped filters for Get_All_Content_Articles (Offset is 1-based page number). */
+export function buildSectorInsightsFilters(
+  sectorId: number,
+  sectorImportance?: string,
+  overrides: Partial<InsightsAnalysisFilters> = {}
+): InsightsAnalysisFilters {
+  const isSecondary = isSecondarySectorImportance(sectorImportance);
+  return {
+    search_query: "",
+    primary_sectors_ids: isSecondary ? [] : [sectorId],
+    Secondary_sectors_ids: isSecondary ? [sectorId] : [],
+    Countries: [],
+    Provinces: [],
+    Cities: [],
+    Offset: 1,
+    Per_page: 10,
+    portfolio_only: false,
+    ...overrides,
+  };
+}
+
+export function buildGetAllContentArticlesParams(
+  filters: InsightsAnalysisFilters
+): URLSearchParams {
+  const params = new URLSearchParams();
+  params.append("Offset", String(filters.Offset));
+  params.append("Per_page", String(filters.Per_page));
+  params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
+
+  if (filters.search_query) params.append("search_query", filters.search_query);
+  if (filters.Countries?.length)
+    params.append("Countries", filters.Countries.join(","));
+  if (filters.Provinces?.length)
+    params.append("Provinces", filters.Provinces.join(","));
+  if (filters.Cities?.length) params.append("Cities", filters.Cities.join(","));
+  if (filters.primary_sectors_ids?.length) {
+    params.append("primary_sectors_ids", filters.primary_sectors_ids.join(","));
+  }
+  if (filters.Secondary_sectors_ids?.length) {
+    params.append(
+      "Secondary_sectors_ids",
+      filters.Secondary_sectors_ids.join(",")
+    );
+  }
+  const ct = (filters.Content_Type || filters.content_type || "").trim();
+  if (ct) params.append("content_type", ct);
+
+  return params;
+}
+
+/** Recent I&A for sector overview — uses Get_All_Content_Articles with sector filter. */
+export async function fetchSectorRecentContentArticles(args: {
+  sectorId: number;
+  sectorImportance?: string;
+  token: string;
+  perPage?: number;
+}): Promise<ContentArticle[]> {
+  const perPage = Math.max(1, args.perPage ?? 5);
+  const filters = buildSectorInsightsFilters(args.sectorId, args.sectorImportance, {
+    Per_page: perPage,
+    Offset: 1,
+  });
+  const params = buildGetAllContentArticlesParams(filters);
+  const res = await fetch(`${CONTENT_ARTICLES_API}?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${args.token}`,
+      "Content-Type": "application/json",
+      "X-Data-Source": "live",
+    },
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as InsightsAnalysisResponse;
+  return normalizeContentArticles(data.items ?? []);
+}
 
 /** Matches `articles_based_on_sectors` default page size. */
 export const INSIGHTS_PAGE_SIZE = 2;
@@ -146,11 +232,13 @@ export function parseInsightsArticlesPage(
   const explicitTotal =
     typeof data?.itemsTotal === "number"
       ? data.itemsTotal
-      : typeof data?.itemTotal === "number"
-        ? data.itemTotal
-        : typeof data?.total === "number"
-          ? data.total
-          : undefined;
+      : typeof (data as { totalItems?: number })?.totalItems === "number"
+        ? (data as { totalItems: number }).totalItems
+        : typeof data?.itemTotal === "number"
+          ? data.itemTotal
+          : typeof data?.total === "number"
+            ? data.total
+            : undefined;
 
   const total =
     explicitTotal ??

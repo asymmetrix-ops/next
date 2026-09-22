@@ -7,7 +7,8 @@ import type {
 
 export type InsightsApiPageCache = Map<number, InsightsAnalysisResponse>;
 
-function getItemsTotal(json: InsightsAnalysisResponse): number {
+/** DEV may return `totalItems` instead of `itemsTotal`. */
+export function getInsightsListItemsTotal(json: InsightsAnalysisResponse): number {
   if (typeof json.itemsTotal === "number") return json.itemsTotal;
   if (typeof json.totalItems === "number") return json.totalItems;
   return 0;
@@ -91,7 +92,7 @@ export async function fetchInsightsLogicalPage(
     throw new Error("No insights data returned");
   }
 
-  const itemsTotal = getItemsTotal(lastMeta);
+  const itemsTotal = getInsightsListItemsTotal(lastMeta);
   const meta: InsightsAnalysisResponse = {
     ...lastMeta,
     items: pageTiles,
