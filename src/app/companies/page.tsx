@@ -16,7 +16,15 @@ import {
   ACCESS_DENIED_PATH,
   MCP_GUEST_ALLOWED_PATH,
 } from "@/lib/mcpGuest";
-import { buildMcpGuestCompaniesFilters, buildMcpGuestCompaniesCountsFilters } from "@/lib/companiesFilterPayload";
+import {
+  buildCompaniesSearchPayload,
+  buildMcpGuestCompaniesFilters,
+  buildMcpGuestCompaniesCountsFilters,
+} from "@/lib/companiesFilterPayload";
+import {
+  type CompaniesUrlBootstrap,
+  parseCompaniesUrlBootstrap,
+} from "@/lib/companiesSearchUrl";
 import { CompanyDashboard } from "@/components/companies/CompanyDashboard";
 import {
   CompanySection,
@@ -42,7 +50,8 @@ import type { ListExportRequest } from "@/lib/listExport/types";
 const useCompaniesAPI = (
   isMcpGuest: boolean,
   authLoading: boolean,
-  preferredCurrencyId: number
+  preferredCurrencyId: number,
+  urlBootstrap: CompaniesUrlBootstrap | null
 ) => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -199,7 +208,14 @@ const useCompaniesAPI = (
     if (authLoading) return;
     const initialFilters = isMcpGuest
       ? buildMcpGuestCompaniesFilters()
-      : createDefaultFilters();
+      : urlBootstrap?.filterBarState
+        ? buildCompaniesSearchPayload({
+            state: urlBootstrap.filterBarState,
+            primarySectors: [],
+            secondarySectors: [],
+            ownershipTypes: [],
+          })
+        : createDefaultFilters();
     fetchCompanies(1, initialFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMcpGuest, authLoading]);
@@ -220,6 +236,10 @@ function CompaniesPageInner() {
   const router = useRouter();
   const { isMcpGuest, isContributor, loading: authLoading } = useAuth();
   const { currencyId: preferredCurrencyId } = usePlatformCurrency();
+  const [urlBootstrap] = useState<CompaniesUrlBootstrap | null>(() => {
+    if (typeof window === "undefined") return null;
+    return parseCompaniesUrlBootstrap(new URLSearchParams(window.location.search));
+  });
   const {
     companies,
     loading,
@@ -229,7 +249,7 @@ function CompaniesPageInner() {
     fetchCompanies,
     setRequestColumns,
     currentFilters,
-  } = useCompaniesAPI(isMcpGuest, authLoading, preferredCurrencyId);
+  } = useCompaniesAPI(isMcpGuest, authLoading, preferredCurrencyId, urlBootstrap);
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
 
@@ -284,9 +304,10 @@ function CompaniesPageInner() {
     if (isMcpGuest) return;
 
     if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const s = params?.get?.("search") || undefined;
-      setInitialSearch(s);
+      const parsed = parseCompaniesUrlBootstrap(
+        new URLSearchParams(window.location.search)
+      );
+      setInitialSearch(parsed.search);
     }
   }, [authLoading, isContributor, isMcpGuest, router]);
 
@@ -315,7 +336,10 @@ function CompaniesPageInner() {
       <CompanyDashboard
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
-        initialSearch={isMcpGuest ? undefined : initialSearch}
+        initialSearch={isMcpGuest ? undefined : initialSearch ?? urlBootstrap?.search}
+        initialFilterBarState={
+          isMcpGuest ? undefined : urlBootstrap?.filterBarState
+        }
         ownershipCounts={ownershipCounts}
         onColumnsClick={
           isMcpGuest ? undefined : () => setShowColumnsModal((v) => !v)

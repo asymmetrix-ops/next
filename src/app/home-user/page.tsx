@@ -41,6 +41,7 @@ import {
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { locationsService } from "@/lib/locationsService";
 import { normalizeSectorName } from "@/components/corporate-events/corporateEventsTableUtils";
+import { buildDealRadarCompaniesViewAllHref } from "@/lib/companiesSearchUrl";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -1846,13 +1847,6 @@ export default function HomeUserPage() {
                 {visibleNews.map((article) => {
                   const href = `/article/${article.id}?from=home`;
                   const firstCompany = article.companies_mentioned?.[0];
-                  const contentType = (
-                    article.Content_Type ||
-                    article.content_type ||
-                    article.Content?.Content_type ||
-                    article.Content?.Content_Type ||
-                    "News"
-                  ).trim();
                   return (
                     <a key={article.id} href={href} className="dash-news-item">
                       <span className="ago">
@@ -1862,14 +1856,11 @@ export default function HomeUserPage() {
                       {article.Strapline && (
                         <span className="d">{article.Strapline}</span>
                       )}
-                      <span className="tg">
-                        <span style={getContentTypeBadgeStyle(contentType)}>
-                          {contentType}
-                        </span>
-                        {firstCompany && (
+                      {firstCompany && (
+                        <span className="tg">
                           <span className="dash-co-pill">{firstCompany.name}</span>
-                        )}
-                      </span>
+                        </span>
+                      )}
                     </a>
                   );
                 })}
@@ -2098,25 +2089,15 @@ export default function HomeUserPage() {
                   persistDismissal
                   side="right"
                 >
-                  <span className="flex items-center gap-2">
-                    <h2 className="dash-card-title">Deal Radar</h2>
-                    <span className="dash-eyebrow">Live</span>
-                  </span>
+                  <h2 className="dash-card-title">Deal Radar</h2>
                 </NewFeatureCallout>
               </div>
-              <div className="hidden sm:flex items-center gap-3 shrink-0">
-                {dealRadarItems.length > 0 && (
-                  <span className="text-xs text-gray-500 tabular-nums whitespace-nowrap">
-                    {dealRadarItems.length} companies
-                  </span>
-                )}
-                <a
-                  href="/deal-radar"
-                  className="dash-view-all px-3 py-1.5 text-xs whitespace-nowrap"
-                >
-                  View all
-                </a>
-              </div>
+              <a
+                href={buildDealRadarCompaniesViewAllHref()}
+                className="dash-view-all hidden sm:inline-flex px-3 py-1.5 text-xs whitespace-nowrap shrink-0"
+              >
+                View all
+              </a>
             </div>
             <div
               ref={dealRadarScrollRef}
@@ -2317,12 +2298,8 @@ export default function HomeUserPage() {
           >
             <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <a
-                  href="/insights-analysis"
-                  className="dash-card-title flex items-center gap-2"
-                >
+                <a href="/insights-analysis" className="dash-card-title">
                   Insights &amp; Analysis
-                  <span className="dash-eyebrow">Weekly</span>
                 </a>
               </div>
               <a
@@ -2455,12 +2432,8 @@ export default function HomeUserPage() {
           >
             <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <a
-                  href="/corporate-events"
-                  className="dash-card-title flex items-center gap-2"
-                >
+                <a href="/corporate-events" className="dash-card-title">
                   Corporate Events
-                  <span className="dash-eyebrow">Last 7 days</span>
                 </a>
               </div>
               <a

@@ -61,6 +61,8 @@ export type CompanyDashboardProps = {
     ownershipTabActive: boolean;
   }) => void;
   initialSearch?: string;
+  /** Pre-applied filter bar state from URL (e.g. Deal Radar → companies preset). */
+  initialFilterBarState?: FilterBarState;
   ownershipCounts?: CompaniesOwnershipCounts;
   onColumnsClick?: () => void;
   columnsActive?: boolean;
@@ -100,6 +102,7 @@ export const CompanyDashboard = ({
   onSearch,
   onFilterColumnsChange,
   initialSearch,
+  initialFilterBarState,
   ownershipCounts = EMPTY_OWNERSHIP_COUNTS,
   onColumnsClick,
   onExport,
@@ -129,12 +132,12 @@ export const CompanyDashboard = ({
   showOwnershipTabsWhenListTabId,
 }: CompanyDashboardProps) => {
   // Unified filter bar state — replaces all the individual selected-* state vars
-  const [filterBarState, setFilterBarState] = useState<FilterBarState>({
-    filters: [],
-    viewId: null,
-    searchText: initialSearch || "",
-    filterLogic: "and",
-  });
+  const [filterBarState, setFilterBarState] = useState<FilterBarState>(() => ({
+    filters: initialFilterBarState?.filters ?? [],
+    viewId: initialFilterBarState?.viewId ?? null,
+    searchText: initialSearch || initialFilterBarState?.searchText || "",
+    filterLogic: initialFilterBarState?.filterLogic ?? "and",
+  }));
 
   // Ownership quick-filter tab — independent of FilterBar chips
   const [activeOwnershipTab, setActiveOwnershipTab] = useState<OwnershipTab>("all");

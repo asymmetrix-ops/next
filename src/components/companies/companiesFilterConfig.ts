@@ -42,6 +42,12 @@ export type CompaniesOwnershipCounts = {
   otherCompanies: number;
 };
 
+export const COMPANIES_TRANSACTION_STATUS_FILTER_OPTIONS = [
+  "Rumoured in Market",
+  "Transaction anticipated within 18 months",
+  "Reported in Market",
+] as const;
+
 export const EMPTY_OWNERSHIP_COUNTS: CompaniesOwnershipCounts = {
   totalCount: 0,
   publicCompanies: 0,
@@ -92,11 +98,7 @@ export function buildCompaniesFilterDefs({
     secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
     ownership: { options: ownershipTypes.map((o) => o.ownership) },
     transaction: {
-      options: [
-        "Rumoured in Market",
-        "Transaction anticipated within 18 months",
-        "Reported in Market",
-      ],
+      options: [...COMPANIES_TRANSACTION_STATUS_FILTER_OPTIONS],
     },
     year_founded: {
       min: 1800,
