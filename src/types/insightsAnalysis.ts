@@ -27,6 +27,8 @@ export interface ContentArticle {
   Headline: string;
   Strapline: string;
   Content_Type?: string;
+  News_Sub_Type?: string;
+  news_sub_type?: string;
   Body: string;
   sectors: Array<
     Array<{

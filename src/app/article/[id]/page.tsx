@@ -16,6 +16,7 @@ import {
   getArticleByline,
   getArticleCorrections,
   getLatestCorrection,
+  getNewsSubType,
   isNewsArticle,
 } from "@/lib/contentArticleDisplay";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
@@ -41,6 +42,7 @@ import {
 import { T as REDESIGN_T } from "@/components/redesign/primitives";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
+const ARTICLE_PAGE_ROOT_CLASS = "ax-article-page";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -51,8 +53,15 @@ interface ArticleDetail {
   Strapline: string;
   Content_Type?: string;
   content_type?: string;
+  News_Sub_Type?: string;
+  news_sub_type?: string;
   // Some API variants may nest under Content
-  Content?: { Content_type?: string; Content_Type?: string };
+  Content?: {
+    Content_type?: string;
+    Content_Type?: string;
+    News_Sub_Type?: string;
+    news_sub_type?: string;
+  };
   Body: string;
   // New field added to API response (Xano Content table column)
   summary?: unknown;
@@ -430,16 +439,15 @@ const styles = {
     border: "1px solid #C6D1FB",
     fontWeight: 600,
   },
-  contentTypeMetaCount: {
-    display: "inline-flex",
-    alignItems: "center",
-    height: "24px",
+  newsSubTypeBadge: {
+    display: "inline-block",
     fontSize: "12px",
+    lineHeight: 1,
     color: "#3D4657",
     backgroundColor: "#F5F7FD",
-    border: "1px solid #E4E8F2",
-    padding: "0 10px",
+    padding: "6px 10px",
     borderRadius: "9999px",
+    border: "1px solid #E4E8F2",
     fontWeight: 600,
   },
   transactionStatusBadge: {
@@ -1503,7 +1511,7 @@ const ArticleDetailPage = () => {
   if (loading) {
     return (
       <AppShell>
-      <div style={styles.container}>
+      <div className={ARTICLE_PAGE_ROOT_CLASS} style={styles.container}>
         <div style={styles.maxWidth}>
           <div style={styles.loading}>Loading article...</div>
         </div>
@@ -1516,7 +1524,7 @@ const ArticleDetailPage = () => {
   if (error) {
     return (
       <AppShell>
-      <div style={styles.container}>
+      <div className={ARTICLE_PAGE_ROOT_CLASS} style={styles.container}>
         <div style={styles.maxWidth}>
           <div style={styles.error}>
             {fromHome
@@ -1533,7 +1541,7 @@ const ArticleDetailPage = () => {
   if (!article) {
     return (
       <AppShell>
-      <div style={styles.container}>
+      <div className={ARTICLE_PAGE_ROOT_CLASS} style={styles.container}>
         <div style={styles.maxWidth}>
           <div style={styles.error}>
             {fromHome
@@ -1579,7 +1587,7 @@ const ArticleDetailPage = () => {
 
   return (
     <AppShell>
-    <div style={styles.container}>
+    <div className={ARTICLE_PAGE_ROOT_CLASS} style={styles.container}>
       <div style={styles.maxWidth}>
         <button onClick={handleBackClick} style={styles.backButton}>
           ← Back to Insights & Analysis
@@ -1628,23 +1636,18 @@ const ArticleDetailPage = () => {
                 article.Content?.Content_Type ||
                 ""
               ).trim();
-              const companiesCount = article.companies_mentioned?.length || 0;
-              const sectorsCount = article.sectors?.length || 0;
-              return ct ? (
+              const newsSubType = getNewsSubType(article);
+              if (!ct && !newsSubType) return null;
+              return (
                 <div style={styles.contentTypeRow}>
-                  <span style={styles.contentTypeBadge}>{ct}</span>
-                  {companiesCount > 0 && (
-                    <span style={styles.contentTypeMetaCount}>
-                      {companiesCount} {companiesCount === 1 ? "company" : "companies"}
-                    </span>
-                  )}
-                  {sectorsCount > 0 && (
-                    <span style={styles.contentTypeMetaCount}>
-                      {sectorsCount} {sectorsCount === 1 ? "sector" : "sectors"}
-                    </span>
-                  )}
+                  {ct ? (
+                    <span style={styles.contentTypeBadge}>{ct}</span>
+                  ) : null}
+                  {newsSubType ? (
+                    <span style={styles.newsSubTypeBadge}>{newsSubType}</span>
+                  ) : null}
                 </div>
-              ) : null;
+              );
             })()}
             {isNews && byline ? (
               <p

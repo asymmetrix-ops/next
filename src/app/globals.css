@@ -130,11 +130,13 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
     max-width: 100%;
+    min-height: 100%;
   }
 
   html {
     overflow-x: hidden;
     max-width: 100%;
+    height: 100%;
   }
 }
 
@@ -158,6 +160,44 @@ All colors MUST be HSL.
 
   .input-field {
     @apply px-3 py-2 w-full rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent;
+  }
+
+  /* App shell: fill the scroll column and pin footer to the bottom */
+  .ax-app-shell-main {
+    display: flex;
+    min-height: 100%;
+    /* Grow with page content inside the scroll column (not only viewport height) */
+    flex: 1 0 auto;
+    flex-direction: column;
+    width: 100%;
+    background: var(--ax-app-canvas, #f5f7fd);
+  }
+
+  .ax-article-page {
+    display: flex;
+    width: 100%;
+    min-height: 100%;
+    flex: 1 0 auto;
+    flex-direction: column;
+    background: var(--ax-app-canvas, #f5f7fd);
+  }
+
+  .ax-article-page > footer.ax-site-footer {
+    margin-top: auto;
+    flex-shrink: 0;
+  }
+
+  .ax-app-shell-main > footer.ax-site-footer {
+    margin-top: auto;
+    flex-shrink: 0;
+  }
+
+  /* Inside the shell, 100vh min-height creates a gap below the footer */
+  .ax-app-shell-main .min-h-screen {
+    min-height: 100% !important;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
   }
 
   /* Sticky site footer when a page shell uses min-h-screen + Footer */

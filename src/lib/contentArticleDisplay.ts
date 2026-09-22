@@ -35,6 +35,22 @@ export function getEffectiveContentType(article: ContentTypeCarrier): string {
   ).trim();
 }
 
+type NewsSubTypeCarrier = {
+  News_Sub_Type?: string;
+  news_sub_type?: string;
+  Content?: { News_Sub_Type?: string; news_sub_type?: string };
+};
+
+export function getNewsSubType(article: NewsSubTypeCarrier): string {
+  return (
+    article.News_Sub_Type ||
+    article.news_sub_type ||
+    article.Content?.News_Sub_Type ||
+    article.Content?.news_sub_type ||
+    ""
+  ).trim();
+}
+
 export function isNewsArticle(article: ContentTypeCarrier): boolean {
   return getEffectiveContentType(article).toLowerCase() === "news";
 }
