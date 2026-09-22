@@ -5,7 +5,6 @@ import {
   useState,
   useEffect,
   useCallback,
-  useMemo,
   useRef,
   type CSSProperties,
 } from "react";
@@ -17,10 +16,9 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
-import { trackEvent, trackLogout } from "@/lib/tracking";
-import DashboardLeftNav, {
-  type DashboardNavCounts,
-} from "@/components/dashboard/DashboardLeftNav";
+import { trackEvent } from "@/lib/tracking";
+import AppLeftNav from "@/components/layout/AppLeftNav";
+import { NavOpenProvider, useNavOpen } from "@/components/layout/NavOpenContext";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 import {
@@ -53,11 +51,6 @@ import { DEFAULT_TAG_CAP } from "@/components/redesign/primitives";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
-interface AsymmetrixData {
-  label: string;
-  value: string;
-}
-
 interface CorporateEvent {
   id?: number;
   corporate_event_id?: number;
@@ -385,7 +378,7 @@ import {
 
 // Removed NewCompany interface along with the related UI section
 
-export default function HomeUserPage() {
+function HomeUserPageContent() {
   const router = useRouter();
   const {
     isAuthenticated,
@@ -393,17 +386,10 @@ export default function HomeUserPage() {
     loading: authLoading,
     isTrialActive,
     trialDaysLeft,
-    logout,
   } = useAuth();
   // Right-click handled via native anchors now
 
-  const [leftNavOpen, setLeftNavOpen] = useState(true);
-  const handleDashboardLogout = useCallback(() => {
-    const userId = user?.id ? Number.parseInt(user.id, 10) : 0;
-    trackLogout(Number.isFinite(userId) ? userId : 0);
-    logout();
-    router.push("/login");
-  }, [user?.id, logout, router]);
+  const { open: leftNavOpen } = useNavOpen();
 
   // Helper function to format dates consistently
   const formatDate = (dateString?: string) => {
@@ -762,19 +748,12 @@ export default function HomeUserPage() {
   );
 
   const [isLoading, setIsLoading] = useState(true);
-  const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
 
   const DEAL_RADAR_PAGE_LIMIT = 25;
   const DEAL_RADAR_SCROLL_THRESHOLD_PX = 48;
 
   const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>([]);
   const [dealRadarNextOffset, setDealRadarNextOffset] = useState<number | null>(
-    null
-  );
-  const [dealRadarTotalCount, setDealRadarTotalCount] = useState<
-    number | null
-  >(null);
-  const [insightsTotalCount, setInsightsTotalCount] = useState<number | null>(
     null
   );
   const [dealRadarLoading, setDealRadarLoading] = useState(true);
@@ -1094,162 +1073,11 @@ export default function HomeUserPage() {
     };
   }, [searchOpen]);
 
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-
-      const [
-        companiesCountResponse,
-        eventsCountResponse,
-        individualsCountResponse,
-        sectorsCountResponse,
-        advisorsCountResponse,
-        investorsResponse,
-      ] = await Promise.allSettled([
-        dashboardApiService.getHeroScreenStatisticCompanies(),
-        dashboardApiService.getHeroScreenStatisticEventsCount(),
-        dashboardApiService.getAllIndividualsCount(),
-        dashboardApiService.getHeroScreenStatisticSectors(),
-        dashboardApiService.getHeroScreenStatisticAdvisorsCount(),
-        dashboardApiService.getHeroScreenStatisticInvestors(),
-      ]);
-
-      const statsData: AsymmetrixData[] = [];
-
-      if (companiesCountResponse.status === "fulfilled") {
-        const companiesCount =
-          (companiesCountResponse.value as unknown as number) || 0;
-        if (companiesCount) {
-          statsData.push({
-            label: "Companies",
-            value: companiesCount.toString(),
-          });
-        }
-      }
-
-      if (eventsCountResponse.status === "fulfilled") {
-        const responseValue = eventsCountResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-        const eventsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.Corporate_Events_count as number) || 0
-            : 0;
-
-        if (eventsCount) {
-          statsData.push({
-            label: "Corporate Events",
-            value: eventsCount.toString(),
-          });
-        }
-      }
-
-      if (individualsCountResponse.status === "fulfilled") {
-        const responseValue =
-          individualsCountResponse.value as unknown as Record<string, unknown>;
-        const individualsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.count as number) || 0
-            : 0;
-
-        if (individualsCount) {
-          statsData.push({
-            label: "Individuals",
-            value: individualsCount.toString(),
-          });
-        }
-      }
-
-      if (sectorsCountResponse.status === "fulfilled") {
-        const responseValue = sectorsCountResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-        const primarySectorsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.primarySectors as number) || 0
-            : 0;
-        const secondarySectorsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.secondarySectors as number) || 0
-            : 0;
-
-        if (primarySectorsCount) {
-          statsData.push({
-            label: "Primary Sectors",
-            value: primarySectorsCount.toString(),
-          });
-        }
-
-        if (secondarySectorsCount) {
-          statsData.push({
-            label: "Secondary Sectors",
-            value: secondarySectorsCount.toString(),
-          });
-        }
-      }
-
-      if (investorsResponse.status === "fulfilled") {
-        const responseValue = investorsResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-        const peInvestors =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.peInvestors as number) || 0
-            : 0;
-        const vcInvestors =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.vcInvestors as number) || 0
-            : 0;
-
-        if (peInvestors) {
-          statsData.push({
-            label: "PE Investors",
-            value: peInvestors.toString(),
-          });
-        }
-
-        if (vcInvestors) {
-          statsData.push({
-            label: "VC Investors",
-            value: vcInvestors.toString(),
-          });
-        }
-      }
-
-      if (advisorsCountResponse.status === "fulfilled") {
-        const responseValue = advisorsCountResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-        const advisorsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.Advisorc_companies_count as number) || 0
-            : 0;
-
-        if (advisorsCount) {
-          statsData.push({
-            label: "Advisors",
-            value: advisorsCount.toString(),
-          });
-        }
-      }
-
-      setAsymmetrixData(statsData);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      if (
-        error instanceof Error &&
-        error.message === "Authentication required"
-      ) {
-        // Modal is shown by the global auth interceptor; no redirect needed
-        return;
-      }
-    } finally {
-      setIsLoading(false);
-    }
+  // The hero-screen stat counts this used to fetch only fed the dashboard's
+  // own left-nav badges; AppLeftNav now fetches those independently, so this
+  // just gates the initial "Loading dashboard…" state.
+  const fetchDashboardData = useCallback(() => {
+    setIsLoading(false);
   }, []);
 
   const fetchDealRadar = useCallback(async () => {
@@ -1271,10 +1099,6 @@ export default function HomeUserPage() {
         signal: controller.signal,
       });
       if (generation !== dealRadarFetchGenerationRef.current) return;
-
-      setDealRadarTotalCount(
-        typeof res.total_items === "number" ? res.total_items : null
-      );
 
       const mappedItems = res.items.map((item) =>
         mapDealRadarItem(item as unknown as Record<string, unknown>)
@@ -1549,70 +1373,6 @@ export default function HomeUserPage() {
     fetchInsightsArticles();
   }, [authLoading, isAuthenticated, fetchInsightsArticles]);
 
-  // Lightweight Per_page=1 request for a real total count (same pattern
-  // used on the Insights & Analysis page) — left unset rather than faked
-  // if the request fails.
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-    let cancelled = false;
-    const run = async () => {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) return;
-      try {
-        const params = new URLSearchParams({
-          Offset: "0",
-          Per_page: "1",
-          portfolio_only: "false",
-        });
-        const res = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-              "X-Data-Source": "live",
-            },
-          }
-        );
-        if (!res.ok || cancelled) return;
-        const json = (await res.json()) as { itemsTotal?: number };
-        if (!cancelled && typeof json.itemsTotal === "number") {
-          setInsightsTotalCount(json.itemsTotal);
-        }
-      } catch {
-        // Leave unset rather than show a fake count.
-      }
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, isAuthenticated]);
-
-  const getStatValue = (label: string): number | undefined => {
-    const item = asymmetrixData.find((d) => d.label === label);
-    if (!item) return undefined;
-    const n = parseInt(item.value, 10);
-    return Number.isFinite(n) ? n : undefined;
-  };
-
-  const leftNavCounts: DashboardNavCounts = useMemo(() => {
-    const pe = getStatValue("PE Investors") ?? 0;
-    const vc = getStatValue("VC Investors") ?? 0;
-    const investorsTotal = pe + vc;
-    return {
-      companies: getStatValue("Companies"),
-      corporateEvents: getStatValue("Corporate Events"),
-      investors: investorsTotal > 0 ? investorsTotal : undefined,
-      advisors: getStatValue("Advisors"),
-      individuals: getStatValue("Individuals"),
-      sectors: getStatValue("Primary Sectors"),
-      insightsAnalysis: insightsTotalCount ?? undefined,
-      dealRadar: dealRadarTotalCount ?? undefined,
-      // financialIntelligence intentionally omitted — no real count exists.
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [asymmetrixData, insightsTotalCount, dealRadarTotalCount]);
 
   if (authLoading) {
     return (
@@ -1665,13 +1425,7 @@ export default function HomeUserPage() {
 
   return (
     <div className="dash h-screen overflow-hidden flex">
-      <DashboardLeftNav
-        open={leftNavOpen}
-        onToggleOpen={() => setLeftNavOpen((v) => !v)}
-        counts={leftNavCounts}
-        userName={user?.name}
-        onLogout={handleDashboardLogout}
-      />
+      <AppLeftNav />
       <div className="flex-1 min-w-0 h-full overflow-hidden">
       {/* Main Content */}
       <main
@@ -3520,5 +3274,13 @@ export default function HomeUserPage() {
       </main>
       </div>
     </div>
+  );
+}
+
+export default function HomeUserPage() {
+  return (
+    <NavOpenProvider>
+      <HomeUserPageContent />
+    </NavOpenProvider>
   );
 }

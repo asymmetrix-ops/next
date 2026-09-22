@@ -6,6 +6,14 @@ import { InlineFollowButton } from "@/components/InlineFollowButton";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { locationsService } from "@/lib/locationsService";
+import {
+  SEARCH_DASHBOARD_SHELL,
+  SEARCH_DASHBOARD_INNER,
+  SEARCH_DASHBOARD_HEADER_ROW,
+  SEARCH_DASHBOARD_EYEBROW,
+  SEARCH_DASHBOARD_TITLE,
+  SEARCH_DASHBOARD_MATCH_COUNT,
+} from "@/components/search/searchDashboardLayout";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
@@ -50,7 +58,6 @@ const INK = "#0A0E1A";
 const INK_2 = "#1E2536";
 const MUTED = "#6B7488";
 const EMPTY = "#6B7488";
-const BLUE_50 = "#F1F4FE";
 const BLUE_100 = "#E2E8FD";
 const BLUE_600 = "#2A46EA";
 // Matches badgeClassForSearchType's company (emerald) / sector (gray) tag
@@ -434,11 +441,15 @@ const SectorsSection = () => {
     }
     .sectors-section {
       background: #F5F7FD;
-      padding: 20px;
       width: 100%;
       box-sizing: border-box;
       overflow-x: hidden;
       min-height: calc(100vh - 200px);
+    }
+    .sectors-content {
+      padding: 20px 28px;
+      width: 100%;
+      box-sizing: border-box;
     }
     .sectors-grid {
       display: grid;
@@ -477,7 +488,7 @@ const SectorsSection = () => {
     }
 
     @media (max-width: 768px) {
-      .sectors-section {
+      .sectors-content {
         padding: 16px;
       }
       .sectors-grid {
@@ -506,47 +517,25 @@ const SectorsSection = () => {
     <div className="sectors-section">
       <style dangerouslySetInnerHTML={{ __html: style }} />
 
-      {/* Title row */}
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 14 }}>
-        <div>
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              height: 22,
-              padding: "0 10px",
-              borderRadius: 999,
-              background: BLUE_50,
-              border: `1px solid ${BLUE_100}`,
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: "0.09em",
-              textTransform: "uppercase",
-              color: BLUE_600,
-            }}
-          >
-            Sectors
-          </span>
-          <h1
-            style={{
-              margin: "6px 0 0",
-              fontSize: 28,
-              fontWeight: 800,
-              letterSpacing: "-0.026em",
-              color: INK,
-              display: "flex",
-              alignItems: "baseline",
-              gap: 11,
-            }}
-          >
-            Sector search
-            <span style={{ fontSize: 15, fontWeight: 600, color: MUTED }}>
-              {sectors.length.toLocaleString()} matches
-            </span>
-          </h1>
+      {/* Header — shared with Companies/Advisors/Investors/Individuals so
+          spacing and borders line up exactly across list pages. */}
+      <div style={SEARCH_DASHBOARD_SHELL}>
+        <div style={SEARCH_DASHBOARD_INNER}>
+          <div style={SEARCH_DASHBOARD_HEADER_ROW}>
+            <div>
+              <div style={SEARCH_DASHBOARD_EYEBROW}>Sectors</div>
+              <h1 style={SEARCH_DASHBOARD_TITLE}>
+                Sector search
+                <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
+                  {sectors.length.toLocaleString()} matches
+                </span>
+              </h1>
+            </div>
+          </div>
         </div>
       </div>
 
+      <div className="sectors-content">
       {/* Controls card */}
       <div
         style={{
@@ -719,6 +708,7 @@ const SectorsSection = () => {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 };
