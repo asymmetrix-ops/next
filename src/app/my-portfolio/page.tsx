@@ -286,6 +286,15 @@ export default function MyPortfolioPage() {
   const abortRef = useRef<AbortController | null>(null);
   const loadGenerationRef = useRef(0);
 
+  // `get_users_lists` only returns list metadata (id/label/total_entities) —
+  // it does not include the followed_* id arrays, so list membership for the
+  // "List" column has to be fetched per-list from `list/data` (the same
+  // endpoint used to populate a single list's tab).
+  const [listItemsByListId, setListItemsByListId] = useState<
+    Map<number, { entity: string; id: number }[]>
+  >(new Map());
+  const fetchedListIdsRef = useRef<Set<number>>(new Set());
+
   // ---- Follow more (global search) ----
   const [followSearch, setFollowSearch] = useState("");
   const [followEntityType, setFollowEntityType] = useState("");
@@ -401,10 +410,46 @@ export default function MyPortfolioPage() {
     };
   }, [loadActiveView]);
 
+  // Populate the "List" column on the "All Followed" tab: fetch each named
+  // list's membership once (skips lists we've already fetched).
+  useEffect(() => {
+    if (activeTabId !== ALL_FOLLOWED_TAB) return;
+    const toFetch = namedPortfolios.filter((p) => !fetchedListIdsRef.current.has(p.id));
+    if (toFetch.length === 0) return;
+
+    let cancelled = false;
+    toFetch.forEach((p) => fetchedListIdsRef.current.add(p.id));
+
+    void Promise.all(
+      toFetch.map(async (p) => {
+        try {
+          const { items } = await fetchPortfolioDataFromXano({ userListId: p.id });
+          return { id: p.id, items };
+        } catch {
+          fetchedListIdsRef.current.delete(p.id);
+          return { id: p.id, items: [] as { entity: string; id: number }[] };
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      setListItemsByListId((prev) => {
+        const next = new Map(prev);
+        for (const { id, items } of results) next.set(id, items);
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTabId, namedPortfolios]);
+
   // Tab counts come from loadActiveView when each tab is visited — no prefetch needed.
 
   const reloadAfterFollowChange = useCallback(async () => {
     invalidatePortfolioDataCache();
+    fetchedListIdsRef.current.clear();
+    setListItemsByListId(new Map());
     await fetchPortfolio();
     await loadActiveView(true);
   }, [fetchPortfolio, loadActiveView]);
@@ -718,26 +763,25 @@ export default function MyPortfolioPage() {
       : allFollowedTotal ?? rows.length;
 
   // ---- Which lists each followed entity belongs to (for the "Lists" column) ----
+  // `get_users_lists` doesn't return per-list followed_* id arrays, so this is
+  // built from the per-list `list/data` fetches in listItemsByListId instead.
   const listsByEntityKey = useMemo(() => {
     const map = new Map<string, string[]>();
-    const addAll = (ids: number[], entityType: string, label: string) => {
-      for (const id of ids) {
-        const key = entityResultKey(entityType, id);
+    for (const p of namedPortfolios) {
+      const items = listItemsByListId.get(p.id);
+      if (!items) continue;
+      const label = getDisplayLabel(p);
+      for (const item of items) {
+        const entityType = getEntityTypeFromRowEntity(String(item.entity));
+        if (!entityType) continue;
+        const key = entityResultKey(entityType, item.id);
         const existing = map.get(key);
         if (existing) existing.push(label);
         else map.set(key, [label]);
       }
-    };
-    for (const p of namedPortfolios) {
-      const label = getDisplayLabel(p);
-      addAll(p.followed_companies, "company", label);
-      addAll(p.followed_advisors, "advisor", label);
-      addAll(p.followed_investors, "investor", label);
-      addAll(p.followed_sectors, "sector", label);
-      addAll(p.followed_individuals, "individual", label);
     }
     return map;
-  }, [namedPortfolios]);
+  }, [namedPortfolios, listItemsByListId]);
 
   const getListLabelsForRow = useCallback(
     (row: PortfolioEntityRow): string[] => {

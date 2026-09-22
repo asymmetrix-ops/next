@@ -1869,12 +1869,19 @@ export default function HomeUserPage() {
                   const newsSubType = getNewsSubType(article);
                   return (
                     <a key={article.id} href={href} className="dash-news-item">
-                      {newsSubType ? (
-                        <span className={dashNewsSubtypeTagClass(newsSubType)}>
-                          <i aria-hidden="true" />
-                          {newsSubType}
-                        </span>
-                      ) : null}
+                      <span className="dash-news-item-meta">
+                        {newsSubType ? (
+                          <span className={dashNewsSubtypeTagClass(newsSubType)}>
+                            <i aria-hidden="true" />
+                            {newsSubType}
+                          </span>
+                        ) : null}
+                        {article.Publication_Date && (
+                          <span className="dt">
+                            {formatDate(article.Publication_Date)}
+                          </span>
+                        )}
+                      </span>
                       <span className="h">{article.Headline}</span>
                       {article.Strapline && (
                         <span className="d">{article.Strapline}</span>

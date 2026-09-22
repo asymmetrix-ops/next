@@ -1313,7 +1313,7 @@ const InvestorDetailPage = () => {
               >
                 {Investor.name}
               </span>
-              {(investorType || hq) && (
+              {investorType && (
                 <div
                   style={{
                     marginTop: 3,
@@ -1325,25 +1325,7 @@ const InvestorDetailPage = () => {
                     color: T.muted,
                   }}
                 >
-                  {investorType && <span>{investorType}</span>}
-                  {hq && (
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        height: 22,
-                        padding: "0 10px",
-                        borderRadius: 999,
-                        background: T.paper,
-                        border: `1px solid ${T.divider}`,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: T.ink,
-                      }}
-                    >
-                      {hq}
-                    </span>
-                  )}
+                  <span>{investorType}</span>
                 </div>
               )}
             </div>

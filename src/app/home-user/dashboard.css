@@ -502,9 +502,28 @@
   background: var(--dash-blue-50);
 }
 
+.dash-news-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
 .dash-news-item .dash-tag {
   align-self: flex-start;
-  margin-bottom: 7px;
+  margin-bottom: 0;
+}
+
+.dash-news-item-meta .dt {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--dash-muted);
+  white-space: nowrap;
+}
+
+.dash-news-item-meta .dt:only-child {
+  margin-left: auto;
 }
 
 .dash-news-item .h {
