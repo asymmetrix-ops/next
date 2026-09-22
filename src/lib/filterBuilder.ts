@@ -206,8 +206,15 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
         return Array.isArray(val)
           ? `nc.ownership_type_id IN (${(val as number[]).join(",")})`
           : `nc.ownership_type_id = ${Number(val)}`;
-      case "transaction_status":
-        return `LOWER(nc."Transaction_status") = LOWER(${esc(String(val))})`;
+      case "transaction_status": {
+        const labels = (Array.isArray(val) ? val : [val])
+          .map((item) => String(item).trim())
+          .filter(Boolean);
+        if (labels.length === 0) return null;
+        return `LOWER(ts.label) IN (${labels
+          .map((label) => `LOWER(${esc(label)})`)
+          .join(", ")})`;
+      }
 
       case "portfolio_companies": {
         const ids = Array.isArray(val) ? (val as number[]) : [];

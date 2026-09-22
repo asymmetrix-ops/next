@@ -384,14 +384,15 @@ export function buildCompaniesSearchPayload(args: {
       continue;
     }
     if (item.id === "transaction" && Array.isArray(v)) {
-      (v as string[]).forEach((status, i) => {
+      const statuses = (v as string[]).map((status) => status.trim()).filter(Boolean);
+      if (statuses.length > 0) {
         pushClause({
-          id: `${item.key}-${i}`,
+          id: item.key,
           type: "transaction_status",
-          value: { value: status },
-          op: i === 0 ? op : "OR",
+          value: { value: statuses },
+          op,
         });
-      });
+      }
       continue;
     }
     if (item.id === "date_added" && hasDateRangeValue(v)) {
