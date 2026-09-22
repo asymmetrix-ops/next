@@ -15,7 +15,10 @@ import {
   CorporateEventsSearchSection,
   type Filters,
 } from "@/components/corporate-events/CorporateEventsSearchSection";
-import { createDefaultCorporateEventFilters } from "@/lib/corporateEventsFilterPayload";
+import {
+  applyCorporateEventsUrlScope,
+  createDefaultCorporateEventFilters,
+} from "@/lib/corporateEventsFilterPayload";
 import { DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS } from "@/components/corporate-events/corporateEventsColumnCategories";
 import { getColumnKeysForActiveFilters } from "@/components/corporate-events/corporateEventsColumnFilterMap";
 import {
@@ -171,7 +174,12 @@ const useCorporateEventsAPI = (userId: number | null) => {
   );
 
   useEffect(() => {
-    const defaults = createDefaultCorporateEventFilters();
+    const search =
+      typeof window !== "undefined" ? window.location.search : "";
+    const defaults = applyCorporateEventsUrlScope(
+      createDefaultCorporateEventFilters(),
+      search
+    );
     fetchCorporateEvents(1, defaults, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
@@ -228,6 +236,11 @@ function CorporateEventsPageInner() {
     setInitialSearch(params.get("search") || undefined);
   }, []);
 
+  const mergeUrlScopeIntoFilters = useCallback((filters: Filters): Filters => {
+    if (typeof window === "undefined") return filters;
+    return applyCorporateEventsUrlScope(filters, window.location.search);
+  }, []);
+
   const handleSearch = useCallback(
     (
       listFilters: Filters,
@@ -236,9 +249,14 @@ function CorporateEventsPageInner() {
       refreshCounts: boolean = true
     ) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      void fetchCorporateEvents(1, listFilters, countsFilters, refreshCounts);
+      void fetchCorporateEvents(
+        1,
+        mergeUrlScopeIntoFilters(listFilters),
+        mergeUrlScopeIntoFilters(countsFilters),
+        refreshCounts
+      );
     },
-    [fetchCorporateEvents]
+    [fetchCorporateEvents, mergeUrlScopeIntoFilters]
   );
 
   useEffect(() => {

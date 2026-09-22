@@ -283,6 +283,44 @@ function buildFiltersFromFilterBar(args: {
   return filters;
 }
 
+function parsePositiveScopedId(value: string | null): number | undefined {
+  if (value == null || value.trim() === "") return undefined;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+  return parsed;
+}
+
+/** Applies deep-link query params (e.g. ?new_company_id=7733) onto API filters. */
+export function applyCorporateEventsUrlScope(
+  filters: CorporateEventsSearchFilters,
+  search: string
+): CorporateEventsSearchFilters {
+  const query = search.startsWith("?") ? search.slice(1) : search;
+  if (!query) return filters;
+
+  const params = new URLSearchParams(query);
+  const newCompanyId =
+    parsePositiveScopedId(params.get("new_company_id")) ??
+    parsePositiveScopedId(params.get("target_company_id"));
+  const individualId = parsePositiveScopedId(params.get("individual_id"));
+  const investorId = parsePositiveScopedId(params.get("investor_id"));
+
+  if (
+    newCompanyId == null &&
+    individualId == null &&
+    investorId == null
+  ) {
+    return filters;
+  }
+
+  return {
+    ...filters,
+    ...(newCompanyId != null ? { new_company_id: newCompanyId } : {}),
+    ...(individualId != null ? { individual_id: individualId } : {}),
+    ...(investorId != null ? { investor_id: investorId } : {}),
+  };
+}
+
 export const createDefaultCorporateEventFilters =
   (): CorporateEventsSearchFilters => ({
     Countries: [],

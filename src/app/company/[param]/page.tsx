@@ -3272,10 +3272,9 @@ const CompanyDetail = () => {
       display: "grid",
       gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
       gap: "12px",
-      flex: "1",
       maxWidth: "100%",
       overflow: "hidden",
-      alignItems: "stretch",
+      alignItems: "start",
     },
     "@media (max-width: 768px)": {
       responsiveGrid: {
@@ -4610,7 +4609,7 @@ const CompanyDetail = () => {
                     }}
                     browseAllHref={
                       company?.id
-                        ? `/corporate-events?target_company_id=${company.id}`
+                        ? `/corporate-events?new_company_id=${company.id}`
                         : "/corporate-events"
                     }
                     fillGridCell
