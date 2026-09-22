@@ -28,6 +28,7 @@ import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/invest
 import { InvestorPortfolioTab } from "@/components/investors/InvestorPortfolioTab";
 import { fetchInvestorHoldingPeriodAverageServer } from "@/app/investors/[id]/holdingPeriodActions";
 import type { InvestorHoldingPeriodAverageResponse } from "@/lib/holdingPeriod";
+import { parsePortfolioApiResponse } from "@/lib/parsePortfolioApiResponse";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import { readEntityLogo } from "@/lib/companyLogo";
@@ -113,17 +114,6 @@ interface PortfolioCompany {
     name: string;
     job_titles?: string[];
   }>;
-}
-
-interface PortfolioResponse {
-  items: PortfolioCompany[];
-  itemsReceived: number;
-  curPage: number;
-  nextPage: number | null;
-  prevPage: number | null;
-  offset: number;
-  perPage: number;
-  pageTotal: number;
 }
 
 interface CorporateEvent {
@@ -619,39 +609,13 @@ const InvestorDetailPage = () => {
         }
 
         const raw = await response.json();
-
-        if (Array.isArray(raw)) {
-          const items = raw.map(mapPortfolioItem);
-          const first = raw[0] ?? {};
-          setPortfolioCompanies(items);
-          setPortfolioPagination({
-            itemsReceived: Number(first?.itemsreceived ?? items.length ?? 0),
-            curPage: Number(first?.curpage ?? page ?? 1),
-            nextPage:
-              first?.nextpage === null || first?.nextpage === undefined
-                ? null
-                : Number(first?.nextpage),
-            prevPage:
-              first?.prevpage === null || first?.prevpage === undefined
-                ? null
-                : Number(first?.prevpage),
-            offset: Number(first?.offset ?? 0),
-            perPage: 50,
-            pageTotal: Number(first?.pagetotal ?? 0),
-          });
-        } else {
-          const data = raw as PortfolioResponse;
-          setPortfolioCompanies((data.items || []).map(mapPortfolioItem));
-          setPortfolioPagination({
-            itemsReceived: data.itemsReceived || 0,
-            curPage: data.curPage || 1,
-            nextPage: data.nextPage || null,
-            prevPage: data.prevPage || null,
-            offset: data.offset || 0,
-            perPage: data.perPage || 50,
-            pageTotal: data.pageTotal || 0,
-          });
-        }
+        const { items, pagination } = parsePortfolioApiResponse(
+          raw,
+          page,
+          "current_portfolio"
+        );
+        setPortfolioCompanies(items.map(mapPortfolioItem));
+        setPortfolioPagination(pagination);
       } catch (err) {
         console.error("Error fetching portfolio companies:", err);
         // Don't set main error state for portfolio loading failure
@@ -693,39 +657,13 @@ const InvestorDetailPage = () => {
         }
 
         const raw = await response.json();
-
-        if (Array.isArray(raw)) {
-          const items = raw.map(mapPortfolioItem);
-          const first = raw[0] ?? {};
-          setPastPortfolioCompanies(items);
-          setPastPortfolioPagination({
-            itemsReceived: Number(first?.itemsreceived ?? items.length ?? 0),
-            curPage: Number(first?.curpage ?? page ?? 1),
-            nextPage:
-              first?.nextpage === null || first?.nextpage === undefined
-                ? null
-                : Number(first?.nextpage),
-            prevPage:
-              first?.prevpage === null || first?.prevpage === undefined
-                ? null
-                : Number(first?.prevpage),
-            offset: Number(first?.offset ?? 0),
-            perPage: 50,
-            pageTotal: Number(first?.pagetotal ?? 0),
-          });
-        } else {
-          const data = raw as PortfolioResponse;
-          setPastPortfolioCompanies((data.items || []).map(mapPortfolioItem));
-          setPastPortfolioPagination({
-            itemsReceived: data.itemsReceived || 0,
-            curPage: data.curPage || 1,
-            nextPage: data.nextPage || null,
-            prevPage: data.prevPage || null,
-            offset: data.offset || 0,
-            perPage: data.perPage || 50,
-            pageTotal: data.pageTotal || 0,
-          });
-        }
+        const { items, pagination } = parsePortfolioApiResponse(
+          raw,
+          page,
+          "past_portfolio"
+        );
+        setPastPortfolioCompanies(items.map(mapPortfolioItem));
+        setPastPortfolioPagination(pagination);
       } catch (err) {
         console.error("Error fetching past portfolio companies:", err);
         // Don't set main error state for portfolio loading failure
