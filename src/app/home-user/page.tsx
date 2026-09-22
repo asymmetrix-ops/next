@@ -380,6 +380,7 @@ import {
   getSearchBadgeLabel,
   SEARCH_PAGE_TYPES,
   SEARCH_PAGE_TYPE_LABELS,
+  GLOBAL_SEARCH_INPUT_PLACEHOLDER,
 } from "@/lib/globalSearch";
 
 // Removed NewCompany interface along with the related UI section
@@ -1694,7 +1695,7 @@ export default function HomeUserPage() {
         <div className="dash-searchrow shrink-0 flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
           <div
             ref={searchWrapRef}
-            className={`dash-searchwrap relative w-full min-w-0 rounded-full border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
+            className={`dash-searchwrap relative w-full min-w-0 flex-1 max-w-3xl rounded-full border-2 bg-white shadow-sm ${
               isTrialActive
                 ? "border-gray-200"
                 : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
@@ -1720,7 +1721,7 @@ export default function HomeUserPage() {
               placeholder={
                 isTrialActive
                   ? "Search is disabled during trial access"
-                  : "Search companies, investors, advisors, events…"
+                  : GLOBAL_SEARCH_INPUT_PLACEHOLDER
               }
               className={`w-full px-4 py-3 text-base rounded-full border-0 bg-transparent focus:outline-none focus:ring-0 ${
                 isTrialActive

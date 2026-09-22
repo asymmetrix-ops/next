@@ -26,6 +26,10 @@ export const SEARCH_PAGE_TYPE_LABELS: Record<SearchPageType, string> = {
   "insights and analysis": "Insights & Analysis",
 };
 
+/** Home dashboard search input — keep in sync with SEARCH_PAGE_TYPES coverage. */
+export const GLOBAL_SEARCH_INPUT_PLACEHOLDER =
+  "Search companies, sectors, investors, advisors, individuals, insights, events…";
+
 export type GlobalSearchResult = {
   id: number;
   title: string;
