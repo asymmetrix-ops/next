@@ -34,7 +34,7 @@ import {
 import { CorporateEventTargetLink, CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import NewsArticleCard from "@/components/NewsArticleCard";
-import { isNewsArticle } from "@/lib/contentArticleDisplay";
+import { getNewsSubType, isNewsArticle } from "@/lib/contentArticleDisplay";
 import type { ContentArticle } from "@/types/insightsAnalysis";
 import {
   getContentTypeAccentColor,
@@ -137,7 +137,14 @@ interface InsightArticle {
   // Content type fields may arrive in different shapes/keys
   Content_Type?: string;
   content_type?: string;
-  Content?: { Content_type?: string; Content_Type?: string };
+  Content?: {
+    Content_type?: string;
+    Content_Type?: string;
+    News_Sub_Type?: string;
+    news_sub_type?: string;
+  };
+  News_Sub_Type?: string;
+  news_sub_type?: string;
   keywords?: string[];
   related_documents?: Array<{
     url: string;
@@ -163,6 +170,16 @@ interface InsightArticle {
     hqCountryIso2?: string | null;
     hq_iso2?: string | null;
   }>;
+}
+
+function dashNewsSubtypeTagClass(subtype: string): string {
+  const s = subtype.toLowerCase().trim();
+  if (s.includes("fundraise")) return "dash-tag dash-tag-fund";
+  if (s.includes("sale process")) return "dash-tag dash-tag-sale";
+  if (s.includes("deal close")) return "dash-tag dash-tag-close";
+  if (s.includes("carve")) return "dash-tag dash-tag-carve";
+  if (s === "ipo") return "dash-tag dash-tag-ipo";
+  return "dash-tag dash-tag-lead";
 }
 
 function getInsightTransactionStatus(article: InsightArticle): string {
@@ -1848,8 +1865,15 @@ export default function HomeUserPage() {
               <div className="dash-news-lane">
                 {homeNewsArticles.map((article) => {
                   const href = `/article/${article.id}?from=home`;
+                  const newsSubType = getNewsSubType(article);
                   return (
                     <a key={article.id} href={href} className="dash-news-item">
+                      {newsSubType ? (
+                        <span className={dashNewsSubtypeTagClass(newsSubType)}>
+                          <i aria-hidden="true" />
+                          {newsSubType}
+                        </span>
+                      ) : null}
                       <span className="h">{article.Headline}</span>
                       {article.Strapline && (
                         <span className="d">{article.Strapline}</span>

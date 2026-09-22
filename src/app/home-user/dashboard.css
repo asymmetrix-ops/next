@@ -500,6 +500,11 @@
   background: var(--dash-blue-50);
 }
 
+.dash-news-item .dash-tag {
+  align-self: flex-start;
+  margin-bottom: 7px;
+}
+
 .dash-news-item .h {
   display: block;
   font-size: 13.5px;
