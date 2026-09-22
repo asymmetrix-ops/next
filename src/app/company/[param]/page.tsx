@@ -3420,6 +3420,9 @@ const CompanyDetail = () => {
   const PRODUCT_ROW_START = showInsights ? 3 : 2;
   /** Col 3 row 2 is always subscription/other metrics; headcount stacks below. */
   const FINANCE_SECONDARY_ROW = 2;
+  /** AI Defensibility sits under both finance cards (col 3), never sharing row 2 with secondary metrics. */
+  const AI_RISK_ROW_START = FINANCE_SECONDARY_ROW + 1;
+  const AI_RISK_ROW_SPAN = 2;
   const rightRailHeadcountRow = showInsights
     ? PRODUCT_ROW_START
     : FINANCE_SECONDARY_ROW + 1;
@@ -3456,7 +3459,11 @@ const CompanyDetail = () => {
     productMixGridSpan = showProductAttributes ? productZoneHeight : 1;
     coreProductsGridRow = showCoreProducts ? PRODUCT_ROW_START : 0;
     coreProductsGridSpan = showCoreProducts ? productZoneHeight : 1;
-    headcountGridRow = Math.max(wideSectionStartRow, rightRailHeadcountRow);
+    headcountGridRow = Math.max(
+      wideSectionStartRow,
+      rightRailHeadcountRow,
+      AI_RISK_ROW_START + AI_RISK_ROW_SPAN
+    );
     managementGridRow = hasManagement ? headcountGridRow + 1 : 0;
     corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
     subsidiariesGridRow = hasSubsidiaries
@@ -3546,7 +3553,7 @@ const CompanyDetail = () => {
     }
     .company-grid-product-mix { grid-column: 1; grid-row: ${productMixGridRow} / span ${productMixGridSpan}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: flex-start; }
     .company-grid-product-users { grid-column: 2; grid-row: ${coreProductsGridRow} / span ${coreProductsGridSpan}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-ai-risk { grid-column: 3; grid-row: ${PRODUCT_ROW_START} / span 2; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-ai-risk { grid-column: 3; grid-row: ${AI_RISK_ROW_START} / span ${AI_RISK_ROW_SPAN}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
     .company-grid-corporate-events,
     .company-grid-subsidiaries,
     .company-grid-headcount,
