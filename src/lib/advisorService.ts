@@ -1,5 +1,6 @@
 import { authService } from "./auth";
 import { AdvisorResponse, CorporateEventsResponse } from "../types/advisor";
+import { readPlatformCurrencyIdClient } from "./platformCurrency";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
 
@@ -52,69 +53,63 @@ class AdvisorService {
    * Endpoint: https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/advisors_ce
    * Method: GET
    * Auth: Required
-   * Query Parameters: backend may vary; try common keys.
+   * Query Parameters: `{ new_comp_id: number, preferred_currency_id: number }`
+   * Response shape: `{ items: AdvisorCorporateEvent[], preferred_currency_id: number }`
+   * — NOT a flat array. `target_companies` / `primary_sectors` / `other_advisors` /
+   * `advisor_individuals` are JSON-encoded strings on each item, not arrays; callers
+   * must JSON.parse them (see `coerceUnknownToArray` on the advisor page).
    */
   async getCorporateEvents(
-    advisorId: number
+    advisorId: number,
+    preferredCurrencyId?: number
   ): Promise<CorporateEventsResponse> {
-    const endpoint = `${BASE_URL}/advisors_ce`;
+    const currencyId = preferredCurrencyId ?? readPlatformCurrencyIdClient();
+    const params = new URLSearchParams({
+      new_comp_id: String(advisorId),
+      preferred_currency_id: String(currencyId),
+    });
+    const url = `${BASE_URL}/advisors_ce?${params.toString()}`;
     const headers = { ...this.getAuthHeaders() };
 
-    // Some deployments expect different query keys. We try a few and prefer a non-empty array.
-    const candidates: Array<{ key: string; value: number }> = [
-      { key: "advisor_company_id", value: advisorId },
-      { key: "new_comp_id", value: advisorId },
-      { key: "advisor_id", value: advisorId },
-    ];
+    const res = await fetch(url, { method: "GET", headers });
 
-    let lastOk: unknown = null;
-
-    for (const c of candidates) {
-      const url = `${endpoint}?${encodeURIComponent(c.key)}=${encodeURIComponent(
-        String(c.value)
-      )}`;
-      const res = await fetch(url, { method: "GET", headers });
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          authService.logout();
-          window.location.href = "/login";
-          throw new Error("Authentication required");
-        }
-        // try next candidate
-        continue;
+    if (!res.ok) {
+      if (res.status === 401) {
+        authService.logout();
+        window.location.href = "/login";
+        throw new Error("Authentication required");
       }
-
-      const payload = (await res.json()) as unknown;
-      lastOk = payload;
-
-      // If this candidate returns a non-empty array, use it immediately.
-      if (Array.isArray(payload) && payload.length > 0) {
-        return { events: payload };
-      }
+      throw new Error(
+        `Failed to fetch corporate events: ${res.status} ${res.statusText}`
+      );
     }
 
-    // If we never got a successful response, throw.
-    if (lastOk === null) {
-      throw new Error("Failed to fetch corporate events");
-    }
+    const payload = (await res.json()) as unknown;
 
-    // Successful response but empty / unexpected shape -> treat as empty array.
-    return { events: Array.isArray(lastOk) ? lastOk : [] };
+    // Current shape: { items: [...] }. Fall back to a flat array for
+    // backward compatibility in case an older deployment is still live.
+    if (Array.isArray(payload)) {
+      return { events: payload };
+    }
+    const items = (payload as { items?: unknown })?.items;
+    return { events: Array.isArray(items) ? items : [] };
   }
 
   /**
    * Combined API call to fetch both advisor profile and corporate events
    * This method calls both APIs in parallel for better performance
    */
-  async getAdvisorCompleteProfile(advisorId: number): Promise<{
+  async getAdvisorCompleteProfile(
+    advisorId: number,
+    preferredCurrencyId?: number
+  ): Promise<{
     advisor: AdvisorResponse;
     events: CorporateEventsResponse;
   }> {
     try {
       const [advisorResponse, eventsResponse] = await Promise.all([
         this.getAdvisorProfile(advisorId),
-        this.getCorporateEvents(advisorId),
+        this.getCorporateEvents(advisorId, preferredCurrencyId),
       ]);
 
       return {

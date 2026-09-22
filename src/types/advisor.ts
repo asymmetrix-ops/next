@@ -115,8 +115,9 @@ export interface AdvisorIndividual {
 // Corporate Events Response Interface
 export interface CorporateEventsResponse {
   /**
-   * New advisors corporate events payload (Xano `advisors_ce`)
-   * This endpoint returns a *flat array* (not wrapped in an object).
+   * New advisors corporate events payload (Xano `advisors_ce`).
+   * Wire response is `{ items: [...], preferred_currency_id }` — `events`
+   * here is `advisorService.getCorporateEvents`'s already-unwrapped `items`.
    */
   events: AdvisorCorporateEvent[];
 }
@@ -158,11 +159,21 @@ export interface AdvisorCorporateEvent {
   company_advised_id?: number | null;
   company_advised_name?: string | null;
   company_advised_role?: string | null;
-  // API updated: arrays (not JSON strings)
-  target_companies?: AdvisorCeCompanyRef[] | null;
-  primary_sectors?: AdvisorCeSectorTag[] | null;
-  other_advisors?: AdvisorCeOtherAdvisor[] | null;
-  advisor_individuals?: AdvisorCeAdvisorIndividual[] | null;
+  // Wire values are JSON-encoded strings (e.g. `'[{"id":1,"name":"..."}]'`),
+  // not parsed arrays — callers must JSON.parse (see `coerceArray`/
+  // `coerceUnknownToArray` in the advisor UI). Typed as the parsed shape
+  // here for convenience once decoded.
+  target_companies?: AdvisorCeCompanyRef[] | string | null;
+  primary_sectors?: AdvisorCeSectorTag[] | string | null;
+  other_advisors?: AdvisorCeOtherAdvisor[] | string | null;
+  advisor_individuals?: AdvisorCeAdvisorIndividual[] | string | null;
+  // Enterprise value conversion metadata present on some items.
+  enterprise_value_m_reported_value?: number | string | null;
+  enterprise_value_m_reported_currency_id?: number | null;
+  enterprise_value_m_native_currency_id?: number | null;
+  enterprise_value_m_converted?: boolean | null;
+  enterprise_value_m_is_approximate?: boolean | null;
+  enterprise_value_m_fx_rate_id?: number | null;
 }
 
 // (Legacy advisor corporate events shapes removed; advisor pages now use `advisors_ce`.)
