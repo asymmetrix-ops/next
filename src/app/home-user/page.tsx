@@ -2,7 +2,6 @@
 
 import "./dashboard.css";
 import {
-  Fragment,
   useState,
   useEffect,
   useCallback,
@@ -28,9 +27,11 @@ import {
   appendDealRadarItems,
   getDealRadarContentCtaLabel,
   mapDealRadarItem,
+  COUNTRY_FLAG_INLINE_SIZE_PX,
+  readHqCountryIso2,
   type DealRadarItem,
 } from "@/lib/dealRadar";
-import { CorporateEventPartyLink, CorporateEventTargetLink, CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { CorporateEventTargetLink, CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import NewsArticleCard from "@/components/NewsArticleCard";
 import { isNewsArticle } from "@/lib/contentArticleDisplay";
@@ -44,6 +45,11 @@ import { locationsService } from "@/lib/locationsService";
 import { normalizeSectorName } from "@/components/corporate-events/corporateEventsTableUtils";
 import { buildDealRadarCompaniesViewAllHref } from "@/lib/companiesSearchUrl";
 import { CappedMultiValueLinks } from "@/components/search/CappedMultiValueLinks";
+import {
+  entityLinksToMultiValueItems,
+  namesToMultiValueItems,
+} from "@/components/search/searchMultiValueUtils";
+import { DEFAULT_TAG_CAP } from "@/components/redesign/primitives";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -498,21 +504,56 @@ export default function HomeUserPage() {
   };
 
   const partyLinkClassName = "dash-ev-link";
+  const partyOverflowClassName =
+    "inline-flex items-center rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold px-1.5 py-0.5 cursor-pointer border-0 align-middle";
+  const partyShowLessClassName =
+    "text-[11px] font-semibold text-blue-700 hover:underline cursor-pointer border-0 bg-transparent p-0 mt-0.5";
 
-  const renderPartyEntityInline = (
-    entity: EntityRef,
-    opts?: { trailingComma?: boolean }
+  const renderCappedEntityLinks = (
+    entities: EntityRef[],
+    keyPrefix: string
   ): React.ReactNode => {
-    const href = normalizeEntityHref(entity);
-    const name = entity?.name || "Unknown";
+    const items = entityLinksToMultiValueItems(
+      dedupeById(entities).map((entity) => ({
+        id: entity.id,
+        name: entity.name || "Unknown",
+        href: normalizeEntityHref(entity) || null,
+        hqIso2: readHqCountryIso2(entity as unknown as Record<string, unknown>),
+      })),
+      keyPrefix
+    );
+    if (items.length === 0) return <span>Not Available</span>;
     return (
-      <CorporateEventPartyLink
-        name={name}
-        href={href || undefined}
+      <CappedMultiValueLinks
+        items={items}
+        max={DEFAULT_TAG_CAP}
+        flagSize={COUNTRY_FLAG_INLINE_SIZE_PX}
         linkClassName={partyLinkClassName}
-        linkStyle={{ fontWeight: "500" }}
-        entity={entity as unknown as Record<string, unknown>}
-        trailingComma={opts?.trailingComma}
+        overflowClassName={partyOverflowClassName}
+        showLessClassName={partyShowLessClassName}
+        emptyFallback={<span>Not Available</span>}
+        onLinkClick={(e) => {
+          const href = e.currentTarget.getAttribute("href");
+          if (href) void router.push(href);
+        }}
+      />
+    );
+  };
+
+  const renderCappedNameLinks = (
+    names: string[],
+    keyPrefix: string
+  ): React.ReactNode => {
+    const items = namesToMultiValueItems(names, keyPrefix);
+    if (items.length === 0) return <span>Not Available</span>;
+    return (
+      <CappedMultiValueLinks
+        items={items}
+        max={DEFAULT_TAG_CAP}
+        linkClassName={partyLinkClassName}
+        overflowClassName={partyOverflowClassName}
+        showLessClassName={partyShowLessClassName}
+        emptyFallback={<span>Not Available</span>}
       />
     );
   };
@@ -2507,17 +2548,9 @@ export default function HomeUserPage() {
                                   targetObj?.name || targetLegacyName;
 
                                 if (displayTargets.length > 0) {
-                                  return (
-                                    <>
-                                      {displayTargets.map((tgt, i, arr) => (
-                                        <Fragment key={`m-tgt-${tgt?.id ?? i}`}>
-                                          {renderTargetEntityInline(tgt, {
-                                            trailingComma: i < arr.length - 1,
-                                            stackFlag: false,
-                                          })}
-                                        </Fragment>
-                                      ))}
-                                    </>
+                                  return renderCappedEntityLinks(
+                                    displayTargets,
+                                    "m-tgt"
                                   );
                                 } else if (targetName) {
                                   return targetObj ? (
@@ -2544,16 +2577,9 @@ export default function HomeUserPage() {
                                   return <span>Not Available</span>;
                                 }
 
-                                return (
-                                  <>
-                                    {dedupeById(sellersNew).map((s, i, arr) => (
-                                      <Fragment key={`m-seller-${s?.id ?? i}`}>
-                                        {renderPartyEntityInline(s, {
-                                          trailingComma: i < arr.length - 1,
-                                        })}
-                                      </Fragment>
-                                    ))}
-                                  </>
+                                return renderCappedEntityLinks(
+                                  sellersNew,
+                                  "m-seller"
                                 );
                               })()}
                             </div>
@@ -3079,14 +3105,10 @@ export default function HomeUserPage() {
                                               ? "Target(s):"
                                               : "Target:"}
                                           </strong>{" "}
-                                          {displayTargets.map((tgt, i, arr) => (
-                                            <Fragment key={`tgt-${tgt?.id ?? i}`}>
-                                              {renderTargetEntityInline(tgt, {
-                                                trailingComma: i < arr.length - 1,
-                                                stackFlag: false,
-                                              })}
-                                            </Fragment>
-                                          ))}
+                                          {renderCappedEntityLinks(
+                                            displayTargets,
+                                            "tgt"
+                                          )}
                                         </div>
                                       ) : targetName ? (
                                         <div className="dash-ev-kv">
@@ -3108,72 +3130,22 @@ export default function HomeUserPage() {
                                       {buyersArr.length > 0 && (
                                         <div className="dash-ev-kv">
                                           <strong>Buyer(s):</strong>{" "}
-                                          {dedupeById(buyersArr).map(
-                                            (b, i, arr) => (
-                                              <Fragment key={`buyer-${i}`}>
-                                                {renderPartyEntityInline(b, {
-                                                  trailingComma:
-                                                    i < arr.length - 1,
-                                                })}
-                                              </Fragment>
-                                            )
+                                          {renderCappedEntityLinks(
+                                            buyersArr,
+                                            "buyer"
                                           )}
                                         </div>
                                       )}
 
-                                      {investorsArr.length > 0 && (() => {
-                                        const dedupedInvestors =
-                                          dedupeById(investorsArr);
-                                        const maxInlineInvestors = 12;
-                                        const visibleInvestors =
-                                          dedupedInvestors.slice(
-                                            0,
-                                            maxInlineInvestors
-                                          );
-                                        const remainingInvestors =
-                                          dedupedInvestors.length -
-                                          visibleInvestors.length;
-                                        return (
+                                      {investorsArr.length > 0 && (
                                           <div className="dash-ev-kv">
                                             <strong>Investor(s):</strong>{" "}
-                                            <span className="dash-ev-investors-inline">
-                                              <span className="dash-ev-investors-clamp">
-                                                {visibleInvestors.map(
-                                                  (inv, i) => (
-                                                    <Fragment
-                                                      key={`investor-${inv?.id ?? i}`}
-                                                    >
-                                                      {renderPartyEntityInline(
-                                                        inv,
-                                                        {
-                                                          trailingComma:
-                                                            i <
-                                                            visibleInvestors.length -
-                                                              1,
-                                                        }
-                                                      )}
-                                                    </Fragment>
-                                                  )
-                                                )}
-                                              </span>
-                                              {remainingInvestors > 0 && (
-                                                <span
-                                                  className="dash-ev-more-tag"
-                                                  title={dedupedInvestors
-                                                    .slice(visibleInvestors.length)
-                                                    .map(
-                                                      (inv) => inv?.name || ""
-                                                    )
-                                                    .filter(Boolean)
-                                                    .join(", ")}
-                                                >
-                                                  +{remainingInvestors}
-                                                </span>
-                                              )}
-                                            </span>
+                                            {renderCappedEntityLinks(
+                                              investorsArr,
+                                              "investor"
+                                            )}
                                           </div>
-                                        );
-                                      })()}
+                                      )}
 
                                       {buyersArr.length === 0 &&
                                         investorsArr.length === 0 &&
@@ -3184,32 +3156,23 @@ export default function HomeUserPage() {
                                               Buyer(s) / Investor(s):
                                             </strong>{" "}
                                             {buyersInvestorsCombined.length > 0
-                                              ? dedupeById(
-                                                  buyersInvestorsCombined
-                                                ).map((b, i, arr) => (
-                                                  <Fragment key={`bi-${i}`}>
-                                                    {renderPartyEntityInline(b, {
-                                                      trailingComma:
-                                                        i < arr.length - 1,
-                                                    })}
-                                                  </Fragment>
-                                                ))
-                                              : legacyCombinedNames.join(", ")}
+                                              ? renderCappedEntityLinks(
+                                                  buyersInvestorsCombined,
+                                                  "bi"
+                                                )
+                                              : renderCappedNameLinks(
+                                                  legacyCombinedNames,
+                                                  "legacy-bi"
+                                                )}
                                           </div>
                                         )}
 
                                       {sellersNew.length > 0 && (
                                         <div className="dash-ev-kv">
                                           <strong>Seller(s):</strong>{" "}
-                                          {dedupeById(sellersNew).map(
-                                            (s, i, arr) => (
-                                              <Fragment key={`seller-${i}`}>
-                                                {renderPartyEntityInline(s, {
-                                                  trailingComma:
-                                                    i < arr.length - 1,
-                                                })}
-                                              </Fragment>
-                                            )
+                                          {renderCappedEntityLinks(
+                                            sellersNew,
+                                            "seller"
                                           )}
                                         </div>
                                       )}
@@ -3217,7 +3180,10 @@ export default function HomeUserPage() {
                                       {advisors.length > 0 && (
                                         <div className="dash-ev-kv">
                                           <strong>Advisor(s):</strong>{" "}
-                                          {advisors.join(", ")}
+                                          {renderCappedNameLinks(
+                                            advisors.filter(Boolean) as string[],
+                                            "advisor"
+                                          )}
                                         </div>
                                       )}
                                     </div>
