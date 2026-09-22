@@ -466,19 +466,6 @@
   --ndot: #8a93a8;
 }
 
-.dash-co-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: var(--dash-r-pill);
-  font-size: 10.5px;
-  font-weight: 600;
-  background: #e4f5ec;
-  color: #0f7040;
-  white-space: nowrap;
-}
-
 /* ---------------- news banner ---------------- */
 .dash-news-tabs {
   display: flex;
@@ -570,11 +557,4 @@
   color: var(--dash-ink-3);
   margin-top: 3px;
   line-height: 1.45;
-}
-
-.dash-news-item .tg {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 7px;
 }

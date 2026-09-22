@@ -1862,7 +1862,6 @@ export default function HomeUserPage() {
               <div className="dash-news-lane">
                 {homeNewsArticles.map((article) => {
                   const href = `/article/${article.id}?from=home`;
-                  const firstCompany = article.companies_mentioned?.[0];
                   return (
                     <a key={article.id} href={href} className="dash-news-item">
                       <span className="ago">
@@ -1871,11 +1870,6 @@ export default function HomeUserPage() {
                       <span className="h">{article.Headline}</span>
                       {article.Strapline && (
                         <span className="d">{article.Strapline}</span>
-                      )}
-                      {firstCompany && (
-                        <span className="tg">
-                          <span className="dash-co-pill">{firstCompany.name}</span>
-                        </span>
                       )}
                     </a>
                   );
