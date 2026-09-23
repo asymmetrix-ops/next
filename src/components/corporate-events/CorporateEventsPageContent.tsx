@@ -32,6 +32,7 @@ import {
 import type { CorporateEventListItem } from "@/app/corporate-events/actions";
 import type { CorporateEventsSearchFilters } from "@/lib/corporateEventsFilterPayload";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useCorporateEventsAPI = (
   userId: number | null,
@@ -60,7 +61,7 @@ const useCorporateEventsAPI = (
     offset: 0,
     perPage: 50,
     pageTotal: 0,
-    itemTotal: 0,
+    itemsTotal: 0,
   });
   const [summaryStats, setSummaryStats] =
     useState<CorporateEventsSummaryStats>(EMPTY_CORPORATE_EVENTS_SUMMARY_STATS);
@@ -169,7 +170,7 @@ const useCorporateEventsAPI = (
             offset: data.offset,
             perPage: data.perPage,
             pageTotal: data.pageTotal,
-            itemTotal: data.itemTotal,
+            itemsTotal: data.itemTotal,
           });
           if (
             page === 1 &&
@@ -252,9 +253,8 @@ export function CorporateEventsPageContent() {
   const [initialSearch, setInitialSearch] = useState<string | undefined>(
     undefined
   );
-  const exportCSVRef = useRef<(() => void) | null>(null);
-  const applyTargetCompanyFilterRef = useRef<
-    ((companyId: number, companyName: string) => void) | null
+  const exportCSVRef = useRef<
+    ((request: ListExportRequest) => Promise<void>) | null
   >(null);
 
   useEffect(() => {
@@ -292,12 +292,11 @@ export function CorporateEventsPageContent() {
         summaryStats={summaryStats}
         userId={userId}
         onColumnsClick={() => setShowColumnsModal((value) => !value)}
-        onExportCSVClick={() => exportCSVRef.current?.()}
+        onExport={(mode) =>
+          exportCSVRef.current?.({ mode, scope: "full_list" })
+        }
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
-        onRegisterApplyTargetCompanyFilter={(fn) => {
-          applyTargetCompanyFilterRef.current = fn;
-        }}
       />
       <CorporateEventsSearchSection
         events={events}
@@ -314,9 +313,6 @@ export function CorporateEventsPageContent() {
           exportCSVRef.current = fn;
         }}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
-        onApplyTargetCompanyFilter={(companyId, companyName) => {
-          applyTargetCompanyFilterRef.current?.(companyId, companyName);
-        }}
       />
       <Footer />
     </div>
