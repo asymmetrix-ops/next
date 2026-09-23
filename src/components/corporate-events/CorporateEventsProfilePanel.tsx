@@ -63,6 +63,8 @@ type CorporateEventsProfilePanelProps = {
   onPrev?: () => void;
   onNext?: () => void;
   browseAllHref?: string;
+  /** When set, "Browse all" / "View all" calls this instead of navigating to `browseAllHref`. */
+  onBrowseAllClick?: () => void;
   /** Stretch card body so paginator stays at the bottom (company profile grid). */
   fillGridCell?: boolean;
   /** `narrow` = fewer columns; table scrolls inside card without widening the layout */
@@ -329,6 +331,7 @@ export const CorporateEventsProfilePanel: React.FC<
   onPrev,
   onNext,
   browseAllHref = "/corporate-events",
+  onBrowseAllClick,
   fillGridCell = false,
   layout = "default",
   onEventClick,
@@ -592,25 +595,63 @@ export const CorporateEventsProfilePanel: React.FC<
               {loading ? "-" : `Showing ${rangeLabel}`}
             </span>
           </div>
-          <Link
-            href={browseAllHref}
-            prefetch={false}
-            style={{
-              color: T.azure,
-              fontWeight: 500,
-              textDecoration: "none",
-              fontFamily: T.sans,
-              fontSize: 13,
-            }}
-          >
-            Browse all {loading ? "-" : resolvedTotal} →
-          </Link>
+          {onBrowseAllClick ? (
+            <button
+              type="button"
+              onClick={onBrowseAllClick}
+              style={{
+                padding: 0,
+                border: "none",
+                background: "none",
+                color: T.azure,
+                fontWeight: 500,
+                cursor: "pointer",
+                fontFamily: T.sans,
+                fontSize: 13,
+              }}
+            >
+              Browse all {loading ? "-" : resolvedTotal} →
+            </button>
+          ) : (
+            <Link
+              href={browseAllHref}
+              prefetch={false}
+              style={{
+                color: T.azure,
+                fontWeight: 500,
+                textDecoration: "none",
+                fontFamily: T.sans,
+                fontSize: 13,
+              }}
+            >
+              Browse all {loading ? "-" : resolvedTotal} →
+            </Link>
+          )}
         </div>
       ) : events.length > maxInitialEvents ? (
         <div style={{ textAlign: "center", padding: "12px 0 16px" }}>
-          <span style={{ fontSize: "12.5px", color: T.muted, fontFamily: T.sans }}>
-            {events.length} events total
-          </span>
+          {onBrowseAllClick ? (
+            <button
+              type="button"
+              onClick={onBrowseAllClick}
+              style={{
+                padding: 0,
+                border: "none",
+                background: "none",
+                color: T.azure,
+                fontWeight: 500,
+                cursor: "pointer",
+                fontFamily: T.sans,
+                fontSize: "12.5px",
+              }}
+            >
+              View all {events.length} events →
+            </button>
+          ) : (
+            <span style={{ fontSize: "12.5px", color: T.muted, fontFamily: T.sans }}>
+              {events.length} events total
+            </span>
+          )}
         </div>
       ) : null}
     </div>

@@ -1256,7 +1256,7 @@ const InvestorDetailPage = () => {
     .investor-grid-portfolio { grid-column: 1 / span 2; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
     .investor-grid-people { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .investor-grid-corporate-events { grid-column: 1 / span 2; grid-row: 3; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .investor-grid-headcount { grid-column: 3; grid-row: 3; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .investor-grid-headcount { grid-column: 3; grid-row: 3; display: flex; flex-direction: column; min-height: 0; align-self: start; height: fit-content; }
     .investor-grid-portfolio > *,
     .investor-grid-corporate-events > *,
     .investor-grid-people > *,
@@ -1532,7 +1532,7 @@ const InvestorDetailPage = () => {
             </div>
 
             <div className="investor-grid-people">
-              <InvestorPeopleCard fillGridCell members={teamMembers} maxVisible={3} />
+              <InvestorPeopleCard fillGridCell members={teamMembers} maxVisible={4} />
             </div>
 
             <div className="investor-grid-corporate-events">
@@ -1556,13 +1556,13 @@ const InvestorDetailPage = () => {
                   loading={corporateEventsLoading}
                   primarySectors={corporateEventPrimarySectors}
                   maxInitialEvents={3}
+                  onBrowseAllClick={() => setActiveProfileTab("Corporate Events")}
                 />
               </LinkPanel>
             </div>
 
             <div className="investor-grid-headcount">
               <HeadcountCard
-                fillGridCell
                 data={linkedInHistory.map((e) => e.employees_count)}
                 dates={linkedInHistory.map((e) => e.date)}
                 count={currentHeadcount}

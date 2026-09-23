@@ -35,6 +35,8 @@ const partyValueStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 400,
   lineHeight: 1.4,
+  overflowWrap: "break-word",
+  wordBreak: "break-word",
 };
 
 const entityLinkStyle: React.CSSProperties = {
@@ -57,9 +59,11 @@ function PartyLinks({
   links: PartyLink[];
   maxVisible?: number;
 }) {
+  const [expanded, setExpanded] = React.useState(false);
   if (links.length === 0) return <>Not Available</>;
-  const visible = maxVisible ? links.slice(0, maxVisible) : links;
-  const extra = maxVisible ? Math.max(0, links.length - maxVisible) : 0;
+  const showAll = expanded || !maxVisible;
+  const visible = showAll ? links : links.slice(0, maxVisible);
+  const extra = !showAll ? Math.max(0, links.length - maxVisible!) : 0;
   return (
     <>
       {visible.map((item, idx) => (
@@ -75,20 +79,23 @@ function PartyLinks({
         </span>
       ))}
       {extra > 0 ? (
-        <span
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
           style={{
             marginLeft: 4,
             fontSize: 11,
             fontWeight: 600,
-            color: PARTY_LABEL_COLOR,
+            color: PARTY_LINK_COLOR,
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            textDecoration: "underline",
           }}
-          title={links
-            .slice(maxVisible)
-            .map((l) => l.name)
-            .join(", ")}
         >
           +{extra}
-        </span>
+        </button>
       ) : null}
     </>
   );
@@ -116,7 +123,8 @@ function PartyBlock({
         textAlign: align,
         width: align === "center" && !inline ? "100%" : undefined,
         minWidth: inline ? 0 : undefined,
-        flex: inline ? "1 1 0" : undefined,
+        maxWidth: inline ? "100%" : undefined,
+        flex: inline ? "0 1 auto" : undefined,
       }}
     >
       <div style={partyLabelStyle}>{formatPartyLabel(label)}</div>
@@ -689,6 +697,7 @@ export function CorporateEventPartiesColumn({
           flexWrap: "wrap",
           gap: 12,
           width: "100%",
+          minWidth: 0,
           marginBottom: 8,
           justifyContent: align === "center" ? "center" : "flex-start",
         }}

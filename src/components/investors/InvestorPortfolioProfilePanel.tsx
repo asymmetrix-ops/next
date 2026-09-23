@@ -56,7 +56,7 @@ const INVESTED_COL_INDEX = 3;
 type PortfolioTab = "current" | "past";
 
 function portfolioColAlign(columnIndex: number): "left" | "center" | "right" {
-  if (columnIndex === INVESTED_COL_INDEX) return "right";
+  if (columnIndex === INVESTED_COL_INDEX) return "center";
   return profileTableColAlign(columnIndex);
 }
 
@@ -128,13 +128,6 @@ export function InvestorPortfolioProfilePanel({
     companies.length;
 
   const displayed = showAll ? companies : companies.slice(0, pageSize);
-
-  const footerLeft =
-    total > 0
-      ? showAll
-        ? `Showing all ${total.toLocaleString("en-US")}`
-        : `1–${Math.min(pageSize, total).toLocaleString("en-US")} of ${total.toLocaleString("en-US")}`
-      : "";
 
   const yearHeader = isCurrent ? "Invested" : "Exited";
 
@@ -370,14 +363,13 @@ export function InvestorPortfolioProfilePanel({
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             gap: 12,
             padding: "10px 16px 14px",
             borderTop: `1px solid ${T.hair}`,
             flexWrap: "wrap",
           }}
         >
-          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.mono }}>{footerLeft}</div>
           {total > pageSize && !showAll ? (
             <button
               type="button"
