@@ -6,6 +6,9 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useRouter } from "next/navigation";
+import { ChangeStateTab } from "./_components/ChangeStatePanel";
+import { CompanyAnalysisTab } from "./_components/CompanyAnalysisTab";
+import { CompetitorsTab } from "./analytics/_components/AnalyticsViews";
 
 type SourceIdList = number[];
 
@@ -110,7 +113,14 @@ Target company: {query} ({domain})`;
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "valuation" | "emails" | "content" | "sectors" | "company_searches"
+    | "valuation"
+    | "emails"
+    | "content"
+    | "sectors"
+    | "company_searches"
+    | "competitors"
+    | "changeState"
+    | "companyAnalysis"
   >("valuation");
 
   async function onSubmit(e: React.FormEvent) {
@@ -150,7 +160,7 @@ Target company: {query} ({domain})`;
   }
 
   return (
-    <div className="px-4 py-10 mx-auto max-w-5xl">
+    <div className="w-full px-4 py-10">
       <h1 className="mb-6 text-2xl font-semibold">Admin</h1>
 
       <div className="flex gap-4 mb-6 border-b">
@@ -203,6 +213,36 @@ Target company: {query} ({domain})`;
           }`}
         >
           Company Searches
+        </button>
+        <button
+          onClick={() => setActiveTab("competitors")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "competitors"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Competitors
+        </button>
+        <button
+          onClick={() => setActiveTab("changeState")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "changeState"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Change State
+        </button>
+        <button
+          onClick={() => setActiveTab("companyAnalysis")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "companyAnalysis"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Company Analysis
         </button>
       </div>
 
@@ -269,6 +309,9 @@ Target company: {query} ({domain})`;
       {activeTab === "content" && <ContentTab />}
       {activeTab === "sectors" && <SectorsTab />}
       {activeTab === "company_searches" && <CompanySearchesTab />}
+      {activeTab === "competitors" && <CompetitorsTab />}
+      {activeTab === "changeState" && <ChangeStateTab />}
+      {activeTab === "companyAnalysis" && <CompanyAnalysisTab />}
     </div>
   );
 }

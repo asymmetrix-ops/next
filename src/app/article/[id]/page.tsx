@@ -1169,6 +1169,16 @@ const ArticleDetailPage = () => {
     return /(\.(png|jpe?g|gif|webp|svg))($|\?)/i.test(nameOrUrl);
   };
 
+  const getRenderableAttachmentDocs = (
+    docs: ArticleDetail["Related_Documents"] | undefined,
+    kind: "image" | "document"
+  ) => {
+    const withUrl = (docs || []).filter(Boolean).filter((d) => Boolean(d.url));
+    return kind === "image"
+      ? withUrl.filter(isImageDoc)
+      : withUrl.filter((d) => !isImageDoc(d));
+  };
+
   const formatCompanyOfFocusYearFounded = (candidate: unknown): string => {
     if (candidate === null || candidate === undefined) return "-";
     const n = Number(candidate);
@@ -1746,8 +1756,13 @@ const ArticleDetailPage = () => {
             })()}
 
             {/* Inline image grid (if additional images remain useful outside body) */}
-            {article.Related_Documents &&
-              article.Related_Documents.filter(Boolean).some(isImageDoc) && (
+            {(() => {
+              const imageAttachmentDocs = getRenderableAttachmentDocs(
+                article.Related_Documents,
+                "image"
+              );
+              if (!imageAttachmentDocs.length) return null;
+              return (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Images</h2>
                   <div
@@ -1758,55 +1773,46 @@ const ArticleDetailPage = () => {
                       gap: 16,
                     }}
                   >
-                    {(article.Related_Documents || [])
-                      .filter(Boolean)
-                      .filter(isImageDoc)
-                      .map((doc, idx) => (
-                        <figure key={`${doc.url}-${idx}`} style={{ margin: 0 }}>
-                          <img src={doc.url || ""} alt={doc.name || ""} />
-                          <figcaption>{doc.name || ""}</figcaption>
-                        </figure>
-                      ))}
+                    {imageAttachmentDocs.map((doc, idx) => (
+                      <figure key={`${doc.url}-${idx}`} style={{ margin: 0 }}>
+                        <img src={doc.url} alt={doc.name || ""} />
+                        <figcaption>{doc.name || ""}</figcaption>
+                      </figure>
+                    ))}
                   </div>
                 </div>
-              )}
+              );
+            })()}
 
             {/* Related Documents (attachments) */}
-            {article.Related_Documents &&
-              (article.Related_Documents || [])
-                .filter(Boolean)
-                .filter((d) => !isImageDoc(d)).length > 0 && (
+            {(() => {
+              const documentAttachments = getRenderableAttachmentDocs(
+                article.Related_Documents,
+                "document"
+              );
+              if (!documentAttachments.length) return null;
+              return (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Related Documents</h2>
                   <div style={styles.tagContainer}>
-                    {(article.Related_Documents || [])
-                      .filter(Boolean)
-                      .filter((d) => !isImageDoc(d))
-                      .map((doc, index) => {
-                        const url = (doc as unknown as { url?: string })?.url;
-                        const name = (doc as unknown as { name?: string })
-                          ?.name;
-                        if (!url) {
-                          return null;
-                        }
-                        return (
-                          <a
-                            key={index}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              ...styles.tag,
-                              textDecoration: "none",
-                            }}
-                          >
-                            {name || "Document"}
-                          </a>
-                        );
-                      })}
+                    {documentAttachments.map((doc, index) => (
+                      <a
+                        key={`${doc.url}-${index}`}
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          ...styles.tag,
+                          textDecoration: "none",
+                        }}
+                      >
+                        {doc.name || "Document"}
+                      </a>
+                    ))}
                   </div>
                 </div>
-              )}
+              );
+            })()}
           </div>
 
           {/* Right: Metadata (1/3) */}
