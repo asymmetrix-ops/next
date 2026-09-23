@@ -629,7 +629,14 @@ export const CorporateEventsProfilePanel: React.FC<
           )}
         </div>
       ) : events.length > maxInitialEvents ? (
-        <div style={{ textAlign: "center", padding: "12px 0 16px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            padding: "10px 16px 14px",
+            borderTop: `1px solid ${T.hair}`,
+          }}
+        >
           {onBrowseAllClick ? (
             <button
               type="button"

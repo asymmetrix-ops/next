@@ -69,10 +69,11 @@ interface Investor {
   description: string;
   url: string;
   street_address: string;
+  /** FK into a lookup table, NOT a literal year — resolve via the top-level `Years_founded`. */
   year_founded: number;
-  _years: InvestorYears;
-  _locations: InvestorLocation;
-  _linkedin_data_of_new_company: LinkedInData;
+  _years?: InvestorYears;
+  _locations?: InvestorLocation;
+  _linkedin_data_of_new_company?: LinkedInData;
 }
 
 interface FocusSector {
@@ -80,12 +81,39 @@ interface FocusSector {
   sector_name: string;
 }
 
+/** Top-level, API-resolved location (replaces `Investor._locations`). */
+interface ResolvedLocation {
+  id: number | null;
+  City: string | null;
+  State__Province__County: string | null;
+  Country: string | null;
+}
+
+/** Top-level, API-resolved founding year (replaces `Investor.year_founded`, which is an FK id). */
+interface ResolvedYearsFounded {
+  id: number | null;
+  Year: string | null;
+}
+
+interface BusinessFocusEntry {
+  id: number;
+  business_focus: string;
+}
+
 interface TeamMember {
-  Individual_text: string;
-  job_titles_id: Array<{ job_title: string }>;
+  /** @deprecated Older API shape; current API returns `advisor_individuals` instead. */
+  Individual_text?: string;
+  /** Current API's name field for a team member. */
+  advisor_individuals?: string | null;
+  job_titles_id?: Array<{ job_title: string }>;
   job_titles?: unknown;
-  current_employer_url: string;
+  current_employer_url?: string;
   individuals_id?: number;
+  individual_id?: number | null;
+}
+
+function teamMemberName(member: TeamMember): string {
+  return member.advisor_individuals?.trim() || member.Individual_text?.trim() || "";
 }
 
 interface PortfolioCompany {
@@ -95,6 +123,7 @@ interface PortfolioCompany {
   sectors_id: Array<{
     sector_name: string;
     Sector_importance: string;
+    sector_id?: number;
   }>;
   description: string;
   year_exited?: number | string | null;
@@ -228,6 +257,10 @@ interface CorporateEventsResponse {
 
 interface InvestorData {
   Investor: Investor;
+  Location?: ResolvedLocation;
+  LinkedIn_Data?: LinkedInData;
+  Years_founded?: ResolvedYearsFounded;
+  Primary_Business_Focus?: BusinessFocusEntry[];
   Focus: FocusSector[];
   Invested_DA_sectors: FocusSector[];
   Investment_Team_Roles_current: TeamMember[];
@@ -347,10 +380,17 @@ function extractValidYear(candidate: unknown): number | null {
   return null;
 }
 
-function getYearFoundedDisplay(investor: Investor): number | null {
+// `Investor.year_founded` is a foreign key row id (not a literal year), so it
+// is deliberately NOT used as a candidate here — only the API-resolved
+// `Years_founded.Year` (and the legacy `Investor._years.Year` shape, kept for
+// backward compatibility) are ever plausible years.
+function getYearFoundedDisplay(
+  investor: Investor,
+  resolvedYearsFounded?: ResolvedYearsFounded
+): number | null {
   return (
+    extractValidYear(resolvedYearsFounded?.Year) ??
     extractValidYear(investor._years?.Year) ??
-    extractValidYear(investor.year_founded) ??
     null
   );
 }
@@ -424,10 +464,6 @@ const InvestorDetailPage = () => {
       cancelled = true;
     };
   }, [investorId]);
-  const [resolvedIndividualIds, setResolvedIndividualIds] = useState<
-    Map<string, number>
-  >(new Map());
-
   const [error, setError] = useState<string | null>(null);
 
   // Fetch investor data
@@ -525,7 +561,11 @@ const InvestorDetailPage = () => {
   const mapPortfolioItem = useCallback((item: unknown): PortfolioCompany => {
     const obj = asRecord(item);
     const sectors = safeParseJSON<
-      Array<{ sector_name: string; Sector_importance: string }>
+      Array<{
+        sector_name: string;
+        Sector_importance: string;
+        sector_id?: number;
+      }>
     >(obj["sectors_id"], []);
 
     const locations = safeParseJSON<{ Country?: string }>(
@@ -950,69 +990,6 @@ const InvestorDetailPage = () => {
     }`
   )}`;
 
-  // Resolve individual id by name via API
-  const resolveIndividualIdByName = async (
-    individualName: string
-  ): Promise<number | null> => {
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = new URLSearchParams();
-      params.append("search_query", individualName);
-      params.append("Offset", "1");
-      params.append("Per_page", "10");
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-      if (!response.ok) return null;
-      const data = await response.json();
-      const normalizedName = individualName.trim().toLowerCase();
-      const match = data.Individuals_list?.items?.find(
-        (ind: { advisor_individuals: string; id: number }) =>
-          ind.advisor_individuals?.trim().toLowerCase() === normalizedName
-      );
-      return match?.id ?? null;
-    } catch (error) {
-      console.error("Error resolving individual by name:", error);
-      return null;
-    }
-  };
-
-  // Resolve all individual IDs when investor data loads
-  useEffect(() => {
-    const resolveAllIds = async () => {
-      if (!investorData) return;
-
-      const allNames = new Set<string>();
-      investorData.Investment_Team_Roles_current.forEach((member) => {
-        allNames.add(member.Individual_text);
-      });
-      investorData.Investment_Team_Roles_past.forEach((member) => {
-        allNames.add(member.Individual_text);
-      });
-
-      const resolved = new Map<string, number>();
-      await Promise.all(
-        Array.from(allNames).map(async (name) => {
-          const id = await resolveIndividualIdByName(name);
-          if (id) {
-            resolved.set(name, id);
-          }
-        })
-      );
-
-      setResolvedIndividualIds(resolved);
-    };
-
-    resolveAllIds();
-  }, [investorData]);
-
   const handlePortfolioPageChange = (page: number) => {
     fetchPortfolioCompanies(page);
   };
@@ -1164,6 +1141,10 @@ const InvestorDetailPage = () => {
 
   const {
     Investor,
+    Location,
+    LinkedIn_Data,
+    Years_founded,
+    Primary_Business_Focus,
     Focus,
     Investment_Team_Roles_current,
     Investment_Team_Roles_past,
@@ -1171,6 +1152,11 @@ const InvestorDetailPage = () => {
 
   const investorRaw = Investor as Investor & Record<string, unknown>;
   const investorType =
+    (Primary_Business_Focus && Primary_Business_Focus.length > 0
+      ? Primary_Business_Focus.map((f) => f.business_focus)
+          .filter(Boolean)
+          .join(", ")
+      : null) ||
     extractOptionalString(investorRaw, ["investor_type", "type"]) ||
     extractOptionalString(investorData as unknown, ["investor_type"]);
   const investorOwnership =
@@ -1181,23 +1167,32 @@ const InvestorDetailPage = () => {
   const investorStatus =
     extractOptionalString(investorRaw, ["status", "investor_status"]) || "Active";
 
-  const hq = `${Investor._locations?.City || ""}, ${
-    Investor._locations?.State__Province__County || ""
-  }, ${Investor._locations?.Country || ""}`
+  const resolvedLocation = Location ?? Investor._locations;
+  const hq = `${resolvedLocation?.City || ""}, ${
+    resolvedLocation?.State__Province__County || ""
+  }, ${resolvedLocation?.Country || ""}`
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
+
+  const resolvedLinkedinUrl =
+    LinkedIn_Data?.LinkedIn_URL ||
+    Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
+    undefined;
 
   const resolveTeamMemberIndividualId = (member: TeamMember): number | undefined => {
     if (typeof member.individuals_id === "number" && member.individuals_id > 0) {
       return member.individuals_id;
     }
-    return resolvedIndividualIds.get(member.Individual_text);
+    if (typeof member.individual_id === "number" && member.individual_id > 0) {
+      return member.individual_id;
+    }
+    return undefined;
   };
 
   const mapTeamMember = (member: TeamMember): InvestorTeamMember => {
     const roleTitle = formatJobTitlesFromId(member.job_titles_id, member.job_titles);
     return {
-      name: member.Individual_text,
+      name: teamMemberName(member),
       roleTitle: roleTitle || null,
       individualId: resolveTeamMemberIndividualId(member),
     };
@@ -1206,7 +1201,7 @@ const InvestorDetailPage = () => {
   const teamMembers: InvestorTeamMember[] = [
     ...Investment_Team_Roles_current.map(mapTeamMember),
     ...Investment_Team_Roles_past.map(mapTeamMember),
-  ];
+  ].filter((member) => member.name.trim().length > 0);
 
   const mapPortfolioCompany = (
     company: PortfolioCompany,
@@ -1214,7 +1209,13 @@ const InvestorDetailPage = () => {
   ): InvestorPortfolioCompany => ({
     id: company.id,
     name: company.name,
-    sectors: company.sectors_id.map((s) => s.sector_name).filter(Boolean),
+    sectors: company.sectors_id
+      .filter((s) => s.sector_name)
+      .map((s) => ({
+        name: s.sector_name,
+        id: s.sector_id,
+        importance: s.Sector_importance,
+      })),
     yearLabel: variant === "past" ? company.year_exited : company.year_invested,
     relatedIndividuals: company.related_to_investor_individuals,
     country: company._locations?.Country,
@@ -1481,17 +1482,13 @@ const InvestorDetailPage = () => {
                   href: f.id ? `/sector/${f.id}` : undefined,
                 }))}
                 type={investorType}
-                yearFounded={getYearFoundedDisplay(Investor)}
+                yearFounded={getYearFoundedDisplay(Investor, Years_founded)}
                 website={Investor.url}
                 websiteLabel={
                   Investor.url?.trim() ? formatWebsiteDisplayLabel(Investor.url) : undefined
                 }
                 hq={hq || undefined}
-                linkedinUrl={
-                  linkedinUrl ||
-                  Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
-                  undefined
-                }
+                linkedinUrl={linkedinUrl || resolvedLinkedinUrl}
                 ownership={investorOwnership}
                 status={investorStatus}
                 employees={currentHeadcount > 0 ? currentHeadcount : null}
@@ -1561,7 +1558,7 @@ const InvestorDetailPage = () => {
             </div>
 
             <div className="investor-grid-people">
-              <InvestorPeopleCard fillGridCell members={teamMembers} maxVisible={4} />
+              <InvestorPeopleCard fillGridCell members={teamMembers} maxVisible={5} />
             </div>
 
             <div className="investor-grid-corporate-events">
@@ -1617,11 +1614,7 @@ const InvestorDetailPage = () => {
                     ? `${headcountHistoryMonths}-month history`
                     : undefined
                 }
-                linkedinUrl={
-                  linkedinUrl ||
-                  Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
-                  undefined
-                }
+                linkedinUrl={linkedinUrl || resolvedLinkedinUrl}
               />
             </div>
           </div>

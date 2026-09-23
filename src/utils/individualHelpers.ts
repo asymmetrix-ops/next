@@ -126,6 +126,46 @@ export function normalizeJobTitlesId(
   return toJobTitleRecords(fallback);
 }
 
+/**
+ * Parse a Postgres array-literal string (e.g. `{Principal}` or
+ * `{"Co-CEO","Co-Managing Partner"}`) into its individual elements. Not
+ * valid JSON, so `JSON.parse` can't handle it — Xano sometimes serializes
+ * text[] columns this way instead of as a real JSON array.
+ */
+function parsePostgresArrayLiteral(raw: string): string[] | null {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null;
+  const inner = trimmed.slice(1, -1);
+  if (!inner.trim()) return [];
+
+  const items: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < inner.length; i++) {
+    const char = inner[i];
+    if (inQuotes) {
+      if (char === "\\" && inner[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      items.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  items.push(current.trim());
+
+  return items.filter(Boolean);
+}
+
 function toJobTitleRecords(value: unknown): Array<{ job_title: string }> {
   if (value == null) return [];
 
@@ -147,6 +187,10 @@ function toJobTitleRecords(value: unknown): Array<{ job_title: string }> {
   }
 
   if (typeof value === "string" && value.trim()) {
+    const pgArray = parsePostgresArrayLiteral(value);
+    if (pgArray) {
+      return pgArray.map((title) => ({ job_title: title }));
+    }
     return [{ job_title: value.trim() }];
   }
 
@@ -226,6 +270,8 @@ export const extractJobTitleStrings = (
   }
   if (typeof jobTitlesId === "string" && jobTitlesId.trim()) {
     const trimmed = jobTitlesId.trim();
+    const pgArray = parsePostgresArrayLiteral(trimmed);
+    if (pgArray) return pgArray;
     if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
       try {
         return extractJobTitleStrings(JSON.parse(trimmed));

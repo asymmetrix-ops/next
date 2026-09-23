@@ -14,11 +14,12 @@ import {
   tableColHeaderBarStyle,
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
+import { getSectorHref, type SectorLinkEntry } from "@/lib/sectorLinks";
 
 export type InvestorPortfolioCompany = {
   id: number;
   name: string;
-  sectors: string[];
+  sectors: SectorLinkEntry[];
   yearLabel?: string | number | null;
   relatedIndividuals?: Array<{ id: number; name: string }>;
   country?: string | null;
@@ -63,9 +64,32 @@ function portfolioColAlign(columnIndex: number): "left" | "center" | "right" {
   return profileTableColAlign(columnIndex);
 }
 
-function sectorLabel(sectors: string[]): string {
-  if (sectors.length === 0) return "-";
-  return sectors.slice(0, 3).join(", ");
+function SectorLinks({ sectors }: { sectors: SectorLinkEntry[] }) {
+  if (sectors.length === 0) return <>-</>;
+  const visible = sectors.slice(0, 3);
+  return (
+    <>
+      {visible.map((sector, idx) => {
+        const href = getSectorHref(sector);
+        return (
+          <span key={`${sector.name}-${sector.id ?? idx}`}>
+            {href ? (
+              <Link
+                href={href}
+                prefetch={false}
+                style={{ color: T.azure, textDecoration: "underline", fontWeight: 500 }}
+              >
+                {sector.name}
+              </Link>
+            ) : (
+              sector.name
+            )}
+            {idx < visible.length - 1 ? ", " : ""}
+          </span>
+        );
+      })}
+    </>
+  );
 }
 
 function TabButton({
@@ -300,7 +324,7 @@ export function InvestorPortfolioProfilePanel({
                       minWidth: 0,
                     }}
                   >
-                    {sectorLabel(company.sectors)}
+                    <SectorLinks sectors={company.sectors} />
                   </div>
                   <div
                     style={{

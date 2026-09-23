@@ -2227,12 +2227,14 @@ const CompanyDetail = () => {
     setIsDescriptionExpanded(false);
   }, [company?.description]);
 
+  // Only a floor (`minHeight`), never `height`/`maxHeight`: those used to lock
+  // the card at its one-time measured height, clipping content inside — e.g.
+  // the Investors "+N" tag never actually revealed the rest, since expanding
+  // it couldn't grow past the frozen max-height (LinkPanel clips overflow).
   const rowOneHeightStyle = useMemo((): React.CSSProperties => {
     if (rowOneCardHeight <= 0) return {};
     return {
-      height: rowOneCardHeight,
       minHeight: rowOneCardHeight,
-      maxHeight: rowOneCardHeight,
     };
   }, [rowOneCardHeight]);
 
