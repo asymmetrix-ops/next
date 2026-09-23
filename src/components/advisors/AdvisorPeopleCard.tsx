@@ -28,6 +28,7 @@ type Props = {
   current: AdvisorPerson[];
   past?: AdvisorPerson[];
   fillGridCell?: boolean;
+  maxVisible?: number;
 };
 
 const COL_GAP = 6;
@@ -162,10 +163,12 @@ export function AdvisorPeopleCard({
   current,
   past = [],
   fillGridCell = false,
+  maxVisible,
 }: Props) {
   const [tab, setTab] = useState<Tab>("current");
 
-  const activeList = tab === "current" ? current : past;
+  const fullList = tab === "current" ? current : past;
+  const activeList = maxVisible ? fullList.slice(0, maxVisible) : fullList;
 
   const tabs = useMemo(
     () => [
@@ -177,7 +180,7 @@ export function AdvisorPeopleCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH showArrow>People</LinkedH>
+      <LinkedH>People</LinkedH>
 
       <div
         style={{

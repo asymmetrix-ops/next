@@ -138,6 +138,18 @@ export function normalizeEntityHref(args: {
   const buildEntityHref = (kind: "investor" | "company"): string =>
     kind === "investor" ? `/investors/${id}` : `/company/${id}`;
 
+  // A caller passes isInvestorHint only when it already knows, from strong
+  // context (e.g. this entity came from the event's dedicated `investors`
+  // bucket), that this is an investor — trust that over a generic/ambiguous
+  // `path`/`route`/`entity_type`. Those fields sometimes read "company"
+  // (literally e.g. `/company/{id}`) even for investor records, since
+  // investors are stored in the same underlying company table and some API
+  // responses stamp a generic path regardless of the investor flag. Only an
+  // explicit `is_investor === false` should override the hint.
+  if (isInvestorHint && is_investor !== false) {
+    return buildEntityHref("investor");
+  }
+
   const getEntityKind = (
     value?: string | null
   ): "investor" | "company" | null => {
@@ -171,7 +183,6 @@ export function normalizeEntityHref(args: {
   if (is_investor === true) return buildEntityHref("investor");
   if (is_investor === false) return buildEntityHref("company");
 
-  if (isInvestorHint) return buildEntityHref("investor");
   return buildEntityHref("company");
 }
 

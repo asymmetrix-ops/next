@@ -162,7 +162,7 @@ export function AdvisorOverviewCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH showArrow>Overview</LinkedH>
+      <LinkedH>Overview</LinkedH>
       <div
         style={{
           padding: compact ? "0 10px 6px" : "2px 14px 8px",

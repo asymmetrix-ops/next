@@ -62,6 +62,8 @@ type Props = {
   onExportCsv?: () => void;
   exportingDeals?: boolean;
   pageSize?: number;
+  /** When set, "See more" navigates instead of expanding the card in place. */
+  onViewAllClick?: () => void;
 };
 
 const SUMMARY_ROW_GRID =
@@ -389,6 +391,7 @@ export function AdvisorDealsProfilePanel({
   onExportCsv,
   exportingDeals = false,
   pageSize = 3,
+  onViewAllClick,
 }: Props) {
   const [showAll, setShowAll] = useState(false);
   const isSummary = variant === "summary";
@@ -828,7 +831,9 @@ export function AdvisorDealsProfilePanel({
         <div style={{ textAlign: "center", padding: "12px 0 16px" }}>
           <button
             type="button"
-            onClick={() => setShowAll(!showAll)}
+            onClick={() =>
+              onViewAllClick ? onViewAllClick() : setShowAll(!showAll)
+            }
             style={{
               background: "none",
               border: "none",
@@ -840,7 +845,7 @@ export function AdvisorDealsProfilePanel({
               fontFamily: T.sans,
             }}
           >
-            {showAll ? "Show less" : "See more"}
+            {onViewAllClick ? "See more" : showAll ? "Show less" : "See more"}
           </button>
         </div>
       ) : null}

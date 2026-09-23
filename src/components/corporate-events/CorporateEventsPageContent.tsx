@@ -37,7 +37,8 @@ import type { ListExportRequest } from "@/lib/listExport/types";
 const useCorporateEventsAPI = (
   userId: number | null,
   preferredCurrencyId: number,
-  investorId?: number
+  investorId?: number,
+  advisorId?: number
 ) => {
   const [events, setEvents] = useState<CorporateEventListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,22 +70,33 @@ const useCorporateEventsAPI = (
 
   const mergeUrlFilters = useCallback(
     (filters: Filters): Filters => {
-      const merged = mergeCorporateEventsUrlFilters(
+      let merged = mergeCorporateEventsUrlFilters(
         filters,
         urlFiltersRef.current
       );
-      // `investor_id` isn't an accepted param on get_all_corporate_events —
-      // the API only filters investor involvement via `filter_investor_ids[]`
-      // (the same array param the "portfolio entity"/"followed" filters use).
-      if (!investorId) return merged;
-      return {
-        ...merged,
-        filter_investor_ids: Array.from(
-          new Set([...(merged.filter_investor_ids ?? []), investorId])
-        ),
-      };
+      // Neither `investor_id` nor an `advisor_id` singular param is accepted
+      // by get_all_corporate_events — the API only filters entity
+      // involvement via the `filter_*_ids[]` array params (the same ones
+      // the "portfolio entity"/"followed" filters use).
+      if (investorId) {
+        merged = {
+          ...merged,
+          filter_investor_ids: Array.from(
+            new Set([...(merged.filter_investor_ids ?? []), investorId])
+          ),
+        };
+      }
+      if (advisorId) {
+        merged = {
+          ...merged,
+          filter_advisor_ids: Array.from(
+            new Set([...(merged.filter_advisor_ids ?? []), advisorId])
+          ),
+        };
+      }
+      return merged;
     },
-    [investorId]
+    [investorId, advisorId]
   );
 
   useEffect(() => {
@@ -228,7 +240,7 @@ const useCorporateEventsAPI = (
     });
     fetchCorporateEvents(1, defaults, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, urlFiltersReady, preferredCurrencyId, investorId]);
+  }, [userId, urlFiltersReady, preferredCurrencyId, investorId, advisorId]);
 
   return {
     events,
@@ -244,12 +256,15 @@ const useCorporateEventsAPI = (
 export type CorporateEventsPageContentProps = {
   /** Scope results to corporate events where this investor was a counterparty. */
   investorId?: number;
+  /** Scope results to corporate events this advisor advised on. */
+  advisorId?: number;
   /** Render without the standalone page's Header/Footer (for embedding in a tab/card). */
   embedded?: boolean;
 };
 
 export function CorporateEventsPageContent({
   investorId,
+  advisorId,
   embedded = false,
 }: CorporateEventsPageContentProps = {}) {
   const { user } = useAuth();
@@ -267,7 +282,7 @@ export function CorporateEventsPageContent({
     summaryStats,
     fetchCorporateEvents,
     currentFilters,
-  } = useCorporateEventsAPI(userId, preferredCurrencyId, investorId);
+  } = useCorporateEventsAPI(userId, preferredCurrencyId, investorId, advisorId);
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(

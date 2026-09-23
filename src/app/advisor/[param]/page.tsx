@@ -29,6 +29,7 @@ import {
   type AdvisorDealEvent,
 } from "@/components/advisors/AdvisorDealsProfilePanel";
 import { AdvisorActiveMandatesProfilePanel } from "@/components/advisors/AdvisorActiveMandatesProfilePanel";
+import { CorporateEventsPageContent } from "@/components/corporate-events/CorporateEventsPageContent";
 import type { Advisor, AdvisorActiveMandate, AdvisorRoleRef } from "../../../types/advisor";
 import {
   formatJobTitlesFromId,
@@ -106,6 +107,9 @@ export default function AdvisorProfilePage() {
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const ADVISOR_PROFILE_TABS = ["Summary", "Deals Advised"] as const;
+  const [activeProfileTab, setActiveProfileTab] =
+    useState<(typeof ADVISOR_PROFILE_TABS)[number]>("Summary");
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
   // Roles fetched from the LinkedIn/company endpoint (includes job titles)
   interface RoleItem {
@@ -858,10 +862,57 @@ export default function AdvisorProfilePage() {
             </a>
           </div>
         </div>
+
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 2,
+            padding: 5,
+            marginTop: 0,
+            marginBottom: 16,
+            borderRadius: 999,
+            background: T.paper,
+            border: `1px solid ${T.divider}`,
+            overflowX: "auto" as const,
+            scrollbarWidth: "none" as const,
+          }}
+        >
+          {ADVISOR_PROFILE_TABS.map((tab) => {
+            const active = tab === activeProfileTab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveProfileTab(tab)}
+                style={{
+                  height: 38,
+                  padding: "0 20px",
+                  fontFamily: T.sans,
+                  fontSize: "13px",
+                  fontWeight: active ? 700 : 600,
+                  color: active ? T.ink : T.muted,
+                  borderRadius: 999,
+                  whiteSpace: "nowrap" as const,
+                  transition: "color 120ms, background 120ms, box-shadow 120ms",
+                  background: active ? "#fff" : "transparent",
+                  boxShadow: active
+                    ? "0 1px 2px rgba(16, 28, 70, 0.06), 0 3px 10px rgba(16, 28, 70, 0.08)"
+                    : "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {tab}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="advisor-detail-content" style={styles.maxWidth}>
+          {activeProfileTab === "Summary" ? (
           <div style={styles.responsiveGrid} className="responsiveGrid">
             <div className="advisor-grid-overview">
               <AdvisorOverviewCard
@@ -946,6 +997,7 @@ export default function AdvisorProfilePage() {
                   variant="summary"
                   events={safeEvents}
                   totalCount={safeEvents.length}
+                  onViewAllClick={() => setActiveProfileTab("Deals Advised")}
                 />
               </LinkPanel>
             </div>
@@ -955,9 +1007,13 @@ export default function AdvisorProfilePage() {
                 fillGridCell
                 current={peopleCurrent}
                 past={peoplePast}
+                maxVisible={4}
               />
             </div>
           </div>
+          ) : (
+            <CorporateEventsPageContent embedded advisorId={Advisor.id} />
+          )}
         </div>
         <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
       </main>
