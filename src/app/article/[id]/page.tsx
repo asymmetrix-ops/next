@@ -2919,6 +2919,35 @@ const ArticleDetailPage = () => {
             margin: 6px 0;
             line-height: 1.5;
           }
+          /* Content builder: highlight & key point (TipTap asymmetrix-* marks) */
+          .article-body .asymmetrix-highlight,
+          .summary-list .asymmetrix-highlight,
+          .article-body mark,
+          .summary-list mark {
+            background: #fff3bf;
+            border-radius: 3px;
+            padding: 0 2px;
+            display: inline;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+          }
+          .article-body .asymmetrix-key-point,
+          .summary-list .asymmetrix-key-point {
+            background: #fff3bf;
+            border-radius: 3px;
+            padding: 0 2px 0 4px;
+            display: inline;
+            border-left: 3px solid #f59e0b;
+            font-weight: 600;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+          }
+          .article-body .asymmetrix-highlight-section {
+            background: #fff3bf;
+            border-radius: 3px;
+            padding: 12px 14px;
+            margin: 1rem 0;
+          }
           /* Preserve HTML formatting inside article body */
           .article-body p { margin: 0 0 1rem 0; }
           .article-body ul { list-style: disc; margin: 0 0 1rem 1.25rem; padding-left: 1.25rem; }
