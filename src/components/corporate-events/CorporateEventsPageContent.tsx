@@ -36,7 +36,8 @@ import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useCorporateEventsAPI = (
   userId: number | null,
-  preferredCurrencyId: number
+  preferredCurrencyId: number,
+  investorId?: number
 ) => {
   const [events, setEvents] = useState<CorporateEventListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,9 +67,16 @@ const useCorporateEventsAPI = (
   const [summaryStats, setSummaryStats] =
     useState<CorporateEventsSummaryStats>(EMPTY_CORPORATE_EVENTS_SUMMARY_STATS);
 
-  const mergeUrlFilters = useCallback((filters: Filters): Filters => {
-    return mergeCorporateEventsUrlFilters(filters, urlFiltersRef.current);
-  }, []);
+  const mergeUrlFilters = useCallback(
+    (filters: Filters): Filters => {
+      const merged = mergeCorporateEventsUrlFilters(
+        filters,
+        urlFiltersRef.current
+      );
+      return investorId ? { ...merged, investor_id: investorId } : merged;
+    },
+    [investorId]
+  );
 
   useEffect(() => {
     urlFiltersRef.current = parseCorporateEventsUrlFilters();
@@ -211,7 +219,7 @@ const useCorporateEventsAPI = (
     });
     fetchCorporateEvents(1, defaults, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, urlFiltersReady, preferredCurrencyId]);
+  }, [userId, urlFiltersReady, preferredCurrencyId, investorId]);
 
   return {
     events,
@@ -224,7 +232,17 @@ const useCorporateEventsAPI = (
   };
 };
 
-export function CorporateEventsPageContent() {
+export type CorporateEventsPageContentProps = {
+  /** Scope results to corporate events where this investor was a counterparty. */
+  investorId?: number;
+  /** Render without the standalone page's Header/Footer (for embedding in a tab/card). */
+  embedded?: boolean;
+};
+
+export function CorporateEventsPageContent({
+  investorId,
+  embedded = false,
+}: CorporateEventsPageContentProps = {}) {
   const { user } = useAuth();
   const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const userId =
@@ -240,7 +258,7 @@ export function CorporateEventsPageContent() {
     summaryStats,
     fetchCorporateEvents,
     currentFilters,
-  } = useCorporateEventsAPI(userId, preferredCurrencyId);
+  } = useCorporateEventsAPI(userId, preferredCurrencyId, investorId);
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
@@ -283,8 +301,8 @@ export function CorporateEventsPageContent() {
   );
 
   return (
-    <div className="min-h-screen">
-      <Header />
+    <div className={embedded ? undefined : "min-h-screen"}>
+      {!embedded && <Header />}
       <CorporateEventsDashboard
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
@@ -314,7 +332,7 @@ export function CorporateEventsPageContent() {
         }}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
       />
-      <Footer />
+      {!embedded && <Footer />}
     </div>
   );
 }

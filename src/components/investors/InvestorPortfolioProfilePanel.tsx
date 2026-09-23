@@ -45,13 +45,20 @@ type Props = {
   onPastPageChange?: (page: number) => void;
   pageSize?: number;
   fillGridCell?: boolean;
+  onViewAllClick?: () => void;
 };
 
 const PORTFOLIO_ROW_GRID =
   "minmax(0, 1.35fr) minmax(0, 1.1fr) minmax(88px, auto) minmax(72px, auto) minmax(0, 1fr)";
 const HEADERS = ["Name", "Sectors", "Country", "Invested", "Deal Lead"] as const;
+const INVESTED_COL_INDEX = 3;
 
 type PortfolioTab = "current" | "past";
+
+function portfolioColAlign(columnIndex: number): "left" | "center" | "right" {
+  if (columnIndex === INVESTED_COL_INDEX) return "right";
+  return profileTableColAlign(columnIndex);
+}
 
 function sectorLabel(sectors: string[]): string {
   if (sectors.length === 0) return "-";
@@ -102,8 +109,9 @@ export function InvestorPortfolioProfilePanel({
   pastPagination,
   onCurrentPageChange,
   onPastPageChange,
-  pageSize = 4,
+  pageSize = 5,
   fillGridCell = false,
+  onViewAllClick,
 }: Props) {
   const [tab, setTab] = useState<PortfolioTab>("current");
   const [showAll, setShowAll] = useState(false);
@@ -234,7 +242,7 @@ export function InvestorPortfolioProfilePanel({
                 key={h}
                 style={{
                   ...tableColHeaderStyle,
-                  textAlign: profileTableColAlign(colIndex),
+                  textAlign: portfolioColAlign(colIndex),
                 }}
               >
                 {h === "Invested" ? yearHeader : h}
@@ -252,7 +260,7 @@ export function InvestorPortfolioProfilePanel({
                   ? String(company.yearLabel)
                   : "-";
               const dealLead = company.relatedIndividuals?.[0];
-              const colAlign = (colIndex: number) => profileTableColAlign(colIndex);
+              const colAlign = (colIndex: number) => portfolioColAlign(colIndex);
 
               return (
                 <div
@@ -373,7 +381,7 @@ export function InvestorPortfolioProfilePanel({
           {total > pageSize && !showAll ? (
             <button
               type="button"
-              onClick={() => setShowAll(true)}
+              onClick={() => (onViewAllClick ? onViewAllClick() : setShowAll(true))}
               style={{
                 padding: 0,
                 border: "none",

@@ -26,6 +26,7 @@ import {
 } from "@/components/investors/InvestorFocusMixCard";
 import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
 import { InvestorPortfolioTab } from "@/components/investors/InvestorPortfolioTab";
+import { CorporateEventsPageContent } from "@/components/corporate-events/CorporateEventsPageContent";
 import { fetchInvestorHoldingPeriodAverageServer } from "@/app/investors/[id]/holdingPeriodActions";
 import type { InvestorHoldingPeriodAverageResponse } from "@/lib/holdingPeriod";
 import { parsePortfolioApiResponse } from "@/lib/parsePortfolioApiResponse";
@@ -33,9 +34,10 @@ import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import { readEntityLogo } from "@/lib/companyLogo";
 
-// Only Summary + Portfolio are ready; the remaining sub-section tabs
-// (Strategy, People, Deals, Market) stay hidden until their content ships.
-const INVESTOR_PROFILE_TABS = ["Summary", "Portfolio"] as const;
+// Only Summary + Portfolio + Corporate Events are ready; the remaining
+// sub-section tabs (Strategy, People, Deals, Market) stay hidden until
+// their content ships.
+const INVESTOR_PROFILE_TABS = ["Summary", "Portfolio", "Corporate Events"] as const;
 
 // Types for API integration
 interface InvestorLocation {
@@ -1524,12 +1526,13 @@ const InvestorDetailPage = () => {
                 }}
                 onCurrentPageChange={handlePortfolioPageChange}
                 onPastPageChange={handlePastPortfolioPageChange}
-                pageSize={4}
+                pageSize={5}
+                onViewAllClick={() => setActiveProfileTab("Portfolio")}
               />
             </div>
 
             <div className="investor-grid-people">
-              <InvestorPeopleCard fillGridCell members={teamMembers} maxVisible={6} />
+              <InvestorPeopleCard fillGridCell members={teamMembers} maxVisible={3} />
             </div>
 
             <div className="investor-grid-corporate-events">
@@ -1598,6 +1601,15 @@ const InvestorDetailPage = () => {
               investorId={investorId}
               investorName={Investor.name}
               avgHoldingPeriodDisplay={avgHoldingPeriod?.display}
+            />
+          ) : activeProfileTab === "Corporate Events" ? (
+            <CorporateEventsPageContent
+              embedded
+              investorId={
+                investorId && !Number.isNaN(Number(investorId))
+                  ? Number(investorId)
+                  : undefined
+              }
             />
           ) : (
             <div

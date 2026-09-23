@@ -50,11 +50,19 @@ const metaStyle: React.CSSProperties = {
   lineHeight: 1.45,
 };
 
-function PartyLinks({ links }: { links: PartyLink[] }) {
+function PartyLinks({
+  links,
+  maxVisible,
+}: {
+  links: PartyLink[];
+  maxVisible?: number;
+}) {
   if (links.length === 0) return <>Not Available</>;
+  const visible = maxVisible ? links.slice(0, maxVisible) : links;
+  const extra = maxVisible ? Math.max(0, links.length - maxVisible) : 0;
   return (
     <>
-      {links.map((item, idx) => (
+      {visible.map((item, idx) => (
         <span key={`${item.name}-${item.id ?? idx}`}>
           {item.href ? (
             <a href={item.href} style={entityLinkStyle}>
@@ -63,9 +71,25 @@ function PartyLinks({ links }: { links: PartyLink[] }) {
           ) : (
             <span>{item.name}</span>
           )}
-          {idx < links.length - 1 ? ", " : ""}
+          {idx < visible.length - 1 ? ", " : ""}
         </span>
       ))}
+      {extra > 0 ? (
+        <span
+          style={{
+            marginLeft: 4,
+            fontSize: 11,
+            fontWeight: 600,
+            color: PARTY_LABEL_COLOR,
+          }}
+          title={links
+            .slice(maxVisible)
+            .map((l) => l.name)
+            .join(", ")}
+        >
+          +{extra}
+        </span>
+      ) : null}
     </>
   );
 }
@@ -78,17 +102,21 @@ function PartyBlock({
   label,
   children,
   align = "left",
+  inline = false,
 }: {
   label: string;
   children: React.ReactNode;
   align?: "left" | "center";
+  inline?: boolean;
 }) {
   return (
     <div
       style={{
-        marginBottom: 8,
+        marginBottom: inline ? 0 : 8,
         textAlign: align,
-        width: align === "center" ? "100%" : undefined,
+        width: align === "center" && !inline ? "100%" : undefined,
+        minWidth: inline ? 0 : undefined,
+        flex: inline ? "1 1 0" : undefined,
       }}
     >
       <div style={partyLabelStyle}>{formatPartyLabel(label)}</div>
@@ -101,15 +129,19 @@ function PartyRow({
   label,
   links,
   align = "left",
+  inline = false,
+  maxVisible,
 }: {
   label: string;
   links: PartyLink[];
   align?: "left" | "center";
+  inline?: boolean;
+  maxVisible?: number;
 }) {
   if (links.length === 0) return null;
   return (
-    <PartyBlock label={label} align={align}>
-      <PartyLinks links={links} />
+    <PartyBlock label={label} align={align} inline={inline}>
+      <PartyLinks links={links} maxVisible={maxVisible} />
     </PartyBlock>
   );
 }
@@ -651,27 +683,43 @@ export function CorporateEventPartiesColumn({
         width: "100%",
       }}
     >
-      <PartyBlock label={targetLabel} align={align}>
-        {extractTargetLinks(event, isPartnership)}
-      </PartyBlock>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          width: "100%",
+          marginBottom: 8,
+          justifyContent: align === "center" ? "center" : "flex-start",
+        }}
+      >
+        <PartyBlock label={targetLabel} align={align} inline>
+          {extractTargetLinks(event, isPartnership)}
+        </PartyBlock>
+        {!isPartnership && (
+          <>
+            <PartyRow
+              label="Buyer(s)"
+              links={collectBuyers(event, isInvestmentDeal)}
+              align={align}
+              inline
+            />
+            <PartyRow
+              label="Seller(s)"
+              links={collectSellers(event)}
+              align={align}
+              inline
+              maxVisible={3}
+            />
+          </>
+        )}
+      </div>
       {!isPartnership && (
-        <>
-          <PartyRow
-            label="Buyer(s)"
-            links={collectBuyers(event, isInvestmentDeal)}
-            align={align}
-          />
-          <PartyRow
-            label="Investor(s)"
-            links={collectInvestors(event, isInvestmentDeal)}
-            align={align}
-          />
-          <PartyRow
-            label="Seller(s)"
-            links={collectSellers(event)}
-            align={align}
-          />
-        </>
+        <PartyRow
+          label="Investor(s)"
+          links={collectInvestors(event, isInvestmentDeal)}
+          align={align}
+        />
       )}
     </div>
   );
