@@ -187,11 +187,19 @@ function toJobTitleRecords(value: unknown): Array<{ job_title: string }> {
   }
 
   if (typeof value === "string" && value.trim()) {
-    const pgArray = parsePostgresArrayLiteral(value);
+    const trimmed = value.trim();
+    const pgArray = parsePostgresArrayLiteral(trimmed);
     if (pgArray) {
       return pgArray.map((title) => ({ job_title: title }));
     }
-    return [{ job_title: value.trim() }];
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try {
+        return toJobTitleRecords(JSON.parse(trimmed));
+      } catch {
+        // fall through to plain string
+      }
+    }
+    return [{ job_title: trimmed }];
   }
 
   if (typeof value === "object" && value !== null && "job_title" in value) {

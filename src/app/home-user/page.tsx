@@ -30,6 +30,7 @@ import {
   type DealRadarItem,
 } from "@/lib/dealRadar";
 import { CorporateEventTargetLink, CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { normalizeEntityHref as sharedNormalizeEntityHref } from "@/lib/corporateEventEntityHref";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import NewsArticleCard from "@/components/NewsArticleCard";
 import { getNewsSubType, isNewsArticle } from "@/lib/contentArticleDisplay";
@@ -456,31 +457,33 @@ function HomeUserPageContent() {
     return [];
   };
 
-  // Normalize entity link based on new API flags (route/path/entity_type)
-  // Prefer ID-based routes; fall back to path when ID or route is missing/unknown
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const normalizeEntityHref = (entity: any | null | undefined): string => {
+  // Normalize entity link. Delegates to the shared corporate-events href
+  // resolver (checks path/route/page_type/entity_type/is_investor, in that
+  // order) instead of this page's own stale copy, which only ever checked
+  // route/entity_type and defaulted everything else to `/company/{id}` —
+  // including entities that were only ever identifiable as investors via the
+  // `is_investor` flag, or via which bucket (e.g. `investors`) they came from.
+  const normalizeEntityHref = (
+    entity: unknown,
+    opts?: { isInvestorHint?: boolean }
+  ): string => {
     if (!entity || typeof entity !== "object") return "";
     const id = Number((entity as { id?: unknown }).id);
-    const route = String(
-      ((entity as { route?: unknown }).route ||
-        (entity as { entity_type?: unknown }).entity_type ||
-        "company") as string
-    )
-      .toLowerCase()
-      .trim();
-    if (Number.isFinite(id) && id > 0) {
-      // Our app uses plural investors route
-      if (route === "investor" || route === "investors")
-        return `/investors/${id}`;
-      return `/company/${id}`;
+    if (!Number.isFinite(id) || id <= 0) {
+      const rawPath = String((entity as { path?: unknown }).path || "").trim();
+      return rawPath ? rawPath.replace(/^\/investor\//, "/investors/") : "";
     }
-    // Fallback to provided path (normalize investor singular to plural)
-    const rawPath = String((entity as { path?: unknown }).path || "").trim();
-    if (rawPath) {
-      return rawPath.replace(/^\/investor\//, "/investors/");
-    }
-    return "";
+    return (
+      sharedNormalizeEntityHref({
+        id,
+        route: (entity as { route?: string }).route,
+        page_type: (entity as { page_type?: string }).page_type,
+        path: (entity as { path?: string }).path,
+        entity_type: (entity as { entity_type?: string }).entity_type,
+        is_investor: (entity as { is_investor?: boolean }).is_investor,
+        isInvestorHint: opts?.isInvestorHint,
+      }) ?? ""
+    );
   };
 
   const dedupeById = (entities: EntityRef[]): EntityRef[] => {
@@ -502,7 +505,9 @@ function HomeUserPageContent() {
     name?: string;
     path?: string;
     route?: string;
+    page_type?: string;
     entity_type?: string;
+    is_investor?: boolean;
     hq_country_iso2?: string | null;
     hqCountryIso2?: string | null;
   };
@@ -515,13 +520,14 @@ function HomeUserPageContent() {
 
   const renderCappedEntityLinks = (
     entities: EntityRef[],
-    keyPrefix: string
+    keyPrefix: string,
+    opts?: { isInvestorHint?: boolean }
   ): React.ReactNode => {
     const items = entityLinksToMultiValueItems(
       dedupeById(entities).map((entity) => ({
         id: entity.id,
         name: entity.name || "Unknown",
-        href: normalizeEntityHref(entity) || null,
+        href: normalizeEntityHref(entity, opts) || null,
         hqIso2: readHqCountryIso2(entity as unknown as Record<string, unknown>),
       })),
       keyPrefix
@@ -2923,7 +2929,8 @@ function HomeUserPageContent() {
                                             <strong>Investor(s):</strong>{" "}
                                             {renderCappedEntityLinks(
                                               investorsArr,
-                                              "investor"
+                                              "investor",
+                                              { isInvestorHint: true }
                                             )}
                                           </div>
                                       )}
