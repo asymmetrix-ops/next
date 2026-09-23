@@ -14,6 +14,7 @@ import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
 import TrialRouteGuard from "@/components/TrialRouteGuard";
 import RouteTracker from "@/components/RouteTracker";
 import ErrorTracker from "@/components/ErrorTracker";
+import NpsGate from "@/components/nps/NpsGate";
 
 export const metadata: Metadata = {
   title: "Asymmetrix - Data & Analytics Demystified",
@@ -144,6 +145,7 @@ export default function RootLayout({
                 <RouteTracker />
               </Suspense>
               <ErrorTracker />
+              <NpsGate />
               {children}
               {showTestBanner && (
                 <div className="fixed bottom-3 right-3 z-[9999] pointer-events-none">
