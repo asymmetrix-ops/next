@@ -120,6 +120,11 @@ const nextConfig = {
         destination: "/",
         permanent: false,
       },
+      {
+        source: "/register",
+        destination: "/login",
+        permanent: true,
+      },
     ];
   },
 };
