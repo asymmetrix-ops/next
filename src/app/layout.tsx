@@ -17,6 +17,7 @@ import TrialRouteGuard from "@/components/TrialRouteGuard";
 import RouteTracker from "@/components/RouteTracker";
 import ErrorTracker from "@/components/ErrorTracker";
 import SessionExpiredModal from "@/components/SessionExpiredModal";
+import NpsGate from "@/components/nps/NpsGate";
 
 export const metadata: Metadata = {
   title: "Asymmetrix - Data & Analytics Demystified",
@@ -148,6 +149,7 @@ export default function RootLayout({
                 <RouteTracker />
               </Suspense>
               <ErrorTracker />
+              <NpsGate />
               <GlobalSearchProvider>
                 {children}
                 <GlobalSearchModal />
