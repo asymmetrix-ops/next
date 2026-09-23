@@ -326,6 +326,35 @@ function mapPortfolioMixRows(rows: PortfolioMixApiRow[] | undefined): InvestorMi
     });
 }
 
+// Some API fields named "Year"/"year_founded" occasionally carry non-year
+// junk (e.g. an unrelated small integer). Only accept plausible years so we
+// never render garbage like "40" as a founding year.
+function extractValidYear(candidate: unknown): number | null {
+  const currentYear = new Date().getFullYear();
+  if (typeof candidate === "number") {
+    return candidate >= 1800 && candidate <= currentYear ? candidate : null;
+  }
+  if (typeof candidate === "string") {
+    const trimmed = candidate.trim();
+    const num = parseInt(trimmed, 10);
+    if (!Number.isNaN(num) && num >= 1800 && num <= currentYear) return num;
+    const match = trimmed.match(/\b(18\d{2}|19\d{2}|20\d{2})\b/);
+    if (match) {
+      const mNum = parseInt(match[0], 10);
+      if (mNum >= 1800 && mNum <= currentYear) return mNum;
+    }
+  }
+  return null;
+}
+
+function getYearFoundedDisplay(investor: Investor): number | null {
+  return (
+    extractValidYear(investor._years?.Year) ??
+    extractValidYear(investor.year_founded) ??
+    null
+  );
+}
+
 function extractOptionalString(raw: unknown, keys: string[]): string | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
@@ -1452,7 +1481,7 @@ const InvestorDetailPage = () => {
                   href: f.id ? `/sector/${f.id}` : undefined,
                 }))}
                 type={investorType}
-                yearFounded={Investor._years?.Year || Investor.year_founded || null}
+                yearFounded={getYearFoundedDisplay(Investor)}
                 website={Investor.url}
                 websiteLabel={
                   Investor.url?.trim() ? formatWebsiteDisplayLabel(Investor.url) : undefined

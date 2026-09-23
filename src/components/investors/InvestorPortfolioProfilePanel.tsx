@@ -48,8 +48,11 @@ type Props = {
   onViewAllClick?: () => void;
 };
 
+// Country/Invested use fixed widths (not auto) — each row renders as its own
+// independent CSS grid, so an `auto` track would size itself to that row's
+// own content only, letting columns drift out of alignment between rows.
 const PORTFOLIO_ROW_GRID =
-  "minmax(0, 1.35fr) minmax(0, 1.1fr) minmax(88px, auto) minmax(72px, auto) minmax(0, 1fr)";
+  "minmax(0, 1.35fr) minmax(0, 1.1fr) 150px 72px minmax(0, 1fr)";
 const HEADERS = ["Name", "Sectors", "Country", "Invested", "Deal Lead"] as const;
 const INVESTED_COL_INDEX = 3;
 

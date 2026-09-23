@@ -73,7 +73,16 @@ const useCorporateEventsAPI = (
         filters,
         urlFiltersRef.current
       );
-      return investorId ? { ...merged, investor_id: investorId } : merged;
+      // `investor_id` isn't an accepted param on get_all_corporate_events —
+      // the API only filters investor involvement via `filter_investor_ids[]`
+      // (the same array param the "portfolio entity"/"followed" filters use).
+      if (!investorId) return merged;
+      return {
+        ...merged,
+        filter_investor_ids: Array.from(
+          new Set([...(merged.filter_investor_ids ?? []), investorId])
+        ),
+      };
     },
     [investorId]
   );
