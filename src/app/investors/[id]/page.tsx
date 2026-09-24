@@ -1060,14 +1060,13 @@ const InvestorDetailPage = () => {
       setExportingPdf(true);
 
       const response = await fetch(
-        `${PDF_SERVICE_BASE_URL}/api/export-investor-pdf`,
+        `${PDF_SERVICE_BASE_URL}/api/export-investor-pdf?version=v2`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            version: "v2",
             investor: investorData,
             linkedin: {
               url:
