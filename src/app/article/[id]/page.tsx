@@ -17,11 +17,15 @@ import {
   getArticleCorrections,
   getLatestCorrection,
   getNewsSubType,
+  getRelatedDocumentUrl,
+  isArticleBodyEmpty,
   isNewsArticle,
+  isPdfRelatedDocument,
 } from "@/lib/contentArticleDisplay";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
 import { EntityChip } from "@/components/ui/EntityChip";
+import { EmbeddedArticlePdf } from "@/components/article/EmbeddedArticlePdf";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   getFXRates,
@@ -1080,6 +1084,18 @@ const ArticleDetailPage = () => {
       : withUrl.filter((d) => !isImageDoc(d));
   };
 
+  /** Find a PDF attachment to embed inline when the article Body is empty. */
+  const getEmbeddablePdfDoc = (
+    docs: ArticleDetail["Related_Documents"] | undefined,
+    bodyText: string | undefined
+  ) => {
+    if (!isArticleBodyEmpty(bodyText)) return undefined;
+    return (docs || [])
+      .filter(Boolean)
+      .filter((d) => !isImageDoc(d))
+      .find((d) => isPdfRelatedDocument(d) && getRelatedDocumentUrl(d));
+  };
+
   const formatCompanyOfFocusYearFounded = (candidate: unknown): string => {
     if (candidate === null || candidate === undefined) return "-";
     const n = Number(candidate);
@@ -1613,8 +1629,27 @@ const ArticleDetailPage = () => {
               );
             })()}
 
-            {/* Article Body with embedded images from attachments */}
+            {/* Article Body (or embedded PDF viewer when body is empty) */}
             {(() => {
+              const embeddablePdfDoc = getEmbeddablePdfDoc(
+                article.Related_Documents,
+                article.Body
+              );
+              if (embeddablePdfDoc) {
+                const embeddedPdfUrl = getRelatedDocumentUrl(embeddablePdfDoc);
+                return (
+                  <div
+                    style={styles.body}
+                    className="article-body article-body-embed"
+                  >
+                    <EmbeddedArticlePdf
+                      url={embeddedPdfUrl}
+                      title={embeddablePdfDoc.name || "Document"}
+                    />
+                  </div>
+                );
+              }
+
               const allImageDocs = (article.Related_Documents || []).filter(
                 isImageDoc
               );
@@ -1665,12 +1700,19 @@ const ArticleDetailPage = () => {
               );
             })()}
 
-            {/* Related Documents (attachments) */}
+            {/* Related Documents (attachments; skip the PDF shown inline as body) */}
             {(() => {
+              const embeddablePdfDoc = getEmbeddablePdfDoc(
+                article.Related_Documents,
+                article.Body
+              );
+              const embeddedPdfUrl = embeddablePdfDoc
+                ? getRelatedDocumentUrl(embeddablePdfDoc)
+                : "";
               const documentAttachments = getRenderableAttachmentDocs(
                 article.Related_Documents,
                 "document"
-              );
+              ).filter((d) => !embeddedPdfUrl || d.url !== embeddedPdfUrl);
               if (!documentAttachments.length) return null;
               return (
                 <div style={styles.section}>
@@ -2456,6 +2498,98 @@ const ArticleDetailPage = () => {
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6B7488; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
+          /* Embedded PDF viewer (vertical slider) shown in place of an empty body */
+          .article-pdf-embed {
+            user-select: none;
+            -webkit-user-select: none;
+          }
+          .article-pdf-embed-status {
+            margin: 0 0 16px;
+            color: #6B7488;
+            font-size: 14px;
+          }
+          .article-pdf-embed-error {
+            margin: 0 0 16px;
+            color: #B42318;
+            font-size: 14px;
+          }
+          .article-pdf-embed-viewport {
+            position: relative;
+            border: 1px solid #E4E8F2;
+            border-radius: 8px;
+            background: #F7F8FC;
+            overflow: hidden;
+          }
+          .article-pdf-embed-pages {
+            height: min(80vh, 1100px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+          }
+          .article-pdf-embed-slide {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            box-sizing: border-box;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+          }
+          .article-pdf-embed-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            display: block;
+            box-shadow: 0 1px 6px rgba(10, 14, 26, 0.1);
+            border-radius: 2px;
+            background: #fff;
+          }
+          .article-pdf-embed-nav {
+            position: absolute;
+            right: 12px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid #E4E8F2;
+            background: rgba(255, 255, 255, 0.92);
+            color: #0A0E1A;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 4px rgba(10, 14, 26, 0.12);
+          }
+          .article-pdf-embed-nav:hover:not(:disabled) {
+            background: #fff;
+          }
+          .article-pdf-embed-nav:disabled {
+            opacity: 0.35;
+            cursor: default;
+          }
+          .article-pdf-embed-nav-up {
+            top: 12px;
+          }
+          .article-pdf-embed-nav-down {
+            bottom: 12px;
+          }
+          .article-pdf-embed-counter {
+            position: absolute;
+            left: 50%;
+            bottom: 12px;
+            transform: translateX(-50%);
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: rgba(10, 14, 26, 0.72);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+          }
           /* ---- Sidebar rail: card shell + rows/tabs/chips (verbatim from
              New Design/ReportDetail.html's right-rail handoff) ---- */
           .article-meta .card {
