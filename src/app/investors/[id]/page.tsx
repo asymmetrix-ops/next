@@ -1148,7 +1148,45 @@ const InvestorDetailPage = () => {
 
       const mixForExport =
         (await fetchInvestorPortfolioMix(investorId)) ?? portfolioMix;
-      const portfolioMixPayload = buildPortfolioMixPdfPayload(mixForExport);
+      const { sector_mix, stage_focus, geography, portfolio_mix } =
+        buildPortfolioMixPdfPayload(mixForExport);
+
+      const requestBody = {
+        investor: {
+          ...investorData,
+          focus_mix: portfolio_mix,
+        },
+        linkedin: {
+          url:
+            linkedinUrl ||
+            investorData?.Investor?._linkedin_data_of_new_company?.LinkedIn_URL ||
+            null,
+          history: linkedInHistory,
+        },
+        corporate_events: corporateEvents,
+        sector_mix,
+        stage_focus,
+        geography,
+        portfolio_mix,
+        focus_mix: portfolio_mix,
+        portfolio: {
+          current: {
+            pagination: portfolioPagination,
+            items: portfolioCompanies,
+          },
+          past: {
+            pagination: pastPortfolioPagination,
+            items: pastPortfolioCompanies,
+          },
+        },
+      };
+
+      console.log("[PDF Export] investor portfolio mix", {
+        investor_id: investorId,
+        sector_mix_count: sector_mix.length,
+        stage_focus_count: stage_focus.length,
+        geography_count: geography.length,
+      });
 
       const response = await fetch(
         `${PDF_SERVICE_BASE_URL}/api/export-investor-pdf?version=v2`,
@@ -1157,28 +1195,7 @@ const InvestorDetailPage = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            investor: investorData,
-            linkedin: {
-              url:
-                linkedinUrl ||
-                investorData?.Investor?._linkedin_data_of_new_company?.LinkedIn_URL ||
-                null,
-              history: linkedInHistory,
-            },
-            corporate_events: corporateEvents,
-            ...portfolioMixPayload,
-            portfolio: {
-              current: {
-                pagination: portfolioPagination,
-                items: portfolioCompanies,
-              },
-              past: {
-                pagination: pastPortfolioPagination,
-                items: pastPortfolioCompanies,
-              },
-            },
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
