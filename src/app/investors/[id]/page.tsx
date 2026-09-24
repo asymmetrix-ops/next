@@ -12,6 +12,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { useDescriptionRowHeight } from "@/hooks/useDescriptionRowHeight";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
@@ -415,6 +416,15 @@ const InvestorDetailPage = () => {
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [activeProfileTab, setActiveProfileTab] = useState<string>("Summary");
+  const overviewGridRef = useRef<HTMLDivElement>(null);
+  const focusMixGridRef = useRef<HTMLDivElement>(null);
+  const descriptionGridRef = useRef<HTMLDivElement>(null);
+  const descriptionCollapsedHeightStyle = useDescriptionRowHeight(
+    [overviewGridRef, focusMixGridRef],
+    descriptionGridRef,
+    !isDescriptionExpanded,
+    [investorId]
+  );
 
   const [investorData, setInvestorData] = useState<InvestorData | null>(null);
   const [portfolioCompanies, setPortfolioCompanies] = useState<
@@ -1474,7 +1484,7 @@ const InvestorDetailPage = () => {
         <div className="investor-detail-content" style={styles.maxWidth}>
           {activeProfileTab === "Summary" ? (
           <div style={styles.responsiveGrid} className="responsiveGrid">
-            <div className="investor-grid-overview">
+            <div className="investor-grid-overview" ref={overviewGridRef}>
               <InvestorOverviewCard
                 fillGridCell
                 focusSectors={Focus.filter((f) => f?.sector_name).map((f) => ({
@@ -1501,6 +1511,7 @@ const InvestorDetailPage = () => {
 
             <div
               className="investor-grid-description"
+              ref={descriptionGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
@@ -1508,6 +1519,7 @@ const InvestorDetailPage = () => {
                 flexDirection: "column",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
+                ...(!isDescriptionExpanded ? descriptionCollapsedHeightStyle : {}),
               }}
             >
               <DescriptionCard
@@ -1519,7 +1531,7 @@ const InvestorDetailPage = () => {
               />
             </div>
 
-            <div className="investor-grid-focus-mix">
+            <div className="investor-grid-focus-mix" ref={focusMixGridRef}>
               <InvestorFocusMixCard
                 fillGridCell
                 loading={portfolioMixLoading}

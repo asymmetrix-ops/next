@@ -24,6 +24,7 @@ import { OverviewCard } from "@/components/redesign/OverviewCard";
 import { RevenueModelCard } from "@/components/redesign/RevenueModelCard";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { useDescriptionRowHeight } from "@/hooks/useDescriptionRowHeight";
 import { ProductDataToggleCard } from "@/components/redesign/ProductDataToggleCard";
 import {
   ProductUsersListCard,
@@ -1213,6 +1214,14 @@ const CompanyDetail = () => {
   const insightsRowRef = useRef<HTMLDivElement | null>(null);
   const financeSecondaryRowRef = useRef<HTMLDivElement | null>(null);
   const financePrimaryGridRef = useRef<HTMLDivElement | null>(null);
+  const overviewGridRef = useRef<HTMLDivElement | null>(null);
+  const descriptionGridRef = useRef<HTMLDivElement | null>(null);
+  const descriptionCollapsedHeightStyle = useDescriptionRowHeight(
+    [overviewGridRef, financePrimaryGridRef],
+    descriptionGridRef,
+    !isDescriptionExpanded,
+    [companyId]
+  );
   const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
   const [activeProfileTab, setActiveProfileTab] = useState("Summary");
   const [managementIndividualLinkedIn, setManagementIndividualLinkedIn] =
@@ -3699,6 +3708,7 @@ const CompanyDetail = () => {
 
             {/* ── Overview card (grid row 1, col 1) ── */}
             <div
+              ref={overviewGridRef}
               style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
               className="overview-card company-grid-overview"
             >
@@ -4110,6 +4120,7 @@ const CompanyDetail = () => {
 
             {/* ── Description card (grid row 1, col 2) ── */}
             <div
+              ref={descriptionGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
@@ -4117,6 +4128,7 @@ const CompanyDetail = () => {
                 flexDirection: "column",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
+                ...(!isDescriptionExpanded ? descriptionCollapsedHeightStyle : {}),
               }}
               className="overview-description company-grid-description"
             >

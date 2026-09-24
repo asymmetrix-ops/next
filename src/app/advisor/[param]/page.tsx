@@ -18,6 +18,7 @@ import {
 } from "../../../utils/advisorHelpers";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { useDescriptionRowHeight } from "@/hooks/useDescriptionRowHeight";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import CompanyLogo from "@/components/investor/CompanyLogo";
@@ -106,6 +107,15 @@ export default function AdvisorProfilePage() {
   const advisorId = parseInt(params.param as string);
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const overviewGridRef = useRef<HTMLDivElement>(null);
+  const sideSlotGridRef = useRef<HTMLDivElement>(null);
+  const descriptionGridRef = useRef<HTMLDivElement>(null);
+  const descriptionCollapsedHeightStyle = useDescriptionRowHeight(
+    [overviewGridRef, sideSlotGridRef],
+    descriptionGridRef,
+    !isDescriptionExpanded,
+    [advisorId]
+  );
   const [exportingPdf, setExportingPdf] = useState(false);
   const ADVISOR_PROFILE_TABS = ["Summary", "Deals Advised"] as const;
   const [activeProfileTab, setActiveProfileTab] =
@@ -914,7 +924,7 @@ export default function AdvisorProfilePage() {
         <div className="advisor-detail-content" style={styles.maxWidth}>
           {activeProfileTab === "Summary" ? (
           <div style={styles.responsiveGrid} className="responsiveGrid">
-            <div className="advisor-grid-overview">
+            <div className="advisor-grid-overview" ref={overviewGridRef}>
               <AdvisorOverviewCard
                 fillGridCell
                 type={extractAdvisorType(Advisor)}
@@ -935,6 +945,7 @@ export default function AdvisorProfilePage() {
 
             <div
               className="advisor-grid-description"
+              ref={descriptionGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
@@ -942,6 +953,7 @@ export default function AdvisorProfilePage() {
                 flexDirection: "column",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
+                ...(!isDescriptionExpanded ? descriptionCollapsedHeightStyle : {}),
               }}
             >
               <DescriptionCard
@@ -954,7 +966,7 @@ export default function AdvisorProfilePage() {
             </div>
 
             {showActiveMandates ? (
-              <div className="advisor-grid-side-slot">
+              <div className="advisor-grid-side-slot" ref={sideSlotGridRef}>
                 <LinkPanel fillGridCell className="advisor-active-mandates-v3-card">
                   <AdvisorActiveMandatesProfilePanel
                     fillGridCell
@@ -963,7 +975,7 @@ export default function AdvisorProfilePage() {
                 </LinkPanel>
               </div>
             ) : (
-              <div className="advisor-grid-side-slot">
+              <div className="advisor-grid-side-slot" ref={sideSlotGridRef}>
                 <HeadcountCard
                   fillGridCell
                   data={linkedInHistory.map((e) => e.employees_count)}

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { LinkPanel, LinkedH, KV, T, Pill, CappedPillTags } from "@/components/redesign/primitives";
-import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 
 export type AdvisorOverviewCardProps = {
   type?: string | null;
@@ -106,13 +106,16 @@ export function AdvisorOverviewCard({
   fillGridCell = false,
   compact = false,
 }: AdvisorOverviewCardProps) {
-  const rows: { k: string; v: React.ReactNode }[] = [
-    { k: "Type", v: displayText(type) },
-    { k: "Focus", v: <FocusTags items={focus} compact={compact} /> },
-    { k: "Year founded", v: displayText(yearFounded) },
-    { k: "HQ", v: displayText(hq) },
+  const hasOwnershipOrTicker = Boolean(ownership?.trim() || ticker?.trim());
+
+  const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
+    { k: "Type", show: !isEmptyDisplayValue(type ?? null), v: displayText(type) },
+    { k: "Focus", show: focus.length > 0, v: <FocusTags items={focus} compact={compact} /> },
+    { k: "Year founded", show: !isEmptyDisplayValue(yearFounded ?? null), v: displayText(yearFounded) },
+    { k: "HQ", show: !isEmptyDisplayValue(hq ?? null), v: displayText(hq) },
     {
       k: "Website",
+      show: Boolean(website?.trim()),
       v: website?.trim() ? (
         <a
           href={/^https?:\/\//i.test(website.trim()) ? website.trim() : `https://${website.trim()}`}
@@ -122,12 +125,11 @@ export function AdvisorOverviewCard({
         >
           {websiteLabel || website.trim()}
         </a>
-      ) : (
-        faintDash()
-      ),
+      ) : null,
     },
     {
       k: "LinkedIn",
+      show: Boolean(linkedinUrl?.trim()),
       v: linkedinUrl?.trim() ? (
         <a
           href={linkedinUrl.trim()}
@@ -137,12 +139,11 @@ export function AdvisorOverviewCard({
         >
           LinkedIn
         </a>
-      ) : (
-        faintDash()
-      ),
+      ) : null,
     },
     {
       k: "Ownership",
+      show: hasOwnershipOrTicker,
       v: <OwnershipValue ownership={ownership} ticker={ticker} />,
     },
     {
@@ -151,14 +152,14 @@ export function AdvisorOverviewCard({
     },
     {
       k: compact ? "Transactions" : "D&A transactions advised",
-      v:
-        transactionsAdvised != null ? (
-          <span style={{ fontFamily: T.mono }}>{transactionsAdvised.toLocaleString("en-US")}</span>
-        ) : (
-          faintDash()
-        ),
+      show: transactionsAdvised != null,
+      v: (
+        <span style={{ fontFamily: T.mono }}>{transactionsAdvised!.toLocaleString("en-US")}</span>
+      ),
     },
   ];
+
+  const visible = rows.filter((r) => r.show !== false);
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
@@ -177,12 +178,12 @@ export function AdvisorOverviewCard({
             : {}),
         }}
       >
-        {rows.map((row, i) => (
+        {visible.map((row, i) => (
           <KV
             key={row.k}
             k={row.k}
             v={row.v}
-            last={i === rows.length - 1}
+            last={i === visible.length - 1}
             style={
               compact
                 ? {

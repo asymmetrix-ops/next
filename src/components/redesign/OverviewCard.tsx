@@ -200,25 +200,42 @@ export function OverviewCard({
     holdingPeriod?.display
   );
 
+  const hasPrimarySectors = primarySectors.length > 0;
+  const hasSecondarySectors = secondarySectors.length > 0;
+  const hasYearFounded = !isEmptyDisplayValue(yearFounded ?? null);
+  const hasWebsite = Boolean(website?.trim());
+  const hasOwnership = !isEmptyDisplayValue(ownership ?? null);
+  const hasHq = !isEmptyDisplayValue(hq ?? null);
+  const hasLifecycle = !isEmptyDisplayValue(lifecycle ?? null);
+  const hasTotalAmountRaised =
+    Boolean(totalAmountRaised) && !isEmptyDisplayValue(totalAmountRaised);
+  const hasEmployees = employees != null;
+  const hasLastInvestment =
+    Boolean(lastInvestment) && !isEmptyDisplayValue(lastInvestment);
+
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
     {
       k: "Primary sector(s)",
+      show: hasPrimarySectors,
       v: (
         <SectorTags sectors={primarySectors} tone="coral" />
       ),
     },
     {
       k: "Secondary sector(s)",
+      show: hasSecondarySectors,
       v: (
         <SectorTags sectors={secondarySectors} tone="lavender" />
       ),
     },
     {
       k: "Year founded",
+      show: hasYearFounded,
       v: displayText(yearFounded),
     },
     {
       k: "Website",
+      show: hasWebsite,
       v: website?.trim() ? (
         <a
           href={/^https?:\/\//i.test(website.trim()) ? website.trim() : `https://${website.trim()}`}
@@ -234,21 +251,21 @@ export function OverviewCard({
     },
     {
       k: "Ownership",
+      show: hasOwnership,
       v: displayText(ownership),
     },
-    { k: "HQ", v: displayText(hq) },
+    { k: "HQ", show: hasHq, v: displayText(hq) },
     {
       k: "Lifecycle stage",
+      show: hasLifecycle,
       v: displayText(lifecycle),
     },
     {
       k: "Total amount raised",
-      v:
-        totalAmountRaised && !isEmptyDisplayValue(totalAmountRaised) ? (
-          <span style={{ fontFamily: T.mono }}>{normalizeEmptyDisplay(totalAmountRaised)}</span>
-        ) : (
-          faintDash()
-        ),
+      show: hasTotalAmountRaised,
+      v: (
+        <span style={{ fontFamily: T.mono }}>{normalizeEmptyDisplay(totalAmountRaised)}</span>
+      ),
     },
     {
       k: "Holding period",
@@ -276,16 +293,11 @@ export function OverviewCard({
     },
     {
       k: "Employees",
+      show: hasEmployees,
       v: (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {employees != null ? (
-            <>
-              {employees.toLocaleString("en-US")}
-              {employeesYoY && <Delta value={employeesYoY} />}
-            </>
-          ) : (
-            <span style={{ color: T.faint }}>{EM}</span>
-          )}
+          {employees!.toLocaleString("en-US")}
+          {employeesYoY && <Delta value={employeesYoY} />}
         </span>
       ),
     },
@@ -309,7 +321,7 @@ export function OverviewCard({
     },
     {
       k: "Investors",
-      show: !hasParent,
+      show: !hasParent && (investorsLoading || investors.length > 0),
       v: investorsLoading ? (
         <span style={{ color: T.faint }}>Loading…</span>
       ) : (
@@ -318,10 +330,8 @@ export function OverviewCard({
     },
     {
       k: "Time since last investment",
-      show: !hasParent,
-      v: lastInvestment && !isEmptyDisplayValue(lastInvestment)
-        ? lastInvestment
-        : faintDash(),
+      show: !hasParent && hasLastInvestment,
+      v: lastInvestment,
     },
   ];
 

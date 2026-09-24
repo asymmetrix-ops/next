@@ -2238,6 +2238,18 @@ const CompanyDetail = () => {
     };
   }, [rowOneCardHeight]);
 
+  // The collapsed Description column is the one place that DOES need a hard
+  // cap: a `minHeight` alone never triggers its internal `overflow: hidden` /
+  // "Expand →" affordance, since the box just grows to fit a long description
+  // instead of clipping it. Overview/Finance keep the floor-only style above.
+  const descriptionCollapsedHeightStyle = useMemo((): React.CSSProperties => {
+    if (rowOneCardHeight <= 0) return {};
+    return {
+      height: rowOneCardHeight,
+      maxHeight: rowOneCardHeight,
+    };
+  }, [rowOneCardHeight]);
+
   // Lock Overview + Description + Financial Metrics to the same height (driven by Overview / Finance, not description text)
   useEffect(() => {
     setRowOneCardHeight(0);
@@ -4480,7 +4492,7 @@ const CompanyDetail = () => {
                 width: "100%",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
-                ...(!isDescriptionExpanded ? rowOneHeightStyle : {}),
+                ...(!isDescriptionExpanded ? descriptionCollapsedHeightStyle : {}),
               }}
               className="overview-description company-grid-description"
             >

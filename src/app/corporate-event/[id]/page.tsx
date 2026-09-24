@@ -13,6 +13,7 @@ import {
 } from "../../../types/corporateEvents";
 import { ContentArticle } from "@/types/insightsAnalysis";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { useDescriptionRowHeight } from "@/hooks/useDescriptionRowHeight";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { CorporateEventOverviewCard } from "@/components/corporate-events/CorporateEventOverviewCard";
 import { CorporateEventCounterpartiesPanel } from "@/components/corporate-events/CorporateEventCounterpartiesPanel";
@@ -56,6 +57,8 @@ const CorporateEventDetail = ({
   const { currency: platformCurrency } = usePlatformCurrency();
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const overviewGridRef = useRef<HTMLDivElement>(null);
+  const descriptionGridRef = useRef<HTMLDivElement>(null);
   type FlatEventFields = {
     investment_amount_m?: string | number | null;
     investment_amount?: string | number | null;
@@ -68,6 +71,12 @@ const CorporateEventDetail = ({
     Array.isArray(data?.Event) && data.Event.length > 0
       ? data.Event[0]
       : undefined;
+  const descriptionCollapsedHeightStyle = useDescriptionRowHeight(
+    [overviewGridRef],
+    descriptionGridRef,
+    !isDescriptionExpanded,
+    [event?.id]
+  );
   const counterparties = React.useMemo(
     () =>
       Array.isArray(data?.Event_counterparties)
@@ -1074,7 +1083,7 @@ const CorporateEventDetail = ({
         <div style={styles.maxWidth}>
           <style>{responsiveCss}</style>
           <div className="responsiveGrid">
-            <div className="ce-grid-overview">
+            <div className="ce-grid-overview" ref={overviewGridRef}>
               <CorporateEventOverviewCard
                 fillGridCell
                 primarySectors={primarySectors}
@@ -1094,7 +1103,7 @@ const CorporateEventDetail = ({
 
             <div
               className="ce-grid-description"
-              ref={descriptionRef}
+              ref={descriptionGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
@@ -1102,6 +1111,7 @@ const CorporateEventDetail = ({
                 flexDirection: "column",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
+                ...(!isDescriptionExpanded ? descriptionCollapsedHeightStyle : {}),
               }}
             >
               <DescriptionCard
