@@ -33,6 +33,7 @@ import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { exportMarketMapBucket } from "@/lib/listExport/marketMapExport";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
+import { getContentTypeBadgeStyle } from "@/lib/contentTypeBadge";
 import { getInsightsTypeTone } from "@/lib/tagColors";
 import {
   buildGetAllContentArticlesParams,
@@ -49,6 +50,7 @@ const LINE_2 = "#EFF2F8";
 const INK = "#0A0E1A";
 const INK_2 = "#1E2536";
 const INK_3 = "#3D4657";
+const BODY = "#566078";
 const MUTED = "#6B7488";
 const MUTED_SOFT = "#8A93A8";
 const EMPTY = "#6B7488";
@@ -633,6 +635,19 @@ function RecentInsightsCard({
     if (sectorId) fetchArticles();
   }, [sectorId, sectorImportance]);
 
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+    try {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return "";
+    }
+  };
+
   return (
     <div
       style={{
@@ -694,18 +709,66 @@ function RecentInsightsCard({
             No insights available for this sector yet
           </div>
         ) : (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-              padding: 12,
-              overflowY: "auto",
-              height: "100%",
-            }}
-          >
-            {articles.map((article, index) => (
-              <InsightsAnalysisCard key={article.id ?? index} article={article} />
+          <div style={{ display: "flex", flexDirection: "column", overflowY: "auto", height: "100%" }}>
+            {articles.map((article) => (
+              <a
+                key={article.id}
+                href={`/article/${article.id}`}
+                style={{
+                  display: "block",
+                  padding: "13px 16px",
+                  borderBottom: `1px solid ${LINE_2}`,
+                  textDecoration: "none",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = BLUE_50)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 5 }}>
+                  {article.Content_Type && (
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        ...getContentTypeBadgeStyle(article.Content_Type),
+                      }}
+                    >
+                      {article.Content_Type}
+                    </span>
+                  )}
+                  <span style={{ fontSize: 11.5, color: MUTED, flexShrink: 0 }}>
+                    {formatDate(article.Publication_Date)}
+                  </span>
+                </div>
+                <h3
+                  style={{
+                    margin: "0 0 4px",
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    color: INK,
+                    lineHeight: 1.35,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {article.Headline || "Untitled"}
+                </h3>
+                {article.Strapline && (
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 12.5,
+                      lineHeight: 1.5,
+                      color: BODY,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {article.Strapline}
+                  </p>
+                )}
+              </a>
             ))}
           </div>
         )}
