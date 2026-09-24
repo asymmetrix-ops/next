@@ -16,11 +16,15 @@ import {
   getArticleByline,
   getArticleCorrections,
   getLatestCorrection,
+  getRelatedDocumentUrl,
+  isArticleBodyEmpty,
   isNewsArticle,
+  isPdfRelatedDocument,
 } from "@/lib/contentArticleDisplay";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
 import { EntityChip } from "@/components/ui/EntityChip";
+import { EmbeddedArticlePdf } from "@/components/article/EmbeddedArticlePdf";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   getFXRates,
@@ -1576,6 +1580,26 @@ const ArticleDetailPage = () => {
   const byline = getArticleByline(article);
   const corrections = getArticleCorrections(contentArticle);
   const latestCorrection = getLatestCorrection(contentArticle);
+  const relatedAttachmentDocs = (article.Related_Documents || []).filter(
+    Boolean
+  );
+  const bodyEmpty = isArticleBodyEmpty(article.Body);
+  const primaryPdfWhenBodyEmpty = bodyEmpty
+    ? relatedAttachmentDocs
+        .filter((d) => !isImageDoc(d))
+        .find(
+          (d) => isPdfRelatedDocument(d) && getRelatedDocumentUrl(d)
+        )
+    : undefined;
+  const embeddedPdfUrl = primaryPdfWhenBodyEmpty
+    ? getRelatedDocumentUrl(primaryPdfWhenBodyEmpty)
+    : "";
+  const relatedNonImageDocs = relatedAttachmentDocs
+    .filter((d) => !isImageDoc(d))
+    .filter((d) => {
+      const url = getRelatedDocumentUrl(d);
+      return url && url !== embeddedPdfUrl;
+    });
 
   return (
     <AppShell>
@@ -1719,11 +1743,23 @@ const ArticleDetailPage = () => {
               );
             })()}
 
-            {/* Article Body with embedded images from attachments */}
+            {/* Article Body (or embedded PDF when body is empty) */}
             {(() => {
-              const allImageDocs = (article.Related_Documents || []).filter(
-                isImageDoc
-              );
+              if (embeddedPdfUrl) {
+                return (
+                  <div
+                    style={styles.body}
+                    className="article-body article-body-embed"
+                  >
+                    <EmbeddedArticlePdf
+                      url={embeddedPdfUrl}
+                      title={primaryPdfWhenBodyEmpty?.name || "Document"}
+                    />
+                  </div>
+                );
+              }
+
+              const allImageDocs = relatedAttachmentDocs.filter(isImageDoc);
               const { html: withPlaceholders, usedIndices } =
                 replaceImagePlaceholders(article.Body, allImageDocs);
               const remainingImages = allImageDocs.filter(
@@ -1768,42 +1804,35 @@ const ArticleDetailPage = () => {
                 </div>
               )}
 
-            {/* Related Documents (attachments) */}
-            {article.Related_Documents &&
-              (article.Related_Documents || [])
-                .filter(Boolean)
-                .filter((d) => !isImageDoc(d)).length > 0 && (
-                <div style={styles.section}>
-                  <h2 style={styles.sectionTitle}>Related Documents</h2>
-                  <div style={styles.tagContainer}>
-                    {(article.Related_Documents || [])
-                      .filter(Boolean)
-                      .filter((d) => !isImageDoc(d))
-                      .map((doc, index) => {
-                        const url = (doc as unknown as { url?: string })?.url;
-                        const name = (doc as unknown as { name?: string })
-                          ?.name;
-                        if (!url) {
-                          return null;
-                        }
-                        return (
-                          <a
-                            key={index}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              ...styles.tag,
-                              textDecoration: "none",
-                            }}
-                          >
-                            {name || "Document"}
-                          </a>
-                        );
-                      })}
-                  </div>
+            {/* Related Documents (attachments; skip PDF shown inline as body) */}
+            {relatedNonImageDocs.length > 0 && (
+              <div style={styles.section}>
+                <h2 style={styles.sectionTitle}>Related Documents</h2>
+                <div style={styles.tagContainer}>
+                  {relatedNonImageDocs.map((doc, index) => {
+                    const url = getRelatedDocumentUrl(doc);
+                    const name = doc.name;
+                    if (!url) {
+                      return null;
+                    }
+                    return (
+                      <a
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          ...styles.tag,
+                          textDecoration: "none",
+                        }}
+                      >
+                        {name || "Document"}
+                      </a>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
+            )}
           </div>
 
           {/* Right: Metadata (1/3) */}
@@ -2931,6 +2960,97 @@ const ArticleDetailPage = () => {
           .article-body img { max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; }
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6B7488; margin-top: 0.5rem; }
+          .article-pdf-embed {
+            user-select: none;
+            -webkit-user-select: none;
+          }
+          .article-pdf-embed-status {
+            margin: 0 0 16px;
+            color: #6B7488;
+            font-size: 14px;
+          }
+          .article-pdf-embed-error {
+            margin: 0 0 16px;
+            color: #B42318;
+            font-size: 14px;
+          }
+          .article-pdf-embed-viewport {
+            position: relative;
+            border: 1px solid #E4E8F2;
+            border-radius: 8px;
+            background: #F7F8FC;
+            overflow: hidden;
+          }
+          .article-pdf-embed-pages {
+            height: min(80vh, 1100px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+          }
+          .article-pdf-embed-slide {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            box-sizing: border-box;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+          }
+          .article-pdf-embed-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            display: block;
+            box-shadow: 0 1px 6px rgba(10, 14, 26, 0.1);
+            border-radius: 2px;
+            background: #fff;
+          }
+          .article-pdf-embed-nav {
+            position: absolute;
+            right: 12px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid #E4E8F2;
+            background: rgba(255, 255, 255, 0.92);
+            color: #0A0E1A;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 4px rgba(10, 14, 26, 0.12);
+          }
+          .article-pdf-embed-nav:hover:not(:disabled) {
+            background: #fff;
+          }
+          .article-pdf-embed-nav:disabled {
+            opacity: 0.35;
+            cursor: default;
+          }
+          .article-pdf-embed-nav-up {
+            top: 12px;
+          }
+          .article-pdf-embed-nav-down {
+            bottom: 12px;
+          }
+          .article-pdf-embed-counter {
+            position: absolute;
+            left: 50%;
+            bottom: 12px;
+            transform: translateX(-50%);
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: rgba(10, 14, 26, 0.72);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+          }
           .article-inline-image { margin: 1.25rem 0; }
           /* ---- Sidebar rail: card shell + rows/tabs/chips (verbatim from
              New Design/ReportDetail.html's right-rail handoff) ---- */

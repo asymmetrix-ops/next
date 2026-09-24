@@ -229,3 +229,41 @@ export function formatCorrectionTimestamp(value?: string | null): string {
     return value;
   }
 }
+
+const XANO_FILE_ORIGIN = "https://xdil-abvj-o7rq.e2.xano.io";
+
+export type RelatedDocumentLike = {
+  access?: string;
+  path?: string;
+  name?: string;
+  type?: string;
+  mime?: string;
+  url?: string;
+};
+
+/** True when Body has no meaningful text (empty, whitespace, or empty HTML). */
+export function isArticleBodyEmpty(body: string | null | undefined): boolean {
+  if (!body || !body.trim()) return true;
+  const withoutTags = body
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ");
+  return decodeHtmlEntities(withoutTags).trim().length === 0;
+}
+
+export function getRelatedDocumentUrl(doc: RelatedDocumentLike): string {
+  const url = (doc.url || "").trim();
+  if (url) return url;
+  const path = (doc.path || "").trim();
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  if (path.startsWith("/")) return `${XANO_FILE_ORIGIN}${path}`;
+  return `${XANO_FILE_ORIGIN}/${path}`;
+}
+
+export function isPdfRelatedDocument(doc: RelatedDocumentLike): boolean {
+  if (!doc) return false;
+  if (doc.mime === "application/pdf") return true;
+  if ((doc.type || "").toLowerCase() === "pdf") return true;
+  const hint = `${doc.name || ""} ${doc.url || ""} ${doc.path || ""}`;
+  return /\.pdf($|\?)/i.test(hint);
+}
