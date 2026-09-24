@@ -844,6 +844,7 @@ const CorporateEventDetail = ({
       
       // Prepare the full data payload
       const payload = {
+        version: "v2",
         Event: data?.Event || [],
         Event_counterparties: data?.Event_counterparties || [],
         Event_advisors: data?.Event_advisors || [],

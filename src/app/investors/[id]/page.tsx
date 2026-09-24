@@ -1067,6 +1067,7 @@ const InvestorDetailPage = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            version: "v2",
             investor: investorData,
             linkedin: {
               url:

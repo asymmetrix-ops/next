@@ -156,6 +156,7 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
       article.Company_of_Focus != null && article.Company_of_Focus !== "";
 
     const payload = {
+      version: "v2",
       id: article.id,
       Headline: article.Headline || "",
       Strapline: article.Strapline || undefined,

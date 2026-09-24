@@ -389,7 +389,10 @@ export default function AdvisorProfilePage() {
     if (!advisorData?.Advisor) return;
     setExportingPdf(true);
     try {
-      const payload = { advisor: buildAdvisorPageSnapshot() };
+      const payload = {
+        version: "v2",
+        advisor: buildAdvisorPageSnapshot(),
+      };
       const res = await fetch(
         "https://asymmetrix-pdf-service.fly.dev/api/export-advisor-pdf",
         {
