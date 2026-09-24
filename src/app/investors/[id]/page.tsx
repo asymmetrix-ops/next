@@ -24,6 +24,7 @@ import {
   InvestorFocusMixCard,
   type InvestorMixRow,
 } from "@/components/investors/InvestorFocusMixCard";
+import { mixBarColorFor } from "@/components/investors/investorSectorColors";
 import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
 import { InvestorPortfolioTab } from "@/components/investors/InvestorPortfolioTab";
 import { fetchInvestorHoldingPeriodAverageServer } from "@/app/investors/[id]/holdingPeriodActions";
@@ -315,6 +316,106 @@ interface PortfolioMixResponse {
   sector_mix?: PortfolioMixApiRow[];
   stage_focus?: PortfolioMixApiRow[];
   geography?: PortfolioMixApiRow[];
+}
+
+type InvestorPortfolioMixExportRow = InvestorMixRow & {
+  company_count?: number;
+  bar_color: string;
+};
+
+const INVESTOR_PORTFOLIO_MIX_API_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/investor_portfolio_mix";
+
+function pickMixRows(
+  payload: Record<string, unknown>,
+  ...keys: string[]
+): PortfolioMixApiRow[] | undefined {
+  for (const key of keys) {
+    const val = payload[key];
+    if (Array.isArray(val)) return val as PortfolioMixApiRow[];
+  }
+  return undefined;
+}
+
+function normalizePortfolioMixResponse(raw: unknown): PortfolioMixResponse {
+  if (!raw || typeof raw !== "object") return {};
+  const record = raw as Record<string, unknown>;
+  const hasMixAtRoot =
+    record.sector_mix != null ||
+    record.stage_focus != null ||
+    record.geography != null;
+  const payload = (
+    hasMixAtRoot
+      ? record
+      : (record.data as Record<string, unknown> | undefined) ??
+        (record.result as Record<string, unknown> | undefined) ??
+        record
+  ) as Record<string, unknown>;
+
+  return {
+    investor_id:
+      typeof payload.investor_id === "number" ? payload.investor_id : undefined,
+    sector_mix: pickMixRows(payload, "sector_mix", "Sector_mix"),
+    stage_focus: pickMixRows(payload, "stage_focus", "Stage_focus"),
+    geography: pickMixRows(payload, "geography", "Geography"),
+  };
+}
+
+async function fetchInvestorPortfolioMix(
+  investorId: string
+): Promise<PortfolioMixResponse | null> {
+  try {
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    const response = await fetch(
+      `${INVESTOR_PORTFOLIO_MIX_API_URL}/${encodeURIComponent(investorId)}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        credentials: "include",
+      }
+    );
+    if (!response.ok) return null;
+    const json = await response.json();
+    return normalizePortfolioMixResponse(json);
+  } catch {
+    return null;
+  }
+}
+
+function buildPortfolioMixExportRows(
+  rows: PortfolioMixApiRow[] | undefined
+): InvestorPortfolioMixExportRow[] {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((row) => row?.label?.trim())
+    .map((row, index) => {
+      const mapped = mapPortfolioMixRows([row])[0]!;
+      return {
+        label: mapped.label,
+        pct: mapped.pct,
+        company_count: row.company_count,
+        bar_color: mixBarColorFor(index),
+      };
+    });
+}
+
+function buildPortfolioMixPdfPayload(mix: PortfolioMixResponse | null) {
+  const sector_mix = buildPortfolioMixExportRows(mix?.sector_mix);
+  const stage_focus = buildPortfolioMixExportRows(mix?.stage_focus);
+  const geography = buildPortfolioMixExportRows(mix?.geography);
+  return {
+    sector_mix,
+    stage_focus,
+    geography,
+    portfolio_mix: {
+      sector_mix,
+      stage_focus,
+      geography,
+    },
+  };
 }
 
 function mapPortfolioMixRows(rows: PortfolioMixApiRow[] | undefined): InvestorMixRow[] {
@@ -918,24 +1019,10 @@ const InvestorDetailPage = () => {
   const fetchPortfolioMix = useCallback(async () => {
     setPortfolioMixLoading(true);
     try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/investor_portfolio_mix/${encodeURIComponent(investorId)}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          credentials: "include",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Portfolio mix API request failed: ${response.statusText}`);
+      const data = await fetchInvestorPortfolioMix(investorId);
+      if (!data) {
+        throw new Error("Portfolio mix API request failed");
       }
-
-      const data = (await response.json()) as PortfolioMixResponse;
       setPortfolioMix(data);
     } catch (err) {
       console.error("Error fetching investor portfolio mix:", err);
@@ -1059,6 +1146,10 @@ const InvestorDetailPage = () => {
     try {
       setExportingPdf(true);
 
+      const mixForExport =
+        (await fetchInvestorPortfolioMix(investorId)) ?? portfolioMix;
+      const portfolioMixPayload = buildPortfolioMixPdfPayload(mixForExport);
+
       const response = await fetch(
         `${PDF_SERVICE_BASE_URL}/api/export-investor-pdf?version=v2`,
         {
@@ -1076,9 +1167,7 @@ const InvestorDetailPage = () => {
               history: linkedInHistory,
             },
             corporate_events: corporateEvents,
-            sector_mix: portfolioMix?.sector_mix ?? [],
-            stage_focus: portfolioMix?.stage_focus ?? [],
-            geography: portfolioMix?.geography ?? [],
+            ...portfolioMixPayload,
             portfolio: {
               current: {
                 pagination: portfolioPagination,
