@@ -2149,13 +2149,13 @@ const CompanyDetail = () => {
       const requestBody = isFinancialMetricsExport
         ? {
             company_id: company.id,
-            version: "v2",
+            version: "v1",
             company_name: company.name,
             financial_metrics_period: financialMetricsPeriod,
             financial_metrics_year: financialMetricsYear,
             source: FINANCIAL_METRICS_EXPORT_SOURCE,
           }
-        : { company_id: company.id, version: "v2" };
+        : { company_id: company.id, version: "v1" };
       const response = await fetch(
         "https://asymmetrix-pdf-service.fly.dev/api/export-company-pdf",
         {
