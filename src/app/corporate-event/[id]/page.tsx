@@ -174,13 +174,18 @@ const CorporateEventDetail = ({
   };
 
   const getInvestmentAmount = (): string | undefined => {
-    const nested = event?.investment_data?.investment_amount_m;
-    if (nested) return nested;
+    // The API returns the deal amount two ways: `investment_data.investment_amount_m`
+    // is the native, unconverted figure, while the top-level `investment_amount_m`
+    // is that same figure converted to the requested `preferred_currency_id`. Prefer
+    // the converted top-level value so the platform-currency label we display matches
+    // the actual number.
     const flatEvent = (event ?? {}) as FlatEventFields;
     const top =
       flatEvent.investment_amount_m ?? flatEvent.investment_amount ?? undefined;
     if (typeof top === "number") return String(top);
     if (typeof top === "string" && top.trim().length > 0) return top.trim();
+    const nested = event?.investment_data?.investment_amount_m;
+    if (nested) return nested;
     return undefined;
   };
 
@@ -332,12 +337,15 @@ const CorporateEventDetail = ({
     currency: undefined,
     enterpriseValue: (() => {
       const flatEvent = (event ?? {}) as FlatEventFields;
-      const amountRaw =
-        event?.ev_data?.enterprise_value_m ??
-        flatEvent.enterprise_value_m ??
-        "";
-      // Check if the value is empty, null, or 0
-      if (amountRaw === null || amountRaw === undefined || amountRaw === "" || amountRaw === 0 || amountRaw === "0") {
+      const isUsable = (v: unknown) =>
+        v !== null && v !== undefined && v !== "" && v !== 0 && v !== "0";
+      // Same as investmentAmount: `enterprise_value_m` at the top level is the
+      // figure converted to the requested platform currency; `ev_data.enterprise_value_m`
+      // is the native, unconverted one. Prefer the converted value.
+      const amountRaw = isUsable(flatEvent.enterprise_value_m)
+        ? flatEvent.enterprise_value_m
+        : (event?.ev_data?.enterprise_value_m ?? "");
+      if (!isUsable(amountRaw)) {
         return undefined;
       }
       const amount =
