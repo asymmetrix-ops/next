@@ -1076,6 +1076,9 @@ const InvestorDetailPage = () => {
               history: linkedInHistory,
             },
             corporate_events: corporateEvents,
+            sector_mix: portfolioMix?.sector_mix ?? [],
+            stage_focus: portfolioMix?.stage_focus ?? [],
+            geography: portfolioMix?.geography ?? [],
             portfolio: {
               current: {
                 pagination: portfolioPagination,
@@ -1131,6 +1134,7 @@ const InvestorDetailPage = () => {
     pastPortfolioCompanies,
     pastPortfolioPagination,
     portfolioCompanies,
+    portfolioMix,
     portfolioPagination,
   ]);
 

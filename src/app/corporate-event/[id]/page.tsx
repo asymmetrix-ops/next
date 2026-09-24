@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import { PlusIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { corporateEventsService } from "../../../lib/corporateEventsService";
 import {
+  CorporateEvent,
   CorporateEventDetailResponse,
   CorporateEventAdvisor,
   Target,
@@ -21,7 +22,10 @@ import {
   CorporateEventTransactionsPanel,
   type CorporateEventTransactionRow,
 } from "@/components/corporate-events/CorporateEventTransactionsPanel";
-import { CorporateEventInsightsPanel } from "@/components/corporate-events/CorporateEventInsightsPanel";
+import {
+  CorporateEventInsightsPanel,
+  type CorporateEventInsight,
+} from "@/components/corporate-events/CorporateEventInsightsPanel";
 import { CorporateEventPartyLink } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX, readHqCountryIso2 } from "@/lib/dealRadar";
 import { resolveCompanyLogoSrcBlockingLinkedIn } from "@/lib/companyLogo";
@@ -38,10 +42,56 @@ const isDataAnalyticsCompany = (candidate: unknown): boolean => {
 };
 
 const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
+/** Matches `CorporateEventTransactionsPanel` default `maxInitial`. */
+const RECENT_SECTOR_TRANSACTIONS_PDF_LIMIT = 5;
+/** Matches sector I&A fetch `slice(0, 5)` on this page. */
+const SECTOR_INSIGHTS_PDF_LIMIT = 5;
 const RELATED_PARTY_LINK_STYLE: React.CSSProperties = {
   color: "#2563eb",
   textDecoration: "underline",
 };
+
+type CorporateEventTransactionExportRow = {
+  id: number;
+  title: string;
+  date?: string;
+  dealType?: string;
+  target_label?: string;
+  investor_labels?: string[];
+};
+
+function mapCorporateEventToExportTransaction(
+  e: CorporateEvent,
+  formatDate: (dateString: string) => string
+): CorporateEventTransactionExportRow {
+  const targetNames: string[] = [];
+  if (Array.isArray(e.targets)) {
+    for (const target of e.targets) {
+      const name = target?.name?.trim();
+      if (name) targetNames.push(name);
+    }
+  } else if (e.target_counterparty?.new_company?.name) {
+    targetNames.push(e.target_counterparty.new_company.name.trim());
+  }
+
+  const investorNames: string[] = [];
+  if (Array.isArray(e.other_counterparties)) {
+    for (const counterparty of e.other_counterparties) {
+      const nc = counterparty?._new_company;
+      const name = nc?.name?.trim();
+      if (name && nc?._is_that_investor) investorNames.push(name);
+    }
+  }
+
+  return {
+    id: e.id,
+    title: e.description || "View event",
+    date: e.announcement_date ? formatDate(e.announcement_date) : undefined,
+    dealType: e.deal_type || undefined,
+    target_label: targetNames.length > 0 ? targetNames.join(", ") : undefined,
+    investor_labels: investorNames.length > 0 ? investorNames : undefined,
+  };
+}
 
 // Helper function to process logo URLs
   const buildLogoSrc = (raw?: string): string | undefined =>
@@ -200,9 +250,10 @@ const CorporateEventDetail = ({
 
   const [eventArticles, setEventArticles] = useState<ContentArticle[]>([]);
   const [relatedTransactions, setRelatedTransactions] = useState<CorporateEventTransactionRow[]>([]);
-  const [relatedInsights, setRelatedInsights] = useState<
-    Array<{ id?: number; tag?: string; date?: string; title: string; content: string }>
+  const [relatedTransactionsForExport, setRelatedTransactionsForExport] = useState<
+    CorporateEventTransactionExportRow[]
   >([]);
+  const [relatedInsights, setRelatedInsights] = useState<CorporateEventInsight[]>([]);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   useEffect(() => {
@@ -603,9 +654,13 @@ const CorporateEventDetail = ({
           primary_sectors_ids: [primarySectorId],
         });
         const items = Array.isArray(tx?.items) ? tx.items : [];
-        const filtered = items
-          .filter((e) => (typeof corporateEventId === "number" ? e?.id !== corporateEventId : true))
-          .map((e) => {
+        const sectorPeerEvents = items.filter((e) =>
+          typeof corporateEventId === "number" ? e?.id !== corporateEventId : true
+        );
+        setRelatedTransactionsForExport(
+          sectorPeerEvents.map((e) => mapCorporateEventToExportTransaction(e, formatDate))
+        );
+        const filtered = sectorPeerEvents.map((e) => {
             const investors = Array.isArray(e?.other_counterparties)
               ? (() => {
                   const investorCounterparties = e.other_counterparties
@@ -805,7 +860,7 @@ const CorporateEventDetail = ({
         const filteredIA = itemsIA.filter(
           (article) => !(typeof article?.id === "number" && eventArticleIds.has(article.id))
         );
-        const mapped = filteredIA.slice(0, 5).map((article) => ({
+        const mapped = filteredIA.slice(0, SECTOR_INSIGHTS_PDF_LIMIT).map((article) => ({
           id: article.id,
           tag: (article.Content_Type || "Article").trim() || "Article",
           date: article.Publication_Date
@@ -853,6 +908,12 @@ const CorporateEventDetail = ({
         event_articles: eventArticles || [],
         related_transactions: relatedTransactions || [],
         related_insights: relatedInsights || [],
+        insights_and_analysis: insightsForEvent,
+        sector_insights_and_analysis: relatedInsights.slice(0, SECTOR_INSIGHTS_PDF_LIMIT),
+        recent_sector_transactions: relatedTransactionsForExport.slice(
+          0,
+          RECENT_SECTOR_TRANSACTIONS_PDF_LIMIT
+        ),
         xano_auth_token: token,
       };
 
@@ -862,6 +923,9 @@ const CorporateEventDetail = ({
         articles_count: payload.event_articles.length,
         transactions_count: payload.related_transactions.length,
         insights_count: payload.related_insights.length,
+        insights_and_analysis_count: payload.insights_and_analysis.length,
+        sector_insights_count: payload.sector_insights_and_analysis.length,
+        recent_sector_transactions_count: payload.recent_sector_transactions.length,
       });
 
       const res = await fetch(endpoint, {
@@ -893,7 +957,16 @@ const CorporateEventDetail = ({
     } finally {
       setIsExportingPdf(false);
     }
-  }, [corporateEventId, event?.description, data, eventArticles, relatedTransactions, relatedInsights]);
+  }, [
+    corporateEventId,
+    event?.description,
+    data,
+    eventArticles,
+    insightsForEvent,
+    relatedInsights,
+    relatedTransactions,
+    relatedTransactionsForExport,
+  ]);
 
   const eventTitle = event?.description || "Corporate Event";
   const eventDescription = event?.long_description || "";
