@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 // import Image from "next/image";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
@@ -22,11 +22,7 @@ import {
   type RankedEntity,
 } from "@/lib/sectorMostActiveRanked";
 import { locationsService } from "@/lib/locationsService";
-import {
-  getArticleByline,
-  isNewsArticle,
-  normalizeContentArticles,
-} from "@/lib/contentArticleDisplay";
+import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import {
   ContentArticle,
@@ -37,10 +33,6 @@ import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { exportMarketMapBucket } from "@/lib/listExport/marketMapExport";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
-import {
-  getContentTypeAccentColor,
-  getContentTypeBadgeStyle,
-} from "@/lib/contentTypeBadge";
 import { getInsightsTypeTone } from "@/lib/tagColors";
 import {
   buildGetAllContentArticlesParams,
@@ -48,7 +40,7 @@ import {
   fetchSectorRecentContentArticles,
 } from "@/lib/sectorInsightsArticles";
 import { getInsightsListItemsTotal } from "@/lib/fetchInsightsLogicalPage";
-import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
+import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 
 // ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
 // (same convention as src/app/sectors/page.tsx)
@@ -57,7 +49,6 @@ const LINE_2 = "#EFF2F8";
 const INK = "#0A0E1A";
 const INK_2 = "#1E2536";
 const INK_3 = "#3D4657";
-const BODY = "#566078";
 const MUTED = "#6B7488";
 const MUTED_SOFT = "#8A93A8";
 const EMPTY = "#6B7488";
@@ -124,46 +115,13 @@ interface SectorStatistics {
   market_map?: unknown;
 }
 
-const normalizeContentTypeLabel = (raw: unknown): string | undefined => {
-  if (typeof raw !== "string") return undefined;
-  const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
-
-const inferContentTypeFromHeadline = (headline: unknown): string | undefined => {
-  const normalizedHeadline = normalizeContentTypeLabel(headline);
-  if (!normalizedHeadline) return undefined;
-
-  const parts = normalizedHeadline.split(/\s*[–—-]\s*/);
-  const candidate = (parts[0] || "").trim().toLowerCase();
-
-  const known = new Map<string, string>([
-    ["company analysis", "Company Analysis"],
-    ["deal analysis", "Deal Analysis"],
-    ["deal perspective", "Deal Perspective"],
-    ["market commentary", "Market Commentary"],
-    ["sector analysis", "Sector Analysis"],
-    ["hot take", "Hot Take"],
-    ["executive interview", "Executive Interview"],
-  ]);
-
-  return known.get(candidate);
-};
-
-const getEffectiveContentType = (article: ContentArticle): string | undefined => {
-  const anyArticle = article as ContentArticle & {
-    content_type?: unknown;
-    ContentType?: unknown;
-    contentType?: unknown;
-  };
-
-  return (
-    normalizeContentTypeLabel(anyArticle.Content_Type) ||
-    normalizeContentTypeLabel(anyArticle.content_type) ||
-    normalizeContentTypeLabel(anyArticle.ContentType) ||
-    normalizeContentTypeLabel(anyArticle.contentType) ||
-    inferContentTypeFromHeadline(anyArticle.Headline)
-  );
+const SECTOR_INSIGHTS_GRID_STYLE: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+  gap: 16,
+  width: "100%",
+  boxSizing: "border-box",
+  alignItems: "stretch",
 };
 
 interface SectorCompany {
@@ -675,19 +633,6 @@ function RecentInsightsCard({
     if (sectorId) fetchArticles();
   }, [sectorId, sectorImportance]);
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "";
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch {
-      return "";
-    }
-  };
-
   return (
     <div
       style={{
@@ -749,66 +694,18 @@ function RecentInsightsCard({
             No insights available for this sector yet
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", overflowY: "auto", height: "100%" }}>
-            {articles.map((article) => (
-              <a
-                key={article.id}
-                href={`/article/${article.id}`}
-                style={{
-                  display: "block",
-                  padding: "13px 16px",
-                  borderBottom: `1px solid ${LINE_2}`,
-                  textDecoration: "none",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = BLUE_50)}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 5 }}>
-                  {article.Content_Type && (
-                    <span
-                      style={{
-                        flexShrink: 0,
-                        ...getContentTypeBadgeStyle(article.Content_Type),
-                      }}
-                    >
-                      {article.Content_Type}
-                    </span>
-                  )}
-                  <span style={{ fontSize: 11.5, color: MUTED, flexShrink: 0 }}>
-                    {formatDate(article.Publication_Date)}
-                  </span>
-                </div>
-                <h3
-                  style={{
-                    margin: "0 0 4px",
-                    fontSize: 13.5,
-                    fontWeight: 700,
-                    color: INK,
-                    lineHeight: 1.35,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {article.Headline || "Untitled"}
-                </h3>
-                {article.Strapline && (
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 12.5,
-                      lineHeight: 1.5,
-                      color: BODY,
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {article.Strapline}
-                  </p>
-                )}
-              </a>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              padding: 12,
+              overflowY: "auto",
+              height: "100%",
+            }}
+          >
+            {articles.map((article, index) => (
+              <InsightsAnalysisCard key={article.id ?? index} article={article} />
             ))}
           </div>
         )}
@@ -2073,7 +1970,6 @@ const SectorDetailPage = ({
     sectorId: string;
     sectorImportance?: string;
   }) {
-    const router = useRouter();
     const [filters, setFilters] = useState<InsightsAnalysisFilters>(() =>
       buildSectorInsightsFilters(Number.parseInt(sectorId, 10) || 0, sectorImportance)
     );
@@ -2188,42 +2084,6 @@ const SectorDetailPage = ({
       const updatedFilters = { ...filters, Offset: page };
       setFilters(updatedFilters);
       fetchInsightsAnalysis(updatedFilters);
-    };
-
-    const formatDate = (dateString: string) => {
-      if (!dateString) return "-";
-      try {
-        return new Date(dateString).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
-      } catch {
-        return "Invalid date";
-      }
-    };
-
-    const formatSectors = (sectors: unknown) => {
-      if (!sectors || !Array.isArray(sectors) || sectors.length === 0) {
-        return "-";
-      }
-      const flat = Array.isArray(sectors[0])
-        ? (sectors as Array<Array<{ sector_name?: string }>>).flat()
-        : (sectors as Array<{ sector_name?: string }>);
-      const names = flat
-        .filter((s) => s && s.sector_name)
-        .map((s) => s.sector_name as string);
-      return names.length > 0 ? names.join(", ") : "-";
-    };
-
-    const formatCompanies = (
-      companies: ContentArticle["companies_mentioned"] | undefined
-    ) => {
-      if (!companies || companies.length === 0) return "-";
-      const validCompanies = companies
-        .filter((c) => c && c.name)
-        .map((c) => c.name);
-      return validCompanies.length > 0 ? validCompanies.join(", ") : "-";
     };
 
     const rangeStart = pagination.pageTotal > 0 ? pagination.offset + 1 : 0;
@@ -2371,127 +2231,55 @@ const SectorDetailPage = ({
           </div>
         )}
 
-        {/* Results panel */}
-        <div
-          style={{
-            background: "#fff",
-            border: `1px solid ${LINE}`,
-            borderRadius: R_LG,
-            boxShadow: SH_SM,
-            overflow: "hidden",
-          }}
-        >
-          {loading ? (
-            <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
-              Loading articles…
-            </div>
-          ) : articles.length === 0 ? (
-            <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
-              No articles found.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {articles.map((article: ContentArticle, index: number) => {
-                const effectiveContentType = getEffectiveContentType(article);
-                const isNews = isNewsArticle({ Content_Type: effectiveContentType });
-                const byline = isNews ? getArticleByline(article) : "";
+        {loading && articles.length === 0 && (
+          <div style={{ padding: "48px 16px", textAlign: "center", color: MUTED, fontSize: 14 }}>
+            Loading reports…
+          </div>
+        )}
 
-                return (
-                  <a
-                    key={article.id || index}
-                    href={`/article/${article.id}`}
-                    style={{
-                      display: "block",
-                      padding: "13px 16px",
-                      borderBottom: `1px solid ${LINE_2}`,
-                      borderTop: `3px solid ${getContentTypeAccentColor(effectiveContentType)}`,
-                      textDecoration: "none",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = BLUE_50)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    onClick={(e) => {
-                      if (
-                        e.defaultPrevented ||
-                        e.button !== 0 ||
-                        e.metaKey ||
-                        e.ctrlKey ||
-                        e.shiftKey ||
-                        e.altKey
-                      )
-                        return;
-                      e.preventDefault();
-                      router.push(`/article/${article.id}`);
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 5 }}>
-                      {effectiveContentType && (
-                        <span style={getContentTypeBadgeStyle(effectiveContentType)}>
-                          {effectiveContentType}
-                        </span>
-                      )}
-                      <span style={{ fontSize: 11.5, color: MUTED }}>
-                        {formatDate(article.Publication_Date)}
-                      </span>
-                    </div>
-                    <h3 style={{ margin: "0 0 4px", fontSize: 13.5, fontWeight: 700, color: INK, lineHeight: 1.35 }}>
-                      {article.Headline || "-"}
-                    </h3>
-                    {article.Transaction_status && (
-                      <div style={{ marginBottom: 6 }}>
-                        <TransactionStatusPill status={article.Transaction_status} />
-                      </div>
-                    )}
-                    {byline ? (
-                      <p style={{ margin: "0 0 4px", fontSize: 12, color: MUTED, fontStyle: "italic" }}>
-                        {byline}
-                      </p>
-                    ) : null}
-                    <p style={{ margin: "0 0 8px", fontSize: 12.5, lineHeight: 1.5, color: BODY }}>
-                      {article.Strapline || "No summary available"}
-                    </p>
-                    <div style={{ fontSize: 12, color: MUTED }}>
-                      <span style={{ fontWeight: 600, color: INK_3 }}>Companies: </span>
-                      {formatCompanies(article.companies_mentioned)}
-                    </div>
-                    <div style={{ fontSize: 12, color: MUTED }}>
-                      <span style={{ fontWeight: 600, color: INK_3 }}>Sectors: </span>
-                      {formatSectors(article.sectors)}
-                    </div>
-                  </a>
-                );
-              })}
-            </div>
-          )}
+        {!loading && articles.length === 0 && !error && (
+          <div style={{ padding: "48px 16px", textAlign: "center", color: MUTED, fontSize: 14 }}>
+            No reports found.
+          </div>
+        )}
 
-          {/* Pagination footer */}
-          {pagination.pageTotal > 0 && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto 1fr",
-                alignItems: "center",
-                gap: 14,
-                padding: "11px 16px",
-                background: "#fff",
-                borderTop: `1px solid ${LINE_2}`,
-                fontSize: 13,
-                color: MUTED,
-              }}
-            >
-              <div>
-                Showing {rangeStart}–{rangeEnd} of {pagination.itemsTotal}
-              </div>
-              <div style={{ justifySelf: "center" }}>
-                <CompactPagination
-                  curPage={pagination.curPage}
-                  pageTotal={pagination.pageTotal}
-                  onPageChange={handlePageChange}
-                />
-              </div>
-              <div />
-            </div>
-          )}
-        </div>
+        {articles.length > 0 && (
+          <div style={SECTOR_INSIGHTS_GRID_STYLE}>
+            {articles.map((article, index) => (
+              <InsightsAnalysisCard key={article.id ?? index} article={article} />
+            ))}
+          </div>
+        )}
+
+        {pagination.pageTotal > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+              padding: "8px 4px",
+              fontSize: 13,
+              color: MUTED,
+            }}
+          >
+            <span style={{ whiteSpace: "nowrap" }}>
+              Showing {rangeStart}–{rangeEnd} of {pagination.itemsTotal} reports
+              {pagination.pageTotal > 1
+                ? ` · page ${pagination.curPage} of ${pagination.pageTotal}`
+                : ""}
+            </span>
+            {pagination.pageTotal > 1 && (
+              <CompactPagination
+                curPage={pagination.curPage}
+                pageTotal={pagination.pageTotal}
+                onPageChange={handlePageChange}
+                disabled={loading}
+              />
+            )}
+          </div>
+        )}
       </div>
     );
   }
