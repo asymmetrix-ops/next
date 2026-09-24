@@ -444,11 +444,12 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
       const name = (s?.sector_name || "").trim();
       if (!name) return "";
       const id = getSectorId(s);
+      const isPrimary = (s?.Sector_importance || "").trim() === "Primary";
       const href =
-        typeof id === "number" ? `${baseUrl}/sector/${id}` : undefined;
-      const label = `${escapeHtml(name)}${
-        (s?.Sector_importance || "").trim() === "Primary" ? " (Primary)" : ""
-      }`;
+        typeof id === "number"
+          ? `${baseUrl}${isPrimary ? "/sector" : "/sub-sector"}/${id}`
+          : undefined;
+      const label = `${escapeHtml(name)}${isPrimary ? " (Primary)" : ""}`;
       return href
         ? `<a href="${href}" class="tag sectorTag">${label}</a>`
         : `<span class="tag sectorTag">${label}</span>`;

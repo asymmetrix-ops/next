@@ -2274,16 +2274,17 @@ const ArticleDetailPage = () => {
                   {article.sectors.map((sector) => {
                     const sid = getSectorId(sector);
                     if (!sid) return null;
+                    const isPrimary = sector.Sector_importance === "Primary";
                     return (
                       <EntityChip
                         key={sid}
                         kind="sector"
-                        href={`/sector/${sid}`}
+                        href={isPrimary ? `/sector/${sid}` : `/sub-sector/${sid}`}
                         title="Open sector page"
                         label={
                           <>
                             {sector.sector_name}
-                            {sector.Sector_importance === "Primary" && " (Primary)"}
+                            {isPrimary && " (Primary)"}
                           </>
                         }
                       />
