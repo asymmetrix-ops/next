@@ -209,7 +209,8 @@ export function OverviewCard({
   const hasLifecycle = !isEmptyDisplayValue(lifecycle ?? null);
   const hasTotalAmountRaised =
     Boolean(totalAmountRaised) && !isEmptyDisplayValue(totalAmountRaised);
-  const hasEmployees = employees != null;
+  const hasEmployees =
+    employees != null && Number.isFinite(employees);
   const hasLastInvestment =
     Boolean(lastInvestment) && !isEmptyDisplayValue(lastInvestment);
 
@@ -296,7 +297,9 @@ export function OverviewCard({
       show: hasEmployees,
       v: (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {employees!.toLocaleString("en-US")}
+          {employees != null && Number.isFinite(employees)
+            ? employees.toLocaleString("en-US")
+            : faintDash()}
           {employeesYoY && <Delta value={employeesYoY} />}
         </span>
       ),
