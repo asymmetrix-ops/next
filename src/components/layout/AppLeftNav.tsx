@@ -21,6 +21,8 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
 import { trackLogout } from "@/lib/tracking";
 import { getInitials } from "@/lib/userDisplay";
+import { useGlobalSearch } from "@/components/search/GlobalSearchProvider";
+import { GlobalSearchTrigger } from "@/components/search/GlobalSearchTrigger";
 import { useNavOpen } from "./NavOpenContext";
 
 type NavCounts = {
@@ -132,6 +134,7 @@ export default function AppLeftNav() {
   // Insights & Analysis grid — can read open/collapsed too, and so it
   // persists across navigations instead of resetting on every page mount.
   const { open, setOpen } = useNavOpen();
+  const { openSearch } = useGlobalSearch();
   const [counts, setCounts] = useState<NavCounts>({});
 
   const toggleOpen = () => setOpen((v) => !v);
@@ -306,6 +309,33 @@ export default function AppLeftNav() {
         >
           <Bars3Icon className="h-[18px] w-[18px]" />
         </button>
+      </div>
+
+      <div className="shrink-0 border-b border-gray-100 px-2 py-2">
+        {open ? (
+          <GlobalSearchTrigger variant="sidebar" />
+        ) : (
+          <button
+            type="button"
+            onClick={openSearch}
+            aria-label="Search"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
+          >
+            <svg
+              width={16}
+              height={16}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-2 pt-3">
