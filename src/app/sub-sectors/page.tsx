@@ -35,6 +35,15 @@ type SortField =
   | "Number_of_Private";
 type SortDirection = "asc" | "desc";
 
+const SORT_BY_API_KEY: Record<SortField, string> = {
+  sector_name: "name",
+  Number_of_Companies: "companies",
+  Number_of_Public: "public",
+  Number_of_PE: "pe_owned",
+  Number_of_VC: "vc_backed",
+  Number_of_Private: "private",
+};
+
 interface SecondarySectorApiItem {
   id: number;
   sector_name: string;
@@ -333,73 +342,76 @@ const SubSectorsSection = () => {
     router.push(`/sub-sector/${subSectorId}`);
   };
 
-  const sortedSubSectors = [...subSectors].sort((a, b) => {
-    let aValue: string | number = a[sortField] ?? 0;
-    let bValue: string | number = b[sortField] ?? 0;
+  // Single API call per page — the endpoint is server-paginated (25/page),
+  // server-searched and server-sorted across the whole list, so we never
+  // fetch more than the page being shown.
+  const fetchPage = useCallback(
+    async (
+      uiPage: number,
+      search: string,
+      sortField: SortField,
+      sortDirection: SortDirection
+    ) => {
+      setLoading(true);
+      setError(null);
 
-    if (typeof aValue === "string") {
-      aValue = aValue.toLowerCase();
-      bValue = (bValue as string).toLowerCase();
-    }
-
-    if (sortDirection === "asc") {
-      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-    } else {
-      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-    }
-  });
-
-  // Single API call per page — the endpoint is server-paginated (25/page)
-  // and server-searched, so we never fetch more than the page being shown.
-  const fetchPage = useCallback(async (uiPage: number, search: string) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) {
-        setError("Authentication required");
-        return;
-      }
-
-      const params = new URLSearchParams({ page: String(uiPage - 1) });
-      if (search) params.set("search", search);
-
-      const resp = await fetch(
-        `${API_BASE}/sectors/secondary_search?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          setError("Authentication required");
+          return;
         }
-      );
-      if (!resp.ok) {
-        throw new Error(`API request failed: ${resp.status} ${resp.statusText}`);
-      }
-      const data: SecondarySectorsApiResponse = await resp.json();
 
-      setSubSectors((data.items || []).map(mapApiItem));
-      setCurPage(data.page || uiPage);
-      setPageTotal(data.total_pages || 1);
-      setTotalCount(data.total_count || 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch sub-sectors");
-      console.error("Error fetching sub-sectors:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        const params = new URLSearchParams({
+          page: String(uiPage - 1),
+          sort_by: SORT_BY_API_KEY[sortField],
+          sort_dir: sortDirection,
+        });
+        if (search) params.set("search", search);
+
+        const resp = await fetch(
+          `${API_BASE}/sectors/secondary_search?${params.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (!resp.ok) {
+          throw new Error(`API request failed: ${resp.status} ${resp.statusText}`);
+        }
+        const data: SecondarySectorsApiResponse = await resp.json();
+
+        setSubSectors((data.items || []).map(mapApiItem));
+        setCurPage(data.page || uiPage);
+        setPageTotal(data.total_pages || 1);
+        setTotalCount(data.total_count || 0);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to fetch sub-sectors");
+        console.error("Error fetching sub-sectors:", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   const handleSearch = () => {
     const trimmed = searchTerm.trim();
     setActiveSearch(trimmed);
-    fetchPage(1, trimmed);
+    fetchPage(1, trimmed, sortField, sortDirection);
+  };
+
+  const handleSortChange = (field: SortField, direction: SortDirection) => {
+    setSortField(field);
+    setSortDirection(direction);
+    fetchPage(1, activeSearch, field, direction);
   };
 
   useEffect(() => {
-    fetchPage(1, "");
+    fetchPage(1, "", sortField, sortDirection);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -580,10 +592,9 @@ const SubSectorsSection = () => {
             onChange={(e) => {
               const newField = e.target.value as SortField;
               if (sortField === newField) {
-                setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+                handleSortChange(newField, sortDirection === "asc" ? "desc" : "asc");
               } else {
-                setSortField(newField);
-                setSortDirection("desc");
+                handleSortChange(newField, "desc");
               }
             }}
             style={{
@@ -609,7 +620,7 @@ const SubSectorsSection = () => {
 
         <button
           type="button"
-          onClick={() => setSortDirection(sortDirection === "asc" ? "desc" : "asc")}
+          onClick={() => handleSortChange(sortField, sortDirection === "asc" ? "desc" : "asc")}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -660,7 +671,7 @@ const SubSectorsSection = () => {
       ) : (
         <>
           <div className="sub-sectors-grid">
-            {sortedSubSectors.map((subSector) => (
+            {subSectors.map((subSector) => (
               <SubSectorCard
                 key={subSector.id}
                 subSector={subSector}
@@ -674,7 +685,9 @@ const SubSectorsSection = () => {
               <CompactPagination
                 curPage={curPage}
                 pageTotal={pageTotal}
-                onPageChange={(page) => fetchPage(page, activeSearch)}
+                onPageChange={(page) =>
+                  fetchPage(page, activeSearch, sortField, sortDirection)
+                }
               />
             </div>
           )}
