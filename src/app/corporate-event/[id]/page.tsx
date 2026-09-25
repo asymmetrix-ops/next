@@ -214,9 +214,7 @@ const CorporateEventDetail = ({
 
   const [eventArticles, setEventArticles] = useState<ContentArticle[]>([]);
   const [relatedTransactions, setRelatedTransactions] = useState<CorporateEventTransactionRow[]>([]);
-  const [relatedInsights, setRelatedInsights] = useState<
-    Array<{ id?: number; tag?: string; date?: string; title: string; content: string }>
-  >([]);
+  const [relatedInsights, setRelatedInsights] = useState<ContentArticle[]>([]);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   useEffect(() => {
@@ -398,15 +396,7 @@ const CorporateEventDetail = ({
       return db - da;
     });
 
-  const insightsForEvent = insightsForEventRaw.map((article) => ({
-    id: article.id,
-    tag: (article.Content_Type || "Article").trim() || "Article",
-    date: article.Publication_Date
-      ? new Date(article.Publication_Date).toLocaleDateString()
-      : undefined,
-    title: article.Headline || "Untitled",
-    content: article.Strapline || "",
-  }));
+  const insightsForEvent = insightsForEventRaw;
 
   // Memoize primary sector IDs string to prevent infinite loops
   const primarySectorIdsString = useMemo(() => {
@@ -822,16 +812,7 @@ const CorporateEventDetail = ({
         const filteredIA = itemsIA.filter(
           (article) => !(typeof article?.id === "number" && eventArticleIds.has(article.id))
         );
-        const mapped = filteredIA.slice(0, 5).map((article) => ({
-          id: article.id,
-          tag: (article.Content_Type || "Article").trim() || "Article",
-          date: article.Publication_Date
-            ? new Date(article.Publication_Date).toLocaleDateString()
-            : undefined,
-          title: article.Headline || "Untitled",
-          content: article.Strapline || "",
-        }));
-        setRelatedInsights(mapped);
+        setRelatedInsights(filteredIA.slice(0, 5));
       } catch {
         // ignore
       }
@@ -868,7 +849,15 @@ const CorporateEventDetail = ({
         "Sub-sectors": data?.["Sub-sectors"] || [],
         event_articles: eventArticles || [],
         related_transactions: relatedTransactions || [],
-        related_insights: relatedInsights || [],
+        related_insights: (relatedInsights || []).map((article) => ({
+          id: article.id,
+          tag: (article.Content_Type || "Article").trim() || "Article",
+          date: article.Publication_Date
+            ? new Date(article.Publication_Date).toLocaleDateString()
+            : undefined,
+          title: article.Headline || "Untitled",
+          content: article.Strapline || "",
+        })),
         xano_auth_token: token,
       };
 
