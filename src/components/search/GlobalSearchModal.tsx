@@ -22,6 +22,12 @@ import {
   SEARCH_PAGE_TYPES,
   SEARCH_PAGE_TYPE_LABELS,
 } from "@/lib/globalSearch";
+import {
+  fetchRecentItems,
+  recordRecentItem,
+  type RecentItem,
+  type RecentItemEntityType,
+} from "@/lib/recentItems";
 import { useGlobalSearch } from "./GlobalSearchProvider";
 
 const AVATAR_COLORS = [
@@ -45,6 +51,22 @@ function colorForTitle(title: string): { bg: string; fg: string } {
 
 function normalizeType(type: string): string {
   return String(type || "").toLowerCase().trim();
+}
+
+/** Maps the search API's (sometimes plural) type strings to the canonical
+ * entity_type values the recent-items backend expects. Returns null for
+ * types we don't have a recents bucket for (e.g. sub-sectors). */
+function toRecentEntityType(type: string): RecentItemEntityType | null {
+  const t = normalizeType(type);
+  if (t === "company" || t === "companies") return "company";
+  if (t === "investor" || t === "investors") return "investor";
+  if (t === "advisor" || t === "advisors") return "advisor";
+  if (t === "individual" || t === "individuals") return "individual";
+  if (t === "corporate_event" || t === "corporate-events" || t === "event")
+    return "corporate_event";
+  if (t === "insight" || t === "insights" || t === "article") return "insight";
+  if (t === "sector" || t === "sub_sector" || t === "sub-sector") return "sector";
+  return null;
 }
 
 const ICON_TYPES = new Set([
@@ -116,6 +138,7 @@ export function GlobalSearchModal() {
   const [error, setError] = useState<string | null>(null);
   const [displayedCount, setDisplayedCount] = useState(PAGE_SIZE);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -141,7 +164,12 @@ export function GlobalSearchModal() {
       setDisplayedCount(PAGE_SIZE);
       setHighlightedIndex(0);
       const t = window.setTimeout(() => inputRef.current?.focus(), 0);
-      return () => window.clearTimeout(t);
+      const ac = new AbortController();
+      fetchRecentItems(5, ac.signal).then(setRecentItems);
+      return () => {
+        window.clearTimeout(t);
+        ac.abort();
+      };
     }
     abortRef.current?.abort();
     setQuery("");
@@ -210,18 +238,77 @@ export function GlobalSearchModal() {
     };
   }, [open, query, filter, isTrialActive, user?.id, mergeResults]);
 
+  const isQueryEmpty = query.trim().length < 2;
   const visibleResults = results.slice(0, displayedCount);
-  const canLoadMore = displayedCount < results.length;
+  const canLoadMore = !isQueryEmpty && displayedCount < results.length;
 
+  // Recent items are recorded only on an explicit click of a result card here
+  // (or a recent-item card, which re-confirms interest) — never from page
+  // visits reached any other way (a link in an article, a table row, etc.),
+  // and never just for typing a query or clicking a filter pill.
   const goToResult = useCallback(
     (result: GlobalSearchResult) => {
       const href = resolveSearchHref(result);
       if (!href) return;
+      const entityType = toRecentEntityType(result.type);
+      if (entityType) {
+        recordRecentItem({
+          entityType,
+          entityId: result.id,
+          entityName: result.title,
+          entityUrl: href,
+        });
+      }
       closeSearch();
       router.push(href);
     },
     [closeSearch, router]
   );
+
+  const goToRecentItem = useCallback(
+    (item: RecentItem) => {
+      if (!item.url) return;
+      const entityType = toRecentEntityType(item.entityType);
+      if (entityType) {
+        recordRecentItem({
+          entityType,
+          entityId: item.entityId,
+          entityName: item.title,
+          entityUrl: item.url,
+        });
+      }
+      closeSearch();
+      router.push(item.url);
+    },
+    [closeSearch, router]
+  );
+
+  type Row = {
+    key: string;
+    avatarResult: GlobalSearchResult;
+    title: string;
+    subtitle: string;
+    onSelect: () => void;
+  };
+
+  const rows: Row[] = useMemo(() => {
+    if (isQueryEmpty) {
+      return recentItems.map((r) => ({
+        key: `recent-${r.entityType}-${r.entityId}`,
+        avatarResult: { id: r.entityId, title: r.title, type: r.entityType, logo: r.logo },
+        title: r.title,
+        subtitle: getSearchBadgeLabel(r.entityType),
+        onSelect: () => goToRecentItem(r),
+      }));
+    }
+    return visibleResults.map((r) => ({
+      key: `${r.type}-${r.id}`,
+      avatarResult: r,
+      title: r.title,
+      subtitle: getSearchBadgeLabel(r.type),
+      onSelect: () => goToResult(r),
+    }));
+  }, [isQueryEmpty, recentItems, visibleResults, goToRecentItem, goToResult]);
 
   const cycleFilter = useCallback((direction: 1 | -1) => {
     setFilter((current) => {
@@ -240,7 +327,7 @@ export function GlobalSearchModal() {
       }
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setHighlightedIndex((i) => Math.min(i + 1, visibleResults.length - 1));
+        setHighlightedIndex((i) => Math.min(i + 1, rows.length - 1));
         return;
       }
       if (e.key === "ArrowUp") {
@@ -250,8 +337,7 @@ export function GlobalSearchModal() {
       }
       if (e.key === "Enter") {
         e.preventDefault();
-        const target = visibleResults[highlightedIndex];
-        if (target) goToResult(target);
+        rows[highlightedIndex]?.onSelect();
         return;
       }
       if (e.key === "Tab") {
@@ -259,10 +345,9 @@ export function GlobalSearchModal() {
         cycleFilter(e.shiftKey ? -1 : 1);
       }
     },
-    [visibleResults, highlightedIndex, goToResult, closeSearch, cycleFilter]
+    [rows, highlightedIndex, closeSearch, cycleFilter]
   );
 
-  const showEmptyState = query.trim().length < 2;
   const isMac = useMemo(
     () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform),
     []
@@ -335,41 +420,48 @@ export function GlobalSearchModal() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 py-2">
-          {showEmptyState ? (
+          {isQueryEmpty && rows.length === 0 ? (
             <div className="px-3 py-10 text-center text-sm text-gray-400">
               Type at least 2 characters to search
             </div>
-          ) : error ? (
+          ) : !isQueryEmpty && error ? (
             <div className="px-3 py-6 text-sm text-red-600">{error}</div>
-          ) : loading && results.length === 0 ? (
+          ) : !isQueryEmpty && loading && results.length === 0 ? (
             <div className="px-3 py-10 text-center text-sm text-gray-500">Searching…</div>
-          ) : visibleResults.length === 0 ? (
+          ) : !isQueryEmpty && rows.length === 0 ? (
             <div className="px-3 py-10 text-center text-sm text-gray-500">No results</div>
           ) : (
-            <ul>
-              {visibleResults.map((r, idx) => (
-                <li key={`${r.type}-${r.id}-${idx}`}>
-                  <button
-                    type="button"
-                    onMouseEnter={() => setHighlightedIndex(idx)}
-                    onClick={() => goToResult(r)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                      idx === highlightedIndex ? "bg-blue-50" : "hover:bg-gray-50"
-                    }`}
-                  >
-                    <ResultAvatar result={r} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-gray-900">
-                        {r.title}
+            <>
+              {isQueryEmpty ? (
+                <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  Recent
+                </div>
+              ) : null}
+              <ul>
+                {rows.map((row, idx) => (
+                  <li key={row.key}>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      onClick={row.onSelect}
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                        idx === highlightedIndex ? "bg-blue-50" : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <ResultAvatar result={row.avatarResult} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-gray-900">
+                          {row.title}
+                        </span>
+                        <span className="block truncate text-xs text-gray-500">
+                          {row.subtitle}
+                        </span>
                       </span>
-                      <span className="block truncate text-xs text-gray-500">
-                        {getSearchBadgeLabel(r.type)}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </div>
 
