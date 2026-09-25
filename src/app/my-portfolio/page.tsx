@@ -989,8 +989,8 @@ export default function MyPortfolioPage() {
               Searching…
             </div>
           ) : filteredSearchResults.length > 0 ? (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="border border-gray-200 rounded-lg overflow-x-auto">
+              <table className="w-full min-w-[480px] text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>
@@ -1105,8 +1105,8 @@ export default function MyPortfolioPage() {
               Loading…
             </div>
           ) : filteredRows.length > 0 ? (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="border border-gray-200 rounded-lg overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>

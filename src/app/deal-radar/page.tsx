@@ -306,9 +306,12 @@ function countActiveFilters(filters: DealRadarFilters): number {
 function TransactionSignalLabel({ signal }: { signal: string }) {
   const tone = getTransactionSignalTone(signal);
   const description = getTransactionSignalDescription(signal);
+  const [open, setOpen] = useState(false);
   return (
     <div className="group relative mt-1 w-full text-center">
-      <p
+      <button
+        type="button"
+        onClick={() => description && setOpen((v) => !v)}
         className="cursor-help inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold border"
         style={{
           backgroundColor: tone.fill,
@@ -317,11 +320,13 @@ function TransactionSignalLabel({ signal }: { signal: string }) {
         }}
       >
         {signal}
-      </p>
+      </button>
       {description ? (
         <div
           role="tooltip"
-          className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg group-hover:block"
+          className={`absolute left-1/2 top-full z-50 mt-2 w-64 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg group-hover:block ${
+            open ? "block" : "hidden"
+          }`}
         >
           <p className="text-[11px] font-semibold text-gray-900">{signal}</p>
           <p className="mt-1.5 text-[10px] leading-snug text-gray-600">

@@ -1056,7 +1056,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
 
       {!loading && corporateEvents.length > 0 && (
         <div className="overflow-x-auto p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
-          <table className="w-full table-fixed">
+          <table className="w-full table-fixed min-w-[900px]">
             <colgroup>
               <col style={{ width: "30%" }} />
               <col style={{ width: "18%" }} />

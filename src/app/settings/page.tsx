@@ -234,7 +234,8 @@ export default function SettingsPage() {
                 </button>
               </div>
             ) : (
-              <table className="w-full border-collapse">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse">
                 <thead>
                   <tr className="bg-gray-50">
                     <th className="text-left text-[10px] font-extrabold uppercase tracking-wider text-gray-400 py-2.5 px-4">
@@ -265,6 +266,7 @@ export default function SettingsPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         )}

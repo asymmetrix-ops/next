@@ -36,7 +36,6 @@ import {
 import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 import { fetchCompanyHoldingPeriodServer } from "@/app/company/[param]/holdingPeriodActions";
 import type { CompanyHoldingPeriodResponse } from "@/lib/holdingPeriod";
-import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { OverviewCard } from "@/components/redesign/OverviewCard";
@@ -4468,6 +4467,27 @@ const CompanyDetail = () => {
               />
             </div>
 
+            {/* Mobile Financial Metrics — shown only below 768px, placed here so it
+                reads in the same left-to-right/top-to-bottom order as the desktop
+                right rail (Overview, Description, Financials) once columns collapse */}
+            <div
+              id="profile-financials-mobile"
+              ref={profileFinancialsMobileRef}
+              style={{ display: "none", marginTop: 0, scrollMarginTop: 24 }}
+              className="mobile-financial-metrics"
+            >
+              <FinMetricsIncomeCard
+                fillGridCell={false}
+                data={finMetricsData}
+                hasIncomeStatement={hasIncomeStatementData}
+                incomeStatementRows={normalizedIncomeStatements}
+                incomeStatementCurrency={platformCurrency}
+                fxToggleConfig={finMetricsFxToggleConfig}
+                currencyMode={finMetricsCurrencyMode}
+                onCurrencyModeChange={setFinMetricsCurrencyMode}
+              />
+            </div>
+
             {/* ── Row 2: Insights (grid row 2, cols 1–2) — hidden when no I&A ── */}
             {showInsights && (
               <div
@@ -4709,68 +4729,6 @@ const CompanyDetail = () => {
           {company?.id != null && (
             <CapitalRadarSection companyId={company.id} />
           )}
-
-          {/* Mobile Financial Metrics */}
-          <div
-            id="profile-financials-mobile"
-            ref={profileFinancialsMobileRef}
-            style={{ display: "none", marginTop: "8px", scrollMarginTop: 24 }}
-            className="mobile-financial-metrics"
-          >
-            <FinMetricsIncomeCard
-              fillGridCell={false}
-              data={finMetricsData}
-              hasIncomeStatement={hasIncomeStatementData}
-              incomeStatementRows={normalizedIncomeStatements}
-              incomeStatementCurrency={platformCurrency}
-              fxToggleConfig={finMetricsFxToggleConfig}
-              currencyMode={finMetricsCurrencyMode}
-              onCurrencyModeChange={setFinMetricsCurrencyMode}
-            />
-
-            <div style={{ marginTop: 20 }}>
-                <HeadcountCard
-                  data={employeeData.map((e) => e.employees_count)}
-                  dates={employeeData.map((e) => e.date)}
-                  count={currentEmployeeCount}
-                  yoyLabel={overviewEmployeesYoY || undefined}
-                  asOf={employeeCountAsOf}
-                  linkedinUrl={linkedinUrl}
-                />
-              </div>
-              {hasManagement && (
-                <div
-                  style={{
-                    ...styles.card,
-                    padding: 0,
-                    overflow: "hidden",
-                    marginTop: 20,
-                    width: "100%",
-                  }}
-                  className="management-v3-card"
-                >
-                  <ManagementProfilePanel
-                    tokens={{
-                      paper: T.paper,
-                      hair: T.hair,
-                      ink: T.ink,
-                      body: T.body,
-                      muted: T.muted,
-                      inset: T.inset,
-                      azure: T.azure,
-                      azureSoft: T.azureSoft,
-                      coralSoft: T.coralSoft,
-                      down: T.down,
-                      sans: T.sans,
-                      mono: T.mono,
-                    }}
-                    current={managementCurrentPeople}
-                    past={managementPastPeople}
-                    maxInitialPerSection={8}
-                  />
-                </div>
-              )}
-          </div>
 
           {/* LinkedIn section (desktop only) removed per request */}
 

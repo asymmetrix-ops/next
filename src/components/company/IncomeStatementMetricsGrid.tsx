@@ -16,20 +16,36 @@ import {
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import type { CurrencyDisplayMode } from "@/lib/financialsCurrencyToggle";
 
+const LABEL_COL_MIN = 140;
+const PERIOD_COL_MIN = 76;
+const YOY_COL_MIN = 56;
+const GRID_COLUMN_GAP = 16;
+const GRID_ROW_PADDING = "12px 20px";
+
 function buildIncomeStatementGridTemplate(
   periodCount: number,
   includeTrailingColumn: boolean
 ): string {
-  const labelCol = "minmax(140px, 1.5fr)";
-  const periodColumns = `repeat(${periodCount}, minmax(0, 1fr))`;
-  const yoyCol = "minmax(56px, 0.8fr)";
+  const labelCol = `minmax(${LABEL_COL_MIN}px, 1.5fr)`;
+  const periodColumns = `repeat(${periodCount}, minmax(${PERIOD_COL_MIN}px, 1fr))`;
+  const yoyCol = `minmax(${YOY_COL_MIN}px, 0.8fr)`;
   return includeTrailingColumn
     ? `${labelCol} ${periodColumns} ${yoyCol}`
     : `${labelCol} ${periodColumns}`;
 }
 
-const GRID_COLUMN_GAP = 16;
-const GRID_ROW_PADDING = "12px 20px";
+/** Minimum total width before columns would be squeezed below a readable size. */
+function buildIncomeStatementMinWidth(
+  periodCount: number,
+  includeTrailingColumn: boolean
+): number {
+  const colCount = 1 + periodCount + (includeTrailingColumn ? 1 : 0);
+  const colsMin =
+    LABEL_COL_MIN +
+    periodCount * PERIOD_COL_MIN +
+    (includeTrailingColumn ? YOY_COL_MIN : 0);
+  return colsMin + GRID_COLUMN_GAP * (colCount - 1);
+}
 
 function columnKey(
   model: IncomeStatementFinancialsViewModel,
@@ -114,6 +130,11 @@ export function IncomeStatementMetricsGrid({
     [periodCount, includeTrailingColumn]
   );
 
+  const minGridWidth = useMemo(
+    () => buildIncomeStatementMinWidth(periodCount, includeTrailingColumn),
+    [periodCount, includeTrailingColumn]
+  );
+
   const gridStyle = useMemo(
     () => ({
       display: "grid" as const,
@@ -121,14 +142,16 @@ export function IncomeStatementMetricsGrid({
       columnGap: GRID_COLUMN_GAP,
       alignItems: "center" as const,
       width: "100%",
+      minWidth: minGridWidth,
     }),
-    [gridTemplate]
+    [gridTemplate, minGridWidth]
   );
 
   const cellAlign = { textAlign: "center" as const, whiteSpace: "nowrap" as const };
 
   return (
-    <div className="income-statement-table" style={{ width: "100%", minWidth: 0 }}>
+    <div style={{ width: "100%", overflowX: "auto" }}>
+    <div className="income-statement-table" style={{ width: "100%", minWidth: minGridWidth }}>
       <div
         style={{
           ...tableColHeaderBarStyle,
@@ -197,6 +220,7 @@ export function IncomeStatementMetricsGrid({
           ) : null}
         </div>
       ))}
+    </div>
     </div>
   );
 }

@@ -1133,7 +1133,7 @@ function HomeUserPageContent() {
       <div className="dash flex-1 min-w-0 h-full overflow-hidden">
       {/* Main Content */}
       <main
-        className="h-full flex flex-col px-2 pt-14 pb-4 mx-auto w-full sm:px-4 md:pt-8 md:pb-8"
+        className="h-full flex flex-col px-2 pt-14 pb-4 mx-auto w-full sm:px-4 md:pt-8 md:pb-8 overflow-y-auto lg:overflow-hidden"
         style={{ position: "relative" }}
         onClickCapture={handleClickCapture}
       >
@@ -1151,7 +1151,9 @@ function HomeUserPageContent() {
         )}
         {/* Dashboard Subheader */}
         <div className="dash-searchrow shrink-0 flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
-          <GlobalSearchBar />
+          <div className="hidden md:block md:flex-1 md:min-w-0">
+            <GlobalSearchBar />
+          </div>
           <div className="flex shrink-0 items-center gap-2 ml-auto sm:gap-3">
             <NewFeatureCallout
               featureKey="dashboard-request-data-research"
@@ -1227,10 +1229,10 @@ function HomeUserPageContent() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3 flex-1 min-h-0">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3 lg:flex-1 lg:min-h-0">
           {/* Deal Radar - last on mobile, last on lg+ */}
           <div
-            className="dash-card dash-triplet-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-3 lg:order-3"
+            className="dash-card dash-triplet-card grid grid-rows-[auto_auto] lg:grid-rows-[auto_1fr] lg:overflow-hidden lg:min-h-0 order-3 lg:order-3"
           >
             <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
@@ -1272,7 +1274,7 @@ function HomeUserPageContent() {
             </div>
             <div
               ref={dealRadarScrollRef}
-              className="min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
+              className="min-h-0 min-w-0 lg:overflow-y-auto overflow-x-hidden"
             >
               {dealRadarLoading ? (
                 <div className="p-4 space-y-3">
@@ -1448,7 +1450,7 @@ function HomeUserPageContent() {
 
           {/* Insights & Analysis - first on mobile */}
           <div
-            className="dash-card dash-triplet-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-1 lg:order-2"
+            className="dash-card dash-triplet-card grid grid-rows-[auto_auto] lg:grid-rows-[auto_1fr] lg:overflow-hidden lg:min-h-0 order-1 lg:order-2"
           >
             <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
@@ -1466,7 +1468,7 @@ function HomeUserPageContent() {
                 View all
               </a>
             </div>
-            <div className="min-h-0 min-w-0 overflow-y-auto">
+            <div className="min-h-0 min-w-0 lg:overflow-y-auto">
               <div className="dash-card-subhead" aria-hidden="true" />
               <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-3 sm:pt-4 lg:pt-0">
               {insightsArticlesLoading ? (
@@ -1588,7 +1590,7 @@ function HomeUserPageContent() {
 
           {/* Corporate Events - second on mobile, first on lg+ */}
           <div
-            className="dash-card dash-triplet-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-2 lg:order-1"
+            className="dash-card dash-triplet-card grid grid-rows-[auto_auto] lg:grid-rows-[auto_1fr] lg:overflow-hidden lg:min-h-0 order-2 lg:order-1"
           >
             <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
@@ -1606,7 +1608,7 @@ function HomeUserPageContent() {
                 View all
               </a>
             </div>
-            <div className="min-h-0 min-w-0 overflow-y-auto overflow-x-auto">
+            <div className="min-h-0 min-w-0 lg:overflow-y-auto overflow-x-auto">
               {corporateEventsLoading ? (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">

@@ -105,6 +105,12 @@ export function IncomeStatementTable({
   const metrics = incomeMetrics(resolvedCurrency, currencyMode);
   if (orderedRows.length === 0) return null;
 
+  const periodCount = orderedRows.length;
+  // Give the line-item label column more room than the value columns so it
+  // doesn't get squeezed to the same width on narrow (mobile) cards.
+  const labelColPct = periodCount <= 2 ? 40 : periodCount <= 4 ? 34 : 28;
+  const valueColPct = (100 - labelColPct) / periodCount;
+
   return (
     <div
       className="income-statement-table"
@@ -116,10 +122,17 @@ export function IncomeStatementTable({
       <table
         style={{
           width: "100%",
+          minWidth: periodCount > 4 ? `${periodCount * 72 + 96}px` : undefined,
           borderCollapse: "collapse",
           tableLayout: "fixed",
         }}
       >
+        <colgroup>
+          <col style={{ width: `${labelColPct}%` }} />
+          {orderedRows.map((row) => (
+            <col key={row.id} style={{ width: `${valueColPct}%` }} />
+          ))}
+        </colgroup>
         <thead>
           <tr
             style={{
