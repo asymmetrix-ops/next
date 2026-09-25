@@ -8,6 +8,7 @@ import { FollowButton } from "@/components/FollowButton";
 import { locationsService } from "@/lib/locationsService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import CompactPagination from "@/components/ui/CompactPagination";
+import ProfileSubnav from "@/components/ProfileSubnav";
 import {
   CorporateEvent,
   CorporateEventsResponse,
@@ -1529,26 +1530,11 @@ const SubSectorPage = () => {
 
       <main className="px-6 py-8 w-full">
         <div className="mb-8">
-          <div className="border-b border-slate-200">
-            <nav className="flex overflow-x-auto space-x-8">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setTab(tab.id)}
-                  className={`relative py-4 px-2 text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? "text-blue-600"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  {tab.name}
-                  {activeTab === tab.id && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-                  )}
-                </button>
-              ))}
-            </nav>
-          </div>
+          <ProfileSubnav
+            tabs={TABS.map((tab) => ({ id: tab.id, label: tab.name }))}
+            activeTab={activeTab}
+            onChange={(id) => setTab(id as TabId)}
+          />
         </div>
 
         {activeTab === "all" && !Number.isNaN(subSectorId) && subSectorId > 0 && (

@@ -20,6 +20,7 @@ import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { useDescriptionRowHeight } from "@/hooks/useDescriptionRowHeight";
 import { LinkPanel, T } from "@/components/redesign/primitives";
+import ProfileSubnav from "@/components/ProfileSubnav";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import { readEntityLogo } from "@/lib/companyLogo";
@@ -873,50 +874,14 @@ export default function AdvisorProfilePage() {
           </div>
         </div>
 
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 2,
-            padding: 5,
-            marginTop: 0,
-            marginBottom: 16,
-            borderRadius: 999,
-            background: T.paper,
-            border: `1px solid ${T.divider}`,
-            overflowX: "auto" as const,
-            scrollbarWidth: "none" as const,
-          }}
-        >
-          {ADVISOR_PROFILE_TABS.map((tab) => {
-            const active = tab === activeProfileTab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveProfileTab(tab)}
-                style={{
-                  height: 38,
-                  padding: "0 20px",
-                  fontFamily: T.sans,
-                  fontSize: "13px",
-                  fontWeight: active ? 700 : 600,
-                  color: active ? T.ink : T.muted,
-                  borderRadius: 999,
-                  whiteSpace: "nowrap" as const,
-                  transition: "color 120ms, background 120ms, box-shadow 120ms",
-                  background: active ? "#fff" : "transparent",
-                  boxShadow: active
-                    ? "0 1px 2px rgba(16, 28, 70, 0.06), 0 3px 10px rgba(16, 28, 70, 0.08)"
-                    : "none",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {tab}
-              </button>
-            );
-          })}
+        <div style={{ marginBottom: 16 }}>
+          <ProfileSubnav
+            tabs={ADVISOR_PROFILE_TABS.map((tab) => ({ id: tab, label: tab }))}
+            activeTab={activeProfileTab}
+            onChange={(id) =>
+              setActiveProfileTab(id as (typeof ADVISOR_PROFILE_TABS)[number])
+            }
+          />
         </div>
       </div>
 

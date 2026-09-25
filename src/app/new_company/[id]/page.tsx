@@ -61,6 +61,7 @@ import {
   type CompanyFinancialMetricsCardRow,
 } from "@/lib/companyFinancialMetricsCard";
 import { CompanyFinancialsSection } from "@/components/company/CompanyFinancialsSection";
+import ProfileSubnav from "@/components/ProfileSubnav";
 import { EMPTY_DISPLAY, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import {
   isCompanyMcpPopulated,
@@ -3651,43 +3652,19 @@ const CompanyDetail = () => {
               </div>
 
         {/* Navigation tabs */}
-        <div style={{ display: "flex", gap: "2px", overflowX: "auto" as const, scrollbarWidth: "none" as const }}>
-          {[
+        <ProfileSubnav
+          tabs={[
             "Summary", "Products", "Methodology", "People",
             "Financials", "Insights", "Deals", "Ownership", "Market",
-          ].map((tab) => {
-            const active = tab === activeProfileTab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => {
-                  setActiveProfileTab(tab);
-                  if (tab === "Financials" && !showFinancialsTab) {
-                    scrollToProfileFinancials();
-                  }
-                }}
-                style={{
-                  padding: "10px 14px",
-                  fontFamily: T.sans, fontSize: "13px",
-                  fontWeight: active ? 600 : 500,
-                  color: active ? T.ink : T.muted,
-                  borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
-                  marginBottom: "-1px",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap" as const,
-                  transition: "color 120ms",
-                  background: "transparent",
-                  borderTop: "none",
-                  borderLeft: "none",
-                  borderRight: "none",
-                }}
-              >
-                {tab}
-              </button>
-            );
-          })}
-                  </div>
+          ].map((tab) => ({ id: tab, label: tab }))}
+          activeTab={activeProfileTab}
+          onChange={(tab) => {
+            setActiveProfileTab(tab);
+            if (tab === "Financials" && !showFinancialsTab) {
+              scrollToProfileFinancials();
+            }
+          }}
+        />
       </div>
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>

@@ -106,6 +106,7 @@ import {
   type CompanyFinancialMetricsCardRow,
 } from "@/lib/companyFinancialMetricsCard";
 import { CompanyFinancialsSection } from "@/components/company/CompanyFinancialsSection";
+import ProfileSubnav from "@/components/ProfileSubnav";
 import { FinancialIntelligenceWorkspace } from "@/app/financial-intelligence/FinancialIntelligenceWorkspace";
 import {
   isCompanyMcpPopulated,
@@ -3979,53 +3980,15 @@ const CompanyDetail = () => {
               </div>
 
         {/* Navigation tabs */}
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 2,
-            padding: 5,
-            marginTop: "16px",
-            marginBottom: "16px",
-            borderRadius: 999,
-            background: T.paper,
-            border: `1px solid ${T.divider}`,
-            overflowX: "auto" as const,
-            scrollbarWidth: "none" as const,
-          }}
-        >
-          {(showFinancialsTab
-            ? (["Summary", "Financials"] as const)
-            : (["Summary"] as const)
-          ).map((tab) => {
-            const active = tab === activeProfileTab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveProfileTab(tab)}
-                style={{
-                  height: 38,
-                  padding: "0 20px",
-                  fontFamily: T.sans,
-                  fontSize: "13px",
-                  fontWeight: active ? 700 : 600,
-                  color: active ? T.ink : T.muted,
-                  borderRadius: 999,
-                  whiteSpace: "nowrap" as const,
-                  transition: "color 120ms, background 120ms, box-shadow 120ms",
-                  background: active ? "#fff" : "transparent",
-                  boxShadow: active
-                    ? "0 1px 2px rgba(16, 28, 70, 0.06), 0 3px 10px rgba(16, 28, 70, 0.08)"
-                    : "none",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {tab}
-              </button>
-            );
-          })}
+        <div style={{ marginTop: "16px", marginBottom: "16px" }}>
+          <ProfileSubnav
+            tabs={(showFinancialsTab
+              ? (["Summary", "Financials"] as const)
+              : (["Summary"] as const)
+            ).map((tab) => ({ id: tab, label: tab }))}
+            activeTab={activeProfileTab}
+            onChange={(id) => setActiveProfileTab(id as typeof activeProfileTab)}
+          />
         </div>
       </div>
 

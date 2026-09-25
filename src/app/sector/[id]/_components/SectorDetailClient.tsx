@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
 import { ScopedCorporateEventsPanel } from "@/components/corporate-events/ScopedCorporateEventsPanel";
 import CompactPagination from "@/components/ui/CompactPagination";
+import ProfileSubnav from "@/components/ProfileSubnav";
 import {
   SectorMostActiveTab,
   type MostActiveSubTabId,
@@ -513,79 +514,24 @@ function TabNavigation({
   counts: Partial<Record<(typeof TABS)[number]["id"], number>>;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 2,
-        padding: "0 20px",
-        background: "#fff",
-        borderBottom: `1px solid ${LINE}`,
-        position: "sticky",
-        top: 0,
-        zIndex: 30,
-        overflowX: "auto",
-      }}
-    >
-      {TABS.map((tab) => {
-        const on = activeTab === tab.id;
-        const count = counts[tab.id];
-        return (
-          <button
-            key={tab.id}
-            onClick={() => {
-              setActiveTab(tab.id);
-              if (typeof window !== "undefined") {
-                const url = new URL(window.location.href);
-                url.searchParams.set("tab", tab.id);
-                window.history.replaceState({}, "", url.toString());
-              }
-            }}
-            style={{
-              position: "relative",
-              border: "none",
-              background: "transparent",
-              fontSize: 13.5,
-              fontWeight: on ? 800 : 600,
-              color: on ? INK : MUTED,
-              padding: "14px 15px 13px",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 7,
-            }}
-          >
-            {tab.name}
-            {typeof count === "number" && (
-              <b
-                style={{
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  color: on ? BLUE_700 : MUTED_SOFT,
-                  background: on ? BLUE_50 : TINT,
-                  borderRadius: 999,
-                  padding: "2px 7px",
-                }}
-              >
-                {count.toLocaleString()}
-              </b>
-            )}
-            {on && (
-              <span
-                style={{
-                  position: "absolute",
-                  left: 12,
-                  right: 12,
-                  bottom: -1,
-                  height: 2.5,
-                  background: BLUE_600,
-                  borderRadius: "2px 2px 0 0",
-                }}
-              />
-            )}
-          </button>
-        );
-      })}
+    <div style={{ padding: "0 20px", background: "#fff" }}>
+      <ProfileSubnav
+        sticky
+        tabs={TABS.map((tab) => ({
+          id: tab.id,
+          label: tab.name,
+          count: counts[tab.id],
+        }))}
+        activeTab={activeTab}
+        onChange={(id) => {
+          setActiveTab(id);
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            url.searchParams.set("tab", id);
+            window.history.replaceState({}, "", url.toString());
+          }
+        }}
+      />
     </div>
   );
 }

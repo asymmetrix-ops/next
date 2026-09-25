@@ -36,11 +36,22 @@ export function EmbeddedArticlePdf({ url, title }: EmbeddedArticlePdfProps) {
 
       try {
         const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+        // Self-hosted, same-origin worker (copied to /public by
+        // scripts/copy-pdf-worker.js) instead of pulling it from a CDN —
+        // avoids an unnecessary cross-origin blob-URL wrapper.
+        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
+        // Route the actual document fetch through our own origin instead of
+        // hitting the Xano vault / GCS URL directly from the browser. pdf.js
+        // issues cross-origin Range-request fetches, and the vault URL
+        // 302-redirects to storage.googleapis.com — WebKit reports that
+        // redirected request's Origin as "null" in Safari, which GCS's CORS
+        // config rejects. Proxying server-side makes it a same-origin
+        // request and sidesteps the issue entirely.
         const token = localStorage.getItem("asymmetrix_auth_token");
+        const proxiedUrl = `/api/article/pdf-proxy?url=${encodeURIComponent(url)}`;
         const loadingTask = pdfjs.getDocument({
-          url,
+          url: proxiedUrl,
           httpHeaders: token
             ? { Authorization: `Bearer ${token}` }
             : undefined,
