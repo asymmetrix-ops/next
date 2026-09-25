@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/components/providers/AuthProvider";
 import { trackEvent } from "@/lib/tracking";
 import { getInitials } from "@/lib/userDisplay";
+import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import {
   type GlobalSearchResult,
   type SearchPageType,
@@ -61,6 +62,17 @@ const ICON_TYPES = new Set([
 
 function ResultAvatar({ result }: { result: GlobalSearchResult }) {
   const t = normalizeType(result.type);
+
+  const logoSrc = result.logo ? resolveCompanyLogoSrc(result.logo) : null;
+  if (logoSrc) {
+    return (
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-white">
+        {/* eslint-disable-next-line @next/next/no-img-element -- base64 data URIs, not a next/image-optimizable source */}
+        <img src={logoSrc} alt="" className="h-full w-full object-contain" />
+      </span>
+    );
+  }
+
   if (ICON_TYPES.has(t)) {
     const Icon =
       t === "insight" || t === "insights" || t === "article"

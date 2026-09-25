@@ -19,6 +19,7 @@ export type SearchResultItem = {
   type: string;
   match_rank?: number;
   type_order?: number;
+  logo?: string | null;
 };
 
 const TYPE_ORDER: Record<string, number> = {
@@ -99,7 +100,7 @@ function extractItems(data: unknown, defaultType: string): SearchResultItem[] {
   else if (Array.isArray(obj)) raw = obj;
 
   return raw
-    .map((item) => {
+    .map((item): SearchResultItem | null => {
       if (!item || typeof item !== "object") return null;
       const rec = item as Record<string, unknown>;
       const id = Number(rec.id ?? rec.sector_id ?? rec.company_id ?? rec.investor_id ?? rec.advisor_id ?? rec.individual_id ?? rec.corporate_event_id ?? rec.event_id ?? rec.article_id);
@@ -109,7 +110,9 @@ function extractItems(data: unknown, defaultType: string): SearchResultItem[] {
         String(rec.title ?? rec.name ?? rec.headline ?? rec.description ?? rec.label ?? "")
           .trim() || "Untitled";
       const itemType = String(rec.type ?? rec.entity_type ?? defaultType).toLowerCase().trim() || defaultType;
-      return { id, title, type: itemType };
+      const logoRaw = rec.logo_url ?? rec.linkedin_logo ?? rec.logo ?? null;
+      const logo = typeof logoRaw === "string" && logoRaw.trim() ? logoRaw : null;
+      return { id, title, type: itemType, logo };
     })
     .filter((r): r is SearchResultItem => r !== null);
 }

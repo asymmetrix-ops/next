@@ -37,6 +37,8 @@ export type GlobalSearchResult = {
   match_rank?: number;
   type_order?: number;
   sort_date?: string;
+  /** Raw logo payload from the API (base64 or URL) — resolve with resolveCompanyLogoSrc before rendering. */
+  logo?: string | null;
 };
 
 const TYPE_ORDER: Record<string, number> = {
