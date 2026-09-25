@@ -14,6 +14,7 @@ import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
 import TrialRouteGuard from "@/components/TrialRouteGuard";
 import RouteTracker from "@/components/RouteTracker";
 import ErrorTracker from "@/components/ErrorTracker";
+import SessionExpiredModal from "@/components/SessionExpiredModal";
 
 export const metadata: Metadata = {
   title: "Asymmetrix - Data & Analytics Demystified",
@@ -140,6 +141,7 @@ export default function RootLayout({
               <ChunkErrorRecovery />
               <TitleUpdater />
               <TrialRouteGuard />
+              <SessionExpiredModal />
               <Suspense fallback={null}>
                 <RouteTracker />
               </Suspense>

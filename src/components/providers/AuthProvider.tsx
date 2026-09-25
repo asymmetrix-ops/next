@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { authService } from "@/lib/auth";
 import { getTrialInfo, TrialInfo } from "@/lib/trial";
 import { isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
+import { resetSessionExpiredFlag } from "@/lib/sessionExpired";
 
 interface AuthUser {
   id: string;
@@ -110,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const response = await authService.login(email, password);
+      resetSessionExpiredFlag();
       setIsAuthenticated(true);
       setUser(response.user);
       const token = authService.getToken();
@@ -126,6 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginMcpGuestWithOtp = async (email: string, otp: string) => {
     try {
       const response = await authService.loginMcpGuestWithOtp(email, otp);
+      resetSessionExpiredFlag();
       setIsAuthenticated(true);
       setUser(response.user);
       const token = authService.getToken();

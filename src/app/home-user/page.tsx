@@ -990,7 +990,7 @@ function HomeUserPageContent() {
     }
 
     if (!isAuthenticated) {
-      // AuthRouteGuard will show the login modal — no redirect needed
+      router.replace("/login");
       return;
     }
 
@@ -999,7 +999,7 @@ function HomeUserPageContent() {
     if (isAuthenticated) {
       fetchDashboardData();
     }
-  }, [fetchDashboardData, isAuthenticated, authLoading]);
+  }, [fetchDashboardData, isAuthenticated, authLoading, router]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;

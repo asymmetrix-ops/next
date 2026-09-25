@@ -1,4 +1,5 @@
 import { authService } from "./auth";
+import { notifySessionExpired } from "./sessionExpired";
 
 interface ApiResponse<T> {
   data: T;
@@ -41,9 +42,10 @@ class ApiService {
 
     if (!response.ok) {
       if (response.status === 401) {
-        // Token expired or invalid
-        authService.logout();
-        window.location.href = "/login";
+        // Token expired or invalid — the global fetch guard also picks this up
+        // and shows the session-expired modal; notify here too in case this
+        // runs before that guard is installed.
+        notifySessionExpired();
         throw new Error("Authentication required");
       }
       throw new Error(`API request failed: ${response.statusText}`);
