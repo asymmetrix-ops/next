@@ -17,7 +17,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
 import AppLeftNav from "@/components/layout/AppLeftNav";
-import { GlobalSearchTrigger } from "@/components/search/GlobalSearchTrigger";
 import { NavOpenProvider, useNavOpen } from "@/components/layout/NavOpenContext";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
@@ -1150,10 +1149,7 @@ function HomeUserPageContent() {
           </div>
         )}
         {/* Dashboard Subheader */}
-        <div className="dash-searchrow shrink-0 flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
-          <div className="hidden md:block md:flex-1 md:min-w-0">
-            <GlobalSearchTrigger variant="hero" />
-          </div>
+        <div className="dash-searchrow shrink-0 flex items-center justify-end gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
           <div className="flex shrink-0 items-center gap-2 ml-auto sm:gap-3">
             <NewFeatureCallout
               featureKey="dashboard-request-data-research"
