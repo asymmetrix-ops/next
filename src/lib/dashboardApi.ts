@@ -436,6 +436,12 @@ class DashboardApiService {
     return this.request<Record<string, unknown>>("/all_Individuals_count");
   }
 
+  async getSecondarySectorsCount(): Promise<
+    ApiResponse<Record<string, unknown>>
+  > {
+    return this.request<Record<string, unknown>>("/sectors/secondary_count");
+  }
+
   async getPrimarySectorsWithCompanyCounts(
     sort?: string
   ): Promise<ApiResponse<Record<string, unknown>>> {

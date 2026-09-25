@@ -9,11 +9,13 @@ import {
   HomeIcon,
   BuildingOfficeIcon,
   ChartBarIcon,
+  Squares2X2Icon,
   UsersIcon,
   BriefcaseIcon,
   UserGroupIcon,
   CalendarDaysIcon,
   LightBulbIcon,
+  BanknotesIcon,
   BookmarkIcon,
   Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
@@ -32,7 +34,9 @@ type NavCounts = {
   advisors?: number;
   individuals?: number;
   sectors?: number;
+  subSectors?: number;
   insightsAnalysis?: number;
+  financialIntelligence?: number;
 };
 
 type NavSection = {
@@ -46,6 +50,37 @@ type NavSection = {
 const SECTIONS: NavSection[] = [
   // Deal Radar intentionally hidden from nav — page still exists, just not linked.
   {
+    key: "insightsAnalysis",
+    label: "Insights & Analysis",
+    href: "/insights-analysis",
+    icon: LightBulbIcon,
+    isActive: (p) =>
+      p.startsWith("/insights-analysis") || p.startsWith("/article/"),
+  },
+  {
+    key: "corporateEvents",
+    label: "Corporate Events",
+    href: "/corporate-events",
+    icon: CalendarDaysIcon,
+    isActive: (p) =>
+      p.startsWith("/corporate-events") || p.startsWith("/corporate-event/"),
+  },
+  {
+    key: "sectors",
+    label: "Sectors",
+    href: "/sectors",
+    icon: ChartBarIcon,
+    isActive: (p) => p.startsWith("/sectors") || p.startsWith("/sector/"),
+  },
+  {
+    key: "subSectors",
+    label: "Sub-Sectors",
+    href: "/sub-sectors",
+    icon: Squares2X2Icon,
+    isActive: (p) =>
+      p.startsWith("/sub-sectors") || p.startsWith("/sub-sector/"),
+  },
+  {
     key: "companies",
     label: "Companies",
     href: "/companies",
@@ -54,16 +89,6 @@ const SECTIONS: NavSection[] = [
       p.startsWith("/companies") ||
       p.startsWith("/company/") ||
       p.startsWith("/new_company/"),
-  },
-  {
-    key: "sectors",
-    label: "Sectors",
-    href: "/sectors",
-    icon: ChartBarIcon,
-    isActive: (p) =>
-      p.startsWith("/sectors") ||
-      p.startsWith("/sector/") ||
-      p.startsWith("/sub-sector/"),
   },
   {
     key: "investors",
@@ -88,20 +113,11 @@ const SECTIONS: NavSection[] = [
       p.startsWith("/individuals") || p.startsWith("/individual/"),
   },
   {
-    key: "corporateEvents",
-    label: "Corporate Events",
-    href: "/corporate-events",
-    icon: CalendarDaysIcon,
-    isActive: (p) =>
-      p.startsWith("/corporate-events") || p.startsWith("/corporate-event/"),
-  },
-  {
-    key: "insightsAnalysis",
-    label: "Insights & Analysis",
-    href: "/insights-analysis",
-    icon: LightBulbIcon,
-    isActive: (p) =>
-      p.startsWith("/insights-analysis") || p.startsWith("/article/"),
+    key: "financialIntelligence",
+    label: "Financial Intelligence",
+    href: "/financial-intelligence",
+    icon: BanknotesIcon,
+    isActive: (p) => p.startsWith("/financial-intelligence"),
   },
 ];
 
@@ -148,6 +164,7 @@ export default function AppLeftNav() {
         eventsRes,
         individualsRes,
         sectorsRes,
+        subSectorsRes,
         advisorsRes,
         investorsRes,
       ] = await Promise.allSettled([
@@ -155,6 +172,7 @@ export default function AppLeftNav() {
         dashboardApiService.getHeroScreenStatisticEventsCount(),
         dashboardApiService.getAllIndividualsCount(),
         dashboardApiService.getHeroScreenStatisticSectors(),
+        dashboardApiService.getSecondarySectorsCount(),
         dashboardApiService.getHeroScreenStatisticAdvisorsCount(),
         dashboardApiService.getHeroScreenStatisticInvestors(),
       ]);
@@ -180,6 +198,11 @@ export default function AppLeftNav() {
         const v = sectorsRes.value as unknown as Record<string, unknown>;
         const n = Number(v?.primarySectors);
         if (Number.isFinite(n)) next.sectors = n;
+      }
+      if (subSectorsRes.status === "fulfilled") {
+        const v = subSectorsRes.value as unknown as Record<string, unknown>;
+        const n = Number(v?.total_count);
+        if (Number.isFinite(n)) next.subSectors = n;
       }
       if (advisorsRes.status === "fulfilled") {
         const v = advisorsRes.value as unknown as Record<string, unknown>;
@@ -358,8 +381,6 @@ export default function AppLeftNav() {
             active={s.isActive(pathname)}
           />
         ))}
-        {/* Financial Intelligence intentionally hidden from nav — page still
-            exists/updates, just not linked to yet. */}
         <NavRow
           open={open}
           href={MY_PORTFOLIO_HREF}
